@@ -1,6 +1,6 @@
 PeleC 
 ==========================================
-*A compressible AMR combustion code*
+*A low Mach number AMR combustion code*
 
 `PeleLM` is an adaptive-mesh low Mach number hydrodynamics code for reacting
 flows.
