@@ -1,4 +1,4 @@
-PeleC 
+PeleLM 
 ==========================================
 *A low Mach number AMR combustion code*
 
@@ -27,7 +27,7 @@ To build `PeleLM`:
 
 4. Move to an example build folder, build an executable ::
 
-    cd ${PELEC_HOME}/Exec/FlameInABox
+    cd ${PELELM_HOME}/Exec/FlameInABox
     make
 
 Dependencies
@@ -54,7 +54,7 @@ To add a new feature to PeleLM, the procedure is:
     git checkout AmazingNewFeature
     git merge development        [fix any identified conflicts between "development" and "AmazingNewFeature"]
 
-3. Push feature branch to PeleC repository ::
+3. Push feature branch to PeleLM repository ::
 
     git push -u origin AmazingNewFeature [Note: -u option required only for the first push of new branch]
 
