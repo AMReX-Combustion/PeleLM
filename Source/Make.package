@@ -1,0 +1,4 @@
+CEXE_sources += PeleLM_setup.cpp PeleLM.cpp
+CEXE_headers += PeleLM.H ArrayViewEXT.H BoxLib_Data_Dump.H
+FEXE_headers += PeleLM_F.H htdata.H visc.H
+FEXE_sources += PeleLM_F.F PeleLM_$(DIM)d.F Derive_PLM_$(DIM)d.F

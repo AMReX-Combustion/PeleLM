@@ -1,0 +1,61 @@
+TOP = ../../..
+BOXLIB_DIR = ${TOP}/BoxLib
+IAMR_DIR = ${TOP}/IAMR
+PELELM_DIR = ${TOP}/PeleLM
+
+#
+# Build configuration
+#
+
+PRECISION       = DOUBLE
+DEBUG           = TRUE
+DEBUG           = FALSE
+DIM             = 2
+DIM             = 3
+COMP            = g++
+FCOMP           = gfortran
+USE_MPI         = TRUE
+USE_OMP         = FALSE
+VERBOSE         = FALSE
+
+# Enable flctin namelist
+#USE_FLCTS       = TRUE
+
+USE_LMC_SDC = TRUE
+
+#USE_PARTICLES   = TRUE
+
+# Enable ht.velocity_plotfile option
+#USE_VELOCITY    = TRUE
+
+# Enable the restart-from-plotfile option (ht.pltfile)
+#  ... default this off because when on, code expects it to be used
+# USE_NEWMECH    = TRUE
+
+# Enable time-dependent forcing term
+#USE_TDEPFORCING = TRUE
+
+# Choose model (from list below), and pmf file
+CHEMISTRY_MODEL = DRM19
+fEXE_sources += drm19Soln_seed_0.50.f
+
+#CHEMISTRY_MODEL = LIDRYER
+#fEXE_sources += LiDryer_040_01ATM.f
+
+#CHEMISTRY_MODEL = LUDME
+#fEXE_sources += LuDME_0700.f
+
+#CHEMISTRY_MODEL = GRI30
+#fEXE_sources += gri30_070.f
+
+Blocs   := .
+
+CEXE_sources +=
+FEXE_sources += Prob_$(DIM)d.F Prob_F.F
+CEXE_headers += 
+FEXE_headers += probdata.H Prob_F.H
+
+include $(PELELM_DIR)/Tools/Make/Make.PeleLM
+# Available chemistry models:
+# CanuH2 chem-CH4-2step chem-H dme glar gri Hai H-CW header inert Konnov
+# LiDryer Marinov prf_ethanol Roehl sandiego smooke usc

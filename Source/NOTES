@@ -1,0 +1,94 @@
+**********************************
+PeleLM::advance() Flow Chart
+**********************************
+
+advance_setup()
+  NavierStokes::advance_setup()
+    calcViscosity(prev_time)                     // compute diffusion coefficients for velocity
+    calcDiffusivity(prev_time)                   // compute diffusion coefficients for species, temperature, and enthalpy
+      FORT_SPECTEMPVISC()                        // compute rho D_m and lambda
+        FORT_MIXAVG_RHODIFF_TEMP()
+      <compute RhoH diffusivity>                 // compute lambda/cp
+  <copy old state into new state>
+  make_rho_curr_time()                           // fill rho_ptime for use in linear solves
+predict_velocity()                               // computed unprojected mac velocities
+create_mac_rhs()                                 // compute mac projection rhs
+mac_project()                                    // mac projection
+
+CHEMISTRY
+
+set_overdetermined_boundary_cells()              // Set old-time boundary data for RhoH
+strang_chem()                                    // chemistry
+strang_chem()                                    // chemistry in ghost cells
+<copy reacted ghost cells into aux_bndry_data>
+
+PREDICTOR
+
+calcDiffusivity(prev_time)                       // compute diffusion coefficients for species, temperature, and enthalpy
+compute_edge_states()                            // Godunov integration
+scalar_advection()                               // density and species
+  <compute aofs>
+  <update flux register>
+scalar_advection()                               // temperature and tracers
+  <compute aofs>
+  <update flux register>
+<Copy old bndry rho and RhoH into estimate for new RhoH>
+<Save rho used in rho-states, needed for replacing with new one>
+scalar_update()                                  // density
+momentum_advection()                             //
+temp_update()                                    // Eq (13) in DayBell; advection-diffusion solve for temperature
+  scalar_update()                                //
+    scalar_advection_update()                    //
+    scalar_diffusion_update()                    //
+      diffuse_scalar()                           //
+calcDiffusivity()                                // compute coefficients before Eq (14a) in DayBell
+spec_update()                                    // Eq (14) and (14a) in DayBell, results in corrected Gamma^{n+1,star}
+  scalar_advection_update()                      // 
+  differential_spec_diffusion_update()           //
+    adjust_spec_diffusion_update()               //
+    adjust_spec_diffusion_update()               //
+  scale_speces()                                 // enforce sum (rho Y_m) = rho
+set_overdetermined_boundary_cells()              // RhoH BC's to see new Y's at n+1
+<we appear to be missing the call to calc_diffusivity that appears in DayBell after equation (14a)>
+scalar_advection()                               // RhoH
+  <compute aofs>
+  <add NULN terms to aofs>
+rhoh_update()                                    // advection-diffusion solve for RhoH
+  scalar_update()                                //
+    scalar_advection_update()                    //
+    scalar_diffusion_update()                    //
+      diffuse_scalar()                           //
+RhoH_to_Temp()                                   //
+
+CORRECTOR
+
+calcDiffusivity(cur_time)                        // compute diffusion coefficients for species, temperature, and enthalpy
+tracer_update()                                  //
+spec_update()                                    // Eq (16) and (16a) in DayBell, results in corrected Gamma^{n+1}
+  scalar_advection_update()                      // 
+  differential_spec_diffusion_update()           //
+    adjust_spec_diffusion_update()               //
+    adjust_spec_diffusion_update()               //
+    <update flux register>
+  scale_speces()                                 // enforce sum (rho Y_m) = rho
+set_overdetermined_boundary_cells()              // RhoH BC's to see new Y's at n+1
+scalar_advection()                               // RhoH
+  <compute aofs>
+  <add NULN terms to aofs>
+  <update flux register>
+rhoh_update()                                    // advection-diffusion solve for RhoH
+  scalar_update()                                //
+    scalar_advection_update()                    //
+    scalar_diffusion_update()                    //
+      diffuse_scalar()                           //
+      <update flux register>
+RhoH_to_Temp()                                   //
+
+CHEMISTRY AND VELOCITY UPDATE
+
+strang_chem()                                    // chemistry
+calcDiffusivity(cur_time)                        // compute diffusion coefficients for species, temperature, and enthalpy
+calc_divu()                                      //
+calc_dsdt()
+velocity_update()                                // Add the advective and other terms to get velocity (or momentum) at t^{n+1}
+level_projector()                                //

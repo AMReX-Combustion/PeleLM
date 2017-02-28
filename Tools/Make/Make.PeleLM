@@ -1,0 +1,144 @@
+
+EBASE = PeleLM
+
+BOXLIB_HOME = $(BOXLIB_DIR)
+include $(BOXLIB_DIR)/Tools/C_mk/Make.defs 
+
+DEFINES += -DLMC_SDC
+Bdirs += $(PELELM_DIR)/Source
+
+# Chemistry
+Bdirs += $(PELELM_DIR)/Source/ChemDriver
+
+ifeq ($(USE_WBAR),TRUE)
+    USERSuffix += .WBAR
+    DEFINES += -DUSE_WBAR
+endif
+
+#
+# Tells IAMR not to include the following: NS_error.cpp NS_setup.cpp NSBld.cpp
+#
+SKIP_NS_SPECIFIC_CODE = TRUE
+
+# IAMR
+Bdirs += $(IAMR_DIR)/Source
+Bdirs += $(IAMR_DIR)/Source/Src_$(DIM)d
+Bdirs += $(IAMR_DIR)/Source/InflowForce
+
+Bpack	+= $(foreach dir, $(Bdirs), $(dir)/Make.package)
+Blocs	+= $(foreach dir, $(Bdirs), $(dir))
+
+# BoxLib 
+Pdirs   += $(BOXLIB_DIR)/Src/C_BaseLib
+Pdirs   += $(BOXLIB_DIR)/Src/C_AmrCoreLib
+Pdirs   += $(BOXLIB_DIR)/Src/C_AMRLib
+Pdirs   += $(BOXLIB_DIR)/Src/C_BoundaryLib
+ifeq ($(USE_PARTICLES), TRUE)
+  Pdirs += $(BOXLIB_DIR)/Src/C_ParticleLib
+endif
+Pdirs   += $(BOXLIB_DIR)/Src/LinearSolvers/C_CellMG
+Pdirs   += $(BOXLIB_DIR)/Src/LinearSolvers/C_TensorMG
+Pdirs   += $(BOXLIB_DIR)/Src/LinearSolvers/C_to_F_MG
+
+include $(BOXLIB_DIR)/Src/LinearSolvers/F_MG/FParallelMG.mak
+include $(BOXLIB_HOME)/Src/F_BaseLib/FParallelMG.mak
+
+Bpack	+= $(foreach dir, $(Pdirs), $(dir)/Make.package)
+
+include $(Bpack) 
+INCLUDE_LOCATIONS += $(Blocs)
+VPATH_LOCATIONS   += $(Blocs)
+
+# Hack in some LM-specific stuff
+
+ifeq ($(USE_FLCTS), TRUE)
+  DEFINES += -DBL_DO_FLCT
+  include $(PELELM_DIR)/Tools/Make/flucts.mk
+endif
+
+ifeq ($(USE_VELOCITY), TRUE)
+  AMRVIS_DIR = $(BOXLIB_HOME)/Src/Extern/amrdata
+  include $(PELELM_DIR)/Tools/Make/AmrData.mk
+  INCLUDE_LOCATIONS += $(AMRVIS_DIR)
+  VPATH_LOCATIONS   += $(AMRVIS_DIR)
+  DEFINES += -DBL_NOLINEVALUES -DBL_USE_VELOCITY -DBL_PARALLEL_IO
+endif
+
+ifeq ($(USE_NEWMECH), TRUE)
+  AMRVIS_DIR = $(BOXLIB_HOME)/Src/Extern/amrdata
+  include $(PELELM_DIR)/LMC/Tools/Make/AmrData.mk
+  INCLUDE_LOCATIONS += $(AMRVIS_DIR)
+  VPATH_LOCATIONS   += $(AMRVIS_DIR)
+  DEFINES += -DBL_NOLINEVALUES -DBL_USE_NEWMECH -DBL_PARALLEL_IO
+endif
+
+PELEPHYSICS = $(TOP)/PelePhysics/Support/Fuego/Mechanism/Models
+ifeq ($(CHEMISTRY_MODEL), DRM19)
+  cEXE_sources += drm19.c
+  vpath %.c   $(VPATH_LOCATIONS) $(PELEPHYSICS)/drm19
+endif
+
+# Enable time-dependent turbulence forcing term
+ifeq ($(USE_TDEPFORCING), TRUE)
+  ifeq ($(DIM), 3)
+    DEFINES += -DGENGETFORCE
+    DEFINES += -DDO_LMC_FORCE
+  endif
+endif
+
+DEFINES += -DCG_USE_OLD_CONVERGENCE_CRITERIA
+
+ifeq ($(USE_BGL),TRUE)
+  MACHINE=BGL
+  CXX=mpicxx.ibm
+  FC=blrts_xlf
+  fC=blrts_xlf
+  CPPFLAGS+= -DMPICH_SKIP_MPICXX
+  LDFLAGS+=-L/bgl/BlueLight/ppcfloor/bglsys/lib
+  LDFLAGS+=-L/opt/ibmcmp/xlf/bg/10.1/blrts_lib
+  BL_MPI_LIBS=-lxlf90 -lxlfmath
+  FORTLINK:=LOWERCASE
+endif
+ 
+ifeq ($(USE_HYPRE),TRUE)
+  Bdirs   += HypreABec
+  HYPRE_DIR=$(HOME)/amr/hypre
+  INCLUDE_LOCATIONS += $(HYPRE_DIR)/include
+  LIBRARY_LOCATIONS += $(HYPRE_DIR)/lib
+  LIBRARIES += -lHYPRE_struct_ls -lHYPRE_struct_mv -lHYPRE_blas -lHYPRE_utilities
+  DEFINES += -DMG_USE_HYPRE
+endif
+
+ifeq ($(USE_METIS),TRUE)
+  Bdirs += metis-4.0/Lib
+  DEFINES += -DBL_USE_METIS
+endif
+
+ifeq ($(REGRESSIONTEST),TRUE)
+  DEFINES += -DREGRESSIONTEST
+endif
+
+all: $(executable)
+	$(SILENT) $(RM) buildInfo.cpp
+	@echo SUCCESS
+
+$(executable):
+
+# job_info support
+CEXE_sources += buildInfo.cpp
+CEXE_headers += $(BOXLIB_HOME)/Tools/C_scripts/buildInfo.H
+INCLUDE_LOCATIONS +=  $(BOXLIB_HOME)/Tools/C_scripts
+
+buildInfo.cpp:
+	$(BOXLIB_HOME)/Tools/C_scripts/makebuildinfo_C.py \
+          --boxlib_home "$(BOXLIB_HOME)" \
+          --COMP "$(COMP)" --COMP_VERSION "$(COMP_VERSION)" \
+          --FCOMP "$(FCOMP)" --FCOMP_VERSION "$(FCOMP_VERSION)" \
+          --MODULES "Chemistry=$(CHEMISTRY_MODEL)" \
+          --GIT "$(PELELM_DIR) $(BOXLIB_HOME) $(IAMR_DIR)" 
+
+
+include $(BOXLIB_DIR)/Tools/C_mk/Make.rules
+
+clean::
+	$(SILENT) $(RM) buildInfo.cpp

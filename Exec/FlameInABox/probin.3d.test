@@ -1,0 +1,34 @@
+ &fortin
+  probtype = 'premixed_fixed_inlet'
+
+  V_in = .2280410684149
+  standoff = -.022
+  pertmag = 0.0004
+
+  max_trac_lev = 3
+  flametracval = 1.e-6
+  max_temp_lev = 0
+  temperr = 500
+  tempgrad = 300.0
+  max_vort_lev = 0
+  vorterr = 600.
+  vorterr = 1000.
+  phi_in = 0.4
+  T_in = 298.
+ /
+ &heattransin
+  pamb = 101325.
+  dpdt_factor = .3
+ /
+  &flctin
+  flct_file = "Turb_n0575_strong.bin"
+  flct_file = ""
+  forceInflow = .FALSE.
+  nCompInflow = 3
+ /
+  &control
+  tau_control = 3.e-4
+  sest = .2
+  h_control = .0035
+  changeMax_control = .2
+ /
