@@ -16,7 +16,6 @@ stages:
 #         - git clone https://github.com/BoxLib-Codes/BoxLib.git ${BOXLIB_HOME}
 #         - git clone git@bitbucket.org:berkeleylab/amrex.git ${AMREX_HOME}
 #         - git clone git@code.ornl.gov:Pele/IAMR.git ${IAMR_HOME}
-#         - git clone git@code.ornl.gov:Pele/PeleLM.git ${PELELM_HOME}
 #         - cd ${CI_PROJECT_DIR}
 #         - bash prep_tests.sh ./extern/PeleRegressionTesting/Scripts/PeleLM-build-tests-rgvm.ini  tests.ini
 #         - ${AMREX_HOME}/Tools/RegressionTesting/regtest.py tests.ini --no_update source
@@ -30,7 +29,6 @@ build:godzilla:
         - git clone https://github.com/BoxLib-Codes/BoxLib.git ${BOXLIB_HOME}
         - git clone git@bitbucket.org:berkeleylab/amrex.git ${AMREX_HOME}
         - git clone git@code.ornl.gov:Pele/IAMR.git ${IAMR_HOME}
-        - git clone git@code.ornl.gov:Pele/PeleLM.git ${PELELM_HOME}
         - cd ${CI_PROJECT_DIR}
         - bash prep_tests.sh ./extern/PeleRegressionTesting/Scripts/PeleLM-build-tests-godzilla.ini  tests.ini
         - ${AMREX_HOME}/Tools/RegressionTesting/regtest.py tests.ini --no_update source
@@ -46,7 +44,6 @@ build:godzilla:
 #         - git clone https://github.com/BoxLib-Codes/BoxLib.git ${BOXLIB_HOME}
 #         - git clone git@bitbucket.org:berkeleylab/amrex.git ${AMREX_HOME}
 #         - git clone git@code.ornl.gov:Pele/IAMR.git ${IAMR_HOME}
-#         - git clone git@code.ornl.gov:Pele/PeleLM.git ${PELELM_HOME}
 #         - cd ${CI_PROJECT_DIR}
 #         - bash prep_tests.sh ./extern/PeleRegressionTesting/Scripts/PeleLM-build-correct-rgvm.ini  tests.ini
 #         - ${AMREX_HOME}/Tools/RegressionTesting/regtest.py tests.ini --no_update source
@@ -60,7 +57,6 @@ correctness:godzilla:
         - git clone https://github.com/BoxLib-Codes/BoxLib.git ${BOXLIB_HOME}
         - git clone git@bitbucket.org:berkeleylab/amrex.git ${AMREX_HOME}
         - git clone git@code.ornl.gov:Pele/IAMR.git ${IAMR_HOME}
-        - git clone git@code.ornl.gov:Pele/PeleLM.git ${PELELM_HOME}
         - cd ${CI_PROJECT_DIR}
         - bash prep_tests.sh ./extern/PeleRegressionTesting/Scripts/PeleLM-correct-tests-godzilla.ini  tests.ini
         - ${AMREX_HOME}/Tools/RegressionTesting/regtest.py tests.ini --no_update source
