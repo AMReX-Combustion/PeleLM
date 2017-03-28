@@ -1,8 +1,9 @@
 variables:
-    BOXLIB_HOME: CI_PROJECT_DIR/extern/BoxLib
-    AMREX_HOME: CI_PROJECT_DIR/extern/amrex
-    IAMR_HOME: CI_PROJECT_DIR/extern/IAMR
+    BOXLIB_HOME: ${CI_PROJECT_DIR}/extern/BoxLib
+    AMREX_HOME: ${CI_PROJECT_DIR}/extern/amrex
+    IAMR_HOME: ${CI_PROJECT_DIR}/extern/IAMR
     PELELM_HOME: $CI_PROJECT_DIR
+    PELEREGTEST_HOME: ${CI_PROJECT_DIR}/extern/PeleRegressionTesting
 
 stages:
     - build
@@ -11,8 +12,9 @@ stages:
 # build:rgvm:
 #     stage: build
 #     script: 
+#         - git clone git@code.ornl.gov:Pele/PeleRegressionTesting ${PELEREGTEST_HOME}
 #         - git clone https://github.com/BoxLib-Codes/BoxLib.git ${BOXLIB_HOME}
-#         - git clone git@bitbucket.org:berkeleylab/amrex.git ./extern/amrex ${AMREX_HOME}
+#         - git clone git@bitbucket.org:berkeleylab/amrex.git ${AMREX_HOME}
 #         - git clone git@code.ornl.gov:Pele/IAMR.git ${IAMR_HOME}
 #         - git clone git@code.ornl.gov:Pele/PeleLM.git ${PELELM_HOME}
 #         - cd ${CI_PROJECT_DIR}
@@ -24,8 +26,9 @@ stages:
 build:godzilla:
     stage: build
     script: 
+        - git clone git@code.ornl.gov:Pele/PeleRegressionTesting ${PELEREGTEST_HOME}
         - git clone https://github.com/BoxLib-Codes/BoxLib.git ${BOXLIB_HOME}
-        - git clone git@bitbucket.org:berkeleylab/amrex.git ./extern/amrex ${AMREX_HOME}
+        - git clone git@bitbucket.org:berkeleylab/amrex.git ${AMREX_HOME}
         - git clone git@code.ornl.gov:Pele/IAMR.git ${IAMR_HOME}
         - git clone git@code.ornl.gov:Pele/PeleLM.git ${PELELM_HOME}
         - cd ${CI_PROJECT_DIR}
@@ -39,8 +42,9 @@ build:godzilla:
 # correctness:rgvm:
 #     stage: correctness
 #     script: 
+#         - git clone git@code.ornl.gov:Pele/PeleRegressionTesting ${PELEREGTEST_HOME}
 #         - git clone https://github.com/BoxLib-Codes/BoxLib.git ${BOXLIB_HOME}
-#         - git clone git@bitbucket.org:berkeleylab/amrex.git ./extern/amrex ${AMREX_HOME}
+#         - git clone git@bitbucket.org:berkeleylab/amrex.git ${AMREX_HOME}
 #         - git clone git@code.ornl.gov:Pele/IAMR.git ${IAMR_HOME}
 #         - git clone git@code.ornl.gov:Pele/PeleLM.git ${PELELM_HOME}
 #         - cd ${CI_PROJECT_DIR}
@@ -52,8 +56,9 @@ build:godzilla:
 correctness:godzilla:
     stage: correctness
     script:
+        - git clone git@code.ornl.gov:Pele/PeleRegressionTesting ${PELEREGTEST_HOME}
         - git clone https://github.com/BoxLib-Codes/BoxLib.git ${BOXLIB_HOME}
-        - git clone git@bitbucket.org:berkeleylab/amrex.git ./extern/amrex ${AMREX_HOME}
+        - git clone git@bitbucket.org:berkeleylab/amrex.git ${AMREX_HOME}
         - git clone git@code.ornl.gov:Pele/IAMR.git ${IAMR_HOME}
         - git clone git@code.ornl.gov:Pele/PeleLM.git ${PELELM_HOME}
         - cd ${CI_PROJECT_DIR}
