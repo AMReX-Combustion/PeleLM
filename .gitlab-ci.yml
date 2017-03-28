@@ -17,7 +17,7 @@ stages:
 #         - git clone git@bitbucket.org:berkeleylab/amrex.git ${AMREX_HOME}
 #         - git clone git@code.ornl.gov:Pele/IAMR.git ${IAMR_HOME}
 #         - cd ${CI_PROJECT_DIR}
-#         - bash ${PELEREGTEST_HOME}/Scripts/prep_tests.sh ./extern/PeleRegressionTesting/Scripts/PeleLM-build-tests-rgvm.ini  tests.ini
+#         - bash ${PELEREGTEST_HOME}/Scripts/prep_tests.sh ${PELEREGTEST_HOME}/Scripts/PeleLM-build-tests-rgvm.ini  tests.ini
 #         - ${AMREX_HOME}/Tools/RegressionTesting/regtest.py tests.ini --no_update source
 #     tags:
 #         - rgvm
@@ -30,7 +30,7 @@ build:godzilla:
         - git clone git@bitbucket.org:berkeleylab/amrex.git ${AMREX_HOME}
         - git clone git@code.ornl.gov:Pele/IAMR.git ${IAMR_HOME}
         - cd ${CI_PROJECT_DIR}
-        - bash ${PELEREGTEST_HOME}/Scripts/prep_tests.sh ./extern/PeleRegressionTesting/Scripts/PeleLM-build-tests-godzilla.ini  tests.ini
+        - bash ${PELEREGTEST_HOME}/Scripts/prep_tests.sh ${PELEREGTEST_HOME}/Scripts/PeleLM-build-tests-godzilla.ini  tests.ini
         - ${AMREX_HOME}/Tools/RegressionTesting/regtest.py tests.ini --no_update source
     tags:
         - godzilla
@@ -45,7 +45,7 @@ build:godzilla:
 #         - git clone git@bitbucket.org:berkeleylab/amrex.git ${AMREX_HOME}
 #         - git clone git@code.ornl.gov:Pele/IAMR.git ${IAMR_HOME}
 #         - cd ${CI_PROJECT_DIR}
-#         - bash ${PELEREGTEST_HOME}/Scripts/prep_tests.sh ./extern/PeleRegressionTesting/Scripts/PeleLM-build-correct-rgvm.ini  tests.ini
+#         - bash ${PELEREGTEST_HOME}/Scripts/prep_tests.sh ${PELEREGTEST_HOME}/Scripts/PeleLM-build-correct-rgvm.ini  tests.ini
 #         - ${AMREX_HOME}/Tools/RegressionTesting/regtest.py tests.ini --no_update source
 #     tags:
 #         - rgvm
@@ -58,7 +58,7 @@ correctness:godzilla:
         - git clone git@bitbucket.org:berkeleylab/amrex.git ${AMREX_HOME}
         - git clone git@code.ornl.gov:Pele/IAMR.git ${IAMR_HOME}
         - cd ${CI_PROJECT_DIR}
-        - bash ${PELEREGTEST_HOME}/Scripts/prep_tests.sh ./extern/PeleRegressionTesting/Scripts/PeleLM-correct-tests-godzilla.ini  tests.ini
+        - bash ${PELEREGTEST_HOME}/Scripts/prep_tests.sh ${PELEREGTEST_HOME}/Scripts/PeleLM-correct-tests-godzilla.ini  tests.ini
         - ${AMREX_HOME}/Tools/RegressionTesting/regtest.py tests.ini --no_update source
     tags:
         - godzilla
