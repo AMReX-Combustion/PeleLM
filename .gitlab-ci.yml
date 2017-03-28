@@ -1,0 +1,66 @@
+variables:
+    BOXLIB_HOME: CI_PROJECT_DIR/extern/BoxLib
+    AMREX_HOME: CI_PROJECT_DIR/extern/amrex
+    IAMR_HOME: CI_PROJECT_DIR/extern/IAMR
+    PELELM_HOME: $CI_PROJECT_DIR
+
+stages:
+    - build
+    - correctness
+
+# build:rgvm:
+#     stage: build
+#     script: 
+#         - git clone https://github.com/BoxLib-Codes/BoxLib.git ${BOXLIB_HOME}
+#         - git clone git@bitbucket.org:berkeleylab/amrex.git ./extern/amrex ${AMREX_HOME}
+#         - git clone git@code.ornl.gov:Pele/IAMR.git ${IAMR_HOME}
+#         - git clone git@code.ornl.gov:Pele/PeleLM.git ${PELELM_HOME}
+#         - cd ${CI_PROJECT_DIR}
+#         - bash prep_tests.sh ./extern/PeleRegressionTesting/Scripts/PeleLM-build-tests-rgvm.ini  tests.ini
+#         - ${AMREX_HOME}/Tools/RegressionTesting/regtest.py tests.ini --no_update source
+#     tags:
+#         - rgvm
+
+build:godzilla:
+    stage: build
+    script: 
+        - git clone https://github.com/BoxLib-Codes/BoxLib.git ${BOXLIB_HOME}
+        - git clone git@bitbucket.org:berkeleylab/amrex.git ./extern/amrex ${AMREX_HOME}
+        - git clone git@code.ornl.gov:Pele/IAMR.git ${IAMR_HOME}
+        - git clone git@code.ornl.gov:Pele/PeleLM.git ${PELELM_HOME}
+        - cd ${CI_PROJECT_DIR}
+        - bash prep_tests.sh ./extern/PeleRegressionTesting/Scripts/PeleLM-build-tests-godzilla.ini  tests.ini
+        - ${AMREX_HOME}/Tools/RegressionTesting/regtest.py tests.ini --no_update source
+    tags:
+        - godzilla
+    only:
+        - development
+
+# correctness:rgvm:
+#     stage: correctness
+#     script: 
+#         - git clone https://github.com/BoxLib-Codes/BoxLib.git ${BOXLIB_HOME}
+#         - git clone git@bitbucket.org:berkeleylab/amrex.git ./extern/amrex ${AMREX_HOME}
+#         - git clone git@code.ornl.gov:Pele/IAMR.git ${IAMR_HOME}
+#         - git clone git@code.ornl.gov:Pele/PeleLM.git ${PELELM_HOME}
+#         - cd ${CI_PROJECT_DIR}
+#         - bash prep_tests.sh ./extern/PeleRegressionTesting/Scripts/PeleLM-build-correct-rgvm.ini  tests.ini
+#         - ${AMREX_HOME}/Tools/RegressionTesting/regtest.py tests.ini --no_update source
+#     tags:
+#         - rgvm
+
+correctness:godzilla:
+    stage: correctness
+    script:
+        - git clone https://github.com/BoxLib-Codes/BoxLib.git ${BOXLIB_HOME}
+        - git clone git@bitbucket.org:berkeleylab/amrex.git ./extern/amrex ${AMREX_HOME}
+        - git clone git@code.ornl.gov:Pele/IAMR.git ${IAMR_HOME}
+        - git clone git@code.ornl.gov:Pele/PeleLM.git ${PELELM_HOME}
+        - cd ${CI_PROJECT_DIR}
+        - bash prep_tests.sh ./extern/PeleRegressionTesting/Scripts/PeleLM-correct-tests-godzilla.ini  tests.ini
+        - ${AMREX_HOME}/Tools/RegressionTesting/regtest.py tests.ini --no_update source
+    tags:
+        - godzilla
+    only:
+        - development
+
