@@ -77,6 +77,14 @@ ifeq ($(CHEMISTRY_MODEL), DRM19)
   cEXE_sources += drm19.c
   vpath %.c   $(VPATH_LOCATIONS) $(PELEPHYSICS)/drm19
 endif
+ifeq ($(CHEMISTRY_MODEL), C12WANG)
+  cEXE_sources += dodecane_wang.c
+  vpath %.c   $(VPATH_LOCATIONS) $(PELEPHYSICS)/dodecane_wang
+endif
+ifeq ($(CHEMISTRY_MODEL), C12LU)
+  cEXE_sources += dodecane_lu.c
+  vpath %.c   $(VPATH_LOCATIONS) $(PELEPHYSICS)/dodecane_lu
+endif
 
 # Enable time-dependent turbulence forcing term
 ifeq ($(USE_TDEPFORCING), TRUE)
