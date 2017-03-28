@@ -1,7 +1,7 @@
 variables:
     BOXLIB_HOME: ${CI_PROJECT_DIR}/extern/BoxLib
     IAMR_HOME: ${CI_PROJECT_DIR}/extern/IAMR
-    PELEPHYSICS_HOME: ${CI_PROJECT_DIR}/extern/PelePhysics
+    PELE_PHYSICS_HOME: ${CI_PROJECT_DIR}/extern/PelePhysics
     PELELM_HOME: $CI_PROJECT_DIR
     PELEREGTEST_HOME: ${CI_PROJECT_DIR}/extern/PeleRegressionTesting
 
@@ -15,7 +15,7 @@ stages:
 #         - git clone git@code.ornl.gov:Pele/PeleRegressionTesting ${PELEREGTEST_HOME}
 #         - git clone https://github.com/BoxLib-Codes/BoxLib.git ${BOXLIB_HOME}
 #         - git clone git@code.ornl.gov:Pele/IAMR.git ${IAMR_HOME}
-#         - git clone git@code.ornl.gov:Pele/PelePhysics.git ${PELEPHYSICS_HOME}
+#         - git clone git@code.ornl.gov:Pele/PelePhysics.git ${PELE_PHYSICS_HOME}
 #         - cd ${CI_PROJECT_DIR}
 #         - bash ${PELEREGTEST_HOME}/Scripts/prep_tests.sh ${PELEREGTEST_HOME}/Scripts/PeleLM-build-tests-rgvm.ini  tests.ini
 #         - ${BOXLIB_HOME}/Tools/RegressionTesting/regtest.py tests.ini --no_update source
@@ -28,7 +28,7 @@ build:godzilla:
         - git clone git@code.ornl.gov:Pele/PeleRegressionTesting ${PELEREGTEST_HOME}
         - git clone https://github.com/BoxLib-Codes/BoxLib.git ${BOXLIB_HOME}
         - git clone git@code.ornl.gov:Pele/IAMR.git ${IAMR_HOME}
-        - git clone git@code.ornl.gov:Pele/PelePhysics.git ${PELEPHYSICS_HOME}
+        - git clone git@code.ornl.gov:Pele/PelePhysics.git ${PELE_PHYSICS_HOME}
         - cd ${CI_PROJECT_DIR}
         - bash ${PELEREGTEST_HOME}/Scripts/prep_tests.sh ${PELEREGTEST_HOME}/Scripts/PeleLM-build-tests-godzilla.ini  tests.ini
         - ${BOXLIB_HOME}/Tools/RegressionTesting/regtest.py tests.ini --no_update source
@@ -43,7 +43,7 @@ build:godzilla:
 #         - git clone git@code.ornl.gov:Pele/PeleRegressionTesting ${PELEREGTEST_HOME}
 #         - git clone https://github.com/BoxLib-Codes/BoxLib.git ${BOXLIB_HOME}
 #         - git clone git@code.ornl.gov:Pele/IAMR.git ${IAMR_HOME}
-#         - git clone git@code.ornl.gov:Pele/PelePhysics.git ${PELEPHYSICS_HOME}
+#         - git clone git@code.ornl.gov:Pele/PelePhysics.git ${PELE_PHYSICS_HOME}
 #         - cd ${CI_PROJECT_DIR}
 #         - bash ${PELEREGTEST_HOME}/Scripts/prep_tests.sh ${PELEREGTEST_HOME}/Scripts/PeleLM-build-correct-rgvm.ini  tests.ini
 #         - ${BOXLIB_HOME}/Tools/RegressionTesting/regtest.py tests.ini --no_update source
@@ -56,7 +56,7 @@ correctness:godzilla:
         - git clone git@code.ornl.gov:Pele/PeleRegressionTesting ${PELEREGTEST_HOME}
         - git clone https://github.com/BoxLib-Codes/BoxLib.git ${BOXLIB_HOME}
         - git clone git@code.ornl.gov:Pele/IAMR.git ${IAMR_HOME}
-        - git clone git@code.ornl.gov:Pele/PelePhysics.git ${PELEPHYSICS_HOME}
+        - git clone git@code.ornl.gov:Pele/PelePhysics.git ${PELE_PHYSICS_HOME}
         - cd ${CI_PROJECT_DIR}
         - bash ${PELEREGTEST_HOME}/Scripts/prep_tests.sh ${PELEREGTEST_HOME}/Scripts/PeleLM-correct-tests-godzilla.ini  tests.ini
         - ${BOXLIB_HOME}/Tools/RegressionTesting/regtest.py tests.ini --no_update source

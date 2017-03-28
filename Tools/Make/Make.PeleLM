@@ -71,19 +71,19 @@ ifeq ($(USE_NEWMECH), TRUE)
   DEFINES += -DBL_NOLINEVALUES -DBL_USE_NEWMECH -DBL_PARALLEL_IO
 endif
 
-PELEPHYSICS_HOME ?= $(TOP)/PelePhysics
-PELEPHYSICS = $(PELEPHYSICS_HOME)/Support/Fuego/Mechanism/Models
+PELE_PHYSICS_HOME ?= $(TOP)/PelePhysics
+CHEM_DIR = $(PELE_PHYSICS_HOME)/Support/Fuego/Mechanism/Models
 ifeq ($(CHEMISTRY_MODEL), DRM19)
   cEXE_sources += drm19.c
-  vpath %.c   $(VPATH_LOCATIONS) $(PELEPHYSICS)/drm19
+  vpath %.c   $(VPATH_LOCATIONS) $(CHEM_DIR)/drm19
 endif
 ifeq ($(CHEMISTRY_MODEL), C12WANG)
   cEXE_sources += dodecane_wang.c
-  vpath %.c   $(VPATH_LOCATIONS) $(PELEPHYSICS)/dodecane_wang
+  vpath %.c   $(VPATH_LOCATIONS) $(CHEM_DIR)/dodecane_wang
 endif
 ifeq ($(CHEMISTRY_MODEL), C12LU)
   cEXE_sources += dodecane_lu.c
-  vpath %.c   $(VPATH_LOCATIONS) $(PELEPHYSICS)/dodecane_lu
+  vpath %.c   $(VPATH_LOCATIONS) $(CHEM_DIR)/dodecane_lu
 endif
 
 # Enable time-dependent turbulence forcing term
