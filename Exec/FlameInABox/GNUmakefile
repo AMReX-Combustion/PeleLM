@@ -1,7 +1,7 @@
 TOP = ../../..
-BOXLIB_DIR = ${TOP}/BoxLib
-IAMR_DIR = ${TOP}/IAMR
-PELELM_DIR = ${TOP}/PeleLM
+BOXLIB_HOME ?= ${TOP}/BoxLib
+IAMR_HOME ?= ${TOP}/IAMR
+PELELM_HOME ?= ${TOP}/PeleLM
 
 #
 # Build configuration
@@ -11,9 +11,6 @@ PRECISION       = DOUBLE
 DEBUG           = TRUE
 DEBUG           = FALSE
 DIM             = 2
-DIM             = 3
-COMP            = g++
-FCOMP           = gfortran
 USE_MPI         = TRUE
 USE_OMP         = FALSE
 VERBOSE         = FALSE
@@ -55,7 +52,7 @@ FEXE_sources += Prob_$(DIM)d.F Prob_F.F
 CEXE_headers += 
 FEXE_headers += probdata.H Prob_F.H
 
-include $(PELELM_DIR)/Tools/Make/Make.PeleLM
+include $(PELELM_HOME)/Tools/Make/Make.PeleLM
 # Available chemistry models:
 # CanuH2 chem-CH4-2step chem-H dme glar gri Hai H-CW header inert Konnov
 # LiDryer Marinov prf_ethanol Roehl sandiego smooke usc

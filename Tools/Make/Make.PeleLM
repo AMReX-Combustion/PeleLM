@@ -1,14 +1,13 @@
 
 EBASE = PeleLM
 
-BOXLIB_HOME = $(BOXLIB_DIR)
-include $(BOXLIB_DIR)/Tools/C_mk/Make.defs 
+include $(BOXLIB_HOME)/Tools/C_mk/Make.defs 
 
 DEFINES += -DLMC_SDC
-Bdirs += $(PELELM_DIR)/Source
+Bdirs += $(PELELM_HOME)/Source
 
 # Chemistry
-Bdirs += $(PELELM_DIR)/Source/ChemDriver
+Bdirs += $(PELELM_HOME)/Source/ChemDriver
 
 ifeq ($(USE_WBAR),TRUE)
     USERSuffix += .WBAR
@@ -21,26 +20,26 @@ endif
 SKIP_NS_SPECIFIC_CODE = TRUE
 
 # IAMR
-Bdirs += $(IAMR_DIR)/Source
-Bdirs += $(IAMR_DIR)/Source/Src_$(DIM)d
-Bdirs += $(IAMR_DIR)/Source/InflowForce
+Bdirs += $(IAMR_HOME)/Source
+Bdirs += $(IAMR_HOME)/Source/Src_$(DIM)d
+Bdirs += $(IAMR_HOME)/Source/InflowForce
 
 Bpack	+= $(foreach dir, $(Bdirs), $(dir)/Make.package)
 Blocs	+= $(foreach dir, $(Bdirs), $(dir))
 
 # BoxLib 
-Pdirs   += $(BOXLIB_DIR)/Src/C_BaseLib
-Pdirs   += $(BOXLIB_DIR)/Src/C_AmrCoreLib
-Pdirs   += $(BOXLIB_DIR)/Src/C_AMRLib
-Pdirs   += $(BOXLIB_DIR)/Src/C_BoundaryLib
+Pdirs   += $(BOXLIB_HOME)/Src/C_BaseLib
+Pdirs   += $(BOXLIB_HOME)/Src/C_AmrCoreLib
+Pdirs   += $(BOXLIB_HOME)/Src/C_AMRLib
+Pdirs   += $(BOXLIB_HOME)/Src/C_BoundaryLib
 ifeq ($(USE_PARTICLES), TRUE)
-  Pdirs += $(BOXLIB_DIR)/Src/C_ParticleLib
+  Pdirs += $(BOXLIB_HOME)/Src/C_ParticleLib
 endif
-Pdirs   += $(BOXLIB_DIR)/Src/LinearSolvers/C_CellMG
-Pdirs   += $(BOXLIB_DIR)/Src/LinearSolvers/C_TensorMG
-Pdirs   += $(BOXLIB_DIR)/Src/LinearSolvers/C_to_F_MG
+Pdirs   += $(BOXLIB_HOME)/Src/LinearSolvers/C_CellMG
+Pdirs   += $(BOXLIB_HOME)/Src/LinearSolvers/C_TensorMG
+Pdirs   += $(BOXLIB_HOME)/Src/LinearSolvers/C_to_F_MG
 
-include $(BOXLIB_DIR)/Src/LinearSolvers/F_MG/FParallelMG.mak
+include $(BOXLIB_HOME)/Src/LinearSolvers/F_MG/FParallelMG.mak
 include $(BOXLIB_HOME)/Src/F_BaseLib/FParallelMG.mak
 
 Bpack	+= $(foreach dir, $(Pdirs), $(dir)/Make.package)
@@ -53,29 +52,38 @@ VPATH_LOCATIONS   += $(Blocs)
 
 ifeq ($(USE_FLCTS), TRUE)
   DEFINES += -DBL_DO_FLCT
-  include $(PELELM_DIR)/Tools/Make/flucts.mk
+  include $(PELELM_HOME)/Tools/Make/flucts.mk
 endif
 
 ifeq ($(USE_VELOCITY), TRUE)
-  AMRVIS_DIR = $(BOXLIB_HOME)/Src/Extern/amrdata
-  include $(PELELM_DIR)/Tools/Make/AmrData.mk
-  INCLUDE_LOCATIONS += $(AMRVIS_DIR)
-  VPATH_LOCATIONS   += $(AMRVIS_DIR)
+  AMRVIS_HOME = $(BOXLIB_HOME)/Src/Extern/amrdata
+  include $(PELELM_HOME)/Tools/Make/AmrData.mk
+  INCLUDE_LOCATIONS += $(AMRVIS_HOME)
+  VPATH_LOCATIONS   += $(AMRVIS_HOME)
   DEFINES += -DBL_NOLINEVALUES -DBL_USE_VELOCITY -DBL_PARALLEL_IO
 endif
 
 ifeq ($(USE_NEWMECH), TRUE)
-  AMRVIS_DIR = $(BOXLIB_HOME)/Src/Extern/amrdata
-  include $(PELELM_DIR)/LMC/Tools/Make/AmrData.mk
-  INCLUDE_LOCATIONS += $(AMRVIS_DIR)
-  VPATH_LOCATIONS   += $(AMRVIS_DIR)
+  AMRVIS_HOME = $(BOXLIB_HOME)/Src/Extern/amrdata
+  include $(PELELM_HOME)/LMC/Tools/Make/AmrData.mk
+  INCLUDE_LOCATIONS += $(AMRVIS_HOME)
+  VPATH_LOCATIONS   += $(AMRVIS_HOME)
   DEFINES += -DBL_NOLINEVALUES -DBL_USE_NEWMECH -DBL_PARALLEL_IO
 endif
 
-PELEPHYSICS = $(TOP)/PelePhysics/Support/Fuego/Mechanism/Models
+PELE_PHYSICS_HOME ?= $(TOP)/PelePhysics
+CHEM_DIR = $(PELE_PHYSICS_HOME)/Support/Fuego/Mechanism/Models
 ifeq ($(CHEMISTRY_MODEL), DRM19)
   cEXE_sources += drm19.c
-  vpath %.c   $(VPATH_LOCATIONS) $(PELEPHYSICS)/drm19
+  vpath %.c   $(VPATH_LOCATIONS) $(CHEM_DIR)/drm19
+endif
+ifeq ($(CHEMISTRY_MODEL), C12WANG)
+  cEXE_sources += dodecane_wang.c
+  vpath %.c   $(VPATH_LOCATIONS) $(CHEM_DIR)/dodecane_wang
+endif
+ifeq ($(CHEMISTRY_MODEL), C12LU)
+  cEXE_sources += dodecane_lu.c
+  vpath %.c   $(VPATH_LOCATIONS) $(CHEM_DIR)/dodecane_lu
 endif
 
 # Enable time-dependent turbulence forcing term
@@ -102,9 +110,9 @@ endif
  
 ifeq ($(USE_HYPRE),TRUE)
   Bdirs   += HypreABec
-  HYPRE_DIR=$(HOME)/amr/hypre
-  INCLUDE_LOCATIONS += $(HYPRE_DIR)/include
-  LIBRARY_LOCATIONS += $(HYPRE_DIR)/lib
+  HYPRE_HOME=$(HOME)/amr/hypre
+  INCLUDE_LOCATIONS += $(HYPRE_HOME)/include
+  LIBRARY_LOCATIONS += $(HYPRE_HOME)/lib
   LIBRARIES += -lHYPRE_struct_ls -lHYPRE_struct_mv -lHYPRE_blas -lHYPRE_utilities
   DEFINES += -DMG_USE_HYPRE
 endif
@@ -135,10 +143,10 @@ buildInfo.cpp:
           --COMP "$(COMP)" --COMP_VERSION "$(COMP_VERSION)" \
           --FCOMP "$(FCOMP)" --FCOMP_VERSION "$(FCOMP_VERSION)" \
           --MODULES "Chemistry=$(CHEMISTRY_MODEL)" \
-          --GIT "$(PELELM_DIR) $(BOXLIB_HOME) $(IAMR_DIR)" 
+          --GIT "$(PELELM_HOME) $(BOXLIB_HOME) $(IAMR_HOME)" 
 
 
-include $(BOXLIB_DIR)/Tools/C_mk/Make.rules
+include $(BOXLIB_HOME)/Tools/C_mk/Make.rules
 
 clean::
 	$(SILENT) $(RM) buildInfo.cpp
