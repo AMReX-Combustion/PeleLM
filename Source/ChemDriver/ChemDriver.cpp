@@ -7,6 +7,8 @@
 #include <AMReX_ParmParse.H>
 #include <sstream>
 
+using namespace amrex;
+
 const Real HtoTerrMAX_DEF  = 1.e-8;
 const int  HtoTiterMAX_DEF = 20;
 const Real Tmin_trans_DEF  = 0.;
@@ -47,7 +49,7 @@ ChemDriver::ChemDriver ()
     if (!initialized)
     {
         initOnce();
-        BoxLib::ExecOnFinalize(ChemDriver_Finalize);
+        amrex::ExecOnFinalize(ChemDriver_Finalize);
         initialized = true;
     }
     mTmpData.resize(mHtoTiterMAX);
@@ -124,7 +126,7 @@ ChemDriver::Parameter::GetParamString() const
   else if (param_id == SRI_E)     {return "SRI_E";}
   else if (param_id == THIRD_BODY) {return "THIRD_BODY";}
   else{
-      BoxLib::Abort("Unknown reaction parameter");
+      amrex::Abort("Unknown reaction parameter");
   }
 
 }
@@ -168,7 +170,7 @@ void
 ChemDriver::SetTransport (const ChemDriver::TRANSPORT& tran_in)
 {
   if (initialized) {
-    BoxLib::Abort("Must set transport model before constructing the ChemDriver");
+    amrex::Abort("Must set transport model before constructing the ChemDriver");
   }
   transport = tran_in;
 }
@@ -231,13 +233,13 @@ static void modify_parameters(ChemDriver& cd)
     ParmParse ppp(std::string("chem."+prefix).c_str());
     int reaction_id; ppp.get("reaction_id",reaction_id);
     if (reaction_id<0 || reaction_id > cd.numReactions()) {
-      BoxLib::Abort("Reaction ID invalid");
+      amrex::Abort("Reaction ID invalid");
     }
 
     std::string type; ppp.get("type",type);
     std::map<std::string,REACTION_PARAMETER>::const_iterator it = PTypeMap.find(type);
     if (it == PTypeMap.end()) {
-      BoxLib::Abort("Unrecognized reaction parameter");
+      amrex::Abort("Unrecognized reaction parameter");
     }
 
     int id = -1;
@@ -261,13 +263,13 @@ static void modify_parameters(ChemDriver& cd)
 
 	int dpreaction_id; pppd.get("reaction_id",dpreaction_id);
 	if (dpreaction_id<0 || dpreaction_id > cd.numReactions()) {
-	  BoxLib::Abort("Dependent reaction ID invalid");
+	  amrex::Abort("Dependent reaction ID invalid");
 	}
 
 	std::string dptype; pppd.get("type",dptype);
 	std::map<std::string,REACTION_PARAMETER>::const_iterator it = PTypeMap.find(dptype);
 	if (it == PTypeMap.end()) {
-	  BoxLib::Abort("Unrecognized dependent reaction parameter");
+	  amrex::Abort("Unrecognized dependent reaction parameter");
 	}
 
 	int did = -1;
@@ -556,14 +558,14 @@ extern "C" {
   void CD_MWT(Real* mwt)
   {
     if (!initialized) {
-      BoxLib::Abort("Must construct the ChemDriver prior to calling CD_MWT");
+      amrex::Abort("Must construct the ChemDriver prior to calling CD_MWT");
     }
     FORT_GETCKMWT(mwt);
   }
   void CD_XTY_PT(const Real* X, Real* Y)
   {
     if (!initialized) {
-      BoxLib::Abort("Must construct the ChemDriver prior to calling CD_XTY_PT");
+      amrex::Abort("Must construct the ChemDriver prior to calling CD_XTY_PT");
     }
     static Array<int> idx(BL_SPACEDIM,0);
     static int* p = idx.dataPtr();
@@ -573,7 +575,7 @@ extern "C" {
   void CD_YTX_PT(const Real* Y, Real* X)
   {
     if (!initialized) {
-      BoxLib::Abort("Must construct the ChemDriver prior to calling CD_YTX_PT");
+      amrex::Abort("Must construct the ChemDriver prior to calling CD_YTX_PT");
     }
     static Array<int> idx(BL_SPACEDIM,0);
     static int* p = idx.dataPtr();

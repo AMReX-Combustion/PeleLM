@@ -41,6 +41,8 @@
 #include <AMReX_Utility.H>
 #include <NS_error_F.H>
 
+using namespace amrex;
+
 #define DEF_LIMITS(fab,fabdat,fablo,fabhi)      \
   const int* fablo = (fab).loVect();            \
   const int* fabhi = (fab).hiVect();            \
@@ -51,8 +53,8 @@
   const Real* fabdat = (fab).dataPtr();
 
 static Box the_same_box (const Box& b)    { return b;                 }
-static Box grow_box_by_one (const Box& b) { return BoxLib::grow(b,1); }
-static Box the_nodes (const Box& b) { return BoxLib::surroundingNodes(b); }
+static Box grow_box_by_one (const Box& b) { return amrex::grow(b,1); }
+static Box the_nodes (const Box& b) { return amrex::surroundingNodes(b); }
 
 static bool do_group_bndry_fills = false;
 
@@ -674,7 +676,7 @@ PeleLM::variableSetUp ()
   }
 
   if (is_diffusive[Density])
-    BoxLib::Abort("PeleLM::variableSetUp(): density cannot diffuse");
+    amrex::Abort("PeleLM::variableSetUp(): density cannot diffuse");
   //
   // ---- pressure
   //

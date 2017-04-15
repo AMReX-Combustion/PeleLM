@@ -62,7 +62,7 @@ std::string FPMax(const FArrayBox& fab, const Box& inBox, int nComp)
   {
     char tmp[MAXSTRINGWIDTH];
     if (snprintf(tmp, MAXSTRINGWIDTH, formatString.c_str(), dataMax) >= MAXSTRINGWIDTH)
-      BoxLib::Abort("FPMax: buffer too small");
+      amrex::Abort("FPMax: buffer too small");
     dataString = tmp;
   }
   return "Max: " + dataString;
@@ -89,7 +89,7 @@ std::string FPMin(const FArrayBox& fab, const Box& inBox, int nComp)
   {
     char tmp[MAXSTRINGWIDTH];
     if (snprintf(tmp, MAXSTRINGWIDTH, formatString.c_str(), dataMin) >= MAXSTRINGWIDTH)
-      BoxLib::Abort("FPMin: buffer too small");
+      amrex::Abort("FPMin: buffer too small");
     dataString = tmp;
   }
   return "Min: " + dataString;

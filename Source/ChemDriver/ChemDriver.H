@@ -15,9 +15,9 @@ extern "C" {
 // Selected pointwise conversions w/static linkage callable from Fortran/C, internally verifies
 //   that the chemistry has been initialized prior.  BEWARE: argument array lengths cannot be checked!!
 extern "C" {
-  void CD_XTY_PT(const Real* X, Real* Y); // Mole fraction, X, to mass fraction, Y
-  void CD_YTX_PT(const Real* X, Real* Y); // Mass fraction, Y, to mole fraction, X
-  void CD_MWT(Real* mwt); // Species molecular weight, mwt
+  void CD_XTY_PT(const amrex::Real* X, amrex::Real* Y); // Mole fraction, X, to mass fraction, Y
+  void CD_YTX_PT(const amrex::Real* X, amrex::Real* Y); // Mass fraction, Y, to mole fraction, X
+  void CD_MWT(amrex::Real* mwt); // Species molecular weight, mwt
 };
 
 class ChemDriver
@@ -37,10 +37,10 @@ public:
               REACTION_PARAMETER param_id,
               int                species_id = -1);
     std::ostream& operator<<(std::ostream& os) const;
-    void operator=(Real new_value);
-    const Real& Value() const;
-    Real& Value();
-    Real DefaultValue() const;
+    void operator=(amrex::Real new_value);
+    const amrex::Real& Value() const;
+    amrex::Real& Value();
+    amrex::Real DefaultValue() const;
     void ResetToDefault();
     int SpeciesID() const {return species_id;}
     int RxnID() const {return reaction_id;}
@@ -61,34 +61,34 @@ public:
     static void SetTransport(const ChemDriver::TRANSPORT& tran_in);
     static ChemDriver::TRANSPORT Transport ();
 
-    bool solveTransient (FArrayBox&        Ynew,
-                         FArrayBox&        Tnew,
-                         const FArrayBox&  Yold,
-                         const FArrayBox&  Told,
-                         FArrayBox&        FuncCount,
-                         const Box&        box,
+    bool solveTransient (amrex::FArrayBox&        Ynew,
+                         amrex::FArrayBox&        Tnew,
+                         const amrex::FArrayBox&  Yold,
+                         const amrex::FArrayBox&  Told,
+                         amrex::FArrayBox&        FuncCount,
+                         const amrex::Box&        box,
                          int               sCompY,
                          int               sCompT,
-                         Real              dt,
-                         Real              Patm,
-                         FArrayBox*        chemDiag=0,
+                         amrex::Real              dt,
+                         amrex::Real              Patm,
+                         amrex::FArrayBox*        chemDiag=0,
                          bool              use_stiff_solver = true) const;
 
 #ifdef LMC_SDC
-    bool solveTransient_sdc(FArrayBox&        rhoYnew,
-                            FArrayBox&        rhoHnew,
-                            FArrayBox&        Tnew,
-                            const FArrayBox&  rhoYold,
-                            const FArrayBox&  rhoHold,
-                            const FArrayBox&  Told,
-                            const FArrayBox&  const_src,
-                            FArrayBox&        FuncCount,
-                            const Box&        box,
+    bool solveTransient_sdc(amrex::FArrayBox&        rhoYnew,
+                            amrex::FArrayBox&        rhoHnew,
+                            amrex::FArrayBox&        Tnew,
+                            const amrex::FArrayBox&  rhoYold,
+                            const amrex::FArrayBox&  rhoHold,
+                            const amrex::FArrayBox&  Told,
+                            const amrex::FArrayBox&  const_src,
+                            amrex::FArrayBox&        FuncCount,
+                            const amrex::Box&        box,
                             int               sComprhoY,
                             int               sComprhoH,
                             int               sCompT,
-                            Real              dt,
-                            FArrayBox*        chemDiag,
+                            amrex::Real              dt,
+                            amrex::FArrayBox*        chemDiag,
                             bool              use_stiff_solver = true) const;
 #endif
 
@@ -101,108 +101,108 @@ public:
     int numSpecies () const;
     int numElements () const;
     int numReactions () const;
-    const Array<std::string>& speciesNames () const;
-    const Array<std::string>& elementNames () const;
-    Array<Real> speciesMolecWt () const;
-    Array<Real> elementAtomicWt () const;
+    const amrex::Array<std::string>& speciesNames () const;
+    const amrex::Array<std::string>& elementNames () const;
+    amrex::Array<amrex::Real> speciesMolecWt () const;
+    amrex::Array<amrex::Real> elementAtomicWt () const;
     int index (const std::string& specName) const;
     int indexElt (const std::string& eltName) const;
-    Array<int> reactionsWithXonL (const std::string& lSpecName) const;
-    Array<int> reactionsWithXonR (const std::string& rSpecName) const;
-    Array<std::pair<std::string,int> > specCoeffsInReactions (int reacIdx) const;
+    amrex::Array<int> reactionsWithXonL (const std::string& lSpecName) const;
+    amrex::Array<int> reactionsWithXonR (const std::string& rSpecName) const;
+    amrex::Array<std::pair<std::string,int> > specCoeffsInReactions (int reacIdx) const;
     std::string reactionString (int reacIdx) const;
     std::string reactionStringBuild (int reacIdx) const;
     void printReactions() const;
-    const Array<int>& reactionMap() const;
-    const Array<int>& reactionReverseMap() const;
+    const amrex::Array<int>& reactionMap() const;
+    const amrex::Array<int>& reactionReverseMap() const;
 
     int numberOfElementXinSpeciesY (const std::string& eltX,
                                     const std::string& spcY) const;
     //
     // Thermo info.
     //
-    void getRhoGivenPTY (FArrayBox&       Rho,
-                         Real             Patm,
-                         const FArrayBox& T,
-                         const FArrayBox& Y,
-                         const Box&       box,
+    void getRhoGivenPTY (amrex::FArrayBox&       Rho,
+                         amrex::Real             Patm,
+                         const amrex::FArrayBox& T,
+                         const amrex::FArrayBox& Y,
+                         const amrex::Box&       box,
                          int              sCompT,
                          int              sCompY,
                          int              sCompR) const;
 
-    void getRhoGivenPvTY (FArrayBox&       Rho,
-                          const FArrayBox& P,
-                          const FArrayBox& T,
-                          const FArrayBox& Y,
-                          const Box&       box,
+    void getRhoGivenPvTY (amrex::FArrayBox&       Rho,
+                          const amrex::FArrayBox& P,
+                          const amrex::FArrayBox& T,
+                          const amrex::FArrayBox& Y,
+                          const amrex::Box&       box,
                           int              sCompP,
                           int              sCompT,
                           int              sCompY,
                           int              sCompR) const;
 
-    void getPGivenRTY (FArrayBox&       p,
-                       const FArrayBox& Rho,
-                       const FArrayBox& T,
-                       const FArrayBox& Y,
-                       const Box&       box,
+    void getPGivenRTY (amrex::FArrayBox&       p,
+                       const amrex::FArrayBox& Rho,
+                       const amrex::FArrayBox& T,
+                       const amrex::FArrayBox& Y,
+                       const amrex::Box&       box,
                        int              sCompR,
                        int              sCompT,
                        int              sCompY,
                        int              sCompP) const;
 
-    void getTGivenPRY (FArrayBox&       T,
-                       Real             p,
-                       const FArrayBox& Rho,
-                       const FArrayBox& Y,
-                       const Box&       box,
+    void getTGivenPRY (amrex::FArrayBox&       T,
+                       amrex::Real             p,
+                       const amrex::FArrayBox& Rho,
+                       const amrex::FArrayBox& Y,
+                       const amrex::Box&       box,
                        int              sCompR,
                        int              sCompY,
                        int              sCompT) const;
 
-    void getCpmixGivenTY (FArrayBox&       cpmix,
-                          const FArrayBox& T,
-                          const FArrayBox& Y,
-                          const Box&       box,
+    void getCpmixGivenTY (amrex::FArrayBox&       cpmix,
+                          const amrex::FArrayBox& T,
+                          const amrex::FArrayBox& Y,
+                          const amrex::Box&       box,
                           int              sCompT,
                           int              sCompY,
                           int              sCompCp) const;
 
-    void getCvmixGivenTY (FArrayBox&       cvmix,
-                          const FArrayBox& T,
-                          const FArrayBox& Y,
-                          const Box&       box,
+    void getCvmixGivenTY (amrex::FArrayBox&       cvmix,
+                          const amrex::FArrayBox& T,
+                          const amrex::FArrayBox& Y,
+                          const amrex::Box&       box,
                           int              sCompT,
                           int              sCompY,
                           int              sCompCv) const;
 
-    void getHmixGivenTY (FArrayBox&       hmix,
-                         const FArrayBox& T,
-                         const FArrayBox& Y,
-                         const Box&       box,
+    void getHmixGivenTY (amrex::FArrayBox&       hmix,
+                         const amrex::FArrayBox& T,
+                         const amrex::FArrayBox& Y,
+                         const amrex::Box&       box,
                          int              sCompT,
                          int              sCompY,
                          int              sCompH) const;
 
-    void getMwmixGivenY (FArrayBox&       mwmix,
-                         const FArrayBox& Y,
-                         const Box&       box,
+    void getMwmixGivenY (amrex::FArrayBox&       mwmix,
+                         const amrex::FArrayBox& Y,
+                         const amrex::Box&       box,
                          int              sCompY,
                          int              sCompMw) const;
 
-    void getCpGivenT (FArrayBox&       cp,
-                      const FArrayBox& T,
-                      const Box&       box,
+    void getCpGivenT (amrex::FArrayBox&       cp,
+                      const amrex::FArrayBox& T,
+                      const amrex::Box&       box,
                       int              sCompT,
                       int              sCompCp) const;
 
-    void getHGivenT (FArrayBox&       h,
-                     const FArrayBox& T,
-                     const Box&       box,
+    void getHGivenT (amrex::FArrayBox&       h,
+                     const amrex::FArrayBox& T,
+                     const amrex::Box&       box,
                      int              sCompT,
                      int              sCompH) const;
 
-    Real getRuniversal () const;
-    Real getP1atm_MKS () const;
+    amrex::Real getRuniversal () const;
+    amrex::Real getP1atm_MKS () const;
     //
     // Compute T that satisfies hmix=sum(h(T)), returns max Newton iterations
     // on any point over grid, return -1 if T jumped out of bounds during solve,
@@ -211,45 +211,45 @@ public:
     // only part of the temperature array.  Save a copy of T and check the return
     // code if you want to be extra careful...
     //
-    int getTGivenHY (FArrayBox&       T,
-                     const FArrayBox& H,
-                     const FArrayBox& Y,
-                     const Box&       box,
+    int getTGivenHY (amrex::FArrayBox&       T,
+                     const amrex::FArrayBox& H,
+                     const amrex::FArrayBox& Y,
+                     const amrex::Box&       box,
                      int              sCompH,
                      int              sCompY,
                      int              sCompT,
-                     const Real&      errMAX = -1) const;
+                     const amrex::Real&      errMAX = -1) const;
 
-    Array<Real> massFracToMoleFrac (const Array<Real>& Y) const;
-    Array<Real> moleFracToMassFrac (const Array<Real>& X) const;
+    amrex::Array<amrex::Real> massFracToMoleFrac (const amrex::Array<amrex::Real>& Y) const;
+    amrex::Array<amrex::Real> moleFracToMassFrac (const amrex::Array<amrex::Real>& X) const;
 
-    void molarProduction (FArrayBox&       Q,
+    void molarProduction (amrex::FArrayBox&       Q,
                           const std::string&   specName,
-                          const FArrayBox& C,
-                          const FArrayBox& T,
-                          const Box&       box,
+                          const amrex::FArrayBox& C,
+                          const amrex::FArrayBox& T,
+                          const amrex::Box&       box,
                           int              sCompC,
                           int              sCompT,
                           int              sCompQ) const;
     //
     // Compute heat release (J/(m^3.s)) based on the temp, press and mass fractions
     //
-    void heatRelease (FArrayBox&       Q,
-                      const FArrayBox& Y,
-                      const FArrayBox& T,
-                      Real             Patm,
-                      const Box&       box,
+    void heatRelease (amrex::FArrayBox&       Q,
+                      const amrex::FArrayBox& Y,
+                      const amrex::FArrayBox& T,
+                      amrex::Real             Patm,
+                      const amrex::Box&       box,
                       int              sCompY,
                       int              sCompT,
                       int              sCompQ) const;
     //
     // Compute dY/dt based on the input temp, press and mass fractions.
     //
-    void reactionRateY (FArrayBox&       Ydot,
-                        const FArrayBox& Y,
-                        const FArrayBox& T,
-                        Real             Patm,
-                        const Box&       box,
+    void reactionRateY (amrex::FArrayBox&       Ydot,
+                        const amrex::FArrayBox& Y,
+                        const amrex::FArrayBox& T,
+                        amrex::Real             Patm,
+                        const amrex::Box&       box,
                         int              sCompY,
                         int              sCompT,
                         int              sCompYdot) const;
@@ -258,125 +258,125 @@ public:
     //
     // Compute dRhoY/dt based on the input temp, press and mass densities.
     //
-    void reactionRateRhoY(FArrayBox&       RhoYdot,
-                          const FArrayBox& RhoY,
-                          const FArrayBox& RhoH,
-                          const FArrayBox& T,
-                          const Box&       box,
+    void reactionRateRhoY(amrex::FArrayBox&       RhoYdot,
+                          const amrex::FArrayBox& RhoY,
+                          const amrex::FArrayBox& RhoH,
+                          const amrex::FArrayBox& T,
+                          const amrex::Box&       box,
                           int              sCompRhoY,
                           int              sCompRhoH,
                           int              sCompT,
                           int              sCompRhoYdot) const;
 #endif
 
-    void fwdRevReacRatesGivenXTP (FArrayBox&        FwdK,
-                                  FArrayBox&        RevK,
-                                  const Array<int>& rxnIDs,
-                                  const FArrayBox&  X,
-                                  const FArrayBox&  T,
-                                  Real              Patm,
-                                  const Box&        box,
+    void fwdRevReacRatesGivenXTP (amrex::FArrayBox&        FwdK,
+                                  amrex::FArrayBox&        RevK,
+                                  const amrex::Array<int>& rxnIDs,
+                                  const amrex::FArrayBox&  X,
+                                  const amrex::FArrayBox&  T,
+                                  amrex::Real              Patm,
+                                  const amrex::Box&        box,
                                   int               sCompX,
                                   int               sCompT,
                                   int               sCompFwdK,
                                   int               sCompRevK) const;
     
-    void massFracToMoleFrac (FArrayBox&       X,
-                             const FArrayBox& Y,
-                             const Box&       box,
+    void massFracToMoleFrac (amrex::FArrayBox&       X,
+                             const amrex::FArrayBox& Y,
+                             const amrex::Box&       box,
                              int              sCompY,
                              int              sCompX) const;
 
-    void moleFracToMassFrac (FArrayBox&       Y,
-                             const FArrayBox& X,
-                             const Box&       box,
+    void moleFracToMassFrac (amrex::FArrayBox&       Y,
+                             const amrex::FArrayBox& X,
+                             const amrex::Box&       box,
                              int              sCompX,
                              int              sCompY) const;
 
-    void massFracToMolarConc (FArrayBox&       C,
-                              const FArrayBox& Y,
-                              const FArrayBox& T,
-                              Real             Patm,
-                              const Box&       box,
+    void massFracToMolarConc (amrex::FArrayBox&       C,
+                              const amrex::FArrayBox& Y,
+                              const amrex::FArrayBox& T,
+                              amrex::Real             Patm,
+                              const amrex::Box&       box,
                               int              sCompY,
                               int              sCompT,
                               int              sCompC) const;
 
-    void massFracToMolarConc (FArrayBox&       C,
-                              const FArrayBox& Y,
-                              const FArrayBox& T,
-                              const FArrayBox& Rho,
-                              const Box&       box,
+    void massFracToMolarConc (amrex::FArrayBox&       C,
+                              const amrex::FArrayBox& Y,
+                              const amrex::FArrayBox& T,
+                              const amrex::FArrayBox& Rho,
+                              const amrex::Box&       box,
                               int              sCompR,
                               int              sCompY,
                               int              sCompT,
                               int              sCompC) const;
 
-    void molarConcToMoleFrac (FArrayBox&       X,
-                              const FArrayBox& C,
-                              const Box&       box,
+    void molarConcToMoleFrac (amrex::FArrayBox&       X,
+                              const amrex::FArrayBox& C,
+                              const amrex::Box&       box,
                               int              sCompC,
                               int              sCompX) const;
     //
     // Normalize mass fractions to prevent negatives.
     //
-    void normalizeMassFrac (FArrayBox&       Ynorm,
-                            const FArrayBox& Y,
+    void normalizeMassFrac (amrex::FArrayBox&       Ynorm,
+                            const amrex::FArrayBox& Y,
                             const std::string&   excessSpecies,
-                            const Box&       box,
+                            const amrex::Box&       box,
                             int              sCompY,
                             int              sCompYnorm) const;
     //
     // Chemical Diffusivities.
     //
-    void getMixAveragedRhoDiff (FArrayBox&       rhoD,
-                                const FArrayBox& Y,
-                                const FArrayBox& T,
-                                Real             Patm,
-                                const Box&       box,
+    void getMixAveragedRhoDiff (amrex::FArrayBox&       rhoD,
+                                const amrex::FArrayBox& Y,
+                                const amrex::FArrayBox& T,
+                                amrex::Real             Patm,
+                                const amrex::Box&       box,
                                 int              sCompY,
                                 int              sCompT,
                                 int              sCompRD) const;
     //
     // Viscosity.
     //
-    void getMixShearVisc (FArrayBox&       eta,
-                          const FArrayBox& Y,
-                          const FArrayBox& T,
-                          const Box&       box,
+    void getMixShearVisc (amrex::FArrayBox&       eta,
+                          const amrex::FArrayBox& Y,
+                          const amrex::FArrayBox& T,
+                          const amrex::Box&       box,
                           int              sCompY,
                           int              sCompT,
                           int              sCompE) const;
     
-    void getElementMoles (FArrayBox&       C_elt,
+    void getElementMoles (amrex::FArrayBox&       C_elt,
                           const std::string&   name,
-                          const FArrayBox& C,
-                          const Box&       box,
+                          const amrex::FArrayBox& C,
+                          const amrex::Box&       box,
                           int              sCompC,
                           int              sCompC_elt) const;
     //
     // Optically thin radiation model.
     //
-    void getOTradLoss_TDF (FArrayBox&       Qloss,
-                           const FArrayBox& T,
-                           const FArrayBox& X,
-                           const Real       Patm,
-                           const Real       T_bg,
-                           const Box&       box,
+    void getOTradLoss_TDF (amrex::FArrayBox&       Qloss,
+                           const amrex::FArrayBox& T,
+                           const amrex::FArrayBox& X,
+                           const amrex::Real       Patm,
+                           const amrex::Real       T_bg,
+                           const amrex::Box&       box,
                            int              sCompX,
                            int              sCompT,
                            int              sCompQ) const;
     //
     // H - to - T solve parameter access.
     //
-    Real getHtoTerrMAX () const;
-    void setHtoTerrMAX (Real err);
+    amrex::Real getHtoTerrMAX () const;
+    void setHtoTerrMAX (amrex::Real err);
     int getHtoTiterMAX () const;
     void setHtoTiterMAX (int err);    
     //
     // Handy functions.
     //
-    static Array<int> encodeStringForFortran(const std::string& astr);
+    static amrex::Array<int> encodeStringForFortran(const std::string& astr);
     static std::string decodeStringFromFortran(const int* coded, int length);
 
     //
@@ -395,13 +395,13 @@ public:
 
         Edge (const std::string& n1,
 	      const std::string& n2,
-	      const Array<std::pair<int,Real> > rwl,
+	      const amrex::Array<std::pair<int,amrex::Real> > rwl,
 	      const ChemDriver* CD);
         
         Edge (const std::string& n1,
 	      const std::string& n2,
 	      int reac,
-	      Real weight,
+	      amrex::Real weight,
 	      const ChemDriver* CD);
         
         int equivSign (const Edge& rhs) const;
@@ -412,7 +412,7 @@ public:
         
         void reverse();
 
-        const Array<std::pair<int,Real> >& rwl () const;
+        const amrex::Array<std::pair<int,amrex::Real> >& rwl () const;
 
         const std::string left() const;
 
@@ -420,13 +420,13 @@ public:
 
         bool operator< (const Edge& rhs) const;
 
-        const Array<std::pair<int,Real> > RateWeightList() const {return RWL;}
+        const amrex::Array<std::pair<int,amrex::Real> > RateWeightList() const {return RWL;}
 
         const ChemDriver* CD() const {return cd;}
 
     private:
         std::string sp1, sp2;
-        Array<std::pair<int,Real> > RWL; // RateWeightList, each pair is (reac,coeff)
+        amrex::Array<std::pair<int,amrex::Real> > RWL; // RateWeightList, each pair is (reac,coeff)
         const ChemDriver* cd;
     };
 
@@ -456,14 +456,14 @@ public:
 
         bool contains(const std::string& id) const;
     
-        Real awt(); // non-const because embedded lazy eval
+        amrex::Real awt(); // non-const because embedded lazy eval
 
         int size() const;
     
     private:
         void FillAtomicWeights ();
         std::map<std::string,int> mEltCnts;
-        static std::map<std::string,Real> AtomicWeight;
+        static std::map<std::string,amrex::Real> AtomicWeight;
     };
 
     // 
@@ -483,14 +483,14 @@ private:
 
     void initOnce ();
 
-    Array<std::string> mSpeciesNames;
-    Array<std::string> mElementNames;
-    Real               mHtoTerrMAX;
+    amrex::Array<std::string> mSpeciesNames;
+    amrex::Array<std::string> mElementNames;
+    amrex::Real               mHtoTerrMAX;
     int                mHtoTiterMAX;
-    Array<Real>        mTmpData;
+    amrex::Array<amrex::Real>        mTmpData;
     int mMaxreac, mMaxspec, mMaxelts, mMaxord, mMaxthrdb, mMaxtp, mMaxsp, mMaxspnml;
-    Array<int>         mNu;
-    Array<int> reaction_map, reaction_rev_map;
+    amrex::Array<int>         mNu;
+    amrex::Array<int> reaction_map, reaction_rev_map;
 };
 
 std::ostream& operator<< (std::ostream&  os, const ChemDriver::Parameter& param);
@@ -512,14 +512,14 @@ ChemDriver::numElements () const
 }
 
 inline
-const Array<std::string>&
+const amrex::Array<std::string>&
 ChemDriver::speciesNames () const
 {
     return mSpeciesNames;
 }
 
 inline
-const Array<std::string>&
+const amrex::Array<std::string>&
 ChemDriver::elementNames () const
 {
     return mElementNames;
@@ -550,7 +550,7 @@ ChemDriver::indexElt (const std::string& eltName) const
 }
 
 inline
-Real
+amrex::Real
 ChemDriver::getHtoTerrMAX () const
 {
     return mHtoTerrMAX;
@@ -558,7 +558,7 @@ ChemDriver::getHtoTerrMAX () const
 
 inline
 void
-ChemDriver::setHtoTerrMAX (Real err)
+ChemDriver::setHtoTerrMAX (amrex::Real err)
 {
     mHtoTerrMAX = err;
 }
@@ -582,14 +582,14 @@ ChemDriver::setHtoTiterMAX (int iter)
 }
 
 inline
-const Array<int>&
+const amrex::Array<int>&
 ChemDriver::reactionMap() const
 {
   return reaction_map;
 }
 
 inline
-const Array<int>&
+const amrex::Array<int>&
 ChemDriver::reactionReverseMap() const
 {
   return reaction_rev_map;
