@@ -1,7 +1,7 @@
 
 EBASE = PeleLM
 
-include $(AMREX_HOME)/Tools/C_mk/Make.defs 
+include $(AMREX_HOME)/Tools/GNUMake/Make.defs 
 
 DEFINES += -DLMC_SDC
 Bdirs += $(PELELM_HOME)/Source
@@ -28,12 +28,12 @@ Bpack	+= $(foreach dir, $(Bdirs), $(dir)/Make.package)
 Blocs	+= $(foreach dir, $(Bdirs), $(dir))
 
 # BoxLib 
-Pdirs   += $(AMREX_HOME)/Src/C_BaseLib
-Pdirs   += $(AMREX_HOME)/Src/C_AmrCoreLib
-Pdirs   += $(AMREX_HOME)/Src/C_AMRLib
-Pdirs   += $(AMREX_HOME)/Src/C_BoundaryLib
+Pdirs   += $(AMREX_HOME)/Src/Base
+Pdirs   += $(AMREX_HOME)/Src/AmrCore
+Pdirs   += $(AMREX_HOME)/Src/Amr
+Pdirs   += $(AMREX_HOME)/Src/Boundary
 ifeq ($(USE_PARTICLES), TRUE)
-  Pdirs += $(AMREX_HOME)/Src/C_ParticleLib
+  Pdirs += $(AMREX_HOME)/Src/Particle
 endif
 Pdirs   += $(AMREX_HOME)/Src/LinearSolvers/C_CellMG
 Pdirs   += $(AMREX_HOME)/Src/LinearSolvers/C_TensorMG
@@ -146,7 +146,7 @@ buildInfo.cpp:
           --GIT "$(PELELM_HOME) $(AMREX_HOME) $(IAMR_HOME)" 
 
 
-include $(AMREX_HOME)/Tools/C_mk/Make.rules
+include $(AMREX_HOME)/Tools/GNUMake/Make.rules
 
 clean::
 	$(SILENT) $(RM) buildInfo.cpp
