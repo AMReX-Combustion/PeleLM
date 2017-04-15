@@ -4,7 +4,7 @@
 // "RhoYchemProd_Type" means -omega_l/rho, i.e., the mass rate of decrease of species l due
 //             to kinetics divided by rho
 //
-#include <winstd.H>
+#include <AMReX_winstd.H>
 #include <unistd.h>
 
 #include <iostream>
@@ -14,26 +14,26 @@
 #include <fstream>
 #include <vector>
 
-#include <Geometry.H>
-#include <Extrapolater.H>
-#include <BoxDomain.H>
-#include <ParmParse.H>
-#include <ErrorList.H>
+#include <AMReX_Geometry.H>
+#include <AMReX_Extrapolater.H>
+#include <AMReX_BoxDomain.H>
+#include <AMReX_ParmParse.H>
+#include <AMReX_ErrorList.H>
 #include <PeleLM.H>
 #include <PeleLM_F.H>
 #include <Prob_F.H>
 #include <ChemDriver_F.H>
 #include <DIFFUSION_F.H>
-#include <MultiGrid.H>
-#include <ArrayLim.H>
-#include <SPACE.H>
-#include <Interpolater.H>
-#include <ccse-mpi.H>
-#include <Utility.H>
+#include <AMReX_MultiGrid.H>
+#include <AMReX_ArrayLim.H>
+#include <AMReX_SPACE.H>
+#include <AMReX_Interpolater.H>
+#include <AMReX_ccse-mpi.H>
+#include <AMReX_Utility.H>
 
 #if defined(BL_USE_NEWMECH) || defined(BL_USE_VELOCITY)
-#include <DataServices.H>
-#include <AmrData.H>
+#include <AMReX_DataServices.H>
+#include <AMReX_AmrData.H>
 #endif
 
 #include <PROB_F.H>

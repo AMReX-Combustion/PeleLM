@@ -5,12 +5,12 @@
 
 #define SDIM BL_SPACEDIM
 
-#include <REAL.H>
-#include <CONSTANTS.H>
-#include <BC_TYPES.H>
-#include <PROB_AMR_F.H>
+#include <AMReX_REAL.H>
+#include <AMReX_CONSTANTS.H>
+#include <AMReX_BC_TYPES.H>
+#include <AMReX_PROB_AMR_F.H>
 #include <Prob_F.H>
-#include <ArrayLim.H>
+#include <AMReX_ArrayLim.H>
 #include <ChemDriver_F.H>
 #include <PeleLM_F.H>
 #if defined(BL_DO_FLCT)

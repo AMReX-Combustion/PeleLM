@@ -2,7 +2,7 @@
 #ifndef _PeleLM_H_
 #define _PeleLM_H_
 
-#include <AuxBoundaryData.H>
+#include <AMReX_AuxBoundaryData.H>
 #include <NavierStokesBase.H>
 #include <ChemDriver.H>
 

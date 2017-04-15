@@ -6,7 +6,7 @@
 #include <cstdio>
 #include <cfloat>
 
-#include <MultiFab.H>
+#include <AMReX_MultiFab.H>
 
 #if (BL_USE_FLOAT)
 #  define FP_CLASS fp_classf

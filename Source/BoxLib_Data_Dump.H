@@ -2,9 +2,9 @@
 #define _BoxLib_Data_Dump_H_
 
 #include <iostream>
-#include <MultiFab.H>
-#include <VisMF.H>
-#include <Utility.H>
+#include <AMReX_MultiFab.H>
+#include <AMReX_VisMF.H>
+#include <AMReX_Utility.H>
 
 extern "C" {
     

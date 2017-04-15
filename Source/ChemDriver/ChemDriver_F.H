@@ -276,7 +276,7 @@
 #    define FORT_GET_REACTION_MAP dgrm_
 #  endif
 
-#include <ArrayLim.H>
+#include <AMReX_ArrayLim.H>
 
 extern "C" {
 

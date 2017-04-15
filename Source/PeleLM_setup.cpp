@@ -23,7 +23,7 @@
 //
 // see variableSetUp on how to use or not use these types in the state
 //
-#include <winstd.H>
+#include <AMReX_winstd.H>
 
 #include <algorithm>
 #include <cstdio>
@@ -31,14 +31,14 @@
 
 #include <PeleLM.H>
 #include <RegType.H>
-#include <ParmParse.H>
-#include <ErrorList.H>
+#include <AMReX_ParmParse.H>
+#include <AMReX_ErrorList.H>
 #include <Prob_F.H>
 #include <DERIVE_F.H>
-#include <FArrayBox.H>
+#include <AMReX_FArrayBox.H>
 #include <NAVIERSTOKES_F.H>
 #include <PeleLM_F.H>
-#include <Utility.H>
+#include <AMReX_Utility.H>
 #include <NS_error_F.H>
 
 #define DEF_LIMITS(fab,fabdat,fablo,fabhi)      \

@@ -1,6 +1,6 @@
 #include "ChemDriver_F.H"
-#include "ArrayLim.H"
-#include "CONSTANTS.H"
+#include "AMReX_ArrayLim.H"
+#include "AMReX_CONSTANTS.H"
 
 #define CONPF_FILE conpFY
 #define CONPJ_FILE conpJY

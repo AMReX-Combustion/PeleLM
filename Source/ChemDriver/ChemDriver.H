@@ -4,8 +4,8 @@
 #include <string>
 #include <map>
 
-#include <Array.H>
-#include <FArrayBox.H>
+#include <AMReX_Array.H>
+#include <AMReX_FArrayBox.H>
 #include <ChemDriver_F.H>
 
 extern "C" {
