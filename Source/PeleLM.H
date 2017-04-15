@@ -394,6 +394,8 @@ private:
   //    Private Data                                                        //
   ////////////////////////////////////////////////////////////////////////////
 
+  Array<std::unique_ptr<FluxBoxes> > raii_fbs;
+    
   MultiFab**  EdgeState;
   MultiFab**  EdgeFlux;
   MultiFab**  SpecDiffusionFluxn;
@@ -412,7 +414,7 @@ private:
   static bool                     plot_reactions;
   static bool                     plot_consumption;
   static bool                     plot_heat_release;
-  std::map<std::string,MultiFab*> auxDiag;
+  std::map<std::string,std::unique_ptr<MultiFab> > auxDiag;
   static std::map<std::string,Array<std::string> > auxDiag_names;
 
   bool updateFluxReg;

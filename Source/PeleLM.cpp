@@ -873,29 +873,32 @@ PeleLM::define_data ()
   const int nGrow       = 0;
   const int nEdgeStates = desc_lst[State_Type].nComp();
 
-  EdgeState = (raii_fbs.push_back(new FluxBoxes(this, nEdgeStates, nGrow)))->get();
-  EdgeFlux  = (raii_fbs.push_back(new FluxBoxes(this, nEdgeStates, nGrow)))->get();
+  raii_fbs.push_back(std::unique_ptr<FluxBoxes>{new FluxBoxes(this, nEdgeStates, nGrow)});
+  EdgeState = raii_fbs.back()->get();
+
+  raii_fbs.push_back(std::unique_ptr<FluxBoxes>{new FluxBoxes(this, nEdgeStates, nGrow)});
+  EdgeFlux  = raii_fbs.back()->get();
     
   if (nspecies>0 && !unity_Le)
   {
-    SpecDiffusionFluxn   = (raii_fbs.push_back(
-                              new FluxBoxes(this, nspecies+3, nGrow)))->get();
-    SpecDiffusionFluxnp1 = (raii_fbs.push_back(
-                              new FluxBoxes(this, nspecies+3, nGrow)))->get();
+    raii_fbs.push_back(std::unique_ptr<FluxBoxes>{new FluxBoxes(this, nspecies+3, nGrow)});
+    SpecDiffusionFluxn   = raii_fbs.back()->get();
+
+    raii_fbs.push_back(std::unique_ptr<FluxBoxes>{new FluxBoxes(this, nspecies+3, nGrow)});
+    SpecDiffusionFluxnp1 = raii_fbs.back()->get();
 
 #ifdef USE_WBAR
-    SpecDiffusionFluxWbar = (raii_fbs.push_back(
-                               new FluxBoxes(this, nspecies, nGrow)))->get();
+    raii_fbs.push_back(std::unique_ptr<FluxBoxes>{new FluxBoxes(this, nspecies, nGrow)});
+    SpecDiffusionFluxWbar = raii_fbs.back()->get();
 #endif
     sumSpecFluxDotGradHn.define(grids,1,0,Fab_allocate);
     sumSpecFluxDotGradHnp1.define(grids,1,0,Fab_allocate);
   }
 
-  for (std::map<std::string,Array<std::string> >::iterator it = auxDiag_names.begin(), end = auxDiag_names.end();
-       it != end; ++it)
+  for (const auto& kv : auxDiag_names)
   {
-    auxDiag[it->first] = raii_mfs.push_back(new MultiFab(grids,it->second.size(),0));
-    auxDiag[it->first]->setVal(0);
+      auxDiag[kv.first] = std::unique_ptr<MultiFab>(new MultiFab(grids,kv.second.size(),0));
+      auxDiag[kv.first]->setVal(0);
   }
 
   // HACK for debugging
@@ -2455,11 +2458,13 @@ PeleLM::post_init_press (Real&        dt_init,
   //
   // Make space to save a copy of the initial State_Type state data
   //
-  PArray<MultiFab> saved_state(finest_level+1,PArrayManage);
+  Array<std::unique_ptr<MultiFab> > saved_state(finest_level+1);
 
-  if (init_iter > 0)
-    for (int k = 0; k <= finest_level; k++)
-      saved_state.set(k,new MultiFab(getLevel(k).grids,nState,nGrow));
+  if (init_iter > 0) {
+      for (int k = 0; k <= finest_level; k++) {
+          saved_state[k].reset(new MultiFab(getLevel(k).grids,nState,nGrow));
+      }
+  }
 
   //
   // Iterate over the advance function.
@@ -2470,7 +2475,7 @@ PeleLM::post_init_press (Real&        dt_init,
     // Squirrel away copy of pre-advance State_Type state
     //
     for (int k = 0; k <= finest_level; k++)
-      MultiFab::Copy(saved_state[k],
+      MultiFab::Copy(*saved_state[k],
                      getLevel(k).get_new_data(State_Type),
                      0,
                      0,
@@ -2484,8 +2489,7 @@ PeleLM::post_init_press (Real&        dt_init,
     //
     // This constructs a guess at P, also sets p_old == p_new.
     //
-    MultiFab** sig = new MultiFab*[finest_level+1];
-
+    Array<MultiFab*> sig(finest_level+1,nullptr);
     for (int k = 0; k <= finest_level; k++)
     {
       sig[k] = &(getLevel(k).get_rho_half_time());
@@ -2574,8 +2578,6 @@ PeleLM::post_init_press (Real&        dt_init,
 
     }
 
-    delete [] sig;
-
     for (int k = finest_level-1; k>= 0; k--)
     {
       getLevel(k).avgDown();
@@ -2591,13 +2593,14 @@ PeleLM::post_init_press (Real&        dt_init,
     //
     // For State_Type state, restore state we saved above
     //
-    for (int k = 0; k <= finest_level; k++)
+    for (int k = 0; k <= finest_level; k++) {
       MultiFab::Copy(getLevel(k).get_new_data(State_Type),
-                     saved_state[k],
+                     *saved_state[k],
                      0,
                      0,
                      nState,
                      nGrow);
+    }
 
     NavierStokesBase::initial_iter = false;
   }
@@ -5336,27 +5339,27 @@ PeleLM::mac_sync ()
   MultiFab chi_sync(grids,1,0);
   chi_sync.setVal(0);
 
-  PArray<MultiFab> S_new_sav(finest_level+1,PArrayManage);
+  Array<std::unique_ptr<MultiFab> > S_new_sav(finest_level+1);
 
   for (int lev=level; lev<=finest_level; lev++)
   {
     const MultiFab& S_new_lev = getLevel(lev).get_new_data(State_Type);
-    S_new_sav.set(lev,new MultiFab(S_new_lev.boxArray(),NUM_STATE,1,S_new_lev.DistributionMap()));
-    MultiFab::Copy(S_new_sav[lev],S_new_lev,0,0,NUM_STATE,1);
+    S_new_sav[lev].reset(new MultiFab(S_new_lev.boxArray(),NUM_STATE,1,S_new_lev.DistributionMap()));
+    MultiFab::Copy(*S_new_sav[lev],S_new_lev,0,0,NUM_STATE,1);
   }
 
-  PArray<MultiFab> Ssync_sav(finest_level,PArrayManage);
-  PArray<MultiFab> Vsync_sav(finest_level,PArrayManage);
+  Array<std::unique_ptr<MultiFab> > Ssync_sav(finest_level);
+  Array<std::unique_ptr<MultiFab> > Vsync_sav(finest_level);
 
   for (int lev=level; lev<=finest_level-1; lev++)
   {
     const MultiFab& Ssync_lev = getLevel(lev).Ssync;
-    Ssync_sav.set(lev,new MultiFab(Ssync_lev.boxArray(),numscal,1,Ssync_lev.DistributionMap()));
-    MultiFab::Copy(Ssync_sav[lev],Ssync_lev,0,0,numscal,1);
+    Ssync_sav[lev].reset(new MultiFab(Ssync_lev.boxArray(),numscal,1,Ssync_lev.DistributionMap()));
+    MultiFab::Copy(*Ssync_sav[lev],Ssync_lev,0,0,numscal,1);
 
     const MultiFab& Vsync_lev = getLevel(lev).Vsync;
-    Vsync_sav.set(lev,new MultiFab(Vsync_lev.boxArray(),BL_SPACEDIM,1,Vsync_lev.DistributionMap()));
-    MultiFab::Copy(Vsync_sav[lev],Vsync_lev,0,0,BL_SPACEDIM,1);
+    Vsync_sav[lev].reset(new MultiFab(Vsync_lev.boxArray(),BL_SPACEDIM,1,Vsync_lev.DistributionMap()));
+    MultiFab::Copy(*Vsync_sav[lev],Vsync_lev,0,0,BL_SPACEDIM,1);
   }
 
   ////////////////////////
@@ -5379,16 +5382,16 @@ PeleLM::mac_sync ()
     for (int lev=level; lev<=finest_level; lev++)
     {
       MultiFab& S_new_lev = getLevel(lev).get_new_data(State_Type);
-      MultiFab::Copy(S_new_lev,S_new_sav[lev],0,0,NUM_STATE,1);
+      MultiFab::Copy(S_new_lev,*S_new_sav[lev],0,0,NUM_STATE,1);
     }
 
     for (int lev=level; lev<=finest_level-1; lev++)
     {
       MultiFab& Ssync_lev = getLevel(lev).Ssync;
-      MultiFab::Copy(Ssync_lev,Ssync_sav[lev],0,0,numscal,1);
+      MultiFab::Copy(Ssync_lev,*Ssync_sav[lev],0,0,numscal,1);
 
       MultiFab& Vsync_lev = getLevel(lev).Vsync;
-      MultiFab::Copy(Vsync_lev,Vsync_sav[lev],0,0,BL_SPACEDIM,1);
+      MultiFab::Copy(Vsync_lev,*Vsync_sav[lev],0,0,BL_SPACEDIM,1);
     }
 
     make_rho_curr_time();
@@ -7272,11 +7275,9 @@ PeleLM::writePlotFile (const std::string& dir,
   }
 
   int num_auxDiag = 0;
-  for (std::map<std::string,MultiFab*>::const_iterator it = auxDiag.begin(), end = auxDiag.end();
-       it != end;
-       ++it)
+  for (const auto& kv : auxDiag)
   {
-    num_auxDiag += it->second->nComp();
+    num_auxDiag += kv.second->nComp();
   }
 
   int n_data_items = plot_var_map.size() + num_derive + num_auxDiag;
@@ -7551,13 +7552,11 @@ PeleLM::writePlotFile (const std::string& dir,
   //
   // Cull data from diagnostic multifabs.
   //
-  for (std::map<std::string,MultiFab*>::const_iterator it = auxDiag.begin(), end = auxDiag.end();
-       it != end;
-       ++it)
+  for (const auto& kv : auxDiag)
   {
-    int nComp = it->second->nComp();
-    MultiFab::Copy(plotMF,*it->second,0,cnt,nComp,nGrow);
-    cnt += nComp;
+      int nComp = kv.second->nComp();
+      MultiFab::Copy(plotMF,*kv.second,0,cnt,nComp,nGrow);
+      cnt += nComp;
   }
   //
   // Use the Full pathname when naming the MultiFab.

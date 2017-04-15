@@ -222,8 +222,8 @@ static void modify_parameters(ChemDriver& cd)
     pp.getarr("parameters",parameters,0,np);
   }
 
-  PArray<ChemDriver::Parameter> p(np,PArrayManage);
-  std::map<int,PArray<ChemDriver::Parameter> > dependent_parameters;
+  Array<std::unique_ptr<ChemDriver::Parameter> > p(np);
+  std::map<int,Array<std::unique_ptr<ChemDriver::Parameter> > > dependent_parameters;
 
   Array<Real> values(np);
   for (int i=0; i<np; ++i) {
@@ -247,8 +247,8 @@ static void modify_parameters(ChemDriver& cd)
       BL_ASSERT(id >= 0);
     }
 
-    p.set(i,new ChemDriver::Parameter(reaction_id,it->second,id));
-    values[i] = p[i].DefaultValue();
+    p[i].reset(new ChemDriver::Parameter(reaction_id,it->second,id));
+    values[i] = p[i]->DefaultValue();
 
     int ndp = ppp.countval("dependent_parameters");
     if (ndp > 0) {
@@ -277,7 +277,7 @@ static void modify_parameters(ChemDriver& cd)
 	  BL_ASSERT(id >= 0);
 	}
 
-	dependent_parameters[i].set(j, new ChemDriver::Parameter(dpreaction_id,it->second,did));
+	dependent_parameters[i][j].reset(new ChemDriver::Parameter(dpreaction_id,it->second,did));
       }
     }
   }
@@ -287,14 +287,14 @@ static void modify_parameters(ChemDriver& cd)
     BL_ASSERT(nv == np);
     pp.getarr("parameter_values",values,0,np);
     for (int i=0; i<np; ++i) {
-      p[i].Value() = values[i];
+      p[i]->Value() = values[i];
       if (ParallelDescriptor::IOProcessor()) {
-	std::cout << "************** Modified chem parameter \"" << parameters[i] << "\": " << p[i] << std::endl;
+	std::cout << "************** Modified chem parameter \"" << parameters[i] << "\": " << *p[i] << std::endl;
       }
       for (int j=0; j<dependent_parameters[i].size(); ++j) {
-	dependent_parameters[i][j].Value() = values[i];
+	dependent_parameters[i][j]->Value() = values[i];
 	if (ParallelDescriptor::IOProcessor()) {
-	  std::cout << "                     dependent parameter: " << dependent_parameters[i][j] << std::endl;
+	  std::cout << "                     dependent parameter: " << *dependent_parameters[i][j] << std::endl;
 	}
       }
     }
