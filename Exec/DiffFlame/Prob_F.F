@@ -32,7 +32,7 @@ c :::              FALSE if called from restart
 c ::: strttime <=  start problem with this time variable
 c ::: 
 c ::: -----------------------------------------------------------
-      subroutine FORT_PROBINIT (init,name,namlen,problo,probhi)
+      subroutine amrex_probinit (init,name,namlen,problo,probhi) bind(c)
       implicit none
       integer init, namlen
       integer name(namlen)
