@@ -4,7 +4,6 @@
 // "RhoYchemProd_Type" means -omega_l/rho, i.e., the mass rate of decrease of species l due
 //             to kinetics divided by rho
 //
-#include <AMReX_winstd.H>
 #include <unistd.h>
 
 #include <iostream>
@@ -40,7 +39,7 @@
 #include <NAVIERSTOKES_F.H>
 #include <DERIVE_F.H>
 
-#include <buildInfo.H>
+#include <AMReX_buildInfo.H>
 
 using namespace amrex;
 
@@ -7415,7 +7414,7 @@ PeleLM::writePlotFile (const std::string& dir,
     jobInfoFile << "build date:    " << buildInfoGetBuildDate() << "\n";
     jobInfoFile << "build machine: " << buildInfoGetBuildMachine() << "\n";
     jobInfoFile << "build dir:     " << buildInfoGetBuildDir() << "\n";
-    jobInfoFile << "BoxLib dir:    " << buildInfoGetBoxlibDir() << "\n";
+    jobInfoFile << "BoxLib dir:    " << buildInfoGetAMReXDir() << "\n";
 
     jobInfoFile << "\n";
 

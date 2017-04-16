@@ -23,7 +23,6 @@
 //
 // see variableSetUp on how to use or not use these types in the state
 //
-#include <AMReX_winstd.H>
 
 #include <algorithm>
 #include <cstdio>
