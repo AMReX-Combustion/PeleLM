@@ -2401,7 +2401,7 @@ PeleLM::sum_integrated_quantities ()
     {
       Real min_sum, max_sum;
       for (int lev = 0; lev <= finest_level; lev++) {
-        MultiFab* mf = getLevel(lev).derive("rhominsumrhoY",time,0);
+        auto mf = getLevel(lev).derive("rhominsumrhoY",time,0);
         Real this_min = mf->min(0);
         Real this_max = mf->max(0);
         if (lev==0) {
@@ -2411,7 +2411,6 @@ PeleLM::sum_integrated_quantities ()
           min_sum = std::min(this_min,min_sum);
           max_sum = std::max(this_max,max_sum);
         }
-        delete mf;
       }
             
       if (ParallelDescriptor::IOProcessor()) {
@@ -2422,7 +2421,7 @@ PeleLM::sum_integrated_quantities ()
             
       for (int lev = 0; lev <= finest_level; lev++)
       {
-        MultiFab* mf = getLevel(lev).derive("sumRhoYdot",time,0);
+        auto mf = getLevel(lev).derive("sumRhoYdot",time,0);
         Real this_min = mf->min(0);
         Real this_max = mf->max(0);
         if (lev==0) {
@@ -2432,7 +2431,6 @@ PeleLM::sum_integrated_quantities ()
           min_sum = std::min(this_min,min_sum);
           max_sum = std::max(this_max,max_sum);
         }
-        delete mf;
       }
             
       if (ParallelDescriptor::IOProcessor()) {
@@ -7558,9 +7556,8 @@ PeleLM::writePlotFile (const std::string& dir,
       } 
       const DeriveRec* rec = derive_lst.get(*it);
       ncomp = rec->numDerive();
-      MultiFab* derive_dat = derive(*it,plot_time,nGrow);
+      auto derive_dat = derive(*it,plot_time,nGrow);
       MultiFab::Copy(plotMF,*derive_dat,0,cnt,ncomp,nGrow);
-      delete derive_dat;
       cnt += ncomp;
     }
   }
@@ -7581,27 +7578,27 @@ PeleLM::writePlotFile (const std::string& dir,
   VisMF::Write(plotMF,TheFullPath,how);
 }
 
-MultiFab*
+std::unique_ptr<MultiFab>
 PeleLM::derive (const std::string& name,
                 Real               time,
                 int                ngrow)
 {        
   BL_ASSERT(ngrow >= 0);
   
-  MultiFab* mf = 0;
+  std::unique_ptr<MultiFab> mf;
   const DeriveRec* rec = derive_lst.get(name);
   if (rec)
   {
-    mf = new MultiFab(grids, dmap, rec->numDerive(), ngrow);
+    mf.reset(new MultiFab(grids, dmap, rec->numDerive(), ngrow));
     int dcomp = 0;
     derive(name,time,*mf,dcomp);
   }
   else
   {
-    mf = AmrLevel::derive(name,time,ngrow);
+    mf = std::move(AmrLevel::derive(name,time,ngrow));
   }
 
-  if (mf==0) {
+  if (mf==nullptr) {
     std::string msg("PeleLM::derive(): unknown variable: ");
     msg += name;
     amrex::Error(msg.c_str());

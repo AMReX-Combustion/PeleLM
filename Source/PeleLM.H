@@ -65,9 +65,9 @@ public:
   // with it.  If ngrow>0 the MultiFab is built on the appropriately
   // grown amrex::BoxArray.
   //
-  virtual amrex::MultiFab* derive (const std::string& name,
-                                   amrex::Real        time,
-                                   int                ngrow) override;
+  virtual std::unique_ptr<amrex::MultiFab> derive (const std::string& name,
+                                                   amrex::Real        time,
+                                                   int                ngrow) override;
   //
   // This version of derive() fills the dcomp'th component of mf with the derived quantity.
   //
