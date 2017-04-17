@@ -2,51 +2,51 @@
 #define _BoxLib_Data_Dump_H_
 
 #include <iostream>
-#include <MultiFab.H>
-#include <VisMF.H>
-#include <Utility.H>
+#include <AMReX_MultiFab.H>
+#include <AMReX_VisMF.H>
+#include <AMReX_Utility.H>
 
 extern "C" {
     
   // dump multifab to file, general
-  bool writeMFgen (const MultiFab* mf,
+  bool writeMFgen (const amrex::MultiFab* mf,
                    const char*     file,
                    int             comp,
                    bool            abort)
   {
     int sc = (comp<0 ? 0 : comp);
     int nc = (comp<0 ? mf->nComp() : 1);
-    MultiFab tmf(mf->boxArray(), nc, 0);
-    MultiFab::Copy(tmf,*mf,sc,0,nc,0);
+    amrex::MultiFab tmf(mf->boxArray(), nc, 0);
+    amrex::MultiFab::Copy(tmf,*mf,sc,0,nc,0);
         
     std::string FullPath = file;
     if (FullPath!="" && FullPath[FullPath.length()-1] != '/')
       FullPath += '/';
         
     if (ParallelDescriptor::IOProcessor())
-      if (!BoxLib::UtilCreateDirectory(FullPath, 0755))
-        BoxLib::CreateDirectoryFailed(FullPath);
+      if (!amrex::UtilCreateDirectory(FullPath, 0755))
+        amrex::CreateDirectoryFailed(FullPath);
         
-    static const std::string MultiFabBaseName("MultiFab");
+    static const std::string amrex::MultiFabBaseName("MultiFab");
     FullPath += MultiFabBaseName;
 	
     VisMF::Write(tmf,FullPath);
         
     if (abort)
-      BoxLib::Abort("DEBUG ABORT::writeMF");
+      amrex::Abort("DEBUG ABORT::writeMF");
         
     return true;
   }
     
   // dump fab to file, general
-  bool writeFABgen (const FArrayBox* fab,
+  bool writeFABgen (const amrex::FArrayBox* fab,
                     const char*      file,
                     int              comp,
                     bool             abort)
   {
     int sc = (comp<0 ? 0 : comp);
     int nc = (comp<0 ? fab->nComp() : 1);
-    FArrayBox tfab(fab->box(), nc);
+    amrex::FArrayBox tfab(fab->box(), nc);
     tfab.copy(*fab,sc,0,nc);
         
     std::ofstream ofs;
@@ -57,13 +57,13 @@ extern "C" {
     tfab.writeOn(ofs);
         
     if (abort)
-      BoxLib::Abort("DEBUG ABORT::writeFab");
+      amrex::Abort("DEBUG ABORT::writeFab");
         
     return true;
   }
 
   // dump multifab component to file, no abort
-  bool writeMFc (const MultiFab* mf,
+  bool writeMFc (const amrex::MultiFab* mf,
                  const char*     file,
                  int             comp)
   {
@@ -71,14 +71,14 @@ extern "C" {
   }
     
   // dump multifab all components to file, no abort
-  bool writeMF (const MultiFab* mf,
+  bool writeMF (const amrex::MultiFab* mf,
                 const char*     file)
   {
     return writeMFgen(mf,file,-1,false);
   }
     
   // dump multifab one components to file, abort
-  bool writeMFca (const MultiFab* mf,
+  bool writeMFca (const amrex::MultiFab* mf,
                   const char*     file,
                   int             comp)
   {
@@ -86,14 +86,14 @@ extern "C" {
   }
     
   // dump multifab all components to file, abort
-  bool writeMFa (const MultiFab* mf,
+  bool writeMFa (const amrex::MultiFab* mf,
                  const char*     file)
   {
     return writeMFgen(mf,file,-1,true);
   }
     
   // dump fab component to file, no abort
-  bool writeFABc (const FArrayBox* fab,
+  bool writeFABc (const amrex::FArrayBox* fab,
                   const char*      file,
                   int              comp=-1)
   {
@@ -101,14 +101,14 @@ extern "C" {
   }
     
   // dump fab all components to file, no abort
-  bool writeFAB (const FArrayBox* fab,
+  bool writeFAB (const amrex::FArrayBox* fab,
                  const char*      file)
   {
     return writeFABgen(fab,file,-1,false);
   }
     
   // dump fab one components to file, abort
-  bool writeFABca (const FArrayBox* fab,
+  bool writeFABca (const amrex::FArrayBox* fab,
                    const char*      file,
                    int              comp)
   {
@@ -116,14 +116,14 @@ extern "C" {
   }
     
   // dump fab all components to file, abort
-  bool writeFABa (const FArrayBox* fab,
+  bool writeFABa (const amrex::FArrayBox* fab,
                   const char*      file)
   {
     return writeFABgen(fab,file,-1,true);
   }
     
   // call amrvis to show a multifab on comp
-  bool showMFgen(const MultiFab* mf,
+  bool showMFgen(const amrex::MultiFab* mf,
                  int             comp)
   {
     std::string file = "DEBUGMF";
@@ -138,13 +138,13 @@ extern "C" {
   }
     
   // call amrvis to show a multifab, all comps
-  bool showMF (const MultiFab* mf)
+  bool showMF (const amrex::MultiFab* mf)
   {
     return showMFgen(mf,-1);
   }
     
   // call amrvis to show a fab
-  bool showFABgen(const FArrayBox* fab,
+  bool showFABgen(const amrex::FArrayBox* fab,
                   int              comp)
   {
     std::string file = "DEBUGFAB";
@@ -159,7 +159,7 @@ extern "C" {
   }
 
   // call amrvis to show a fab
-  bool showFAB(const FArrayBox* fab)
+  bool showFAB(const amrex::FArrayBox* fab)
   {
     return showFABgen(fab,-1);
   }

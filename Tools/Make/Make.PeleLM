@@ -1,7 +1,7 @@
 
 EBASE = PeleLM
 
-include $(BOXLIB_HOME)/Tools/C_mk/Make.defs 
+include $(AMREX_HOME)/Tools/GNUMake/Make.defs 
 
 DEFINES += -DLMC_SDC
 Bdirs += $(PELELM_HOME)/Source
@@ -28,19 +28,19 @@ Bpack	+= $(foreach dir, $(Bdirs), $(dir)/Make.package)
 Blocs	+= $(foreach dir, $(Bdirs), $(dir))
 
 # BoxLib 
-Pdirs   += $(BOXLIB_HOME)/Src/C_BaseLib
-Pdirs   += $(BOXLIB_HOME)/Src/C_AmrCoreLib
-Pdirs   += $(BOXLIB_HOME)/Src/C_AMRLib
-Pdirs   += $(BOXLIB_HOME)/Src/C_BoundaryLib
+Pdirs   += $(AMREX_HOME)/Src/Base
+Pdirs   += $(AMREX_HOME)/Src/AmrCore
+Pdirs   += $(AMREX_HOME)/Src/Amr
+Pdirs   += $(AMREX_HOME)/Src/Boundary
 ifeq ($(USE_PARTICLES), TRUE)
-  Pdirs += $(BOXLIB_HOME)/Src/C_ParticleLib
+  Pdirs += $(AMREX_HOME)/Src/Particle
 endif
-Pdirs   += $(BOXLIB_HOME)/Src/LinearSolvers/C_CellMG
-Pdirs   += $(BOXLIB_HOME)/Src/LinearSolvers/C_TensorMG
-Pdirs   += $(BOXLIB_HOME)/Src/LinearSolvers/C_to_F_MG
+Pdirs   += $(AMREX_HOME)/Src/LinearSolvers/C_CellMG
+Pdirs   += $(AMREX_HOME)/Src/LinearSolvers/C_TensorMG
+Pdirs   += $(AMREX_HOME)/Src/LinearSolvers/C_to_F_MG
 
-include $(BOXLIB_HOME)/Src/LinearSolvers/F_MG/FParallelMG.mak
-include $(BOXLIB_HOME)/Src/F_BaseLib/FParallelMG.mak
+include $(AMREX_HOME)/Src/LinearSolvers/F_MG/FParallelMG.mak
+include $(AMREX_HOME)/Src/F_BaseLib/FParallelMG.mak
 
 Bpack	+= $(foreach dir, $(Pdirs), $(dir)/Make.package)
 
@@ -56,7 +56,7 @@ ifeq ($(USE_FLCTS), TRUE)
 endif
 
 ifeq ($(USE_VELOCITY), TRUE)
-  AMRVIS_HOME = $(BOXLIB_HOME)/Src/Extern/amrdata
+  AMRVIS_HOME = $(AMREX_HOME)/Src/Extern/amrdata
   include $(PELELM_HOME)/Tools/Make/AmrData.mk
   INCLUDE_LOCATIONS += $(AMRVIS_HOME)
   VPATH_LOCATIONS   += $(AMRVIS_HOME)
@@ -64,7 +64,7 @@ ifeq ($(USE_VELOCITY), TRUE)
 endif
 
 ifeq ($(USE_NEWMECH), TRUE)
-  AMRVIS_HOME = $(BOXLIB_HOME)/Src/Extern/amrdata
+  AMRVIS_HOME = $(AMREX_HOME)/Src/Extern/amrdata
   include $(PELELM_HOME)/LMC/Tools/Make/AmrData.mk
   INCLUDE_LOCATIONS += $(AMRVIS_HOME)
   VPATH_LOCATIONS   += $(AMRVIS_HOME)
@@ -127,26 +127,26 @@ ifeq ($(REGRESSIONTEST),TRUE)
 endif
 
 all: $(executable)
-	$(SILENT) $(RM) buildInfo.cpp
+	$(SILENT) $(RM) AMReX_buildInfo.cpp
 	@echo SUCCESS
 
 $(executable):
 
 # job_info support
-CEXE_sources += buildInfo.cpp
-CEXE_headers += $(BOXLIB_HOME)/Tools/C_scripts/buildInfo.H
-INCLUDE_LOCATIONS +=  $(BOXLIB_HOME)/Tools/C_scripts
+CEXE_sources += AMReX_buildInfo.cpp
+CEXE_headers += $(AMREX_HOME)/Tools/C_scripts/AMReX_buildInfo.H
+INCLUDE_LOCATIONS +=  $(AMREX_HOME)/Tools/C_scripts
 
-buildInfo.cpp:
-	$(BOXLIB_HOME)/Tools/C_scripts/makebuildinfo_C.py \
-          --boxlib_home "$(BOXLIB_HOME)" \
+AMReX_buildInfo.cpp:
+	$(AMREX_HOME)/Tools/C_scripts/makebuildinfo_C.py \
+          --amrex_home "$(AMREX_HOME)" \
           --COMP "$(COMP)" --COMP_VERSION "$(COMP_VERSION)" \
           --FCOMP "$(FCOMP)" --FCOMP_VERSION "$(FCOMP_VERSION)" \
           --MODULES "Chemistry=$(CHEMISTRY_MODEL)" \
-          --GIT "$(PELELM_HOME) $(BOXLIB_HOME) $(IAMR_HOME)" 
+          --GIT "$(PELELM_HOME) $(AMREX_HOME) $(IAMR_HOME)" 
 
 
-include $(BOXLIB_HOME)/Tools/C_mk/Make.rules
+include $(AMREX_HOME)/Tools/GNUMake/Make.rules
 
 clean::
-	$(SILENT) $(RM) buildInfo.cpp
+	$(SILENT) $(RM) AMReX_buildInfo.cpp
