@@ -18,7 +18,7 @@ stages:
 #         - git clone git@code.ornl.gov:Pele/PelePhysics.git ${PELE_PHYSICS_HOME} --branch development
 #         - cd ${CI_PROJECT_DIR}
 #         - bash ${PELEREGTEST_HOME}/Scripts/prep_tests.sh ${PELEREGTEST_HOME}/Scripts/PeleLM-build-tests-rgvm.ini  tests.ini
-#         - ${BOXLIB_HOME}/Tools/RegressionTesting/regtest.py --no_update All tests.ini
+#         - ${AMREX_HOME}/Tools/RegressionTesting/regtest.py --no_update All tests.ini
 #     tags:
 #         - rgvm
 
@@ -31,7 +31,7 @@ build:godzilla:
         - git clone git@code.ornl.gov:Pele/PelePhysics.git ${PELE_PHYSICS_HOME} --branch development
         - cd ${CI_PROJECT_DIR}
         - bash ${PELEREGTEST_HOME}/Scripts/prep_tests.sh ${PELEREGTEST_HOME}/Scripts/PeleLM-build-tests-godzilla.ini  tests.ini
-        - ${BOXLIB_HOME}/Tools/RegressionTesting/regtest.py --no_update All tests.ini
+        - ${AMREX_HOME}/Tools/RegressionTesting/regtest.py --no_update All tests.ini
     tags:
         - godzilla
     only:
@@ -46,7 +46,7 @@ build:godzilla:
 #         - git clone git@code.ornl.gov:Pele/PelePhysics.git ${PELE_PHYSICS_HOME} --branch development
 #         - cd ${CI_PROJECT_DIR}
 #         - bash ${PELEREGTEST_HOME}/Scripts/prep_tests.sh ${PELEREGTEST_HOME}/Scripts/PeleLM-build-correct-rgvm.ini  tests.ini
-#         - ${BOXLIB_HOME}/Tools/RegressionTesting/regtest.py --no_update All tests.ini
+#         - ${AMREX_HOME}/Tools/RegressionTesting/regtest.py --no_update All tests.ini
 #     tags:
 #         - rgvm
 
@@ -59,7 +59,7 @@ correctness:godzilla:
         - git clone git@code.ornl.gov:Pele/PelePhysics.git ${PELE_PHYSICS_HOME} --branch development
         - cd ${CI_PROJECT_DIR}
         - bash ${PELEREGTEST_HOME}/Scripts/prep_tests.sh ${PELEREGTEST_HOME}/Scripts/PeleLM-correct-tests-godzilla.ini  tests.ini
-        - ${BOXLIB_HOME}/Tools/RegressionTesting/regtest.py --no_update All tests.ini
+        - ${AMREX_HOME}/Tools/RegressionTesting/regtest.py --no_update All tests.ini
     tags:
         - godzilla
     only:
