@@ -1,5 +1,5 @@
 #include "ChemDriver_F.H"
-#include "CONSTANTS.H"
+#include "AMReX_CONSTANTS.H"
 
 #if defined(BL_USE_FLOAT) || defined(BL_T3E) || defined(BL_CRAY)
 #define three4th    0.75

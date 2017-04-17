@@ -4,12 +4,12 @@
 #define BL_LANG_FORT
 #endif
 
-#include <REAL.H>
-#include <CONSTANTS.H>
-#include <BC_TYPES.H>
+#include <AMReX_REAL.H>
+#include <AMReX_CONSTANTS.H>
+#include <AMReX_BC_TYPES.H>
 #include <PeleLM_F.H>
 #include <ChemDriver_F.H>
-#include <ArrayLim.H>
+#include <AMReX_ArrayLim.H>
 
 #   if   BL_SPACEDIM==1
 #       define  ARLIM(x)  x(1)

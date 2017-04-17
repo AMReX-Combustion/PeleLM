@@ -276,13 +276,13 @@
 #    define FORT_GET_REACTION_MAP dgrm_
 #  endif
 
-#include <ArrayLim.H>
+#include <AMReX_ArrayLim.H>
 
 extern "C" {
 
-    void FORT_SETTMINTRANS(const Real* Tmin);
+    void FORT_SETTMINTRANS(const amrex::Real* Tmin);
     void FORT_SETVERBOSEVODE();
-    void FORT_SETVODETOLS(const Real* rtol, const Real* atol, const int* itol);
+    void FORT_SETVODETOLS(const amrex::Real* rtol, const amrex::Real* atol, const int* itol);
     void FORT_SETVODESUBCYC(const int* maxcyc);
     void FORT_SETSPECSCALY(const int* name, const int* length);
     void FORT_INITCHEM();
@@ -293,8 +293,8 @@ extern "C" {
     int FORT_GETCKSPECNAME(const int* str_len, const int* coded);
     int FORT_GETCKELTNAME(const int* str_len, const int* coded);
     int FORT_CKELTXINSPY(const int* eltID, const int* spID);
-    void FORT_GETCKMWT(Real* mwt);
-    void FORT_GETCKAWT(Real* awt);
+    void FORT_GETCKMWT(amrex::Real* mwt);
+    void FORT_GETCKAWT(amrex::Real* awt);
     void FORT_FINDLHS(int* reactions, int* listLen, const int* idx);
     void FORT_FINDRHS(int* reactions, int* listLen, const int* idx);
     void FORT_CKINU(int* Nids,int* KI,const int* lenKI,int* NU,const int* lenNU,
@@ -307,185 +307,185 @@ extern "C" {
                              const int* maxsp,    const int* maxspnml);
 
     void FORT_FRrateXTP(const int* lo, const int* hi,
-                        const Real* X, ARLIM_P(Xlo),    ARLIM_P(Xhi),
-                        const Real* T, ARLIM_P(Tlo),    ARLIM_P(Thi),
-                        Real*    FwdK, ARLIM_P(FwdKlo), ARLIM_P(FwdKhi),
-                        Real*    RevK, ARLIM_P(RevKlo), ARLIM_P(RevKhi),
-                        const Real* Patm, const int* rxns, const int* Nrxns);
+                        const amrex::Real* X, ARLIM_P(Xlo),    ARLIM_P(Xhi),
+                        const amrex::Real* T, ARLIM_P(Tlo),    ARLIM_P(Thi),
+                        amrex::Real*    FwdK, ARLIM_P(FwdKlo), ARLIM_P(FwdKhi),
+                        amrex::Real*    RevK, ARLIM_P(RevKlo), ARLIM_P(RevKhi),
+                        const amrex::Real* Patm, const int* rxns, const int* Nrxns);
 
     void FORT_HTRLS(const int* lo, const int* hi,
-                    const Real* Y, ARLIM_P(Ylo), ARLIM_P(Yhi),
-                    const Real* T, ARLIM_P(Tlo), ARLIM_P(Thi),
-                    Real*       Q, ARLIM_P(Qlo), ARLIM_P(Qhi), const Real* Patm);
+                    const amrex::Real* Y, ARLIM_P(Ylo), ARLIM_P(Yhi),
+                    const amrex::Real* T, ARLIM_P(Tlo), ARLIM_P(Thi),
+                    amrex::Real*       Q, ARLIM_P(Qlo), ARLIM_P(Qhi), const amrex::Real* Patm);
 
     void FORT_RRATEY(const int* lo, const int* hi,
-                     const Real* Y, ARLIM_P(Ylo),    ARLIM_P(Yhi),
-                     const Real* T, ARLIM_P(Tlo),    ARLIM_P(Thi),
-                     Real*    Ydot, ARLIM_P(Ydotlo), ARLIM_P(Ydothi),
-                     Real* Patm);    
+                     const amrex::Real* Y, ARLIM_P(Ylo),    ARLIM_P(Yhi),
+                     const amrex::Real* T, ARLIM_P(Tlo),    ARLIM_P(Thi),
+                     amrex::Real*    Ydot, ARLIM_P(Ydotlo), ARLIM_P(Ydothi),
+                     amrex::Real* Patm);    
 
 #ifdef LMC_SDC
     void FORT_RRATERHOY(const int* lo, const int* hi,
-                        const Real* RhoY, ARLIM_P(RhoYlo),    ARLIM_P(RhoYhi),
-                        const Real* RhoH, ARLIM_P(RhoHlo),    ARLIM_P(RhoHhi),
-                        const Real* T,    ARLIM_P(Tlo),       ARLIM_P(Thi),
-                        Real*    RhoYdot, ARLIM_P(RhoYdotlo), ARLIM_P(RhoYdothi) );
+                        const amrex::Real* RhoY, ARLIM_P(RhoYlo),    ARLIM_P(RhoYhi),
+                        const amrex::Real* RhoH, ARLIM_P(RhoHlo),    ARLIM_P(RhoHhi),
+                        const amrex::Real* T,    ARLIM_P(Tlo),       ARLIM_P(Thi),
+                        amrex::Real*    RhoYdot, ARLIM_P(RhoYdotlo), ARLIM_P(RhoYdothi) );
 #endif
 
     void FORT_RRATEC(const int* lo, const int* hi,
-                     const Real* C, ARLIM_P(Clo),    ARLIM_P(Chi),
-                     const Real* T, ARLIM_P(Tlo),    ARLIM_P(Thi),
-                     Real*    Cdot, ARLIM_P(Cdotlo), ARLIM_P(Cdothi),
-                     Real* Patm);
+                     const amrex::Real* C, ARLIM_P(Clo),    ARLIM_P(Chi),
+                     const amrex::Real* T, ARLIM_P(Tlo),    ARLIM_P(Thi),
+                     amrex::Real*    Cdot, ARLIM_P(Cdotlo), ARLIM_P(Cdothi),
+                     amrex::Real* Patm);
 
     void FORT_MASSTOMOLE(const int* lo, const int* hi,
-			 const Real* mass, ARLIM_P(masslo), ARLIM_P(masshi),
-			 Real*       mole, ARLIM_P(molelo), ARLIM_P(molehi));
+			 const amrex::Real* mass, ARLIM_P(masslo), ARLIM_P(masshi),
+			 amrex::Real*       mole, ARLIM_P(molelo), ARLIM_P(molehi));
 
     void FORT_MOLETOMASS(const int* lo, const int* hi,
-			 const Real* mole, ARLIM_P(molelo), ARLIM_P(molehi),
-			 Real*       mass, ARLIM_P(masslo), ARLIM_P(masshi));
+			 const amrex::Real* mole, ARLIM_P(molelo), ARLIM_P(molehi),
+			 amrex::Real*       mass, ARLIM_P(masslo), ARLIM_P(masshi));
 
-    void FORT_MASSTP_TO_CONC(const int* lo, const int* hi, const Real* Patm,
-			 const Real* mass, ARLIM_P(masslo), ARLIM_P(masshi),
-			 const Real* temp, ARLIM_P(templo), ARLIM_P(temphi),
-			 Real*       conc, ARLIM_P(conclo), ARLIM_P(conchi));
+    void FORT_MASSTP_TO_CONC(const int* lo, const int* hi, const amrex::Real* Patm,
+			 const amrex::Real* mass, ARLIM_P(masslo), ARLIM_P(masshi),
+			 const amrex::Real* temp, ARLIM_P(templo), ARLIM_P(temphi),
+			 amrex::Real*       conc, ARLIM_P(conclo), ARLIM_P(conchi));
 
     void FORT_MASSR_TO_CONC(const int* lo, const int* hi, 
-			 const Real* mass, ARLIM_P(masslo), ARLIM_P(masshi),
-			 const Real* temp, ARLIM_P(templo), ARLIM_P(temphi),
-			 const Real* rho,  ARLIM_P(rholo),  ARLIM_P(rhohi),
-			 Real*       conc, ARLIM_P(conclo), ARLIM_P(conchi));
+			 const amrex::Real* mass, ARLIM_P(masslo), ARLIM_P(masshi),
+			 const amrex::Real* temp, ARLIM_P(templo), ARLIM_P(temphi),
+			 const amrex::Real* rho,  ARLIM_P(rholo),  ARLIM_P(rhohi),
+			 amrex::Real*       conc, ARLIM_P(conclo), ARLIM_P(conchi));
 
     void FORT_CONC_TO_MOLE(const int* lo, const int* hi, 
-			 const Real* conc, ARLIM_P(conclo), ARLIM_P(conchi),
-			 Real*       mole, ARLIM_P(molelo), ARLIM_P(molehi));
+			 const amrex::Real* conc, ARLIM_P(conclo), ARLIM_P(conchi),
+			 amrex::Real*       mole, ARLIM_P(molelo), ARLIM_P(molehi));
 
     void FORT_NORMMASS(const int* lo, const int* hi, const int* id,
-                       const Real* Y,  ARLIM_P(Ylo),  ARLIM_P(Yhi),
-                       const Real* Yn, ARLIM_P(Ynlo), ARLIM_P(Ynhi));
+                       const amrex::Real* Y,  ARLIM_P(Ylo),  ARLIM_P(Yhi),
+                       const amrex::Real* Yn, ARLIM_P(Ynlo), ARLIM_P(Ynhi));
 
     int FORT_CONPSOLV(const int* lo, const int* hi,
-		       Real* Ynew, ARLIM_P(Ynlo), ARLIM_P(Ynhi),
-		       Real* Tnew, ARLIM_P(Tnlo), ARLIM_P(Tnhi),
-		       const Real* Yold, ARLIM_P(Yolo), ARLIM_P(Yohi),
-		       const Real* Told, ARLIM_P(Tolo), ARLIM_P(Tohi),
-		       Real* FuncCount, ARLIM_P(FuncCountlo), ARLIM_P(FuncCounthi),
-		       const Real* p, const Real* dt, Real* diag, 
+		       amrex::Real* Ynew, ARLIM_P(Ynlo), ARLIM_P(Ynhi),
+		       amrex::Real* Tnew, ARLIM_P(Tnlo), ARLIM_P(Tnhi),
+		       const amrex::Real* Yold, ARLIM_P(Yolo), ARLIM_P(Yohi),
+		       const amrex::Real* Told, ARLIM_P(Tolo), ARLIM_P(Tohi),
+		       amrex::Real* FuncCount, ARLIM_P(FuncCountlo), ARLIM_P(FuncCounthi),
+		       const amrex::Real* p, const amrex::Real* dt, amrex::Real* diag, 
                        const int* do_diag, const int* do_stiff);
 
 #ifdef LMC_SDC
     int FORT_CONPSOLV_SDC(const int* lo, const int* hi,
-			   Real* rhoYnew, ARLIM_P(rhoYnlo), ARLIM_P(rhoYnhi),
-			   Real* rhoHnew, ARLIM_P(rhoHnlo), ARLIM_P(rhoHnhi),
-			   Real* Tnew, ARLIM_P(Tnlo), ARLIM_P(Tnhi),
-			   const Real* rhoYold, ARLIM_P(rhoYolo), ARLIM_P(rhoYohi),
-			   const Real* rhoHold, ARLIM_P(rhoHolo), ARLIM_P(rhoHohi),
-			   const Real* Told, ARLIM_P(Tolo), ARLIM_P(Tohi),
-			   const Real* const_src, ARLIM_P(cslo), ARLIM_P(cshi),
-			   Real* FuncCount, ARLIM_P(FuncCountlo), ARLIM_P(FuncCounthi),
-			   const Real* dt, Real* diag, 
+			   amrex::Real* rhoYnew, ARLIM_P(rhoYnlo), ARLIM_P(rhoYnhi),
+			   amrex::Real* rhoHnew, ARLIM_P(rhoHnlo), ARLIM_P(rhoHnhi),
+			   amrex::Real* Tnew, ARLIM_P(Tnlo), ARLIM_P(Tnhi),
+			   const amrex::Real* rhoYold, ARLIM_P(rhoYolo), ARLIM_P(rhoYohi),
+			   const amrex::Real* rhoHold, ARLIM_P(rhoHolo), ARLIM_P(rhoHohi),
+			   const amrex::Real* Told, ARLIM_P(Tolo), ARLIM_P(Tohi),
+			   const amrex::Real* const_src, ARLIM_P(cslo), ARLIM_P(cshi),
+			   amrex::Real* FuncCount, ARLIM_P(FuncCountlo), ARLIM_P(FuncCounthi),
+			   const amrex::Real* dt, amrex::Real* diag, 
                            const int* do_diag, const int* do_stiff);
 #endif
 
     void FORT_BETA_WBAR(const int* lo, const int* hi,
-			const Real* RD, ARLIM_P(RDlo),      ARLIM_P(RDhi),
-			Real* RD_Wbar,  ARLIM_P(RDlo_Wbar), ARLIM_P(RDhi_Wbar),
-			const Real* Y,  ARLIM_P(Ylo),       ARLIM_P(Yhi));
+			const amrex::Real* RD, ARLIM_P(RDlo),      ARLIM_P(RDhi),
+			amrex::Real* RD_Wbar,  ARLIM_P(RDlo_Wbar), ARLIM_P(RDhi_Wbar),
+			const amrex::Real* Y,  ARLIM_P(Ylo),       ARLIM_P(Yhi));
 
     void FORT_MIXAVG_RHODIFF_TEMP(const int* lo, const int* hi,
-                                  Real*       RD, ARLIM_P(RDlo), ARLIM_P(RDhi),
-                                  const Real* T,  ARLIM_P(Tlo),  ARLIM_P(Thi),
-                                  const Real* Y,  ARLIM_P(Ylo),  ARLIM_P(Yhi),
-                                  const Real* Patm, const int* do_temp,
+                                  amrex::Real*       RD, ARLIM_P(RDlo), ARLIM_P(RDhi),
+                                  const amrex::Real* T,  ARLIM_P(Tlo),  ARLIM_P(Thi),
+                                  const amrex::Real* Y,  ARLIM_P(Ylo),  ARLIM_P(Yhi),
+                                  const amrex::Real* Patm, const int* do_temp,
                                   const int* do_VelVisc);
     
     void FORT_MIX_SHEAR_VISC(const int* lo, const int* hi,
-                             Real*       D, ARLIM_P(Dlo), ARLIM_P(Dhi),
-                             const Real* T, ARLIM_P(Tlo), ARLIM_P(Thi),
-                             const Real* Y, ARLIM_P(Ylo), ARLIM_P(Yhi));
+                             amrex::Real*       D, ARLIM_P(Dlo), ARLIM_P(Dhi),
+                             const amrex::Real* T, ARLIM_P(Tlo), ARLIM_P(Thi),
+                             const amrex::Real* Y, ARLIM_P(Ylo), ARLIM_P(Yhi));
     
     void FORT_RHOfromPTY(const int* lo, const int* hi,
-			 Real*       R, ARLIM_P(Rlo), ARLIM_P(Rhi),
-			 const Real* T, ARLIM_P(Tlo), ARLIM_P(Thi),
-			 const Real* Y, ARLIM_P(Ylo), ARLIM_P(Yhi),
-			 const Real* Patm);
+			 amrex::Real*       R, ARLIM_P(Rlo), ARLIM_P(Rhi),
+			 const amrex::Real* T, ARLIM_P(Tlo), ARLIM_P(Thi),
+			 const amrex::Real* Y, ARLIM_P(Ylo), ARLIM_P(Yhi),
+			 const amrex::Real* Patm);
       
     void FORT_RHOfromPvTY(const int* lo, const int* hi,
-			 Real*       R, ARLIM_P(Rlo), ARLIM_P(Rhi),
-			 const Real* T, ARLIM_P(Tlo), ARLIM_P(Thi),
-			 const Real* Y, ARLIM_P(Ylo), ARLIM_P(Yhi),
-			 const Real* P, ARLIM_P(Plo), ARLIM_P(Phi));
+			 amrex::Real*       R, ARLIM_P(Rlo), ARLIM_P(Rhi),
+			 const amrex::Real* T, ARLIM_P(Tlo), ARLIM_P(Thi),
+			 const amrex::Real* Y, ARLIM_P(Ylo), ARLIM_P(Yhi),
+			 const amrex::Real* P, ARLIM_P(Plo), ARLIM_P(Phi));
       
     void FORT_PfromRTY(const int* lo, const int* hi,
-		       Real*       P, ARLIM_P(Plo), ARLIM_P(Phi),
-		       const Real* R, ARLIM_P(Rlo), ARLIM_P(Rhi),
-		       const Real* T, ARLIM_P(Tlo), ARLIM_P(Thi),
-		       const Real* Y, ARLIM_P(Ylo), ARLIM_P(Yhi));
+		       amrex::Real*       P, ARLIM_P(Plo), ARLIM_P(Phi),
+		       const amrex::Real* R, ARLIM_P(Rlo), ARLIM_P(Rhi),
+		       const amrex::Real* T, ARLIM_P(Tlo), ARLIM_P(Thi),
+		       const amrex::Real* Y, ARLIM_P(Ylo), ARLIM_P(Yhi));
       
     void FORT_TfromPRY(const int* lo, const int* hi,
-		       const Real* T, ARLIM_P(Tlo), ARLIM_P(Thi),
-		       const Real* R, ARLIM_P(Rlo), ARLIM_P(Rhi),
-		       const Real* Y, ARLIM_P(Ylo), ARLIM_P(Yhi),
-                       const Real* Patm);
+		       const amrex::Real* T, ARLIM_P(Tlo), ARLIM_P(Thi),
+		       const amrex::Real* R, ARLIM_P(Rlo), ARLIM_P(Rhi),
+		       const amrex::Real* Y, ARLIM_P(Ylo), ARLIM_P(Yhi),
+                       const amrex::Real* Patm);
       
     void FORT_CPMIXfromTY(const int* lo, const int* hi,
-			  Real*   CPMIX, ARLIM_P(CPlo), ARLIM_P(CPhi),
-			  const Real* T, ARLIM_P(Tlo),  ARLIM_P(Thi),
-			  const Real* Y, ARLIM_P(Ylo),  ARLIM_P(Yhi));
+			  amrex::Real*   CPMIX, ARLIM_P(CPlo), ARLIM_P(CPhi),
+			  const amrex::Real* T, ARLIM_P(Tlo),  ARLIM_P(Thi),
+			  const amrex::Real* Y, ARLIM_P(Ylo),  ARLIM_P(Yhi));
     
     void FORT_CVMIXfromTY(const int* lo, const int* hi,
-			  Real*   CVMIX, ARLIM_P(CVlo), ARLIM_P(CVhi),
-			  const Real* T, ARLIM_P(Tlo),  ARLIM_P(Thi),
-			  const Real* Y, ARLIM_P(Ylo),  ARLIM_P(Yhi));
+			  amrex::Real*   CVMIX, ARLIM_P(CVlo), ARLIM_P(CVhi),
+			  const amrex::Real* T, ARLIM_P(Tlo),  ARLIM_P(Thi),
+			  const amrex::Real* Y, ARLIM_P(Ylo),  ARLIM_P(Yhi));
     
     void FORT_HMIXfromTY(const int* lo, const int* hi,
-			 Real*    HMIX, ARLIM_P(Hlo), ARLIM_P(Hhi),
-			 const Real* T, ARLIM_P(Tlo), ARLIM_P(Thi),
-			 const Real* Y, ARLIM_P(Ylo), ARLIM_P(Yhi));
+			 amrex::Real*    HMIX, ARLIM_P(Hlo), ARLIM_P(Hhi),
+			 const amrex::Real* T, ARLIM_P(Tlo), ARLIM_P(Thi),
+			 const amrex::Real* Y, ARLIM_P(Ylo), ARLIM_P(Yhi));
       
     void FORT_MWMIXfromY(const int* lo, const int* hi,
-			 Real*    MWMIX,ARLIM_P(MWlo),ARLIM_P(MWhi),
-			 const Real* Y, ARLIM_P(Ylo), ARLIM_P(Yhi));
+			 amrex::Real*    MWMIX,ARLIM_P(MWlo),ARLIM_P(MWhi),
+			 const amrex::Real* Y, ARLIM_P(Ylo), ARLIM_P(Yhi));
       
     void FORT_CPfromT(const int* lo, const int* hi,
-		      Real*      CP, ARLIM_P(CPlo), ARLIM_P(CPhi),
-		      const Real* T, ARLIM_P(Tlo),  ARLIM_P(Thi));
+		      amrex::Real*      CP, ARLIM_P(CPlo), ARLIM_P(CPhi),
+		      const amrex::Real* T, ARLIM_P(Tlo),  ARLIM_P(Thi));
     
     void FORT_HfromT(const int* lo, const int* hi,
-		     Real*       H, ARLIM_P(Hlo), ARLIM_P(Hhi),
-		     const Real* T, ARLIM_P(Tlo), ARLIM_P(Thi));
+		     amrex::Real*       H, ARLIM_P(Hlo), ARLIM_P(Hhi),
+		     const amrex::Real* T, ARLIM_P(Tlo), ARLIM_P(Thi));
 
     int FORT_TfromHY(const int* lo, const int* hi,
-		     Real* T,       ARLIM_P(Tlo), ARLIM_P(Thi),
-		     const Real* h, ARLIM_P(hlo), ARLIM_P(hhi),
-		     const Real* Y, ARLIM_P(Ylo), ARLIM_P(Yhi),
-		     const Real* errMAX, const int* NiterMAX,const Real* tmp);
+		     amrex::Real* T,       ARLIM_P(Tlo), ARLIM_P(Thi),
+		     const amrex::Real* h, ARLIM_P(hlo), ARLIM_P(hhi),
+		     const amrex::Real* Y, ARLIM_P(Ylo), ARLIM_P(Yhi),
+		     const amrex::Real* errMAX, const int* NiterMAX,const amrex::Real* tmp);
 
-    void FORT_TfromHYpt(Real* T, const Real* Hin, const Real* Yin,
-                        const Real* errMAX, const int* NiterMAX, const Real* res,
+    void FORT_TfromHYpt(amrex::Real* T, const amrex::Real* Hin, const amrex::Real* Yin,
+                        const amrex::Real* errMAX, const int* NiterMAX, const amrex::Real* res,
                         int* Niter);
 
     int FORT_GETCKNUMREAC();
 
 
     void FORT_MOLPROD(const int* lo, const int* hi, const int* id, 
-		      Real*       Q, ARLIM_P(Qlo), ARLIM_P(Qhi),
-		      const Real* C, ARLIM_P(Clo), ARLIM_P(Chi),
-		      const Real* T, ARLIM_P(Tlo), ARLIM_P(Thi));
+		      amrex::Real*       Q, ARLIM_P(Qlo), ARLIM_P(Qhi),
+		      const amrex::Real* C, ARLIM_P(Clo), ARLIM_P(Chi),
+		      const amrex::Real* T, ARLIM_P(Tlo), ARLIM_P(Thi));
 
     void FORT_GETELTMOLES(const int* name, const int* nameinlen,
                           const int* lo, const int* hi,
-                          Real*       C_elt, ARLIM_P(Celtlo), ARLIM_P(Celthi),
-                          const Real* C,     ARLIM_P(Clo),    ARLIM_P(Chi));
+                          amrex::Real*       C_elt, ARLIM_P(Celtlo), ARLIM_P(Celthi),
+                          const amrex::Real* C,     ARLIM_P(Clo),    ARLIM_P(Chi));
 
     void FORT_OTrad_TDF(const int* lo, const int* hi,
-                        Real* Qloss,   ARLIM_P(Qlo), ARLIM_P(Qhi),
-                        const Real* T, ARLIM_P(Tlo), ARLIM_P(Thi),
-                        const Real* X, ARLIM_P(Xlo), ARLIM_P(Xhi),
-                        const Real* Patm, const Real* T_bg);
-    Real FORT_RUNIV();
-    Real FORT_P1ATMMKS();
+                        amrex::Real* Qloss,   ARLIM_P(Qlo), ARLIM_P(Qhi),
+                        const amrex::Real* T, ARLIM_P(Tlo), ARLIM_P(Thi),
+                        const amrex::Real* X, ARLIM_P(Xlo), ARLIM_P(Xhi),
+                        const amrex::Real* Patm, const amrex::Real* T_bg);
+    amrex::Real FORT_RUNIV();
+    amrex::Real FORT_P1ATMMKS();
 
     int FORT_GET_EG_ID();
     int FORT_GET_TR_ID();

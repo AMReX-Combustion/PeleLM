@@ -1,11 +1,12 @@
-#include <winstd.H>
 #include <iostream>
 
 #include "ChemDriver.H"
 #include "ChemDriver_F.H"
-#include <ParallelDescriptor.H>
-#include <ParmParse.H>
+#include <AMReX_ParallelDescriptor.H>
+#include <AMReX_ParmParse.H>
 #include <sstream>
+
+using namespace amrex;
 
 const Real HtoTerrMAX_DEF  = 1.e-8;
 const int  HtoTiterMAX_DEF = 20;
@@ -47,7 +48,7 @@ ChemDriver::ChemDriver ()
     if (!initialized)
     {
         initOnce();
-        BoxLib::ExecOnFinalize(ChemDriver_Finalize);
+        amrex::ExecOnFinalize(ChemDriver_Finalize);
         initialized = true;
     }
     mTmpData.resize(mHtoTiterMAX);
@@ -124,7 +125,7 @@ ChemDriver::Parameter::GetParamString() const
   else if (param_id == SRI_E)     {return "SRI_E";}
   else if (param_id == THIRD_BODY) {return "THIRD_BODY";}
   else{
-      BoxLib::Abort("Unknown reaction parameter");
+      amrex::Abort("Unknown reaction parameter");
   }
 
 }
@@ -168,7 +169,7 @@ void
 ChemDriver::SetTransport (const ChemDriver::TRANSPORT& tran_in)
 {
   if (initialized) {
-    BoxLib::Abort("Must set transport model before constructing the ChemDriver");
+    amrex::Abort("Must set transport model before constructing the ChemDriver");
   }
   transport = tran_in;
 }
@@ -222,8 +223,8 @@ static void modify_parameters(ChemDriver& cd)
     pp.getarr("parameters",parameters,0,np);
   }
 
-  PArray<ChemDriver::Parameter> p(np,PArrayManage);
-  std::map<int,PArray<ChemDriver::Parameter> > dependent_parameters;
+  Array<std::unique_ptr<ChemDriver::Parameter> > p(np);
+  std::map<int,Array<std::unique_ptr<ChemDriver::Parameter> > > dependent_parameters;
 
   Array<Real> values(np);
   for (int i=0; i<np; ++i) {
@@ -231,13 +232,13 @@ static void modify_parameters(ChemDriver& cd)
     ParmParse ppp(std::string("chem."+prefix).c_str());
     int reaction_id; ppp.get("reaction_id",reaction_id);
     if (reaction_id<0 || reaction_id > cd.numReactions()) {
-      BoxLib::Abort("Reaction ID invalid");
+      amrex::Abort("Reaction ID invalid");
     }
 
     std::string type; ppp.get("type",type);
     std::map<std::string,REACTION_PARAMETER>::const_iterator it = PTypeMap.find(type);
     if (it == PTypeMap.end()) {
-      BoxLib::Abort("Unrecognized reaction parameter");
+      amrex::Abort("Unrecognized reaction parameter");
     }
 
     int id = -1;
@@ -247,8 +248,8 @@ static void modify_parameters(ChemDriver& cd)
       BL_ASSERT(id >= 0);
     }
 
-    p.set(i,new ChemDriver::Parameter(reaction_id,it->second,id));
-    values[i] = p[i].DefaultValue();
+    p[i].reset(new ChemDriver::Parameter(reaction_id,it->second,id));
+    values[i] = p[i]->DefaultValue();
 
     int ndp = ppp.countval("dependent_parameters");
     if (ndp > 0) {
@@ -261,13 +262,13 @@ static void modify_parameters(ChemDriver& cd)
 
 	int dpreaction_id; pppd.get("reaction_id",dpreaction_id);
 	if (dpreaction_id<0 || dpreaction_id > cd.numReactions()) {
-	  BoxLib::Abort("Dependent reaction ID invalid");
+	  amrex::Abort("Dependent reaction ID invalid");
 	}
 
 	std::string dptype; pppd.get("type",dptype);
 	std::map<std::string,REACTION_PARAMETER>::const_iterator it = PTypeMap.find(dptype);
 	if (it == PTypeMap.end()) {
-	  BoxLib::Abort("Unrecognized dependent reaction parameter");
+	  amrex::Abort("Unrecognized dependent reaction parameter");
 	}
 
 	int did = -1;
@@ -277,7 +278,7 @@ static void modify_parameters(ChemDriver& cd)
 	  BL_ASSERT(id >= 0);
 	}
 
-	dependent_parameters[i].set(j, new ChemDriver::Parameter(dpreaction_id,it->second,did));
+	dependent_parameters[i][j].reset(new ChemDriver::Parameter(dpreaction_id,it->second,did));
       }
     }
   }
@@ -287,14 +288,14 @@ static void modify_parameters(ChemDriver& cd)
     BL_ASSERT(nv == np);
     pp.getarr("parameter_values",values,0,np);
     for (int i=0; i<np; ++i) {
-      p[i].Value() = values[i];
+      p[i]->Value() = values[i];
       if (ParallelDescriptor::IOProcessor()) {
-	std::cout << "************** Modified chem parameter \"" << parameters[i] << "\": " << p[i] << std::endl;
+	std::cout << "************** Modified chem parameter \"" << parameters[i] << "\": " << *p[i] << std::endl;
       }
       for (int j=0; j<dependent_parameters[i].size(); ++j) {
-	dependent_parameters[i][j].Value() = values[i];
+	dependent_parameters[i][j]->Value() = values[i];
 	if (ParallelDescriptor::IOProcessor()) {
-	  std::cout << "                     dependent parameter: " << dependent_parameters[i][j] << std::endl;
+	  std::cout << "                     dependent parameter: " << *dependent_parameters[i][j] << std::endl;
 	}
       }
     }
@@ -556,14 +557,14 @@ extern "C" {
   void CD_MWT(Real* mwt)
   {
     if (!initialized) {
-      BoxLib::Abort("Must construct the ChemDriver prior to calling CD_MWT");
+      amrex::Abort("Must construct the ChemDriver prior to calling CD_MWT");
     }
     FORT_GETCKMWT(mwt);
   }
   void CD_XTY_PT(const Real* X, Real* Y)
   {
     if (!initialized) {
-      BoxLib::Abort("Must construct the ChemDriver prior to calling CD_XTY_PT");
+      amrex::Abort("Must construct the ChemDriver prior to calling CD_XTY_PT");
     }
     static Array<int> idx(BL_SPACEDIM,0);
     static int* p = idx.dataPtr();
@@ -573,7 +574,7 @@ extern "C" {
   void CD_YTX_PT(const Real* Y, Real* X)
   {
     if (!initialized) {
-      BoxLib::Abort("Must construct the ChemDriver prior to calling CD_YTX_PT");
+      amrex::Abort("Must construct the ChemDriver prior to calling CD_YTX_PT");
     }
     static Array<int> idx(BL_SPACEDIM,0);
     static int* p = idx.dataPtr();

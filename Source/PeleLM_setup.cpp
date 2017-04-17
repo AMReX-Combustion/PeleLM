@@ -23,7 +23,6 @@
 //
 // see variableSetUp on how to use or not use these types in the state
 //
-#include <winstd.H>
 
 #include <algorithm>
 #include <cstdio>
@@ -31,15 +30,17 @@
 
 #include <PeleLM.H>
 #include <RegType.H>
-#include <ParmParse.H>
-#include <ErrorList.H>
+#include <AMReX_ParmParse.H>
+#include <AMReX_ErrorList.H>
 #include <Prob_F.H>
 #include <DERIVE_F.H>
-#include <FArrayBox.H>
+#include <AMReX_FArrayBox.H>
 #include <NAVIERSTOKES_F.H>
 #include <PeleLM_F.H>
-#include <Utility.H>
+#include <AMReX_Utility.H>
 #include <NS_error_F.H>
+
+using namespace amrex;
 
 #define DEF_LIMITS(fab,fabdat,fablo,fabhi)      \
   const int* fablo = (fab).loVect();            \
@@ -51,8 +52,8 @@
   const Real* fabdat = (fab).dataPtr();
 
 static Box the_same_box (const Box& b)    { return b;                 }
-static Box grow_box_by_one (const Box& b) { return BoxLib::grow(b,1); }
-static Box the_nodes (const Box& b) { return BoxLib::surroundingNodes(b); }
+static Box grow_box_by_one (const Box& b) { return amrex::grow(b,1); }
+static Box the_nodes (const Box& b) { return amrex::surroundingNodes(b); }
 
 static bool do_group_bndry_fills = false;
 
@@ -674,7 +675,7 @@ PeleLM::variableSetUp ()
   }
 
   if (is_diffusive[Density])
-    BoxLib::Abort("PeleLM::variableSetUp(): density cannot diffuse");
+    amrex::Abort("PeleLM::variableSetUp(): density cannot diffuse");
   //
   // ---- pressure
   //
@@ -928,6 +929,7 @@ class PLMBld
                                 int             lev,
                                 const Geometry& level_geom,
                                 const BoxArray& ba,
+                                const DistributionMapping& dm,
                                 Real            time) override;
 };
 
@@ -962,9 +964,10 @@ PLMBld::operator() (Amr&            papa,
                     int             lev,
                     const Geometry& level_geom,
                     const BoxArray& ba,
+                    const DistributionMapping& dm,
                     Real            time)
 {
-  return new PeleLM(papa, lev, level_geom, ba, time);
+    return new PeleLM(papa, lev, level_geom, ba, dm, time);
 }
 
 #ifdef LMC_SDC
