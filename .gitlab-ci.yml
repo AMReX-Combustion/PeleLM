@@ -1,5 +1,5 @@
 variables:
-    BOXLIB_HOME: ${CI_PROJECT_DIR}/extern/BoxLib
+    AMREX_HOME: ${CI_PROJECT_DIR}/extern/amrex
     IAMR_HOME: ${CI_PROJECT_DIR}/extern/IAMR
     PELE_PHYSICS_HOME: ${CI_PROJECT_DIR}/extern/PelePhysics
     PELELM_HOME: $CI_PROJECT_DIR
@@ -12,10 +12,10 @@ stages:
 # build:rgvm:
 #     stage: build
 #     script: 
-#         - git clone git@code.ornl.gov:Pele/PeleRegressionTesting ${PELEREGTEST_HOME}
-#         - git clone https://github.com/BoxLib-Codes/BoxLib.git ${BOXLIB_HOME}
-#         - git clone git@code.ornl.gov:Pele/IAMR.git ${IAMR_HOME}
-#         - git clone git@code.ornl.gov:Pele/PelePhysics.git ${PELE_PHYSICS_HOME}
+#         - git clone git@code.ornl.gov:Pele/PeleRegressionTesting ${PELEREGTEST_HOME} --branch development
+#         - git clone git@code.ornl.gov:Pele/amrex.git ${AMREX_HOME} --branch development
+#         - git clone git@code.ornl.gov:Pele/IAMR.git ${IAMR_HOME} --branch pele
+#         - git clone git@code.ornl.gov:Pele/PelePhysics.git ${PELE_PHYSICS_HOME} --branch development
 #         - cd ${CI_PROJECT_DIR}
 #         - bash ${PELEREGTEST_HOME}/Scripts/prep_tests.sh ${PELEREGTEST_HOME}/Scripts/PeleLM-build-tests-rgvm.ini  tests.ini
 #         - ${BOXLIB_HOME}/Tools/RegressionTesting/regtest.py --no_update All tests.ini
@@ -25,10 +25,10 @@ stages:
 build:godzilla:
     stage: build
     script: 
-        - git clone git@code.ornl.gov:Pele/PeleRegressionTesting ${PELEREGTEST_HOME}
-        - git clone https://github.com/BoxLib-Codes/BoxLib.git ${BOXLIB_HOME}
-        - git clone git@code.ornl.gov:Pele/IAMR.git ${IAMR_HOME}
-        - git clone git@code.ornl.gov:Pele/PelePhysics.git ${PELE_PHYSICS_HOME}
+        - git clone git@code.ornl.gov:Pele/PeleRegressionTesting ${PELEREGTEST_HOME} --branch development
+        - git clone git@code.ornl.gov:Pele/amrex ${AMREX_HOME} --branch development
+        - git clone git@code.ornl.gov:Pele/IAMR.git ${IAMR_HOME} --branch pele
+        - git clone git@code.ornl.gov:Pele/PelePhysics.git ${PELE_PHYSICS_HOME} --branch development
         - cd ${CI_PROJECT_DIR}
         - bash ${PELEREGTEST_HOME}/Scripts/prep_tests.sh ${PELEREGTEST_HOME}/Scripts/PeleLM-build-tests-godzilla.ini  tests.ini
         - ${BOXLIB_HOME}/Tools/RegressionTesting/regtest.py --no_update All tests.ini
@@ -40,10 +40,10 @@ build:godzilla:
 # correctness:rgvm:
 #     stage: correctness
 #     script: 
-#         - git clone git@code.ornl.gov:Pele/PeleRegressionTesting ${PELEREGTEST_HOME}
-#         - git clone https://github.com/BoxLib-Codes/BoxLib.git ${BOXLIB_HOME}
-#         - git clone git@code.ornl.gov:Pele/IAMR.git ${IAMR_HOME}
-#         - git clone git@code.ornl.gov:Pele/PelePhysics.git ${PELE_PHYSICS_HOME}
+#         - git clone git@code.ornl.gov:Pele/PeleRegressionTesting ${PELEREGTEST_HOME} --branch development
+#         - git clone git@code.ornl.gov:Pele/amrex ${AMREX_HOME} --branch development
+#         - git clone git@code.ornl.gov:Pele/IAMR.git ${IAMR_HOME} --branch pele
+#         - git clone git@code.ornl.gov:Pele/PelePhysics.git ${PELE_PHYSICS_HOME} --branch development
 #         - cd ${CI_PROJECT_DIR}
 #         - bash ${PELEREGTEST_HOME}/Scripts/prep_tests.sh ${PELEREGTEST_HOME}/Scripts/PeleLM-build-correct-rgvm.ini  tests.ini
 #         - ${BOXLIB_HOME}/Tools/RegressionTesting/regtest.py --no_update All tests.ini
@@ -53,10 +53,10 @@ build:godzilla:
 correctness:godzilla:
     stage: correctness
     script:
-        - git clone git@code.ornl.gov:Pele/PeleRegressionTesting ${PELEREGTEST_HOME}
-        - git clone https://github.com/BoxLib-Codes/BoxLib.git ${BOXLIB_HOME}
-        - git clone git@code.ornl.gov:Pele/IAMR.git ${IAMR_HOME}
-        - git clone git@code.ornl.gov:Pele/PelePhysics.git ${PELE_PHYSICS_HOME}
+        - git clone git@code.ornl.gov:Pele/PeleRegressionTesting ${PELEREGTEST_HOME} --branch development
+        - git clone git@code.ornl.gov:Pele/amrex ${AMREX_HOME} --branch development
+        - git clone git@code.ornl.gov:Pele/IAMR.git ${IAMR_HOME} --branch pele
+        - git clone git@code.ornl.gov:Pele/PelePhysics.git ${PELE_PHYSICS_HOME} --branch development
         - cd ${CI_PROJECT_DIR}
         - bash ${PELEREGTEST_HOME}/Scripts/prep_tests.sh ${PELEREGTEST_HOME}/Scripts/PeleLM-correct-tests-godzilla.ini  tests.ini
         - ${BOXLIB_HOME}/Tools/RegressionTesting/regtest.py --no_update All tests.ini
