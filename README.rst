@@ -12,10 +12,10 @@ Getting Started
 
 To build `PeleLM` and run a sample 2D flame problem:
 
-1. Set the environment variable, BOXLIB_HOME, and clone a copy of `BoxLib` there ::
+1. Set the environment variable, AMREX_HOME, and clone a copy of `AMReX` there. (this clone should put you in the 'development' branch) ::
 
-    export BOXLIB_HOME=<location for BoxLib>
-    git clone https://github.com/BoxLib-Codes/BoxLib.git ${BOXLIB_HOME}
+    export AMREX_HOME=<location for AMReX>    
+    git clone git@code.ornl.gov:Pele/amrex.git ${AMREX_HOME}
 
 2. Set the environment variable, IAMR_HOME, and clone a copy of `IAMR` there ::
 
@@ -36,8 +36,7 @@ Dependencies
 ------------
 
 `PeleLM` was created as a renamed, `LMC`, the low Mach code from CCSE (``<https://ccse.lbl.gov/index.html>``),
-and is built on the `BoxLib` library and the IAMR code (see above).
-`BoxLib`, the predecessor of AMReX is described at: `<https://ccse.lbl.gov/BoxLib/index.html>`.
+and is built on the `AMReX` library and the IAMR code (see above).
 
 Development model
 -----------------
