@@ -12,10 +12,10 @@ Getting Started
 
 To build `PeleLM` and run a sample 2D flame problem:
 
-1. Set the environment variable, AMREX_HOME, and clone a copy of `AMReX` there. (this clone should put you in the 'development' branch) ::
+1. Set the environment variable, AMREX_HOME, and clone a copy of `AMReX` there ::
 
     export AMREX_HOME=<location for AMReX>    
-    git clone git@code.ornl.gov:Pele/amrex.git ${AMREX_HOME}
+    git clone git@github.com:AMReX-Codes/amrex.git ${AMREX_HOME}
 
 2. Set the environment variable, IAMR_HOME, and clone a copy of `IAMR` there ::
 

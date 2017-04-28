@@ -9,24 +9,11 @@ stages:
     - build
     - correctness
 
-# build:rgvm:
-#     stage: build
-#     script: 
-#         - git clone git@code.ornl.gov:Pele/PeleRegressionTesting ${PELEREGTEST_HOME} --branch development
-#         - git clone git@code.ornl.gov:Pele/amrex.git ${AMREX_HOME} --branch development
-#         - git clone git@code.ornl.gov:Pele/IAMR.git ${IAMR_HOME} --branch pele
-#         - git clone git@code.ornl.gov:Pele/PelePhysics.git ${PELE_PHYSICS_HOME} --branch development
-#         - cd ${CI_PROJECT_DIR}
-#         - bash ${PELEREGTEST_HOME}/Scripts/prep_tests.sh ${PELEREGTEST_HOME}/Scripts/PeleLM-build-tests-rgvm.ini  tests.ini
-#         - ${AMREX_HOME}/Tools/RegressionTesting/regtest.py --no_update All tests.ini
-#     tags:
-#         - rgvm
-
 build:godzilla:
     stage: build
     script: 
         - git clone git@code.ornl.gov:Pele/PeleRegressionTesting ${PELEREGTEST_HOME} --branch development
-        - git clone git@code.ornl.gov:Pele/amrex ${AMREX_HOME} --branch development
+        - git clone git@github.com:AMReX-Codes/amrex.git ${AMREX_HOME}
         - git clone git@code.ornl.gov:Pele/IAMR.git ${IAMR_HOME} --branch pele
         - git clone git@code.ornl.gov:Pele/PelePhysics.git ${PELE_PHYSICS_HOME} --branch development
         - cd ${CI_PROJECT_DIR}
@@ -37,24 +24,11 @@ build:godzilla:
     only:
         - development
 
-# correctness:rgvm:
-#     stage: correctness
-#     script: 
-#         - git clone git@code.ornl.gov:Pele/PeleRegressionTesting ${PELEREGTEST_HOME} --branch development
-#         - git clone git@code.ornl.gov:Pele/amrex ${AMREX_HOME} --branch development
-#         - git clone git@code.ornl.gov:Pele/IAMR.git ${IAMR_HOME} --branch pele
-#         - git clone git@code.ornl.gov:Pele/PelePhysics.git ${PELE_PHYSICS_HOME} --branch development
-#         - cd ${CI_PROJECT_DIR}
-#         - bash ${PELEREGTEST_HOME}/Scripts/prep_tests.sh ${PELEREGTEST_HOME}/Scripts/PeleLM-build-correct-rgvm.ini  tests.ini
-#         - ${AMREX_HOME}/Tools/RegressionTesting/regtest.py --no_update All tests.ini
-#     tags:
-#         - rgvm
-
 correctness:godzilla:
     stage: correctness
     script:
         - git clone git@code.ornl.gov:Pele/PeleRegressionTesting ${PELEREGTEST_HOME} --branch development
-        - git clone git@code.ornl.gov:Pele/amrex ${AMREX_HOME} --branch development
+        - git clone git@github.com:AMReX-Codes/amrex.git ${AMREX_HOME}
         - git clone git@code.ornl.gov:Pele/IAMR.git ${IAMR_HOME} --branch pele
         - git clone git@code.ornl.gov:Pele/PelePhysics.git ${PELE_PHYSICS_HOME} --branch development
         - cd ${CI_PROJECT_DIR}
