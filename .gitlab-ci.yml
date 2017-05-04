@@ -14,7 +14,7 @@ build:godzilla:
     script: 
         - git clone git@code.ornl.gov:Pele/PeleRegressionTesting ${PELEREGTEST_HOME} --branch development
         - git clone git@github.com:AMReX-Codes/amrex.git ${AMREX_HOME}
-        - git clone git@code.ornl.gov:Pele/IAMR.git ${IAMR_HOME} --branch pele
+        - git clone git@github.com:AMReX-Codes/IAMR.git
         - git clone git@code.ornl.gov:Pele/PelePhysics.git ${PELE_PHYSICS_HOME} --branch development
         - cd ${CI_PROJECT_DIR}
         - bash ${PELEREGTEST_HOME}/Scripts/prep_tests.sh ${PELEREGTEST_HOME}/Scripts/PeleLM-build-tests-godzilla.ini  tests.ini
@@ -29,7 +29,7 @@ correctness:godzilla:
     script:
         - git clone git@code.ornl.gov:Pele/PeleRegressionTesting ${PELEREGTEST_HOME} --branch development
         - git clone git@github.com:AMReX-Codes/amrex.git ${AMREX_HOME}
-        - git clone git@code.ornl.gov:Pele/IAMR.git ${IAMR_HOME} --branch pele
+        - git clone git@github.com:AMReX-Codes/IAMR.git
         - git clone git@code.ornl.gov:Pele/PelePhysics.git ${PELE_PHYSICS_HOME} --branch development
         - cd ${CI_PROJECT_DIR}
         - bash ${PELEREGTEST_HOME}/Scripts/prep_tests.sh ${PELEREGTEST_HOME}/Scripts/PeleLM-correct-tests-godzilla.ini  tests.ini
