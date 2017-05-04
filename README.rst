@@ -20,7 +20,7 @@ To build `PeleLM` and run a sample 2D flame problem:
 2. Set the environment variable, IAMR_HOME, and clone a copy of `IAMR` there ::
 
     export IAMR_HOME=<location for IAMR>
-    git clone git@code.ornl.gov:Pele/IAMR.git ${IAMR_HOME}
+    git clone git@github.com:AMReX-Codes/IAMR.git ${IAMR_HOME}
 
 3. Set the environment variable, PELELM_HOME, and clone a copy of `PeleLM` there ::
 
