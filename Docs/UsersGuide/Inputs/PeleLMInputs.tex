@@ -2,10 +2,10 @@ The \castro\ executable uses two inputs files at runtime to set and alter the
 behavior of the algorithm and initial conditions.
 
 The main inputs file, typically named {\tt inputs} is used to
-set \boxlib\ parameters and the control flow in the C++ portions of
+set \amrex\ parameters and the control flow in the C++ portions of
 the \castro\ code.  Each parameter here has a namespace (like {\tt
 amr.{\em optionname}} or {\tt castro.{\em optionname}}).  Parameters
-set here are read using the \boxlib\ {\tt ParmParse} class
+set here are read using the \amrex\ {\tt ParmParse} class
 infrastructure.
 
 The second inputs file, typically named {\tt probin} is used by the
@@ -46,7 +46,7 @@ Additionally, note that in \castro, all quantities are in CGS units.
 
 \subsection{Problem Geometry}
 
-The {\tt geometry.} namespace is used by \boxlib\ to define the
+The {\tt geometry.} namespace is used by \amrex\ to define the
 computational domain.  The main parameters here are:
 \begin{itemize}
 \item {\tt geometry.prob\_lo}: physical location of low corner of the
@@ -94,7 +94,7 @@ upper right corners.
 \subsection{Domain Boundary Conditions}
 
 Boundary conditions are specified using integer keys that are interpreted
-by \boxlib.  The runtime parameters that we use are:
+by \amrex.  The runtime parameters that we use are:
 \begin{itemize}
 \item {\tt castro.lo\_bc}: boundary type of each low face  (must be set)
 \item {\tt castro.hi\_bc}: boundary type of each high face (must be set)

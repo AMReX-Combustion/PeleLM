@@ -102,7 +102,7 @@
 \renewcommand{\sectionmark}[1]{\markright{\thesection---#1}}
 
 \graphicspath{{Parallel/}{Visualization/}}
-%\graphicspath{{LMCVerification/}{ConvertCheckpoint/}{Parallel/}{Scaling/}{Visualization/}}
+%\graphicspath{{PeleLMVerification/}{ConvertCheckpoint/}{Parallel/}{Scaling/}{Visualization/}}
 
 % skip a bit of space between paragraphs, to enhance readability
 \usepackage{parskip}
@@ -206,11 +206,11 @@
 \newcommand{\nablab}{\boldsymbol{\nabla}}
 
 % codes
-\newcommand{\lmc}{{\sf LMC}}
+\newcommand{\pelelm}{{\sf PeleLM}}
 \newcommand{\iamr}{{\sf IAMR}}
 \newcommand{\castro}{{\sf Castro}}
 \newcommand{\maestro}{{\sf Maestro}}
-\newcommand{\boxlib}{{\sf BoxLib}}
+\newcommand{\amrex}{{\sf AMReX}}
 \newcommand{\combustion}{{\sf Combustion}}
 \newcommand{\yt}{{\sf yt}}
 \newcommand{\amrvis}{{\sf Amrvis}}
@@ -239,7 +239,7 @@
 \begin{titlepage}
 \begin{center}
 \ \\[3in]
-{\sf \Huge LMC}
+{\sf \Huge PeleLM}
 
 \begin{minipage}{5.5in}
 \HRule\\[2mm]
@@ -286,38 +286,38 @@
 \chaptermark{Preface}
 \addcontentsline{toc}{chapter}{preface}
 
-\input Preface/LMCPreface
+\input Preface/PeleLMPreface
 
 %-----------------------------------------------------------------------------
-\part{Overview of the \lmc\ Algorithm}
+\part{Overview of the \pelelm\ Algorithm}
 
 \chapter{Introduction}
-\input Introduction/LMCIntroduction
+\input Introduction/PeleLMIntroduction
 
 \chapter{Equation Set}
-\input Equations/LMCEquations
+\input Equations/PeleLMEquations
 
 %-----------------------------------------------------------------------------
-\part{Using \lmc}
+\part{Using \pelelm}
 
 \chapter{Getting Started}
-\input GettingStarted/LMCGettingStarted
+\input GettingStarted/PeleLMGettingStarted
 
 %\chapter{Inputs Files}
-%\input Inputs/LMCInputs.tex
+%\input Inputs/PeleLMInputs.tex
 
 \chapter{Units and Constants}
-\input UnitsAndConstants/LMCUnits.tex
+\input UnitsAndConstants/PeleLMUnits.tex
 
 \chapter{Software Framework}
-\input Software/LMCSoftware.tex
+\input Software/PeleLMSoftware.tex
 \input Parallel/Parallel.tex
 
 \chapter{AMR}
 \input AMR/AMR.tex
 
 \chapter{Visualization}
-\input Visualization/LMCVisualization.tex
+\input Visualization/PeleLMVisualization.tex
 
 \chapter{Managing Jobs}\label{Chap:Managing}
 \input ManagingJobs/managingjobs.tex

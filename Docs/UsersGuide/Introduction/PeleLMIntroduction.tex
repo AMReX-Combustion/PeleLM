@@ -1,10 +1,10 @@
-\section{History of \lmc}
+\section{History of \pelelm}
 
-\lmc\ describes the evolution of chemically reacting low Mach number flows.
+\pelelm\ describes the evolution of chemically reacting low Mach number flows.
 
-TODO...discuss relationship between \boxlib\, \iamr\ and \lmc.
+TODO...discuss relationship between \amrex\, \iamr\ and \pelelm.
 
-The core algorithms in \lmc\ are described in a series of papers:
+The core algorithms in \pelelm\ are described in a series of papers:
 \begin{itemize}
 \item {\it Numerical Simulation of Laminar Reacting Flows with Complex Chemistry}, M.~S.~Day and J.~B.~Bell,
   Combust. Theory Modelling 4(4) pp.535-556, 2000.
@@ -217,10 +217,10 @@ sure that they satisfy the divergence constraint.  These advective
 velocities are used to construct the fluxes through the interfaces to
 advance the solution to the new time.  The second/final projection
 operates on the cell-centered velocities at the new time, again
-enforcing the divergence constraint.  The \lmc\ algorithm performs
+enforcing the divergence constraint.  The \pelelm\ algorithm performs
 both of these projections.
 
-The \lmc\ algorithm builds upon these ideas, using a different
+The \pelelm\ algorithm builds upon these ideas, using a different
 velocity constraint equation that captures the compressibility
 due to local sources and large-scale stratification.
 

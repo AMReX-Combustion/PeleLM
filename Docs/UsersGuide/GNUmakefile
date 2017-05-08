@@ -1,35 +1,36 @@
 EPStoPDF = epstopdf
 
-ALL: LMCUserGuide.pdf 
+ALL: PeleLMUserGuide.pdf 
 
 eps_source = $(wildcard *.eps) $(wildcard */*.eps)
 
 pdf_source = $(eps_source:.eps=.pdf)
 
-section_sources = Introduction/LMCIntroduction.tex \
-                  GettingStarted/LMCGettingStarted.tex \
-	          Inputs/LMCInputs.tex \
-	          Equations/LMCEquations.tex \
-                  UnitsAndConstants/LMCUnits.tex \
+section_sources = Introduction/PeleLMIntroduction.tex \
+                  GettingStarted/PeleLMGettingStarted.tex \
+	          Inputs/PeleLMInputs.tex \
+	          Equations/PeleLMEquations.tex \
+                  UnitsAndConstants/PeleLMUnits.tex \
                   AMR/AMR.tex \
-                  Visualization/LMCVisualization.tex \
-                  Software/LMCSoftware.tex \
+                  Visualization/PeleLMVisualization.tex \
+                  Software/PeleLMSoftware.tex \
                   Parallel/Parallel.tex \
-                  Suggestions/Suggestions.tex
+                  Suggestions/Suggestions.tex \
+                  Preface/PeleLMPreface.tex 
 
-LMCUserGuide.dvi: LMCUserGuide.tex $(eps_source) $(section_sources) $(eps_source)
-	latex LMCUserGuide.tex < /dev/null
-	bibtex LMCUserGuide
-	latex LMCUserGuide.tex < /dev/null
-	latex LMCUserGuide.tex < /dev/null
+PeleLMUserGuide.dvi: PeleLMUserGuide.tex $(eps_source) $(section_sources) $(eps_source)
+	latex PeleLMUserGuide.tex < /dev/null
+	bibtex PeleLMUserGuide
+	latex PeleLMUserGuide.tex < /dev/null
+	latex PeleLMUserGuide.tex < /dev/null
 
-LMCUserGuide.pdf: LMCUserGuide.tex $(pdf_source) $(section_sources) $(pdf_source)
-	pdflatex LMCUserGuide.tex < /dev/null
-	bibtex LMCUserGuide
-	pdflatex LMCUserGuide.tex < /dev/null
-	pdflatex LMCUserGuide.tex < /dev/null
+PeleLMUserGuide.pdf: PeleLMUserGuide.tex $(pdf_source) $(section_sources) $(pdf_source)
+	pdflatex PeleLMUserGuide.tex < /dev/null
+	bibtex PeleLMUserGuide
+	pdflatex PeleLMUserGuide.tex < /dev/null
+	pdflatex PeleLMUserGuide.tex < /dev/null
 
-pdf:	LMCUserGuide.pdf 
+pdf:	PeleLMUserGuide.pdf 
 
 %.ps: %.dvi
 	dvips -t letter -o $@ $<
@@ -38,10 +39,10 @@ pdf:	LMCUserGuide.pdf
 	$(EPStoPDF) $<
 
 clean:
-	$(RM) $(pdf_source) LMCUserGuide.dvi
-	$(RM) LMCUserGuide.blg LMCUserGuide.log LMCUserGuide.toc
-	$(RM) LMCUserGuide.aux LMCUserGuide.ps LMCUserGuide.bbl LMCUserGuide.pdf
-	$(RM) LMCUserGuide.lot LMCUserGuide.lof LMCUsetGuide.out
+	$(RM) $(pdf_source) PeleLMUserGuide.dvi
+	$(RM) PeleLMUserGuide.blg PeleLMUserGuide.log PeleLMUserGuide.toc
+	$(RM) PeleLMUserGuide.aux PeleLMUserGuide.ps PeleLMUserGuide.bbl PeleLMUserGuide.pdf
+	$(RM) PeleLMUserGuide.lot PeleLMUserGuide.lof PeleLMUserGuide.out
 	$(RM) *~
 
 .PHONY: clean
