@@ -2,14 +2,13 @@
 
 The code structure in the {\tt PeleLM/} directory is as follows:
 \begin{itemize}
-\item {\tt bin/}: various problem implementations, including:
+\item {\tt Exec/}: various problem implementations, including:
   \begin{itemize}
   \item {\tt FlameInABox/}: run directory for the flame-in-a-box
+  \item {\tt DiffFlamex/}: run directory for the diffusion flame
   \end{itemize}
 
-\item {\tt src/}: source code
-
-\item {\tt src\_sdc/}: alternative source code, conditionally compiled if {\tt USE\_PeleLM\_SDC=TRUE}
+\item {\tt Source/}: source code
 
 \item {\tt doc/}: documentation, including:
 \begin{itemize}
@@ -26,7 +25,7 @@ The code structure in the {\tt PeleLM/} directory is as follows:
 high-level classes for managing an adaptive mesh refinement simulation,
 including the core data structures required in AMR calculations.
 
-The \pelelm\ simulation begins in {\tt main.cpp} where an instance
+The \pelelm\ simulation begins in {\tt IAMR/Source/main.cpp} where an instance
 of the \amrex\ {\tt Amr} class is created:
 \begin{lstlisting}
   Amr* amrptr = new Amr;
@@ -76,15 +75,15 @@ will include information about data centering, required grow cells, and
 instructions for transferring data between AMR levels during various synchronization
 operations.
 
-In {\tt HeatTransfer.H}, the {\tt enum} {\tt StateType} defines the
+In {\tt IAMR/Source/NavieStokesBase.H}, the {\tt enum} {\tt StateType} defines the
 different state descriptors for \pelelm.  These are setup during the
-run by code in {\tt HT\_setup.cpp}, and include:
+run by code in {\tt PeleLM\_setup.cpp}, and include (but are not limited to):
 \begin{itemize}
 \item {\tt State\_Type}: the cell-centered thermodynamic state variables.
 
 \item {\tt Press\_Type}: the node-centered dynamic pressure field.
 
-\item {\tt Ydot\_Type}: the mass production rates for the chemical species.  
+\item {\tt RhoYdot\_Type}: the mass production rates for the chemical species.  
   
 \end{itemize}
 
@@ -96,13 +95,14 @@ MultiFab& S_new = get_new_data(State_Type);
 \end{lstlisting}
 gets a pointer to the multifab containing the hydrodynamics state data
 at the new time (here {\tt State\_Type} is the {\tt enum} defined in 
-{\tt HeatTransfer.H}).
+{\tt NavierStokesBase.H}) (note that the classes {\tt NavierStokes} 
+and {\tt PeleLM} are derived classes of {\tt NavierStokesBase}).
 
 {\tt MultiFab} data is distributed in space at the granularity of 
 each {\tt Box} in its {\tt BoxArray}.  We iterate over {\it MultiFab}s using a special
 iterator, {\tt MFIter}, which knows about the locality of the data---only the boxes owned by the
 processor will be included in the loop on each processor.  An example loop (for the
-initialization, taken from code in {\tt HT\_setup.cpp}):
+initialization, taken from code in {\tt PeleLM.cpp}):
 \begin{lstlisting}
 for (MFIter mfi(S_new); mfi.isValid(); ++mfi)
   {
