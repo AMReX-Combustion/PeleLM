@@ -7,12 +7,12 @@ PELELM_HOME ?= ${TOP}/PeleLM
 # Build configuration
 #
 
-PRECISION       = DOUBLE
-DEBUG           = TRUE
-DEBUG           = FALSE
 DIM             = 2
+COMP            = gnu
+DEBUG           = FALSE
 USE_MPI         = TRUE
 USE_OMP         = FALSE
+PRECISION       = DOUBLE
 VERBOSE         = FALSE
 
 # Enable flctin namelist
