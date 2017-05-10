@@ -16,7 +16,8 @@ section_sources = Introduction/PeleLMIntroduction.tex \
                   Software/PeleLMSoftware.tex \
                   Parallel/Parallel.tex \
                   Suggestions/Suggestions.tex \
-                  Preface/PeleLMPreface.tex 
+                  Preface/PeleLMPreface.tex \
+                  refs.bib
 
 PeleLMUserGuide.dvi: PeleLMUserGuide.tex $(eps_source) $(section_sources) $(eps_source)
 	latex PeleLMUserGuide.tex < /dev/null
