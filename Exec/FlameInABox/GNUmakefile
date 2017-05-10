@@ -18,8 +18,6 @@ VERBOSE         = FALSE
 # Enable flctin namelist
 #USE_FLCTS       = TRUE
 
-USE_LMC_SDC = TRUE
-
 #USE_PARTICLES   = TRUE
 
 # Enable ht.velocity_plotfile option

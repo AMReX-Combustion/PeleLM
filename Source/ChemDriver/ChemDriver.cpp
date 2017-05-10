@@ -728,36 +728,6 @@ ChemDriver::heatRelease(FArrayBox&       Q,
 }
 
 void
-ChemDriver::reactionRateY(FArrayBox&       Ydot,
-                             const FArrayBox& Y,
-                             const FArrayBox& T,
-                             Real             Patm,
-                             const Box&       box,
-                             int              sCompY,
-                             int              sCompT,
-                             int              sCompYdot) const
-{
-    const int Nspec = numSpecies();
-    BL_ASSERT(Ydot.nComp() >= sCompYdot + Nspec);
-    BL_ASSERT(Y.nComp() >= sCompY + Nspec);
-    BL_ASSERT(T.nComp() > sCompT);
-
-    const Box& mabx = Y.box();
-    const Box& mbbx = T.box();
-    const Box& mobx = Ydot.box();
-    
-    const Box& ovlp = box & mabx & mbbx & mobx;
-    if( ! ovlp.ok() ) return;
-    
-    FORT_RRATEY(ovlp.loVect(), ovlp.hiVect(),
-                Y.dataPtr(sCompY),       ARLIM(mabx.loVect()), ARLIM(mabx.hiVect()),
-                T.dataPtr(sCompT),       ARLIM(mbbx.loVect()), ARLIM(mbbx.hiVect()),
-                Ydot.dataPtr(sCompYdot), ARLIM(mobx.loVect()), ARLIM(mobx.hiVect()),
-                &Patm);
-}
-
-#ifdef LMC_SDC
-void
 ChemDriver::reactionRateRhoY(FArrayBox&       RhoYdot,
                              const FArrayBox& RhoY,
                              const FArrayBox& RhoH,
@@ -788,7 +758,6 @@ ChemDriver::reactionRateRhoY(FArrayBox&       RhoYdot,
                    T.dataPtr(sCompT),             ARLIM(mcbx.loVect()), ARLIM(mcbx.hiVect()),
                    RhoYdot.dataPtr(sCompRhoYdot), ARLIM(mobx.loVect()), ARLIM(mobx.hiVect()) );
 }
-#endif
 
 void
 ChemDriver::massFracToMoleFrac(FArrayBox&       X,
@@ -940,43 +909,6 @@ ChemDriver::decodeStringFromFortran(const int* coded,
 using std::cout;
 using std::endl;
 bool
-ChemDriver::solveTransient(FArrayBox&        Ynew,
-                           FArrayBox&        Tnew,
-                           const FArrayBox&  Yold,
-                           const FArrayBox&  Told,
-                           FArrayBox&        FuncCount,
-                           const Box&        box,
-                           int               sCompY,
-                           int               sCompT,
-                           Real              dt,
-                           Real              Patm,
-                           FArrayBox*        chemDiag,
-                           bool              use_stiff_solver) const
-{
-    BL_ASSERT(sCompY+numSpecies() <= Ynew.nComp());
-    BL_ASSERT(sCompY+numSpecies() <= Yold.nComp());
-    BL_ASSERT(sCompT < Tnew.nComp());
-    BL_ASSERT(sCompT < Told.nComp());
-    
-    BL_ASSERT(Ynew.box().contains(box) && Yold.box().contains(box));
-    BL_ASSERT(Tnew.box().contains(box) && Told.box().contains(box));
-
-    const int do_diag  = (chemDiag!=0);
-    Real*     diagData = do_diag ? chemDiag->dataPtr() : 0;
-    const int do_stiff = (use_stiff_solver);
-    int success = FORT_CONPSOLV(box.loVect(), box.hiVect(),
-				Ynew.dataPtr(sCompY), ARLIM(Ynew.loVect()), ARLIM(Ynew.hiVect()),
-				Tnew.dataPtr(sCompT), ARLIM(Tnew.loVect()), ARLIM(Tnew.hiVect()),
-				Yold.dataPtr(sCompY), ARLIM(Yold.loVect()), ARLIM(Yold.hiVect()),
-				Told.dataPtr(sCompT), ARLIM(Told.loVect()), ARLIM(Told.hiVect()),
-				FuncCount.dataPtr(),
-				ARLIM(FuncCount.loVect()), ARLIM(FuncCount.hiVect()),
-				&Patm, &dt, diagData, &do_diag, &do_stiff);
-    return success > 0;
-}
-
-#ifdef LMC_SDC
-bool
 ChemDriver::solveTransient_sdc(FArrayBox&        rhoYnew,
 			       FArrayBox&        rhoHnew,
 			       FArrayBox&        Tnew,
@@ -1020,7 +952,6 @@ ChemDriver::solveTransient_sdc(FArrayBox&        rhoYnew,
 				    &dt, diagData, &do_diag, &do_stiff);
     return success > 0;
 }
-#endif
 
 void
 ChemDriver::getMixAveragedRhoDiff(FArrayBox&       rhoD,
