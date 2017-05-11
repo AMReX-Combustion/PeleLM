@@ -1257,7 +1257,6 @@ C
       call bl_abort("conpJY: SHOULD NOT BE HERE!")
       END
 
-#ifdef LMC_SDC
       subroutine conpFY_sdc(N, TIME, Z, ZP, RPAR, IPAR)
 C
 C     Variables in Z are:  Z(1:K) = rhoY(K) [MKS]
@@ -1302,7 +1301,6 @@ C                          Z(K+1) = RhoH
          ZP(k) = WDOT_CGS(k) * RPAR(NWT+k-1) * THFAC + c_0(k)
       end do
       END
-#endif
 
       integer function TfromeYpt(T,ein,Y,errMax,NiterMAX,res)
       implicit none

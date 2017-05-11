@@ -82,11 +82,7 @@ c
 
 c=========================================================
 
-#ifdef LMC_SDC
       subroutine FORT_DERSUMRHOYDOT
-#else
-      subroutine FORT_DERSUMYDOT
-#endif
      &                        (e,DIMS(e),nv,dat,DIMS(dat),ncomp,
      &                         lo,hi,domlo,domhi,delta,xlo,time,dt,bc,
      &                         level,grid_no)

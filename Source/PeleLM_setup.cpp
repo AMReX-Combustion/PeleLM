@@ -734,11 +734,7 @@ PeleLM::variableSetUp ()
   FuncCount_Type = desc_lst.size();
   desc_lst.addDescriptor(FuncCount_Type, IndexType::TheCellType(),StateDescriptor::Point,0, 1, &cell_cons_interp);
   desc_lst.setComponent(FuncCount_Type, 0, "FuncCount", bc, BndryFunc(FORT_DQRADFILL));
-#ifdef LMC_SDC
   rhoydotSetUp();
-#else
-  ydotSetUp();
-#endif
   //
   // rho_temp
   //
@@ -799,21 +795,13 @@ PeleLM::variableSetUp ()
     }
   }
   //
-  // Sum Ydot (or rhoYdot).
+  // Sum rhoYdot
   //
-#ifdef LMC_SDC
   derive_lst.add("sumRhoYdot",IndexType::TheCellType(),1,FORT_DERSUMRHOYDOT,the_same_box);
   for (i = 0; i < nspecies; i++)
   {
     derive_lst.addComponent("sumRhoYdot",desc_lst,RhoYdot_Type,i,1);
   }
-#else
-  derive_lst.add("sumYdot",IndexType::TheCellType(),1,FORT_DERSUMYDOT,the_same_box);
-  for (i = 0; i < nspecies; i++)
-  {
-    derive_lst.addComponent("sumYdot",desc_lst,Ydot_Type,i,1);
-  }
-#endif
   //
   // **************  DEFINE DERIVED QUANTITIES ********************
   //
@@ -970,7 +958,6 @@ PLMBld::operator() (Amr&            papa,
     return new PeleLM(papa, lev, level_geom, ba, dm, time);
 }
 
-#ifdef LMC_SDC
 static
 int
 rhoydot_bc[] =
@@ -1020,54 +1007,4 @@ PeleLM::rhoydotSetUp()
   }
 }
 
-#else
-static
-int
-ydot_bc[] =
-{
-  INT_DIR, EXT_DIR, FOEXTRAP, REFLECT_EVEN, REFLECT_EVEN, REFLECT_EVEN
-};
-
-static
-void
-set_ydot_bc (BCRec&       bc,
-             const BCRec& phys_bc)
-{
-  const int* lo_bc = phys_bc.lo();
-  const int* hi_bc = phys_bc.hi();
-
-  for (int i = 0; i < BL_SPACEDIM; i++)
-  {
-    bc.setLo(i,ydot_bc[lo_bc[i]]);
-    bc.setHi(i,ydot_bc[hi_bc[i]]);
-  }
-}
-
-void
-PeleLM::ydotSetUp()
-{
-  Ydot_Type       = desc_lst.size();
-  const int ngrow = 1;
-  const int nydot = getChemSolve().numSpecies();
-
-  if (ParallelDescriptor::IOProcessor())
-    std::cout << "Ydot_Type, nydot = " << Ydot_Type << ' ' << nydot << '\n';
-
-  desc_lst.addDescriptor(Ydot_Type,IndexType::TheCellType(),
-                         StateDescriptor::Point,ngrow,nydot,
-                         &lincc_interp);
-	
-  //const StateDescriptor& d_cell = desc_lst[State_Type];
-  const Array<std::string>& names   = getChemSolve().speciesNames();
-
-  BCRec bc;	
-  set_ydot_bc(bc,phys_bc);
-  for (int i = 0; i < nydot; i++)
-  {
-    const std::string name = "d[Y("+names[i]+")]/dt";
-    desc_lst.setComponent(Ydot_Type, i, name.c_str(), bc,
-                          BndryFunc(FORT_YDOTFILL), &lincc_interp, 0, nydot-1);
-  }
-}
-#endif
 

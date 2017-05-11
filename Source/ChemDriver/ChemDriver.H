@@ -61,20 +61,6 @@ public:
     static void SetTransport(const ChemDriver::TRANSPORT& tran_in);
     static ChemDriver::TRANSPORT Transport ();
 
-    bool solveTransient (amrex::FArrayBox&        Ynew,
-                         amrex::FArrayBox&        Tnew,
-                         const amrex::FArrayBox&  Yold,
-                         const amrex::FArrayBox&  Told,
-                         amrex::FArrayBox&        FuncCount,
-                         const amrex::Box&        box,
-                         int               sCompY,
-                         int               sCompT,
-                         amrex::Real              dt,
-                         amrex::Real              Patm,
-                         amrex::FArrayBox*        chemDiag=0,
-                         bool              use_stiff_solver = true) const;
-
-#ifdef LMC_SDC
     bool solveTransient_sdc(amrex::FArrayBox&        rhoYnew,
                             amrex::FArrayBox&        rhoHnew,
                             amrex::FArrayBox&        Tnew,
@@ -90,7 +76,6 @@ public:
                             amrex::Real              dt,
                             amrex::FArrayBox*        chemDiag,
                             bool              use_stiff_solver = true) const;
-#endif
 
     void set_verbose_vode ();
     void set_max_vode_subcycles (int max_cyc);
@@ -242,19 +227,7 @@ public:
                       int              sCompY,
                       int              sCompT,
                       int              sCompQ) const;
-    //
-    // Compute dY/dt based on the input temp, press and mass fractions.
-    //
-    void reactionRateY (amrex::FArrayBox&       Ydot,
-                        const amrex::FArrayBox& Y,
-                        const amrex::FArrayBox& T,
-                        amrex::Real             Patm,
-                        const amrex::Box&       box,
-                        int              sCompY,
-                        int              sCompT,
-                        int              sCompYdot) const;
 
-#ifdef LMC_SDC
     //
     // Compute dRhoY/dt based on the input temp, press and mass densities.
     //
@@ -267,7 +240,6 @@ public:
                           int              sCompRhoH,
                           int              sCompT,
                           int              sCompRhoYdot) const;
-#endif
 
     void fwdRevReacRatesGivenXTP (amrex::FArrayBox&        FwdK,
                                   amrex::FArrayBox&        RevK,

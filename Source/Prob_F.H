@@ -10,11 +10,7 @@
 #    define FORT_FLAMETRACERROR         fterror
 #    define FORT_DERNULL                dernull
 #    define FORT_DERRHOMINUSSUMRHOY     drhomry
-#ifdef LMC_SDC
 #    define FORT_DERSUMRHOYDOT          dsrhoydot
-#else
-#    define FORT_DERSUMYDOT             dsydot
-#endif
 #    define FORT_RHOHFILL               rhohfill
 #    define FORT_VELFILL                velfill
 #    define FORT_CHEMFILL               chemfill
@@ -37,11 +33,7 @@
 #    define FORT_FLAMETRACERROR         FTERROR
 #    define FORT_DERNULL                DERNULL
 #    define FORT_DERRHOMINUSSUMRHOY     DRHOMRY
-#ifdef LMC_SDC
 #    define FORT_DERSUMRHOYDOT          DSRHOYDOT
-#else
-#    define FORT_DERSUMYDOT             DSYDOT
-#endif
 #    define FORT_RHOHFILL               RHOHFILL
 #    define FORT_VELFILL                VELFILL
 #    define FORT_CHEMFILL               CHEMFILL
@@ -63,11 +55,7 @@
 #    define FORT_FLAMETRACERROR         fterror
 #    define FORT_DERNULL                dernull
 #    define FORT_DERRHOMINUSSUMRHOY     drhomry
-#ifdef LMC_SDC
 #    define FORT_DERSUMRHOYDOT          dsrhoydot
-#else
-#    define FORT_DERSUMYDOT             dsydot
-#endif
 #    define FORT_RHOHFILL               rhohfill
 #    define FORT_VELFILL                velfill
 #    define FORT_CHEMFILL               chemfill
@@ -88,11 +76,7 @@
 #    define FORT_FLAMETRACERROR         fterror_
 #    define FORT_DERNULL                dernull_
 #    define FORT_DERRHOMINUSSUMRHOY     drhomry_
-#ifdef LMC_SDC
 #    define FORT_DERSUMRHOYDOT          dsrhoydot_
-#else
-#    define FORT_DERSUMYDOT             dsydot_
-#endif
 #    define FORT_RHOHFILL               rhohfill_
 #    define FORT_VELFILL                velfill_
 #    define FORT_CHEMFILL               chemfill_
@@ -168,11 +152,7 @@
 			   const amrex::Real* time,  const amrex::Real* dt, const int* bcrec, 
                            const int* level, const int* grid_no) ;
 
-#ifdef LMC_SDC
      void FORT_DERSUMRHOYDOT
-#else
-     void FORT_DERSUMYDOT
-#endif
                           (amrex::Real* data, ARLIM_P(dat_lo), ARLIM_P(dat_hi),
                            const int* nvar, const amrex::Real* compdat,
 			   ARLIM_P(clo), ARLIM_P(chi), const int* ncomp,

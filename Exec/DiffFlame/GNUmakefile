@@ -16,8 +16,6 @@ VERBOSE         = TRUE
 PROFILE         = FALSE
 COMM_PROFILE    = FALSE
 
-USE_LMC_SDC = TRUE
-
 # Enable flctin namelist
 USE_FLCTS       = TRUE
 
