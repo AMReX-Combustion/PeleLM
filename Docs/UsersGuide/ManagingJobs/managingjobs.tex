@@ -2,17 +2,17 @@
 
 The submission script {\tt jaguar.run} and shell script
 {\tt process.jaguar} in {\tt Exec/job\_scripts/}
-are designed to allow you to run \lmc\ with minimal interaction,
+are designed to allow you to run \pelelm\ with minimal interaction,
 while being assured that the data is archived to HPSS on the NCCS
 machines.
 
 To use the scripts, first create a directory in HPSS that has the same
 name as the directory on lustre you are running in (just the directory
 name, not the full path).  E.g.\ if you are running in a directory
-called {\tt LMC\_run}, then do:
+called {\tt PeleLM\_run}, then do:
 \begin{verbatim}
 hsi
-mkdir LMC_run
+mkdir PeleLM_run
 \end{verbatim}
 
 The script {\tt process.jaguar} is called from {\tt jaguar.run} and
@@ -28,7 +28,7 @@ since you don't want to try archiving the data a second time and
 overwriting the stored copy, especially if a purge took place.
 
 Additionally, if you have the path to the {\tt ftime} executable set in the
-script ({\tt ftime.f90} lives in {\tt BoxLib/Tools/Postprocessing/F\_Src/}), then the
+script ({\tt ftime.f90} lives in {\tt AMReX/Tools/Postprocessing/F\_Src/}), then the
 script will create a file called {\tt ftime.out} that lists the name of the
 plotfile and the corresponding simulation time.
 

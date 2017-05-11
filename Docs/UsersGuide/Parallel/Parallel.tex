@@ -1,15 +1,15 @@
 \section{Parallelization}
 
-\boxlib\ uses a hybrid MPI + OpenMP approach to parallelism.  The
+\amrex\ uses a hybrid MPI + OpenMP approach to parallelism.  The
 basic idea is that MPI is used to distribute individual boxes across
 nodes while OpenMP is used to distribute the work in local boxes to
-the cores within a node.  The OpenMP approach in \boxlib\ is optoinally
+the cores within a node.  The OpenMP approach in \amrex\ is optoinally
 based on {\em tiling} the box-based data structures.  Both the tiling and
 non-tiling approaches to work distribution are discussed below.
 
 
-\subsection{\boxlib's Non-Tiling Approach In C++}
-\label{sec:boxlib0}
+\subsection{\amrex's Non-Tiling Approach In C++}
+\label{sec:amrex0}
 
 At the highest abstraction level, we have {\tt MultiFab} (mulitple
 {\tt FArrayBox}es).  A {\tt MultiFab} contains an array of {\tt
@@ -62,8 +62,8 @@ A few comments about this code
 \end{itemize}
 
 
-\subsection{\boxlib's Current Tiling Approach In C++}
-\label{sec:boxlib1}
+\subsection{\amrex's Current Tiling Approach In C++}
+\label{sec:amrex1}
 
 There are two types of tiling that people discuss.  In {\em logical
 tiling}, the data storage in memory is unchanged from how we do things
@@ -72,9 +72,9 @@ contiguously).  But when we loop in OpenMP over a box, the tiling
 changes how we loop over the data.  The alternative is called {\em
 separate tiling}---here the data storage in memory itself is changed
 to reflect how the tiling will be performed.  This is not considered
-in \boxlib.
+in \amrex.
 
-We have recently introduced logical tiling into parts of \boxlib.  Examples
+We have recently introduced logical tiling into parts of \amrex.  Examples
 that demonstrate the syntax and usage can be found at {\tt
   Tutorials/Tiling\_C}, and {\tt Src/LinearSolvers/C\_CellMG/}.
 In our logical tiling approach, a box is logically split into tiles,
@@ -101,7 +101,7 @@ tiling with the tile size equal to the box size.
     // We can now pass the information to a Fortran routine.
   }
 \end{lstlisting}
-Note that the code is almost identical to the one in \S~\ref{sec:boxlib0}.
+Note that the code is almost identical to the one in \S~\ref{sec:amrex0}.
 Some comments:
 \begin{itemize}
 \item The iterator now takes an extra argument to turn on tiling
@@ -170,7 +170,7 @@ many boxes per MPI task).
 We also note that, independent of whether or not tiling is on, OpenMP
 threading can also be started within the function called inside the
 {\tt MFIter} loop, rather than at the {\tt MFIter} loop level.  This
-was the original way that threading was done in \lmc, but we are in
+was the original way that threading was done in \pelelm, but we are in
 the process of removing this approach in favor of tiling.
 
 The tile size for the three spatial dimensions can be set by a

@@ -5,7 +5,7 @@ discuss the CHEMKIN assumptions, EGLib, etc.
 
 \newcommand{\etal}{{\it et al.}}
 
-\lmc\ solves the reacting navier-Stokes flow equations in the low Mach number regime.
+\pelelm\ solves the reacting navier-Stokes flow equations in the low Mach number regime.
 The methodology treats the
 fluid as a mixture of perfect gases; the corresponding conservation
 equations for an open domain are
@@ -48,8 +48,8 @@ CHEMKIN-compatible databases for thermodynamic quantities.
 Transport properties are computed using EGLIB \cite{EGLIB}.
 
 The basic discretisation combines a spectral deferred corrections (SDC) coupling
-of chemistry and transport \cite{Nonaka2012} with a density-weighted approximate
-projection method for low Mach number flow \cite{DayBell2000}.  The projection method
+of chemistry and transport \cite{LMC_SDC} with a density-weighted approximate
+projection method for low Mach number flow \cite{DayBell:2000}.  The projection method
 implements a constrained evolution on the velocity field via the SDC iterations,
 which ensures that the update simultaneously satisfies the 
 equation of state and discrete conservation of mass and total enthalpy.
