@@ -3,7 +3,7 @@
 \amrex\ uses a hybrid MPI + OpenMP approach to parallelism.  The
 basic idea is that MPI is used to distribute individual boxes across
 nodes while OpenMP is used to distribute the work in local boxes to
-the cores within a node.  The OpenMP approach in \amrex\ is optoinally
+the cores within a node.  The OpenMP approach in \amrex\ is optionally
 based on {\em tiling} the box-based data structures.  Both the tiling and
 non-tiling approaches to work distribution are discussed below.
 
@@ -56,7 +56,7 @@ A few comments about this code
    box.loVect} and {\tt box.hiVect}.
 
 \item Instead of getting the data pointer explicitly (via {\tt fab.dataPtr()}),
-   \castro\ often uses the preprocessor macro {\tt BL\_TO\_FORTRAN(x)} (defined
+   \pelelm\ often uses the preprocessor macro {\tt BL\_TO\_FORTRAN(x)} (defined
    in {\tt ArrayLim.H}) to substitute in the data pointer and the {\tt lo}
    and {\tt hi} indices of the multidimensional Fortran array (including ghost cells).
 \end{itemize}
@@ -110,7 +110,7 @@ that can take an {\tt IntVect} that explicitly gives the tile size
 in each coordinate direction.
 
 If we don't explictly specify the tile size at the loop, then the
-runtime parameter {\tt fabarray.mfiter\_tile\_size} can be used to set it
+runtime parameter {\tt fabarray} {\tt .mfiter\_tile\_size} can be used to set it
 globally.
 
 \item {\tt .validBox()} has the same meaning as in the non-tile approach,

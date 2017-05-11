@@ -99,7 +99,7 @@ at the new time (here {\tt State\_Type} is the {\tt enum} defined in
 and {\tt PeleLM} are derived classes of {\tt NavierStokesBase}).
 
 {\tt MultiFab} data is distributed in space at the granularity of 
-each {\tt Box} in its {\tt BoxArray}.  We iterate over {\it MultiFab}s using a special
+each {\tt Box} in its {\tt BoxArray}.  We iterate over {\tt MultiFab}s using a special
 iterator, {\tt MFIter}, which knows about the locality of the data---only the boxes owned by the
 processor will be included in the loop on each processor.  An example loop (for the
 initialization, taken from code in {\tt PeleLM.cpp}):
@@ -121,20 +121,18 @@ for (MFIter mfi(S_new); mfi.isValid(); ++mfi)
 Here {\tt BL\_TO\_FORTRAN} is a special \amrex\ macro that converts the
 C++ multifab into a Fortran array, and {\tt BL\_FORT\_PROC\_CALL}
 is a AMReX macro that is used to interface with Fortran routines. 
-{\tt ++mfi} iterates to the next FArrayBox owned by the MultiFab, 
+{\tt ++mfi} iterates to the next {\tt FArrayBox} owned by the {\tt MultiFab}, 
 and {\tt mfi.isValid()} returns {\tt false} after we've reached 
-the last box contained in the MultiFab, terminating the loop.
+the last box contained in the {\tt MultiFab}, terminating the loop.
 
 The corresponding Fortran function will look like:
 {\color{red} Need to write the Fortran version here}
+{\color{red} Need to modernize C/F interface description/usages}
 
 
 \subsection{Derived Variables}
 
 \subsection{Error Estimators}
-
-
-\subsection{Gravity class}
 
 
 \subsection{Fortran Helper Modules}
@@ -496,33 +494,33 @@ enormous amount of code and algorithm complexity.
 
 Both checkpoint files and plotfiles are actually folders containing
 subfolders: one subfolder for each level of the AMR hierarchy.
-The fundamental data structure we read/write to disk is a MultiFab,
+The fundamental data structure we read/write to disk is a {\tt MultiFab},
 which is made up of multiple FAB's, one FAB per grid.  Multiple
-MultiFabs may be written to each folder in a checkpoint file.
-MultiFabs of course are shared across CPUs; a single MultiFab may be
+{\tt MultiFab}s may be written to each folder in a checkpoint file.
+{\tt MultiFab}s of course are shared across CPUs; a single {\tt MultiFab} may be
 shared across thousands of CPUs.  Each CPU writes the part of the
-MultiFab that it owns to disk, but they don't each write to their own
-distinct file.  Instead each MultiFab is written to a runtime
+{\tt MultiFab} that it owns to disk, but they don't each write to their own
+distinct file.  Instead each {\tt MultiFab} is written to a runtime
 configurable number of files N (N can be set in the inputs file as the
 parameter {\tt amr.checkpoint\_nfiles} and {\tt amr.plot\_nfiles}; the
-default is 64).  That is to say, each MultiFab is written to disk
+default is 64).  That is to say, each {\tt MultiFab} is written to disk
 across at most N files, plus a small amount of data that gets written
 to a header file describing how the file is laid out in those N files.
 
 What happens is $N$ CPUs each opens a unique one of the $N$ files into
-which the MultiFab is being written, seeks to the end, and writes
+which the {\tt MultiFab} is being written, seeks to the end, and writes
 their data.  The other CPUs are waiting at a barrier for those $N$
 writing CPUs to finish.  This repeats for another $N$ CPUs until all the
-data in the MultiFab is written to disk.  All CPUs then pass some data
-to CPU {\tt 0} which writes a header file describing how the MultiFab is
+data in the {\tt MultiFab} is written to disk.  All CPUs then pass some data
+to CPU {\tt 0} which writes a header file describing how the {\tt MultiFab} is
 laid out on disk.
 
-We also read MultiFabs from disk in a ``chunky'' manner, opening only $N$
-files for reading at a time.  The number $N$, when the MultiFabs were
-written, does not have to match the number $N$ when the MultiFabs are
+We also read {\tt MultiFab}s from disk in a ``chunky'' manner, opening only $N$
+files for reading at a time.  The number $N$, when the {\tt MultiFab}s were
+written, does not have to match the number $N$ when the {\tt MultiFab}s are
 being read from disk.  Nor does the number of CPUs running while
-reading in the MultiFab need to match the number of CPUs running when
-the MultiFab was written to disk.
+reading in the {\tt MultiFab} need to match the number of CPUs running when
+the {\tt MultiFab} was written to disk.
 
 Think of the number $N$ as the number of independent I/O pathways in
 your underlying parallel filesystem.  Of course a ``real'' parallel
