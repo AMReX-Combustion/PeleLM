@@ -3,6 +3,7 @@
 
 #include <string>
 #include <map>
+#include <list>
 
 #include <AMReX_Array.H>
 #include <AMReX_FArrayBox.H>
