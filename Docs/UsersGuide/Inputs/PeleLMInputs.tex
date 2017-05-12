@@ -1,10 +1,10 @@
-The \castro\ executable uses two inputs files at runtime to set and alter the
+The \pelelm\ executable uses two inputs files at runtime to set and alter the
 behavior of the algorithm and initial conditions.
 
 The main inputs file, typically named {\tt inputs} is used to
 set \amrex\ parameters and the control flow in the C++ portions of
-the \castro\ code.  Each parameter here has a namespace (like {\tt
-amr.{\em optionname}} or {\tt castro.{\em optionname}}).  Parameters
+the \pelelm\ code.  Each parameter here has a namespace (like {\tt
+amr.{\em optionname}} or {\tt ns.{\em optionname}}).  Parameters
 set here are read using the \amrex\ {\tt ParmParse} class
 infrastructure.
 
@@ -30,10 +30,12 @@ There are three different Fortran {\tt namelist}s that can be defined in the
 \item {\tt \&fortin} is the main {\tt namelist} read by the problem's {\tt probinit}
 subroutine in the {\tt Prob\_?d.f90} file.
 
-\item {\tt \&extern} is used to set different microphysics options
+\item {\tt \&heattransin} is used to set the ambient pressure and various algorithmic options.
 
-\item {\tt \&tagging} is used to get the parameters (defined in {\tt tagging\_module})
-that affect how we tag for refinement.
+\item {\tt \&flctin} is used to read in turbulence files to set the space and
+time-dependent inflow.
+
+\item {\tt \&control} is used dynamically control the inflow velocity.
 \end{itemize}
 
 \section{Common {\tt inputs} Options}
@@ -42,7 +44,7 @@ that affect how we tag for refinement.
 the code, any quantities you specify in scientific notation, must take the
 form {\tt 1.e5} and not {\tt 1.d5}---the `{\tt d}' specifier is not recognized.
 
-Additionally, note that in \castro, all quantities are in CGS units.
+Additionally, note that in \pelelm, all quantities are in MKS units.
 
 \subsection{Problem Geometry}
 
@@ -67,13 +69,6 @@ domain (type: {\tt Real}; must be set)
 
   Note: an integer is needed for each dimension in the problem
 
-\item {\tt castro.center}: physical location of problem center on the domain 
-(type: {\tt Real}; default: {\tt 0.0 0.0 0.0}).
-The problem center is used for gravity, rotation, and some other quantities.
-Often you should choose it to coincide with the center of mass of your system.
-
-  Note: a number is needed for each dimension in the problem
-
 \end{itemize}
 
 As an example, the following:
@@ -82,7 +77,6 @@ geometry.prob_lo = 0 0 0
 geometry.prob_hi = 1.e8 2.e8 2.e8 
 geometry.coord_sys = 0 
 geometry.is_periodic = 0 1 0 
-castro.center = 5.e7 1.e8 1.e8
 \end{lstlisting}
 defines the domain to run from $(0,0,0)$ at the lower left to
 $(10^8,2\times 10^8,2\times 10^8)$ at the upper right in physical space, specifies a
@@ -96,8 +90,8 @@ upper right corners.
 Boundary conditions are specified using integer keys that are interpreted
 by \amrex.  The runtime parameters that we use are:
 \begin{itemize}
-\item {\tt castro.lo\_bc}: boundary type of each low face  (must be set)
-\item {\tt castro.hi\_bc}: boundary type of each high face (must be set)
+\item {\tt ns.lo\_bc}: boundary type of each low face  (must be set)
+\item {\tt ns.hi\_bc}: boundary type of each high face (must be set)
 \end{itemize}
 
 The valid boundary types are:
@@ -111,14 +105,14 @@ The valid boundary types are:
 \end{center}
 \end{table*}
 
-\noindent Note: {\tt castro.lo\_bc} and {\tt castro.hi\_bc} must be consistent with 
+\noindent Note: {\tt ns.lo\_bc} and {\tt ns.hi\_bc} must be consistent with 
 {\tt geometry.is\_periodic}---if the domain is periodic in a particular
 direction then the low and high bc's must be set to {\tt 0} for that direction.
 
 As an example, the following:
 \begin{lstlisting}
-castro.lo_bc = 1 4 0 
-castro.hi_bc = 2 4 0 
+ns.lo_bc = 1 4 0 
+ns.hi_bc = 2 4 0 
 
 geometry.is_periodic = 0 0 1
 \end{lstlisting}
@@ -258,12 +252,9 @@ at level 0, multiples of 16 at level 1, and multiples of 8 at level 2.
 \subsubsection{Getting good performance}
 
 These parameters can have a large impact on the performance
-of \castro, so taking the time to experiment with is worth the effort.
+of \pelelm, so taking the time to experiment with is worth the effort.
 Having grids that are large enough to coarsen multiple levels in a
-V-cycle is essential for good multigrid performance in simulations
-that use self-gravity.
-
-{\color{red} Need more experience here}
+V-cycle is essential for good multigrid performance.
 
 \subsubsection{How grids are created}
 
@@ -318,42 +309,31 @@ the number of level 0 steps taken equals 1000, whichever comes first.
 
 
 \subsection{Time Step}
-If {\tt castro.do\_hydro = 1}, then typically 
-the code chooses a time step based on the CFL number:
-\begin{equation}
-dt = \mathtt{cfl} \frac{\Delta x}{\max_{i,j,k}\{|u|_{i,j,k}+c_{i,j,k}\}}
-\label{eq:cfl}
-\end{equation}
 
 The following parameters affect the timestep choice:
 \begin{itemize}
-\item {\tt castro.cfl}: CFL number (Real $> 0$ and $\leq 1$; default: 0.8)
+\item {\tt ns.cfl}: CFL number (Real $> 0$ and $\leq 1$; default: 0.8)
 
-\item {\tt castro.init\_shrink}: factor by which to shrink the initial
+\item {\tt ns.init\_shrink}: factor by which to shrink the initial
    time step (Real $> 0$ and $\leq 1$; default: 1.0)
 
-\item {\tt castro.change\_max}: factor by which the time step can grow in
+\item {\tt ns.change\_max}: factor by which the time step can grow in
    subsequent steps (Real $\geq 1$; default: 1.1)
 
-\item {\tt castro.fixed\_dt}: level 0 time step regardless of cfl or other settings
+\item {\tt ns.fixed\_dt}: level 0 time step regardless of cfl or other settings
    (Real $> 0$; unused if not set)
 
-\item {\tt castro.initial\_dt}: initial level 0 time
-   step regardless of other settings (Real $> 0$;  unused if not set)
-
-\item {\tt castro.dt\_cutoff}: time step below which calculation will abort
+\item {\tt ns.dt\_cutoff}: time step below which calculation will abort
    (Real $> 0$; default: 0.0)
 
-\item {\tt castro.hard\_cfl\_limit}: whether or not to abort the simulation if the hydrodynamics
-   update creates velocities that violate the CFL criterion (Integer; default: 1)
 \end{itemize}
 
 As an example, consider:
 \begin{lstlisting}
-castro.cfl = 0.9 
-castro.init_shrink = 0.01 
-castro.change_max = 1.1
-castro.dt_cutoff = 1.e-20
+ns.cfl = 0.9 
+ns.init_shrink = 0.01 
+ns.change_max = 1.1
+ns.dt_cutoff = 1.e-20
 \end{lstlisting}
 This defines the $\mathtt{cfl}$ parameter in Eq.~\ref{eq:cfl} to be 0.9,
 but sets (via {\tt init\_shrink}) the first timestep we take
@@ -370,22 +350,15 @@ before noticing that there is an issue.
 
 If we know what we are doing, then we can force a particular timestep:
 \begin{lstlisting}
-castro.fixed_dt = 1.e-4
+ns.fixed_dt = 1.e-4
 \end{lstlisting}
 sets the level 0 time step to be 1.e-4 for the entire simulation,
 ignoring the other timestep controls.  Note that if {\tt
-castro.init\_shrink} $\neq 1$ then the first time step will in fact be
-{\tt castro.init\_shrink} $\cdot$ {\tt castro.fixed\_dt}.
-\begin{lstlisting}
-castro.initial_dt = 1.e-4
-\end{lstlisting}
-sets the {\it initial} level 0 time step to be $10^{-4}$ regardless of 
-{\tt castro.cfl} or {\tt castro.fixed\_dt}.  The time step can
-grow in subsequent steps by a factor of {\tt castro.change\_max} each step.
-
+ns.init\_shrink} $\neq 1$ then the first time step will in fact be
+{\tt ns.init\_shrink} $\cdot$ {\tt ns.fixed\_dt}.
 
 \subsection{Subcycling}
-Castro supports a number of different modes for subcycling in time.
+Pelelm supports a number of different modes for subcycling in time.
 
 \begin{itemize}
 \item If {\tt amr.subcycling\_mode = Auto} (default), then the code 
@@ -422,7 +395,7 @@ which will subcycle twice at every level (except level 0).
 
 \subsection{Restart Capability}
 
-\castro\ has a standard sort of checkpointing and restarting capability. 
+\pelelm\ has a standard sort of checkpointing and restarting capability. 
 In the inputs file, the following options control the generation of
 checkpoint files (which are really directories):
 \begin{itemize}
@@ -456,9 +429,6 @@ checkpoint files (which are really directories):
 
 \item {\tt amr.checkpoint\_on\_restart}: should we write a checkpoint immediately after restarting?
   (0 or 1; default: 0)
-
-\item {\tt castro.grown\_factor}: factor by which domain has been grown
-  (Integer $\geq 1$; default: 1)
 \end{itemize}
 
 
@@ -505,7 +475,7 @@ amr.restart = chk_run00061
 
 \subsection{Controlling Plotfile Generation}
 \label{sec:PlotFiles}
-The main output from \castro\ is in the form of plotfiles (which are
+The main output from \pelelm\ is in the form of plotfiles (which are
 really directories).  The following options in the inputs file control
 the generation of plotfiles:
 \begin{itemize}
@@ -546,16 +516,11 @@ If you are doing a scaling study then set {\tt amr.plot\_files\_output
 See the Software Section for more details on parallel I/O and the {\tt
   amr.plot\_nfiles} parameter.
 
-\item {\tt castro.plot\_X}: include all the species mass fractions in
-  the plotfile (0 or 1; default: 0)
-
 \end{itemize}
 
 All the options for {\tt amr.derive\_plot\_vars} are kept in
-\texttt{derive\_lst} in {\tt Castro\_setup.cpp}.  Feel free to look at
+\texttt{derive\_lst} in {\tt Pelelm\_setup.cpp}.  Feel free to look at
 it and see what's there.
-
-{\color{red} discuss extra derives options}
 
 Some notes:
 \begin{itemize}
@@ -596,16 +561,13 @@ directory names will be {\tt plt\_run00000}, {\tt plt\_run00043}, {\tt
 \subsection{Screen Output}
 
 There are several options that set how much output is written to the
-screen as \castro\ runs:
+screen as \pelelm\ runs:
 \begin{itemize}
 \item {\tt amr.v}: verbosity of {\tt Amr.cpp} (0 or 1; default: 0)
 
-\item {\tt castro.v}: verbosity of {\tt Castro.cpp} (0 or 1; default: 0)
+\item {\tt ns.v}: verbosity of {\tt NavierStokesBase.cpp} (0 or 1; default: 0)
 
-\item {\tt gravity.v}: verbosity of {\tt Gravity.cpp} (0 or 1; default: 0)
-  
-\item {\tt diffusion.v}: verbosity of {\tt Diffusion.cpp} (0 or 1;
-  default: 0)
+\item {\tt diffusion.v}: verbosity of {\tt Diffusion.cpp} (0 or 1; default: 0)
   
 \item {\tt mg.v}: verbosity of multigrid solver (for gravity) (allow
   values: 0,1,2,3,4; default: 0)
@@ -623,7 +585,7 @@ screen as \castro\ runs:
   steps) to compute and print integral quantities (Integer; default: -1)
 
   The integral quantities include total mass, momentum and energy in
-  the domain every {\tt castro.sum\_interval} level-0 steps.
+  the domain every {\tt ns.sum\_interval} level-0 steps.
   The print statements have the form
   \begin{verbatim}
     TIME= 1.91717746 MASS= 1.792410279e+34
@@ -631,15 +593,6 @@ screen as \castro\ runs:
   for example.  If this line is commented out then
   it will not compute and print these quanitities.
 
-  
-\item {\tt castro.do\_special\_tagging}: allows the user to set a
-  special flag based on user-specified criteria (0 or 1; default: 1)
-
-  {\tt castro.do\_special\_tagging = 1} can be used, for example, to
-  calculate the bounce time in a core collapse simulation; the bounce
-  time is defined as the first time at which the maximum density in
-  the domain exceeds a user-specified value.  This time can then be
-  printed into a special file as a useful diagnostic.
 \end{itemize}
 
 As an example:
@@ -677,39 +630,3 @@ can be plotted very easily to monitor the time step.
 
 There are a large number of solver-specific runtime parameters.  We describe these
 together with the discussion of the physics solvers in later chapters.
-
-
-
-% \section{Radiation}
-
-% \begin{table*}[h]
-% \begin{scriptsize}
-% \begin{center}
-% \begin{tabular}{|l|l|l|l|} \hline
-% Parameter & Definition & Acceptable Values &Default\\
-% \hline
-% {\bf radiation.do\_timing} & & & \\
-% {\bf radiation.do\_clouds} & & & \\
-% {\bf radiation.do\_shadow} & & & \\
-% {\bf radiation.do\_thermal\_wave} & & & \\
-% {\bf radiation.do\_crooked\_pipe} & & & \\
-% {\bf radiation.do\_linearMGD\_tp} & & & \\
-% {\bf radiation.do\_neutrino\_test} & & & \\
-% {\bf radiation.do\_rad\_sphere} & & & \\
-% {\bf radiation.do\_light\_front} & & & \\
-% {\bf radiation.do\_multigroup} & & & \\
-% {\bf radiation.ngroups} & & & \\
-% {\bf radiation.nNeutrinoSpecies} & & & \\
-% {\bf radiation.nNeutrinoGroups} & & & \\
-% {\bf radiation.plot\_neutrino\_group\_energies\_total} & & & \\
-% \hline
-% \end{tabular}
-% \label{Table:Radiation}
-% \end{center}
-% \end{scriptsize}
-% \end{table*}
-
-% \begin{itemize}
-% \item You must have USE\_RAD  = TRUE in the GNUmakefile for {\bf castro.do\_radiation} to be relevant.
-% \end{itemize}
-
