@@ -227,7 +227,7 @@ As an example, consider:
 \begin{lstlisting}
 amr.grid_eff = 0.9
 amr.max_grid_size = 64 
-amr.blocking_factor} = 32
+amr.blocking_factor = 32
 \end{lstlisting}
 
 The grid efficiency, {\tt amr.grid\_eff}, means that during the grid
@@ -357,40 +357,40 @@ ignoring the other timestep controls.  Note that if {\tt
 ns.init\_shrink} $\neq 1$ then the first time step will in fact be
 {\tt ns.init\_shrink} $\cdot$ {\tt ns.fixed\_dt}.
 
-\subsection{Subcycling}
-Pelelm supports a number of different modes for subcycling in time.
+%% \subsection{Subcycling}
+%% \pelelm\ supports a number of different modes for subcycling in time.
 
-\begin{itemize}
-\item If {\tt amr.subcycling\_mode = Auto} (default), then the code 
-will run with equal refinement in space and time. In other words, if 
-level $n+1$ is a factor of 2 refinement above level $n$, then $n+1$ 
-will take 2 steps of half the duration for every level $n$ step.
+%% \begin{itemize}
+%% \item If {\tt amr.subcycling\_mode = Auto} (default), then the code 
+%% will run with equal refinement in space and time. In other words, if 
+%% level $n+1$ is a factor of 2 refinement above level $n$, then $n+1$ 
+%% will take 2 steps of half the duration for every level $n$ step.
 
-\item If {\tt amr.subcycling\_mode = None}, then the code 
-will not refine in time. All levels will advance together with a 
-timestep dictated by the level with the strictest $dt$. Note that this 
-is identical to the deprecated command {\tt amr.nosub = 1}.
+%% \item If {\tt amr.subcycling\_mode = None}, then the code 
+%% will not refine in time. All levels will advance together with a 
+%% timestep dictated by the level with the strictest $dt$. Note that this 
+%% is identical to the deprecated command {\tt amr.nosub = 1}.
 
-\item If {\tt amr.subcycling\_mode = Manual}, then the code will 
-subcycle according to the values supplied by {\tt 
-subcycling\_iterations}.
+%% \item If {\tt amr.subcycling\_mode = Manual}, then the code will 
+%% subcycle according to the values supplied by {\tt 
+%% subcycling\_iterations}.
 
-\end{itemize}
+%% \end{itemize}
 
-In the case of {\tt amr.subcycling\_mode = Manual},
-we subcycle in manual mode with largest allowable timestep.  The
-number of iterations at each level is then specified as:
-\begin{lstlisting}
-amr.subcycling_iterations = 1 2 1 2
-\end{lstlisting}
-Here, we take 1 level-0 timestep at a time (required). Take 2 level-1
-timesteps for each level-0 step, 1 timestep at level-2 for each
-level-1 step, and take 2 timesteps at level-3 for each level-2 step.
-Alternately, we could do:
-\begin{lstlisting}
-amr.subcycling_iterations = 2
-\end{lstlisting}
-which will subcycle twice at every level (except level 0).
+%% In the case of {\tt amr.subcycling\_mode = Manual},
+%% we subcycle in manual mode with largest allowable timestep.  The
+%% number of iterations at each level is then specified as:
+%% \begin{lstlisting}
+%% amr.subcycling_iterations = 1 2 1 2
+%% \end{lstlisting}
+%% Here, we take 1 level-0 timestep at a time (required). Take 2 level-1
+%% timesteps for each level-0 step, 1 timestep at level-2 for each
+%% level-1 step, and take 2 timesteps at level-3 for each level-2 step.
+%% Alternately, we could do:
+%% \begin{lstlisting}
+%% amr.subcycling_iterations = 2
+%% \end{lstlisting}
+%% which will subcycle twice at every level (except level 0).
 
 
 \subsection{Restart Capability}
@@ -613,7 +613,7 @@ The {\tt run\_log} option will output these statements into {\em
 
 Terser output can be obtained via:
 \begin{lstlisting}
-amr.run_log_terse} = runlogterse
+amr.run_log_terse = runlogterse
 \end{lstlisting}
 This file, {\tt runlogterse} differs from {\tt runlog}, in that it
 only contains lines of the form
