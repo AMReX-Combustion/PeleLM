@@ -1,5 +1,5 @@
 
-\section{Downloading the Code}
+\section{Downloading the Code}\label{sec:download}
 
 \pelelm\ is built on top of the \iamr\ code, which itself built on top of the \amrex\ framework.  In order to run
 \pelelm\, you must download separate git modules for \pelelm, \iamr, and \amrex.
@@ -148,66 +148,12 @@ the \yt\ python package.  The standard tool used within the
 by CCSE that is designed specifically for highly efficient visualization
 of block-structured hierarchical AMR data.
 
-\begin{enumerate}
-
-\item Get \amrvis:
-\begin{verbatim}
-git clone https://ccse.lbl.gov/pub/Downloads/Amrvis.git
-\end{verbatim}
-
-Then cd into {\tt Amrvis/}, edit the {\tt GNUmakefile} there
-to set {\tt DIM = 2}, and again set {\tt COMP} to the compiler
-suite you have. Leave {\tt DEBUG = FALSE}.
-
-Type {\tt make} to build, resulting in an executable that
-looks like {\tt amrvis2d...ex}.
-
-If you want to build amrvis with {\tt DIM = 3}, you must first
-download and build {\tt volpack}:
-\begin{verbatim}
-git clone https://ccse.lbl.gov/pub/Downloads/volpack.git
-\end{verbatim}
-
-Then cd into {\tt volpack/} and type {\tt make}.
-
-Note: \amrvis\ requires the OSF/Motif libraries and headers. If you don't have these 
-you will need to install the development version of motif through your package manager. 
-{\tt lesstif} gives some functionality and will allow you to build the amrvis executable, 
-but \amrvis\ may exhibit subtle anomalies.
-
-On most Linux distributions, the motif library is provided by the
-{\tt openmotif} package, and its header files (like {\tt Xm.h}) are provided
-by {\tt openmotif-devel}. If those packages are not installed, then use the
-OS-specific package management tool to install them. 
-
-You may then want to create an alias to {\tt amrvis2d}, for example
-\begin{verbatim}
-alias amrvis2d /tmp/Amrvis/amrvis2d...ex
-\end{verbatim}
-
-\item Return to the {\tt PeleLM/Exec/FlameInABox} folder.  You should
-  have a number of output files, including some in the form {\tt *pltXXXXX},
-  where {\tt XXXXX} is a number corresponding to the timestep the file
-  was output.  {\tt amrvis2d <filename>} to see a single plotfile, 
-   or {\tt amrvis2d -a *plt*}, which will animate the sequence of plotfiles.
-
-  Try playing
-  around with this---you can change which variable you are
-  looking at, select a region and click ``Dataset'' (under View)
-  in order to look at the actual numbers, etc. You can also export the
-  pictures in several different formats under "File/Export".
-
-We have created a number of routines to convert \amrex\ plotfile data
-other formats (such as MATLAB), but in order to properly interpret 
-the hierarchical AMR data, each tends to have its own idiosyncrasies.
-If you would like to display the data in another format, please let us know
-(again, {\tt MSDay@lbl.gov}) and we will point you to whatever we have
-that can help.
-
-\end{enumerate}
+For more information on how to use \amrvis\ and VisIt, refer to the \amrex\
+User's guide in the \amrex\ git repository (see Section \ref{sec:download}
+for download instructions).
+For more information on how to use \yt, refer to Section \ref{sec:yt}
 
 You have now completed a brief introduction to \pelelm. 
-
 
 \section{Other Distributed Problem Setups}
 {\tt PeleLM/Exec/DiffFlame} - More info soon!
