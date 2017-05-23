@@ -458,13 +458,11 @@ PeleLM::variableSetUp ()
 
   const Array<std::string>& names = getChemSolve().speciesNames();
 
-  if (ParallelDescriptor::IOProcessor())
-  {
-    std::cout << nspecies << " Chemical species interpreted:\n { ";
-    for (int i = 0; i < nspecies; i++)
-      std::cout << names[i] << ' ' << ' ';
-    std::cout << '}' << '\n' << '\n';
-  }
+  amrex::Print() << nspecies << " Chemical species interpreted:\n { ";
+  for (int i = 0; i < nspecies; i++)
+    amrex::Print() << names[i] << ' ' << ' ';
+  amrex::Print() << '}' << '\n' << '\n';
+
   //
   // Send indices of fuel and oxidizer to fortran for setting prob data in common block
   //
@@ -486,9 +484,7 @@ PeleLM::variableSetUp ()
   std::string speciesScaleFile; pp.query("speciesScaleFile",speciesScaleFile);
   if (! speciesScaleFile.empty())
   {
-    if (ParallelDescriptor::IOProcessor())
-      std::cout << "  Setting scale values for chemical species\n\n";
-        
+    amrex::Print() << "  Setting scale values for chemical species\n\n";
     getChemSolve().set_species_Yscales(speciesScaleFile);
   }
   int verbose_vode=0; pp.query("verbose_vode",verbose_vode);
@@ -499,10 +495,9 @@ PeleLM::variableSetUp ()
   int oxidID = getChemSolve().index(oxidizerName);
   int prodID = getChemSolve().index(productName);
 
-  if (ParallelDescriptor::IOProcessor()) {
-    std::cout << " fuel name " << fuelName << std::endl;
-    std::cout << " index for fueld and oxidizer " << fuelID << " " << oxidID << std::endl;
-  }
+  amrex::Print() << " fuel name " << fuelName << std::endl;
+  amrex::Print() << " index for fueld and oxidizer " << fuelID << " " << oxidID << std::endl;
+
   FORT_SET_PROB_SPEC(&fuelID, &oxidID, &prodID, &nspecies);
   //
   // Get a species to use as a flame tracker.
@@ -899,8 +894,7 @@ PeleLM::variableSetUp ()
   const int idx = getChemSolve().index(flameTracName);
   if (idx >= 0)
   {
-    if (ParallelDescriptor::IOProcessor())
-      std::cout << "Flame tracer will be " << flameTracName << '\n';
+    amrex::Print() << "Flame tracer will be " << flameTracName << '\n';
     const std::string name = "Y("+flameTracName+")";
     err_list.add(name,nGrowErr,ErrorRec::Special,FORT_FLAMETRACERROR);
   }
@@ -987,8 +981,7 @@ PeleLM::rhoydotSetUp()
   const int ngrow = 1;
   const int nrhoydot = getChemSolve().numSpecies();
 
-  if (ParallelDescriptor::IOProcessor())
-    std::cout << "RhoYdot_Type, nrhoydot = " << RhoYdot_Type << ' ' << nrhoydot << '\n';
+  amrex::Print() << "RhoYdot_Type, nrhoydot = " << RhoYdot_Type << ' ' << nrhoydot << '\n';
 
   desc_lst.addDescriptor(RhoYdot_Type,IndexType::TheCellType(),
                          StateDescriptor::Point,ngrow,nrhoydot,
