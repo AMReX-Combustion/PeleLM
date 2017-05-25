@@ -9,12 +9,10 @@ PELELM_HOME ?= ${TOP}/PeleLM
 PRECISION         = DOUBLE
 DEBUG	          = TRUE
 DIM    	          = 2
+COMP              = gnu
 USE_OMP           = FALSE
 USE_MPI           = TRUE
-VERBOSE           = TRUE
-
-# Enable flctin namelist
-USE_FLCTS         = FALSE
+VERBOSE           = FALSE
 
 CHEMISTRY_MODEL= BURKEMOD
 fEXE_sources += pmf_BurkeMOD_040_10atm.f

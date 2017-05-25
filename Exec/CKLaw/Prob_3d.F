@@ -6,8 +6,8 @@
 #include <AMReX_REAL.H>
 #include <AMReX_CONSTANTS.H>
 #include <AMReX_BC_TYPES.H>
-#include <PROB_AMR_F.H>
 #include <PROB_F.H>
+#include <Prob_F.H>
 #include <AMReX_ArrayLim.H>
 #include <ChemDriver_F.H>
 #include <PeleLM_F.H>
