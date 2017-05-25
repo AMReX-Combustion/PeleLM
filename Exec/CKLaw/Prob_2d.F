@@ -819,8 +819,10 @@ c ::: -----------------------------------------------------------
 
            if(probtype .eq. 1) then
 
+c     use this for convergence test
               rfront = (y_offset - abs(y)) * 100.d0
 
+c     use this for 2d perturbed spherical flame
 c               rfront = (blobr + pertmag* rfront * blobr - r + y_offset) *100.d0
  
                call pmf(rfront,rfront,pmf_vals,n)
