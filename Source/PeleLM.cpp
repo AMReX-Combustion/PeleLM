@@ -1406,9 +1406,9 @@ PeleLM::estTimeStep ()
 
     amrex::Print() << "PeleLM::estTimeStep(): lev: " << level 
 		   << ", time: " << run_time << '\n';
+  }
 
   return estdt;
-  }
 }
 
 void
