@@ -1,10 +1,11 @@
 ht.plot_auxDiags = 1
 
-stop_time =  50.00
+max_step  = 50000
+stop_time =  0.2
 
 geometry.coord_sys = 0  # 0 => cart, 1 => RZ
-geometry.prob_lo   = -.000029296875 -.00375 -.03 # m
-geometry.prob_hi   =  .000029296875  .00375  .03
+geometry.prob_lo   = -.015 -.015 -.03 # m
+geometry.prob_hi   =  .015  .015  .03
 
 ns.tranfile        = ../tran.asc.LiDryer
 ns.fuelName        = H2
@@ -15,28 +16,14 @@ ns.consumptionName = H2
 ns.plot_consumption = 1
 ns.plot_heat_release = 1
 
-ns.sdc_iterMAX = 2
+ns.num_mac_sync_iter = 1
+
+ns.sdc_iterMAX = 3
 godunov.ppm_type = 0
 
 ns.do_active_control = false
 
-amr.n_cell = 4 512 
-amr.max_grid_size = 128
-ns.fixed_dt = 5.e-5
-max_step  = 50
-amr.plot_int = 50
-
-#amr.n_cell = 8 1024
-#amr.max_grid_size = 256
-#ns.fixed_dt = 2.5e-5
-#max_step  = 100
-#amr.plot_int = 100
-
-#amr.n_cell = 16 2048
-#amr.max_grid_size = 512
-#ns.fixed_dt = 1.25e-5
-#max_step  = 200
-#amr.plot_int = 200
+amr.n_cell = 128 128
 
 proj.proj_2 = 1
 ns.do_init_vort_proj = 0
@@ -57,29 +44,33 @@ amr.v  = 1
 mac.v  = 1
 proj.v = 0
 
-amr.max_level       = 0
+amr.refine_grid_layout = 0
+amr.max_level       = 1
 amr.ref_ratio       = 2 2 2 2   # refinement ratio
 amr.regrid_int      = 2       # how often to regrid
 amr.n_error_buf     = 4 4 2 2 # number of buffer cells in error est
 amr.grid_eff        = 0.7     # what constitutes an efficient grid
-amr.blocking_factor = 4      # block factor in grid generation
+amr.blocking_factor = 8      # block factor in grid generation
 amr.check_file      = chk
-amr.check_int       = 0      # number of timesteps between checkpoints
+amr.check_int       = 100      # number of timesteps between checkpoints
 amr.plot_file       = plt
+amr.plot_int        = -1
+amr.plot_per        = 0.01
 amr.grid_log        = grdlog  # name of grid logging file
-ht.plot_rhoY=1
+amr.max_grid_size   = 64
+ht.plot_massfrac=1
 ht.plot_molefrac=1
 ht.plot_ydot=1
-amr.derive_plot_vars=ALL
+amr.derive_plot_vars=rhoRT mag_vort
 
-amr.probin_file = probin.2d_convergence # This will default to file "probin" if not set
+amr.probin_file = probin.2d_paper # This will default to file "probin" if not set
 
 # ------------------  INPUTS TO PHYSICS CLASS -------------------
 ns.dt_cutoff       = 5.e-10   # level 0 timestep below which we halt
-ns.visc_tol        = 1.0e-14  # tolerence for viscous solves
-ns.visc_abs_tol    = 1.0e-14  # tolerence for viscous solves
-ns.cfl            = 0.25      # cfl number for hyperbolic system
-
+ns.visc_tol        = 1.0e-12  # tolerence for viscous solves
+ns.visc_abs_tol    = 1.0e-12  # tolerence for viscous solves
+ns.cfl            = 0.2      # cfl number for hyperbolic system
+ns.init_shrink    = 0.1       # scale down initial timestep
 ns.change_max     = 1.1       # scale back initial timestep
 ns.vel_visc_coef   = 1.983e-5
 ns.temp_cond_coef  = 2.6091e-5
@@ -88,7 +79,7 @@ ns.variable_vel_visc  = 1
 ns.variable_scal_diff = 1
 
 ns.init_iter      = 2        # number of init iters to def pressure
-ns.num_divu_iters = 1
+ns.num_divu_iters = 3
 
 ns.gravity        = 0        # body force  (gravity in MKS units)
 ns.sum_interval   = 1        # timesteps between computing mass
@@ -102,13 +93,16 @@ ns.S_in_vel_diffusion = 1
 ns.do_temp = 1
 ns.do_diffuse_sync = 1
 ns.do_reflux_visc  = 1
+ns.divu_ceiling = 1
+ns.divu_dt_factor = .4
+ns.min_rho_divu_ceiling = .01
 ns.unity_Le = 0
 
 # ----------------  PROBLEM DEPENDENT INPUTS
 
-ns.lo_bc          = 0 5 2
-ns.hi_bc          = 0 5 2
-geometry.is_periodic = 1 0 0
+ns.lo_bc          = 2 2 2
+ns.hi_bc          = 2 2 2
+geometry.is_periodic = 0 0 0
 
 # >>>>>>>>>>>>>  BC FLAGS <<<<<<<<<<<<<<<<
 # 0 = Interior           3 = Symmetry
@@ -127,6 +121,7 @@ diffuse.use_tensor_cg_solve = 0
 #diffuse.v = 1
 diffuse.v = 0
 diffuse.Rhs_in_abs_tol = 1
+diffuse.use_fboxlib_mg = 1
 
 # ------------------  INPUTS TO PROJECTION CLASS -------------------
 proj.proj_tol       = 1.0e-10  # tolerence for projections
@@ -142,6 +137,7 @@ mac.mac_tol        = 1.0e-12  # tolerence for mac projections
 mac.mac_sync_tol   = 1.0e-9   # tolerence for mac SYNC projection
 mac.mac_abs_tol    = 1.0e-14
 mac.use_cg_solve   = 0
+mac.use_fboxlib_mg = 1
 mac.do_outflow_bcs = 1
 #
 # Select form of FAB output: default is NATIVE

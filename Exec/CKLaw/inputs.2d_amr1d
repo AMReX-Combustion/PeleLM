@@ -3,8 +3,8 @@ ht.plot_auxDiags = 1
 stop_time =  50.00
 
 geometry.coord_sys = 0  # 0 => cart, 1 => RZ
-geometry.prob_lo   = -.000029296875 -.00375 -.03 # m
-geometry.prob_hi   =  .000029296875  .00375  .03
+geometry.prob_lo   = -.00375 -.015 -.03 # m
+geometry.prob_hi   =  .00375  .015  .03
 
 ns.tranfile        = ../tran.asc.LiDryer
 ns.fuelName        = H2
@@ -15,28 +15,18 @@ ns.consumptionName = H2
 ns.plot_consumption = 1
 ns.plot_heat_release = 1
 
+ns.num_mac_sync_iter = 1
+
 ns.sdc_iterMAX = 2
 godunov.ppm_type = 0
 
 ns.do_active_control = false
 
-amr.n_cell = 4 512 
-amr.max_grid_size = 128
-ns.fixed_dt = 5.e-5
-max_step  = 50
-amr.plot_int = 50
-
-#amr.n_cell = 8 1024
-#amr.max_grid_size = 256
-#ns.fixed_dt = 2.5e-5
-#max_step  = 100
-#amr.plot_int = 100
-
-#amr.n_cell = 16 2048
-#amr.max_grid_size = 512
-#ns.fixed_dt = 1.25e-5
-#max_step  = 200
-#amr.plot_int = 200
+amr.n_cell = 32 128
+amr.max_grid_size = 32
+ns.fixed_dt = 8.e-4
+max_step  = 100
+amr.plot_int = 1
 
 proj.proj_2 = 1
 ns.do_init_vort_proj = 0
@@ -57,7 +47,7 @@ amr.v  = 1
 mac.v  = 1
 proj.v = 0
 
-amr.max_level       = 0
+amr.max_level       = 1
 amr.ref_ratio       = 2 2 2 2   # refinement ratio
 amr.regrid_int      = 2       # how often to regrid
 amr.n_error_buf     = 4 4 2 2 # number of buffer cells in error est
@@ -72,7 +62,7 @@ ht.plot_molefrac=1
 ht.plot_ydot=1
 amr.derive_plot_vars=ALL
 
-amr.probin_file = probin.2d_convergence # This will default to file "probin" if not set
+amr.probin_file = probin.2d_amr1d # This will default to file "probin" if not set
 
 # ------------------  INPUTS TO PHYSICS CLASS -------------------
 ns.dt_cutoff       = 5.e-10   # level 0 timestep below which we halt
@@ -106,8 +96,8 @@ ns.unity_Le = 0
 
 # ----------------  PROBLEM DEPENDENT INPUTS
 
-ns.lo_bc          = 0 5 2
-ns.hi_bc          = 0 5 2
+ns.lo_bc          = 0 2 2
+ns.hi_bc          = 0 2 2
 geometry.is_periodic = 1 0 0
 
 # >>>>>>>>>>>>>  BC FLAGS <<<<<<<<<<<<<<<<

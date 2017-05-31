@@ -5,7 +5,7 @@
   bloby = 0.
   y_offset = .03011
   y_offset = -.03011
-  y_offset = 0.007
+  y_offset = 0.0068
   probtype = 1
   flametracval = .00001
   max_vort_lev = 3
@@ -24,7 +24,7 @@
  &heattransin
   pamb = 1013250.0
   dpdt_factor = 1.0
-  closed_chamber = 1
+  closed_chamber = 0
  /
  &flctin
   flct_file = ""
