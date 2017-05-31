@@ -3,8 +3,8 @@ ht.plot_auxDiags = 1
 stop_time =  50.00
 
 geometry.coord_sys = 0  # 0 => cart, 1 => RZ
-geometry.prob_lo   = -.00005859375 -.00375 -.03 # m
-geometry.prob_hi   =  .00005859375  .00375  .03
+geometry.prob_lo   = -.00375 -.015 -.03 # m
+geometry.prob_hi   =  .00375  .015  .03
 
 ns.tranfile        = ../tran.asc.LiDryer
 ns.fuelName        = H2
@@ -22,11 +22,11 @@ godunov.ppm_type = 0
 
 ns.do_active_control = false
 
-amr.n_cell = 8 512 
-amr.max_grid_size = 128
-ns.fixed_dt = 5.e-5
-max_step  = 500
-amr.plot_int = 500
+amr.n_cell = 32 128
+amr.max_grid_size = 32
+ns.fixed_dt = 8.e-4
+max_step  = 100
+amr.plot_int = 1
 
 proj.proj_2 = 1
 ns.do_init_vort_proj = 0
