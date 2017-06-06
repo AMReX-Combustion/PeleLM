@@ -426,8 +426,6 @@ c        compute Grad(H) on each face, and average across faces in each coordina
 c        Fi is extensive here, so need to remove area.  Also, assume that we are 
 c        away from domain boundary, fix afterward
 c
-c     FIXME: This will fail for r-z since Ax(dlo(1),:)=0
-c
       do j=lo(2),hi(2)
          do i=lo(1),hi(1)
             FiGHi(i,j) = 0.d0
@@ -436,10 +434,26 @@ c
       do n=1,Nspec
          do j=lo(2),hi(2)
             do i=lo(1),hi(1)
-               AxDxInv_lo = 1.d0/(Ax(i,j)*dx(1))
-               AxDxInv_hi = 1.d0/(Ax(i+1,j)*dx(1))
-               AyDyInv_lo = 1.d0/(Ay(i,j)*dx(2))
-               AyDyInv_hi = 1.d0/(Ay(i,j+1)*dx(2))
+               if (Ax(i,j).eq.0.d0) then
+                  AxDxInv_lo = 0.d0
+               else
+                  AxDxInv_lo = 1.d0/(Ax(i,j)*dx(1))
+               endif
+               if (Ax(i+1,j).eq.0.d0) then
+                  AxDxInv_hi = 0.d0
+               else
+                  AxDxInv_hi = 1.d0/(Ax(i+1,j)*dx(1))
+               endif
+               if (Ay(i,j).eq.0.d0) then
+                  AyDyInv_lo = 0.d0
+               else
+                  AyDyInv_lo = 1.d0/(Ay(i,j)*dx(2))
+               endif
+               if (Ay(i,j+1).eq.0.d0) then
+                  AyDyInv_hi = 0.d0
+               else
+                  AyDyInv_hi = 1.d0/(Ay(i,j+1)*dx(2))
+               endif
                FiGHi(i,j) = FiGHi(i,j) - 0.5d0*
      &             ( ( H(i+1,j,n) - H(i,j,n) )*Fx(i+1,j,n)*AxDxInv_hi
      &             + ( H(i,j,n) - H(i-1,j,n) )*Fx(i  ,j,n)*AxDxInv_lo
@@ -457,10 +471,26 @@ c     xlo
          enddo
          do n=1,Nspec
             do j=lo(2),hi(2)
-               AxDxInv_lo = 2.d0/(Ax(i,j)*dx(1))
-               AxDxInv_hi = 1.d0/(Ax(i+1,j)*dx(1))
-               AyDyInv_lo = 1.d0/(Ay(i,j)*dx(2))
-               AyDyInv_hi = 1.d0/(Ay(i,j+1)*dx(2))
+               if (Ax(i,j).eq.0.d0) then
+                  AxDxInv_lo = 0.d0
+               else
+                  AxDxInv_lo = 2.d0/(Ax(i,j)*dx(1))
+               endif
+               if (Ax(i+1,j).eq.0.d0) then
+                  AxDxInv_hi = 0.d0
+               else
+                  AxDxInv_hi = 1.d0/(Ax(i+1,j)*dx(1))
+               endif
+               if (Ay(i,j).eq.0.d0) then
+                  AyDyInv_lo = 0.d0
+               else
+                  AyDyInv_lo = 1.d0/(Ay(i,j)*dx(2))
+               endif
+               if (Ay(i,j+1).eq.0.d0) then
+                  AyDyInv_hi = 0.d0
+               else
+                  AyDyInv_hi = 1.d0/(Ay(i,j+1)*dx(2))
+               endif
                FiGHi(i,j) = FiGHi(i,j) - 0.5d0*
      &              ( ( H(i+1,j,n) - H(i,j,n) )*Fx(i+1,j,n)*AxDxInv_hi
      &              + ( H(i,j,n) - H(i-1,j,n) )*Fx(i  ,j,n)*AxDxInv_lo
@@ -478,10 +508,26 @@ c     xhi
          enddo
          do n=1,Nspec
             do j=lo(2),hi(2)
-               AxDxInv_lo = 1.d0/(Ax(i,j)*dx(1))
-               AxDxInv_hi = 2.d0/(Ax(i+1,j)*dx(1))
-               AyDyInv_lo = 1.d0/(Ay(i,j)*dx(2))
-               AyDyInv_hi = 1.d0/(Ay(i,j+1)*dx(2))
+               if (Ax(i,j).eq.0.d0) then
+                  AxDxInv_lo = 0.d0
+               else
+                  AxDxInv_lo = 1.d0/(Ax(i,j)*dx(1))
+               endif
+               if (Ax(i+1,j).eq.0.d0) then
+                  AxDxInv_hi = 0.d0
+               else
+                  AxDxInv_hi = 2.d0/(Ax(i+1,j)*dx(1))
+               endif
+               if (Ay(i,j).eq.0.d0) then
+                  AyDyInv_lo = 0.d0
+               else
+                  AyDyInv_lo = 1.d0/(Ay(i,j)*dx(2))
+               endif
+               if (Ay(i,j+1).eq.0.d0) then
+                  AyDyInv_hi = 0.d0
+               else
+                  AyDyInv_hi = 1.d0/(Ay(i,j+1)*dx(2))
+               endif
                FiGHi(i,j) = FiGHi(i,j) - 0.5d0*
      &              ( ( H(i+1,j,n) - H(i,j,n) )*Fx(i+1,j,n)*AxDxInv_hi
      &              + ( H(i,j,n) - H(i-1,j,n) )*Fx(i  ,j,n)*AxDxInv_lo
@@ -499,10 +545,26 @@ c     ylo
          enddo
          do n=1,Nspec
             do i=lo(1),hi(1)
-               AxDxInv_lo = 1.d0/(Ax(i,j)*dx(1))
-               AxDxInv_hi = 1.d0/(Ax(i+1,j)*dx(1))
-               AyDyInv_lo = 2.d0/(Ay(i,j)*dx(2))
-               AyDyInv_hi = 1.d0/(Ay(i,j+1)*dx(2))
+               if (Ax(i,j).eq.0.d0) then
+                  AxDxInv_lo = 0.d0
+               else
+                  AxDxInv_lo = 1.d0/(Ax(i,j)*dx(1))
+               endif
+               if (Ax(i+1,j).eq.0.d0) then
+                  AxDxInv_hi = 0.d0
+               else
+                  AxDxInv_hi = 1.d0/(Ax(i+1,j)*dx(1))
+               endif
+               if (Ay(i,j).eq.0.d0) then
+                  AyDyInv_lo = 0.d0
+               else
+                  AyDyInv_lo = 2.d0/(Ay(i,j)*dx(2))
+               endif
+               if (Ay(i,j+1).eq.0.d0) then
+                  AyDyInv_hi = 0.d0
+               else
+                  AyDyInv_hi = 1.d0/(Ay(i,j+1)*dx(2))
+               endif
                FiGHi(i,j) = FiGHi(i,j) - 0.5d0*
      &              ( ( H(i+1,j,n) - H(i,j,n) )*Fx(i+1,j,n)*AxDxInv_hi
      &              + ( H(i,j,n) - H(i-1,j,n) )*Fx(i  ,j,n)*AxDxInv_lo
@@ -520,10 +582,26 @@ c     yhi
          enddo
          do n=1,Nspec
             do i=lo(1),hi(1)
-               AxDxInv_lo = 1.d0/(Ax(i,j)*dx(1))
-               AxDxInv_hi = 1.d0/(Ax(i+1,j)*dx(1))
-               AyDyInv_lo = 1.d0/(Ay(i,j)*dx(2))
-               AyDyInv_hi = 2.d0/(Ay(i,j+1)*dx(2))
+               if (Ax(i,j).eq.0.d0) then
+                  AxDxInv_lo = 0.d0
+               else
+                  AxDxInv_lo = 1.d0/(Ax(i,j)*dx(1))
+               endif
+               if (Ax(i+1,j).eq.0.d0) then
+                  AxDxInv_hi = 0.d0
+               else
+                  AxDxInv_hi = 1.d0/(Ax(i+1,j)*dx(1))
+               endif
+               if (Ay(i,j).eq.0.d0) then
+                  AyDyInv_lo = 0.d0
+               else
+                  AyDyInv_lo = 1.d0/(Ay(i,j)*dx(2))
+               endif
+               if (Ay(i,j+1).eq.0.d0) then
+                  AyDyInv_hi = 0.d0
+               else
+                  AyDyInv_hi = 2.d0/(Ay(i,j+1)*dx(2))
+               endif
                FiGHi(i,j) = FiGHi(i,j) - 0.5d0*
      &              ( ( H(i+1,j,n) - H(i,j,n) )*Fx(i+1,j,n)*AxDxInv_hi
      &              + ( H(i,j,n) - H(i-1,j,n) )*Fx(i  ,j,n)*AxDxInv_lo
