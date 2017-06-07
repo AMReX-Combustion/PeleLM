@@ -4,6 +4,8 @@ variables:
     PELE_PHYSICS_HOME: ${CI_PROJECT_DIR}/extern/PelePhysics
     PELELM_HOME: $CI_PROJECT_DIR
     PELEREGTEST_HOME: ${CI_PROJECT_DIR}/extern/PeleRegressionTesting
+    ARCHIVE_DIR: /home/m/marcd/Pele/RegressionTestBenchmarks/godzilla
+
 
 stages:
     - regression
