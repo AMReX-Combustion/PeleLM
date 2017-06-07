@@ -21,7 +21,7 @@ regression:godzilla:
         - \rm -rf PeleLM-benchmarks
         - ncftpget -c -E -d errlog.txt -f ${HOME}/.archive.passwd ${ARCHIVE_DIR}/PeleLM-benchmarks.cpio-latest  | cpio -i --preserve-modification-time
         - cd ${CI_PROJECT_DIR}
-        - bash ${PELEREGTEST_HOME}/Scripts/prep_tests.sh ${PELEREGTEST_HOME}/Scripts/PeleLM-build-tests-godzilla.ini  tests.ini
+        - bash ${PELEREGTEST_HOME}/Scripts/prep_tests.sh ${PELEREGTEST_HOME}/Scripts/PeleLM-correct-tests-godzilla.ini  tests.ini
         - ${AMREX_HOME}/Tools/RegressionTesting/regtest.py --no_update All tests.ini
     tags:
         - godzilla
