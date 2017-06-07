@@ -76,6 +76,10 @@ ifeq ($(CHEMISTRY_MODEL), DRM19)
   cEXE_sources += drm19.c
   vpath %.c   $(VPATH_LOCATIONS) $(CHEM_DIR)/drm19
 endif
+ifeq ($(CHEMISTRY_MODEL), GRI30)
+  cEXE_sources += grimech30.c
+  vpath %.c   $(VPATH_LOCATIONS) $(CHEM_DIR)/grimech30
+endif
 ifeq ($(CHEMISTRY_MODEL), C12WANG)
   cEXE_sources += dodecane_wang.c
   vpath %.c   $(VPATH_LOCATIONS) $(CHEM_DIR)/dodecane_wang
