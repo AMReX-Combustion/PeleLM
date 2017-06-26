@@ -247,7 +247,6 @@ PeleLM::compute_rhohmix (Real      time,
     {
       const Box& bx = mfi.tilebox();
       FArrayBox& state  = statemf[mfi];
-      FArrayBox& rhmfab = rhohmix[mfi];
 
       //
       // Convert rho*Y to Y for this operation
@@ -1740,8 +1739,6 @@ PeleLM::compute_instantaneous_reaction_rates (MultiFab&       R,
   }
 
   const Real strt_time = ParallelDescriptor::second();
-
-  const TimeLevel whichTime = which_time(State_Type, time);
 
   BL_ASSERT((nGrow==0)  ||  (how == HT_ZERO_GROW_CELLS) || (how == HT_EXTRAP_GROW_CELLS));
 
@@ -4948,15 +4945,27 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
 
     for (int cnt = 1; !done; cnt *= 2)
     {
-      const int ChunkSize = parent->maxGridSize(level)/cnt;
+      int ChunkSize[BL_SPACEDIM];
 
-      if (ChunkSize < 16)
-        //
-        // Don't let grids get too small.
-        //
-        break;
+      bool smallChunk = false;
 
-      IntVect chunk(D_DECL(ChunkSize,ChunkSize,ChunkSize));
+      //
+      // Don't let grids get too small.
+      //
+      for (int j=0; j<BL_SPACEDIM; j++)
+      {
+	ChunkSize[j] = parent->maxGridSize(level)[j]/cnt;
+	if (ChunkSize[j] < 16)
+	{
+	  smallChunk = true;
+	}
+      }
+      if (smallChunk)
+      {
+	break;
+      }
+
+      IntVect chunk(D_DECL(ChunkSize[0],ChunkSize[1],ChunkSize[2]));
 
       for (int j = BL_SPACEDIM-1; j >=0 && ba.size() < Threshold; j--)
       {
@@ -5006,9 +5015,9 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
       {
         const int s_spec = 0, s_rhoh = nspecies, s_temp = nspecies+2;
 
-        bool ok = getChemSolve().solveTransient_sdc(rYn,rHn,Tn,rYo,rHo,To,frc,fc,ba[i],
-                                                    s_spec,s_rhoh,s_temp,dt,chemDiag,
-                                                    use_stiff_solver);
+        getChemSolve().solveTransient_sdc(rYn,rHn,Tn,rYo,rHo,To,frc,fc,ba[i],
+                                          s_spec,s_rhoh,s_temp,dt,chemDiag,
+					  use_stiff_solver);
       }
     }
 
