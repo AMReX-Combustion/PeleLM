@@ -28,12 +28,17 @@ To build `PeleLM` and run a sample 2D flame problem:
 3. Set the environment variable, PELELM_HOME, and clone a copy of `PeleLM` there ::
 
     export PELELM_HOME=<location for PeleLM>
-    git clone git@code.ornl.gov:Pele/PeleLM.git ${PELELM_HOME}
+    git clone git@code.ornl.gov:Pele/PeleLM.git ${PELELM_HOME}   (if you have access to the ORNL gitlab server)
+               or 
+    git clone git@bitbucket.org:berkeleylab/pelelm.git ${PELELM_HOME}   (if you have access to the bitbucket server) 
+
 
 4. Set the environment variable, PELE_PHYSICS_HOME, and clone a copy of `PelePhysics` there ::
 
     export PELE_PHYSICS_HOME=<location for PeleLM>
-    git clone git@code.ornl.gov:Pele/PelePhysics.git ${PELELM_HOME}
+    git clone git@code.ornl.gov:Pele/PelePhysics.git ${PELELM_HOME}  (if you have access to the ORNL gitlab server)
+               or
+    git clone git@bitbucket.org:berkeleylab/pelephysics.git ${PELELM_HOME}   (if you have access to the bitbucket server)
 
 5. Move to an example build folder, build an executable ::
 
