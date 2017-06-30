@@ -59,7 +59,7 @@ amr.plot_int        = 5
 amr.checkpoint_files_output = 1
 amr.check_file      = chk
 amr.check_int       = 5
-
+amr.restart 	    = chk00000
 ns.cfl              = 0.7
 
 amr.v=1
