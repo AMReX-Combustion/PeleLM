@@ -93,7 +93,10 @@
 #    define FORT_DERFORCEZ              drforcez_
 #  endif
 
+#ifdef __cplusplus
   extern "C" {
+#endif
+
 #if 0
       void FORT_HACK(const int* lo, const int* hi,
                      const REAL* dat, ARLIM_P(lo), ARLIM_P(hi),
@@ -265,7 +268,9 @@
 			   const amrex::Real* time,  const amrex::Real* dt, const int* bcrec, 
                            const int* level, const int* grid_no) ;
 
+#ifdef __cplusplus
   }
+#endif
 #endif
 
 #endif
