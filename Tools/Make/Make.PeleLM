@@ -96,6 +96,10 @@ ifeq (${CHEMISTRY_MODEL}, BURKEMOD)
   cEXE_sources += BurkeDryer_mod.c
   vpath %.c $(VPATH_LOCATIONS) $(CHEM_DIR)/BurkeDryer_mod
 endif
+ifeq (${CHEMISTRY_MODEL}, LUDME)
+  cEXE_sources += LuDME.c
+  vpath %.c $(VPATH_LOCATIONS) $(CHEM_DIR)/Lu
+endif
 
 # Enable time-dependent turbulence forcing term
 ifeq ($(USE_TDEPFORCING), TRUE)
