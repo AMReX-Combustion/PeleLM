@@ -4945,27 +4945,15 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
 
     for (int cnt = 1; !done; cnt *= 2)
     {
-      int ChunkSize[BL_SPACEDIM];
+      const IntVect ChunkSize = parent->maxGridSize(level)/cnt;
 
-      bool smallChunk = false;
+      if ( AMREX_D_TERM(ChunkSize[0] < 16, || ChunkSize[1] < 16, || ChunkSize[2] < 16) )
+        //
+        // Don't let grids get too small.
+        //
+        break;
 
-      //
-      // Don't let grids get too small.
-      //
-      for (int j=0; j<BL_SPACEDIM; j++)
-      {
-	ChunkSize[j] = parent->maxGridSize(level)[j]/cnt;
-	if (ChunkSize[j] < 16)
-	{
-	  smallChunk = true;
-	}
-      }
-      if (smallChunk)
-      {
-	break;
-      }
-
-      IntVect chunk(D_DECL(ChunkSize[0],ChunkSize[1],ChunkSize[2]));
+      IntVect chunk(ChunkSize);
 
       for (int j = BL_SPACEDIM-1; j >=0 && ba.size() < Threshold; j--)
       {
