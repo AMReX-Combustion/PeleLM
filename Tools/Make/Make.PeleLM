@@ -72,6 +72,10 @@ endif
 
 PELE_PHYSICS_HOME ?= $(TOP)/PelePhysics
 CHEM_DIR = $(PELE_PHYSICS_HOME)/Support/Fuego/Mechanism/Models
+ifeq ($(CHEMISTRY_MODEL), CHEMH)
+  cEXE_sources += chem-H.c
+  vpath %.c   $(VPATH_LOCATIONS) $(CHEM_DIR)/chem-H
+endif
 ifeq ($(CHEMISTRY_MODEL), DRM19)
   cEXE_sources += drm19.c
   vpath %.c   $(VPATH_LOCATIONS) $(CHEM_DIR)/drm19
@@ -91,6 +95,10 @@ endif
 ifeq (${CHEMISTRY_MODEL}, BURKEMOD)
   cEXE_sources += BurkeDryer_mod.c
   vpath %.c $(VPATH_LOCATIONS) $(CHEM_DIR)/BurkeDryer_mod
+endif
+ifeq (${CHEMISTRY_MODEL}, LUDME)
+  cEXE_sources += LuDME.c
+  vpath %.c $(VPATH_LOCATIONS) $(CHEM_DIR)/Lu
 endif
 
 # Enable time-dependent turbulence forcing term
