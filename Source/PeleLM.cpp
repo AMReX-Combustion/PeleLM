@@ -247,7 +247,6 @@ PeleLM::compute_rhohmix (Real      time,
     {
       const Box& bx = mfi.tilebox();
       FArrayBox& state  = statemf[mfi];
-      FArrayBox& rhmfab = rhohmix[mfi];
 
       //
       // Convert rho*Y to Y for this operation
@@ -1740,8 +1739,6 @@ PeleLM::compute_instantaneous_reaction_rates (MultiFab&       R,
   }
 
   const Real strt_time = ParallelDescriptor::second();
-
-  const TimeLevel whichTime = which_time(State_Type, time);
 
   BL_ASSERT((nGrow==0)  ||  (how == HT_ZERO_GROW_CELLS) || (how == HT_EXTRAP_GROW_CELLS));
 
@@ -5006,9 +5003,9 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
       {
         const int s_spec = 0, s_rhoh = nspecies, s_temp = nspecies+2;
 
-        bool ok = getChemSolve().solveTransient_sdc(rYn,rHn,Tn,rYo,rHo,To,frc,fc,ba[i],
-                                                    s_spec,s_rhoh,s_temp,dt,chemDiag,
-                                                    use_stiff_solver);
+        getChemSolve().solveTransient_sdc(rYn,rHn,Tn,rYo,rHo,To,frc,fc,ba[i],
+                                          s_spec,s_rhoh,s_temp,dt,chemDiag,
+					  use_stiff_solver);
       }
     }
 
