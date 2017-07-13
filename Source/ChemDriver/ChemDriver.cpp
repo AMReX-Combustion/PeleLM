@@ -1,11 +1,13 @@
-#include <winstd.H>
 #include <iostream>
 
 #include "ChemDriver.H"
 #include "ChemDriver_F.H"
-#include <ParallelDescriptor.H>
-#include <ParmParse.H>
+#include <AMReX_ParallelDescriptor.H>
+#include <AMReX_ParmParse.H>
+#include <AMReX_Print.H>
 #include <sstream>
+
+using namespace amrex;
 
 const Real HtoTerrMAX_DEF  = 1.e-8;
 const int  HtoTiterMAX_DEF = 20;
@@ -47,7 +49,7 @@ ChemDriver::ChemDriver ()
     if (!initialized)
     {
         initOnce();
-        BoxLib::ExecOnFinalize(ChemDriver_Finalize);
+        amrex::ExecOnFinalize(ChemDriver_Finalize);
         initialized = true;
     }
     mTmpData.resize(mHtoTiterMAX);
@@ -124,7 +126,7 @@ ChemDriver::Parameter::GetParamString() const
   else if (param_id == SRI_E)     {return "SRI_E";}
   else if (param_id == THIRD_BODY) {return "THIRD_BODY";}
   else{
-      BoxLib::Abort("Unknown reaction parameter");
+      amrex::Abort("Unknown reaction parameter");
   }
 
 }
@@ -168,7 +170,7 @@ void
 ChemDriver::SetTransport (const ChemDriver::TRANSPORT& tran_in)
 {
   if (initialized) {
-    BoxLib::Abort("Must set transport model before constructing the ChemDriver");
+    amrex::Abort("Must set transport model before constructing the ChemDriver");
   }
   transport = tran_in;
 }
@@ -222,8 +224,8 @@ static void modify_parameters(ChemDriver& cd)
     pp.getarr("parameters",parameters,0,np);
   }
 
-  PArray<ChemDriver::Parameter> p(np,PArrayManage);
-  std::map<int,PArray<ChemDriver::Parameter> > dependent_parameters;
+  Array<std::unique_ptr<ChemDriver::Parameter> > p(np);
+  std::map<int,Array<std::unique_ptr<ChemDriver::Parameter> > > dependent_parameters;
 
   Array<Real> values(np);
   for (int i=0; i<np; ++i) {
@@ -231,13 +233,13 @@ static void modify_parameters(ChemDriver& cd)
     ParmParse ppp(std::string("chem."+prefix).c_str());
     int reaction_id; ppp.get("reaction_id",reaction_id);
     if (reaction_id<0 || reaction_id > cd.numReactions()) {
-      BoxLib::Abort("Reaction ID invalid");
+      amrex::Abort("Reaction ID invalid");
     }
 
     std::string type; ppp.get("type",type);
     std::map<std::string,REACTION_PARAMETER>::const_iterator it = PTypeMap.find(type);
     if (it == PTypeMap.end()) {
-      BoxLib::Abort("Unrecognized reaction parameter");
+      amrex::Abort("Unrecognized reaction parameter");
     }
 
     int id = -1;
@@ -247,8 +249,8 @@ static void modify_parameters(ChemDriver& cd)
       BL_ASSERT(id >= 0);
     }
 
-    p.set(i,new ChemDriver::Parameter(reaction_id,it->second,id));
-    values[i] = p[i].DefaultValue();
+    p[i].reset(new ChemDriver::Parameter(reaction_id,it->second,id));
+    values[i] = p[i]->DefaultValue();
 
     int ndp = ppp.countval("dependent_parameters");
     if (ndp > 0) {
@@ -261,13 +263,13 @@ static void modify_parameters(ChemDriver& cd)
 
 	int dpreaction_id; pppd.get("reaction_id",dpreaction_id);
 	if (dpreaction_id<0 || dpreaction_id > cd.numReactions()) {
-	  BoxLib::Abort("Dependent reaction ID invalid");
+	  amrex::Abort("Dependent reaction ID invalid");
 	}
 
 	std::string dptype; pppd.get("type",dptype);
 	std::map<std::string,REACTION_PARAMETER>::const_iterator it = PTypeMap.find(dptype);
 	if (it == PTypeMap.end()) {
-	  BoxLib::Abort("Unrecognized dependent reaction parameter");
+	  amrex::Abort("Unrecognized dependent reaction parameter");
 	}
 
 	int did = -1;
@@ -277,7 +279,7 @@ static void modify_parameters(ChemDriver& cd)
 	  BL_ASSERT(id >= 0);
 	}
 
-	dependent_parameters[i].set(j, new ChemDriver::Parameter(dpreaction_id,it->second,did));
+	dependent_parameters[i][j].reset(new ChemDriver::Parameter(dpreaction_id,it->second,did));
       }
     }
   }
@@ -287,15 +289,16 @@ static void modify_parameters(ChemDriver& cd)
     BL_ASSERT(nv == np);
     pp.getarr("parameter_values",values,0,np);
     for (int i=0; i<np; ++i) {
-      p[i].Value() = values[i];
-      if (ParallelDescriptor::IOProcessor()) {
-	std::cout << "************** Modified chem parameter \"" << parameters[i] << "\": " << p[i] << std::endl;
-      }
+      p[i]->Value() = values[i];
+
+      amrex::Print() << "************** Modified chem parameter \"" << parameters[i] 
+		     << "\": " << *p[i] << std::endl;
+
       for (int j=0; j<dependent_parameters[i].size(); ++j) {
-	dependent_parameters[i][j].Value() = values[i];
-	if (ParallelDescriptor::IOProcessor()) {
-	  std::cout << "                     dependent parameter: " << dependent_parameters[i][j] << std::endl;
-	}
+	dependent_parameters[i][j]->Value() = values[i];
+	
+	amrex::Print() << "                     dependent parameter: " 
+		       << *dependent_parameters[i][j] << std::endl;
       }
     }
   }
@@ -531,7 +534,7 @@ ChemDriver::printReactions() const
 {
     int nr = numReactions();
     for (int j = 0; j < nr; ++j) {
-        std::cout << "(R" << j << ") " << reactionStringBuild(j) << std::endl;
+      amrex::Print() << "(R" << j << ") " << reactionStringBuild(j) << std::endl;
     }
 }
 
@@ -556,14 +559,14 @@ extern "C" {
   void CD_MWT(Real* mwt)
   {
     if (!initialized) {
-      BoxLib::Abort("Must construct the ChemDriver prior to calling CD_MWT");
+      amrex::Abort("Must construct the ChemDriver prior to calling CD_MWT");
     }
     FORT_GETCKMWT(mwt);
   }
   void CD_XTY_PT(const Real* X, Real* Y)
   {
     if (!initialized) {
-      BoxLib::Abort("Must construct the ChemDriver prior to calling CD_XTY_PT");
+      amrex::Abort("Must construct the ChemDriver prior to calling CD_XTY_PT");
     }
     static Array<int> idx(BL_SPACEDIM,0);
     static int* p = idx.dataPtr();
@@ -573,7 +576,7 @@ extern "C" {
   void CD_YTX_PT(const Real* Y, Real* X)
   {
     if (!initialized) {
-      BoxLib::Abort("Must construct the ChemDriver prior to calling CD_YTX_PT");
+      amrex::Abort("Must construct the ChemDriver prior to calling CD_YTX_PT");
     }
     static Array<int> idx(BL_SPACEDIM,0);
     static int* p = idx.dataPtr();
@@ -727,36 +730,6 @@ ChemDriver::heatRelease(FArrayBox&       Q,
 }
 
 void
-ChemDriver::reactionRateY(FArrayBox&       Ydot,
-                             const FArrayBox& Y,
-                             const FArrayBox& T,
-                             Real             Patm,
-                             const Box&       box,
-                             int              sCompY,
-                             int              sCompT,
-                             int              sCompYdot) const
-{
-    const int Nspec = numSpecies();
-    BL_ASSERT(Ydot.nComp() >= sCompYdot + Nspec);
-    BL_ASSERT(Y.nComp() >= sCompY + Nspec);
-    BL_ASSERT(T.nComp() > sCompT);
-
-    const Box& mabx = Y.box();
-    const Box& mbbx = T.box();
-    const Box& mobx = Ydot.box();
-    
-    const Box& ovlp = box & mabx & mbbx & mobx;
-    if( ! ovlp.ok() ) return;
-    
-    FORT_RRATEY(ovlp.loVect(), ovlp.hiVect(),
-                Y.dataPtr(sCompY),       ARLIM(mabx.loVect()), ARLIM(mabx.hiVect()),
-                T.dataPtr(sCompT),       ARLIM(mbbx.loVect()), ARLIM(mbbx.hiVect()),
-                Ydot.dataPtr(sCompYdot), ARLIM(mobx.loVect()), ARLIM(mobx.hiVect()),
-                &Patm);
-}
-
-#ifdef LMC_SDC
-void
 ChemDriver::reactionRateRhoY(FArrayBox&       RhoYdot,
                              const FArrayBox& RhoY,
                              const FArrayBox& RhoH,
@@ -787,7 +760,6 @@ ChemDriver::reactionRateRhoY(FArrayBox&       RhoYdot,
                    T.dataPtr(sCompT),             ARLIM(mcbx.loVect()), ARLIM(mcbx.hiVect()),
                    RhoYdot.dataPtr(sCompRhoYdot), ARLIM(mobx.loVect()), ARLIM(mobx.hiVect()) );
 }
-#endif
 
 void
 ChemDriver::massFracToMoleFrac(FArrayBox&       X,
@@ -935,46 +907,6 @@ ChemDriver::decodeStringFromFortran(const int* coded,
     return result;
 }
 
-#include "iostream"
-using std::cout;
-using std::endl;
-bool
-ChemDriver::solveTransient(FArrayBox&        Ynew,
-                           FArrayBox&        Tnew,
-                           const FArrayBox&  Yold,
-                           const FArrayBox&  Told,
-                           FArrayBox&        FuncCount,
-                           const Box&        box,
-                           int               sCompY,
-                           int               sCompT,
-                           Real              dt,
-                           Real              Patm,
-                           FArrayBox*        chemDiag,
-                           bool              use_stiff_solver) const
-{
-    BL_ASSERT(sCompY+numSpecies() <= Ynew.nComp());
-    BL_ASSERT(sCompY+numSpecies() <= Yold.nComp());
-    BL_ASSERT(sCompT < Tnew.nComp());
-    BL_ASSERT(sCompT < Told.nComp());
-    
-    BL_ASSERT(Ynew.box().contains(box) && Yold.box().contains(box));
-    BL_ASSERT(Tnew.box().contains(box) && Told.box().contains(box));
-
-    const int do_diag  = (chemDiag!=0);
-    Real*     diagData = do_diag ? chemDiag->dataPtr() : 0;
-    const int do_stiff = (use_stiff_solver);
-    int success = FORT_CONPSOLV(box.loVect(), box.hiVect(),
-				Ynew.dataPtr(sCompY), ARLIM(Ynew.loVect()), ARLIM(Ynew.hiVect()),
-				Tnew.dataPtr(sCompT), ARLIM(Tnew.loVect()), ARLIM(Tnew.hiVect()),
-				Yold.dataPtr(sCompY), ARLIM(Yold.loVect()), ARLIM(Yold.hiVect()),
-				Told.dataPtr(sCompT), ARLIM(Told.loVect()), ARLIM(Told.hiVect()),
-				FuncCount.dataPtr(),
-				ARLIM(FuncCount.loVect()), ARLIM(FuncCount.hiVect()),
-				&Patm, &dt, diagData, &do_diag, &do_stiff);
-    return success > 0;
-}
-
-#ifdef LMC_SDC
 bool
 ChemDriver::solveTransient_sdc(FArrayBox&        rhoYnew,
 			       FArrayBox&        rhoHnew,
@@ -1019,7 +951,6 @@ ChemDriver::solveTransient_sdc(FArrayBox&        rhoYnew,
 				    &dt, diagData, &do_diag, &do_stiff);
     return success > 0;
 }
-#endif
 
 void
 ChemDriver::getMixAveragedRhoDiff(FArrayBox&       rhoD,
@@ -1773,7 +1704,7 @@ ChemDriver::getEdges (const std::string& trElt, int PrintVerbose, int HackSplitt
         
 	int rr = reaction_rev_map[r];
 	if (PrintVerbose>0) {
-	  cout << rr+1 << ": " << reactionStringBuild(rr) << endl;
+	  amrex::Print() << rr+1 << ": " << reactionStringBuild(rr) << std::endl;
 	}
         if ((LR == 1) || (LP == 1)) // exactly one tr-containing species either side
         {
@@ -1788,7 +1719,8 @@ ChemDriver::getEdges (const std::string& trElt, int PrintVerbose, int HackSplitt
                     const int cop = pit->second;
                     int w = std::min(cor*groups[spcr][trElt],cop*groups[spcp][trElt]);
 		    if (PrintVerbose>0) {
-		      cout << "    " << spcr << " => " << spcp << " w: " << w << endl;
+		      amrex::Print() << "    " << spcr << " => " << spcp 
+				     << " w: " << w << std::endl;
 		    }
                     edges.push_back(Edge(spcr,spcp,r,w,this));
                 }
@@ -1822,7 +1754,8 @@ ChemDriver::getEdges (const std::string& trElt, int PrintVerbose, int HackSplitt
             {
                 pick = 0;
                 if (PrintVerbose>0) {
-                    cout << "decomposition of reaction " << rr+1 << "...resorting to HACK!!" << endl;
+		  amrex::Print() << "decomposition of reaction " << rr+1 
+				 << "...resorting to HACK!!" << std::endl;
 		}
             }
             else
@@ -1833,7 +1766,8 @@ ChemDriver::getEdges (const std::string& trElt, int PrintVerbose, int HackSplitt
                     {
                         pick = 1;
                         if (PrintVerbose>0) {
-			  cout << "decomposition of reaction " << rr+1 << " resorting to atom cnt" << endl;
+			  amrex::Print() << "decomposition of reaction " << rr+1 
+					 << " resorting to atom cnt" << std::endl;
 			}
                     }
                     if (b1.size() == b0.size())
@@ -1842,12 +1776,14 @@ ChemDriver::getEdges (const std::string& trElt, int PrintVerbose, int HackSplitt
                         {
                             pick = 1;
                             if (PrintVerbose>0) {
-			      cout << "decomposition of reaction " << rr+1 << " ...resorting to tot awt" << endl;
+			      amrex::Print() << "decomposition of reaction " << rr+1 
+					     << " ...resorting to tot awt" << std::endl;
 			    }
                         }
                         else if ( (PrintVerbose>0) && (b0.awt() < b1.awt()) )
                         {
-                            cout << "decomposition of reaction " << rr+1 << " ...resorting to tot awt" << endl;
+			  amrex::Print() << "decomposition of reaction " << rr+1 
+					 << " ...resorting to tot awt" << std::endl;
                         }
                     }
                 }
@@ -1867,24 +1803,26 @@ ChemDriver::getEdges (const std::string& trElt, int PrintVerbose, int HackSplitt
             if (pick == 0)
             {
 	      if (PrintVerbose>0) {
-		cout << "  choosing to move " << b0 << " rather than " << b1 << endl;
-	        cout << "    " << rs0 << " => " << ps0 << " w: " << std::min(nR0,nP0) << endl;
+		amrex::Print() << "  choosing to move " << b0 << " rather than " 
+			       << b1 << std::endl;
+		amrex::Print() << "    " << rs0 << " => " << ps0 << " w: "
+			       << std::min(nR0,nP0) << std::endl;
 	      }
 	      edges.push_back(Edge(rs0,ps0,r,std::min(nR0,nP0),this));
 	      if (nP0<nR0) {
 		if (PrintVerbose>0) {
-		  cout << "    " << rs0 << " => " << ps1 << " w: " << nR0-nP0 << endl;
+		  amrex::Print() << "    " << rs0 << " => " << ps1 << " w: " << nR0-nP0 << std::endl;
 		}
 		edges.push_back(Edge(rs0,ps1,r,nR0-nP0,this));
 	      }
               
 	      if (PrintVerbose>0) {
-	        cout << "    " << rs1 << " => " << ps1 << " w: " << std::min(nR1,nP1) << endl;
+	        amrex::Print() << "    " << rs1 << " => " << ps1 << " w: " << std::min(nR1,nP1) << std::endl;
 	      }
 	      edges.push_back(Edge(rs1,ps1,r,std::min(nR1,nP1),this));
 	      if (nR0<nP0) {
 		if (PrintVerbose>0) {
-		  cout << "    " << rs1 << " => " << ps0 << " w: " << nP0-nR0 << endl;
+		  amrex::Print() << "    " << rs1 << " => " << ps0 << " w: " << nP0-nR0 << std::endl;
 		}
 		edges.push_back(Edge(rs1,ps0,r,nP0-nR0,this));
 	      }
@@ -1892,24 +1830,24 @@ ChemDriver::getEdges (const std::string& trElt, int PrintVerbose, int HackSplitt
             else
             {
 	      if (PrintVerbose>0) {
-		cout << "  choosing to move " << b1 << " rather than " << b0 << endl;
-	        cout << "    " << rs0 << " => " << ps1 << " w: " << std::min(nR0,nP1) << endl;
+		amrex::Print() << "  choosing to move " << b1 << " rather than " << b0 << std::endl;
+	        amrex::Print() << "    " << rs0 << " => " << ps1 << " w: " << std::min(nR0,nP1) << std::endl;
 	      }
 	      edges.push_back(Edge(rs0,ps1,r,std::min(nR0,nP1),this));
 	      if (nP1<nR0) {
 		if (PrintVerbose>0) {
-		  cout << "    " << rs0 << " => " << ps0 << " w: " << nR0-nP1 << endl;
+		  amrex::Print() << "    " << rs0 << " => " << ps0 << " w: " << nR0-nP1 << std::endl;
 		}
 		edges.push_back(Edge(rs0,ps0,r,nR0-nP1,this));
 	      }
 
 	      if (PrintVerbose>0) {
-	        cout << "    " << rs1 << " => " << ps0 << " w: " << std::min(nR1,nP0) << endl;
+	        amrex::Print() << "    " << rs1 << " => " << ps0 << " w: " << std::min(nR1,nP0) << std::endl;
 	      }
 	      edges.push_back(Edge(rs1,ps0,r,std::min(nR1,nP0),this));
 	      if (nR0<nP1) {
 		if (PrintVerbose>0) {
-		  cout << "    " << rs1 << " => " << ps1 << " w: " << nP1-nR0 << endl;
+		  amrex::Print() << "    " << rs1 << " => " << ps1 << " w: " << nP1-nR0 << std::endl;
 		}
 		edges.push_back(Edge(rs1,ps1,r,nP1-nR0,this));
 	      }
@@ -1931,7 +1869,7 @@ ChemDriver::getEdges (const std::string& trElt, int PrintVerbose, int HackSplitt
                 int m = numberOfElementXinSpeciesY(elt,sp);
                 reace[sp] += m;
               }
-               // cout <<"CALCULATED VALUE=" << reace[sp] << endl;
+               // amrex::Print() <<"CALCULATED VALUE=" << reace[sp] << std::endl;
                         
             }
             std::map<std::string,int>::const_iterator re0 = reace.begin();
@@ -1960,17 +1898,17 @@ ChemDriver::getEdges (const std::string& trElt, int PrintVerbose, int HackSplitt
             if(rce0<rce1)
             {
               Group b0(pc0 * groups[ps0] - rc0 * groups[rs0]);
-              //cout << b0.awt() << endl;
+              //amrex::Print() << b0.awt() << std::endl;
               Group b1(pc1 * groups[ps1] - rc0 * groups[rs0]);
-              //cout << b1.awt() << endl;
+              //amrex::Print() << b1.awt() << std::endl;
               Group b2(pc2 * groups[ps2] - rc0 * groups[rs0]);
-              //cout << b2.awt() << endl;
+              //amrex::Print() << b2.awt() << std::endl;
               if(b0.awt()<b1.awt() && b0.awt()<b2.awt())
               {
                 // link r0 to p0
                     int w = std::min(rc0*groups[rs0][trElt],pc0*groups[ps0][trElt]);
                     if (PrintVerbose>0) {
-                      cout << "    " << rs0 << " => " << ps0 << " w: " << w << endl;
+                      amrex::Print() << "    " << rs0 << " => " << ps0 << " w: " << w << std::endl;
                     }
                     edges.push_back(Edge(rs0,ps0,r,w,this));
                    w = std::min(rc1*groups[rs1][trElt],pc1*groups[ps1][trElt]);
@@ -1983,7 +1921,7 @@ ChemDriver::getEdges (const std::string& trElt, int PrintVerbose, int HackSplitt
                 // link r0 to p1
                     int w = std::min(rc0*groups[rs0][trElt],pc1*groups[ps1][trElt]);
                     if (PrintVerbose>0) {
-                      cout << "    " << rs0 << " => " << ps1 << " w: " << w << endl;
+                      amrex::Print() << "    " << rs0 << " => " << ps1 << " w: " << w << std::endl;
                     }
                     edges.push_back(Edge(rs0,ps1,r,w,this));
                    w = std::min(rc1*groups[rs1][trElt],pc0*groups[ps0][trElt]);
@@ -1996,7 +1934,7 @@ ChemDriver::getEdges (const std::string& trElt, int PrintVerbose, int HackSplitt
                 // link r0 to p2
                     int w = std::min(rc0*groups[rs0][trElt],pc2*groups[ps2][trElt]);
                     if (PrintVerbose>0) {
-                      cout << "    " << rs0 << " => " << ps2 << " w: " << w << endl;
+                      amrex::Print() << "    " << rs0 << " => " << ps2 << " w: " << w << std::endl;
                     }
                     edges.push_back(Edge(rs0,ps2,r,w,this));
                    w = std::min(rc1*groups[rs1][trElt],pc1*groups[ps1][trElt]);
@@ -2008,18 +1946,18 @@ ChemDriver::getEdges (const std::string& trElt, int PrintVerbose, int HackSplitt
            else
             {
               Group b0(pc0 * groups[ps0] - rc1 * groups[rs1]);
-              //cout << b0.awt() << endl;
+              //amrex::Print() << b0.awt() << std::endl;
               Group b1(pc1 * groups[ps1] - rc1 * groups[rs1]);
-              //cout << b1.awt() << endl;
+              //amrex::Print() << b1.awt() << std::endl;
               Group b2(pc2 * groups[ps2] - rc1 * groups[rs1]);
-              //cout << b2.awt() << endl;
+              //amrex::Print() << b2.awt() << std::endl;
                 
               if(b0.awt()<b1.awt() && b0.awt()<b2.awt())
               {
                 // link r1 to p0
                     int w = std::min(rc1*groups[rs1][trElt],pc0*groups[ps0][trElt]);
                     if (PrintVerbose>0) {
-                      cout << "    " << rs1 << " => " << ps0 << " w: " << w << endl;
+                      amrex::Print() << "    " << rs1 << " => " << ps0 << " w: " << w << std::endl;
                     }
                     edges.push_back(Edge(rs1,ps0,r,w,this));
                    w = std::min(rc1*groups[rs0][trElt],pc1*groups[ps1][trElt]);
@@ -2032,7 +1970,7 @@ ChemDriver::getEdges (const std::string& trElt, int PrintVerbose, int HackSplitt
                 // link r1 to p1
                     int w = std::min(rc1*groups[rs1][trElt],pc1*groups[ps1][trElt]);
                     if (PrintVerbose>0) {
-                      cout << "    " << rs1 << " => " << ps1 << " w: " << w << endl;
+                      amrex::Print() << "    " << rs1 << " => " << ps1 << " w: " << w << std::endl;
                     }
                     edges.push_back(Edge(rs1,ps1,r,w,this));
                    w = std::min(rc0*groups[rs0][trElt],pc0*groups[ps0][trElt]);
@@ -2045,7 +1983,7 @@ ChemDriver::getEdges (const std::string& trElt, int PrintVerbose, int HackSplitt
                 // link r1 to p2
                     int w = std::min(rc1*groups[rs1][trElt],pc2*groups[ps2][trElt]);
                     if (PrintVerbose>0) {
-                      cout << "    " << rs1 << " => " << ps2 << " w: " << w << endl;
+                      amrex::Print() << "    " << rs1 << " => " << ps2 << " w: " << w << std::endl;
                     }
                     edges.push_back(Edge(rs1,ps2,r,w,this));
                    w = std::min(rc0*groups[rs0][trElt],pc1*groups[ps1][trElt]);
@@ -2071,7 +2009,7 @@ ChemDriver::getEdges (const std::string& trElt, int PrintVerbose, int HackSplitt
                 int m = numberOfElementXinSpeciesY(elt,sp);
                 reace[sp] += m;
               }
-               // cout <<"CALCULATED VALUE=" << reace[sp] << endl;
+               // amrex::Print() <<"CALCULATED VALUE=" << reace[sp] << std::endl;
                         
             }
             std::map<std::string,int>::const_iterator re0 = reace.begin();
@@ -2112,7 +2050,7 @@ ChemDriver::getEdges (const std::string& trElt, int PrintVerbose, int HackSplitt
                 // link r0 to p0
                     int w = std::min(rc0*groups[rs0][trElt],pc0*groups[ps0][trElt]);
                     if (PrintVerbose>0) {
-                      cout << "    " << rs0 << " => " << ps0 << " w: " << w << endl;
+                      amrex::Print() << "    " << rs0 << " => " << ps0 << " w: " << w << std::endl;
                     }
                     edges.push_back(Edge(rs0,ps0,r,w,this));
                    w = std::min(rc1*groups[rs1][trElt],pc1*groups[ps1][trElt]);
@@ -2127,7 +2065,7 @@ ChemDriver::getEdges (const std::string& trElt, int PrintVerbose, int HackSplitt
                 // link r0 to p1
                     int w = std::min(rc0*groups[rs0][trElt],pc1*groups[ps1][trElt]);
                     if (PrintVerbose>0) {
-                      cout << "    " << rs0 << " => " << ps1 << " w: " << w << endl;
+                      amrex::Print() << "    " << rs0 << " => " << ps1 << " w: " << w << std::endl;
                     }
                     edges.push_back(Edge(rs0,ps1,r,w,this));
                    w = std::min(rc1*groups[rs1][trElt],pc0*groups[ps0][trElt]);
@@ -2142,7 +2080,7 @@ ChemDriver::getEdges (const std::string& trElt, int PrintVerbose, int HackSplitt
                 // link r0 to p2
                     int w = std::min(rc0*groups[rs0][trElt],pc2*groups[ps2][trElt]);
                     if (PrintVerbose>0) {
-                      cout << "    " << rs0 << " => " << ps2 << " w: " << w << endl;
+                      amrex::Print() << "    " << rs0 << " => " << ps2 << " w: " << w << std::endl;
                     }
                     edges.push_back(Edge(rs0,ps2,r,w,this));
                    w = std::min(rc1*groups[rs1][trElt],pc0*groups[ps0][trElt]);
@@ -2157,7 +2095,7 @@ ChemDriver::getEdges (const std::string& trElt, int PrintVerbose, int HackSplitt
                 // link r0 to p3
                     int w = std::min(rc0*groups[rs0][trElt],pc3*groups[ps3][trElt]);
                     if (PrintVerbose>0) {
-                      cout << "    " << rs0 << " => " << ps3 << " w: " << w << endl;
+                      amrex::Print() << "    " << rs0 << " => " << ps3 << " w: " << w << std::endl;
                     }
                     edges.push_back(Edge(rs0,ps3,r,w,this));
                    w = std::min(rc1*groups[rs1][trElt],pc1*groups[ps1][trElt]);
@@ -2180,7 +2118,7 @@ ChemDriver::getEdges (const std::string& trElt, int PrintVerbose, int HackSplitt
                 // link r1 to p0
                     int w = std::min(rc1*groups[rs1][trElt],pc0*groups[ps0][trElt]);
                     if (PrintVerbose>0) {
-                      cout << "    " << rs1 << " => " << ps0 << " w: " << w << endl;
+                      amrex::Print() << "    " << rs1 << " => " << ps0 << " w: " << w << std::endl;
                     }
                     edges.push_back(Edge(rs1,ps0,r,w,this));
                    w = std::min(rc1*groups[rs0][trElt],pc1*groups[ps1][trElt]);
@@ -2195,7 +2133,7 @@ ChemDriver::getEdges (const std::string& trElt, int PrintVerbose, int HackSplitt
                 // link r1 to p1
                     int w = std::min(rc1*groups[rs1][trElt],pc1*groups[ps1][trElt]);
                     if (PrintVerbose>0) {
-                      cout << "    " << rs1 << " => " << ps1 << " w: " << w << endl;
+                      amrex::Print() << "    " << rs1 << " => " << ps1 << " w: " << w << std::endl;
                     }
                     edges.push_back(Edge(rs1,ps1,r,w,this));
                    w = std::min(rc0*groups[rs0][trElt],pc0*groups[ps0][trElt]);
@@ -2210,7 +2148,7 @@ ChemDriver::getEdges (const std::string& trElt, int PrintVerbose, int HackSplitt
                 // link r1 to p2
                     int w = std::min(rc1*groups[rs1][trElt],pc2*groups[ps2][trElt]);
                     if (PrintVerbose>0) {
-                      cout << "    " << rs1 << " => " << ps2 << " w: " << w << endl;
+                      amrex::Print() << "    " << rs1 << " => " << ps2 << " w: " << w << std::endl;
                     }
                     edges.push_back(Edge(rs1,ps2,r,w,this));
                    w = std::min(rc0*groups[rs0][trElt],pc1*groups[ps1][trElt]);
@@ -2225,7 +2163,7 @@ ChemDriver::getEdges (const std::string& trElt, int PrintVerbose, int HackSplitt
                 // link r1 to p3
                     int w = std::min(rc1*groups[rs1][trElt],pc3*groups[ps3][trElt]);
                     if (PrintVerbose>0) {
-                      cout << "    " << rs1 << " => " << ps3 << " w: " << w << endl;
+                      amrex::Print() << "    " << rs1 << " => " << ps3 << " w: " << w << std::endl;
                     }
                     edges.push_back(Edge(rs1,ps3,r,w,this));
                    w = std::min(rc0*groups[rs0][trElt],pc1*groups[ps1][trElt]);
@@ -2241,7 +2179,7 @@ ChemDriver::getEdges (const std::string& trElt, int PrintVerbose, int HackSplitt
          }
        
 
-	cout << "Cannot decompose rxn: " << rr+1 << ": " << reactionStringBuild(rr) << endl;
+	amrex::Print() << "Cannot decompose rxn: " << rr+1 << ": " << reactionStringBuild(rr) << std::endl;
     }
 
     // Uniquify/combine edges

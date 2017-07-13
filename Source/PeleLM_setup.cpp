@@ -23,7 +23,6 @@
 //
 // see variableSetUp on how to use or not use these types in the state
 //
-#include <winstd.H>
 
 #include <algorithm>
 #include <cstdio>
@@ -31,15 +30,17 @@
 
 #include <PeleLM.H>
 #include <RegType.H>
-#include <ParmParse.H>
-#include <ErrorList.H>
+#include <AMReX_ParmParse.H>
+#include <AMReX_ErrorList.H>
 #include <Prob_F.H>
 #include <DERIVE_F.H>
-#include <FArrayBox.H>
+#include <AMReX_FArrayBox.H>
 #include <NAVIERSTOKES_F.H>
 #include <PeleLM_F.H>
-#include <Utility.H>
+#include <AMReX_Utility.H>
 #include <NS_error_F.H>
+
+using namespace amrex;
 
 #define DEF_LIMITS(fab,fabdat,fablo,fabhi)      \
   const int* fablo = (fab).loVect();            \
@@ -51,8 +52,8 @@
   const Real* fabdat = (fab).dataPtr();
 
 static Box the_same_box (const Box& b)    { return b;                 }
-static Box grow_box_by_one (const Box& b) { return BoxLib::grow(b,1); }
-static Box the_nodes (const Box& b) { return BoxLib::surroundingNodes(b); }
+static Box grow_box_by_one (const Box& b) { return amrex::grow(b,1); }
+static Box the_nodes (const Box& b) { return amrex::surroundingNodes(b); }
 
 static bool do_group_bndry_fills = false;
 
@@ -457,13 +458,11 @@ PeleLM::variableSetUp ()
 
   const Array<std::string>& names = getChemSolve().speciesNames();
 
-  if (ParallelDescriptor::IOProcessor())
-  {
-    std::cout << nspecies << " Chemical species interpreted:\n { ";
-    for (int i = 0; i < nspecies; i++)
-      std::cout << names[i] << ' ' << ' ';
-    std::cout << '}' << '\n' << '\n';
-  }
+  amrex::Print() << nspecies << " Chemical species interpreted:\n { ";
+  for (int i = 0; i < nspecies; i++)
+    amrex::Print() << names[i] << ' ' << ' ';
+  amrex::Print() << '}' << '\n' << '\n';
+
   //
   // Send indices of fuel and oxidizer to fortran for setting prob data in common block
   //
@@ -485,9 +484,7 @@ PeleLM::variableSetUp ()
   std::string speciesScaleFile; pp.query("speciesScaleFile",speciesScaleFile);
   if (! speciesScaleFile.empty())
   {
-    if (ParallelDescriptor::IOProcessor())
-      std::cout << "  Setting scale values for chemical species\n\n";
-        
+    amrex::Print() << "  Setting scale values for chemical species\n\n";
     getChemSolve().set_species_Yscales(speciesScaleFile);
   }
   int verbose_vode=0; pp.query("verbose_vode",verbose_vode);
@@ -498,10 +495,9 @@ PeleLM::variableSetUp ()
   int oxidID = getChemSolve().index(oxidizerName);
   int prodID = getChemSolve().index(productName);
 
-  if (ParallelDescriptor::IOProcessor()) {
-    std::cout << " fuel name " << fuelName << std::endl;
-    std::cout << " index for fueld and oxidizer " << fuelID << " " << oxidID << std::endl;
-  }
+  amrex::Print() << " fuel name " << fuelName << std::endl;
+  amrex::Print() << " index for fueld and oxidizer " << fuelID << " " << oxidID << std::endl;
+
   FORT_SET_PROB_SPEC(&fuelID, &oxidID, &prodID, &nspecies);
   //
   // Get a species to use as a flame tracker.
@@ -674,7 +670,7 @@ PeleLM::variableSetUp ()
   }
 
   if (is_diffusive[Density])
-    BoxLib::Abort("PeleLM::variableSetUp(): density cannot diffuse");
+    amrex::Abort("PeleLM::variableSetUp(): density cannot diffuse");
   //
   // ---- pressure
   //
@@ -733,11 +729,7 @@ PeleLM::variableSetUp ()
   FuncCount_Type = desc_lst.size();
   desc_lst.addDescriptor(FuncCount_Type, IndexType::TheCellType(),StateDescriptor::Point,0, 1, &cell_cons_interp);
   desc_lst.setComponent(FuncCount_Type, 0, "FuncCount", bc, BndryFunc(FORT_DQRADFILL));
-#ifdef LMC_SDC
   rhoydotSetUp();
-#else
-  ydotSetUp();
-#endif
   //
   // rho_temp
   //
@@ -798,21 +790,13 @@ PeleLM::variableSetUp ()
     }
   }
   //
-  // Sum Ydot (or rhoYdot).
+  // Sum rhoYdot
   //
-#ifdef LMC_SDC
   derive_lst.add("sumRhoYdot",IndexType::TheCellType(),1,FORT_DERSUMRHOYDOT,the_same_box);
   for (i = 0; i < nspecies; i++)
   {
     derive_lst.addComponent("sumRhoYdot",desc_lst,RhoYdot_Type,i,1);
   }
-#else
-  derive_lst.add("sumYdot",IndexType::TheCellType(),1,FORT_DERSUMYDOT,the_same_box);
-  for (i = 0; i < nspecies; i++)
-  {
-    derive_lst.addComponent("sumYdot",desc_lst,Ydot_Type,i,1);
-  }
-#endif
   //
   // **************  DEFINE DERIVED QUANTITIES ********************
   //
@@ -910,8 +894,7 @@ PeleLM::variableSetUp ()
   const int idx = getChemSolve().index(flameTracName);
   if (idx >= 0)
   {
-    if (ParallelDescriptor::IOProcessor())
-      std::cout << "Flame tracer will be " << flameTracName << '\n';
+    amrex::Print() << "Flame tracer will be " << flameTracName << '\n';
     const std::string name = "Y("+flameTracName+")";
     err_list.add(name,nGrowErr,ErrorRec::Special,FORT_FLAMETRACERROR);
   }
@@ -928,6 +911,7 @@ class PLMBld
                                 int             lev,
                                 const Geometry& level_geom,
                                 const BoxArray& ba,
+                                const DistributionMapping& dm,
                                 Real            time) override;
 };
 
@@ -962,12 +946,12 @@ PLMBld::operator() (Amr&            papa,
                     int             lev,
                     const Geometry& level_geom,
                     const BoxArray& ba,
+                    const DistributionMapping& dm,
                     Real            time)
 {
-  return new PeleLM(papa, lev, level_geom, ba, time);
+    return new PeleLM(papa, lev, level_geom, ba, dm, time);
 }
 
-#ifdef LMC_SDC
 static
 int
 rhoydot_bc[] =
@@ -997,8 +981,7 @@ PeleLM::rhoydotSetUp()
   const int ngrow = 1;
   const int nrhoydot = getChemSolve().numSpecies();
 
-  if (ParallelDescriptor::IOProcessor())
-    std::cout << "RhoYdot_Type, nrhoydot = " << RhoYdot_Type << ' ' << nrhoydot << '\n';
+  amrex::Print() << "RhoYdot_Type, nrhoydot = " << RhoYdot_Type << ' ' << nrhoydot << '\n';
 
   desc_lst.addDescriptor(RhoYdot_Type,IndexType::TheCellType(),
                          StateDescriptor::Point,ngrow,nrhoydot,
@@ -1017,54 +1000,4 @@ PeleLM::rhoydotSetUp()
   }
 }
 
-#else
-static
-int
-ydot_bc[] =
-{
-  INT_DIR, EXT_DIR, FOEXTRAP, REFLECT_EVEN, REFLECT_EVEN, REFLECT_EVEN
-};
-
-static
-void
-set_ydot_bc (BCRec&       bc,
-             const BCRec& phys_bc)
-{
-  const int* lo_bc = phys_bc.lo();
-  const int* hi_bc = phys_bc.hi();
-
-  for (int i = 0; i < BL_SPACEDIM; i++)
-  {
-    bc.setLo(i,ydot_bc[lo_bc[i]]);
-    bc.setHi(i,ydot_bc[hi_bc[i]]);
-  }
-}
-
-void
-PeleLM::ydotSetUp()
-{
-  Ydot_Type       = desc_lst.size();
-  const int ngrow = 1;
-  const int nydot = getChemSolve().numSpecies();
-
-  if (ParallelDescriptor::IOProcessor())
-    std::cout << "Ydot_Type, nydot = " << Ydot_Type << ' ' << nydot << '\n';
-
-  desc_lst.addDescriptor(Ydot_Type,IndexType::TheCellType(),
-                         StateDescriptor::Point,ngrow,nydot,
-                         &lincc_interp);
-	
-  //const StateDescriptor& d_cell = desc_lst[State_Type];
-  const Array<std::string>& names   = getChemSolve().speciesNames();
-
-  BCRec bc;	
-  set_ydot_bc(bc,phys_bc);
-  for (int i = 0; i < nydot; i++)
-  {
-    const std::string name = "d[Y("+names[i]+")]/dt";
-    desc_lst.setComponent(Ydot_Type, i, name.c_str(), bc,
-                          BndryFunc(FORT_YDOTFILL), &lincc_interp, 0, nydot-1);
-  }
-}
-#endif
 

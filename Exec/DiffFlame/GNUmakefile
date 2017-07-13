@@ -1,5 +1,5 @@
 TOP = ../../..
-BOXLIB_HOME ?= ${TOP}/BoxLib
+AMREX_HOME ?= ${TOP}/amrex
 IAMR_HOME ?= ${TOP}/IAMR
 PELELM_HOME ?= ${TOP}/PeleLM
 
@@ -15,8 +15,6 @@ USE_MPI         = TRUE
 VERBOSE         = TRUE
 PROFILE         = FALSE
 COMM_PROFILE    = FALSE
-
-USE_LMC_SDC = TRUE
 
 # Enable flctin namelist
 USE_FLCTS       = TRUE

@@ -1,0 +1,28 @@
+ &fortin
+  probtype = 'diffusion_two-stream'
+
+  V_in = 0.5
+
+  T_in = 298
+
+  blobr = -1.
+
+  splitx = 0.01
+  xfrontw = 1.e-3
+
+  bloby = 1000.
+  Tfrontw = 1.
+
+  max_trac_lev = 0
+  max_temp_lev = 0
+  max_vort_lev = 0
+
+ /
+ &heattransin
+  pamb = 101325.
+  dpdt_factor = .3
+ /
+  &flctin
+ /
+  &control
+ /

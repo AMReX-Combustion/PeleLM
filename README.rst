@@ -2,30 +2,45 @@ PeleLM
 ==========================================
 *A low Mach number AMR combustion code*
 
-`PeleLM` is an adaptive-mesh low Mach number hydrodynamics code for reacting
-flows.
+`PeleLM` is an adaptive-mesh low Mach number hydrodynamics code for reacting flows.
 
 Getting Started
 ---------------
 
-To build `PeleLM`:
+* To compile and run the `Pele` suite of codes, one needs a C++ compiler that supports 
+the C++11 standard and a Fortran compiler that supports the 2003 standard.  A hierarchical 
+strategy for parallelism is supported, based MPI + OpenMP.  The codes work with all major 
+MPI and OpenMP implementations.  The codes should build and run with no modifications to 
+the `make` system if using a Linux system with the GNU compilers, version 4.8.4 and above.
 
-1. Set the environment variable, BOXLIB_HOME, and clone a copy of `BoxLib` there ::
+To build `PeleLM` and run a sample 2D flame problem:
 
-    export BOXLIB_HOME=<location for BoxLib>
-    git clone https://github.com/BoxLib-Codes/BoxLib.git ${BOXLIB_HOME}
+1. Set the environment variable, AMREX_HOME, and clone a copy of `AMReX` there ::
+
+    export AMREX_HOME=<location for AMReX>    
+    git clone git@github.com:AMReX-Codes/amrex.git ${AMREX_HOME}
 
 2. Set the environment variable, IAMR_HOME, and clone a copy of `IAMR` there ::
 
     export IAMR_HOME=<location for IAMR>
-    git clone git@code.ornl.gov:Pele/IAMR.git ${IAMR_HOME}
+    git clone git@github.com:AMReX-Codes/IAMR.git ${IAMR_HOME}
 
 3. Set the environment variable, PELELM_HOME, and clone a copy of `PeleLM` there ::
 
     export PELELM_HOME=<location for PeleLM>
-    git clone git@code.ornl.gov:Pele/PeleLM.git ${PELELM_HOME}
+    git clone git@code.ornl.gov:Pele/PeleLM.git ${PELELM_HOME}   (if you have access to the ORNL gitlab server)
+               or 
+    git clone git@bitbucket.org:berkeleylab/pelelm.git ${PELELM_HOME}   (if you have access to the bitbucket server) 
 
-4. Move to an example build folder, build an executable ::
+
+4. Set the environment variable, PELE_PHYSICS_HOME, and clone a copy of `PelePhysics` there ::
+
+    export PELE_PHYSICS_HOME=<location for PeleLM>
+    git clone git@code.ornl.gov:Pele/PelePhysics.git ${PELELM_HOME}  (if you have access to the ORNL gitlab server)
+               or
+    git clone git@bitbucket.org:berkeleylab/pelephysics.git ${PELELM_HOME}   (if you have access to the bitbucket server)
+
+5. Move to an example build folder, build an executable ::
 
     cd ${PELELM_HOME}/Exec/FlameInABox
     make
@@ -33,9 +48,9 @@ To build `PeleLM`:
 Dependencies
 ------------
 
-`PeleLM` was created as a renamed, `LMC`, the low Mach code from CCSE (``<https://ccse.lbl.gov/index.html>``),
-and is built on the `BoxLib` library and the IAMR code (see above).
-`BoxLib`, the predecessor of AMReX is described at: `<https://ccse.lbl.gov/BoxLib/index.html>`.
+`PeleLM` was created as a renamed, `LMC`, the low Mach code from CCSE 
+(``<https://ccse.lbl.gov/index.html>``),
+and is built on the `AMReX` library and the IAMR code (see above).
 
 Development model
 -----------------

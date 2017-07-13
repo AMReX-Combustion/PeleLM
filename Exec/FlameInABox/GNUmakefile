@@ -1,5 +1,5 @@
 TOP = ../../..
-BOXLIB_HOME ?= ${TOP}/BoxLib
+AMREX_HOME ?= ${TOP}/amrex
 IAMR_HOME ?= ${TOP}/IAMR
 PELELM_HOME ?= ${TOP}/PeleLM
 
@@ -7,18 +7,16 @@ PELELM_HOME ?= ${TOP}/PeleLM
 # Build configuration
 #
 
-PRECISION       = DOUBLE
-DEBUG           = TRUE
-DEBUG           = FALSE
 DIM             = 2
+COMP            = gnu
+DEBUG           = FALSE
 USE_MPI         = TRUE
 USE_OMP         = FALSE
+PRECISION       = DOUBLE
 VERBOSE         = FALSE
 
 # Enable flctin namelist
 #USE_FLCTS       = TRUE
-
-USE_LMC_SDC = TRUE
 
 #USE_PARTICLES   = TRUE
 

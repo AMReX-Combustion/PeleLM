@@ -3,11 +3,11 @@
 #define BL_LANG_FORT
 #endif
 
-#include <REAL.H>
-#include <CONSTANTS.H>
-#include <BC_TYPES.H>
+#include <AMReX_REAL.H>
+#include <AMReX_CONSTANTS.H>
+#include <AMReX_BC_TYPES.H>
 #include <Prob_F.H>
-#include <ArrayLim.H>
+#include <AMReX_ArrayLim.H>
 #include <ChemDriver_F.H>
 
 #   if   BL_SPACEDIM==1
@@ -77,11 +77,7 @@ c
 
 c=========================================================
 
-#ifdef LMC_SDC
       subroutine FORT_DERSUMRHOYDOT 
-#else
-      subroutine FORT_DERSUMYDOT 
-#endif
      &                        (e,DIMS(e),nv,dat,DIMS(dat),ncomp,
      &                         lo,hi,domlo,domhi,delta,xlo,time,dt,bc,
      &                         level,grid_no)

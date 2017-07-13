@@ -1,6 +1,6 @@
 #include "ChemDriver_F.H"
-#include "ArrayLim.H"
-#include "CONSTANTS.H"
+#include "AMReX_ArrayLim.H"
+#include "AMReX_CONSTANTS.H"
 
 #define CONPF_FILE conpFY
 #define CONPJ_FILE conpJY
@@ -136,7 +136,6 @@
       CALL CKRP(IWRK(ckbi), RWRK(ckbr), RU, RUC, P1atm)
       RWRK(NP) = Patm * P1atm
 
-#ifdef LMC_SDC
       do k=lo(3),hi(3)
          do j=lo(2),hi(2)
             do i=lo(1),hi(1)
@@ -168,103 +167,8 @@
          end do
       end do
 
-#else
-
-c     NOTE: scal converts result from assumed cgs to MKS (1 erg/s.cm^3 = .1 J/s.m^3)
-      scal = tenth
-      do k=lo(3),hi(3)
-         do j=lo(2),hi(2)
-            do i=lo(1),hi(1)
-               Zt(1) = T(i,j,k)
-               do n=1,Nspec
-                  Zt(n+1) = Y(i,j,k,n)
-               end do
-               call conpFY(ndummy,tdummy,Zt,Zdott,RWRK,IWRK)
-               CALL CKRHOY(RWRK(NP),Zt(1),Zt(2),IWRK(ckbi),RWRK(ckbr),RHO_CGS)
-               CALL CKCPBS(Zt(1),Zt(2),IWRK(ckbi),RWRK(ckbr),CPB_CGS)
-               Q(i,j,k) = Zdott(1) * scal * (RHO_CGS * 1.d3) * (CPB_CGS * 1.d-4)
-            end do
-         end do
-      end do
-#endif
       end
 
-      subroutine FORT_RRATEY(lo,hi,Y,DIMS(Y),T,DIMS(T),
-     &                       Ydot,DIMS(Ydot),Patm)
-      implicit none
-
-#include "cdwrk.H"
-#include "conp.H"
-
-      integer lo(SDIM)
-      integer hi(SDIM)
-      integer DIMDEC(Y)
-      integer DIMDEC(T)
-      integer DIMDEC(Ydot)
-      REAL_T Y(DIMV(Y),*)
-      REAL_T T(DIMV(T))
-      REAL_T Ydot(DIMV(Ydot),*)
-      REAL_T Patm
-
-      REAL_T Zt(maxspec+1),Zdott(maxspec+1)
-      integer i,j,k,n
-      integer ndummy
-      REAL_T tdummy,P1atm,RU,RUC, HMIX_CGS, RHO_CGS, RHOINV_MKS
-
-      ndummy = Nspec
-      tdummy = 0.
-      CALL CKRP(IWRK(ckbi), RWRK(ckbr), RU, RUC, P1atm)
-      RWRK(NP) = Patm * P1atm
-
-#ifdef LMC_SDC
-      do k=lo(3),hi(3)
-         do j=lo(2),hi(2)
-            do i=lo(1),hi(1)
-               
-               do n=1,Nspec
-                  Zt(n) = Y(i,j,k,n)
-               end do
-               call CKHBMS(T(i,j,k),Zt,IWRK(ckbi),RWRK(ckbr),HMIX_CGS)
-               call CKRHOY(RWRK(NP),T(i,j,k), Zt(1), IWRK(ckbi), RWRK(ckbr), RHO_CGS)
-               
-               Zt(Nspec+1) = (HMIX_CGS * 1.d-4) * (RHO_CGS * 1.d3)
-               
-               do n=1,Nspec
-                  Zt(n) = Zt(n) * (RHO_CGS * 1.d3)
-               end do
-               c_0(1:Nspec+1) = zero
-               rhoY_INIT(1:Nspec) = Zt(1:Nspec)
-               rhoH_INIT = (HMIX_CGS * 1.d-4) * (RHO_CGS * 1.d3)
-               T_cell = T(i,j,k)
-               call conpFY_sdc(ndummy,tdummy,Zt,Zdott,RWRK,IWRK)
-               
-               RHOINV_MKS = 1.d0 / (RHO_CGS * 1.d3)
-               do n=1,Nspec
-                  Ydot(i,j,k,n) = Zdott(n) * RHOINV_MKS
-               end do
-            end do
-         end do
-      end do
-#else
-      do k=lo(3),hi(3)
-         do j=lo(2),hi(2)
-            do i=lo(1),hi(1)
-               Zt(1) = T(i,j,k)
-               do n=1,Nspec
-                  Zt(n+1) = Y(i,j,k,n)
-               end do
-               call conpFY(ndummy,tdummy,Zt,Zdott,RWRK,IWRK)
-               do n=1,Nspec
-                  Ydot(i,j,k,n) = Zdott(n+1)
-               end do
-            end do
-         end do
-      end do
-#endif
-      end
-
-#ifdef LMC_SDC
-c     used by LMC
       subroutine FORT_RRATERHOY(lo,hi,RhoY,DIMS(RhoY),RhoH,DIMS(RhoH),T,DIMS(T),
      &                          RhoYdot,DIMS(RhoYdot))
       implicit none
@@ -313,7 +217,6 @@ c     used by LMC
       end do
 !$omp end parallel do
       end
-#endif
 
       subroutine FORT_MASSTOMOLE(lo, hi, Y, DIMS(Y), X, DIMS(X))
       implicit none
@@ -550,341 +453,6 @@ c     Get the matrix of elements versus species
       end do
       end
 
-c     use by LMC
-      integer function FORT_CONPSOLV(lo, hi,
-     &                         Ynew, DIMS(Ynew), Tnew, DIMS(Tnew),
-     &                         Yold, DIMS(Yold), Told, DIMS(Told),
-     &                         FuncCount, DIMS(FuncCount),
-     &                         Patm,
-     &                         dt,
-     &                         diag,do_diag,do_stiff)
-      implicit none
-
-#include "cdwrk.H"
-#include "conp.H"
-#include "vode.H"
-
-      integer lo(SDIM), hi(SDIM)
-      integer DIMDEC(Yold)
-      integer DIMDEC(Told)
-      integer DIMDEC(Ynew)
-      integer DIMDEC(Tnew)
-      integer DIMDEC(FuncCount)
-      integer do_diag, do_stiff
-      REAL_T Yold(DIMV(Yold),*)
-      REAL_T Told(DIMV(Told))
-      REAL_T Ynew(DIMV(Ynew),*)
-      REAL_T Tnew(DIMV(Tnew))
-      REAL_T FuncCount(DIMV(FuncCount))
-      REAL_T Patm, dt
-      REAL_T diag(DIMV(FuncCount),*)
-      
-      integer ITOL, IOPT, ITASK, open_vode_failure_file
-      parameter (IOPT=1, ITASK=1)
-      REAL_T RTOL, ATOL(maxspec+1),ATOLEPS
-      REAL_T spec_scalT, NEWJ_TOL
-      parameter (spec_scalT=twothousand, NEWJ_TOL=one100th)
-      external CONPF_FILE, CONPJ_FILE, open_vode_failure_file
-      REAL_T TT1, TT2, RU, RUC, P1atm, sum, atoln
-      integer i, j, k, m, MF, ISTATE, LOUTCK, lout, nfails
-
-      integer nsub, node
-      REAL_T dtloc, weight, TT1save, scale, tspecies(0:maxspec), nwdot(0:maxspec)
-      REAL_T Ct(maxspec),Qt(maxreac),Ytemp(maxspec),Yres(maxspec)
-
-      character*(maxspnml) name
-      parameter (LOUTCK=6)
-
-      logical newJ_triggered, bad_soln
-      !
-      ! Set to .true. if you want to see the 'nfails' output
-      !
-      logical, parameter :: verbose = .false.
-
-      ITOL    = vode_itol
-      RTOL    = vode_rtol
-      ATOLEPS = vode_atol
-      !
-      ! Set molecular weights and pressure in area accessible by conpF
-      !
-      CALL CKRP(IWRK(ckbi), RWRK(ckbr), RU, RUC, P1atm)
-
-      if (do_stiff .eq. 1) then
-         MF = 22  ! finite difference jacobian
-      else
-         MF = 10
-      endif
-      !
-      ! Set up ATOL
-      !
-      if (ITOL.eq.2 .or. ITOL.eq.4) then
-         ATOL(1) = ATOLEPS*typVal_Temp
-         if (ATOL(1) <= 0.0d0) call bl_abort('typVal_Temp <= 0')
-         do m=1,Nspec
-            ATOL(m+1) = ATOLEPS*typVal_Y(m)
-            if (ATOL(m+1) <= 0.0d0) call bl_abort('typVal_Y <= 0')
-         end do
-      else
-         ATOL(1) = ATOLEPS
-      endif
-
-      if (do_diag.eq.1) then
-         nsub  = nchemdiag
-         dtloc = dt/nchemdiag
-      else
-         nsub  = 1
-         dtloc = dt
-      endif
-
-      nfails = 0
-
-      FORT_CONPSOLV = 1
-
-!$omp parallel
-      !
-      ! Force recalculation of jacobian for each XYZ block.
-      !
-      FIRST = .TRUE.
-
-      RWRK(NP) = Patm * P1atm
-
-!$omp do private(i,j,k,m,TT1,ISTATE,sum,atoln,Ytemp,Yres,newJ_triggered)
-!$omp&private(scale,bad_soln,Ct,Qt,node,weight,TT1save,TT2,tspecies)
-!$omp&private(lout,name)
-#ifdef REGRESSIONTEST
-!$omp&schedule(static)
-#else
-!$omp&schedule(dynamic,1)
-#endif
-      do k=lo(3),hi(3)
-         if (FORT_CONPSOLV .eq. 0) cycle
-         do j=lo(2),hi(2)
-            do i=lo(1),hi(1)
-               TT1    = zero
-               ISTATE = 1
-#ifdef SOLN_IS_1D
-            if (i.ne.lo(1) .and. j.ne.lo(2)) then
-               do m=1,Nspec
-                  Ynew(i,j,k,m) = Ynew(lo(1),lo(2),k,m)
-               end do
-               Tnew(i,j,k) = Tnew(lo(1),lo(2),k)
-            else
-#endif
-               tspecies(0) = Told(i,j,k)
-
-#ifdef DO_JBB_HACK
-#ifdef DO_JBB_HACK_TEMP
-               tspecies(0) = MAX(HACK_TEMP_MIN, MIN(HACK_TEMP_MAX, tspecies(0)))
-#endif
-            sum = zero
-            do m=1,Nspec
-               Ytemp(m) = Yold(i,j,k,m)
-               atoln = ATOLEPS
-               if (ITOL.eq.2) atoln = atol(m+1)
-               Ytemp(m) = MAX(Yold(i,j,k,m),zero)
-               sum = sum+Ytemp(m)
-            end do
-            if (iN2 .gt. 0) Ytemp(iN2) = Ytemp(iN2)+one-sum
-#else
-            do m=1,Nspec
-               Ytemp(m) = Yold(i,j,k,m)
-            end do
-#endif
-            do m = 1,Nspec
-               tspecies(m) = Ytemp(m)
-            end do
-
-#ifdef ALWAYS_NEW_J
-            FIRST = .TRUE.
-#endif
-            newJ_triggered = FIRST
-
-#ifdef TRIGGER_NEW_J
-            if (.NOT. FIRST) then
-               sum = zero
-               do m=1,NEQ
-                  scale = spec_scalT
-                  if (m.ne.1) scale = spec_scalY(m-1)
-                  sum = sum + ABS(tspecies(m-1)-YJ_SAVE(m))/scale
-               end do
-               if (sum .gt. NEWJ_TOL) then
-                  FIRST = .TRUE.
-                  newJ_triggered = .TRUE.
-               endif
-            endif
-#endif
-            if (do_diag.eq.1) then
-               FuncCount(i,j,k) = 0
-               CALL CKYTCP(RWRK(NP),tspecies(0),tspecies(1),IWRK(ckbi),RWRK(ckbr),Ct)
-               CALL CKQC(tspecies(0),Ct,IWRK(ckbi),RWRK(ckbr),Qt)
-               do m=1,Nreac
-                  diag(i,j,k,m) = diag(i,j,k,m)+half*dtloc*Qt(m)*million
-               enddo
-            endif
-
-            do node = 1,nsub
-               if (node.lt.nsub) then
-                  weight = one
-               else
-                  weight = half
-               endif
-
-               TT1save = TT1
-               TT2     = TT1 + dtloc
-
-#if !defined(BL_USE_DOUBLE)
-               CALL SVODE
-#else 
-               CALL DVODE
-#endif
-     &              (CONPF_FILE, NEQ, tspecies, TT1, TT2, ITOL, RTOL, ATOL,
-     &              ITASK, ISTATE, IOPT, RWRK(dvbr), dvr, IWRK(dvbi), dvi,
-     &              CONPJ_FILE, MF, RWRK, IWRK)
-               !
-               ! If the step was bad, and we reused an old Jacobian,
-               ! try again from scratch
-               !
-#if defined(TRIGGER_NEW_J) && defined(DO_JBB_HACK)
-               if ((ISTATE .LT. 0) .and. (.NOT. newJ_triggered)) then
-                  bad_soln = .FALSE.
-                  do m=1,Nspec
-                     if (tspecies(m) .lt. -1.D-6*spec_scalY(m))
-     &                    bad_soln = .TRUE.
-                  end do
-                  if (bad_soln) then
-                     FIRST  = .TRUE. 
-                     TT1    = zero
-                     ISTATE = 1
-                     tspecies(0) = Told(i,j,k)
-                     do m=1,Nspec
-                        tspecies(m) = Ytemp(m)
-                     end do
-                     if (verbose) then
-!$omp atomic
-                        nfails = nfails + 1
-!$omp end atomic
-                     end if
-
-#if !defined(BL_USE_DOUBLE)
-                  CALL SVODE
-#else 
-                  CALL DVODE
-#endif
-     &           (CONPF_FILE, NEQ, tspecies, TT1, TT2, ITOL, RTOL, ATOL,
-     &              ITASK, ISTATE, IOPT, RWRK(dvbr), dvr, IWRK(dvbi), dvi,
-     &              CONPJ_FILE, MF, RWRK, IWRK)
-               end if
-            end if
-#endif
-               TT1 = TT2
-
-               if (do_diag.eq.1) then
-                  CALL CKYTCP(RWRK(NP),tspecies(0),tspecies(1),IWRK(ckbi),RWRK(ckbr),Ct)
-                  CALL CKQC(tspecies(0),Ct,IWRK(ckbi),RWRK(ckbr),Qt)
-                  do m=1,Nreac
-                     diag(i,j,k,m) = diag(i,j,k,m)+weight*dtloc*Qt(m)*million
-                  enddo
-                  FuncCount(i,j,k) = FuncCount(i,j,k) + IWRK(dvbi+11)
-               else
-                  FuncCount(i,j,k) = IWRK(dvbi+11)
-               endif
-
-               if (verbose_vode .eq. 1) then
-!$omp critical(output)
-                  write(6,*) '......dvode done:'
-                  write(6,*) ' last successful step size = ',RWRK(dvbr+10)
-                  write(6,*) '          next step to try = ',RWRK(dvbr+11)
-                  write(6,*) '   integrated time reached = ',RWRK(dvbr+12)
-                  write(6,*) '      number of time steps = ',IWRK(dvbi+10)
-                  write(6,*) '              number of fs = ',IWRK(dvbi+11)
-                  write(6,*) '              number of Js = ',IWRK(dvbi+12)
-                  write(6,*) '    method order last used = ',IWRK(dvbi+13)
-                  write(6,*) '   method order to be used = ',IWRK(dvbi+14)
-                  write(6,*) '            number of LUDs = ',IWRK(dvbi+18)
-                  write(6,*) ' number of Newton iterations ',IWRK(dvbi+19)
-                  write(6,*) ' number of Newton failures = ',IWRK(dvbi+20)
-                  if (ISTATE.eq.-4 .or. ISTATE.eq.-5) then
-                     call get_spec_name(name,IWRK(dvbi+15))
-                     write(6,*) '   spec with largest error = ',name
-                  end if
-!$omp end critical(output)
-               end if
-
-               if (ISTATE .LE. -1) then
-!$omp critical(output)
-                  call CONPF_FILE(NEQ, TT1, tspecies, nwdot, RWRK, IWRK)
-                  lout = open_vode_failure_file()                  
-                  write(lout,*)
-                  write(lout,995) 'VODE Failed at (i,j,k) = (',i,',',j,
-     &                 ',',k,'),   Return code = ',ISTATE
-                  write(lout,996) 'time(T2,Tl,dt)  ',dt, TT1, dt-TT1
-                write(lout,995) 'State ID, old, last, dY/dt, dY/dt*(dt)'
-                  write(lout,996) 'T               ',
-     &                 Told(i,j,k),tspecies(0),nwdot(0),nwdot(0)*(dt-TT1)
-                  do m=1,Nspec
-                     call get_spec_name(name,m)
-                     write(lout,996) name,Yold(i,j,k,m),
-     &                    tspecies(m),nwdot(m),nwdot(m)*(dt-TT1)
-                  end do
-
- 995              format(a,4(i4,a))
- 996              format(a16,1x,4e30.22)
-                  close(lout)
-                  FORT_CONPSOLV = 0
-!$omp end critical(output)
-                  goto 800
-               end if
-             enddo
-
-#ifdef DO_JBB_HACK_POST
-
-               tspecies(0) = MAX(HACK_TEMP_MIN, MIN(HACK_TEMP_MAX, tspecies(0)))
-#endif
-               Tnew(i,j,k) = tspecies(0)
-
-               do m= 1,Nspec
-                  Yres(m) = tspecies(m)
-               end do
-
-#if defined(DO_JBB_HACK)
-               do m=1,Nspec
-                  Ynew(i,j,k,m) = Yold(i,j,k,m)+Yres(m)-Ytemp(m)
-               end do
-#elif  defined(DO_JBB_HACK_POST)
-            sum = zero
-            do m=1,Nspec
-               Ytemp(m) = Yres(i,j,k,m)
-               atoln = ATOLEPS
-               if (ITOL.eq.2) atoln = atol(m+1)
-               Ytemp(m) = MAX(Yres(i,j,k,m),zero)
-               sum = sum+Ytemp(m)
-            end do
-            if (iN2 .gt. 0) then
-               Ytemp(iN2) = Ytemp(iN2)+one-sum
-            endif
-#else
-               do m=1,Nspec
-                  Ynew(i,j,k,m) = Yres(m)
-               end do
-#endif
-
-#ifdef SOLN_IS_1D
-               endif
-#endif
-            end do
-         end do
- 800     continue
-      end do
-!$omp end do
-!$omp end parallel
-
-      if (verbose .and. nfails .gt. 0) then
-         print*, '*** DVODE failures for last chem block: ', nfails; call flush(6)
-      end if
-      end
- 
-#ifdef LMC_SDC
-c     used by LMC
       integer function FORT_CONPSOLV_SDC(lo, hi,
      &     rhoYnew,   DIMS(rhoYnew), 
      &     rhoHnew,   DIMS(rhoHnew),
@@ -1206,7 +774,6 @@ c     used by LMC
          print*, '*** DVODE failures for last chem block: ', nfails; call flush(6)
       end if
       end
-#endif
 
 
 c     used by LMC
@@ -1231,7 +798,6 @@ c     used by LMC
             do j=lo(2),hi(2)
                do i=lo(1),hi(1)
 
-#ifdef LMC_SDC
                   RHO = 0.d0
                   do n=1,Nspec
                      RHO = RHO + Y(i,j,k,n)
@@ -1240,11 +806,7 @@ c     used by LMC
                   do n=1,Nspec
                      Yt(n) = Y(i,j,k,n) / RHO
                   end do
-#else
-                  do n=1,Nspec
-                     Yt(n) = Y(i,j,k,n)
-                  end do
-#endif
+
                   CALL CKMMWY(Yt,IWRK(ckbi),RWRK(ckbr),Wavg)
 
                   do n=1,Nspec
@@ -1261,7 +823,6 @@ c     used by LMC
             do j=lo(2),hi(2)
                do i=lo(1),hi(1)
 
-#ifdef LMC_SDC
                   RHO = 0.d0
                   do n=1,Nspec
                      RHO = RHO + Y(i,j,k,n)
@@ -1270,11 +831,6 @@ c     used by LMC
                   do n=1,Nspec
                      Yt(n) = Y(i,j,k,n) / RHO
                   end do
-#else
-                  do n=1,Nspec
-                     Yt(n) = Y(i,j,k,n)
-                  end do
-#endif
 
                   CALL CKMMWY(Yt,IWRK(ckbi),RWRK(ckbr),Wavg)
                   do n=1,Nspec
@@ -1327,7 +883,6 @@ c     used by LMC
             do j=lo(2),hi(2)
                do i=lo(1),hi(1)
 
-#ifdef LMC_SDC
                   RHO = 0.d0
                   do n=1,Nspec
                      RHO = RHO + Y(i,j,k,n)
@@ -1336,22 +891,13 @@ c     used by LMC
                   do n=1,Nspec
                      Yt(n) = Y(i,j,k,n) / RHO
                   end do
-#else
-                  do n=1,Nspec
-                     Yt(n) = Y(i,j,k,n)
-                  end do
-#endif
                   Tt = MAX(T(i,j,k),TMIN_TRANS)
                   CALL CKMMWY(Yt,IWRK(ckbi),RWRK(ckbr),Wavg)
                   CALL CKCPMS(Tt,IWRK(ckbi),RWRK(ckbr),CPMS)
                   CALL CKYTX(Yt,IWRK(ckbi),RWRK(ckbr),X)
                   CALL EGSPAR(Tt,X,Yt,CPMS,EGRWRK(1),EGIWRK(1))
                   CALL EGSV1(Ptmp,Tt,Yt,Wavg,EGRWRK(1),Dt)
-#ifdef LMC_SDC
                   RHO = RHO*1.d-3
-#else
-                  CALL CKRHOY(Ptmp,Tt,Yt,IWRK(ckbi),RWRK(ckbr),RHO)
-#endif
                   do n=1,Nspec
                      RD(i,j,k,n) = RHO * Wavg * invmwt(n) * Dt(n) * SCAL
                   end do
@@ -1378,7 +924,6 @@ c     used by LMC
             do j=lo(2),hi(2)
                do i=lo(1),hi(1)
 
-#ifdef LMC_SDC
                   RHO = 0.d0
                   do n=1,Nspec
                      RHO = RHO + Y(i,j,k,n)
@@ -1387,21 +932,12 @@ c     used by LMC
                   do n=1,Nspec
                      Yt(n) = Y(i,j,k,n) / RHO
                   end do
-#else
-                  do n=1,Nspec
-                     Yt(n) = Y(i,j,k,n)
-                  end do
-#endif
 
                   Tt = MAX(T(i,j,k),TMIN_TRANS) 
                   CALL CKMMWY(Yt,IWRK(ckbi),RWRK(ckbr),Wavg)
                   CALL CKYTX(Yt,IWRK(ckbi),RWRK(ckbr),X)
                   CALL MCADIF(Ptmp,Tt,X,MCRWRK,Dt)
-#ifdef LMC_SDC
                   RHO = RHO*1.d-3
-#else
-                  CALL CKRHOY(Ptmp,Tt,Yt,IWRK(ckbi),RWRK(ckbr),RHO)
-#endif
                   
                   do n=1,Nspec
                      RD(i,j,k,n) = RHO * Dt(n) * SCAL
