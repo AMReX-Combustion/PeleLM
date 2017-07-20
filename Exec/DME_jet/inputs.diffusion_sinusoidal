@@ -58,7 +58,7 @@ geometry.prob_hi    =  0.00114 0.00228
 amr.n_cell          = 384 384
 amr.max_grid_size   = 128
 
-amr.n_cell          = 2048 2048
+amr.n_cell          = 1024 1024
 amr.max_grid_size   = 64
 
 amr.refine_grid_layout = 0
