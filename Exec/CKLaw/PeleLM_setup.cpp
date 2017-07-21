@@ -416,9 +416,9 @@ private:
 // Indices of fuel and oxidizer -- ParmParsed in & used in a couple places.
 //
 std::string PeleLM::fuelName        = "CH4";
+std::string PeleLM::productName     = "CO2";
 Array<std::string> PeleLM::consumptionName(1);
-static std::string oxidizerName           = "O2";
-static std::string productName            = "CO2";
+static std::string oxidizerName     = "O2";
 
 void
 PeleLM::variableSetUp ()
