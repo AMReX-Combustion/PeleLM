@@ -203,7 +203,7 @@ c           h = h_bc(airZone)*(1.d0-eta) + eta*h_bc(fuelZone)
               if (.not. forceInflow) then
                  ! sinusoidal variation of inflow
                  pi = 4.d0*atan(1.d0)
-                 v = v + 100.d0*eta*sin(2.d0*pi*x/(domnhi(1)-domnlo(1)))*sin(2.d0*pi*time/1.d-5)
+                 v = v + 10.d0*eta*sin(2.d0*pi*x/(domnhi(1)-domnlo(1)))*sin(2.d0*pi*time/1.d-5)
               end if
 
             endif

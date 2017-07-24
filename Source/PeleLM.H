@@ -475,6 +475,7 @@ private:
   static amrex::Real        P1atm_MKS;
   static std::string turbFile;
   static std::string fuelName;
+  static std::string productName;
   static amrex::Array<std::string> consumptionName;
   static int         calcDiffusivity_count;
   static amrex::Real        new_T_threshold;

@@ -2319,6 +2319,21 @@ PeleLM::sum_integrated_quantities ()
     }
   }
 
+  if (getChemSolve().index(productName) >= 0)
+  {
+      int MyProc  = ParallelDescriptor::MyProc();
+      int step    = parent->levelSteps(0);
+      int restart = 0;
+
+      Real productmass = 0.0;
+      std::string product = "rho.Y(" + productName + ")";
+      for (int lev = 0; lev <= finest_level; lev++)
+          productmass += getLevel(lev).volWgtSum(product,time);
+	  
+      if (verbose && ParallelDescriptor::IOProcessor())
+          std::cout << " PRODUCTMASS= " << productmass;
+  }
+
   if (verbose) amrex::Print() << '\n';
 
   Real rho_h    = 0.0;
