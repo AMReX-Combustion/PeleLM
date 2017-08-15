@@ -512,7 +512,11 @@ PeleLM::Initialize ()
   if (verbose)
   {
     amrex::Print() << "\nDumping ParmParse table:\n \n";
-    ParmParse::dumpTable(std::cout);
+
+    if (ParallelDescriptor::IOProcessor()) {
+      ParmParse::dumpTable(std::cout);
+    }
+
     amrex::Print() << "\n... done dumping ParmParse table.\n" << '\n';
   }
 
