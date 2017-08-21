@@ -27,7 +27,7 @@ USE_FLCTS       = TRUE
 # Enable time-dependent forcing term
 #USE_TDEPFORCING = FALSE
 
-CHEMISTRY_MODEL = C12LU
+Chemistry_Model = C12LU
 fEXE_sources += wang_dodecane_phi_1000.f
 
 Blocs   := .

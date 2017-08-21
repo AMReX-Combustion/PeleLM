@@ -14,7 +14,7 @@ USE_OMP           = FALSE
 USE_MPI           = TRUE
 VERBOSE           = FALSE
 
-CHEMISTRY_MODEL = DRM19
+Chemistry_Model = DRM19
 fEXE_sources += drm19Soln_seed_0.125.f
 
 Blocs   := .

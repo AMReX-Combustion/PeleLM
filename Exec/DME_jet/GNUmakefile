@@ -22,7 +22,7 @@ VERBOSE         = FALSE
 #USE_TDEPFORCING = FALSE
 
 # Choose model (from list below), and pmf file
-CHEMISTRY_MODEL = LUDME
+Chemistry_Model = LUDME
 fEXE_sources += LuDME_0700.f
 
 Blocs   := .
