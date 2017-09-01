@@ -106,8 +106,8 @@ ns.unity_Le = 0
 
 # ----------------  PROBLEM DEPENDENT INPUTS
 
-ns.lo_bc          = 0 5 2
-ns.hi_bc          = 0 5 2
+ns.lo_bc          = 0 2 2
+ns.hi_bc          = 0 2 2
 geometry.is_periodic = 1 0 0
 
 # >>>>>>>>>>>>>  BC FLAGS <<<<<<<<<<<<<<<<

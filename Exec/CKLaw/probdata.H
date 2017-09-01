@@ -17,10 +17,10 @@
 
       integer refine_nozzle
       REAL_T refine_nozzle_x, refine_nozzle_y, refine_nozzle_z, blobx, bloby, blobz,
-     &       blobr, xcen, y_offset
+     &       blobr, xcen, y_offset, reflect
       common /myprob1/ refine_nozzle
       common /myprob2/ refine_nozzle_x, refine_nozzle_y, refine_nozzle_z, blobx, bloby,
-     &     blobz,blobr, xcen, y_offset
+     &     blobz,blobr, xcen, y_offset, reflect
 
       REAL_T v_strength,v_width,v_xcen,v_ycen, v_cl_x
       common /myprob3/ v_strength,v_width,v_xcen,v_ycen,v_cl_x
