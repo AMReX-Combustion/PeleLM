@@ -63,9 +63,8 @@ cg.cg_solver=1
 #particles.pverbose = 2
 
 #-------------------------AMR INPUTS----------------------------
-amr.n_cell    = 64 64 64
 amr.n_cell    = 32 32 96
-amr.n_cell    = 128 128 384
+#amr.n_cell    = 128 128 384
 
 amr.v=1
 amr.max_level =  0            # maximum level number allowed

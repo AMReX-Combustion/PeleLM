@@ -1,0 +1,13 @@
+inputs.2d_convergence
+1D convergence test used in closed-chamber/pressure paper.
+
+inputs.2d_paper
+2D cylindrical flames used in closed-chamber/pressure paper.
+
+inputs.2d_amr1d
+An AMR version of inputs.2d_convergence, with a wider domain.
+
+inputs.2d_amr
+An AMR version of inputs.2d_paper.
+
+

@@ -3,7 +3,7 @@
 
   V_in = .2
   standoff = -.022
-  standoff = -.02
+  standoff = 0.
   pertmag = 0.0004
 
   max_trac_lev = 3
