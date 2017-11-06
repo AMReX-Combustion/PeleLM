@@ -364,6 +364,12 @@ c    quadratic 2
 
       dVmax = changeMax_control * one
       dVmin = changeMax_control * max(one,V_in)
+
+      if(myproc.eq.0)then
+          write(6,*)" in contol", coft,cfix,scale_control,tau_control, sest,V_in
+          write(6,*)" in contol results",rhs1,rhs2,vt_tay,vtt_tay, V_new
+          write(6,*)" in control limits",dVmax,dVmin
+      endif
 #else
 
 
@@ -381,9 +387,14 @@ c    quadratic 2
 
       dVmax = changeMax_control * max(one,V_in)
 #endif
+      V_new = MAX(V_new,zero)
       V_new = MIN(MAX(V_new,V_in-dVmin),V_in+dVmax)
       V_new = MAX(zero,V_new)
       V_new = Min(V_new,controlVelMax)
+
+      if(myproc.eq.0)then
+          write(6,*)" after limiting",controlVelMax,V_new
+      endif
 
       tbase_control = time
       dV_control = (V_new - V_in)/dt

@@ -247,7 +247,6 @@ PeleLM::compute_rhohmix (Real      time,
     {
       const Box& bx = mfi.tilebox();
       FArrayBox& state  = statemf[mfi];
-      FArrayBox& rhmfab = rhohmix[mfi];
 
       //
       // Convert rho*Y to Y for this operation
@@ -513,7 +512,11 @@ PeleLM::Initialize ()
   if (verbose)
   {
     amrex::Print() << "\nDumping ParmParse table:\n \n";
-    if (ParallelDescriptor::IOProcessor()) ParmParse::dumpTable(std::cout);
+
+    if (ParallelDescriptor::IOProcessor()) {
+      ParmParse::dumpTable(std::cout);
+    }
+
     amrex::Print() << "\n... done dumping ParmParse table.\n" << '\n';
   }
 
@@ -1741,8 +1744,6 @@ PeleLM::compute_instantaneous_reaction_rates (MultiFab&       R,
 
   const Real strt_time = ParallelDescriptor::second();
 
-  const TimeLevel whichTime = which_time(State_Type, time);
-
   BL_ASSERT((nGrow==0)  ||  (how == HT_ZERO_GROW_CELLS) || (how == HT_EXTRAP_GROW_CELLS));
 
   if ((nGrow>0) && (how == HT_ZERO_GROW_CELLS))
@@ -2320,6 +2321,21 @@ PeleLM::sum_integrated_quantities ()
 	  
       if (verbose) amrex::Print() << " FUELMASS= " << fuelmass;
     }
+  }
+
+  if (getChemSolve().index(productName) >= 0)
+  {
+      int MyProc  = ParallelDescriptor::MyProc();
+      int step    = parent->levelSteps(0);
+      int restart = 0;
+
+      Real productmass = 0.0;
+      std::string product = "rho.Y(" + productName + ")";
+      for (int lev = 0; lev <= finest_level; lev++)
+          productmass += getLevel(lev).volWgtSum(product,time);
+	  
+      if (verbose && ParallelDescriptor::IOProcessor())
+          std::cout << " PRODUCTMASS= " << productmass;
   }
 
   if (verbose) amrex::Print() << '\n';
@@ -5006,9 +5022,9 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
       {
         const int s_spec = 0, s_rhoh = nspecies, s_temp = nspecies+2;
 
-        bool ok = getChemSolve().solveTransient_sdc(rYn,rHn,Tn,rYo,rHo,To,frc,fc,ba[i],
-                                                    s_spec,s_rhoh,s_temp,dt,chemDiag,
-                                                    use_stiff_solver);
+        getChemSolve().solveTransient_sdc(rYn,rHn,Tn,rYo,rHo,To,frc,fc,ba[i],
+                                          s_spec,s_rhoh,s_temp,dt,chemDiag,
+					  use_stiff_solver);
       }
     }
 

@@ -31,16 +31,16 @@ VERBOSE         = FALSE
 #USE_TDEPFORCING = TRUE
 
 # Choose model (from list below), and pmf file
-CHEMISTRY_MODEL = DRM19
+Chemistry_Model = DRM19
 fEXE_sources += drm19Soln_seed_0.50.f
 
-#CHEMISTRY_MODEL = LIDRYER
+#Chemistry_Model = LIDRYER
 #fEXE_sources += LiDryer_040_01ATM.f
 
-#CHEMISTRY_MODEL = LUDME
+#Chemistry_Model = LUDME
 #fEXE_sources += LuDME_0700.f
 
-#CHEMISTRY_MODEL = GRI30
+#Chemistry_Model = GRI30
 #fEXE_sources += gri30_070.f
 
 Blocs   := .

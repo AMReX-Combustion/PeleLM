@@ -72,25 +72,33 @@ endif
 
 PELE_PHYSICS_HOME ?= $(TOP)/PelePhysics
 CHEM_DIR = $(PELE_PHYSICS_HOME)/Support/Fuego/Mechanism/Models
-ifeq ($(CHEMISTRY_MODEL), DRM19)
+ifeq ($(Chemistry_Model), CHEMH)
+  cEXE_sources += chem-H.c
+  vpath %.c   $(VPATH_LOCATIONS) $(CHEM_DIR)/chem-H
+endif
+ifeq ($(Chemistry_Model), DRM19)
   cEXE_sources += drm19.c
   vpath %.c   $(VPATH_LOCATIONS) $(CHEM_DIR)/drm19
 endif
-ifeq ($(CHEMISTRY_MODEL), GRI30)
+ifeq ($(Chemistry_Model), GRI30)
   cEXE_sources += grimech30.c
   vpath %.c   $(VPATH_LOCATIONS) $(CHEM_DIR)/grimech30
 endif
-ifeq ($(CHEMISTRY_MODEL), C12WANG)
+ifeq ($(Chemistry_Model), C12WANG)
   cEXE_sources += dodecane_wang.c
   vpath %.c   $(VPATH_LOCATIONS) $(CHEM_DIR)/dodecane_wang
 endif
-ifeq ($(CHEMISTRY_MODEL), C12LU)
+ifeq ($(Chemistry_Model), C12LU)
   cEXE_sources += dodecane_lu.c
   vpath %.c   $(VPATH_LOCATIONS) $(CHEM_DIR)/dodecane_lu
 endif
-ifeq (${CHEMISTRY_MODEL}, BURKEMOD)
+ifeq (${Chemistry_Model}, BURKEMOD)
   cEXE_sources += BurkeDryer_mod.c
   vpath %.c $(VPATH_LOCATIONS) $(CHEM_DIR)/BurkeDryer_mod
+endif
+ifeq (${Chemistry_Model}, LUDME)
+  cEXE_sources += LuDME.c
+  vpath %.c $(VPATH_LOCATIONS) $(CHEM_DIR)/LuDME
 endif
 
 # Enable time-dependent turbulence forcing term
@@ -149,7 +157,7 @@ AMReX_buildInfo.cpp:
           --amrex_home "$(AMREX_HOME)" \
           --COMP "$(COMP)" --COMP_VERSION "$(COMP_VERSION)" \
           --FCOMP "$(FCOMP)" --FCOMP_VERSION "$(FCOMP_VERSION)" \
-          --MODULES "Chemistry=$(CHEMISTRY_MODEL)" \
+          --MODULES "Chemistry=$(Chemistry_Model)" \
           --GIT "$(PELELM_HOME) $(AMREX_HOME) $(IAMR_HOME)" 
 
 

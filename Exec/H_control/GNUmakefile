@@ -7,21 +7,23 @@ PELELM_HOME ?= ${TOP}/PeleLM
 # User-settable variables.
 #
 PRECISION         = DOUBLE
-DEBUG	          = TRUE
+DEBUG	          = FALSE
 DIM    	          = 2
 COMP              = gnu
 USE_OMP           = FALSE
 USE_MPI           = TRUE
 VERBOSE           = FALSE
 
-Chemistry_Model= BURKEMOD
-fEXE_sources += pmf_BurkeMOD_040_10atm.f
+Chemistry_Model = DRM19
+fEXE_sources += drm19Soln_seed_0.125.f
 
 Blocs   := .
 
 CEXE_sources +=
-FEXE_sources += Prob_$(DIM)d.F
+FEXE_sources += Prob_$(DIM)d.F PROB_F.F
 CEXE_headers += 
-FEXE_headers += probdata.H
+FEXE_headers += probdata.H MyPROB_F.H
 
 include $(PELELM_HOME)/Tools/Make/Make.PeleLM
+
+
