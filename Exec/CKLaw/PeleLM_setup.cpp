@@ -398,7 +398,7 @@ protected:
 
   static int getStateID (const std::string& stateName)
     {
-      const Array<std::string>& names = PeleLM::getChemSolve().speciesNames();
+      const Vector<std::string>& names = PeleLM::getChemSolve().speciesNames();
       for (int i=0; i<names.size(); i++)
         if (names[i] == stateName)
           return i;
@@ -417,7 +417,7 @@ private:
 //
 std::string PeleLM::fuelName        = "CH4";
 std::string PeleLM::productName     = "CO2";
-Array<std::string> PeleLM::consumptionName(1);
+Vector<std::string> PeleLM::consumptionName(1);
 static std::string oxidizerName     = "O2";
 
 void
@@ -456,7 +456,7 @@ PeleLM::variableSetUp ()
   NUM_STATE = ++counter;
   NUM_SCALARS = NUM_STATE - Density;
 
-  const Array<std::string>& names = getChemSolve().speciesNames();
+  const Vector<std::string>& names = getChemSolve().speciesNames();
 
   amrex::Print() << nspecies << " Chemical species interpreted:\n { ";
   for (int i = 0; i < nspecies; i++)
@@ -510,8 +510,8 @@ PeleLM::variableSetUp ()
   desc_lst.addDescriptor(State_Type,IndexType::TheCellType(),StateDescriptor::Point,1,NUM_STATE,
                          &cell_cons_interp);
 
-  Array<BCRec>       bcs(BL_SPACEDIM);
-  Array<std::string> name(BL_SPACEDIM);
+  Vector<BCRec>       bcs(BL_SPACEDIM);
+  Vector<std::string> name(BL_SPACEDIM);
 
   set_x_vel_bc(bc,phys_bc);
   bcs[0]  = bc;
@@ -755,7 +755,7 @@ PeleLM::variableSetUp ()
   //
   // Species mole fractions
   //
-  Array<std::string> var_names_molefrac(nspecies);
+  Vector<std::string> var_names_molefrac(nspecies);
   for (i = 0; i < nspecies; i++)
     var_names_molefrac[i] = "X("+names[i]+")";
   derive_lst.add("molefrac",IndexType::TheCellType(),nspecies,
@@ -766,7 +766,7 @@ PeleLM::variableSetUp ()
   //
   // Species concentrations
   //
-  Array<std::string> var_names_conc(nspecies);
+  Vector<std::string> var_names_conc(nspecies);
   for (i = 0; i < nspecies; i++)
     var_names_conc[i] = "C("+names[i]+")";
   derive_lst.add("concentration",IndexType::TheCellType(),nspecies,
@@ -988,7 +988,7 @@ PeleLM::rhoydotSetUp()
                          &lincc_interp);
 	
   //const StateDescriptor& d_cell = desc_lst[State_Type];
-  const Array<std::string>& names   = getChemSolve().speciesNames();
+  const Vector<std::string>& names   = getChemSolve().speciesNames();
 
   BCRec bc;	
   set_rhoydot_bc(bc,phys_bc);

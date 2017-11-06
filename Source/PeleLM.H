@@ -329,8 +329,8 @@ private:
   void initDataOtherTypes ();
 
   void post_init_press (amrex::Real&        dt_init,
-                        amrex::Array<int>&  nc_save,
-                        amrex::Array<amrex::Real>& dt_save);
+                        amrex::Vector<int>&  nc_save,
+                        amrex::Vector<amrex::Real>& dt_save);
 
   amrex::Real predict_velocity (amrex::Real dt, amrex::Real& comp_cfl);
 
@@ -395,7 +395,7 @@ private:
   //    Private Data                                                        //
   ////////////////////////////////////////////////////////////////////////////
 
-  amrex::Array<std::unique_ptr<FluxBoxes> > raii_fbs;
+  amrex::Vector<std::unique_ptr<FluxBoxes> > raii_fbs;
     
   amrex::MultiFab**  EdgeState;
   amrex::MultiFab**  EdgeFlux;
@@ -416,7 +416,7 @@ private:
   static bool                     plot_consumption;
   static bool                     plot_heat_release;
   std::map<std::string,std::unique_ptr<amrex::MultiFab> > auxDiag;
-  static std::map<std::string,amrex::Array<std::string> > auxDiag_names;
+  static std::map<std::string,amrex::Vector<std::string> > auxDiag_names;
 
   bool updateFluxReg;
   bool is_predictor;
@@ -476,10 +476,10 @@ private:
   static std::string turbFile;
   static std::string fuelName;
   static std::string productName;
-  static amrex::Array<std::string> consumptionName;
+  static amrex::Vector<std::string> consumptionName;
   static int         calcDiffusivity_count;
   static amrex::Real        new_T_threshold;
-  static amrex::Array<amrex::Real> typical_values;
+  static amrex::Vector<amrex::Real> typical_values;
   static bool        avg_down_chem;
   static int         reset_typical_vals_int;
   static std::map<std::string,amrex::Real> typical_values_FileVals;
