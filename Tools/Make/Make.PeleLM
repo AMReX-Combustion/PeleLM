@@ -37,6 +37,7 @@ endif
 Pdirs   += $(AMREX_HOME)/Src/LinearSolvers/C_CellMG
 Pdirs   += $(AMREX_HOME)/Src/LinearSolvers/C_TensorMG
 Pdirs   += $(AMREX_HOME)/Src/LinearSolvers/C_to_F_MG
+Pdirs   += $(AMREX_HOME)/Src/LinearSolvers/MLMG
 
 include $(AMREX_HOME)/Src/LinearSolvers/F_MG/FParallelMG.mak
 include $(AMREX_HOME)/Src/F_BaseLib/FParallelMG.mak
