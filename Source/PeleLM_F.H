@@ -170,7 +170,9 @@
 
 #include <AMReX_ArrayLim.H>
 
+#ifdef __cplusplus
 extern "C" {
+#endif
 
   void FORT_ACTIVECONTROL(const amrex::Real* fuelmass,
                           const amrex::Real* time,
@@ -492,7 +494,9 @@ extern "C" {
                      const amrex::Real* delta, const int* dir,
                      const amrex::Real* mult, const amrex::Real* inc);
     
+#ifdef __cplusplus
 }
+#endif
 #endif
 
 #endif /*_PeleLM_F_H_*/
