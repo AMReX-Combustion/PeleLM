@@ -254,7 +254,9 @@
 
 #include <AMReX_ArrayLim.H>
 
+#ifdef __cplusplus
 extern "C" {
+#endif
 
     void FORT_SETTMINTRANS(const amrex::Real* Tmin);
     void FORT_SETVERBOSEVODE();
@@ -451,7 +453,10 @@ extern "C" {
     void FORT_SETNU(int* nu, const int& N);
 
     void FORT_GET_REACTION_MAP(int* rmap);
+
+#ifdef __cplusplus
 }
+#endif
 
 #endif
 #endif
