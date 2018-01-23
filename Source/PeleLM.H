@@ -232,7 +232,7 @@ private:
                           bool            use_stiff_solver = true);
 
 #ifdef USE_WBAR
-  void calcDiffusivity_Wbar (const amrex::Real time) override;
+  void calcDiffusivity_Wbar (const amrex::Real time);
 #endif
 
   void calc_dpdt (amrex::Real      time,

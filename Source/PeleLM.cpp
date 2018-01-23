@@ -906,7 +906,7 @@ PeleLM::define_data ()
 
 #ifdef USE_WBAR
   // this will hold the transport coefficients for Wbar
-  diffWbar_cc.define(grids,nspecies,1);
+  diffWbar_cc.define(grids,dmap,nspecies,1);
 #endif
 }
 
@@ -5571,7 +5571,7 @@ PeleLM::mac_sync ()
 #ifdef USE_WBAR
         for (int dir=0; dir<BL_SPACEDIM; ++dir)
         {
-          (*SpecDiffusionFluxWbar)[dir].setVal(0.);
+          (*SpecDiffusionFluxWbar[dir]).setVal(0.);
         }
 
         // compute beta grad Wbar terms using the n+1,p state
@@ -5699,7 +5699,7 @@ PeleLM::mac_sync ()
         // call differential_spec_diffuse_sync again, but this time the conservative
         // correction needs to be the sum of the delta Y_m and SpecDiffusionFluxWbar terms
         // FIXME
-        differential_spec_diffuse_sync(dt, true);
+        differential_spec_diffuse_sync(dt, true, last_mac_sync_iter);
 
 #endif
 
@@ -6180,7 +6180,7 @@ PeleLM::compute_Wbar_fluxes(Real time,
 
     BoxArray cgrids = grids;
     cgrids.coarsen(crse_ratio);
-    BndryRegister crse_br(cgrids,0,1,nGrowCrse,1);
+    BndryRegister crse_br(cgrids,dmap,0,1,nGrowCrse,1);
     crse_br.setVal(1.e200);
     MultiFab Wbar_crse(rho_and_species_crse.boxArray(),
                        rho_and_species_crse.DistributionMap(),
