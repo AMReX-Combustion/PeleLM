@@ -252,7 +252,7 @@ contains
           Yt(n) = dat(i,j,fS+n-1)/dat(i,j,rho) 
          enddo
 
-         call FORT_MASSTOMOLE(lo_chem, hi_chem, &
+         call mass_to_mole(lo_chem, hi_chem, &
                           Yt, ARLIM(lo_chem),ARLIM(hi_chem), &
                           Xt, ARLIM(lo_chem),ARLIM(hi_chem))
           do n = 1,Nspec

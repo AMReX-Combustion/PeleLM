@@ -39,8 +39,9 @@ module chem_driver_2D
 
 contains
  
-  subroutine FORT_NORMMASS(lo, hi, xsID, &
-                              Y, DIMS(Y), Ynorm, DIMS(YNORM))
+  subroutine norm_mass(lo, hi, xsID, &
+                       Y, DIMS(Y), Ynorm, DIMS(YNORM))&
+                       bind(C, name="norm_mass")
                               
       implicit none
 
@@ -68,11 +69,12 @@ contains
          end do
       end do
       
-  end subroutine FORT_NORMMASS
+  end subroutine norm_mass
 
-  subroutine FORT_FRrateXTP(lo,hi,X,DIMS(X),T,DIMS(T), &
-                               FwdK,DIMS(FwdK),RevK,DIMS(RevK), &
-                               Patm,rxns,Nrxns)
+  subroutine FRrateXTP(lo,hi,X,DIMS(X),T,DIMS(T), &
+                       FwdK,DIMS(FwdK),RevK,DIMS(RevK), &
+                       Patm,rxns,Nrxns)&
+                       bind(C, name="FRrateXTP")
                                
       implicit none
 
@@ -126,10 +128,11 @@ contains
          end do
       end do
       
-  end subroutine FORT_FRrateXTP
+  end subroutine FRrateXTP
 
-  subroutine FORT_HTRLS(lo,hi,Y,DIMS(Y),T,DIMS(T), &
-                           Q,DIMS(Q),Patm)
+  subroutine HTRLS(lo,hi,Y,DIMS(Y),T,DIMS(T), &
+                   Q,DIMS(Q),Patm)&
+                   bind(C, name="HTRLS")
                            
       implicit none
 
@@ -186,10 +189,11 @@ contains
          end do
       end do
 
-  end subroutine FORT_HTRLS
+  end subroutine HTRLS
 
-  subroutine FORT_RRATERHOY(lo,hi,RhoY,DIMS(RhoY),RhoH,DIMS(RhoH),T,DIMS(T), &
-                               RhoYdot,DIMS(RhoYdot))
+  subroutine RRATERHOY(lo,hi,RhoY,DIMS(RhoY),RhoH,DIMS(RhoH),T,DIMS(T), &
+                       RhoYdot,DIMS(RhoYdot))&
+                       bind(C, name="RRATERHOY")
       implicit none
 
 #include "cdwrk.H"
@@ -233,9 +237,10 @@ contains
          end do
       end do
       
-  end subroutine FORT_RRATERHOY
+  end subroutine RRATERHOY
 
-  subroutine FORT_MASSTOMOLE(lo, hi, Y, DIMS(Y), X, DIMS(X))
+  subroutine mass_to_mole(lo, hi, Y, DIMS(Y), X, DIMS(X))&
+            bind(C, name="mass_to_mole")
       implicit none
 
 #include "cdwrk.H"
@@ -262,9 +267,10 @@ contains
          end do
       end do
       
-  end subroutine FORT_MASSTOMOLE
+  end subroutine mass_to_mole
       
-  subroutine FORT_MOLETOMASS(lo, hi, X, DIMS(X), Y, DIMS(Y))
+  subroutine mole_to_mass(lo, hi, X, DIMS(X), Y, DIMS(Y))&
+            bind(C, name="mole_to_mass")
       implicit none
 
 #include "cdwrk.H"
@@ -290,10 +296,11 @@ contains
             end do
          end do
       end do
-  end subroutine FORT_MOLETOMASS
+  end subroutine mole_to_mass
 
-  subroutine FORT_MASSTP_TO_CONC(lo, hi, Patm, &
-                               Y, DIMS(Y), T, DIMS(T), C, DIMS(C))
+  subroutine MASSTP_TO_CONC(lo, hi, Patm, &
+                            Y, DIMS(Y), T, DIMS(T), C, DIMS(C))&
+                            bind(C, name="MASSTP_TO_CONC")
                                
       implicit none
 
@@ -328,10 +335,11 @@ contains
          end do
       end do
       
-  end subroutine FORT_MASSTP_TO_CONC
+  end subroutine MASSTP_TO_CONC
 
-  subroutine FORT_MASSR_TO_CONC(lo, hi, Y, DIMS(Y), &
-                                   T, DIMS(T), RHO, DIMS(RHO), C, DIMS(C))
+  subroutine MASSR_TO_CONC(lo, hi, Y, DIMS(Y), &
+                           T, DIMS(T), RHO, DIMS(RHO), C, DIMS(C))&
+                           bind(C, name="MASSR_TO_CONC")
                                    
       implicit none
 
@@ -364,10 +372,11 @@ contains
             end do
          end do
       end do
-  end subroutine FORT_MASSR_TO_CONC
+  end subroutine MASSR_TO_CONC
 
-  subroutine FORT_CONC_TO_MOLE(lo, hi, &
-                                  C, DIMS(C), X, DIMS(X))
+  subroutine CONC_TO_MOLE(lo, hi, &
+                          C, DIMS(C), X, DIMS(X))&
+                          bind(C, name="CONC_TO_MOLE")
                                   
       implicit none
 
@@ -395,10 +404,11 @@ contains
             end do
          end do
       end do
-  end subroutine FORT_CONC_TO_MOLE
+  end subroutine CONC_TO_MOLE
 
-  subroutine FORT_MOLPROD(lo, hi, id, &
-                             Q, DIMS(Q), C, DIMS(C), T, DIMS(T) )
+  subroutine mole_prod(lo, hi, id, &
+                       Q, DIMS(Q), C, DIMS(C), T, DIMS(T) )&
+                       bind(C, name="mole_prod")
       implicit none
 
 #include "cdwrk.H"
@@ -431,7 +441,7 @@ contains
             end do
          end do
       end do
-  end subroutine FORT_MOLPROD
+  end subroutine mole_prod
       
 ! ----------------------------------------------------------------     
       
@@ -479,7 +489,7 @@ contains
       
   end subroutine FORT_GETELTMOLES
 
-  integer function FORT_CONPSOLV_SDC(lo, hi, &
+  integer function CONPSOLV_SDC(lo, hi, &
           rhoYnew,   DIMS(rhoYnew),  &
           rhoHnew,   DIMS(rhoHnew), &
           Tnew,      DIMS(Tnew), &
@@ -489,7 +499,8 @@ contains
           const_src, DIMS(const_src), &
           FuncCount, DIMS(FuncCount), &
           dt, &
-          diag, do_diag, do_stiff)
+          diag, do_diag, do_stiff)&
+          bind(C, name="CONPSOLV_SDC")
           
       implicit none
 
@@ -729,7 +740,7 @@ contains
  995                 format(a,3(i4,a))
  996                 format(a,1x,4e30.22)
                      close(lout)
-                     FORT_CONPSOLV_SDC = 0
+                     CONPSOLV_SDC = 0
                      return
                   end if
                end if
@@ -787,8 +798,8 @@ contains
       if (verbose .and. nfails .gt. 0) then
          print*, '*** DVODE failures for last chem block: ', nfails; call flush(6)
       end if
-      FORT_CONPSOLV_SDC = 1
-  end function FORT_CONPSOLV_SDC
+      CONPSOLV_SDC = 1
+  end function CONPSOLV_SDC
 
   subroutine FORT_BETA_WBAR(lo, hi, RD, DIMS(RD), RD_Wbar, DIMS(RD_Wbar), Y, DIMS(Y))
   
@@ -854,8 +865,9 @@ contains
 
   end subroutine FORT_BETA_WBAR
 
-  subroutine FORT_MIXAVG_RHODIFF_TEMP(lo, hi, RD, DIMS(RD), T, &
-          DIMS(T), Y, DIMS(Y), Patm, do_temp, do_VelVisc)
+  subroutine MIXAVG_RHODIFF_TEMP(lo, hi, RD, DIMS(RD), T, &
+               DIMS(T), Y, DIMS(Y), Patm, do_temp, do_VelVisc)&
+               bind(C, name="MIXAVG_RHODIFF_TEMP")
           
       implicit none
 
@@ -967,10 +979,11 @@ contains
 
       endif
 
-  end subroutine FORT_MIXAVG_RHODIFF_TEMP
+  end subroutine MIXAVG_RHODIFF_TEMP
 
-  subroutine FORT_MIX_SHEAR_VISC(lo, hi, eta, DIMS(eta), &
-                                    T, DIMS(T), Y, DIMS(Y))
+  subroutine MIX_SHEAR_VISC(lo, hi, eta, DIMS(eta), &
+                            T, DIMS(T), Y, DIMS(Y))&
+                            bind(C, name="MIX_SHEAR_VISC")
       implicit none
 
 #include "cdwrk.H"
@@ -1020,10 +1033,11 @@ contains
          end do
       endif
 
-  end subroutine FORT_MIX_SHEAR_VISC
+  end subroutine MIX_SHEAR_VISC
 
-  subroutine FORT_RHOfromPTY(lo, hi, RHO, DIMS(RHO), T, DIMS(T), &
-                                Y, DIMS(Y), Patm)
+  subroutine RHOfromPTY(lo, hi, RHO, DIMS(RHO), T, DIMS(T), &
+                        Y, DIMS(Y), Patm)&
+                        bind(C, name="RHOfromPTY")
       implicit none
 
 #include "cdwrk.H"
@@ -1053,10 +1067,11 @@ contains
             RHO(i,j) = RHO(i,j) * SCAL
          end do
       end do
-  end subroutine FORT_RHOfromPTY
+  end subroutine RHOfromPTY
       
-  subroutine FORT_RHOfromPvTY(lo, hi, RHO, DIMS(RHO), T, DIMS(T), &
-                                Y, DIMS(Y), P, DIMS(P))
+  subroutine RHOfromPvTY(lo, hi, RHO, DIMS(RHO), T, DIMS(T), &
+                         Y, DIMS(Y), P, DIMS(P))&
+                         bind(C, name="RHOfromPvTY")
       implicit none
 
 #include "cdwrk.H"
@@ -1087,10 +1102,11 @@ contains
             RHO(i,j) = RHO(i,j) * SCAL
          end do
       end do
-  end subroutine FORT_RHOfromPvTY
+  end subroutine RHOfromPvTY
       
-  subroutine FORT_PfromRTY(lo, hi, P, DIMS(P), RHO, DIMS(RHO), &
-                              T, DIMS(T), Y, DIMS(Y))
+  subroutine PfromRTY(lo, hi, P, DIMS(P), RHO, DIMS(RHO), &
+                      T, DIMS(T), Y, DIMS(Y))&
+                      bind(C, name="PfromRTY")
       implicit none
 
 #include "cdwrk.H"
@@ -1122,10 +1138,11 @@ contains
             P(i,j) = P(i,j) * SCAL
          end do
       end do
-  end subroutine FORT_PfromRTY
+  end subroutine PfromRTY
       
-  subroutine FORT_TfromPRY(lo, hi, T, DIMS(T), RHO, DIMS(RHO), &
-                              Y, DIMS(Y), Patm)
+  subroutine TfromPRY(lo, hi, T, DIMS(T), RHO, DIMS(RHO), &
+                      Y, DIMS(Y), Patm)&
+                      bind(C, name="TfromPRY")
                               
       implicit none
 
@@ -1158,10 +1175,11 @@ contains
             T(i,j) = Ptmp / (RHOt * RU / Wavg)
          end do
       end do
-  end subroutine FORT_TfromPRY
+  end subroutine TfromPRY
       
-  subroutine FORT_CPMIXfromTY(lo, hi, CPMIX, DIMS(CPMIX), T, DIMS(T), &
-                                 Y, DIMS(Y))
+  subroutine CPMIXfromTY(lo, hi, CPMIX, DIMS(CPMIX), T, DIMS(T), &
+                         Y, DIMS(Y))&
+                         bind(C,name="CPMIXfromTY")
       implicit none
 
 #include "cdwrk.H"
@@ -1188,10 +1206,11 @@ contains
             CPMIX(i,j) = CPMIX(i,j) * SCAL
          end do
       end do
-  end subroutine FORT_CPMIXfromTY
+  end subroutine CPMIXfromTY
       
-  subroutine FORT_CVMIXfromTY(lo, hi, CVMIX, DIMS(CVMIX), T, DIMS(T), &
-                                 Y, DIMS(Y))
+  subroutine CVMIXfromTY(lo, hi, CVMIX, DIMS(CVMIX), T, DIMS(T), &
+                         Y, DIMS(Y))&
+                         bind(C, name="CVMIXfromTY")
       implicit none
 
 #include "cdwrk.H"
@@ -1218,7 +1237,7 @@ contains
             CVMIX(i,j) = CVMIX(i,j) * SCAL
          end do
       end do
-  end subroutine FORT_CVMIXfromTY
+  end subroutine CVMIXfromTY
       
   subroutine FORT_HMIXfromTY(lo, hi, HMIX, DIMS(HMIX), T, DIMS(T), &
                                 Y, DIMS(Y))

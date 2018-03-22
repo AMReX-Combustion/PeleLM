@@ -59,14 +59,14 @@ contains
       vode_atol = atol
   end subroutine FORT_SETVODETOLS
 
-  subroutine FORT_SETVODESUBCYC(maxcyc)
+  subroutine set_vode_subcyc(maxcyc)bind(C, name="set_vode_subcyc")
       implicit none
       integer maxcyc
 #include "cdwrk.H"
       max_vode_subcycles = maxcyc
-  end subroutine FORT_SETVODESUBCYC
+  end subroutine set_vode_subcyc
 
-  subroutine FORT_SETSPECSCALY(name, nlength)
+  subroutine set_spec_scal_Y(name, nlength)bind(C, name="set_spec_scal_Y")
       implicit none
 #include "cdwrk.H"
       integer nlength, name(nlength), i, j, maxlen
@@ -102,7 +102,7 @@ contains
       call bl_abort(" ")
  40   continue
  
-  end subroutine FORT_SETSPECSCALY
+  end subroutine set_spec_scal_Y
 
   subroutine FORT_INITCHEM()
   
@@ -234,7 +234,7 @@ contains
           write(6,*) '.....warning: no N2 in chemistry species list'
   end subroutine FORT_INITCHEM
 
-  subroutine FORT_FINALIZECHEM()
+  subroutine finalize_chem()bind(C, name="finalize_chem")
       implicit none
 #include "cdwrk.H"
       integer FORT_USINGEG, FORT_USINGMC
@@ -256,7 +256,7 @@ contains
 
       call CKFINALIZE();
 
-  end subroutine FORT_FINALIZECHEM
+  end subroutine finalize_chem
 
 !  SUBROUTINE EGINICD (NP, LOUT, IFLAG, ITLS, &
 !                         WEG, LWEG, IWEG, LIWEG)
@@ -1027,15 +1027,15 @@ contains
       enddo
   end subroutine FORT_CKINU
 
-  integer function FORT_CKELTXINSPY(eltID, spID)
+  integer function CKELTXINSPY(eltID, spID)bind(C, name="CKELTXINSPY")
   
       implicit none
 #include "cdwrk.H"
       integer eltID, spID
       integer NCF(maxelts,maxspec)
       CALL CKNCF(maxelts, IWRK(ckbi), RWRK(ckbr), NCF)
-      FORT_CKELTXINSPY = NCF(eltID+1,spID+1)
-  end function FORT_CKELTXINSPY
+      CKELTXINSPY = NCF(eltID+1,spID+1)
+  end function CKELTXINSPY
 
   integer function FORT_GETCKNUMSPEC()
       implicit none
@@ -1049,11 +1049,11 @@ contains
       FORT_GETCKNUMELT = Nelt
   end function FORT_GETCKNUMELT
 
-  integer function FORT_GETCKNUMREAC()
+  integer function get_CK_num_reac()bind(C, name="get_CK_num_reac")
       implicit none
 #include "cdwrk.H"
-      FORT_GETCKNUMREAC = Nreac
-  end function FORT_GETCKNUMREAC
+      get_CK_num_reac = Nreac
+  end function get_CK_num_reac
 
   double precision function FORT_RUNIV()
       implicit none
@@ -1112,7 +1112,7 @@ contains
       FORT_GETCKSPECNAME = str_len - 1
   end function FORT_GETCKSPECNAME
 
-  integer function FORT_CKSYMR(fortReacIdx, coded)
+  integer function CKSYMR(fortReacIdx, coded)bind(C, name="CKSYMR")
       implicit none
       integer fortReacIdx
       integer coded(*)
@@ -1141,12 +1141,12 @@ contains
       do j = 0, str_len-1
          coded(j+1) = ICHAR(line(istr+j:istr+j))
       end do
-      FORT_CKSYMR = str_len
+      CKSYMR = str_len
 #else
-      FORT_CKSYMR = 0
-      call bl_abort("FORT_CKSYMR not implemented")
+      CKSYMR = 0
+      call bl_abort("CKSYMR not implemented")
 #endif
-  end function FORT_CKSYMR
+  end function CKSYMR
 
   subroutine get_spec_name(name, j)
   
@@ -1178,13 +1178,13 @@ contains
       end do
   end subroutine get_spec_number
 
-  subroutine FORT_GETCKMWT(mwt)
+  subroutine get_CKMWT(mwt)bind(C, name="get_CKMWT")
       implicit none
 #include "cdwrk.H"
       REAL_T mwt(*)
 !     Result in kg/kmole
       call CKWT(IWRK(ckbi),RWRK(ckbr),mwt)
-  end subroutine FORT_GETCKMWT
+  end subroutine get_CKMWT
 
   subroutine FORT_GETCKAWT(awt)
       implicit none

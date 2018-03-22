@@ -57,7 +57,7 @@ ChemDriver::ChemDriver ()
 
 ChemDriver::~ChemDriver ()
 {
-    FORT_FINALIZECHEM();
+    finalize_chem();
 }
 
 extern "C" {
@@ -356,7 +356,7 @@ ChemDriver::set_verbose_vode()
 void
 ChemDriver::set_max_vode_subcycles(int maxcyc)
 {
-    FORT_SETVODESUBCYC(&maxcyc);
+    set_vode_subcyc(&maxcyc);
 }
 
 void
@@ -364,7 +364,7 @@ ChemDriver::set_species_Yscales(const std::string& scalesFile)
 {
     Vector<int> file = encodeStringForFortran(scalesFile);
     int len         = file.size();
-    FORT_SETSPECSCALY(file.dataPtr(),&len);
+    set_spec_scal_Y(file.dataPtr(),&len);
 }
 
 void
@@ -441,7 +441,7 @@ ChemDriver::numberOfElementXinSpeciesY(const std::string& eltX,
 {
     const int eltID = indexElt(eltX);
     const int spID  = index(spcY);
-    return FORT_CKELTXINSPY(&eltID,&spID);
+    return CKELTXINSPY(&eltID,&spID);
 }
 
 Vector<std::pair<std::string,int> >
@@ -468,7 +468,7 @@ ChemDriver::reactionString(int reacIdx) const
     const int max_len = 72;
     const int fortReacIdx = reacIdx + 1;
     int* coded = new int[max_len];
-    int len = FORT_CKSYMR(&fortReacIdx, coded);
+    int len = CKSYMR(&fortReacIdx, coded);
     std::string line = decodeStringFromFortran(coded,len);
     delete [] coded;
     return line;
@@ -543,7 +543,7 @@ Vector<Real>
 ChemDriver::speciesMolecWt() const
 {
     Vector<Real> mwt(numSpecies());
-    FORT_GETCKMWT(mwt.dataPtr());
+    get_CKMWT(mwt.dataPtr());
     return mwt;
 }
 
@@ -561,7 +561,7 @@ extern "C" {
     if (!initialized) {
       amrex::Abort("Must construct the ChemDriver prior to calling CD_MWT");
     }
-    FORT_GETCKMWT(mwt);
+    get_CKMWT(mwt);
   }
   void CD_XTY_PT(const Real* X, Real* Y)
   {
@@ -570,7 +570,7 @@ extern "C" {
     }
     static Vector<int> idx(BL_SPACEDIM,0);
     static int* p = idx.dataPtr();
-    FORT_MOLETOMASS(p, p, X, ARLIM(p), ARLIM(p), Y, ARLIM(p), ARLIM(p));
+    mole_to_mass(p, p, X, ARLIM(p), ARLIM(p), Y, ARLIM(p), ARLIM(p));
   }
 
   void CD_YTX_PT(const Real* Y, Real* X)
@@ -580,7 +580,7 @@ extern "C" {
     }
     static Vector<int> idx(BL_SPACEDIM,0);
     static int* p = idx.dataPtr();
-    FORT_MASSTOMOLE(p, p, Y, ARLIM(p), ARLIM(p), X, ARLIM(p), ARLIM(p));
+    mass_to_mole(p, p, Y, ARLIM(p), ARLIM(p), X, ARLIM(p), ARLIM(p));
   }
 }
 
@@ -624,7 +624,7 @@ ChemDriver::normalizeMassFrac(FArrayBox&       Ynorm,
 
     int xsID = index(excessSpecies) + 1;
     BL_ASSERT(xsID > 0);
-    FORT_NORMMASS(ovlp.loVect(), ovlp.hiVect(), &xsID,
+    norm_mass(ovlp.loVect(), ovlp.hiVect(), &xsID,
                   Y.dataPtr(sCompY),      ARLIM(mabx.loVect()), ARLIM(mabx.hiVect()),
                   Ynorm.dataPtr(sCompYn), ARLIM(mobx.loVect()), ARLIM(mobx.hiVect()));
 }
@@ -632,7 +632,7 @@ ChemDriver::normalizeMassFrac(FArrayBox&       Ynorm,
 int
 ChemDriver::numReactions() const
 {
-    return FORT_GETCKNUMREAC();
+    return get_CK_num_reac();
 }
 
 void
@@ -657,7 +657,7 @@ ChemDriver::molarProduction(FArrayBox&       Q,
 
     const int idx = index(specName) + 1; // to fortran indexing
 
-    FORT_MOLPROD(ovlp.loVect(), ovlp.hiVect(), &idx,
+    mole_prod(ovlp.loVect(), ovlp.hiVect(), &idx,
 		 Q.dataPtr(sCompQ), ARLIM(mobx.loVect()), ARLIM(mobx.hiVect()),
 		 C.dataPtr(sCompC), ARLIM(mabx.loVect()), ARLIM(mabx.hiVect()),
 		 T.dataPtr(sCompT), ARLIM(mbbx.loVect()), ARLIM(mbbx.hiVect()));
@@ -692,7 +692,7 @@ ChemDriver::fwdRevReacRatesGivenXTP(FArrayBox&        FwdK,
     const Box& ovlp = box & mabx & mbbx & moabx & mobbx;
     if( ! ovlp.ok() ) return;
     
-    FORT_FRrateXTP(ovlp.loVect(), ovlp.hiVect(),
+    FRrateXTP(ovlp.loVect(), ovlp.hiVect(),
                    X.dataPtr(sCompX),        ARLIM(mabx.loVect()),  ARLIM(mabx.hiVect()),
                    T.dataPtr(sCompT),        ARLIM(mbbx.loVect()),  ARLIM(mbbx.hiVect()),
                    FwdK.dataPtr(sCompFwdK), ARLIM(moabx.loVect()), ARLIM(moabx.hiVect()),
@@ -722,7 +722,7 @@ ChemDriver::heatRelease(FArrayBox&       Q,
     const Box& ovlp = box & mabx & mbbx & mobx;
     if( ! ovlp.ok() ) return;
     
-    FORT_HTRLS(ovlp.loVect(), ovlp.hiVect(),
+    HTRLS(ovlp.loVect(), ovlp.hiVect(),
                Y.dataPtr(sCompY), ARLIM(mabx.loVect()), ARLIM(mabx.hiVect()),
                T.dataPtr(sCompT), ARLIM(mbbx.loVect()), ARLIM(mbbx.hiVect()),
                Q.dataPtr(sCompQ), ARLIM(mobx.loVect()), ARLIM(mobx.hiVect()),
@@ -754,7 +754,7 @@ ChemDriver::reactionRateRhoY(FArrayBox&       RhoYdot,
     const Box& ovlp = box & mabx & mbbx & mcbx & mobx;
     if( ! ovlp.ok() ) return;
     
-    FORT_RRATERHOY(ovlp.loVect(), ovlp.hiVect(),
+    RRATERHOY(ovlp.loVect(), ovlp.hiVect(),
                    RhoY.dataPtr(sCompRhoY),       ARLIM(mabx.loVect()), ARLIM(mabx.hiVect()),
                    RhoH.dataPtr(sCompRhoH),       ARLIM(mbbx.loVect()), ARLIM(mbbx.hiVect()),
                    T.dataPtr(sCompT),             ARLIM(mcbx.loVect()), ARLIM(mcbx.hiVect()),
@@ -778,7 +778,7 @@ ChemDriver::massFracToMoleFrac(FArrayBox&       X,
     if (!ovlp.ok())
 	return;
     
-    FORT_MASSTOMOLE(ovlp.loVect(), ovlp.hiVect(),
+    mass_to_mole(ovlp.loVect(), ovlp.hiVect(),
 		    Y.dataPtr(sCompY), ARLIM(mabx.loVect()), ARLIM(mabx.hiVect()),
 		    X.dataPtr(sCompX), ARLIM(mobx.loVect()), ARLIM(mobx.hiVect()));
 }
@@ -800,7 +800,7 @@ ChemDriver::moleFracToMassFrac(FArrayBox&       Y,
     if (!ovlp.ok())
 	return;
     
-    FORT_MOLETOMASS(ovlp.loVect(), ovlp.hiVect(),
+    mole_to_mass(ovlp.loVect(), ovlp.hiVect(),
 		    X.dataPtr(sCompX), ARLIM(mobx.loVect()), ARLIM(mobx.hiVect()),
 		    Y.dataPtr(sCompY), ARLIM(mabx.loVect()), ARLIM(mabx.hiVect()));
 }
@@ -827,7 +827,7 @@ ChemDriver::massFracToMolarConc(FArrayBox&       C,
     if (!ovlp.ok())
 	return;
     
-    FORT_MASSTP_TO_CONC(ovlp.loVect(), ovlp.hiVect(), &Patm,
+    MASSTP_TO_CONC(ovlp.loVect(), ovlp.hiVect(), &Patm,
 		    Y.dataPtr(sCompY), ARLIM(mabx.loVect()), ARLIM(mabx.hiVect()),
 		    T.dataPtr(sCompT), ARLIM(mbbx.loVect()), ARLIM(mbbx.hiVect()),
 		    C.dataPtr(sCompC), ARLIM(mobx.loVect()), ARLIM(mobx.hiVect()));
@@ -858,7 +858,7 @@ ChemDriver::massFracToMolarConc(FArrayBox&       C,
     if (!ovlp.ok())
 	return;
     
-    FORT_MASSR_TO_CONC(ovlp.loVect(), ovlp.hiVect(), 
+    MASSR_TO_CONC(ovlp.loVect(), ovlp.hiVect(), 
 		    Y.dataPtr(sCompY), ARLIM(mabx.loVect()), ARLIM(mabx.hiVect()),
 		    T.dataPtr(sCompT), ARLIM(mbbx.loVect()), ARLIM(mbbx.hiVect()),
 		    Rho.dataPtr(sCompR),ARLIM(mrbx.loVect()),ARLIM(mrbx.hiVect()),
@@ -882,7 +882,7 @@ ChemDriver::molarConcToMoleFrac(FArrayBox&       X,
     if (!ovlp.ok())
 	return;
     
-    FORT_CONC_TO_MOLE(ovlp.loVect(), ovlp.hiVect(),
+    CONC_TO_MOLE(ovlp.loVect(), ovlp.hiVect(),
 		      C.dataPtr(sCompC), ARLIM(mabx.loVect()), ARLIM(mabx.hiVect()),
 		      X.dataPtr(sCompX), ARLIM(mobx.loVect()), ARLIM(mobx.hiVect()));
 }
@@ -939,7 +939,7 @@ ChemDriver::solveTransient_sdc(FArrayBox&        rhoYnew,
     Real*     diagData = do_diag ? chemDiag->dataPtr() : 0;
     const int do_stiff = (use_stiff_solver);
 
-    int success = FORT_CONPSOLV_SDC(box.loVect(), box.hiVect(),
+    int success = CONPSOLV_SDC(box.loVect(), box.hiVect(),
 				    rhoYnew.dataPtr(sComprhoY), ARLIM(rhoYnew.loVect()),   ARLIM(rhoYnew.hiVect()),
 				    rhoHnew.dataPtr(sComprhoH), ARLIM(rhoHnew.loVect()),   ARLIM(rhoHnew.hiVect()),
 				    Tnew.dataPtr(sCompT),       ARLIM(Tnew.loVect()),      ARLIM(Tnew.hiVect()),
@@ -972,7 +972,7 @@ ChemDriver::getMixAveragedRhoDiff(FArrayBox&       rhoD,
     int do_temp    = 0;
     int do_VelVisc = 0;
 
-    FORT_MIXAVG_RHODIFF_TEMP(box.loVect(), box.hiVect(),
+    MIXAVG_RHODIFF_TEMP(box.loVect(), box.hiVect(),
                              rhoD.dataPtr(sCompRD),ARLIM(rhoD.loVect()),ARLIM(rhoD.hiVect()),
                              T.dataPtr(sCompT),    ARLIM(T.loVect()),   ARLIM(T.hiVect()),
                              Y.dataPtr(sCompY),    ARLIM(Y.loVect()),   ARLIM(Y.hiVect()),
@@ -997,7 +997,7 @@ ChemDriver::getMixShearVisc(FArrayBox&       eta,
     BL_ASSERT(T.box().contains(box));
     BL_ASSERT(eta.box().contains(box));
     
-    FORT_MIX_SHEAR_VISC(box.loVect(), box.hiVect(),
+    MIX_SHEAR_VISC(box.loVect(), box.hiVect(),
                         eta.dataPtr(sCompE),ARLIM(eta.loVect()),ARLIM(eta.hiVect()),
                         T.dataPtr(sCompT),  ARLIM(T.loVect()),  ARLIM(T.hiVect()),
                         Y.dataPtr(sCompY),  ARLIM(Y.loVect()),  ARLIM(Y.hiVect()));
@@ -1021,7 +1021,7 @@ ChemDriver::getRhoGivenPTY(FArrayBox&       Rho,
     BL_ASSERT(T.box().contains(box));
     BL_ASSERT(Y.box().contains(box));
     
-    FORT_RHOfromPTY(box.loVect(), box.hiVect(),
+    RHOfromPTY(box.loVect(), box.hiVect(),
 		    Rho.dataPtr(sCompR), ARLIM(Rho.loVect()), ARLIM(Rho.hiVect()),
 		    T.dataPtr(sCompT),   ARLIM(T.loVect()),   ARLIM(T.hiVect()),
 		    Y.dataPtr(sCompY),   ARLIM(Y.loVect()),   ARLIM(Y.hiVect()),
@@ -1049,7 +1049,7 @@ ChemDriver::getRhoGivenPvTY(FArrayBox&       Rho,
     BL_ASSERT(T.box().contains(box));
     BL_ASSERT(Y.box().contains(box));
     
-    FORT_RHOfromPvTY(box.loVect(), box.hiVect(),
+    RHOfromPvTY(box.loVect(), box.hiVect(),
 		    Rho.dataPtr(sCompR), ARLIM(Rho.loVect()), ARLIM(Rho.hiVect()),
 		    T.dataPtr(sCompT),   ARLIM(T.loVect()),   ARLIM(T.hiVect()),
 		    Y.dataPtr(sCompY),   ARLIM(Y.loVect()),   ARLIM(Y.hiVect()),
@@ -1077,7 +1077,7 @@ ChemDriver::getPGivenRTY(FArrayBox&       p,
     BL_ASSERT(T.box().contains(box));
     BL_ASSERT(Y.box().contains(box));
     
-    FORT_PfromRTY(box.loVect(), box.hiVect(),
+    PfromRTY(box.loVect(), box.hiVect(),
 		  p.dataPtr(sCompP),   ARLIM(p.loVect()),   ARLIM(p.hiVect()),
 		  Rho.dataPtr(sCompR), ARLIM(Rho.loVect()), ARLIM(Rho.hiVect()),
 		  T.dataPtr(sCompT),   ARLIM(T.loVect()),   ARLIM(T.hiVect()),
@@ -1102,7 +1102,7 @@ ChemDriver::getTGivenPRY(FArrayBox&       T,
     BL_ASSERT(T.box().contains(box));
     BL_ASSERT(Y.box().contains(box));
     
-    FORT_TfromPRY(box.loVect(), box.hiVect(),
+    TfromPRY(box.loVect(), box.hiVect(),
 		  T.dataPtr(sCompT),   ARLIM(T.loVect()),   ARLIM(T.hiVect()),
 		  Rho.dataPtr(sCompR), ARLIM(Rho.loVect()), ARLIM(Rho.hiVect()),
 		  Y.dataPtr(sCompY),   ARLIM(Y.loVect()),   ARLIM(Y.hiVect()),
@@ -1126,7 +1126,7 @@ ChemDriver::getCpmixGivenTY(FArrayBox&       cpmix,
     BL_ASSERT(T.box().contains(box));
     BL_ASSERT(Y.box().contains(box));
     
-    FORT_CPMIXfromTY(box.loVect(), box.hiVect(),
+    CPMIXfromTY(box.loVect(), box.hiVect(),
 		     cpmix.dataPtr(sCompCp),ARLIM(cpmix.loVect()), ARLIM(cpmix.hiVect()),
 		     T.dataPtr(sCompT),     ARLIM(T.loVect()),     ARLIM(T.hiVect()),
 		     Y.dataPtr(sCompY),     ARLIM(Y.loVect()),     ARLIM(Y.hiVect()));
@@ -1149,7 +1149,7 @@ ChemDriver::getCvmixGivenTY(FArrayBox&       cvmix,
     BL_ASSERT(T.box().contains(box));
     BL_ASSERT(Y.box().contains(box));
     
-    FORT_CVMIXfromTY(box.loVect(), box.hiVect(),
+    CVMIXfromTY(box.loVect(), box.hiVect(),
 		     cvmix.dataPtr(sCompCv),ARLIM(cvmix.loVect()), ARLIM(cvmix.hiVect()),
 		     T.dataPtr(sCompT),     ARLIM(T.loVect()),     ARLIM(T.hiVect()),
 		     Y.dataPtr(sCompY),     ARLIM(Y.loVect()),     ARLIM(Y.hiVect()));
