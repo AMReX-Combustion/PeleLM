@@ -3,22 +3,22 @@
       COMMON /VHACK/ YJ_SAVE, FIRST
       SAVE   /VHACK/
 
-      DOUBLE PRECISION ACNRM, CCMXJ, CONP, CRATE, DRC, EL(13),
-     1     ETA, ETAMAX, H, HMIN, HMXI, HNEW, HSCAL, PRL1,
-     2     RC, RL1, TAU(13), TQ(5), TN, UROUND
-      INTEGER ICF, INIT, IPUP, JCUR, JSTART, JSV, KFLAG, KUTH,
-     1        L, LMAX, LYH, LEWT, LACOR, LSAVF, LWM, LIWM,
-     2        LOCJS, MAXORD, METH, MITER, MSBJ, MXHNIL, MXSTEP,
-     3        N, NEWH, NEWQ, NHNIL, NQ, NQNYH, NQWAIT, NSLJ,
-     4        NSLP, NYH
-      COMMON /DVOD01/ ACNRM, CCMXJ, CONP, CRATE, DRC, EL,
-     1                ETA, ETAMAX, H, HMIN, HMXI, HNEW, HSCAL, PRL1,
-     2                RC, RL1, TAU, TQ, TN, UROUND,
-     3                ICF, INIT, IPUP, JCUR, JSTART, JSV, KFLAG, KUTH,
-     4                L, LMAX, LYH, LEWT, LACOR, LSAVF, LWM, LIWM,
-     5                LOCJS, MAXORD, METH, MITER, MSBJ, MXHNIL, MXSTEP,
-     6                N, NEWH, NEWQ, NHNIL, NQ, NQNYH, NQWAIT, NSLJ,
-     7                NSLP, NYH
+      DOUBLE PRECISION ACNRM, CCMXJ, CONP, CRATE, DRC, EL(13), &
+          ETA, ETAMAX, H, HMIN, HMXI, HNEW, HSCAL, PRL1, &
+          RC, RL1, TAU(13), TQ(5), TN, UROUND
+      INTEGER ICF, INIT, IPUP, JCUR, JSTART, JSV, KFLAG, KUTH, &
+             L, LMAX, LYH, LEWT, LACOR, LSAVF, LWM, LIWM, &
+             LOCJS, MAXORD, METH, MITER, MSBJ, MXHNIL, MXSTEP, &
+             N, NEWH, NEWQ, NHNIL, NQ, NQNYH, NQWAIT, NSLJ, &
+             NSLP, NYH
+      COMMON /DVOD01/ ACNRM, CCMXJ, CONP, CRATE, DRC, EL, &
+                     ETA, ETAMAX, H, HMIN, HMXI, HNEW, HSCAL, PRL1, &
+                     RC, RL1, TAU, TQ, TN, UROUND, &
+                     ICF, INIT, IPUP, JCUR, JSTART, JSV, KFLAG, KUTH, &
+                     L, LMAX, LYH, LEWT, LACOR, LSAVF, LWM, LIWM, &
+                     LOCJS, MAXORD, METH, MITER, MSBJ, MXHNIL, MXSTEP, &
+                     N, NEWH, NEWQ, NHNIL, NQ, NQNYH, NQWAIT, NSLJ, &
+                     NSLP, NYH
 
       DOUBLE PRECISION HU
       INTEGER NCFN, NETF, NFE, NJE, NLU, NNI, NQU, NST

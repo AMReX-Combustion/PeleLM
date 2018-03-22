@@ -54,6 +54,7 @@ endif
 
 #
 # Tells IAMR not to include the following: NS_error.cpp NS_setup.cpp NSBld.cpp
+#                                          NavierStokes.cpp NavierStokes.H
 #
 SKIP_NS_SPECIFIC_CODE = TRUE
 

@@ -547,7 +547,7 @@ FabMinMax (FArrayBox& fab,
   const int* hi     = box.hiVect();
   Real*      fabdat = fab.dataPtr(sComp);
     
-  FORT_FABMINMAX(lo, hi,
+  fab_minmax(lo, hi,
                  fabdat, ARLIM(fab.loVect()), ARLIM(fab.hiVect()),
                  &fmin, &fmax, &nComp);
 }
@@ -798,14 +798,14 @@ PeleLM::PeleLM ()
   // can modify these later
   if (p_amb_old == -1.0)
   {
-    FORT_GETPAMB(&p_amb_old);
+    get_pamb(&p_amb_old);
   }
   if (p_amb_new == -1.0)
   {
-    FORT_GETPAMB(&p_amb_new);
+    get_pamb(&p_amb_new);
   }
 
-  FORT_GETCLOSEDCHAMBER(&closed_chamber);
+  get_closed_chamber(&closed_chamber);
 
   updateFluxReg = false;
 
@@ -847,14 +847,14 @@ PeleLM::PeleLM (Amr&            papa,
   // can modify these later
   if (p_amb_old == -1.0)
   {
-    FORT_GETPAMB(&p_amb_old);
+    get_pamb(&p_amb_old);
   }
   if (p_amb_new == -1.0)
   {
-    FORT_GETPAMB(&p_amb_new);
+    get_pamb(&p_amb_new);
   }
 
-  FORT_GETCLOSEDCHAMBER(&closed_chamber);
+  get_closed_chamber(&closed_chamber);
 
   updateFluxReg = false;
 
@@ -972,7 +972,7 @@ PeleLM::init_once ()
   //
   const int density = (int)Density;
 
-  FORT_SET_SCAL_NUMB(&density, &Temp, &Trac, &RhoH, &first_spec, &last_spec);
+  set_scal_numb(&density, &Temp, &Trac, &RhoH, &first_spec, &last_spec);
   //
   // Load constants into Fortran common to compute viscosities, etc.
   //
@@ -980,13 +980,13 @@ PeleLM::init_once ()
   const int var_cond = (constant_lambda_val == -1 ? 1 : 0);
   const int var_diff = (constant_rhoD_val   == -1 ? 1 : 0);
     
-  FORT_SET_HT_VISC_COMMON(&var_visc, &constant_mu_val,
+  set_ht_visc_common(&var_visc, &constant_mu_val,
                           &var_cond, &constant_lambda_val,
                           &var_diff, &constant_rhoD_val,
                           &prandtl,  &schmidt, &unity_Le);
 
   // initialize default typical values
-  FORT_INIT_TYPVALS_COMMON();
+  init_typcals_common();
   //
   // make space for typical values
   //
@@ -1192,7 +1192,7 @@ PeleLM::set_typical_values(bool restart)
       // Check fortan common values, override values set above if fortran values > 0.
       //
       Vector<Real> tvTmp(nComp,0);
-      FORT_GETTYPICALVALS(tvTmp.dataPtr(), &nComp);
+      get_typical_vals(tvTmp.dataPtr(), &nComp);
       ParallelDescriptor::ReduceRealMax(tvTmp.dataPtr(),nComp);
         
       for (int i=0; i<nComp; ++i)
@@ -1230,7 +1230,7 @@ PeleLM::set_typical_values(bool restart)
       }
     }
 
-    FORT_SETTYPICALVALS(typical_values.dataPtr(), &nComp);
+    set_typical_vals(typical_values.dataPtr(), &nComp);
 
     amrex::Print() << "Typical vals: " << '\n';
     amrex::Print() << "\tVelocity: ";
@@ -1305,7 +1305,7 @@ PeleLM::reset_typical_values (const MultiFab& S)
     }
   }
 
-  FORT_SETTYPICALVALS(typical_values.dataPtr(), &nComp);
+  set_typical_vals(typical_values.dataPtr(), &nComp);
 
   amrex::Print() << "New typical vals: " << '\n';
   amrex::Print() << "\tVelocity: ";
@@ -1367,7 +1367,7 @@ PeleLM::estTimeStep ()
 #if (BL_SPACEDIM==3) 
     DEF_CLIMITS(area[2][i],areaz,az_lo,az_hi)
 #endif
-      FORT_EST_DIVU_DT(divu_ceiling,&divu_dt_factor,
+      est_divu_dt(divu_ceiling,&divu_dt_factor,
                        dx,sdat,ARLIM(slo),ARLIM(shi),
                        (*dsdt)[U_fpi].dataPtr(),
                        rhodat,ARLIM(rholo),ARLIM(rhohi),
@@ -1448,7 +1448,7 @@ PeleLM::checkTimeStep (Real dt)
 #if (BL_SPACEDIM==3) 
     DEF_CLIMITS(area[2][i],areaz,az_lo,az_hi);
 #endif
-    FORT_CHECK_DIVU_DT(divu_ceiling,&divu_dt_factor,
+    check_divu_dt(divu_ceiling,&divu_dt_factor,
                        dx,sdat,ARLIM(slo),ARLIM(shi),
                        (*dsdt)[U_fpi].dataPtr(),
                        rhodat,ARLIM(rholo),ARLIM(rhohi),
@@ -1571,7 +1571,7 @@ PeleLM::initData ()
     const int* p_hi    = P_new[snewmfi].hiVect();
 
 #ifdef BL_USE_NEWMECH
-    FORT_INITDATANEWMECH (&level,&cur_time,lo,hi,&ns,
+    init_data_new_mech (&level,&cur_time,lo,hi,&ns,
                           S_new[snewmfi].dataPtr(Xvel),
                           S_new[snewmfi].dataPtr(BL_SPACEDIM),
                           ARLIM(s_lo), ARLIM(s_hi),
@@ -1579,7 +1579,7 @@ PeleLM::initData ()
                           ARLIM(p_lo), ARLIM(p_hi),
                           dx,gridloc.lo(),gridloc.hi() );
 #else
-    FORT_INITDATA (&level,&cur_time,lo,hi,&ns,
+    init_data (&level,&cur_time,lo,hi,&ns,
                    S_new[snewmfi].dataPtr(Xvel),
                    S_new[snewmfi].dataPtr(BL_SPACEDIM),
                    ARLIM(s_lo), ARLIM(s_hi),
@@ -1859,7 +1859,7 @@ PeleLM::init ()
       FArrayBox& fab = fine[mfi];
       const Box& box = mfi.validbox();
       num_cells_hacked += 
-        FORT_CONSERVATIVE_T_FLOOR(box.loVect(), box.hiVect(),
+        conservative_T_floor(box.loVect(), box.hiVect(),
                                   fab.dataPtr(), ARLIM(fab.loVect()), ARLIM(fab.hiVect()),
                                   &min_T_fine, &Tcomp, &Rcomp, &first_spec, &last_spec, &RhoH,
                                   ratio, tmp.dataPtr(), &n_tmp);
@@ -1931,12 +1931,12 @@ PeleLM::post_restart ()
   if (do_active_control)
   {
     int usetemp = 0;
-    FORT_ACTIVECONTROL(&dummy,&dummy,&crse_dt,&MyProc,&step,&restart,&usetemp);
+    active_control(&dummy,&dummy,&crse_dt,&MyProc,&step,&restart,&usetemp);
   }
   else if (do_active_control_temp)
   {
     int usetemp = 1;
-    FORT_ACTIVECONTROL(&dummy,&dummy,&crse_dt,&MyProc,&step,&restart,&usetemp);
+    active_control(&dummy,&dummy,&crse_dt,&MyProc,&step,&restart,&usetemp);
   }
 }
 
@@ -2256,7 +2256,7 @@ PeleLM::sum_integrated_quantities ()
 
       int usetemp = 0;
 
-      FORT_ACTIVECONTROL(&fuelmass,&time,&crse_dt,&MyProc,&step,&restart,&usetemp);
+      active_control(&fuelmass,&time,&crse_dt,&MyProc,&step,&restart,&usetemp);
     }
     else if (do_active_control_temp)
     {
@@ -2310,7 +2310,7 @@ PeleLM::sum_integrated_quantities ()
 
       int usetemp = 1;
 
-      FORT_ACTIVECONTROL(&hival,&time,&crse_dt,&MyProc,&step,&restart,&usetemp);
+      active_control(&hival,&time,&crse_dt,&MyProc,&step,&restart,&usetemp);
     }
     else
     {
@@ -2920,7 +2920,7 @@ PeleLM::adjust_spec_diffusion_fluxes (Real time)
     for (int d =0; d < BL_SPACEDIM; ++d)
     {
       FArrayBox& f = (*flux[d])[mfi];
-      FORT_REPAIR_FLUX(box.loVect(), box.hiVect(), domain.loVect(), domain.hiVect(),
+      repair_flux(box.loVect(), box.hiVect(), domain.loVect(), domain.hiVect(),
                        f.dataPtr(),      ARLIM(f.loVect()),ARLIM(f.hiVect()),
                        Y.dataPtr(sCompY),ARLIM(Y.loVect()),ARLIM(Y.hiVect()),
                        &d, Ybc.vect());
@@ -2997,7 +2997,7 @@ PeleLM::compute_enthalpy_fluxes (Real                   time,
     FArrayBox&       fiz      = (*flux[2])[mfi];
 #endif
 
-    FORT_ENTH_DIFF_TERMS(box.loVect(), box.hiVect(), domain.loVect(), domain.hiVect(), dx,
+    enth_diff_terms(box.loVect(), box.hiVect(), domain.loVect(), domain.hiVect(), dx,
                          T.dataPtr(TComp), ARLIM(T.loVect()),  ARLIM(T.hiVect()),
                          RhoY.dataPtr(RhoYComp), ARLIM(RhoY.loVect()),  ARLIM(RhoY.hiVect()),
                                  
@@ -3571,7 +3571,7 @@ PeleLM::flux_divergence (MultiFab&        fdiv,
     const Box& box = mfi.validbox();
     FArrayBox& fab = fdiv[mfi];
 
-    FORT_FLUXDIV(box.loVect(), box.hiVect(),
+    flux_div(box.loVect(), box.hiVect(),
                  fab.dataPtr(fdivComp), ARLIM(fab.loVect()), ARLIM(fab.hiVect()),
                  (*f[0])[mfi].dataPtr(fluxComp), ARLIM((*f[0])[mfi].loVect()),   ARLIM((*f[0])[mfi].hiVect()),
                  (*f[1])[mfi].dataPtr(fluxComp), ARLIM((*f[1])[mfi].loVect()),   ARLIM((*f[1])[mfi].hiVect()),
@@ -4140,7 +4140,7 @@ PeleLM::advance (Real time,
   {
     crse_dt = dt;
     int thisLevelStep = parent->levelSteps(0);
-    FORT_SET_COMMON(&time,&thisLevelStep);
+    set_common(&time,&thisLevelStep);
   }
 
   if (verbose)
@@ -4188,7 +4188,7 @@ PeleLM::advance (Real time,
     {
       const Box& box = mfi.validbox();            
       const FArrayBox& species = S_old[mfi];
-      FORT_FLOORSPEC(box.loVect(), box.hiVect(), species.dataPtr(first_spec),
+      floor_spec(box.loVect(), box.hiVect(), species.dataPtr(first_spec),
                      ARLIM(species.loVect()), ARLIM(species.hiVect()));
     }
   }
@@ -4348,7 +4348,7 @@ PeleLM::advance (Real time,
         FArrayBox& thetafab = theta_old[mfi];
         const FArrayBox& rhoY = S_old[mfi];
         const FArrayBox& T = S_old[mfi];
-        FORT_CALCGAMMAPINV(box.loVect(), box.hiVect(),
+        calc_gamma_pinv(box.loVect(), box.hiVect(),
                            thetafab.dataPtr(),       ARLIM(thetafab.loVect()), ARLIM(thetafab.hiVect()),
                            rhoY.dataPtr(first_spec), ARLIM(rhoY.loVect()),     ARLIM(rhoY.hiVect()),
                            T.dataPtr(Temp),          ARLIM(T.loVect()),        ARLIM(T.hiVect()),
@@ -4361,7 +4361,7 @@ PeleLM::advance (Real time,
         FArrayBox& thetafab = theta_nph[mfi];
         const FArrayBox& rhoY = S_new[mfi];
         const FArrayBox& T = S_new[mfi];
-        FORT_CALCGAMMAPINV(box.loVect(), box.hiVect(),
+        calc_gamma_pinv(box.loVect(), box.hiVect(),
                            thetafab.dataPtr(),       ARLIM(thetafab.loVect()), ARLIM(thetafab.hiVect()),
                            rhoY.dataPtr(first_spec), ARLIM(rhoY.loVect()),     ARLIM(rhoY.hiVect()),
                            T.dataPtr(Temp),          ARLIM(T.loVect()),        ARLIM(T.hiVect()),
@@ -4568,7 +4568,7 @@ PeleLM::advance (Real time,
       {
         const Box& box = mfi.validbox();            
         const FArrayBox& species = S_new[mfi];
-        FORT_FLOORSPEC(box.loVect(), box.hiVect(),
+        floor_spec(box.loVect(), box.hiVect(),
                        species.dataPtr(first_spec), ARLIM(species.loVect()),  ARLIM(species.hiVect()));
       }
     }
@@ -5830,7 +5830,7 @@ PeleLM::mac_sync ()
           const Real mult = dt*dt;
           const int sigmaRhoH = RhoH - BL_SPACEDIM; // RhoH comp in Ssync
 		    
-          FORT_INCRWEXTFLXDIV(box.loVect(), box.hiVect(),
+          incrwext_flx_div(box.loVect(), box.hiVect(),
                               (*fluxNULN[0])[Ssync_mfi].dataPtr(),
                               ARLIM((*fluxNULN[0])[Ssync_mfi].loVect()),
                               ARLIM((*fluxNULN[0])[Ssync_mfi].hiVect()),
@@ -6213,7 +6213,7 @@ PeleLM::compute_Wbar_fluxes(Real time,
 		  
       for (int ispec=0; ispec<nspecies; ++ispec)
       {
-        FORT_GRADWBAR(vbox.loVect(), vbox.hiVect(),
+        grad_wbar(vbox.loVect(), vbox.hiVect(),
                       wbar.dataPtr(), ARLIM(wbar.loVect()),ARLIM(wbar.hiVect()),
                       rhoDe.dataPtr(ispec), ARLIM(rhoDe.loVect()), ARLIM(rhoDe.hiVect()),
                       fluxfab.dataPtr(ispec), ARLIM(fluxfab.loVect()), ARLIM(fluxfab.hiVect()),
@@ -6363,7 +6363,7 @@ PeleLM::differential_spec_diffuse_sync (Real dt,
     // take divergence of (delta gamma) and put it in update
     // update = scale * div(flux) / vol
     // we want update to contain (dt/2) div (delta gamma)
-    FORT_FLUXDIV(box.loVect(), box.hiVect(),
+    flux_div(box.loVect(), box.hiVect(),
                  update.dataPtr(),  
                  ARLIM(update.loVect()),  ARLIM(update.hiVect()),
                  efab[0].dataPtr(), ARLIM(efab[0].loVect()), ARLIM(efab[0].hiVect()),
@@ -6585,7 +6585,7 @@ PeleLM::calcDiffusivity (const Real time)
     int       dotemp  = 1;
     bcen.resize(gbox,nc_bcen);
         
-    FORT_SPECTEMPVISC(gbox.loVect(),gbox.hiVect(),
+    spec_temp_visc(gbox.loVect(),gbox.hiVect(),
                       ARLIM(Tfab.loVect()),ARLIM(Tfab.hiVect()),Tfab.dataPtr(),
                       ARLIM(RYfab.loVect()),ARLIM(RYfab.hiVect()),RYfab.dataPtr(1),
                       ARLIM(bcen.loVect()),ARLIM(bcen.hiVect()),bcen.dataPtr(),
@@ -6814,7 +6814,7 @@ PeleLM::compute_vel_visc (Real      time,
     for (int n = 1; n < nspecies+1; ++n)
       rho_and_spec.mult(tmp,0,n,1);
 
-    FORT_VELVISC(box.loVect(),box.hiVect(),
+    vel_visc(box.loVect(),box.hiVect(),
                  ARLIM(temp.loVect()),ARLIM(temp.hiVect()),temp.dataPtr(),
                  ARLIM(rho_and_spec.loVect()),ARLIM(rho_and_spec.hiVect()),
                  rho_and_spec.dataPtr(1),
@@ -6896,7 +6896,7 @@ PeleLM::calc_divu (Real      time,
     const FArrayBox& rhoY = S[mfi];
     const FArrayBox& rYdot = RhoYdot[mfi];
     const FArrayBox& T = S[mfi];
-    FORT_CALCDIVU(box.loVect(), box.hiVect(),
+    calc_divu_fortran(box.loVect(), box.hiVect(),
                   du.dataPtr(),             ARLIM(du.loVect()),    ARLIM(du.hiVect()),
                   rYdot.dataPtr(),          ARLIM(rYdot.loVect()), ARLIM(rYdot.hiVect()),
                   vtY.dataPtr(vtCompY),     ARLIM(vtY.loVect()),   ARLIM(vtY.hiVect()),
@@ -6918,7 +6918,7 @@ PeleLM::calc_dpdt (Real      time,
   BL_PROFILE("HT::calc_dpdt()");
 
   Real dpdt_factor;
-  FORT_GETDPDT(&dpdt_factor);
+  get_dpdt(&dpdt_factor);
 
   // for open chambers, ambient pressure is constant in time
   Real p_amb = p_amb_old;
@@ -7615,7 +7615,7 @@ PeleLM::derive (const std::string& name,
         // Use result MultiFab for temporary container to hold smooth T field
         // 
         const Box& box = mfi.validbox();
-        FORT_SMOOTH(box.loVect(),box.hiVect(),
+        smooth(box.loVect(),box.hiVect(),
                     tmf[mfi].dataPtr(),
                     ARLIM(tmf[mfi].loVect()),ARLIM(tmf[mfi].hiVect()),
                     mf[mfi].dataPtr(dcomp),
@@ -7639,7 +7639,7 @@ PeleLM::derive (const std::string& name,
       const Box& nodebox = amrex::surroundingNodes(box);
       nWork.resize(nodebox,BL_SPACEDIM);
             
-      FORT_MCURVE(box.loVect(),box.hiVect(),
+      mcurve(box.loVect(),box.hiVect(),
                   Tg.dataPtr(),ARLIM(Tg.loVect()),ARLIM(Tg.hiVect()),
                   MC.dataPtr(dcomp),ARLIM(MC.loVect()),ARLIM(MC.hiVect()),
                   nWork.dataPtr(),ARLIM(nWork.loVect()),ARLIM(nWork.hiVect()),
