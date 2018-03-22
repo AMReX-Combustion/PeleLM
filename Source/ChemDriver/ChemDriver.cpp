@@ -44,7 +44,7 @@ ChemDriver::ChemDriver ()
 {
     FORT_SETTMINTRANS(&Tmin_trans_DEF);
 
-    //FORT_SETVERBOSEVODE();
+    //SETVERBOSEVODE();
 
     if (!initialized)
     {
@@ -307,11 +307,11 @@ static void modify_parameters(ChemDriver& cd)
 void
 ChemDriver::initOnce ()
 {
-    FORT_INITCHEM();
+    INITCHEM();
     getSpeciesNames();
     getElementNames();
     modify_parameters(*this);
-    FORT_GETCKDIMPARAMS(&mMaxreac, &mMaxspec, &mMaxelts,  &mMaxord,
+    GETCKDIMPARAMS(&mMaxreac, &mMaxspec, &mMaxelts,  &mMaxord,
                         &mMaxthrdb, &mMaxtp,  &mMaxsp,    &mMaxspnml);
     getStoichCoeffs();
 
@@ -329,7 +329,7 @@ ChemDriver::initOnce ()
     BL_ASSERT(v_atol > 0);
     BL_ASSERT(v_itol == 1 || v_itol == 2);
 
-    FORT_SETVODETOLS(&v_rtol,&v_atol,&v_itol);
+    SETVODETOLS(&v_rtol,&v_atol,&v_itol);
 
     int  v_maxcyc = -1;
 
@@ -350,7 +350,7 @@ ChemDriver::initOnce ()
 void
 ChemDriver::set_verbose_vode()
 {
-    FORT_SETVERBOSEVODE();
+    SETVERBOSEVODE();
 }
 
 void
@@ -370,15 +370,15 @@ ChemDriver::set_species_Yscales(const std::string& scalesFile)
 void
 ChemDriver::getSpeciesNames()
 {
-    int max_len = FORT_GETCKMAXNAMELEN();
+    int max_len = GETCKMAXNAMELEN();
     int* coded = new int[max_len];
-    int Nspec = FORT_GETCKNUMSPEC();
+    int Nspec = GETCKNUMSPEC();
     mSpeciesNames.clear();
     mSpeciesNames.resize(Nspec);
     for (int i=0; i<Nspec; ++i)
     {
         int ifort = i+1;
-	int len = FORT_GETCKSPECNAME(&ifort, coded);
+	int len = GETCKSPECNAME(&ifort, coded);
 	mSpeciesNames[i] = decodeStringFromFortran(coded,len);
     }
     delete [] coded;
@@ -389,14 +389,14 @@ ChemDriver::getElementNames()
 {
     const int max_len = 3;
     int* coded = new int[max_len];
-    int Nelt = FORT_GETCKNUMELT();
+    int Nelt = GETCKNUMELT();
     
     mElementNames.clear();
     mElementNames.resize(Nelt);
     for (int i=0; i<Nelt; ++i)
     {
         int ifort = i+1;
-	int len = FORT_GETCKELTNAME(&ifort, coded);
+	int len = GETCKELTNAME(&ifort, coded);
 	mElementNames[i] = decodeStringFromFortran(coded,len);
     }
     delete [] coded;
@@ -406,7 +406,7 @@ void
 ChemDriver::getStoichCoeffs()
 {
     mNu.resize(mMaxspec * mMaxreac);
-    FORT_SETNU(mNu.dataPtr(),mNu.size());
+    SETNU(mNu.dataPtr(),mNu.size());
 }
 
 Vector<int>
@@ -415,7 +415,7 @@ ChemDriver::reactionsWithXonL(const std::string& specName) const
     const int idx = index(specName) + 1;
     int Nreacs = -1;
     Vector<int> reactions(numReactions());
-    FORT_FINDLHS(reactions.dataPtr(),&Nreacs,&idx);
+    FINDLHS(reactions.dataPtr(),&Nreacs,&idx);
     reactions.resize(Nreacs);
     for (int i=0; i<reactions.size(); ++i)
         reactions[i]--;
@@ -428,7 +428,7 @@ ChemDriver::reactionsWithXonR(const std::string& specName) const
     const int idx = index(specName) + 1;
     int Nreacs = -1;
     Vector<int> reactions(numReactions());
-    FORT_FINDRHS(reactions.dataPtr(),&Nreacs,&idx);
+    FINDRHS(reactions.dataPtr(),&Nreacs,&idx);
     reactions.resize(Nreacs);
     for (int i=0; i<reactions.size(); ++i)
         reactions[i]--;
@@ -455,7 +455,7 @@ ChemDriver::specCoeffsInReactions(int reacIdx) const
     Vector<int> NU(mMaxsp);
     int Nids = 0;
     const int fortReacIdx = reacIdx + 1;
-    FORT_CKINU(&Nids,KI.dataPtr(),&mMaxsp,NU.dataPtr(),&mMaxsp,&fortReacIdx,mNu.dataPtr());
+    CKINU(&Nids,KI.dataPtr(),&mMaxsp,NU.dataPtr(),&mMaxsp,&fortReacIdx,mNu.dataPtr());
     Vector<std::pair<std::string,int> > result(Nids);
     for (int i=0; i<Nids; ++i)
         result[i] = std::pair<std::string,int>(mSpeciesNames[KI[i]-1],NU[i]);
@@ -1172,7 +1172,7 @@ ChemDriver::getHmixGivenTY(FArrayBox&       hmix,
     BL_ASSERT(T.box().contains(box));
     BL_ASSERT(Y.box().contains(box));
     
-    FORT_HMIXfromTY(box.loVect(), box.hiVect(),
+    HMIXfromTY(box.loVect(), box.hiVect(),
 		    hmix.dataPtr(sCompH),ARLIM(hmix.loVect()), ARLIM(hmix.hiVect()),
 		    T.dataPtr(sCompT),   ARLIM(T.loVect()),    ARLIM(T.hiVect()),
 		    Y.dataPtr(sCompY),   ARLIM(Y.loVect()),    ARLIM(Y.hiVect()));
@@ -1191,7 +1191,7 @@ ChemDriver::getMwmixGivenY(FArrayBox&       mwmix,
     BL_ASSERT(mwmix.box().contains(box));
     BL_ASSERT(Y.box().contains(box));
     
-    FORT_MWMIXfromY(box.loVect(), box.hiVect(),
+    MWMIXfromY(box.loVect(), box.hiVect(),
 		    mwmix.dataPtr(sCompMw),ARLIM(mwmix.loVect()), ARLIM(mwmix.hiVect()),
 		    Y.dataPtr(sCompY),     ARLIM(Y.loVect()),     ARLIM(Y.hiVect()));
 }
@@ -1209,7 +1209,7 @@ ChemDriver::getCpGivenT(FArrayBox&       cp,
     BL_ASSERT(cp.box().contains(box));
     BL_ASSERT(T.box().contains(box));
     
-    FORT_CPfromT(box.loVect(), box.hiVect(),
+    CPfromT(box.loVect(), box.hiVect(),
 		 cp.dataPtr(sCompCp), ARLIM(cp.loVect()), ARLIM(cp.hiVect()),
 		 T.dataPtr(sCompT),   ARLIM(T.loVect()),  ARLIM(T.hiVect()));
 }
@@ -1227,7 +1227,7 @@ ChemDriver::getHGivenT(FArrayBox&       h,
     BL_ASSERT(h.box().contains(box));
     BL_ASSERT(T.box().contains(box));
     
-    FORT_HfromT(box.loVect(), box.hiVect(),
+    HfromT(box.loVect(), box.hiVect(),
 		h.dataPtr(sCompH), ARLIM(h.loVect()), ARLIM(h.hiVect()),
 		T.dataPtr(sCompT), ARLIM(T.loVect()), ARLIM(T.hiVect()));
 }
@@ -1252,7 +1252,7 @@ ChemDriver::getTGivenHY(FArrayBox&       T,
 
     Real solveTOL = (errMAX<0 ? mHtoTerrMAX : errMAX);
     
-    return FORT_TfromHY(box.loVect(), box.hiVect(),
+    return TfromHY(box.loVect(), box.hiVect(),
 			T.dataPtr(sCompT), ARLIM(T.loVect()), ARLIM(T.hiVect()),
 			H.dataPtr(sCompH), ARLIM(H.loVect()), ARLIM(H.hiVect()),
 			Y.dataPtr(sCompY), ARLIM(Y.loVect()), ARLIM(Y.hiVect()),
@@ -1273,7 +1273,7 @@ ChemDriver::getElementMoles(FArrayBox&       C_elt,
     Vector<int> name_enc = encodeStringForFortran(name);
     const int name_len = name_enc.size();
 
-    FORT_GETELTMOLES(name_enc.dataPtr(), &name_len,
+    GETELTMOLES(name_enc.dataPtr(), &name_len,
                      box.loVect(), box.hiVect(),
                      C_elt.dataPtr(sCompC_elt),
                      ARLIM(C_elt.loVect()),ARLIM(C_elt.hiVect()),
@@ -1283,13 +1283,13 @@ ChemDriver::getElementMoles(FArrayBox&       C_elt,
 Real
 ChemDriver::getRuniversal() const
 {
-    return FORT_RUNIV();
+    return RUNIV();
 }
 
 Real
 ChemDriver::getP1atm_MKS() const
 {
-  return FORT_P1ATMMKS();
+  return P1ATMMKS();
 }
 
 void
@@ -1311,7 +1311,7 @@ ChemDriver::getOTradLoss_TDF(FArrayBox&       Qloss,
     BL_ASSERT(T.box().contains(box));
     BL_ASSERT(X.box().contains(box));
 
-    FORT_OTrad_TDF(box.loVect(), box.hiVect(),
+    OTrad_TDF(box.loVect(), box.hiVect(),
                    Qloss.dataPtr(sCompQ), ARLIM(Qloss.loVect()), ARLIM(Qloss.hiVect()),
                    T.dataPtr(sCompT),     ARLIM(T.loVect()),     ARLIM(T.hiVect()),
                    X.dataPtr(sCompX),     ARLIM(X.loVect()),     ARLIM(X.hiVect()),

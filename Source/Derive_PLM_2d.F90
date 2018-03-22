@@ -157,6 +157,8 @@ contains
                      level,grid_no) &
                      bind(C, name="drhort")
 
+    use chem_driver_2D, only: PfromRTY
+    
     implicit none
 
 !     
@@ -205,7 +207,7 @@ contains
           Yt(n) = dat(i,j,fS+n-1) / dat(i,j,rho)
          end do
 
-         call FORT_PfromRTY(lo_chem, hi_chem, &
+         call PfromRTY(lo_chem, hi_chem, &
               e(i,j,1),     ARLIM(lo_chem),ARLIM(hi_chem), &
               dat(i,j,rho), ARLIM(lo_chem),ARLIM(hi_chem), &
               dat(i,j,T),   ARLIM(lo_chem),ARLIM(hi_chem), &
@@ -221,8 +223,10 @@ contains
                           level,grid_no) &
                           bind(C, name="dermolefrac")
 
-    implicit none
+    use chem_driver_2D, only : mass_to_mole
 
+    implicit none
+    
 #include <cdwrk.H>
 
     integer    lo(SDIM), hi(SDIM)
@@ -268,6 +272,8 @@ contains
                                level,grid_no) &
                                bind(C, name="derconcentration")
 
+    use chem_driver_2D, only: MASSR_TO_CONC
+                               
     implicit none
 
 #include <cdwrk.H>
@@ -300,7 +306,7 @@ contains
           Yt(n) = dat(i,j,fS+n-1)/dat(i,j,rho) 
         enddo
 
-        call FORT_MASSR_TO_CONC(lo_chem,hi_chem, &
+        call MASSR_TO_CONC(lo_chem,hi_chem, &
                   Yt,           ARLIM(lo_chem),ARLIM(hi_chem), &
                   dat(i,j,T),   ARLIM(lo_chem),ARLIM(hi_chem), &
                   dat(i,j,rho), ARLIM(lo_chem),ARLIM(hi_chem), &

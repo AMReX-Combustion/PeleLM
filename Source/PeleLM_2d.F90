@@ -190,6 +190,8 @@ contains
                                   FiGHi, DIMS(FiGHi), Tbc ) &
                                   bind(C, name="enth_diff_terms")
 
+    
+    use chem_driver_2D, only: HfromT
     implicit none
 
 #include <cdwrk.H>      
@@ -247,7 +249,7 @@ contains
 
     allocate( H(DIMV(T),1:Nspec) )
 
-    call FORT_HfromT(lob, hib, H, DIMS(T), T, DIMS(T))
+    call HfromT(lob, hib, H, DIMS(T), T, DIMS(T))
 
 !     On entry, Fx(1:Nspec) = spec flux
 !     On exit:
@@ -707,6 +709,8 @@ contains
                        DIMS(mu), mu) &
                        bind(C, name="vel_visc")
 
+    use chem_driver_2D, only: MIX_SHEAR_VISC
+    
     implicit none
 
 #include <visc.H>
@@ -724,7 +728,7 @@ contains
 
     if (.not.use_constant_mu) then
       if (.not. LeEQ1) then
-        call FORT_MIX_SHEAR_VISC(lo, hi, mu, DIMS(mu), &
+        call MIX_SHEAR_VISC(lo, hi, mu, DIMS(mu), &
                                     T, DIMS(T), Y, DIMS(Y))
       else 
         do j=lo(2), hi(2)
@@ -753,6 +757,8 @@ contains
                             Pamb_in) &
                             bind(C, name="spec_temp_visc")
 
+    use chem_driver_2D, only: MIXAVG_RHODIFF_TEMP, CPMIXfromTY
+    
     implicit none
 
 #include <cdwrk.H>
@@ -766,13 +772,14 @@ contains
     integer ncompd, do_temp, do_VelVisc
     REAL_T  T(DIMV(T))
     REAL_T  Y(DIMV(Y),*)
+    !REAL_T  cpmix(DIMV(T))
     REAL_T  rhoD(DIMV(rhoD),ncompd)
     REAL_T  Pamb_in
       
     integer i, j, n, nc, ncs
     REAL_T P1ATM_MKS, Patm
     REAL_T Yt(maxspec)
-    REAL_T cpmix, Tfac, Yfac
+    REAL_T Tfac, Yfac, cpmix(1,1)
     integer lo_chem(SDIM),hi_chem(SDIM)
     data lo_chem /1,1/
     data hi_chem /1,1/
@@ -803,7 +810,7 @@ contains
     if (.not.use_constant_rhoD) then
       if (.not. LeEQ1) then
         Patm = Pamb_in / P1ATM_MKS
-        call FORT_MIXAVG_RHODIFF_TEMP(lo, hi, rhoD, DIMS(rhoD), &
+        call MIXAVG_RHODIFF_TEMP(lo, hi, rhoD, DIMS(rhoD), &
                 T, DIMS(T), Y, DIMS(Y), Patm, do_temp, do_VelVisc)
         if (thickFacTR.ne.1.d0) then
           do n=1,ncs
@@ -838,11 +845,11 @@ contains
               do n=1,Nspec
                 Yt(n) = Y(i,j,n)
               end do
-              CALL FORT_CPMIXfromTY(lo_chem, hi_chem, & 
+              CALL CPMIXfromTY(lo_chem, hi_chem, & 
                          cpmix,  ARLIM(lo_chem), ARLIM(hi_chem), &
                          T(i,j), ARLIM(lo_chem), ARLIM(hi_chem), &
                          Yt,     ARLIM(lo_chem), ARLIM(hi_chem))
-                     rhoD(i,j,Nspec+1) = rhoD(i,j,Nspec+1)*cpmix*Tfac
+                     rhoD(i,j,Nspec+1) = rhoD(i,j,Nspec+1)*cpmix(1,1)*Tfac
             end do
           end do
         end if

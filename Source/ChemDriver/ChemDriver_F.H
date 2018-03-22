@@ -19,27 +19,27 @@ extern "C" {
 #endif
 
     void FORT_SETTMINTRANS(const amrex::Real* Tmin);
-    void FORT_SETVERBOSEVODE();
-    void FORT_SETVODETOLS(const amrex::Real* rtol, const amrex::Real* atol, const int* itol);
+    void SETVERBOSEVODE();
+    void SETVODETOLS(const amrex::Real* rtol, const amrex::Real* atol, const int* itol);
     void set_vode_subcyc(const int* maxcyc);
     void set_spec_scal_Y(const int* name, const int* length);
-    void FORT_INITCHEM();
+    void INITCHEM();
     void finalize_chem();
-    int FORT_GETCKMAXNAMELEN();
-    int FORT_GETCKNUMSPEC();
-    int FORT_GETCKNUMELT();
-    int FORT_GETCKSPECNAME(const int* str_len, const int* coded);
-    int FORT_GETCKELTNAME(const int* str_len, const int* coded);
+    int GETCKMAXNAMELEN();
+    int GETCKNUMSPEC();
+    int GETCKNUMELT();
+    int GETCKSPECNAME(const int* str_len, const int* coded);
+    int GETCKELTNAME(const int* str_len, const int* coded);
     int CKELTXINSPY(const int* eltID, const int* spID);
     void get_CKMWT(amrex::Real* mwt);
     void FORT_GETCKAWT(amrex::Real* awt);
-    void FORT_FINDLHS(int* reactions, int* listLen, const int* idx);
-    void FORT_FINDRHS(int* reactions, int* listLen, const int* idx);
-    void FORT_CKINU(int* Nids,int* KI,const int* lenKI,int* NU,const int* lenNU,
+    void FINDLHS(int* reactions, int* listLen, const int* idx);
+    void FINDRHS(int* reactions, int* listLen, const int* idx);
+    void CKINU(int* Nids,int* KI,const int* lenKI,int* NU,const int* lenNU,
                     const int* rxnID, const int* nuAll);
     int CKSYMR(const int* fortReacIdx, const int* coded);
 
-    void FORT_GETCKDIMPARAMS(const int* maxreac,  const int* maxspec,
+    void GETCKDIMPARAMS(const int* maxreac,  const int* maxspec,
                              const int* maxelts,  const int* maxord,
                              const int* maxthrdb, const int* maxtp,
                              const int* maxsp,    const int* maxspnml);
@@ -158,30 +158,30 @@ extern "C" {
 			  const amrex::Real* T, ARLIM_P(Tlo),  ARLIM_P(Thi),
 			  const amrex::Real* Y, ARLIM_P(Ylo),  ARLIM_P(Yhi));
     
-    void FORT_HMIXfromTY(const int* lo, const int* hi,
+    void HMIXfromTY(const int* lo, const int* hi,
 			 amrex::Real*    HMIX, ARLIM_P(Hlo), ARLIM_P(Hhi),
 			 const amrex::Real* T, ARLIM_P(Tlo), ARLIM_P(Thi),
 			 const amrex::Real* Y, ARLIM_P(Ylo), ARLIM_P(Yhi));
       
-    void FORT_MWMIXfromY(const int* lo, const int* hi,
+    void MWMIXfromY(const int* lo, const int* hi,
 			 amrex::Real*    MWMIX,ARLIM_P(MWlo),ARLIM_P(MWhi),
 			 const amrex::Real* Y, ARLIM_P(Ylo), ARLIM_P(Yhi));
       
-    void FORT_CPfromT(const int* lo, const int* hi,
+    void CPfromT(const int* lo, const int* hi,
 		      amrex::Real*      CP, ARLIM_P(CPlo), ARLIM_P(CPhi),
 		      const amrex::Real* T, ARLIM_P(Tlo),  ARLIM_P(Thi));
     
-    void FORT_HfromT(const int* lo, const int* hi,
+    void HfromT(const int* lo, const int* hi,
 		     amrex::Real*       H, ARLIM_P(Hlo), ARLIM_P(Hhi),
 		     const amrex::Real* T, ARLIM_P(Tlo), ARLIM_P(Thi));
 
-    int FORT_TfromHY(const int* lo, const int* hi,
+    int TfromHY(const int* lo, const int* hi,
 		     amrex::Real* T,       ARLIM_P(Tlo), ARLIM_P(Thi),
 		     const amrex::Real* h, ARLIM_P(hlo), ARLIM_P(hhi),
 		     const amrex::Real* Y, ARLIM_P(Ylo), ARLIM_P(Yhi),
 		     const amrex::Real* errMAX, const int* NiterMAX,const amrex::Real* tmp);
 
-    void FORT_TfromHYpt(amrex::Real* T, const amrex::Real* Hin, const amrex::Real* Yin,
+    void TfromHYpt(amrex::Real* T, const amrex::Real* Hin, const amrex::Real* Yin,
                         const amrex::Real* errMAX, const int* NiterMAX, const amrex::Real* res,
                         int* Niter);
 
@@ -193,24 +193,24 @@ extern "C" {
 		      const amrex::Real* C, ARLIM_P(Clo), ARLIM_P(Chi),
 		      const amrex::Real* T, ARLIM_P(Tlo), ARLIM_P(Thi));
 
-    void FORT_GETELTMOLES(const int* name, const int* nameinlen,
+    void GETELTMOLES(const int* name, const int* nameinlen,
                           const int* lo, const int* hi,
                           amrex::Real*       C_elt, ARLIM_P(Celtlo), ARLIM_P(Celthi),
                           const amrex::Real* C,     ARLIM_P(Clo),    ARLIM_P(Chi));
 
-    void FORT_OTrad_TDF(const int* lo, const int* hi,
+    void OTrad_TDF(const int* lo, const int* hi,
                         amrex::Real* Qloss,   ARLIM_P(Qlo), ARLIM_P(Qhi),
                         const amrex::Real* T, ARLIM_P(Tlo), ARLIM_P(Thi),
                         const amrex::Real* X, ARLIM_P(Xlo), ARLIM_P(Xhi),
                         const amrex::Real* Patm, const amrex::Real* T_bg);
-    amrex::Real FORT_RUNIV();
-    amrex::Real FORT_P1ATMMKS();
+    amrex::Real RUNIV();
+    amrex::Real P1ATMMKS();
 
     int FORT_GET_EG_ID();
     int FORT_GET_TR_ID();
     void FORT_SETTRLIB(const int* lib_idx);
 
-    void FORT_SETNU(int* nu, const int& N);
+    void SETNU(int* nu, const int& N);
 
     void FORT_GET_REACTION_MAP(int* rmap);
 

@@ -33,9 +33,14 @@ module chem_driver_2D
 
   implicit none
 
-  !private
-  !
-  !public::
+  private
+  
+  public :: norm_mass, FRrateXTP, HTRLS, RRATERHOY, mass_to_mole, &
+            mole_to_mass, MASSTP_TO_CONC, MASSR_TO_CONC, CONC_TO_MOLE, &
+            mole_prod, GETELTMOLES, CONPSOLV_SDC, FORT_BETA_WBAR, MIXAVG_RHODIFF_TEMP, &
+            MIX_SHEAR_VISC, RHOfromPTY, RHOfromPvTY, PfromRTY, TfromPRY, &
+            CPMIXfromTY, CVMIXfromTY, HMIXfromTY, MWMIXfromY, CPfromT, &
+            HfromT, TfromHY, OTrad_TDF  
 
 contains
  
@@ -133,6 +138,8 @@ contains
   subroutine HTRLS(lo,hi,Y,DIMS(Y),T,DIMS(T), &
                    Q,DIMS(Q),Patm)&
                    bind(C, name="HTRLS")
+
+      use chem_driver, only: conpFY_sdc
                            
       implicit none
 
@@ -194,6 +201,9 @@ contains
   subroutine RRATERHOY(lo,hi,RhoY,DIMS(RhoY),RhoH,DIMS(RhoH),T,DIMS(T), &
                        RhoYdot,DIMS(RhoYdot))&
                        bind(C, name="RRATERHOY")
+      
+      use chem_driver, only: conpFY_sdc
+  
       implicit none
 
 #include "cdwrk.H"
@@ -445,8 +455,9 @@ contains
       
 ! ----------------------------------------------------------------     
       
-  subroutine FORT_GETELTMOLES(namenc, namlen, lo, hi, &
-                                 Celt, DIMS(Celt), C, DIMS(C))
+  subroutine GETELTMOLES(namenc, namlen, lo, hi, &
+                         Celt, DIMS(Celt), C, DIMS(C))&
+                         bind(C, name="GETELTMOLES")
                                  
       implicit none
 
@@ -487,7 +498,7 @@ contains
          end do
       end do
       
-  end subroutine FORT_GETELTMOLES
+  end subroutine GETELTMOLES
 
   integer function CONPSOLV_SDC(lo, hi, &
           rhoYnew,   DIMS(rhoYnew),  &
@@ -501,6 +512,8 @@ contains
           dt, &
           diag, do_diag, do_stiff)&
           bind(C, name="CONPSOLV_SDC")
+
+   use chem_driver
           
       implicit none
 
@@ -529,8 +542,9 @@ contains
       REAL_T dt
       REAL_T diag(DIMV(FuncCount),*)
 
-      integer open_vode_failure_file
-      external conpFY_sdc, CONPJ_FILE, open_vode_failure_file
+!      integer open_vode_failure_file
+!      external conpFY_sdc, CONPJ_FILE, open_vode_failure_file
+!      external CONPJ_FILE
       integer i, j,  m, MF, ISTATE, lout, ITOL
       integer nsub, node, strang_fix, Niter, nfails
       character*(maxspnml) name
@@ -790,7 +804,7 @@ contains
                Y(m) = rhoYnew(i,j,m) * rhoInv
             enddo
             Tnew(i,j) = T_cell
-            call FORT_TfromHYpt(Tnew(i,j),rhoHnew(i,j)*rhoInv,Y,HtoTerrMAX,HtoTiterMAX,res,Niter)
+            call TfromHYpt(Tnew(i,j),rhoHnew(i,j)*rhoInv,Y,HtoTerrMAX,HtoTiterMAX,res,Niter)
 
          end do
       end do
@@ -1180,6 +1194,7 @@ contains
   subroutine CPMIXfromTY(lo, hi, CPMIX, DIMS(CPMIX), T, DIMS(T), &
                          Y, DIMS(Y))&
                          bind(C,name="CPMIXfromTY")
+                         
       implicit none
 
 #include "cdwrk.H"
@@ -1239,8 +1254,9 @@ contains
       end do
   end subroutine CVMIXfromTY
       
-  subroutine FORT_HMIXfromTY(lo, hi, HMIX, DIMS(HMIX), T, DIMS(T), &
-                                Y, DIMS(Y))
+  subroutine HMIXfromTY(lo, hi, HMIX, DIMS(HMIX), T, DIMS(T), &
+                        Y, DIMS(Y))&
+                        bind(C, name="HMIXfromTY")
       implicit none
 
 #include "cdwrk.H"
@@ -1267,9 +1283,10 @@ contains
             HMIX(i,j) = HMIX(i,j) * SCAL
          end do
       end do
-  end subroutine FORT_HMIXfromTY
+  end subroutine HMIXfromTY
       
-  subroutine FORT_MWMIXfromY(lo, hi, MWMIX, DIMS(MWMIX), Y, DIMS(Y))
+  subroutine MWMIXfromY(lo, hi, MWMIX, DIMS(MWMIX), Y, DIMS(Y))&
+                        bind(C, name="MWMIXfromY")
       implicit none
 
 #include "cdwrk.H"
@@ -1292,9 +1309,11 @@ contains
             CALL CKMMWY(Yt,IWRK(ckbi),RWRK(ckbr),MWMIX(i,j))
          end do
       end do
-  end subroutine FORT_MWMIXfromY
+  end subroutine MWMIXfromY
       
-  subroutine FORT_CPfromT(lo, hi, CP, DIMS(CP), T, DIMS(T))
+  subroutine CPfromT(lo, hi, CP, DIMS(CP), T, DIMS(T))&
+                     bind(C, name="CPfromT")
+
       implicit none
 
 #include "cdwrk.H"
@@ -1318,9 +1337,10 @@ contains
             end do
          end do
       end do
-  end subroutine FORT_CPfromT
+  end subroutine CPfromT
       
-  subroutine FORT_HfromT(lo, hi, H, DIMS(H), T, DIMS(T))
+  subroutine HfromT(lo, hi, H, DIMS(H), T, DIMS(T))&
+                    bind(C, name="HfromT")
       implicit none
 
 #include "cdwrk.H"
@@ -1344,11 +1364,15 @@ contains
             end do
          end do
       end do
-  end subroutine FORT_HfromT
+  end subroutine HfromT
 
-  integer function FORT_TfromHY(lo, hi, T, DIMS(T), &
-                                   HMIX, DIMS(HMIX), Y, DIMS(Y), &
-                                   errMax, NiterMAX, res)
+  integer function TfromHY(lo, hi, T, DIMS(T), &
+                           HMIX, DIMS(HMIX), Y, DIMS(Y), &
+                           errMax, NiterMAX, res)&
+                           bind(C, name="TfromHY")
+                           
+      use chem_driver, only: TfromHYpt
+      
       implicit none
 
 #include "cdwrk.H"
@@ -1374,7 +1398,7 @@ contains
                Yt(n) = Y(i,j,n)
             end do
             Tguess = T(i,j)
-            call FORT_TfromHYpt(T(i,j),HMIX(i,j),Yt,errMax,NiterMAX,res,Niter)
+            call TfromHYpt(T(i,j),HMIX(i,j),Yt,errMax,NiterMAX,res,Niter)
             if (Niter .lt. 0) then
                write(6,996) 'T from h,y solve in FORT_TfromHY failed'
                write(6,997) 'Niter flag = ',Niter
@@ -1401,9 +1425,9 @@ contains
       end do
 
 !     Set max iters taken during this solve, and exit
-      FORT_TfromHY = MAXiters
+      TfromHY = MAXiters
       return
-  end function FORT_TfromHY
+  end function TfromHY
 !c
 !c     Optically thin radiation model, specified at
 !c            http://www.ca.sandia.gov/tdf/Workshop/Submodels.html
@@ -1441,8 +1465,12 @@ contains
 !c         c4   2.02894e-10         -2.5334e-14 
 !c      
       
-  subroutine FORT_OTrad_TDF(lo, hi, Qloss, DIMS(Qloss), &
-                               T, DIMS(T), X, DIMS(X), Patm, T_bg) 
+  subroutine OTrad_TDF(lo, hi, Qloss, DIMS(Qloss), &
+                       T, DIMS(T), X, DIMS(X), Patm, T_bg)&
+                       bind(C, name="OTrad_TDF")
+                       
+      use chem_driver, only: get_spec_name
+      
       implicit none
 
 #include "cdwrk.H"
@@ -1543,6 +1571,6 @@ contains
             
          end do
       end do
-  end subroutine FORT_OTrad_TDF
+  end subroutine OTrad_TDF
       
 end module chem_driver_2D

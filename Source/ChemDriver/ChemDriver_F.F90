@@ -23,9 +23,16 @@ module chem_driver
 
   implicit none
 
-  !private
-  !
-  !public::
+  private
+  
+  public :: FORT_GET_REACTION_MAP, FORT_SETTMINTRANS, SETVERBOSEVODE, &
+            SETVODETOLS, set_vode_subcyc, set_spec_scal_Y, INITCHEM, &
+            finalize_chem, GETCKMAXNAMELEN, GETCKDIMPARAMS, &
+            FINDLHS, FINDRHS, SETNU, CKINU, CKELTXINSPY, GETCKNUMSPEC, &
+            GETCKNUMELT, get_CK_num_reac, RUNIV, P1ATMMKS, GETCKELTNAME, &
+            GETCKSPECNAME,CKSYMR,get_spec_name,get_spec_number,get_CKMWT, &
+            FORT_GETCKAWT,conpFY,conpJY,conpFY_sdc,TfromeYpt,TfromHYpt, &
+            open_vode_failure_file
 
 contains
 
@@ -43,13 +50,13 @@ contains
       TMIN_TRANS = TminTRANS
   end subroutine FORT_SETTMINTRANS
 
-  subroutine FORT_SETVERBOSEVODE()
+  subroutine SETVERBOSEVODE()bind(C, name="SETVERBOSEVODE")
       implicit none
 #include "cdwrk.H"
       verbose_vode = 1
-  end subroutine FORT_SETVERBOSEVODE
+  end subroutine SETVERBOSEVODE
 
-  subroutine FORT_SETVODETOLS(rtol,atol,itol)
+  subroutine SETVODETOLS(rtol,atol,itol)bind(C, name="SETVODETOLS")
       implicit none
       integer itol
       REAL_T rtol,atol
@@ -57,7 +64,7 @@ contains
       vode_itol = itol
       vode_rtol = rtol
       vode_atol = atol
-  end subroutine FORT_SETVODETOLS
+  end subroutine SETVODETOLS
 
   subroutine set_vode_subcyc(maxcyc)bind(C, name="set_vode_subcyc")
       implicit none
@@ -104,16 +111,27 @@ contains
  
   end subroutine set_spec_scal_Y
 
-  subroutine FORT_INITCHEM()
+  subroutine INITCHEM()bind(C, name="INITCHEM")
   
       implicit none
 #include "cdwrk.H"
 #include "conp.H"
+
+      interface
+         integer function FORT_USINGEG() bind(C,name="FORT_USINGEG")
+           use iso_c_binding
+         end function
+         
+         integer function FORT_USINGMC() bind(C,name="FORT_USINGMC")
+           use iso_c_binding
+         end function
+      end interface
+      
       integer n, RTOT, lout, egrlen, egilen, idummy(1)
       double precision rdummy(1)
       character*(maxspnml) name
       integer MAXFIT, NO, NFDIM, NT, NRANGE, NLITEMAX
-      integer mcr, mci, FORT_USINGEG, FORT_USINGMC
+      integer mcr, mci
       integer ierr, LOUTCK
       !
       ! Set a few default values
@@ -232,12 +250,23 @@ contains
       end do
       if (iN2.eq.-1) &
           write(6,*) '.....warning: no N2 in chemistry species list'
-  end subroutine FORT_INITCHEM
+  end subroutine INITCHEM
 
+  !----------------------------------
+  
   subroutine finalize_chem()bind(C, name="finalize_chem")
       implicit none
 #include "cdwrk.H"
-      integer FORT_USINGEG, FORT_USINGMC
+
+      interface
+         integer function FORT_USINGEG() bind(C,name="FORT_USINGEG")
+           use iso_c_binding
+         end function
+         
+         integer function FORT_USINGMC() bind(C,name="FORT_USINGMC")
+           use iso_c_binding
+         end function
+      end interface
 
 !$omp parallel
       if (FORT_USINGEG() .eq. 1) then
@@ -908,15 +937,16 @@ contains
 !      
 !  END SUBROUTINE MCINITCD
 
-  integer function FORT_GETCKMAXNAMELEN()
+  integer function GETCKMAXNAMELEN()bind(C, name="GETCKMAXNAMELEN")
       implicit none
 #include "cdwrk.H"
-      FORT_GETCKMAXNAMELEN = maxspnml
-  end function FORT_GETCKMAXNAMELEN
+      GETCKMAXNAMELEN = maxspnml
+  end function GETCKMAXNAMELEN
 
-  subroutine FORT_GETCKDIMPARAMS(imaxreac, imaxspec, imaxelts, &
-                                    imaxord, imaxthrdb, imaxtp, imaxsp, &
-                                    imaxspnml)
+  subroutine GETCKDIMPARAMS(imaxreac, imaxspec, imaxelts, &
+                            imaxord, imaxthrdb, imaxtp, imaxsp, &
+                            imaxspnml)&
+                            bind(C, name="GETCKDIMPARAMS")
                                     
       implicit none
       integer imaxreac, imaxspec, imaxelts, imaxord
@@ -931,9 +961,9 @@ contains
       imaxsp = maxsp
       imaxspnml = maxspnml
       
-  end subroutine FORT_GETCKDIMPARAMS
+  end subroutine GETCKDIMPARAMS
 
-  subroutine FORT_FINDLHS(reactions, Nreacs, id)
+  subroutine FINDLHS(reactions, Nreacs, id)bind(C, name="FINDLHS")
   
       implicit none
       integer reactions(*), Nreacs, id
@@ -943,7 +973,7 @@ contains
       integer j, n, Ndim, Nids, KI(maxsp), NU(maxsp)
       Ndim = maxsp
       if ((id.le.0).or.(id.gt.Nspec)) then
-         write(6,*) 'FORT_FINDLHS:  species id out of range: ',id
+         write(6,*) 'FINDLHS:  species id out of range: ',id
          call bl_abort(" ")
       end if
       Nreacs = 0
@@ -957,11 +987,11 @@ contains
          end do
       end do
 #else
-      call bl_abort("FORT_FINDLHS not implemented")
+      call bl_abort("FINDLHS not implemented")
 #endif
-  end subroutine FORT_FINDLHS
+  end subroutine FINDLHS
 
-  subroutine FORT_FINDRHS(reactions, Nreacs, id)
+  subroutine FINDRHS(reactions, Nreacs, id)bind(C,name="FINDRHS")
       implicit none
       integer reactions(*), Nreacs, id
 
@@ -970,7 +1000,7 @@ contains
       integer j, n, Ndim, Nids, KI(maxsp), NU(maxsp)
       Ndim = maxsp
       if ((id.le.0).or.(id.gt.Nspec)) then
-         write(6,*) 'FORT_FINDRHS:  species id out of range: ',id
+         write(6,*) 'FINDRHS:  species id out of range: ',id
          call bl_abort(" ")
       end if
       Nreacs = 0
@@ -984,11 +1014,11 @@ contains
          end do
       end do
 #else
-      call bl_abort("FORT_FINDRHS not implemented")
+      call bl_abort("FINDRHS not implemented")
 #endif
-  end subroutine FORT_FINDRHS
+  end subroutine FINDRHS
 
-  subroutine FORT_SETNU(nu,lenNU)
+  subroutine SETNU(nu,lenNU)bind(C, name="SETNU")
   
       implicit none
 #include "cdwrk.H"
@@ -1000,9 +1030,9 @@ contains
          call bl_abort(" ")
       endif
       call CKNU(maxreac, IWRK(ckbi), RWRK(ckbr), nu)
-  end subroutine FORT_SETNU
+  end subroutine SETNU
 
-  subroutine FORT_CKINU(Nids,KI,lenKI,NU,lenNU,rxnID,nuAll)
+  subroutine CKINU(Nids,KI,lenKI,NU,lenNU,rxnID,nuAll)bind(C, name="CKINU")
   
       implicit none
 #include "cdwrk.H"
@@ -1011,11 +1041,11 @@ contains
       integer Ndim, k
       Ndim = MIN(lenKI,lenNU)
       if ((rxnID.le.0).or.(rxnID.gt.Nreac)) then
-         write(6,*) 'FORT_CKINU:  reaction id out of range: ',rxnID
+         write(6,*) 'CKINU:  reaction id out of range: ',rxnID
          call bl_abort(" ")
       end if
       if (Ndim.lt.maxsp) then
-         call bl_abort('FORT_CKINU:  KI or NU not long enough')
+         call bl_abort('CKINU:  KI or NU not long enough')
       end if
       Nids = 0
       do k=1,Nspec
@@ -1025,7 +1055,7 @@ contains
             NU(Nids) = nuAll(rxnID,k)
          endif
       enddo
-  end subroutine FORT_CKINU
+  end subroutine CKINU
 
   integer function CKELTXINSPY(eltID, spID)bind(C, name="CKELTXINSPY")
   
@@ -1037,17 +1067,17 @@ contains
       CKELTXINSPY = NCF(eltID+1,spID+1)
   end function CKELTXINSPY
 
-  integer function FORT_GETCKNUMSPEC()
+  integer function GETCKNUMSPEC()bind(C,name="GETCKNUMSPEC")
       implicit none
 #include "cdwrk.H"
-      FORT_GETCKNUMSPEC = Nspec
-  end function FORT_GETCKNUMSPEC
+      GETCKNUMSPEC = Nspec
+  end function GETCKNUMSPEC
 
-  integer function FORT_GETCKNUMELT()
+  integer function GETCKNUMELT()bind(C, name="GETCKNUMELT")
       implicit none
 #include "cdwrk.H"
-      FORT_GETCKNUMELT = Nelt
-  end function FORT_GETCKNUMELT
+      GETCKNUMELT = Nelt
+  end function GETCKNUMELT
 
   integer function get_CK_num_reac()bind(C, name="get_CK_num_reac")
       implicit none
@@ -1055,25 +1085,25 @@ contains
       get_CK_num_reac = Nreac
   end function get_CK_num_reac
 
-  double precision function FORT_RUNIV()
+  double precision function RUNIV()bind(C, name="RUNIV")
       implicit none
       double precision Ruc, Pa
 #include "cdwrk.H"
-      call CKRP(IWRK(ckbi),RWRK(ckbr),FORT_RUNIV,Ruc,Pa)
+      call CKRP(IWRK(ckbi),RWRK(ckbr),RUNIV,Ruc,Pa)
 !     1 erg/(mole.K) = 1.e-4 J/(kmole.K)
-      FORT_RUNIV = FORT_RUNIV*1.d-4
-  end function FORT_RUNIV
+      RUNIV = RUNIV*1.d-4
+  end function RUNIV
 
-  double precision function FORT_P1ATMMKS()
+  double precision function P1ATMMKS()bind(C, name="P1ATMMKS")
       implicit none
       double precision Ru, Ruc, Pa
 #include "cdwrk.H"
       call CKRP(IWRK(ckbi),RWRK(ckbr),Ru,Ruc,Pa)
 !     1 N/(m.m) = 0.1 dyne/(cm.cm)
-      FORT_P1ATMMKS = Pa*1.d-1
-  end function FORT_P1ATMMKS
+      P1ATMMKS = Pa*1.d-1
+  end function P1ATMMKS
 
-  integer function FORT_GETCKELTNAME(i, coded)
+  integer function GETCKELTNAME(i, coded)bind(C, name="GETCKELTNAME")
       implicit none
 #include "cdwrk.H"
       integer i
@@ -1085,13 +1115,13 @@ contains
       coded(1) = names(2*(i-1)  )
       coded(2) = names(2*(i-1)+1)
       if (coded(2).eq.ICHAR(' ')) then
-         FORT_GETCKELTNAME = 1
+         GETCKELTNAME = 1
       else
-         FORT_GETCKELTNAME = 2
+         GETCKELTNAME = 2
       endif
-  end function FORT_GETCKELTNAME
+  end function GETCKELTNAME
 
-  integer function FORT_GETCKSPECNAME(i, coded)
+  integer function GETCKSPECNAME(i, coded)bind(C, name="GETCKSPECNAME")
       implicit none
 #include "cdwrk.H"
       integer i
@@ -1109,8 +1139,8 @@ contains
             exit
          endif 
       end do
-      FORT_GETCKSPECNAME = str_len - 1
-  end function FORT_GETCKSPECNAME
+      GETCKSPECNAME = str_len - 1
+  end function GETCKSPECNAME
 
   integer function CKSYMR(fortReacIdx, coded)bind(C, name="CKSYMR")
       implicit none
@@ -1152,10 +1182,10 @@ contains
   
       implicit none
 #include "cdwrk.H"
-      integer i, j, FORT_GETCKSPECNAME
+      integer i, j!, GETCKSPECNAME
       integer coded(maxspnml), len
       character*(maxspnml) name
-      len = FORT_GETCKSPECNAME(j, coded)
+      len = GETCKSPECNAME(j, coded)
       do i = 1, maxspnml
          name(i:i) = ' '
       end do
@@ -1315,7 +1345,7 @@ contains
       enddo
 
       HMIX_MKS = (rhoh_INIT + c_0(Nspec+1)*TIME) * RINV_MKS
-      call FORT_TfromHYpt(T_cell,HMIX_MKS,Y,HtoTerrMAX,HtoTiterMAX,res,Niter)
+      call TfromHYpt(T_cell,HMIX_MKS,Y,HtoTerrMAX,HtoTiterMAX,res,Niter)
       call CKWC(T_cell,CONC_CGS,IWRK,RWRK,WDOT_CGS)
 
       ZP(Nspec+1) = c_0(Nspec+1)
@@ -1433,7 +1463,9 @@ contains
 
   end  function TfromeYpt
 
-  subroutine FORT_TfromHYpt(T,Hin,Y,errMax,NiterMAX,res,Niter)
+  subroutine TfromHYpt(T,Hin,Y,errMax,NiterMAX,res,Niter)&
+             bind(C, name="TfromHYpt")
+             
       implicit none
 #include "cdwrk.H"
       REAL_T T,Y(*),Hin,errMax
@@ -1578,7 +1610,7 @@ contains
  997  format(a,3(i4,a))
  998  format(a,d21.12)
 #endif
-  end subroutine FORT_TfromHYpt
+  end subroutine TfromHYpt
   
   integer function open_vode_failure_file ()
       implicit none

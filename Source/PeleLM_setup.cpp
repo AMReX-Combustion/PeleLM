@@ -517,12 +517,12 @@ PeleLM::variableSetUp ()
   set_x_vel_bc(bc,phys_bc);
   bcs[0]  = bc;
   name[0] = "x_velocity";
-  desc_lst.setComponent(State_Type,Xvel,"x_velocity",bc,BndryFunc(x_vel_fill));
+  desc_lst.setComponent(State_Type,Xvel,"x_velocity",bc,BndryFunc(FORT_XVELFILL));
 
   set_y_vel_bc(bc,phys_bc);
   bcs[1]  = bc;
   name[1] = "y_velocity";
-  desc_lst.setComponent(State_Type,Yvel,"y_velocity",bc,BndryFunc(y_vel_fill));
+  desc_lst.setComponent(State_Type,Yvel,"y_velocity",bc,BndryFunc(FORT_YVELFILL));
 
 #if(BL_SPACEDIM==3)
   set_z_vel_bc(bc,phys_bc);
@@ -541,7 +541,7 @@ PeleLM::variableSetUp ()
                           Xvel,
                           name,
                           bcs,
-                          BndryFunc(x_vel_fill,vel_fill));
+                          BndryFunc(FORT_XVELFILL,vel_fill));
   }
   //
   // **************  DEFINE SCALAR VARIABLES  ********************
