@@ -772,7 +772,6 @@ contains
     integer ncompd, do_temp, do_VelVisc
     REAL_T  T(DIMV(T))
     REAL_T  Y(DIMV(Y),*)
-    !REAL_T  cpmix(DIMV(T))
     REAL_T  rhoD(DIMV(rhoD),ncompd)
     REAL_T  Pamb_in
       
@@ -1544,7 +1543,7 @@ contains
 
 !------------------------------------------------
 
-  subroutine fab_minmax(lo, hi, & 
+  subroutine fab_minmax (lo, hi, & 
                         fab, DIMS(fab), &
                         fmin, fmax, nc) &
                         bind(C, name="fab_minmax")
@@ -1568,9 +1567,9 @@ contains
 
 !--------------------------------------------------
 
-  subroutine repair_flux(lo, hi, dlo, dhi, &
-                             flux, DIMS(flux), &
-                             RhoY, DIMS(RhoY), dir, Ybc)bind(C, name="repair_flux")
+  subroutine repair_flux (lo, hi, dlo, dhi, &
+                          flux, DIMS(flux), &
+                          RhoY, DIMS(RhoY), dir, Ybc)bind(C, name="repair_flux")
 
     implicit none
 
@@ -1732,13 +1731,13 @@ contains
 
 !----------------------------------------------
 
-  subroutine flux_div(lo, hi, &
-                          update, DIMS(update), &
-                          xflux,  DIMS(xflux), &
-                          yflux,  DIMS(yflux), &
-                          vol,    DIMS(vol), &
-                          nc, scal)&
-                          bind(C, name="flux_div")
+  subroutine flux_div (lo, hi, &
+                       update, DIMS(update), &
+                       xflux,  DIMS(xflux), &
+                       yflux,  DIMS(yflux), &
+                       vol,    DIMS(vol), &
+                       nc, scal)&
+                       bind(C, name="flux_div")
 
     implicit none
     integer lo(SDIM), hi(SDIM), nc
@@ -1768,7 +1767,7 @@ contains
 
 !-----------------------------------------
 
-  subroutine compute_ugradp(p, DIMS(p), ugradp, DIMS(ugp), &
+  subroutine compute_ugradp (p, DIMS(p), ugradp, DIMS(ugp), &
                             umac,  DIMS(umac), &
                             vmac,  DIMS(vmac), &
                             lo, hi, dx) &

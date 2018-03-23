@@ -50,8 +50,7 @@ contains
   end subroutine set_scal_numb
 
 !------------------------------------------
-   
-!subroutine FORT_GETTYPICALVALS(typ_vals,nVals)
+
   subroutine get_typical_vals(typ_vals,nVals)bind(C, name="get_typical_vals")
 
     implicit none
@@ -90,7 +89,6 @@ contains
 
 !-------------------------------------------------
 
-!      subroutine FORT_SETTYPICALVALS(typ_vals,nVals)
   subroutine set_typical_vals(typ_vals,nVals)bind(C, name="set_typical_vals")
 
     implicit none
@@ -129,7 +127,6 @@ contains
 
 !------------------------------------------
 
-!      subroutine FORT_SET_HT_VISC_COMMON(muIsVar,     muVal,
   subroutine set_ht_visc_common(muIsVar,     muVal, &
                                 lambdaIsVar, lambdaVal, &
                                 rhoDIsVar,   rhoDVal, &
@@ -176,7 +173,6 @@ contains
 
 !----------------------------------------
 
-!subroutine FORT_INIT_TYPVALS_COMMON()
   subroutine init_typcals_common()&
              bind(C, name="init_typcals_common")
 
@@ -197,7 +193,6 @@ contains
       
 !-----------------------------------------------------------------------
 
-!      subroutine FORT_GETPAMB(pambout)
   subroutine get_pamb(pambout)bind(C, name="get_pamb")
 
     implicit none
@@ -214,7 +209,6 @@ contains
 
 !-----------------------------------------------------------------------
 
-!  subroutine FORT_GETCLOSEDCHAMBER(closed_chamberout)
   subroutine get_closed_chamber(closed_chamberout)bind(C, name="get_closed_chamber")
 
     implicit none
@@ -231,7 +225,6 @@ contains
       
 !-----------------------------------------------------------------------
 
-!      subroutine FORT_GETDPDT(dpdt_factorout)
   subroutine get_dpdt(dpdt_factorout)bind(C, name="get_dpdt")
 
     implicit none
@@ -248,7 +241,6 @@ contains
 
 !=======================================================================
 
-!  subroutine FORT_SET_COMMON(time1,iteration1)
   subroutine set_common(time1,iteration1)bind(C, name="set_common")
 
     implicit none
@@ -267,7 +259,6 @@ contains
 
 !------------------------------------------------------
 
-!  subroutine FORT_ACTIVECONTROL(coft,time,dt,myproc,step,restart,usetemp)
   subroutine active_control(coft,time,dt,myproc,step,restart,usetemp)bind(C, name="active_control")
 
     implicit none

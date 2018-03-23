@@ -803,8 +803,8 @@ PeleLM::variableSetUp ()
   //
   // Divergence of velocity field.
   //
-  derive_lst.add("diveru",IndexType::TheCellType(),1,FORT_DERMGDIVU,grow_box_by_one);
-  derive_lst.addComponent("diveru",desc_lst,State_Type,Xvel,BL_SPACEDIM);
+  //derive_lst.add("diveru",IndexType::TheCellType(),1,FORT_DERMGDIVU,grow_box_by_one);
+  //derive_lst.addComponent("diveru",desc_lst,State_Type,Xvel,BL_SPACEDIM);
   //
   // average pressure
   //
