@@ -37,7 +37,7 @@ module chem_driver_2D
   
   public :: norm_mass, FRrateXTP, HTRLS, RRATERHOY, mass_to_mole, &
             mole_to_mass, MASSTP_TO_CONC, MASSR_TO_CONC, CONC_TO_MOLE, &
-            mole_prod, GETELTMOLES, CONPSOLV_SDC, FORT_BETA_WBAR, MIXAVG_RHODIFF_TEMP, &
+            mole_prod, GETELTMOLES, CONPSOLV_SDC, BETA_WBAR, MIXAVG_RHODIFF_TEMP, &
             MIX_SHEAR_VISC, RHOfromPTY, RHOfromPvTY, PfromRTY, TfromPRY, &
             CPMIXfromTY, CVMIXfromTY, HMIXfromTY, MWMIXfromY, CPfromT, &
             HfromT, TfromHY, OTrad_TDF  
@@ -249,8 +249,8 @@ contains
       
   end subroutine RRATERHOY
 
-  subroutine mass_to_mole(lo, hi, Y, DIMS(Y), X, DIMS(X))&
-            bind(C, name="mass_to_mole")
+  subroutine mass_to_mole(lo, hi, Y, DIMS(Y), X, DIMS(X)) &
+                          bind(C, name="mass_to_mole")
       implicit none
 
 #include "cdwrk.H"
@@ -280,7 +280,8 @@ contains
   end subroutine mass_to_mole
       
   subroutine mole_to_mass(lo, hi, X, DIMS(X), Y, DIMS(Y))&
-            bind(C, name="mole_to_mass")
+                          bind(C, name="mole_to_mass")
+                          
       implicit none
 
 #include "cdwrk.H"
@@ -542,9 +543,7 @@ contains
       REAL_T dt
       REAL_T diag(DIMV(FuncCount),*)
 
-!      integer open_vode_failure_file
-!      external conpFY_sdc, CONPJ_FILE, open_vode_failure_file
-!      external CONPJ_FILE
+
       integer i, j,  m, MF, ISTATE, lout, ITOL
       integer nsub, node, strang_fix, Niter, nfails
       character*(maxspnml) name
@@ -815,7 +814,8 @@ contains
       CONPSOLV_SDC = 1
   end function CONPSOLV_SDC
 
-  subroutine FORT_BETA_WBAR(lo, hi, RD, DIMS(RD), RD_Wbar, DIMS(RD_Wbar), Y, DIMS(Y))
+  subroutine BETA_WBAR(lo, hi, RD, DIMS(RD), RD_Wbar, DIMS(RD_Wbar), Y, DIMS(Y))&
+                       bind(C, name="BETA_WBAR")
   
       implicit none
 
@@ -877,7 +877,7 @@ contains
 
       endif
 
-  end subroutine FORT_BETA_WBAR
+  end subroutine BETA_WBAR
 
   subroutine MIXAVG_RHODIFF_TEMP(lo, hi, RD, DIMS(RD), T, &
                DIMS(T), Y, DIMS(Y), Patm, do_temp, do_VelVisc)&
@@ -996,7 +996,7 @@ contains
   end subroutine MIXAVG_RHODIFF_TEMP
 
   subroutine MIX_SHEAR_VISC(lo, hi, eta, DIMS(eta), &
-                            T, DIMS(T), Y, DIMS(Y))&
+                            T, DIMS(T), Y, DIMS(Y)) &
                             bind(C, name="MIX_SHEAR_VISC")
       implicit none
 
@@ -1050,7 +1050,7 @@ contains
   end subroutine MIX_SHEAR_VISC
 
   subroutine RHOfromPTY(lo, hi, RHO, DIMS(RHO), T, DIMS(T), &
-                        Y, DIMS(Y), Patm)&
+                        Y, DIMS(Y), Patm) &
                         bind(C, name="RHOfromPTY")
       implicit none
 

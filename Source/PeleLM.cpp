@@ -1860,9 +1860,9 @@ PeleLM::init ()
       const Box& box = mfi.validbox();
       num_cells_hacked += 
         conservative_T_floor(box.loVect(), box.hiVect(),
-                                  fab.dataPtr(), ARLIM(fab.loVect()), ARLIM(fab.hiVect()),
-                                  &min_T_fine, &Tcomp, &Rcomp, &first_spec, &last_spec, &RhoH,
-                                  ratio, tmp.dataPtr(), &n_tmp);
+                             fab.dataPtr(), ARLIM(fab.loVect()), ARLIM(fab.hiVect()),
+                             &min_T_fine, &Tcomp, &Rcomp, &first_spec, &last_spec, &RhoH,
+                             ratio, tmp.dataPtr(), &n_tmp);
     }
 
     ParallelDescriptor::ReduceIntSum(num_cells_hacked);
@@ -6655,7 +6655,7 @@ PeleLM::calcDiffusivity_Wbar (const Real time)
     FArrayBox& Dfab_Wbar = diffWbar_cc[Rho_and_spec_fpi];
     const Box& gbox = RYfab.box();
         
-    FORT_BETA_WBAR(gbox.loVect(),gbox.hiVect(),
+    BETA_WBAR(gbox.loVect(),gbox.hiVect(),
                    RD.dataPtr(),ARLIM(RD.loVect()),ARLIM(RD.hiVect()),
                    Dfab_Wbar.dataPtr(),ARLIM(Dfab_Wbar.loVect()),ARLIM(Dfab_Wbar.hiVect()),
                    RYfab.dataPtr(1),ARLIM(RYfab.loVect()),ARLIM(RYfab.hiVect()));
@@ -6773,7 +6773,7 @@ PeleLM::zeroBoundaryVisc (MultiFab*  beta[BL_SPACEDIM],
     {
       FArrayBox& beta_fab = (*(beta[dir]))[mfi];
       const Box& ebox     = amrex::surroundingNodes(mfi.validbox(),dir);
-      FORT_ZEROVISC(beta_fab.dataPtr(dst_comp),
+      zero_visc(beta_fab.dataPtr(dst_comp),
                     ARLIM(beta_fab.loVect()), ARLIM(beta_fab.hiVect()),
                     ebox.loVect(),  ebox.hiVect(),
                     edom.loVect(),  edom.hiVect(),

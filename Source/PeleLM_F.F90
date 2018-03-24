@@ -23,7 +23,6 @@ module PeleLM_F
 
 contains
 
-!  subroutine FORT_SET_SCAL_NUMB(DensityIn, TempIn, TracIn, RhoHIn, &
   subroutine set_scal_numb(DensityIn, TempIn, TracIn, RhoHIn, &
                            FirstSpecIn, LastSpecIn) &
                            bind(C, name="set_scal_numb")

@@ -1,16 +1,7 @@
 #ifndef _PeleLM_F_H_
 #define _PeleLM_F_H_ 
 
-#ifdef BL_LANG_FORT
-
-#else
-#  if  defined(BL_FORT_USE_UPPERCASE)
-
-#  elif defined(BL_FORT_USE_LOWERCASE)
-
-#  elif defined(BL_FORT_USE_UNDERSCORE)
-
-#  endif
+#ifndef BL_LANG_FORT
 
 #include <AMReX_ArrayLim.H>
 
@@ -111,7 +102,7 @@ extern "C" {
                           const int* lo,const int* hi,
                           const amrex::Real* dt, const amrex::Real* min_rho_divu_ceiling);
 
-  void FORT_INIT_VISC_DATA();
+  
   void set_ht_visc_common(const int* muIsVar,     const amrex::Real* muVal,
                                const int* lambdaIsVar, const amrex::Real* lambdaVal,
                                const int* rhoDIsVar,   const amrex::Real* rhoDVal,
@@ -224,76 +215,6 @@ extern "C" {
   void get_typical_vals(amrex::Real* vals, const int* nVals);
 
   void set_typical_vals(const amrex::Real* vals, const int* nVals);
-
-  void FORT_RK_MIXTURE_AVERAGED (
-    const int* domain_lo, const int* domain_hi,
-    const int* lo, const int* hi,
-    amrex::Real* areax, ARLIM_P(areax_lo), ARLIM_P(areax_hi),
-    amrex::Real* areay, ARLIM_P(areay_lo), ARLIM_P(areay_hi),
-    const int* bc,
-    const amrex::Real* dx,
-    int* index_of_firstY,
-    int* index_of_lastY,
-    int* index_of_rho,
-    int* index_of_rhoH,
-    int* index_of_T,
-    amrex::Real* maximum_error,
-    int* maximum_iterations,
-    int* ncomps,
-    int* nspcecies,
-    const amrex::Real* scale_factor,
-    amrex::Real* state, ARLIM_P(state_lo), ARLIM_P(state_hi),
-    amrex::Real* volume, ARLIM_P(volume_lo), ARLIM_P(volume_hi),
-    amrex::Real* div_of_flux_for_H, ARLIM_P(div_of_flux_for_H_lo), ARLIM_P(div_of_flux_for_H_hi),
-    amrex::Real* div_of_flux_for_Y, ARLIM_P(div_of_flux_for_Y_lo), ARLIM_P(div_of_flux_for_Y_hi),
-    amrex::Real* xflux_for_H, ARLIM_P(xflux_for_H_lo), ARLIM_P(xflux_for_H_hi),
-    amrex::Real* xflux_for_Y, ARLIM_P(xflux_for_Y_lo), ARLIM_P(xflux_for_Y_hi),
-    amrex::Real* yflux_for_Y, ARLIM_P(yflux_for_Y_lo), ARLIM_P(yflux_for_Y_hi),
-    amrex::Real* yflux_for_H, ARLIM_P(yflux_for_H_lo), ARLIM_P(yflux_for_H_hi)
-    );
-
-  void FORT_RK_MULTICOMPONENT (
-    const int* domain_lo, const int* domain_hi,
-    const int* lo, const int* hi,
-    amrex::Real* areax, ARLIM_P(areax_lo), ARLIM_P(areax_hi),
-    amrex::Real* areay, ARLIM_P(areay_lo), ARLIM_P(areay_hi),
-    const int* bc,
-    const amrex::Real* dx,
-    int* index_of_firstY,
-    int* index_of_lastY,
-    int* index_of_rho,
-    int* index_of_rhoH,
-    int* index_of_T,
-    amrex::Real* maximum_error,
-    int* maximum_iterations,
-    int* ncomps,
-    int* nspcecies,
-    const amrex::Real* scale_factor,
-    amrex::Real* state, ARLIM_P(state_lo), ARLIM_P(state_hi),
-    amrex::Real* volume, ARLIM_P(volume_lo), ARLIM_P(volume_hi),
-    amrex::Real* div_of_flux_for_H, ARLIM_P(div_of_flux_for_H_lo), ARLIM_P(div_of_flux_for_H_hi),
-    amrex::Real* div_of_flux_for_Y, ARLIM_P(div_of_flux_for_Y_lo), ARLIM_P(div_of_flux_for_Y_hi),
-    amrex::Real* xflux_for_H, ARLIM_P(xflux_for_H_lo), ARLIM_P(xflux_for_H_hi),
-    amrex::Real* xflux_for_Y, ARLIM_P(xflux_for_Y_lo), ARLIM_P(xflux_for_Y_hi),
-    amrex::Real* yflux_for_Y, ARLIM_P(yflux_for_Y_lo), ARLIM_P(yflux_for_Y_hi),
-    amrex::Real* yflux_for_H, ARLIM_P(yflux_for_H_lo), ARLIM_P(yflux_for_H_hi)
-    );
-
-  void FORT_RK_STEP_SELECTION (
-    const int* lo, const int* hi,
-    const amrex::Real* dx,
-    int* index_of_firstY,
-    int* index_of_lastY,
-    int* index_of_rho,
-    int* index_of_rhoH,
-    int* index_of_T,
-    amrex::Real* maximum_error,
-    int* maximum_iterations,
-    int* ncomps,
-    int* nspcecies,
-    amrex::Real* smallest_time_step,
-    amrex::Real* state, ARLIM_P(state_lo), ARLIM_P(state_hi)
-    );
 
   int conservative_T_floor(const int* lo, const int* hi,
                                 amrex::Real* fabdat, ARLIM_P(flo), ARLIM_P(fhi),

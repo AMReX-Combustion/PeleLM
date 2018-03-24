@@ -1,16 +1,7 @@
 #ifndef _ChemDriver_F_H_
 #define _ChemDriver_F_H_
 
-#ifdef BL_LANG_FORT
-
-#else
-#  if defined(BL_FORT_USE_UPPERCASE)
-
-#  elif defined(BL_FORT_USE_LOWERCASE)
-
-#  elif defined(BL_FORT_USE_UNDERSCORE)
-
-#  endif
+#ifndef BL_LANG_FORT
 
 #include <AMReX_ArrayLim.H>
 
@@ -18,7 +9,7 @@
 extern "C" {
 #endif
 
-    void FORT_SETTMINTRANS(const amrex::Real* Tmin);
+    void set_Tmin_trans(const amrex::Real* Tmin);
     void SETVERBOSEVODE();
     void SETVODETOLS(const amrex::Real* rtol, const amrex::Real* atol, const int* itol);
     void set_vode_subcyc(const int* maxcyc);
@@ -107,7 +98,7 @@ extern "C" {
 			   const amrex::Real* dt, amrex::Real* diag, 
                            const int* do_diag, const int* do_stiff);
 
-    void FORT_BETA_WBAR(const int* lo, const int* hi,
+    void BETA_WBAR(const int* lo, const int* hi,
 			const amrex::Real* RD, ARLIM_P(RDlo),      ARLIM_P(RDhi),
 			amrex::Real* RD_Wbar,  ARLIM_P(RDlo_Wbar), ARLIM_P(RDhi_Wbar),
 			const amrex::Real* Y,  ARLIM_P(Ylo),       ARLIM_P(Yhi));
@@ -203,16 +194,15 @@ extern "C" {
                         const amrex::Real* T, ARLIM_P(Tlo), ARLIM_P(Thi),
                         const amrex::Real* X, ARLIM_P(Xlo), ARLIM_P(Xhi),
                         const amrex::Real* Patm, const amrex::Real* T_bg);
+
+    void SETNU(int* nu, const int& N);
+    void drv_get_reaction_map(int* rmap);
+    
     amrex::Real RUNIV();
     amrex::Real P1ATMMKS();
 
-    int FORT_GET_EG_ID();
-    int FORT_GET_TR_ID();
-    void FORT_SETTRLIB(const int* lib_idx);
 
-    void SETNU(int* nu, const int& N);
 
-    void FORT_GET_REACTION_MAP(int* rmap);
 
 #ifdef __cplusplus
 }

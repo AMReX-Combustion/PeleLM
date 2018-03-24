@@ -2198,7 +2198,7 @@ contains
           enddo
         enddo
       else
-        call bl_pd_abort('Bad dir in FORT_GRADWBAR')
+        call bl_pd_abort('Bad dir in grad_wbar')
       endif
 
     else
@@ -2220,7 +2220,7 @@ contains
           enddo
         enddo
       else
-            call bl_pd_abort('Bad dir in FORT_GRADWBAR')
+            call bl_pd_abort('Bad dir in grad_wbar')
       endif
     end if
       

@@ -217,6 +217,7 @@ contains
 
   end subroutine drhort
 
+!=========================================================
 
   subroutine dermolefrac (x,DIMS(x),nv,dat,DIMS(dat),ncomp, &
                           lo,hi,domlo,domhi,delta,xlo,time,dt,bc, &
@@ -267,6 +268,8 @@ contains
 
   end subroutine dermolefrac
 
+!=========================================================
+  
   subroutine derconcentration (C,DIMS(C),nv,dat,DIMS(dat),ncomp, &
                                lo,hi,domlo,domhi,delta,xlo,time,dt,bc, &
                                level,grid_no) &

@@ -25,7 +25,7 @@ module chem_driver
 
   private
   
-  public :: FORT_GET_REACTION_MAP, FORT_SETTMINTRANS, SETVERBOSEVODE, &
+  public :: drv_get_reaction_map, set_Tmin_trans, SETVERBOSEVODE, &
             SETVODETOLS, set_vode_subcyc, set_spec_scal_Y, INITCHEM, &
             finalize_chem, GETCKMAXNAMELEN, GETCKDIMPARAMS, &
             FINDLHS, FINDRHS, SETNU, CKINU, CKELTXINSPY, GETCKNUMSPEC, &
@@ -36,7 +36,7 @@ module chem_driver
 
 contains
 
-  subroutine FORT_GET_REACTION_MAP(rmap)bind(C,name="FORT_GET_REACTION_MAP")
+  subroutine drv_get_reaction_map(rmap)bind(C,name="drv_get_reaction_map")
   
     implicit none
 
@@ -45,11 +45,11 @@ contains
     integer rmap(nReac)
     call GET_REACTION_MAP(rmap) 
   
-  end subroutine FORT_GET_REACTION_MAP
+  end subroutine drv_get_reaction_map
 
 !------------------------------------
   
-  subroutine FORT_SETTMINTRANS(TminTRANS)bind(C,name="FORT_SETTMINTRANS")
+  subroutine set_Tmin_trans(TminTRANS)bind(C,name="set_Tmin_trans")
   
     implicit none
     REAL_T TminTRANS
@@ -58,7 +58,7 @@ contains
 
     TMIN_TRANS = TminTRANS
 
-  end subroutine FORT_SETTMINTRANS
+  end subroutine set_Tmin_trans
 
 !------------------------------------  
   

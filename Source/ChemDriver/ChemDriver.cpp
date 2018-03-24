@@ -42,7 +42,7 @@ ChemDriver::ChemDriver ()
     mHtoTerrMAX(HtoTerrMAX_DEF),
     mHtoTiterMAX(HtoTiterMAX_DEF)
 {
-    FORT_SETTMINTRANS(&Tmin_trans_DEF);
+    set_Tmin_trans(&Tmin_trans_DEF);
 
     //SETVERBOSEVODE();
 
@@ -339,7 +339,7 @@ ChemDriver::initOnce ()
     }
 
     reaction_map.resize(numReactions());
-    FORT_GET_REACTION_MAP(reaction_map.dataPtr());
+    drv_get_reaction_map(reaction_map.dataPtr());
     reaction_rev_map.resize(numReactions());
     for (int i=0; i<reaction_map.size(); ++i) {
       reaction_rev_map[reaction_map[i]] = i;

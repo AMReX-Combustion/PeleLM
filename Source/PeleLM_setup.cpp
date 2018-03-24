@@ -499,7 +499,7 @@ PeleLM::variableSetUp ()
   amrex::Print() << " fuel name " << fuelName << std::endl;
   amrex::Print() << " index for fueld and oxidizer " << fuelID << " " << oxidID << std::endl;
 
-  FORT_SET_PROB_SPEC(&fuelID, &oxidID, &prodID, &nspecies);
+  set_prob_spec(&fuelID, &oxidID, &prodID, &nspecies);
   //
   // Get a species to use as a flame tracker.
   //
@@ -557,7 +557,7 @@ PeleLM::variableSetUp ()
   // **************  DEFINE RHO*H  ********************
   //
   set_rhoh_bc(bc,phys_bc);
-  desc_lst.setComponent(State_Type,RhoH,"rhoh",bc,BndryFunc(FORT_RHOHFILL),
+  desc_lst.setComponent(State_Type,RhoH,"rhoh",bc,BndryFunc(rhoh_fill),
                         &cell_cons_interp);
   //
   // **************  DEFINE TEMPERATURE  ********************
@@ -581,7 +581,7 @@ PeleLM::variableSetUp ()
                           FirstSpec+i,
                           name[i].c_str(),
                           bc,
-                          ChemBndryFunc(FORT_CHEMFILL,names[i]),
+                          ChemBndryFunc(chem_fill,names[i]),
                           &cell_cons_interp);
   }
   //
@@ -596,7 +596,7 @@ PeleLM::variableSetUp ()
                           FirstSpec,
                           name,
                           bcs,
-                          ChemBndryFunc(FORT_CHEMFILL,names[0],FORT_ALLCHEMFILL),
+                          ChemBndryFunc(chem_fill,names[0],all_chem_fill),
                           &cell_cons_interp);
   }
   //
@@ -897,7 +897,7 @@ PeleLM::variableSetUp ()
   {
     amrex::Print() << "Flame tracer will be " << flameTracName << '\n';
     const std::string name = "Y("+flameTracName+")";
-    err_list.add(name,nGrowErr,ErrorRec::Special,FORT_FLAMETRACERROR);
+    err_list.add(name,nGrowErr,ErrorRec::Special,flame_tracer_error);
   }
 }
 
