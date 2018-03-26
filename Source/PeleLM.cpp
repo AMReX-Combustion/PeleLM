@@ -709,7 +709,7 @@ PeleLM::center_to_edge_fancy (const FArrayBox& cfab,
   // Shift cell-centered data to edges
   //
   const int isharm = def_harm_avg_cen2edge?1:0;
-  FORT_CEN2EDG(ccVBox.loVect(),ccVBox.hiVect(),
+  cen2edg(ccVBox.loVect(),ccVBox.hiVect(),
                ARLIM(cfab.loVect()),ARLIM(cfab.hiVect()),cfab.dataPtr(sComp),
                ARLIM(efab.loVect()),ARLIM(efab.hiVect()),efab.dataPtr(dComp),
                &nComp, &dir, &isharm);

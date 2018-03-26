@@ -734,13 +734,13 @@ PeleLM::variableSetUp ()
   //
   // rho_temp
   //
-  derive_lst.add("rho_temp",IndexType::TheCellType(),1,FORT_DERMPRHO,the_same_box);
+  derive_lst.add("rho_temp",IndexType::TheCellType(),1,dermprho,the_same_box);
   derive_lst.addComponent("rho_temp",desc_lst,State_Type,Density,1);
   derive_lst.addComponent("rho_temp",desc_lst,State_Type,Temp,1);
   //
   // enthalpy
   //
-  derive_lst.add("enthalpy",IndexType::TheCellType(),1,FORT_DERDVRHO,the_same_box);
+  derive_lst.add("enthalpy",IndexType::TheCellType(),1,derdvrho,the_same_box);
   derive_lst.addComponent("enthalpy",desc_lst,State_Type,Density,1);
   derive_lst.addComponent("enthalpy",desc_lst,State_Type,RhoH,1);
   //
@@ -749,7 +749,7 @@ PeleLM::variableSetUp ()
   for (i = 0; i < nspecies; i++)
   {
     const std::string name = "Y("+names[i]+")";
-    derive_lst.add(name,IndexType::TheCellType(),1,FORT_DERDVRHO,the_same_box);
+    derive_lst.add(name,IndexType::TheCellType(),1,derdvrho,the_same_box);
     derive_lst.addComponent(name,desc_lst,State_Type,Density,1);
     derive_lst.addComponent(name,desc_lst,State_Type,FirstSpec + i,1);
   }
@@ -803,36 +803,36 @@ PeleLM::variableSetUp ()
   //
   // Divergence of velocity field.
   //
-  //derive_lst.add("diveru",IndexType::TheCellType(),1,FORT_DERMGDIVU,grow_box_by_one);
-  //derive_lst.addComponent("diveru",desc_lst,State_Type,Xvel,BL_SPACEDIM);
+  derive_lst.add("diveru",IndexType::TheCellType(),1,dermgdivu,grow_box_by_one);
+  derive_lst.addComponent("diveru",desc_lst,State_Type,Xvel,BL_SPACEDIM);
   //
   // average pressure
   //
-  derive_lst.add("avg_pressure",IndexType::TheCellType(),1,FORT_DERAVGPRES,
+  derive_lst.add("avg_pressure",IndexType::TheCellType(),1,deravgpres,
                  the_nodes);
   derive_lst.addComponent("avg_pressure",desc_lst,Press_Type,Pressure,1);
   //
   // Pressure gradient in X direction.
   //
-  derive_lst.add("gradpx",IndexType::TheCellType(),1,FORT_DERGRDPX,the_nodes);
+  derive_lst.add("gradpx",IndexType::TheCellType(),1,dergrdpx,the_nodes);
   derive_lst.addComponent("gradpx",desc_lst,Press_Type,Pressure,1);
   //
   // Pressure gradient in Y direction.
   //
-  derive_lst.add("gradpy",IndexType::TheCellType(),1,FORT_DERGRDPY,the_nodes);
+  derive_lst.add("gradpy",IndexType::TheCellType(),1,dergrdpy,the_nodes);
   derive_lst.addComponent("gradpy",desc_lst,Press_Type,Pressure,1);
 
 #if (BL_SPACEDIM == 3)
   //
   // Pressure gradient in Z direction.
   //
-  derive_lst.add("gradpz",IndexType::TheCellType(),1,FORT_DERGRDPZ,the_nodes);
+  derive_lst.add("gradpz",IndexType::TheCellType(),1,dergrdz,the_nodes);
   derive_lst.addComponent("gradpz",desc_lst,Press_Type,Pressure,1);
 #endif
   //
   // Magnitude of vorticity.
   //
-  derive_lst.add("mag_vort",IndexType::TheCellType(),1,FORT_DERMGVORT,grow_box_by_one);
+  derive_lst.add("mag_vort",IndexType::TheCellType(),1,dermgvort,grow_box_by_one);
   derive_lst.addComponent("mag_vort",desc_lst,State_Type,Xvel,BL_SPACEDIM);
 #ifdef DO_LMC_FORCE
   //
