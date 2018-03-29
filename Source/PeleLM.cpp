@@ -6554,10 +6554,20 @@ PeleLM::calcDiffusivity (const Real time)
     StateData& state_data = amr_lev.get_state_data(0);
     const Real lev_0_prevtime = state_data.prevTime();
     const Real lev_0_curtime = state_data.curTime();
-
-    // linearly interpolate from level 0 ambient pressure
-    p_amb = (lev_0_curtime - time )/(lev_0_curtime-lev_0_prevtime) * p_amb_old +
-            (time - lev_0_prevtime)/(lev_0_curtime-lev_0_prevtime) * p_amb_new;
+    const Real prevtime = state[State_Type].prevTime();
+    const Real curtime = state[State_Type].curTime();
+    if (whichTime == AmrNewTime)
+    {
+      // get new-time ambient pressure
+      p_amb = (lev_0_curtime-curtime )/(lev_0_curtime-lev_0_prevtime) * p_amb_old +
+        (curtime-lev_0_prevtime)/(lev_0_curtime-lev_0_prevtime) * p_amb_new;
+    }
+    else
+    {
+      // get old-time ambient pressure
+      p_amb = (lev_0_curtime-prevtime )/(lev_0_curtime-lev_0_prevtime) * p_amb_old +
+        (prevtime-lev_0_prevtime)/(lev_0_curtime-lev_0_prevtime) * p_amb_new;
+    }
   }
 
   for (FillPatchIterator Rho_and_spec_fpi(*this,diff,nGrow,time,State_Type,Density,nspecies+1),
@@ -6922,9 +6932,9 @@ PeleLM::calc_dpdt (Real      time,
     const Real lev_0_prevtime = state_data.prevTime();
     const Real lev_0_curtime = state_data.curTime();
 
-    // linearly interpolate from level 0 ambient pressure
-    p_amb = (lev_0_curtime - time )/(lev_0_curtime-lev_0_prevtime) * p_amb_old +
-            (time - lev_0_prevtime)/(lev_0_curtime-lev_0_prevtime) * p_amb_new;
+    // use new-time ambient pressure
+    p_amb = (lev_0_curtime-time )/(lev_0_curtime-lev_0_prevtime) * p_amb_old +
+      (time-lev_0_prevtime)/(lev_0_curtime-lev_0_prevtime) * p_amb_new;
   }
   
   if (dt <= 0.0 || dpdt_factor <= 0)
