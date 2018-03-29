@@ -18,7 +18,7 @@
  &heattransin
   pamb = 1013250.0
   dpdt_factor = 1.0
-  closed_chamber = 0
+  closed_chamber = 1
  /
  &flctin
   flct_file = ""

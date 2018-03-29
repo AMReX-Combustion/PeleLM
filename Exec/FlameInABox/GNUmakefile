@@ -7,7 +7,7 @@ PELELM_HOME ?= ${TOP}/PeleLM
 # Build configuration
 #
 
-DIM             = 2
+DIM             = 3
 COMP            = gnu
 DEBUG           = FALSE
 USE_MPI         = TRUE

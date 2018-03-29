@@ -1,0 +1,87 @@
+\begin{thebibliography}{10}
+
+\bibitem{IAMR}
+A.~S. Almgren, J.~B. Bell, P.~Colella, L.~H. Howell, and M.~Welcome.
+\newblock A conservative adaptive projection method for the variable density
+  incompressible {Navier-Stokes} equations.
+\newblock 142:1--46, 1998.
+
+\bibitem{almgren:bell:crutchfield}
+A.~S. Almgren, J.~B. Bell, and W.~Y. Crutchfield.
+\newblock Approximate projection methods: Part {I}. {I}nviscid analysis.
+\newblock {\em SIAM J. Sci. Comput.}, 22(4):1139--59, 2000.
+
+\bibitem{almgrenBellSzymczak:1996}
+A.~S. Almgren, J.~B. Bell, and W.~G. Szymczak.
+\newblock A numerical method for the incompressible {N}avier-{S}tokes equations
+  based on an approximate projection.
+\newblock {\em SIAM J. Sci. Comput.}, 17(2):358--369, March 1996.
+
+\bibitem{Aspden08b}
+Andrew Aspden, Nikos Nikiforakis, Stuart Dalziel, and John Bell.
+\newblock Analysis of implicit les methods.
+\newblock {\em Communications in Applied Mathematics and Computational
+  Science}, 3(1):103--126, 2008.
+
+\bibitem{bellColellaHowell:1991}
+J.~B. Bell, P.~Colella, and L.~H. Howell.
+\newblock An efficient second-order projection method for viscous
+  incompressible flow.
+\newblock In {\em Proceedings of the Tenth AIAA Computational Fluid Dynamics
+  Conference}, pages 360--367. AIAA, June 1991.
+
+\bibitem{bellMarcus:1992b}
+J.~B. Bell and D.~L. Marcus.
+\newblock A second-order projection method for variable-density flows.
+\newblock 101:334--348, 1992.
+
+\bibitem{br-refine}
+Marsha Berger and Isidore Rigoutsos.
+\newblock An algorithm for point clustering and grid generation.
+\newblock {\em Systems, Man and Cybernetics, IEEE Transactions on},
+  21(5):1278--1286, 1991.
+
+\bibitem{DayBell:2000}
+M.~S. Day and J.~B. Bell.
+\newblock Numerical simulation of laminar reacting flows with complex
+  chemistry.
+\newblock {\em Combust. Theory Modelling}, 4(4):535--556, 2000.
+
+\bibitem{EGLIB}
+A~Ern and V~Giovangigli.
+\newblock Eglib: A general-purpose fortran library for multicomponent transport
+  property evaluation.
+\newblock {\em Manual of EGlib version}, 3:12, 2004.
+
+\bibitem{s3d}
+Evatt~R Hawkes, Ramanan Sankaran, James~C Sutherland, and Jacqueline~H Chen.
+\newblock Direct numerical simulation of turbulent combustion: fundamental
+  insights towards predictive models.
+\newblock In {\em Journal of Physics: Conference Series}, volume~16, page~65.
+  IOP Publishing, 2005.
+
+\bibitem{leveque}
+Randall~J LeVeque.
+\newblock {\em Finite volume methods for hyperbolic problems}, volume~31.
+\newblock Cambridge university press, 2002.
+
+\bibitem{LMC_SDC}
+A.~Nonaka, J.~B. Bell, M.~S. Day, C.~Gilet, A.~S. Almgren, and M.~L. Minion.
+\newblock A deferred correction coupling strategy for low {M}ach number flow
+  with complex chemistry.
+\newblock {\em Combust. Theory Modelling}, 16(6):1053--1088, 2012.
+
+\bibitem{pember-flame}
+R.~B. Pember, L.~H. Howell, J.~B. Bell, P.~Colella, W.~Y. Crutchfield, W.~A.
+  Fiveland, and J.~P. Jessee.
+\newblock An adaptive projection method for unsteady low-{M}ach number
+  combustion.
+\newblock {\em Comb. Sci. Tech.}, 140:123--168, 1998.
+
+\bibitem{YouWang2009}
+Xiaoqing You, Fokion~N Egolfopoulos, and Hai Wang.
+\newblock Detailed and simplified kinetic models of n-dodecane oxidation: The
+  role of fuel cracking in aliphatic hydrocarbon combustion.
+\newblock {\em Proceedings of the Combustion Institute}, 32(1):403--410, 2009.
+
+\end{thebibliography}

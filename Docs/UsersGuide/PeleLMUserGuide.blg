@@ -1,0 +1,54 @@
+This is BibTeX, Version 0.99d (TeX Live 2016/Debian)
+Capacity: max_strings=35307, hash_size=35307, hash_prime=30011
+The top-level auxiliary file: PeleLMUserGuide.aux
+The style file: plain.bst
+Database file #1: refs.bib
+Warning--string name "jcp" is undefined
+--line 48 of file refs.bib
+Warning--string name "jcp" is undefined
+--line 57 of file refs.bib
+Warning--empty journal in IAMR
+Warning--empty journal in bellMarcus:1992b
+Warning--can't use both volume and number fields in s3d
+You've used 14 entries,
+            2118 wiz_defined-function locations,
+            598 strings with 6704 characters,
+and the built_in function-call counts, 5265 in all, are:
+= -- 511
+> -- 276
+< -- 4
++ -- 115
+- -- 94
+* -- 419
+:= -- 882
+add.period$ -- 44
+call.type$ -- 14
+change.case$ -- 88
+chr.to.int$ -- 0
+cite$ -- 17
+duplicate$ -- 175
+empty$ -- 384
+format.name$ -- 94
+if$ -- 1076
+int.to.chr$ -- 0
+int.to.str$ -- 14
+missing$ -- 15
+newline$ -- 73
+num.names$ -- 28
+pop$ -- 79
+preamble$ -- 1
+purify$ -- 75
+quote$ -- 0
+skip$ -- 117
+stack$ -- 0
+substring$ -- 356
+swap$ -- 31
+text.length$ -- 4
+text.prefix$ -- 0
+top$ -- 0
+type$ -- 54
+warning$ -- 3
+while$ -- 49
+width$ -- 16
+write$ -- 157
+(There were 5 warnings)

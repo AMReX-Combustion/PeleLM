@@ -1,0 +1,637 @@
+MPI initialized with 1 MPI processes
+Successfully read inputs file ... 
+PeleLM::read_params: Using EGLib transport 
+
+Dumping ParmParse table:
+ 
+ns.reset_typical_vals_int(nvals = 1)  :: [5]
+ns.do_active_control(nvals = 1)  :: [1]
+mg.smooth_on_cg_unstable(nvals = 1)  :: [1]
+stop_time(nvals = 1)  :: [4.0]
+ns.do_fillPatchUMAC(nvals = 1)  :: [1]
+ns.zeroBndryVisc(nvals = 1)  :: [1]
+proj.proj_2(nvals = 1)  :: [1]
+ns.num_divu_iters(nvals = 1)  :: [3]
+ht.plot_consumption(nvals = 1)  :: [1]
+ht.plot_heat_release(nvals = 1)  :: [1]
+ht.plot_rhoY(nvals = 1)  :: [0]
+ht.plot_molefrac(nvals = 1)  :: [1]
+ht.plot_massfrac(nvals = 1)  :: [1]
+ht.plot_ydot(nvals = 1)  :: [1]
+amr.derive_plot_vars(nvals = 2)  :: [rhoRT, mag_vort]
+geometry.coord_sys(nvals = 1)  :: [0]
+mg.usecg(nvals = 1)  :: [1]
+cg.v(nvals = 1)  :: [0]
+cg.isExpert(nvals = 1)  :: [1]
+mg.v(nvals = 1)  :: [0]
+cg.maxiter(nvals = 1)  :: [1000]
+mg.maxiter(nvals = 1)  :: [1000]
+mg.nu_0(nvals = 1)  :: [1]
+mg.nu_1(nvals = 1)  :: [4]
+mg.nu_2(nvals = 1)  :: [4]
+mg.nu_f(nvals = 1)  :: [40]
+cg.unstable_criterion(nvals = 1)  :: [100]
+ns.htt_tempmin(nvals = 1)  :: [1.0]
+ns.htt_tempmax(nvals = 1)  :: [2.5]
+ns.v(nvals = 1)  :: [1]
+mac.v(nvals = 1)  :: [0]
+proj.v(nvals = 1)  :: [0]
+ns.do_group_bndry_fills(nvals = 1)  :: [1]
+cg.cg_solver(nvals = 1)  :: [1]
+geometry.prob_lo(nvals = 2)  :: [0.0, 0.0]
+geometry.prob_hi(nvals = 2)  :: [0.0003125, 0.04]
+amr.n_cell(nvals = 2)  :: [8, 1024]
+amr.blocking_factor(nvals = 1)  :: [8]
+max_step(nvals = 1)  :: [401]
+amr.restart(nvals = 1)  :: [chk_2d_000400]
+amr.check_file(nvals = 1)  :: [chk_2d_]
+amr.plot_file(nvals = 1)  :: [plt_2d_]
+amr.check_int(nvals = 1)  :: [100]
+amr.plot_int(nvals = 1)  :: [50]
+ns.cfl(nvals = 1)  :: [0.5]
+amr.max_grid_size(nvals = 1)  :: [32]
+amr.v(nvals = 1)  :: [1]
+amr.max_level(nvals = 1)  :: [0]
+amr.ref_ratio(nvals = 4)  :: [2, 2, 2, 2]
+amr.regrid_int(nvals = 1)  :: [2]
+amr.n_error_buf(nvals = 4)  :: [16, 16, 16, 16]
+amr.grid_eff(nvals = 1)  :: [0.9]
+amr.grid_eff(nvals = 1)  :: [0.7]
+amr.probin_file(nvals = 1)  :: [probin.2dcontrol_sdc]
+ns.dt_cutoff(nvals = 1)  :: [5.e-11]
+ns.visc_tol(nvals = 1)  :: [1.0e-14]
+ns.visc_abs_tol(nvals = 1)  :: [1.0e-14]
+ns.init_shrink(nvals = 1)  :: [.1]
+ns.change_max(nvals = 1)  :: [1.1]
+ns.vel_visc_coef(nvals = 1)  :: [1.983e-5]
+ns.temp_cond_coef(nvals = 1)  :: [2.6091e-5]
+ns.scal_diff_coefs(nvals = 1)  :: [-0.01]
+ns.variable_vel_visc(nvals = 1)  :: [1]
+ns.variable_scal_diff(nvals = 1)  :: [1]
+ns.init_iter(nvals = 1)  :: [2]
+ns.gravity(nvals = 1)  :: [-9.81]
+ns.gravity(nvals = 1)  :: [0]
+ns.sum_interval(nvals = 1)  :: [1]
+ns.do_reflux(nvals = 1)  :: [1]
+ns.do_mac_proj(nvals = 1)  :: [1]
+ns.do_sync_proj(nvals = 1)  :: [1]
+ns.do_MLsync_proj(nvals = 1)  :: [1]
+ns.do_divu_sync(nvals = 1)  :: [0]
+ns.divu_relax_factor(nvals = 1)  :: [0.0]
+ns.be_cn_theta(nvals = 1)  :: [0.5]
+ns.S_in_vel_diffusion(nvals = 1)  :: [1]
+ns.do_temp(nvals = 1)  :: [1]
+ns.do_diffuse_sync(nvals = 1)  :: [1]
+ns.divu_ceiling(nvals = 1)  :: [1]
+ns.divu_dt_factor(nvals = 1)  :: [.4]
+ns.min_rho_divu_ceiling(nvals = 1)  :: [.01]
+ns.fuelName(nvals = 1)  :: [CH4]
+ns.oxidizerName(nvals = 1)  :: [O2]
+ns.flameTracName(nvals = 1)  :: [H2O2]
+ns.unity_Le(nvals = 1)  :: [0]
+ns.sdc_iterMAX(nvals = 1)  :: [2]
+ns.dpdt_option(nvals = 1)  :: [0]
+ns.lo_bc(nvals = 2)  :: [0, 1]
+ns.hi_bc(nvals = 2)  :: [0, 2]
+geometry.is_periodic(nvals = 2)  :: [1, 0]
+godunov.slope_order(nvals = 1)  :: [4]
+diffuse.use_cg_solve(nvals = 1)  :: [0]
+diffuse.max_order(nvals = 1)  :: [4]
+diffuse.tensor_max_order(nvals = 1)  :: [4]
+diffuse.use_tensor_cg_solve(nvals = 1)  :: [0]
+diffuse.v(nvals = 1)  :: [1]
+diffuse.Rhs_in_abs_tol(nvals = 1)  :: [1]
+proj.proj_tol(nvals = 1)  :: [1.0e-1]
+proj.proj_tol(nvals = 1)  :: [4.0e-9]
+proj.proj_tol(nvals = 1)  :: [2.0e-9]
+proj.proj_tol(nvals = 1)  :: [1.0e-10]
+proj.proj_tol(nvals = 1)  :: [5.0e-8]
+proj.proj_tol(nvals = 1)  :: [1.0e-11]
+proj.sync_tol(nvals = 1)  :: [1.0e-8]
+proj.rho_wgt_vel_proj(nvals = 1)  :: [0]
+proj.Pcode(nvals = 1)  :: [1]
+proj.filter_factor(nvals = 1)  :: [0.0]
+proj.do_outflow_bcs(nvals = 1)  :: [0]
+proj.divu_minus_s_factor(nvals = 1)  :: [.5]
+proj.divu_minus_s_factor(nvals = 1)  :: [0.]
+mac.mac_tol(nvals = 1)  :: [5.0e-8]
+mac.mac_tol(nvals = 1)  :: [4.0e-9]
+mac.mac_tol(nvals = 1)  :: [1.0e-9]
+mac.mac_sync_tol(nvals = 1)  :: [1.0e-6]
+mac.mac_sync_tol(nvals = 1)  :: [1.0e-8]
+mac.mac_abs_tol(nvals = 1)  :: [1.0e-14]
+mac.use_cg_solve(nvals = 1)  :: [0]
+mac.do_outflow_bcs(nvals = 1)  :: [0]
+fab.format(nvals = 1)  :: [NATIVE]
+ns.do_not_use_funccount(nvals = 1)  :: [1]
+diffuse.max_order(nvals = 1)  :: [2]
+diffuse.tensor_max_order(nvals = 1)  :: [2]
+ns.visc_tol(nvals = 1)  :: [1.0e-14]
+ns.visc_abs_tol(nvals = 1)  :: [1.0e-14]
+
+... done dumping ParmParse table.
+
+53 Chemical species interpreted:
+ { H2  H  O  O2  OH  H2O  HO2  H2O2  C  CH  CH2  CH2(S)  CH3  CH4  CO  CO2  HCO  CH2O  CH2OH  CH3O  CH3OH  C2H  C2H2  C2H3  C2H4  C2H5  C2H6  HCCO  CH2CO  HCCOH  N  NH  NH2  NH3  NNH  NO  NO2  N2O  HNO  CN  HCN  H2CN  HCNN  HCNO  HOCN  HNCO  NCO  N2  AR  C3H7  C3H8  CH2CHO  CH3CHO  }
+
+ fuel name CH4
+ index for fueld and oxidizer 13 3
+RhoYdot_Type, nrhoydot = 5 53
+Flame tracer will be H2O2
+restarting calculation from file: chk_2d_000400
+Starting to call amrex_probinit ... 
+Successfully run amrex_probinit
+Successfully read inputs file ... 
+NavierStokesBase::init_additional_state_types()::have_divu = 1
+NavierStokesBase::init_additional_state_types()::have_dsdt = 1
+NavierStokesBase::init_additional_state_types: num_state_type = 6
+PeleLM::init_once(): num_state_type = 6
+Diffusion settings...
+  From diffuse:
+   use_mlmg_solver     = 0
+   use_cg_solve        = 0
+   use_tensor_cg_solve = 0
+   use_mg_precond_flag = 0
+   max_order           = 2
+   tensor_max_order    = 2
+   scale_abec          = 0
+
+
+  From ns:
+   do_reflux           = 1
+   visc_tol            = 1e-14
+   is_diffusive =  1  1  0  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  0  1  0
+   visc_coef =  1e+20  1e+20  1e+20  1e+20  1e+20  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0
+Typical vals: 
+	Velocity: 1.583112058e-06 0.9745511562 
+	Density: 0.9589170608
+	Temp:    1543.605115
+	RhoH:    178482.0236
+	Y_H2: 0.0001740611024
+	Y_H: 1.021118814e-05
+	Y_O: 0.0002502804148
+	Y_O2: 0.2540193924
+	Y_OH: 0.0005016478107
+	Y_H2O: 0.01790154885
+	Y_HO2: 5.839447536e-05
+	Y_H2O2: 2.22155733e-05
+	Y_C: 8.171113055e-10
+	Y_CH: 2.130460384e-08
+	Y_CH2: 9.555510602e-07
+	Y_CH2(S): 8.511819367e-08
+	Y_CH3: 8.726617281e-05
+	Y_CH4: 0.04684403836
+	Y_CO: 0.005641167661
+	Y_CO2: 0.02073265061
+	Y_HCO: 2.6053788e-06
+	Y_CH2O: 0.0003061328936
+	Y_CH2OH: 2.508380209e-07
+	Y_CH3O: 6.177056151e-06
+	Y_CH3OH: 3.74490949e-05
+	Y_C2H: 7.94462675e-10
+	Y_C2H2: 2.094579892e-06
+	Y_C2H3: 2.284326991e-07
+	Y_C2H4: 5.812044651e-05
+	Y_C2H5: 3.245694224e-06
+	Y_C2H6: 0.0001385872865
+	Y_HCCO: 3.580699334e-07
+	Y_CH2CO: 1.787493673e-05
+	Y_HCCOH: 1.142625997e-08
+	Y_N: 2.845071169e-10
+	Y_NH: 2.375809708e-10
+	Y_NH2: 2.325966099e-10
+	Y_NH3: 4.458972352e-10
+	Y_NNH: 3.870173101e-10
+	Y_NO: 1.374579574e-06
+	Y_NO2: 1.801137312e-07
+	Y_N2O: 1.584292558e-07
+	Y_HNO: 2.906170635e-10
+	Y_CN: 1.613068154e-11
+	Y_HCN: 3.361014591e-08
+	Y_H2CN: 9.434981184e-12
+	Y_HCNN: 2.348668744e-10
+	Y_HCNO: 3.051516926e-09
+	Y_HOCN: 1.13051471e-10
+	Y_HNCO: 2.16526607e-08
+	Y_NCO: 9.77077286e-10
+	Y_N2: 0.7369626705
+	Y_AR: 1e-06
+	Y_C3H7: 1.862871762e-08
+	Y_C3H8: 3.290652884e-06
+	Y_CH2CHO: 2.469718761e-07
+	Y_CH3CHO: 9.843487474e-06
+ reading fortin
+ done reading fortin
+ reading control
+ done reading control
+  setup bc
+  debugCH4                2.0000000000000000       0.19562179785747552        6.8467629250116430E-002  0.73591057289240802     
+  in setupbc   0.0000000000000000     
+  in setupbc   0.0000000000000000     
+  in setupbc   0.0000000000000000     
+  in setupbc  0.22377158252143270     
+  in setupbc   0.0000000000000000     
+  in setupbc   0.0000000000000000     
+  in setupbc   0.0000000000000000     
+  in setupbc   0.0000000000000000     
+  in setupbc   0.0000000000000000     
+  in setupbc   0.0000000000000000     
+  in setupbc   0.0000000000000000     
+  in setupbc   0.0000000000000000     
+  in setupbc   0.0000000000000000     
+  in setupbc   3.9266815444285015E-002
+  in setupbc   0.0000000000000000     
+  in setupbc   0.0000000000000000     
+  in setupbc   0.0000000000000000     
+  in setupbc   0.0000000000000000     
+  in setupbc   0.0000000000000000     
+  in setupbc   0.0000000000000000     
+  in setupbc   0.0000000000000000     
+  in setupbc   0.0000000000000000     
+  in setupbc   0.0000000000000000     
+  in setupbc   0.0000000000000000     
+  in setupbc   0.0000000000000000     
+  in setupbc   0.0000000000000000     
+  in setupbc   0.0000000000000000     
+  in setupbc   0.0000000000000000     
+  in setupbc   0.0000000000000000     
+  in setupbc   0.0000000000000000     
+  in setupbc   0.0000000000000000     
+  in setupbc   0.0000000000000000     
+  in setupbc   0.0000000000000000     
+  in setupbc   0.0000000000000000     
+  in setupbc   0.0000000000000000     
+  in setupbc   0.0000000000000000     
+  in setupbc   0.0000000000000000     
+  in setupbc   0.0000000000000000     
+  in setupbc   0.0000000000000000     
+  in setupbc   0.0000000000000000     
+  in setupbc   0.0000000000000000     
+  in setupbc   0.0000000000000000     
+  in setupbc   0.0000000000000000     
+  in setupbc   0.0000000000000000     
+  in setupbc   0.0000000000000000     
+  in setupbc   0.0000000000000000     
+  in setupbc   0.0000000000000000     
+  in setupbc  0.73696160203428229     
+  in setupbc   0.0000000000000000     
+  in setupbc   0.0000000000000000     
+  in setupbc   0.0000000000000000     
+  in setupbc   0.0000000000000000     
+  in setupbc   0.0000000000000000     
+  in setupbc   300.00000000000000     
+  done setup bc
+&FORTIN
+ VORTERR=  1000.0000000000000     ,
+ TEMPERR=  500.00000000000000     ,
+ ADVERR=  1.0000000200408773E+020,
+ TEMPGRAD=  300.00000000000000     ,
+ FLAMETRACVAL=  5.0000000000000004E-006,
+ PROBTYPE="premixed_controlled_inlet                         ",
+ MAX_TEMP_LEV=          0,
+ MAX_VORT_LEV=          0,
+ MAX_TRAC_LEV=          5,
+ TRACESPECVAL=  1.0000000000000000E-010,
+ PHI_IN= 0.69999999999999996     ,
+ T_IN=  300.00000000000000     ,
+ TURB_SCALE=  0.0000000000000000     ,
+ V_IN=  0.0000000000000000     ,
+ V_CO=  0.0000000000000000     ,
+ H2_FRAC=  0.0000000000000000     ,
+ T_SWITCH=  0.0000000000000000     ,
+ STANDOFF= -1.5500000000000000E-002,
+ PERTMAG=  0.0000000000000000     ,
+ PERT_SCALE=  1.0000000000000000     ,
+ NCHEMDIAG=          1,
+ SPLITX=  1.5625000000000000E-004,
+ XFRONTW=  1.5625000000000000E-005,
+ SPLITY=  2.0000000000000000E-002,
+ YFRONTW=  2.0000000000000000E-003,
+ BLOBX=  1.5625000000000000E-004,
+ BLOBY=  2.0000000000000000E-002,
+ BLOBZ=  0.0000000000000000     ,
+ BLOBR=  0.0000000000000000     ,
+ BLOBT=  0.0000000000000000     ,
+ TFRONTW=  1.5625000000000000E-005,
+ STTH= -1.0000000000000000     ,
+ FUEL_N2_VOL_PERCENT=  0.0000000000000000     ,
+ /
+&HEATTRANSIN
+ PAMB=  101325.00000000000     ,
+ DPDT_FACTOR=  1.0000000000000000     ,
+ CLOSED_CHAMBER=          0,
+ /
+&CONTROL
+ TAU_CONTROL=  1.0000000000000000E-004,
+ SEST= 0.17999999999999999     ,
+ CFIX=  2.0915664380274069E-007,
+ CHANGEMAX_CONTROL= 0.20000000000000001     ,
+ H_CONTROL=  1.4999999999999999E-002,
+ ZBASE_CONTROL=  0.0000000000000000     ,
+ PSEUDO_GRAVITY=          1,
+ AC_HIST_FILE="AC_History                                        ",
+ CORR=  1.0000000000000000     ,
+ CONTROLVELMAX=  4.0000000000000000     ,
+ NAVG_PNTS=         10,
+ ISTEMP=          0,
+ /
+ Setting active control from history file ...
+ data           0   2.7354273388948781E-002  0.17875627712627595        8.3662551814142749E-007
+ data           1   2.7283294378332577E-002  0.17874833939565499        8.3662552020662966E-007
+ data           2   2.7212312156605994E-002  0.17874041044507744        8.3662552225089116E-007
+ data           3   2.7141326762374823E-002  0.17873249135607858        8.3662552440151247E-007
+ data           4   2.7070338237984853E-002  0.17872458181925932        8.3662552664636345E-007
+ data           5   2.6999346528943015E-002  0.17871668371381841        8.3662552900930860E-007
+ data           6   2.6928351672626267E-002  0.17870879811588597        8.3662553148661866E-007
+ data           7   2.6857353678103789E-002  0.17870092737529922        8.3662553408057713E-007
+ data           8   2.6786352516998423E-002  0.17869307530841991        8.3662553678812429E-007
+ data           9   2.6715348196477706E-002  0.17868524342877734        8.3662553955600139E-007
+ data          10   2.6644340727048986E-002  0.17867743346289300        8.3662554235866019E-007
+Restart time = 0.2058618069 seconds.
+estTimeStep :: 
+LEV = 0 UMAX = 7.094277858e-07  1.162475185  
+PeleLM::estTimeStep(): estdt, divu_dt = 1.680143392e-05, 0.0002557392219
+[Level 0 step 401] ADVANCE with dt = 1.680137904e-05
+PeleLM::advance(): at start of time step
+SDC Advancing level 0 : starting time = 0.005948685977 with dt = 1.680137904e-05
+setting htt_hmixTYP(from user input) = 178482.0236
+New typical vals: 
+	Velocity: 1.35355081e-06 0.9745386737 
+	Density:  0.9589177124
+	Temp:     1543.611213
+	RhoH:     178482.3481
+	Y_H2: 0.0001740468052
+	Y_H: 1.021119287e-05
+	Y_O: 0.0002502806933
+	Y_O2: 0.2540193525
+	Y_OH: 0.000501647138
+	Y_H2O: 0.01790144647
+	Y_HO2: 5.839447517e-05
+	Y_H2O2: 2.221339953e-05
+	Y_C: 8.171502787e-10
+	Y_CH: 2.130448911e-08
+	Y_CH2: 9.555461432e-07
+	Y_CH2(S): 8.511813804e-08
+	Y_CH3: 8.726567671e-05
+	Y_CH4: 0.04684400653
+	Y_CO: 0.005641183039
+	Y_CO2: 0.02073264433
+	Y_HCO: 2.605369196e-06
+	Y_CH2O: 0.000306131628
+	Y_CH2OH: 2.508369318e-07
+	Y_CH3O: 6.177200133e-06
+	Y_CH3OH: 3.744875386e-05
+	Y_C2H: 7.94465526e-10
+	Y_C2H2: 2.094579292e-06
+	Y_C2H3: 2.284439748e-07
+	Y_C2H4: 5.812110168e-05
+	Y_C2H5: 3.2457199e-06
+	Y_C2H6: 0.0001385885514
+	Y_HCCO: 3.580758866e-07
+	Y_CH2CO: 1.787499795e-05
+	Y_HCCOH: 1.142648837e-08
+	Y_N: 2.84518922e-10
+	Y_NH: 2.375856734e-10
+	Y_NH2: 2.3260336e-10
+	Y_NH3: 4.459104872e-10
+	Y_NNH: 3.870193309e-10
+	Y_NO: 1.375601191e-06
+	Y_NO2: 1.80119729e-07
+	Y_N2O: 1.584278078e-07
+	Y_HNO: 2.906205481e-10
+	Y_CN: 1.613093291e-11
+	Y_HCN: 3.361069815e-08
+	Y_H2CN: 9.434924323e-12
+	Y_HCNN: 2.348742128e-10
+	Y_HCNO: 3.051611157e-09
+	Y_HOCN: 1.130536295e-10
+	Y_HNCO: 2.165335042e-08
+	Y_NCO: 9.770933704e-10
+	Y_N2: 0.7369626724
+	Y_AR: 1e-06
+	Y_C3H7: 1.86289814e-08
+	Y_C3H8: 3.290672798e-06
+	Y_CH2CHO: 2.469736811e-07
+	Y_CH3CHO: 9.843578804e-06
+Computing Dn, DDn, and DWbar 
+... predict edge velocities
+... mac_projection
+NavierStokesBase:mac_project(): lev: 0, time: 0.07566452026
+A (SDC iter 1)
+... computing advection terms
+Dhat (SDC corrector 1)
+... diffusing scalar: rho.Y(H2)
+... diffusing scalar: rho.Y(H)
+... diffusing scalar: rho.Y(O)
+... diffusing scalar: rho.Y(O2)
+... diffusing scalar: rho.Y(OH)
+... diffusing scalar: rho.Y(H2O)
+... diffusing scalar: rho.Y(HO2)
+... diffusing scalar: rho.Y(H2O2)
+... diffusing scalar: rho.Y(C)
+... diffusing scalar: rho.Y(CH)
+... diffusing scalar: rho.Y(CH2)
+... diffusing scalar: rho.Y(CH2(S))
+... diffusing scalar: rho.Y(CH3)
+... diffusing scalar: rho.Y(CH4)
+... diffusing scalar: rho.Y(CO)
+... diffusing scalar: rho.Y(CO2)
+... diffusing scalar: rho.Y(HCO)
+... diffusing scalar: rho.Y(CH2O)
+... diffusing scalar: rho.Y(CH2OH)
+... diffusing scalar: rho.Y(CH3O)
+... diffusing scalar: rho.Y(CH3OH)
+... diffusing scalar: rho.Y(C2H)
+... diffusing scalar: rho.Y(C2H2)
+... diffusing scalar: rho.Y(C2H3)
+... diffusing scalar: rho.Y(C2H4)
+... diffusing scalar: rho.Y(C2H5)
+... diffusing scalar: rho.Y(C2H6)
+... diffusing scalar: rho.Y(HCCO)
+... diffusing scalar: rho.Y(CH2CO)
+... diffusing scalar: rho.Y(HCCOH)
+... diffusing scalar: rho.Y(N)
+... diffusing scalar: rho.Y(NH)
+... diffusing scalar: rho.Y(NH2)
+... diffusing scalar: rho.Y(NH3)
+... diffusing scalar: rho.Y(NNH)
+... diffusing scalar: rho.Y(NO)
+... diffusing scalar: rho.Y(NO2)
+... diffusing scalar: rho.Y(N2O)
+... diffusing scalar: rho.Y(HNO)
+... diffusing scalar: rho.Y(CN)
+... diffusing scalar: rho.Y(HCN)
+... diffusing scalar: rho.Y(H2CN)
+... diffusing scalar: rho.Y(HCNN)
+... diffusing scalar: rho.Y(HCNO)
+... diffusing scalar: rho.Y(HOCN)
+... diffusing scalar: rho.Y(HNCO)
+... diffusing scalar: rho.Y(NCO)
+... diffusing scalar: rho.Y(N2)
+... diffusing scalar: rho.Y(AR)
+... diffusing scalar: rho.Y(C3H7)
+... diffusing scalar: rho.Y(C3H8)
+... diffusing scalar: rho.Y(CH2CHO)
+... diffusing scalar: rho.Y(CH3CHO)
+... diffusing scalar: rhoh
+PeleLM::differential_diffusion_update(): lev: 0, time: 1.073049307
+R (SDC corrector 1)
+*** advance_chemistry: FABs in tmp MF: 32
+PeleLM::advance_chemistry(): lev: 0, time: [1.721340179 ... 1.721340179]
+DONE WITH R (SDC corrector 1)
+Computing Dnp1 and DDnp1 (SDC iteration 2)
+... predict edge velocities
+... mac_projection
+NavierStokesBase:mac_project(): lev: 0, time: 0.06119298935
+A (SDC iter 2)
+... computing advection terms
+Dhat (SDC corrector 2)
+... diffusing scalar: rho.Y(H2)
+... diffusing scalar: rho.Y(H)
+... diffusing scalar: rho.Y(O)
+... diffusing scalar: rho.Y(O2)
+... diffusing scalar: rho.Y(OH)
+... diffusing scalar: rho.Y(H2O)
+... diffusing scalar: rho.Y(HO2)
+... diffusing scalar: rho.Y(H2O2)
+... diffusing scalar: rho.Y(C)
+... diffusing scalar: rho.Y(CH)
+... diffusing scalar: rho.Y(CH2)
+... diffusing scalar: rho.Y(CH2(S))
+... diffusing scalar: rho.Y(CH3)
+... diffusing scalar: rho.Y(CH4)
+... diffusing scalar: rho.Y(CO)
+... diffusing scalar: rho.Y(CO2)
+... diffusing scalar: rho.Y(HCO)
+... diffusing scalar: rho.Y(CH2O)
+... diffusing scalar: rho.Y(CH2OH)
+... diffusing scalar: rho.Y(CH3O)
+... diffusing scalar: rho.Y(CH3OH)
+... diffusing scalar: rho.Y(C2H)
+... diffusing scalar: rho.Y(C2H2)
+... diffusing scalar: rho.Y(C2H3)
+... diffusing scalar: rho.Y(C2H4)
+... diffusing scalar: rho.Y(C2H5)
+... diffusing scalar: rho.Y(C2H6)
+... diffusing scalar: rho.Y(HCCO)
+... diffusing scalar: rho.Y(CH2CO)
+... diffusing scalar: rho.Y(HCCOH)
+... diffusing scalar: rho.Y(N)
+... diffusing scalar: rho.Y(NH)
+... diffusing scalar: rho.Y(NH2)
+... diffusing scalar: rho.Y(NH3)
+... diffusing scalar: rho.Y(NNH)
+... diffusing scalar: rho.Y(NO)
+... diffusing scalar: rho.Y(NO2)
+... diffusing scalar: rho.Y(N2O)
+... diffusing scalar: rho.Y(HNO)
+... diffusing scalar: rho.Y(CN)
+... diffusing scalar: rho.Y(HCN)
+... diffusing scalar: rho.Y(H2CN)
+... diffusing scalar: rho.Y(HCNN)
+... diffusing scalar: rho.Y(HCNO)
+... diffusing scalar: rho.Y(HOCN)
+... diffusing scalar: rho.Y(HNCO)
+... diffusing scalar: rho.Y(NCO)
+... diffusing scalar: rho.Y(N2)
+... diffusing scalar: rho.Y(AR)
+... diffusing scalar: rho.Y(C3H7)
+... diffusing scalar: rho.Y(C3H8)
+... diffusing scalar: rho.Y(CH2CHO)
+... diffusing scalar: rho.Y(CH3CHO)
+... diffusing scalar: rhoh
+PeleLM::differential_diffusion_update(): lev: 0, time: 1.049481869
+R (SDC corrector 2)
+*** advance_chemistry: FABs in tmp MF: 32
+PeleLM::advance_chemistry(): lev: 0, time: [1.636996984 ... 1.636996984]
+DONE WITH R (SDC corrector 2)
+ SDC iterations complete 
+... advect velocities
+... update velocities 
+... diffuse_velocity
+ F90: Source norm after adding nodal RHS is -1
+estTimeStep :: 
+LEV = 0 UMAX = 1.696354871e-06  1.155646215  
+PeleLM::estTimeStep(): estdt, divu_dt = 1.690071732e-05, 0.0002558183939
+PeleLM::advance(): at end of time step
+  Min,max temp = 297.9998946, 1841.612424
+  Min,max rho  = 0.1850391377, 1.143956932
+  Min,max rhoh = -209014.079, -30534.6563
+[Level 0 step 401] Advanced 8192 cells
+TIME= 0.005965487356 MASS= 6.817612928e-06 FUELMASS= 2.105573692e-07 Using dense stencil in nodal solver ...
+F90MG settings...
+ nu1               =            4
+ nu2               =            4
+ nuf               =           40
+ nub               =            2
+ min_width         =            2
+ max_nlevel        =         1024
+ max_iter          =         1000
+ cycle_type        =            3
+ bottom_solver     =            1
+ bottom_solver_eps =    1.0000000000000000E-004
+ bottom_max_iter   =          200
+ F90MG: numlevels =             3
+ F90: Source norm is    83161986.556550562     
+ F90: Source norm after adding cc    RHS is    16330694.002326485     
+F90mg: Initial rhs                  =   16330694.    
+F90mg: Initial residual (resid0)    =   16330694.    
+ BOXLIB WARN: BREAKDOWN in bottom_solver: trying smoother
+ BOXLIB WARN: BREAKDOWN in bottom_solver: trying smoother
+ BOXLIB WARN: BREAKDOWN in bottom_solver: trying smoother
+ BOXLIB WARN: BREAKDOWN in bottom_solver: trying smoother
+ BOXLIB WARN: BREAKDOWN in bottom_solver: trying smoother
+ BOXLIB WARN: BREAKDOWN in bottom_solver: trying smoother
+ BOXLIB WARN: BREAKDOWN in bottom_solver: trying smoother
+ BOXLIB WARN: BREAKDOWN in bottom_solver: trying smoother
+F90mg: Final Iter.   8 resid/resid0 =  0.45319493E-12
+F90mg: Solve time:  0.230036     Bottom Solve time:  0.208383    
+
+  in contol   2.1055736920668852E-007   2.0915664380274069E-007   1.3943776253516048E-005   1.0000000000000000E-004  -1.9850860712072507       0.17875815922129415     
+  in contol results  -21638.442304285447       -63367.932807865094       -146826.91381502440        2503769430.2147789       -1.9347465214082737     
+  in control limits  0.20000000000000001       0.20000000000000001     
+  after limiting   4.0000000000000000        0.0000000000000000     
+
+ ****************** control:   1.3943776253516048E-005
+ time,dt,coft,cfix,V_new:   5.9654873561165653E-003   1.6801379037444546E-005   2.1055736920668852E-007   2.0915664380274069E-007   0.0000000000000000     
+ changeMax_control:   0.20000000000000001     
+ V_in,dVmax,dVmin   0.17875815922129415       0.20000000000000001       0.20000000000000001     
+ coft_old,V_in_old:   8.3662551814142749E-007  0.17875627712627595     
+ PRODUCTMASS= 1.527899791e-07
+TIME= 0.005965487356 LEV= 0 RHOH= -1.245639891
+TIME= 0.005965487356 RHO*TEMP= 0.004258217581
+TIME= 0.00596548735611657 min,max temp = 297.999894556939, 1841.61242385574
+TIME= 0.00596548735611657 min,max xvel  = -1.69635487077634e-06, 1.53585704211669e-06
+TIME= 0.00596548735611657 min,max yvel  = 0.178077091638057, 1.1556462147398
+TIME= 0.00596548735611657 min,max rho-sum rho Y_l = -2.12625771653751e-06, 7.76883446263816e-15
+TIME= 0.00596548735611657 min,max sum RhoYdot = -2.77752221789222e-11, 1.7661520473392e-11
+
+[STEP 401] Coarse TimeStep time: 8.685902119
+[STEP 401] FAB kilobyte spread across MPI nodes: [97950 ... 97950]
+
+STEP = 401 TIME = 0.005965487356 DT = 1.680137904e-05
+
+CHECKPOINT: file = chk_2d_000401
+IOIOIOIO:CD  Amr::checkPoint:  precreating directories for chk_2d_000401.temp
+amrex::UtilRenameDirectoryToOld():  chk_2d_000401 exists.  Renaming to:  chk_2d_000401.old.64994168282
+IOIOIOIO:  Amr::checkPoint:  precreating directories for chk_2d_000401.temp  for level 0
+IOIOIOIO:CD  AmrLevel::CreateLevelDirectory:  chk_2d_000401.temp/Level_0
+checkPoint() time = 0.0250582695 secs.
+
+State Plot Vars: x_velocity y_velocity density rhoh tracer temp RhoRT divu dsdt FuncCount I_R[rhoY(H2)] I_R[rhoY(H)] I_R[rhoY(O)] I_R[rhoY(O2)] I_R[rhoY(OH)] I_R[rhoY(H2O)] I_R[rhoY(HO2)] I_R[rhoY(H2O2)] I_R[rhoY(C)] I_R[rhoY(CH)] I_R[rhoY(CH2)] I_R[rhoY(CH2(S))] I_R[rhoY(CH3)] I_R[rhoY(CH4)] I_R[rhoY(CO)] I_R[rhoY(CO2)] I_R[rhoY(HCO)] I_R[rhoY(CH2O)] I_R[rhoY(CH2OH)] I_R[rhoY(CH3O)] I_R[rhoY(CH3OH)] I_R[rhoY(C2H)] I_R[rhoY(C2H2)] I_R[rhoY(C2H3)] I_R[rhoY(C2H4)] I_R[rhoY(C2H5)] I_R[rhoY(C2H6)] I_R[rhoY(HCCO)] I_R[rhoY(CH2CO)] I_R[rhoY(HCCOH)] I_R[rhoY(N)] I_R[rhoY(NH)] I_R[rhoY(NH2)] I_R[rhoY(NH3)] I_R[rhoY(NNH)] I_R[rhoY(NO)] I_R[rhoY(NO2)] I_R[rhoY(N2O)] I_R[rhoY(HNO)] I_R[rhoY(CN)] I_R[rhoY(HCN)] I_R[rhoY(H2CN)] I_R[rhoY(HCNN)] I_R[rhoY(HCNO)] I_R[rhoY(HOCN)] I_R[rhoY(HNCO)] I_R[rhoY(NCO)] I_R[rhoY(N2)] I_R[rhoY(AR)] I_R[rhoY(C3H7)] I_R[rhoY(C3H8)] I_R[rhoY(CH2CHO)] I_R[rhoY(CH3CHO)] 
+
+Derive Plot Vars: rhoRT mag_vort Y(H2) Y(H) Y(O) Y(O2) Y(OH) Y(H2O) Y(HO2) Y(H2O2) Y(C) Y(CH) Y(CH2) Y(CH2(S)) Y(CH3) Y(CH4) Y(CO) Y(CO2) Y(HCO) Y(CH2O) Y(CH2OH) Y(CH3O) Y(CH3OH) Y(C2H) Y(C2H2) Y(C2H3) Y(C2H4) Y(C2H5) Y(C2H6) Y(HCCO) Y(CH2CO) Y(HCCOH) Y(N) Y(NH) Y(NH2) Y(NH3) Y(NNH) Y(NO) Y(NO2) Y(N2O) Y(HNO) Y(CN) Y(HCN) Y(H2CN) Y(HCNN) Y(HCNO) Y(HOCN) Y(HNCO) Y(NCO) Y(N2) Y(AR) Y(C3H7) Y(C3H8) Y(CH2CHO) Y(CH3CHO) molefrac 
+PLOTFILE: file = plt_2d_000401
+amrex::UtilRenameDirectoryToOld():  plt_2d_000401 exists.  Renaming to:  plt_2d_000401.old.67526078224
+IOIOIOIO:CD  Amr::writePlotFile:  precreating directories for plt_2d_000401.temp
+Write plotfile time = 0.01909637451  seconds
+
+Run time = 8.939196825
+Unused ParmParse Variables:
+[TOP]::ns.do_fillPatchUMAC(nvals = 1)  :: [1]
+[TOP]::ht.plot_ydot(nvals = 1)  :: [1]
+[TOP]::amr.ref_ratio(nvals = 4)  :: [2, 2, 2, 2]
+[TOP]::amr.regrid_int(nvals = 1)  :: [2]
+[TOP]::diffuse.Rhs_in_abs_tol(nvals = 1)  :: [1]
+[TOP]::proj.filter_factor(nvals = 1)  :: [0.0]
+done.
