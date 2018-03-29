@@ -826,7 +826,7 @@ PeleLM::variableSetUp ()
   //
   // Pressure gradient in Z direction.
   //
-  derive_lst.add("gradpz",IndexType::TheCellType(),1,dergrdz,the_nodes);
+  derive_lst.add("gradpz",IndexType::TheCellType(),1,dergrdpz,the_nodes);
   derive_lst.addComponent("gradpz",desc_lst,Press_Type,Pressure,1);
 #endif
   //
