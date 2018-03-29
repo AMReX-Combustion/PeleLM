@@ -1,6 +1,6 @@
 ht.plot_auxDiags = 1
 
-max_step  = 50000
+max_step  = 10
 stop_time =  0.2
 
 geometry.coord_sys = 0  # 0 => cart, 1 => RZ
@@ -16,9 +16,9 @@ ns.consumptionName = H2
 ns.plot_consumption = 1
 ns.plot_heat_release = 1
 
-ns.num_mac_sync_iter = 1
+ns.num_mac_sync_iter = 2
 
-ns.sdc_iterMAX = 3
+ns.sdc_iterMAX = 2
 godunov.ppm_type = 0
 
 ns.do_active_control = false
@@ -42,7 +42,7 @@ mg.nu_f = 40
 ns.v   = 1
 amr.v  = 1
 mac.v  = 1
-proj.v = 0
+proj.v = 1
 
 amr.refine_grid_layout = 0
 amr.max_level       = 1
@@ -52,10 +52,9 @@ amr.n_error_buf     = 4 4 2 2 # number of buffer cells in error est
 amr.grid_eff        = 0.7     # what constitutes an efficient grid
 amr.blocking_factor = 8      # block factor in grid generation
 amr.check_file      = chk
-amr.check_int       = 100      # number of timesteps between checkpoints
+amr.check_int       = -1       # number of timesteps between checkpoints
 amr.plot_file       = plt
-amr.plot_int        = -1
-amr.plot_per        = 0.01
+amr.plot_int        = 1
 amr.grid_log        = grdlog  # name of grid logging file
 amr.max_grid_size   = 64
 ht.plot_massfrac=1
@@ -63,7 +62,7 @@ ht.plot_molefrac=1
 ht.plot_ydot=1
 amr.derive_plot_vars=rhoRT mag_vort
 
-amr.probin_file = probin.2d_paper # This will default to file "probin" if not set
+amr.probin_file = probin.2d_amr # This will default to file "probin" if not set
 
 # ------------------  INPUTS TO PHYSICS CLASS -------------------
 ns.dt_cutoff       = 5.e-10   # level 0 timestep below which we halt
@@ -100,9 +99,9 @@ ns.unity_Le = 0
 
 # ----------------  PROBLEM DEPENDENT INPUTS
 
-ns.lo_bc          = 2 2 2
-ns.hi_bc          = 2 2 2
-geometry.is_periodic = 0 0 0
+ns.lo_bc          = 0 0 0
+ns.hi_bc          = 0 0 0
+geometry.is_periodic = 1 1 1
 
 # >>>>>>>>>>>>>  BC FLAGS <<<<<<<<<<<<<<<<
 # 0 = Interior           3 = Symmetry
@@ -118,8 +117,7 @@ diffuse.use_cg_solve = 0
 diffuse.max_order = 4
 diffuse.tensor_max_order = 4
 diffuse.use_tensor_cg_solve = 0
-#diffuse.v = 1
-diffuse.v = 0
+diffuse.v = 1
 diffuse.Rhs_in_abs_tol = 1
 diffuse.use_fboxlib_mg = 1
 
@@ -131,6 +129,7 @@ proj.Pcode          = 1
 proj.filter_factor  = 0.0
 proj.do_outflow_bcs = 1
 proj.divu_minus_s_factor = 0.
+proj.use_mlmg_solver = 1
 
 # ------------------  INPUTS TO MACPROJ CLASS -------------------
 mac.mac_tol        = 1.0e-12  # tolerence for mac projections
