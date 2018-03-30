@@ -5394,7 +5394,7 @@ PeleLM::mac_sync ()
     if (closed_chamber && level == 0)
     {
       Print() << "0-1 MAC SYNC OFFSET " << offset << endl;
-      Print() << "adjustment " << dt*(offset/thetabar) << endl;
+      Print() << "0-1 MAC SYNC PAMB ADJUSTMENT " << -dt*(offset/thetabar) << endl;
       p_amb_new = p_amb_new_temp - dt*(offset/thetabar);
       p_amb_old = p_amb_new;
     }
