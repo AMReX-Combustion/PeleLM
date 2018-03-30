@@ -425,6 +425,7 @@ private:
   static amrex::Real p_amb_old;
   static amrex::Real p_amb_new;
   static amrex::Real dp0dt;
+  static amrex::Real thetabar;
 
   static int closed_chamber;
 
