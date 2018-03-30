@@ -4403,9 +4403,9 @@ PeleLM::advance (Real time,
       }
       BL_PROFILE_VAR_STOP(HTMAC);
 
-      amrex::Print() << "level 0: prev_time, p_amb_old, p_amb_new = " 
-		     << prev_time << " " << p_amb_old << " " 
-                     << p_amb_new << std::endl;
+      amrex::Print() << "level 0: prev_time, p_amb_old, p_amb_new, delta = " 
+		     << prev_time << " " << p_amb_old << " " << p_amb_new << " "
+                     << p_amb_new-p_amb_old << std::endl;
     }
 
     // MAC-project... and overwrite U^{ADV,*}
