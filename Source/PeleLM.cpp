@@ -4184,9 +4184,12 @@ PeleLM::advance (Real time,
   BL_PROFILE_VAR("HT::advance::diffusion", HTDIFF);
   if (floor_species == 1)
   {
-    for (MFIter mfi(S_old); mfi.isValid(); ++mfi)
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
+    for (MFIter mfi(S_old,true); mfi.isValid(); ++mfi)
     {
-      const Box& box = mfi.validbox();            
+      const Box& box = mfi.tilebox();     
       const FArrayBox& species = S_old[mfi];
       floor_spec(box.loVect(), box.hiVect(), species.dataPtr(first_spec),
                      ARLIM(species.loVect()), ARLIM(species.hiVect()));
@@ -4342,9 +4345,12 @@ PeleLM::advance (Real time,
       BL_PROFILE_VAR_START(HTMAC);
 
       // compute old, new, and time-centered theta = 1 / (gamma P)
-      for (MFIter mfi(S_old); mfi.isValid(); ++mfi)
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
+      for (MFIter mfi(S_old,true); mfi.isValid(); ++mfi)
       {
-        const Box& box = mfi.validbox();            
+        const Box& box = mfi.tilebox();            
         FArrayBox& thetafab = theta_old[mfi];
         const FArrayBox& rhoY = S_old[mfi];
         const FArrayBox& T = S_old[mfi];
@@ -4354,10 +4360,12 @@ PeleLM::advance (Real time,
                            T.dataPtr(Temp),          ARLIM(T.loVect()),        ARLIM(T.hiVect()),
                            &p_amb_old);
       }
-
-      for (MFIter mfi(S_new); mfi.isValid(); ++mfi)
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
+      for (MFIter mfi(S_new,true); mfi.isValid(); ++mfi)
       {
-        const Box& box = mfi.validbox();            
+        const Box& box = mfi.tilebox();            
         FArrayBox& thetafab = theta_nph[mfi];
         const FArrayBox& rhoY = S_new[mfi];
         const FArrayBox& T = S_new[mfi];
@@ -4367,12 +4375,14 @@ PeleLM::advance (Real time,
                            T.dataPtr(Temp),          ARLIM(T.loVect()),        ARLIM(T.hiVect()),
                            &p_amb_new);
       }
-
-      for (MFIter mfi(theta_nph); mfi.isValid(); ++mfi)
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
+      for (MFIter mfi(theta_nph,true); mfi.isValid(); ++mfi)
       {
         FArrayBox& th_nph = theta_nph[mfi];
         const FArrayBox& th_old = theta_old[mfi];
-        const Box& box = mfi.validbox();
+        const Box& box = mfi.tilebox();
         th_nph.plus(th_old,box,box,0,0,1);
         th_nph.mult(0.5);
       }
