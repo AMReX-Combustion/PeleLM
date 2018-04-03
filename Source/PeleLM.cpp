@@ -1137,14 +1137,15 @@ PeleLM::restart (Amr&          papa,
 #endif
     for (MFIter mfi(rYdot_old,true); mfi.isValid(); ++mfi)
     {
+      const Box& bx = mfi.tilebox();
       FArrayBox& ry1 = rYdot_old[mfi];
       FArrayBox& ry2 = rYdot_new[mfi];
       const FArrayBox& S1 = S_old[mfi];
       const FArrayBox& S2 = S_new[mfi];
       for (int i=0; i<nspecies; ++i)
       {
-        ry1.mult(S1,Density,i,1);
-        ry2.mult(S2,Density,i,1);
+        ry1.mult(S1,bx,Density,i,1);
+        ry2.mult(S2,bx,Density,i,1);
       }
     }
   }
@@ -2916,12 +2917,9 @@ PeleLM::adjust_spec_diffusion_fluxes (Real time)
   // averaging.
   //
   const Box& domain = geom.Domain();
-#ifdef _OPENMP
-#pragma omp parallel
-#endif
-  for (MFIter mfi(S,true); mfi.isValid(); ++mfi)
+  for (MFIter mfi(S); mfi.isValid(); ++mfi)
   {
-    const Box& box   = mfi.tilebox();
+    const Box& box   = mfi.validbox();
     FArrayBox& Y = S[mfi];
     int sCompY=first_spec;
 
@@ -2982,12 +2980,10 @@ PeleLM::compute_enthalpy_fluxes (Real                   time,
     S[rYfpi].copy(rYfpi(),0,first_spec,nspecies);
     S[rYfpi].copy(Tfpi(),0,Temp,1);
   }
-#ifdef _OPENMP
-#pragma omp parallel
-#endif
-  for (MFIter mfi(S,true); mfi.isValid(); ++mfi)
+
+  for (MFIter mfi(S); mfi.isValid(); ++mfi)
   {
-    const Box& box = mfi.tilebox();
+    const Box& box = mfi.validbox();
             
     int              FComp    = 0;
     int              TComp    = Temp;
@@ -3553,12 +3549,10 @@ PeleLM::scalar_advection_update (Real dt,
   //
   MultiFab&       S_new = get_new_data(State_Type);
   const MultiFab& S_old = get_old_data(State_Type);
-#ifdef _OPENMP
-#pragma omp parallel
-#endif  
-  for (MFIter mfi(S_new,true); mfi.isValid(); ++mfi)
+  
+  for (MFIter mfi(S_new); mfi.isValid(); ++mfi)
   {
-    const Box& box   = mfi.tilebox();
+    const Box& box   = mfi.validbox();
     const int nc = last_scalar - first_scalar + 1; 
     FArrayBox& snew = S_new[mfi];
       
@@ -7640,7 +7634,7 @@ PeleLM::derive (const std::string& name,
       tmf.FillBoundary(0,1,geom.periodicity());
 #ifdef _OPENMP
 #pragma omp parallel
-#endif            
+#endif
       for (MFIter mfi(tmf,true); mfi.isValid(); ++mfi)
       {
         // 
