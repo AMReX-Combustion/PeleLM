@@ -4189,7 +4189,7 @@ PeleLM::advance (Real time,
 #endif
     for (MFIter mfi(S_old,true); mfi.isValid(); ++mfi)
     {
-      const Box& box = mfi.tilebox();     
+      const Box& box = mfi.tilebox();            
       const FArrayBox& species = S_old[mfi];
       floor_spec(box.loVect(), box.hiVect(), species.dataPtr(first_spec),
                      ARLIM(species.loVect()), ARLIM(species.hiVect()));
@@ -4402,11 +4402,14 @@ PeleLM::advance (Real time,
       dp0dt = Sbar/thetabar;
 
       // update mac rhs by adding delta_theta * (Sbar / thetabar)
-      for (MFIter mfi(mac_divu); mfi.isValid(); ++mfi)
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
+      for (MFIter mfi(mac_divu,true); mfi.isValid(); ++mfi)
       {
         FArrayBox& m_du = mac_divu[mfi];
         FArrayBox& th_nph = theta_nph[mfi];
-        const Box& box = mfi.validbox();
+        const Box& box = mfi.tilebox();
         th_nph.mult(Sbar/thetabar);
         m_du.minus(th_nph,box,box,0,0,1);
       }
@@ -4574,9 +4577,12 @@ PeleLM::advance (Real time,
     BL_PROFILE_VAR_START(HTDIFF);
     if (floor_species == 1)
     {
-      for (MFIter mfi(S_new); mfi.isValid(); ++mfi)
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
+      for (MFIter mfi(S_new,true); mfi.isValid(); ++mfi)
       {
-        const Box& box = mfi.validbox();            
+        const Box& box = mfi.tilebox();            
         const FArrayBox& species = S_new[mfi];
         floor_spec(box.loVect(), box.hiVect(),
                        species.dataPtr(first_spec), ARLIM(species.loVect()),  ARLIM(species.hiVect()));
@@ -4937,10 +4943,12 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
   if (hack_nochem)
   {
     FArrayBox tmp;
-
-    for (MFIter mfi(mf_old); mfi.isValid(); ++mfi)
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
+    for (MFIter mfi(mf_old,true); mfi.isValid(); ++mfi)
     {
-      const Box& box = mfi.validbox();
+      const Box& box = mfi.tilebox();
       tmp.resize(box,nspecies+1);
       const FArrayBox& f = Force[mfi];
       tmp.copy(f,box,0,box,0,nspecies+1);
