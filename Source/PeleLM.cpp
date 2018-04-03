@@ -1757,13 +1757,15 @@ PeleLM::compute_instantaneous_reaction_rates (MultiFab&       R,
   const int sCompRhoYdot = 0;
     
   ChemDriver& chem_solve = getChemSolve();
-
-  for (MFIter mfi(S); mfi.isValid(); ++mfi)
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
+  for (MFIter mfi(S,true); mfi.isValid(); ++mfi)
   {
     const FArrayBox& rhoY = S[mfi];
     const FArrayBox& rhoH = S[mfi];
     const FArrayBox& T    = S[mfi];
-    const Box& box = mfi.validbox();
+    const Box& box = mfi.tilebox();
     FArrayBox& rhoYdot = R[mfi];
 
     chem_solve.reactionRateRhoY(rhoYdot,rhoY,rhoH,T,box,sCompRhoY,sCompRhoH,sCompT,sCompRhoYdot);
@@ -1854,10 +1856,13 @@ PeleLM::init ()
     int n_tmp = std::max( (int)Density, std::max( (int)Temp, std::max( last_spec, RhoH) ) );
     Vector<Real> tmp(n_tmp);
     int num_cells_hacked = 0;
-    for (MFIter mfi(fine); mfi.isValid(); ++mfi)
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
+    for (MFIter mfi(fine,true); mfi.isValid(); ++mfi)
     {
       FArrayBox& fab = fine[mfi];
-      const Box& box = mfi.validbox();
+      const Box& box = mfi.tilebox();
       num_cells_hacked += 
         conservative_T_floor(box.loVect(), box.hiVect(),
                              fab.dataPtr(), ARLIM(fab.loVect()), ARLIM(fab.hiVect()),
@@ -2911,9 +2916,12 @@ PeleLM::adjust_spec_diffusion_fluxes (Real time)
   // averaging.
   //
   const Box& domain = geom.Domain();
-  for (MFIter mfi(S); mfi.isValid(); ++mfi)
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
+  for (MFIter mfi(S,true); mfi.isValid(); ++mfi)
   {
-    const Box& box   = mfi.validbox();
+    const Box& box   = mfi.tilebox();
     FArrayBox& Y = S[mfi];
     int sCompY=first_spec;
 
@@ -2974,10 +2982,12 @@ PeleLM::compute_enthalpy_fluxes (Real                   time,
     S[rYfpi].copy(rYfpi(),0,first_spec,nspecies);
     S[rYfpi].copy(Tfpi(),0,Temp,1);
   }
-
-  for (MFIter mfi(S); mfi.isValid(); ++mfi)
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
+  for (MFIter mfi(S,true); mfi.isValid(); ++mfi)
   {
-    const Box& box = mfi.validbox();
+    const Box& box = mfi.tilebox();
             
     int              FComp    = 0;
     int              TComp    = Temp;
@@ -3543,10 +3553,12 @@ PeleLM::scalar_advection_update (Real dt,
   //
   MultiFab&       S_new = get_new_data(State_Type);
   const MultiFab& S_old = get_old_data(State_Type);
-  
-  for (MFIter mfi(S_new); mfi.isValid(); ++mfi)
+#ifdef _OPENMP
+#pragma omp parallel
+#endif  
+  for (MFIter mfi(S_new,true); mfi.isValid(); ++mfi)
   {
-    const Box& box   = mfi.validbox();
+    const Box& box   = mfi.tilebox();
     const int nc = last_scalar - first_scalar + 1; 
     FArrayBox& snew = S_new[mfi];
       
@@ -3565,10 +3577,12 @@ PeleLM::flux_divergence (MultiFab&        fdiv,
                          Real             scale) const
 {
   BL_ASSERT(fdiv.nComp() >= fdivComp+nComp);
-
-  for (MFIter mfi(fdiv); mfi.isValid(); ++mfi)
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
+  for (MFIter mfi(fdiv,true); mfi.isValid(); ++mfi)
   {
-    const Box& box = mfi.validbox();
+    const Box& box = mfi.tilebox();
     FArrayBox& fab = fdiv[mfi];
 
     flux_div(box.loVect(), box.hiVect(),
@@ -3734,10 +3748,12 @@ PeleLM::temperature_stats (MultiFab& S)
     //
     Real tdhmin[3] = { 1.0e30, 1.0e30, 1.0e30};
     Real tdhmax[3] = {-1.0e30,-1.0e30,-1.0e30};
-
-    for (MFIter S_mfi(S); S_mfi.isValid(); ++S_mfi)
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
+    for (MFIter S_mfi(S,true); S_mfi.isValid(); ++S_mfi)
     {
-      const Box& bx = S_mfi.validbox();
+      const Box& bx = S_mfi.tilebox();
 
       tdhmin[0] = std::min(tdhmin[0],S[S_mfi].min(bx,Temp));
       tdhmin[1] = std::min(tdhmin[1],S[S_mfi].min(bx,Density));
@@ -6217,10 +6233,12 @@ PeleLM::compute_Wbar_fluxes(Real time,
   visc_op->applyBC(Wbar,0,1,0,LinOp::Inhomogeneous_BC);
 
   delete visc_op;
-    
-  for (MFIter mfi(Wbar); mfi.isValid(); ++mfi)
+#ifdef _OPENMP
+#pragma omp parallel
+#endif    
+  for (MFIter mfi(Wbar,true); mfi.isValid(); ++mfi)
   {
-    const Box&       vbox = mfi.validbox();
+    const Box&       vbox = mfi.tilebox();
     const FArrayBox& wbar = Wbar[mfi];
     const Real       mult = -1.0;
 
@@ -6894,10 +6912,12 @@ PeleLM::calc_divu (Real      time,
       amrex::Abort("bad divu_logic - shouldn't be here");
     }
   }
-
-  for (MFIter mfi(S); mfi.isValid(); ++mfi)
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
+  for (MFIter mfi(S,true); mfi.isValid(); ++mfi)
   {
-    const Box& box = mfi.validbox();            
+    const Box& box = mfi.tilebox();            
     FArrayBox& du = divu[mfi];
     const FArrayBox& vtY = mcViscTerms[mfi];
     const FArrayBox& vtT = mcViscTerms[mfi];
@@ -6960,10 +6980,12 @@ PeleLM::calc_dpdt (Real      time,
   {
     Peos[S_fpi].copy(S_fpi());
   }
-
-  for (MFIter mfi(dpdt); mfi.isValid(); ++mfi)
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
+  for (MFIter mfi(dpdt,true); mfi.isValid(); ++mfi)
   {
-    const Box& vbox = mfi.validbox();
+    const Box& vbox = mfi.tilebox();
 
     dpdt[mfi].copy(Peos[mfi],vbox,0,vbox,0,1);
     dpdt[mfi].plus(-p_amb,vbox);
@@ -7616,13 +7638,15 @@ PeleLM::derive (const std::string& name,
     {
       // Fix up fine-fine and periodic
       tmf.FillBoundary(0,1,geom.periodicity());
-                        
-      for (MFIter mfi(tmf); mfi.isValid(); ++mfi)
+#ifdef _OPENMP
+#pragma omp parallel
+#endif            
+      for (MFIter mfi(tmf,true); mfi.isValid(); ++mfi)
       {
         // 
         // Use result MultiFab for temporary container to hold smooth T field
         // 
-        const Box& box = mfi.validbox();
+        const Box& box = mfi.tilebox();
         smooth(box.loVect(),box.hiVect(),
                     tmf[mfi].dataPtr(),
                     ARLIM(tmf[mfi].loVect()),ARLIM(tmf[mfi].hiVect()),
@@ -7639,11 +7663,14 @@ PeleLM::derive (const std::string& name,
     const Real* dx = geom.CellSize();
         
     FArrayBox nWork;
-    for (MFIter mfi(mf); mfi.isValid(); ++mfi)
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
+    for (MFIter mfi(mf,true); mfi.isValid(); ++mfi)
     {
       const FArrayBox& Tg = tmf[mfi];
       FArrayBox& MC = mf[mfi];
-      const Box& box = mfi.validbox();
+      const Box& box = mfi.tilebox();
       const Box& nodebox = amrex::surroundingNodes(box);
       nWork.resize(nodebox,BL_SPACEDIM);
             
