@@ -3366,10 +3366,12 @@ PeleLM::compute_differential_diffusion_fluxes (const Real& time,
   {
     const int state_ind = first_spec + sigma;
     ViscBndry visc_bndry;
-
-    for (MFIter mfi(S); mfi.isValid(); ++mfi)
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
+    for (MFIter mfi(S,true); mfi.isValid(); ++mfi)
     {
-      const Box& box = Phi[mfi].box();
+      const Box& box = mfi.growntilebox();
       Phi[mfi].copy(S[mfi],box,state_ind,box,0,1);
       Phi[mfi].divide(S[mfi],box,Density,0,1);
     }
