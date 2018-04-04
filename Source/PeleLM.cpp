@@ -1554,16 +1554,17 @@ PeleLM::initData ()
 
   if (verbose) amrex::Print() << "initData: finished init from pltfile" << '\n';
 #endif
-
-  for (MFIter snewmfi(S_new); snewmfi.isValid(); ++snewmfi)
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
+  for (MFIter snewmfi(S_new,true); snewmfi.isValid(); ++snewmfi)
   {
-    BL_ASSERT(grids[snewmfi.index()] == snewmfi.validbox());
+    //BL_ASSERT(grids[snewmfi.index()] == snewmfi.validbox());
 
     P_new[snewmfi].setVal(0);
 
-    const int  i       = snewmfi.index();
-    RealBox    gridloc = RealBox(grids[i],geom.CellSize(),geom.ProbLo());
-    const Box& vbx     = snewmfi.validbox();
+    const Box& vbx = snewmfi.tilebox();
+    RealBox    gridloc = RealBox(vbx,geom.CellSize(),geom.ProbLo());
     const int* lo      = vbx.loVect();
     const int* hi      = vbx.hiVect();
     const int* s_lo    = S_new[snewmfi].loVect();
@@ -3379,9 +3380,13 @@ PeleLM::compute_differential_diffusion_fluxes (const Real& time,
     if (level > 0) 
     {
       MultiFab::Copy(Phi_crse,S_crse,state_ind,0,1,0);
-      for (MFIter mfi(S_crse); mfi.isValid(); ++mfi)
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
+      for (MFIter mfi(S_crse,true); mfi.isValid(); ++mfi)
       {
-        Phi_crse[mfi].divide(S_crse[mfi],Phi_crse[mfi].box(),Density,0,1);
+        const Box& box = mfi.growntilebox();
+        Phi_crse[mfi].divide(S_crse[mfi],box,Density,0,1);
       }
       Phi_crse.FillBoundary(getLevel(level-1).geom.periodicity());
     }
@@ -3551,10 +3556,12 @@ PeleLM::scalar_advection_update (Real dt,
   //
   MultiFab&       S_new = get_new_data(State_Type);
   const MultiFab& S_old = get_old_data(State_Type);
-  
-  for (MFIter mfi(S_new); mfi.isValid(); ++mfi)
+#ifdef _OPENMP
+#pragma omp parallel
+#endif  
+  for (MFIter mfi(S_new,true); mfi.isValid(); ++mfi)
   {
-    const Box& box   = mfi.validbox();
+    const Box& box   = mfi.tilebox();
     const int nc = last_scalar - first_scalar + 1; 
     FArrayBox& snew = S_new[mfi];
       
@@ -3708,10 +3715,12 @@ PeleLM::set_rho_to_species_sum (MultiFab& S_in,
 
   if (minzero)
   {
-    for (MFIter mfi(S_in); mfi.isValid(); ++mfi)
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
+    for (MFIter mfi(S_in,true); mfi.isValid(); ++mfi)
     {
-      const int i   = mfi.index();
-      Box       box = amrex::grow(sgrids[i], nghost);
+      const Box&       box = mfi.tilebox();
       FabMinMax(S_in[mfi], box, 0.0, Real_MAX, s_first_spec, s_num_spec);
     }
   }
@@ -3719,12 +3728,13 @@ PeleLM::set_rho_to_species_sum (MultiFab& S_in,
   BL_ASSERT(s_density >= 0);
 
   S_out.setVal(0, s_density, 1, nghost);
-
-  for (MFIter mfi(S_in); mfi.isValid(); ++mfi)
+  
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
+  for (MFIter mfi(S_in,true); mfi.isValid(); ++mfi)
   {
-    const int i   = mfi.index();
-    Box       box = amrex::grow(sgrids[i],nghost);
-
+    const Box&       box = mfi.tilebox();
     for (int spec = s_first_spec; spec <= s_last_spec; spec++)
     {
       S_out[mfi].plus(S_in[mfi],box,spec,s_density,1);
@@ -4448,13 +4458,16 @@ PeleLM::advance (Real time,
     //
     showMF("sdc",get_new_data(RhoYdot_Type),"sdc_R_for_A_forcing",level,sdc_iter,parent->levelSteps(level));
     BL_PROFILE_VAR("HT::advance::advection", HTADV);
-    for (MFIter mfi(Forcing); mfi.isValid(); ++mfi)
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
+    for (MFIter mfi(Forcing,true); mfi.isValid(); ++mfi)
     {
       FArrayBox& f = Forcing[mfi];
       const FArrayBox& dn = Dn[mfi];
       const FArrayBox& ddn = DDn[mfi];
       const FArrayBox& r = get_new_data(RhoYdot_Type)[mfi];
-      const Box& gbox = amrex::grow(mfi.validbox(),nGrowAdvForcing);
+      const Box& gbox = mfi.growntilebox();
       f.copy(dn,gbox,0,gbox,0,nspecies+1); // add Dn to RhoY and RhoH
       f.plus(ddn,gbox,gbox,0,nspecies,1); // add DDn to RhoH forcing
       if (closed_chamber == 1)
@@ -5548,10 +5561,13 @@ PeleLM::mac_sync ()
     //
     // Now, increment density.
     //
-    for (MFIter mfi(S_new); mfi.isValid(); ++mfi)
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
+    for (MFIter mfi(S_new,true); mfi.isValid(); ++mfi)
     {
-      const int i = mfi.index();
-      S_new[mfi].plus(Ssync[mfi],grids[i],Density-BL_SPACEDIM,Density,1);
+      const Box& box = mfi.tilebox();
+      S_new[mfi].plus(Ssync[mfi],box,Density-BL_SPACEDIM,Density,1);
     }
 
     make_rho_curr_time();
@@ -5775,9 +5791,12 @@ PeleLM::mac_sync ()
           MultiFab::Copy(Soln,Ssync,sigma-BL_SPACEDIM,0,1,0);
 
           // divide Soln by rho
-          for (MFIter Smfi(Soln); Smfi.isValid(); ++Smfi)
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
+          for (MFIter Smfi(Soln,true); Smfi.isValid(); ++Smfi)
           {
-            Soln[Smfi].divide(S_new[Smfi],Smfi.validbox(),Density,0,1);
+            Soln[Smfi].divide(S_new[Smfi],Smfi.tilebox(),Density,0,1);
           }
 
           // compute lambda/cp.Grad(delta Y^sync) and weight
@@ -5847,11 +5866,14 @@ PeleLM::mac_sync ()
         // Add the NULN fluxes to the RHS of the (delta h)^sync diffusion solve
         // afterwards, the entire RHS should be ready.
         //
-        for (MFIter Ssync_mfi(Ssync); Ssync_mfi.isValid(); ++Ssync_mfi)
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
+        for (MFIter Ssync_mfi(Ssync,true); Ssync_mfi.isValid(); ++Ssync_mfi)
         {
           FArrayBox& syncn = Ssync[Ssync_mfi];
           const FArrayBox& synco = Ssync[Ssync_mfi];
-          const Box& box = Ssync_mfi.validbox();
+          const Box& box = Ssync_mfi.tilebox();
 
           //
           // Multiply by dt*dt, one to make it extensive, and one because
@@ -5943,9 +5965,12 @@ PeleLM::mac_sync ()
     // DeltaSsync holds (delta rho)^sync phi^p
     //
     BL_PROFILE_VAR_START(HTSSYNC);
-    for (MFIter mfi(Ssync); mfi.isValid(); ++mfi)
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
+    for (MFIter mfi(Ssync,true); mfi.isValid(); ++mfi)
     {
-      const int i = mfi.index();
+      const Box& box = mfi.tilebox();
 	  
       int iconserved = -1;
 	  
@@ -5954,7 +5979,7 @@ PeleLM::mac_sync ()
         if (istate != Density && advectionType[istate] == Conservative)
         {
           iconserved++;
-          Ssync[mfi].plus((*DeltaSsync)[mfi],grids[i],iconserved,istate-BL_SPACEDIM,1);
+          Ssync[mfi].plus((*DeltaSsync)[mfi],box,iconserved,istate-BL_SPACEDIM,1);
         }
       }
     }
@@ -5965,15 +5990,18 @@ PeleLM::mac_sync ()
     // Increment the state (for all but rho, since that was done above)
     //
     BL_PROFILE_VAR_START(HTSSYNC);
-    for (MFIter mfi(S_new); mfi.isValid(); ++mfi)
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
+    for (MFIter mfi(S_new,true); mfi.isValid(); ++mfi)
     {
-      const int i = mfi.index();
+      const Box& box = mfi.tilebox();
 
       for (int sigma = 0; sigma < numscal; sigma++)
       {
         if (!(BL_SPACEDIM+sigma == Density))
         {
-          S_new[mfi].plus(Ssync[mfi],grids[i],sigma,BL_SPACEDIM+sigma,1);
+          S_new[mfi].plus(Ssync[mfi],box,sigma,BL_SPACEDIM+sigma,1);
         }
       }
     }
@@ -6059,20 +6087,25 @@ PeleLM::mac_sync ()
         increment.setVal(0,Density-BL_SPACEDIM,1,0);
 
         for (int istate = first_spec; istate <= last_spec; istate++)
-        { 
-          for (MFIter mfi(increment); mfi.isValid(); ++mfi)
+        {
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
+          for (MFIter mfi(increment,true); mfi.isValid(); ++mfi)
           {
-            int i = mfi.index();
-            increment[mfi].plus(increment[mfi],fine_grids[i],
+            const Box& box = mfi.tilebox();
+            increment[mfi].plus(increment[mfi],box,
                                 istate-BL_SPACEDIM,Density-BL_SPACEDIM,1);
           }
         }
       }
- 
-      for (MFIter mfi(increment); mfi.isValid(); ++mfi)
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
+      for (MFIter mfi(increment,true); mfi.isValid(); ++mfi)
       {
-        int i = mfi.index();
-        S_new_lev[mfi].plus(increment[mfi],fine_grids[i],0,Density,numscal);
+        const Box& box = mfi.tilebox();
+        S_new_lev[mfi].plus(increment[mfi],box,0,Density,numscal);
       }
 
       if (last_mac_sync_iter)
@@ -6475,13 +6508,16 @@ PeleLM::reflux ()
 
   if (do_mom_diff == 0) 
   {
-    for (MFIter mfi(Vsync); mfi.isValid(); ++mfi)
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
+    for (MFIter mfi(Vsync,true); mfi.isValid(); ++mfi)
     {
-      const int i = mfi.index();
+      const Box& box = mfi.tilebox();
 
-      D_TERM(Vsync[mfi].divide(RhoHalftime[mfi],grids[i],0,Xvel,1);,
-             Vsync[mfi].divide(RhoHalftime[mfi],grids[i],0,Yvel,1);,
-             Vsync[mfi].divide(RhoHalftime[mfi],grids[i],0,Zvel,1););
+      D_TERM(Vsync[mfi].divide(RhoHalftime[mfi],box,0,Xvel,1);,
+             Vsync[mfi].divide(RhoHalftime[mfi],box,0,Yvel,1);,
+             Vsync[mfi].divide(RhoHalftime[mfi],box,0,Zvel,1););
     }
   }
 
@@ -6695,10 +6731,12 @@ PeleLM::getViscosity (MultiFab*  beta[BL_SPACEDIM],
   BL_ASSERT(whichTime == AmrOldTime || whichTime == AmrNewTime);
 
   MultiFab* visc = (whichTime == AmrOldTime) ? viscn_cc : viscnp1_cc;
-
-  for (MFIter viscMfi(*visc); viscMfi.isValid(); ++viscMfi)
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
+  for (MFIter viscMfi(*visc,true); viscMfi.isValid(); ++viscMfi)
   {
-    const int i = viscMfi.index();
+    const Box& box = viscMfi.tilebox();
 
     for (int dir = 0; dir < BL_SPACEDIM; dir++)
     {
@@ -6706,7 +6744,7 @@ PeleLM::getViscosity (MultiFab*  beta[BL_SPACEDIM],
       FPLoc bc_hi = fpi_phys_loc(get_desc_lst()[State_Type].getBC(Density).hi(dir));
 
       center_to_edge_fancy((*visc)[viscMfi],(*beta[dir])[viscMfi],
-                           amrex::grow(grids[i],amrex::BASISV(dir)), 0, 0, 1,
+                           amrex::grow(box,amrex::BASISV(dir)), 0, 0, 1,
                            geom.Domain(), bc_lo, bc_hi);
     }
   }
@@ -6729,10 +6767,12 @@ PeleLM::getDiffusivity (MultiFab*  beta[BL_SPACEDIM],
   MultiFab* diff      = (whichTime == AmrOldTime) ? diffn_cc : diffnp1_cc;
   const int offset    = BL_SPACEDIM + 1; // No diffusion coeff for vels or rho
   int       diff_comp = state_comp - offset;
-
-  for (MFIter diffMfi(*diff); diffMfi.isValid(); ++diffMfi)
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
+  for (MFIter diffMfi(*diff,true); diffMfi.isValid(); ++diffMfi)
   {
-    const int i = diffMfi.index();
+    const Box& box = diffMfi.tilebox();
 
     for (int dir = 0; dir < BL_SPACEDIM; dir++)
     {
@@ -6740,7 +6780,7 @@ PeleLM::getDiffusivity (MultiFab*  beta[BL_SPACEDIM],
       FPLoc bc_hi = fpi_phys_loc(get_desc_lst()[State_Type].getBC(state_comp).hi(dir));
 
       center_to_edge_fancy((*diff)[diffMfi],(*beta[dir])[diffMfi],
-                           amrex::grow(grids[i],amrex::BASISV(dir)), diff_comp, 
+                           amrex::grow(box,amrex::BASISV(dir)), diff_comp, 
                            dst_comp, ncomp, geom.Domain(), bc_lo, bc_hi);
     }
   }
@@ -7038,9 +7078,12 @@ PeleLM::RhoH_to_Temp (MultiFab& S,
   }
 
   int max_iters = 0;
-  for (MFIter mfi(S); mfi.isValid(); ++mfi)
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
+  for (MFIter mfi(S,true); mfi.isValid(); ++mfi)
   {
-    const Box& box = amrex::grow(mfi.validbox(),nGrow);
+    const Box& box = amrex::grow(mfi.tilebox(),nGrow);
     max_iters = std::max(max_iters, RhoH_to_Temp(S[mfi],box,dominmax));
   }
 
