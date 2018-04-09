@@ -3274,8 +3274,11 @@ Real MFnorm(const MultiFab& mf,
 {
   const int p = 0; // max norm
   Real normtot = 0.0;
-  for (MFIter mfi(mf); mfi.isValid(); ++mfi)
-    normtot = std::max(normtot,mf[mfi].norm(mfi.validbox(),p,sComp,nComp));
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
+  for (MFIter mfi(mf,true); mfi.isValid(); ++mfi)
+    normtot = std::max(normtot,mf[mfi].norm(mfi.tilebox(),p,sComp,nComp));
   ParallelDescriptor::ReduceRealMax(normtot);
   return normtot;
 }
@@ -6520,32 +6523,36 @@ PeleLM::reflux ()
              Vsync[mfi].divide(RhoHalftime[mfi],box,0,Zvel,1););
     }
   }
-
-  FArrayBox tmp;
-
-  // for any variables that used non-conservative advective differencing,
-  // divide the sync by rhohalf
-  for (MFIter mfi(Ssync); mfi.isValid(); ++mfi)
+  
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
   {
-    const int i = mfi.index();
-
-    tmp.resize(grids[i],1);
-    tmp.copy(RhoHalftime[mfi],0,0,1);
-    tmp.invert(1);
-
-    for (int istate = BL_SPACEDIM; istate < NUM_STATE; istate++)
+    FArrayBox tmp;
+  
+    // for any variables that used non-conservative advective differencing,
+    // divide the sync by rhohalf
+    for (MFIter mfi(Ssync,true); mfi.isValid(); ++mfi)
     {
-      if (advectionType[istate] == NonConservative)
+      //const int i = mfi.index();
+  const Box& bx = mfi.tilebox();
+      tmp.resize(bx,1);
+      tmp.copy(RhoHalftime[mfi],0,0,1);
+      tmp.invert(1);
+  
+      for (int istate = BL_SPACEDIM; istate < NUM_STATE; istate++)
       {
-        const int sigma = istate -  BL_SPACEDIM;
-
-        Ssync[mfi].mult(tmp,0,sigma,1);
+        if (advectionType[istate] == NonConservative)
+        {
+          const int sigma = istate -  BL_SPACEDIM;
+  
+          Ssync[mfi].mult(tmp,bx,0,sigma,1);
+        }
       }
     }
+  
+    tmp.clear();
   }
-
-  tmp.clear();
-
   // take divergence of advective flux registers into cell-centered RHS
   fr_adv.Reflux(Vsync,volume,scale,0,0,BL_SPACEDIM,geom);
   fr_adv.Reflux(Ssync,volume,scale,BL_SPACEDIM,0,NUM_STATE-BL_SPACEDIM,geom);
