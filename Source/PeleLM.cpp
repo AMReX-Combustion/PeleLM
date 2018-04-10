@@ -4658,7 +4658,7 @@ PeleLM::advance (Real time,
 
   if (plot_heat_release)
   {
-        const MultiFab& R = get_new_data(RhoYdot_Type);
+    const MultiFab& R = get_new_data(RhoYdot_Type);
 #ifdef _OPENMP
 #pragma omp parallel
 #endif
@@ -6864,22 +6864,26 @@ PeleLM::zeroBoundaryVisc (MultiFab*  beta[BL_SPACEDIM],
   const int isrz = (int) geom.IsRZ();
   for (int dir = 0; dir < BL_SPACEDIM; dir++)
   {
-    Box edom = amrex::surroundingNodes(geom.Domain(),dir);
-        
-    for (MFIter mfi(*(beta[dir])); mfi.isValid(); ++mfi)
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
     {
-      FArrayBox& beta_fab = (*(beta[dir]))[mfi];
-      const Box& ebox     = amrex::surroundingNodes(mfi.validbox(),dir);
-      zero_visc(beta_fab.dataPtr(dst_comp),
-                    ARLIM(beta_fab.loVect()), ARLIM(beta_fab.hiVect()),
-                    ebox.loVect(),  ebox.hiVect(),
-                    edom.loVect(),  edom.hiVect(),
-                    geom.CellSize(), geom.ProbLo(), phys_bc.vect(),
-                    &dir, &isrz, &state_comp, &ncomp);
+      Box edom = amrex::surroundingNodes(geom.Domain(),dir);
+  
+      for (MFIter mfi(*(beta[dir]),true); mfi.isValid(); ++mfi)
+      {
+        FArrayBox& beta_fab = (*(beta[dir]))[mfi];
+        const Box& ebox     = amrex::surroundingNodes(mfi.growntilebox(),dir);
+        zero_visc(beta_fab.dataPtr(dst_comp),
+                      ARLIM(beta_fab.loVect()), ARLIM(beta_fab.hiVect()),
+                      ebox.loVect(),  ebox.hiVect(),
+                      edom.loVect(),  edom.hiVect(),
+                      geom.CellSize(), geom.ProbLo(), phys_bc.vect(),
+                      &dir, &isrz, &state_comp, &ncomp);
+      }
     }
   }
 }
-
 void
 PeleLM::compute_vel_visc (Real      time,
                           MultiFab* beta)
