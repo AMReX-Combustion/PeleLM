@@ -4662,27 +4662,27 @@ PeleLM::advance (Real time,
 #ifdef _OPENMP
 #pragma omp parallel
 #endif
-{
-    FArrayBox enthi, T;
-
-    for (MFIter mfi(R,true); mfi.isValid(); ++mfi)
     {
-      const Box& box = mfi.tilebox();
-      T.resize(box,1);
-      T.setVal(298.15,box);
-        
-      enthi.resize(box,R.nComp());
-      getChemSolve().getHGivenT(enthi,T,box,0,0);
-      enthi.mult(R[mfi],box,0,0,R.nComp());
-        
-      // Form heat release
-      (*auxDiag["HEATRELEASE"])[mfi].setVal(0,box);
-      for (int j=0; j<R.nComp(); ++j)
+      FArrayBox enthi, T;
+
+      for (MFIter mfi(R,true); mfi.isValid(); ++mfi)
       {
-        (*auxDiag["HEATRELEASE"])[mfi].minus(enthi,box,j,0,1);
+        const Box& box = mfi.tilebox();
+        T.resize(box,1);
+        T.setVal(298.15,box);
+        
+        enthi.resize(box,R.nComp());
+        getChemSolve().getHGivenT(enthi,T,box,0,0);
+        enthi.mult(R[mfi],box,0,0,R.nComp());
+        
+        // Form heat release
+        (*auxDiag["HEATRELEASE"])[mfi].setVal(0,box);
+        for (int j=0; j<R.nComp(); ++j)
+        {
+          (*auxDiag["HEATRELEASE"])[mfi].minus(enthi,box,j,0,1);
+        }
       }
     }
-  }
   }
 #ifdef BL_COMM_PROFILING
   for (MFIter mfi(*auxDiag["COMMPROF"]); mfi.isValid(); ++mfi)
@@ -5552,33 +5552,38 @@ PeleLM::mac_sync ()
     // then subtract DeltaSsync from Ssync
     // (these are the terms that were accidentally omitted in (18) and (19)
     //
-    FArrayBox delta_ssync;
-
-    for (MFIter mfi(S_new); mfi.isValid(); ++mfi)
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
     {
-      const int  i   = mfi.index();
-      const Box& grd = grids[i];
+      FArrayBox delta_ssync;
 
-      int iconserved = -1;
-
-      for (int istate = BL_SPACEDIM; istate < NUM_STATE; istate++)
+      for (MFIter mfi(S_new,true); mfi.isValid(); ++mfi)
       {
-        if (istate != Density && advectionType[istate] == Conservative)
+        const Box& grd = mfi.tilebox();
+
+        int iconserved = -1;
+
+        for (int istate = BL_SPACEDIM; istate < NUM_STATE; istate++)
         {
-          iconserved++;
-          delta_ssync.resize(grd,1);
-          delta_ssync.copy(S_new[mfi],grd,istate,grd,0,1); // delta_ssync = (rho*q)^{n+1,p}
-          delta_ssync.divide(S_new[mfi],grd,Density,0,1); // delta_ssync = q^{n+1,p}
-          FArrayBox& s_sync = Ssync[mfi]; // Ssync = RHS of Eq (18), (19) without the q^{n+1,p} * (delta rho)^sync terms
-          // note that the density component contains (delta rho)^sync
-          delta_ssync.mult(s_sync,grd,Density-BL_SPACEDIM,0,1); // delta_ssync = q^{n+1,p} * (delta rho)^sync
-          (*DeltaSsync)[mfi].copy(delta_ssync,grd,0,grd,iconserved,1); // DeltaSsync = q^{n+1,p} * (delta rho)^sync
-          s_sync.minus(delta_ssync,grd,0,istate-BL_SPACEDIM,1); // Ssync = Ssync - q^{n+1,p} * (delta rho)^sync
+          if (istate != Density && advectionType[istate] == Conservative)
+          {
+            iconserved++;
+            delta_ssync.resize(grd,1);
+            delta_ssync.copy(S_new[mfi],grd,istate,grd,0,1); // delta_ssync = (rho*q)^{n+1,p}
+            delta_ssync.divide(S_new[mfi],grd,Density,0,1); // delta_ssync = q^{n+1,p}
+            FArrayBox& s_sync = Ssync[mfi]; // Ssync = RHS of Eq (18), (19) without the q^{n+1,p} * (delta rho)^sync terms
+            // note that the density component contains (delta rho)^sync
+            delta_ssync.mult(s_sync,grd,Density-BL_SPACEDIM,0,1); // delta_ssync = q^{n+1,p} * (delta rho)^sync
+            (*DeltaSsync)[mfi].copy(delta_ssync,grd,0,grd,iconserved,1); // DeltaSsync = q^{n+1,p} * (delta rho)^sync
+            s_sync.minus(delta_ssync,grd,0,istate-BL_SPACEDIM,1); // Ssync = Ssync - q^{n+1,p} * (delta rho)^sync
+          }
         }
       }
+
+      delta_ssync.clear();
     }
 
-    delta_ssync.clear();
     //
     // Now, increment density.
     //
@@ -5831,14 +5836,15 @@ PeleLM::mac_sync ()
           //
           for (int d = 0; d < BL_SPACEDIM; ++d)
           {
-            MFIter SDF_mfi(*SpecDiffusionFluxnp1[d]);
-	      
-            for ( ; SDF_mfi.isValid(); ++SDF_mfi)
+#ifdef _OPENMP
+#pragma omp parallel
+#endif	      
+            for (MFIter SDF_mfi(*SpecDiffusionFluxnp1[d],true) ; SDF_mfi.isValid(); ++SDF_mfi)
             {
               FArrayBox& fluxSC_fab   = (*fluxSC[d])[SDF_mfi];
               FArrayBox& fluxNULN_fab = (*fluxNULN[d])[SDF_mfi];
               FArrayBox& SDF_fab = (*SpecDiffusionFluxnp1[d])[SDF_mfi];
-              const Box& ebox    = SDF_mfi.validbox();
+              const Box& ebox    = SDF_mfi.tilebox();
               // copy in (delta Gamma)^sync
               fluxNULN_fab.copy(SDF_fab,ebox,comp,ebox,comp,1);
               // add in (lambda/cp) grad (delta Y^sync)
@@ -6423,12 +6429,16 @@ PeleLM::differential_spec_diffuse_sync (Real dt,
   //
   // Recompute update with adjusted diffusion fluxes
   //
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
+{
   FArrayBox update, efab[BL_SPACEDIM];
 
-  for (MFIter mfi(Ssync); mfi.isValid(); ++mfi)
+  for (MFIter mfi(Ssync,true); mfi.isValid(); ++mfi)
   {
     int        iGrid = mfi.index();
-    const Box& box   = mfi.validbox();
+    const Box& box   = mfi.growntilebox();
 
     // copy corrected (delta gamma) on edges into efab
     for (int d=0; d<BL_SPACEDIM; ++d)
@@ -6466,7 +6476,7 @@ PeleLM::differential_spec_diffuse_sync (Real dt,
     // Ssync = "RHS from diffusion solve" + (dt/2) * div (delta gamma)
     Ssync[mfi].copy(update,box,0,box,first_spec-BL_SPACEDIM,nspecies);
   }
-
+}
   Rhs.clear();
   //
   // Do refluxing AFTER flux adjustment
