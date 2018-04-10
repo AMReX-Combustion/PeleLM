@@ -15,6 +15,8 @@ USE_OMP         = TRUE
 PRECISION       = DOUBLE
 VERBOSE         = FALSE
 
+TINY_PROFILE = TRUE
+
 # Enable flctin namelist
 #USE_FLCTS       = TRUE
 

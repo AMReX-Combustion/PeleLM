@@ -3777,24 +3777,31 @@ PeleLM::temperature_stats (MultiFab& S)
 
     ParallelDescriptor::ReduceRealMin(tdhmin,3,IOProc);
     ParallelDescriptor::ReduceRealMax(tdhmax,3,IOProc);
-
-    FArrayBox   Y, tmp;
+    
     bool        aNegY = false;
     Vector<Real> minY(nspecies,1.e30);
-
-    for (MFIter S_mfi(S); S_mfi.isValid(); ++S_mfi)
+    
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
     {
-      Y.resize(S_mfi.validbox(),1);
-
-      tmp.resize(S_mfi.validbox(),1);
-      tmp.copy(S[S_mfi],Density,0,1);
-      tmp.invert(1);
-
-      for (int i = 0; i < nspecies; ++i)
+      FArrayBox   Y, tmp;
+  
+      for (MFIter S_mfi(S,true); S_mfi.isValid(); ++S_mfi)
       {
-        Y.copy(S[S_mfi],first_spec+i,0,1);
-        Y.mult(tmp,0,0,1);
-        minY[i] = std::min(minY[i],Y.min(0));
+        const Box& bx = S_mfi.tilebox();
+        Y.resize(bx,1);
+  
+        tmp.resize(bx,1);
+        tmp.copy(S[S_mfi],bx,Density,bx,0,1);
+        tmp.invert(1,bx);
+  
+        for (int i = 0; i < nspecies; ++i)
+        {
+          Y.copy(S[S_mfi],bx,first_spec+i,bx,0,1);
+          Y.mult(tmp,bx,0,0,1);
+          minY[i] = std::min(minY[i],Y.min(bx,0));
+        }
       }
     }
 
@@ -3833,41 +3840,47 @@ PeleLM::compute_rhoRT (const MultiFab& S,
   const BoxArray& sgrids = S.boxArray();
   int nCompY = last_spec - first_spec + 1;
 
-  FArrayBox state, tmp;
-
-  for (MFIter mfi(S); mfi.isValid(); ++mfi)
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
   {
-    const int  i      = mfi.index();
-    const Box& box    = sgrids[i];
-    const int  sCompR = 0;
-    const int  sCompT = 1;
-    const int  sCompY = 2;
-	
-    state.resize(box,nCompY+2);
-    BL_ASSERT(S[mfi].box().contains(box));
-    state.copy(S[mfi],box,Density,box,sCompR,1);
-
-    if (temp)
+    FArrayBox state, tmp;
+  
+    for (MFIter mfi(S,true); mfi.isValid(); ++mfi)
     {
-      BL_ASSERT(temp->boxArray()[i].contains(box));
-      state.copy((*temp)[mfi],box,0,box,sCompT,1);
+      const int  i      = mfi.index();
+      //const Box& box    = sgrids[i];
+      const Box& box = mfi.tilebox();
+      const int  sCompR = 0;
+      const int  sCompT = 1;
+      const int  sCompY = 2;
+    
+      state.resize(box,nCompY+2);
+      BL_ASSERT(S[mfi].box().contains(box));
+      state.copy(S[mfi],box,Density,box,sCompR,1);
+  
+      if (temp)
+      {
+        BL_ASSERT(temp->boxArray()[i].contains(box));
+        state.copy((*temp)[mfi],box,0,box,sCompT,1);
+      }
+      else
+      {
+        state.copy(S[mfi],box,Temp,box,sCompT,1);
+      }
+      state.copy(S[mfi],box,first_spec,box,sCompY,nCompY);
+  
+      tmp.resize(box,1);
+      tmp.copy(state,box,sCompR,box,0,1);
+      tmp.invert(1);
+  
+      for (int k = 0; k < nCompY; k++)
+        state.mult(tmp,box,0,sCompY+k,1);
+  
+      getChemSolve().getPGivenRTY(p[mfi],state,state,state,box,sCompR,sCompT,sCompY,pComp);
     }
-    else
-    {
-      state.copy(S[mfi],box,Temp,box,sCompT,1);
-    }
-    state.copy(S[mfi],box,first_spec,box,sCompY,nCompY);
-
-    tmp.resize(box,1);
-    tmp.copy(state,sCompR,0,1);
-    tmp.invert(1);
-
-    for (int k = 0; k < nCompY; k++)
-      state.mult(tmp,0,sCompY+k,1);
-
-    getChemSolve().getPGivenRTY(p[mfi],state,state,state,box,sCompR,sCompT,sCompY,pComp);
   }
-
+  
   if (verbose > 1)
   {
     const int IOProc   = ParallelDescriptor::IOProcessorNumber();
@@ -4645,27 +4658,32 @@ PeleLM::advance (Real time,
 
   if (plot_heat_release)
   {
+        const MultiFab& R = get_new_data(RhoYdot_Type);
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
+{
     FArrayBox enthi, T;
-    const MultiFab& R = get_new_data(RhoYdot_Type);
-    for (MFIter mfi(R); mfi.isValid(); ++mfi)
+
+    for (MFIter mfi(R,true); mfi.isValid(); ++mfi)
     {
-      const Box& box = mfi.validbox();
-      T.resize(mfi.validbox(),1);
-      T.setVal(298.15);
+      const Box& box = mfi.tilebox();
+      T.resize(box,1);
+      T.setVal(298.15,box);
         
-      enthi.resize(mfi.validbox(),R.nComp());
+      enthi.resize(box,R.nComp());
       getChemSolve().getHGivenT(enthi,T,box,0,0);
-      enthi.mult(R[mfi],0,0,R.nComp());
+      enthi.mult(R[mfi],box,0,0,R.nComp());
         
       // Form heat release
-      (*auxDiag["HEATRELEASE"])[mfi].setVal(0);
+      (*auxDiag["HEATRELEASE"])[mfi].setVal(0,box);
       for (int j=0; j<R.nComp(); ++j)
       {
-        (*auxDiag["HEATRELEASE"])[mfi].minus(enthi,j,0,1);
+        (*auxDiag["HEATRELEASE"])[mfi].minus(enthi,box,j,0,1);
       }
     }
   }
-
+  }
 #ifdef BL_COMM_PROFILING
   for (MFIter mfi(*auxDiag["COMMPROF"]); mfi.isValid(); ++mfi)
   {

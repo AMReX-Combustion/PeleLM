@@ -23,6 +23,7 @@
       save /prob1/, /prob2/, /prob3/, /prob4/, /prob5/
 
       integer refine_nozzle
+      REAL_T  jet_x, jet_y, adv_vel, infl_time_offset, omega
       REAL_T refine_nozzle_x, refine_nozzle_y, refine_nozzle_z, blobx, bloby, blobz, blobr, blobT, Tfrontw, xcen
       common /myprob1/ refine_nozzle
       common /myprob2/ refine_nozzle_x, refine_nozzle_y, refine_nozzle_z, blobx, bloby, blobz, &

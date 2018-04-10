@@ -174,3 +174,6 @@ mac.do_outflow_bcs = 0
 #   8BIT   (eight-bit run-length-encoded)
 #
 fab.format = NATIVE
+
+
+fabarray.mfiter_tile_size = 8 8 8 
