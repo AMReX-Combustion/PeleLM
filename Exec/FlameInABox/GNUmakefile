@@ -16,6 +16,7 @@ PRECISION       = DOUBLE
 VERBOSE         = FALSE
 
 TINY_PROFILE = TRUE
+#USE_WBAR = TRUE
 
 # Enable flctin namelist
 #USE_FLCTS       = TRUE

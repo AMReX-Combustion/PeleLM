@@ -2678,8 +2678,10 @@ PeleLM::avgDown ()
   crse_P_fine_BA.coarsen(fine_ratio);
 
   MultiFab crse_P_fine(crse_P_fine_BA,P_fdmap,1,0);
-
-  for (MFIter mfi(P_fine); mfi.isValid(); ++mfi)
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
+  for (MFIter mfi(P_fine,true); mfi.isValid(); ++mfi)
   {
     const int i = mfi.index();
 
@@ -2816,9 +2818,12 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
   // species diffusion fluxes (SpecDiffusionFluxnp1)
   for (int d=0; d<BL_SPACEDIM; ++d)
   {
-    for (MFIter mfi(*SpecDiffusionFluxWbar[d]); mfi.isValid(); ++mfi)
+#ifdef _OPENMP
+#pragma omp parallel
+#endif    
+    for (MFIter mfi(*SpecDiffusionFluxWbar[d],true); mfi.isValid(); ++mfi)
     {
-      const Box& ebox = (*SpecDiffusionFluxWbar[d])[mfi].box();
+      const Box& ebox = mfi.tilebox();
       (*SpecDiffusionFluxnp1[d])[mfi].plus((*SpecDiffusionFluxWbar[d])[mfi],ebox,0,0,nspecies);
     }
   }
@@ -3424,9 +3429,12 @@ PeleLM::compute_differential_diffusion_fluxes (const Real& time,
   // species diffusion fluxes (flux)
   for (int d=0; d<BL_SPACEDIM; ++d)
   {
-    for (MFIter mfi(*SpecDiffusionFluxWbar[d]); mfi.isValid(); ++mfi)
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
+    for (MFIter mfi(*SpecDiffusionFluxWbar[d],true); mfi.isValid(); ++mfi)
     {
-      const Box& ebox = (*SpecDiffusionFluxWbar[d])[mfi].box();
+      const Box& ebox = mfi.tilebox();
       (*flux[d])[mfi].plus((*SpecDiffusionFluxWbar[d])[mfi],ebox,0,0,nspecies);
     }
   }
@@ -4741,10 +4749,12 @@ PeleLM::advance (Real time,
     MultiFab& dsdt_old = get_old_data(Dsdt_Type);
 
     std::vector< std::pair<int,Box> > isects;
-            
+#ifdef _OPENMP
+#pragma omp parallel
+#endif            
     for (MFIter mfi(divu_new); mfi.isValid();++mfi)
     {
-      isects = crsndgrids.intersections(mfi.validbox());
+      isects = crsndgrids.intersections(mfi.tilebox());
 
       for (int i = 0, N = isects.size(); i < N; i++)
       {
@@ -5098,7 +5108,7 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
 
         getChemSolve().solveTransient_sdc(rYn,rHn,Tn,rYo,rHo,To,frc,fc,ba[i],
                                           s_spec,s_rhoh,s_temp,dt,chemDiag,
-					  use_stiff_solver);
+					                                use_stiff_solver);
       }
     }
 
@@ -5664,9 +5674,13 @@ PeleLM::mac_sync ()
 
         // create an updated (but stil temporary) new state species
         // by adding Ssync plus DeltaSsync to the new state
-        for (MFIter mfi(Ssync); mfi.isValid(); ++mfi)
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
+{
+        for (MFIter mfi(Ssync,true); mfi.isValid(); ++mfi)
         {
-          const int i = mfi.index();
+          const Box& bx = mfi.tilebox();
 		
           int iconserved = -1;
 		
@@ -5680,14 +5694,14 @@ PeleLM::mac_sync ()
               // this is the Y_m^{n+1,p} * delta rho^sync piece
               if (istate >= first_spec && istate <= last_spec)
               {
-                Ssync[mfi].plus((*DeltaSsync)[mfi],grids[i],iconserved,istate-BL_SPACEDIM,1);
+                Ssync[mfi].plus((*DeltaSsync)[mfi],bx,iconserved,istate-BL_SPACEDIM,1);
               }
             }
           }
         }
-        for (MFIter mfi(S_new); mfi.isValid(); ++mfi)
+        for (MFIter mfi(S_new,true); mfi.isValid(); ++mfi)
         {
-          const int i = mfi.index();
+          const Box& bx = mfi.tilebox();
 		
           for (int sigma = 0; sigma < numscal; sigma++)
           {
@@ -5695,19 +5709,22 @@ PeleLM::mac_sync ()
             // this is the rho^{n+1} * delta Y^sync piece
             if (BL_SPACEDIM+sigma >= first_spec && BL_SPACEDIM+sigma <= last_spec)
             {
-              S_new[mfi].plus(Ssync[mfi],grids[i],sigma,BL_SPACEDIM+sigma,1);
+              S_new[mfi].plus(Ssync[mfi],bx,sigma,BL_SPACEDIM+sigma,1);
             }
           }
         }
-
+}
         // compute beta grad Wbar terms using the temporary new state
         // add these to SpecDiffusionFluxWbar so it contains the delta
         compute_Wbar_fluxes(cur_time,1);
-
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
+{
         // subtract Ssync and DeltaSsync from the new state to restore the n+1,p state
-        for (MFIter mfi(Ssync); mfi.isValid(); ++mfi)
+        for (MFIter mfi(Ssync,true); mfi.isValid(); ++mfi)
         {
-          const int i = mfi.index();
+          const Box& bx = mfi.tilebox();
 		
           int iconserved = -1;
 		
@@ -5721,14 +5738,14 @@ PeleLM::mac_sync ()
               // this is the Y_m^{n+1,p} * delta rho^sync piece
               if (istate >= first_spec && istate <= last_spec)
               {
-                Ssync[mfi].minus((*DeltaSsync)[mfi],grids[i],iconserved,istate-BL_SPACEDIM,1);
+                Ssync[mfi].minus((*DeltaSsync)[mfi],bx,iconserved,istate-BL_SPACEDIM,1);
               }
             }
           }
         }
-        for (MFIter mfi(S_new); mfi.isValid(); ++mfi)
+        for (MFIter mfi(S_new,true); mfi.isValid(); ++mfi)
         {
-          const int i = mfi.index();
+          const Box& bx = mfi.tilebox();
 		
           for (int sigma = 0; sigma < numscal; sigma++)
           {
@@ -5736,19 +5753,26 @@ PeleLM::mac_sync ()
             // this is the rho^{n+1} * delta Y^sync piece
             if (BL_SPACEDIM+sigma >= first_spec && BL_SPACEDIM+sigma <= last_spec)
             {
-              S_new[mfi].minus(Ssync[mfi],grids[i],sigma,BL_SPACEDIM+sigma,1);
+              S_new[mfi].minus(Ssync[mfi],bx,sigma,BL_SPACEDIM+sigma,1);
             }
           }
         }
+}
 
         // take divergence of beta grad delta Wbar and multiply divergence by dt/2
         MultiFab DWbar(grids,dmap,nspecies,nGrowAdvForcing);
         MultiFab* const * fluxWbar = SpecDiffusionFluxWbar;
         flux_divergence(DWbar,0,fluxWbar,0,nspecies,-1);
         DWbar.mult(dt/2.0);
-
+        
+        
         // reset Ssync to be the same RHS as above, but with the (dt/2) div beta grad delta Wbar term
         // use the code above, but add on the grad delta Wbar term
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
+{
+        FArrayBox delta_ssync;
         for (MFIter mfi(S_new); mfi.isValid(); ++mfi)
         {
           const int  i   = mfi.index();
@@ -5775,8 +5799,9 @@ PeleLM::mac_sync ()
             }
           }
         }
-	    
         delta_ssync.clear();
+}
+        
 
         // call differential_spec_diffuse_sync again, but this time the conservative
         // correction needs to be the sum of the delta Y_m and SpecDiffusionFluxWbar terms
@@ -6234,10 +6259,12 @@ PeleLM::compute_Wbar_fluxes(Real time,
   MultiFab Wbar;
 
   Wbar.define(grids,dmap,1,nGrowOp);
-
-  for (MFIter mfi(rho_and_species); mfi.isValid(); ++mfi)
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
+  for (MFIter mfi(rho_and_species,true); mfi.isValid(); ++mfi)
   {
-    const Box& gbox = amrex::grow(mfi.validbox(),nGrowOp);
+    const Box& gbox = mfi.growntilebox(); // amrex::grow(mfi.tilebox(),nGrowOp);
     getChemSolve().getMwmixGivenY(Wbar[mfi],rho_and_species[mfi],gbox,1,0);
   }
 
@@ -6285,9 +6312,12 @@ PeleLM::compute_Wbar_fluxes(Real time,
     MultiFab Wbar_crse(rho_and_species_crse.boxArray(),
                        rho_and_species_crse.DistributionMap(),
                        1,nGrowCrse);
-    for (MFIter mfi(rho_and_species_crse); mfi.isValid(); ++mfi)
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
+    for (MFIter mfi(rho_and_species_crse,true); mfi.isValid(); ++mfi)
     {
-      const Box& box = rho_and_species_crse[mfi].box();
+      const Box& box = mfi.growntilebox();
       getChemSolve().getMwmixGivenY(Wbar_crse[mfi],rho_and_species_crse[mfi],box,1,0);
     }	  
     crse_br.copyFrom(Wbar_crse,nGrowCrse,0,0,1);
@@ -6299,12 +6329,10 @@ PeleLM::compute_Wbar_fluxes(Real time,
   visc_op->applyBC(Wbar,0,1,0,LinOp::Inhomogeneous_BC);
 
   delete visc_op;
-#ifdef _OPENMP
-#pragma omp parallel
-#endif    
-  for (MFIter mfi(Wbar,true); mfi.isValid(); ++mfi)
+   
+  for (MFIter mfi(Wbar); mfi.isValid(); ++mfi)
   {
-    const Box&       vbox = mfi.tilebox();
+    const Box&       vbox = mfi.validbox();
     const FArrayBox& wbar = Wbar[mfi];
     const Real       mult = -1.0;
 
@@ -6325,6 +6353,7 @@ PeleLM::compute_Wbar_fluxes(Real time,
     }
   }
 }
+
 #endif
 
 void
@@ -6420,9 +6449,12 @@ PeleLM::differential_spec_diffuse_sync (Real dt,
   {
     for (int d=0; d<BL_SPACEDIM; ++d)
     {
-      for (MFIter mfi(*SpecDiffusionFluxWbar[d]); mfi.isValid(); ++mfi)
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
+      for (MFIter mfi(*SpecDiffusionFluxWbar[d],true); mfi.isValid(); ++mfi)
       {
-        const Box& ebox = (*SpecDiffusionFluxWbar[d])[mfi].box();
+        const Box& ebox =mfi.tilebox();
         (*SpecDiffusionFluxnp1[d])[mfi].plus((*SpecDiffusionFluxWbar[d])[mfi],ebox,0,0,nspecies);
       }
     }
@@ -6845,10 +6877,12 @@ PeleLM::getDiffusivity_Wbar (MultiFab*  beta[BL_SPACEDIM],
 {
   BL_PROFILE("HT::getDiffusivity_Wbar()");
   MultiFab& diff = diffWbar_cc;
-
-  for (MFIter diffMfi(diff); diffMfi.isValid(); ++diffMfi)
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
+  for (MFIter diffMfi(diff,true); diffMfi.isValid(); ++diffMfi)
   {
-    const int i = diffMfi.index();
+    const Box& box = diffMfi.tilebox();
 
     for (int dir = 0; dir < BL_SPACEDIM; dir++)
     {
@@ -6856,7 +6890,7 @@ PeleLM::getDiffusivity_Wbar (MultiFab*  beta[BL_SPACEDIM],
       FPLoc bc_hi = fpi_phys_loc(get_desc_lst()[State_Type].getBC(first_spec).hi(dir));
 
       center_to_edge_fancy(diff[diffMfi],(*beta[dir])[diffMfi],
-                           amrex::grow(grids[i],amrex::BASISV(dir)), 0,
+                           amrex::grow(box,amrex::BASISV(dir)), 0,
                            0, nspecies, geom.Domain(), bc_lo, bc_hi);
     }
   }
