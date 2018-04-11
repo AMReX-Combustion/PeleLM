@@ -4422,7 +4422,7 @@ PeleLM::advance (Real time,
         const FArrayBox& th_old = theta_old[mfi];
         const Box& box = mfi.tilebox();
         th_nph.plus(th_old,box,box,0,0,1);
-        th_nph.mult(0.5);
+        th_nph.mult(0.5,box,0,1);
       }
 
       // compute number of cells
@@ -4448,7 +4448,7 @@ PeleLM::advance (Real time,
         FArrayBox& m_du = mac_divu[mfi];
         FArrayBox& th_nph = theta_nph[mfi];
         const Box& box = mfi.tilebox();
-        th_nph.mult(Sbar/thetabar);
+        th_nph.mult(Sbar/thetabar,box,0,1);
         m_du.minus(th_nph,box,box,0,0,1);
       }
       BL_PROFILE_VAR_STOP(HTMAC);
@@ -4532,9 +4532,13 @@ PeleLM::advance (Real time,
     showMF("sdc",DDnp1,"sdc_DDnp1_before_Dhat",level,sdc_iter,parent->levelSteps(level));
 
     BL_PROFILE_VAR_START(HTDIFF);
-    for (MFIter mfi(Forcing); mfi.isValid(); ++mfi) 
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
+  {
+    for (MFIter mfi(Forcing,true); mfi.isValid(); ++mfi) 
     {
-      const Box& box = mfi.validbox();
+      const Box& box = mfi.tilebox();
       FArrayBox& f = Forcing[mfi];
       const FArrayBox& a = (*aofs)[mfi];
       const FArrayBox& r = get_new_data(RhoYdot_Type)[mfi];
@@ -4547,7 +4551,7 @@ PeleLM::advance (Real time,
       f.minus(dnp1,box,box,0,0,nspecies+1); // subtract Dnp1 from RhoY and RhoH
       f.plus(ddn  ,box,box,0,nspecies,1); // add DDn to RhoH, no contribution for RhoY
       f.plus(ddnp1,box,box,0,nspecies,1); // add DDnp1 to RhoH, no contribution for RhoY
-      f.mult(0.5);
+      f.mult(0.5,box,0,nspecies+1);
 #ifdef USE_WBAR
       const FArrayBox& dwbar = DWbar[mfi];
       f.plus(dwbar,box,box,0,0,nspecies); // add DWbar to RhoY
@@ -4559,6 +4563,7 @@ PeleLM::advance (Real time,
       f.plus(a,box,box,first_spec,0,nspecies+1); // add A into RhoY and RhoH
       f.plus(r,box,box,0,0,nspecies); // no reactions for RhoH
     }
+  }
     BL_PROFILE_VAR_STOP(HTDIFF);
 
     MultiFab Dhat(grids,dmap,nspecies+2,nGrowAdvForcing);
@@ -4580,6 +4585,10 @@ PeleLM::advance (Real time,
     // Compute R (F = A + 0.5(Dn - Dnp1 + DDn + DDnp1) + Dhat )
     // 
     BL_PROFILE_VAR_START(HTREAC);
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
+  {
     for (MFIter mfi(Forcing); mfi.isValid(); ++mfi) 
     {
       const Box& box = mfi.validbox();
@@ -4594,7 +4603,7 @@ PeleLM::advance (Real time,
       f.minus(dnp1,box,box,0,0,nspecies+1); // subtract Dnp1 from RhoY and RhoH
       f.plus(ddn  ,box,box,0,nspecies,1);   // add DDn to RhoH, no contribution for RhoY
       f.plus(ddnp1,box,box,0,nspecies,1);   // add DDnp1 to RhoH, no contribution for RhoY
-      f.mult(0.5);
+      f.mult(0.5,box,0,nspecies+1);
       if (closed_chamber == 1)
       {
         f.plus(dp0dt,nspecies,1); // add dp0/dt to enthalpy forcing
@@ -4602,8 +4611,9 @@ PeleLM::advance (Real time,
       f.plus(dhat,box,box,0,0,nspecies+1);       // add Dhat to RhoY and RHoH
       f.plus(a,box,box,first_spec,0,nspecies+1); // add A to RhoY and RhoH
     }
+  }
+  
     BL_PROFILE_VAR_STOP(HTREAC);
-      
     Dhat.clear();
 
     if (verbose) amrex::Print() << "R (SDC corrector " << sdc_iter << ")\n";
@@ -4998,7 +5008,7 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
       tmp.resize(box,nspecies+1);
       const FArrayBox& f = Force[mfi];
       tmp.copy(f,box,0,box,0,nspecies+1);
-      tmp.mult(dt);
+      tmp.mult(dt,box,0,nspecies+1);
       FArrayBox& Sold = mf_old[mfi];
       FArrayBox& Snew = mf_new[mfi];
       Snew.copy(Sold,box,first_spec,box,first_spec,nspecies+1);
@@ -6447,7 +6457,7 @@ PeleLM::differential_spec_diffuse_sync (Real dt,
       efab[d].resize(ebox,nspecies);
             
       efab[d].copy((*SpecDiffusionFluxnp1[d])[mfi],ebox,0,ebox,0,nspecies);
-      efab[d].mult(be_cn_theta);
+      efab[d].mult(be_cn_theta,ebox,0,nspecies);
     }
 
     update.resize(box,nspecies);
@@ -6562,8 +6572,7 @@ PeleLM::reflux ()
     // divide the sync by rhohalf
     for (MFIter mfi(Ssync,true); mfi.isValid(); ++mfi)
     {
-      //const int i = mfi.index();
-  const Box& bx = mfi.tilebox();
+      const Box& bx = mfi.tilebox();
       tmp.resize(bx,1);
       tmp.copy(RhoHalftime[mfi],0,0,1);
       tmp.invert(1);
@@ -6593,19 +6602,24 @@ PeleLM::reflux ()
   // This is necessary in order to zero out the contribution to any
   // coarse grid cells which underlie fine grid cells.
   //
-  std::vector< std::pair<int,Box> > isects;
-
-  for (MFIter mfi(Vsync); mfi.isValid(); ++mfi)
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
   {
-    baf.intersections(grids[mfi.index()],isects);
-
-    for (int i = 0, N = isects.size(); i < N; i++)
+    std::vector< std::pair<int,Box> > isects;
+  
+    for (MFIter mfi(Vsync,true); mfi.isValid(); ++mfi)
     {
-      Vsync[mfi].setVal(0,isects[i].second,0,BL_SPACEDIM);
-      Ssync[mfi].setVal(0,isects[i].second,0,NUM_STATE-BL_SPACEDIM);
+      const Box& box = mfi.growntilebox(); 
+      baf.intersections(box,isects);
+
+      for (int i = 0, N = isects.size(); i < N; i++)
+      {
+        Vsync[mfi].setVal(0,isects[i].second,0,BL_SPACEDIM);
+        Ssync[mfi].setVal(0,isects[i].second,0,NUM_STATE-BL_SPACEDIM);
+      }
     }
   }
-
   showMF("sdcSync",Ssync,"sdc_Ssync_after_zero",level);
 
   if (verbose > 1)
@@ -7064,9 +7078,9 @@ PeleLM::calc_dpdt (Real      time,
 
     dpdt[mfi].copy(Peos[mfi],vbox,0,vbox,0,1);
     dpdt[mfi].plus(-p_amb,vbox);
-    dpdt[mfi].mult(1.0/dt,vbox);
+    dpdt[mfi].mult(1.0/dt,vbox,0,1);
     dpdt[mfi].divide(Peos[mfi],vbox,0,0,1);
-    dpdt[mfi].mult(dpdt_factor,vbox);
+    dpdt[mfi].mult(dpdt_factor,vbox,0,1);
   }
 
   Peos.clear();
