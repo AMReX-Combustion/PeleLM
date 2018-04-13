@@ -1,5 +1,6 @@
 variables:
     AMREX_HOME: ${CI_PROJECT_DIR}/extern/amrex
+    AMREX_REGTEST_HOME: ${CI_PROJECT_DIR}/extern/regression_testing
     IAMR_HOME: ${CI_PROJECT_DIR}/extern/IAMR
     PELE_PHYSICS_HOME: ${CI_PROJECT_DIR}/extern/PelePhysics
     PELELM_HOME: $CI_PROJECT_DIR
@@ -15,6 +16,7 @@ regression:godzilla:
     script: 
         - git clone git@code.ornl.gov:Pele/PeleRegressionTesting ${PELEREGTEST_HOME} --branch development
         - git clone git@github.com:AMReX-Codes/amrex.git ${AMREX_HOME} --branch development
+        - git clone git@github.com:AMReX-Codes/regression_testing.git ${AMREX_REGTEST_HOME}
         - git clone git@github.com:AMReX-Codes/IAMR.git ${IAMR_HOME} --branch development
         - git clone git@code.ornl.gov:Pele/PelePhysics.git ${PELE_PHYSICS_HOME} --branch development
         - cd ${PELEREGTEST_HOME}/RunnerData/godzilla/PeleLM
@@ -22,7 +24,7 @@ regression:godzilla:
         - ncftpget -c -E -d errlog.txt -f ${HOME}/.archive.passwd ${ARCHIVE_DIR}/PeleLM-benchmarks.cpio-latest  | cpio -i --preserve-modification-time
         - cd ${CI_PROJECT_DIR}
         - bash ${PELEREGTEST_HOME}/Scripts/prep_tests.sh ${PELEREGTEST_HOME}/Scripts/PeleLM-correct-tests-godzilla.ini  tests.ini
-        - ${AMREX_HOME}/Tools/RegressionTesting/regtest.py --no_update All tests.ini
+        - ${AMREX_REGTEST_HOME}/regtest.py --no_update All tests.ini
     tags:
         - godzilla
     only:

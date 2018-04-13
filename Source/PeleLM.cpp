@@ -106,6 +106,7 @@ namespace
 Real PeleLM::p_amb_old;
 Real PeleLM::p_amb_new;
 Real PeleLM::dp0dt;
+Real PeleLM::thetabar;
 int  PeleLM::closed_chamber;
 int  PeleLM::num_divu_iters;
 int  PeleLM::init_once_done;
@@ -4298,7 +4299,7 @@ PeleLM::advance (Real time,
   // used for closed chamber algorithm
   MultiFab theta_old(grids,dmap,1,nGrowAdvForcing);
   MultiFab theta_nph(grids,dmap,1,nGrowAdvForcing);
-  Real Sbar, thetabar;
+  Real Sbar;
   Real Sbar_old, Sbar_new;
 
   BL_PROFILE_VAR_START(HTDIFF);
@@ -4461,8 +4462,9 @@ PeleLM::advance (Real time,
       }
       BL_PROFILE_VAR_STOP(HTMAC);
 
-      amrex::Print() << "level 0: p_amb_old, p_amb_new = " 
-		     << p_amb_old << " " << p_amb_new << std::endl;
+      amrex::Print() << "level 0: prev_time, p_amb_old, p_amb_new, delta = " 
+		     << prev_time << " " << p_amb_old << " " << p_amb_new << " "
+                     << p_amb_new-p_amb_old << std::endl;
     }
 
     // MAC-project... and overwrite U^{ADV,*}
@@ -5421,6 +5423,10 @@ PeleLM::mac_sync ()
   ////////////////////////
   // begin mac_sync_iter loop here
   ////////////////////////
+
+  // save pressure
+  Real p_amb_new_temp = p_amb_new;
+
   for (int mac_sync_iter=0; mac_sync_iter < num_mac_sync_iter; mac_sync_iter++)
   {
     bool last_mac_sync_iter;
@@ -5468,6 +5474,14 @@ PeleLM::mac_sync ()
     mac_projector->mac_sync_solve(level,dt,rho_half,fine_ratio,
                                   &chi_sync,subtract_avg,offset);
     BL_PROFILE_VAR_STOP(HTUCORR);
+
+    if (closed_chamber && level == 0)
+    {
+      Print() << "0-1 MAC SYNC OFFSET " << offset << endl;
+      Print() << "0-1 MAC SYNC PAMB ADJUSTMENT " << -dt*(offset/thetabar) << endl;
+      p_amb_new = p_amb_new_temp - dt*(offset/thetabar);
+      p_amb_old = p_amb_new;
+    }
 
     if (!do_reflux) return;
 
