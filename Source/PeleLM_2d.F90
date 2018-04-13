@@ -1586,10 +1586,11 @@ contains
 
 
     if (dir.eq.0) then
-
+!write(*,*) "DEBUG 1",lo,hi,dlo,dhi
+!write(*,*) "DEBUG 2",DIMS(flux)
 !     First, assume away from physical boundaries, then use boundary-aware version below if applicable
       do j = lo(2),hi(2)
-        do i = lo(1),hi(1)+1
+        do i = lo(1),hi(1)
           sumFlux = 0.d0
           sumRhoYe = 0.d0
           do n=1,Nspec
@@ -1603,7 +1604,7 @@ contains
         end do
       end do
 !     xlo
-      if (Ybc(1,1).eq.EXT_DIR) then
+      if (Ybc(1,1).eq.EXT_DIR.and.lo(1).le.dlo(1)) then
         do i = lo(1),dlo(1)
           do j = lo(2),hi(2)
             sumFlux = 0.d0
@@ -1620,7 +1621,7 @@ contains
       endif
 !     xhi
       if (Ybc(1,2).eq.EXT_DIR.and.hi(1).ge.dhi(1)) then
-        do i = dhi(1)+1,hi(1)+1
+        do i = dhi(1),hi(1)
           do j = lo(2),hi(2)
             sumFlux = 0.d0
             sumRhoYe = 0.d0
@@ -1638,7 +1639,7 @@ contains
     else if (dir.eq.1) then
 
 !     First, assume away from physical boundaries, then replace with boundary-aware version below if applicable
-      do j = lo(2),hi(2)+1
+      do j = lo(2),hi(2)
         do i = lo(1),hi(1)
           sumFlux = 0.d0
           sumRhoYe = 0.d0
@@ -1653,7 +1654,7 @@ contains
         end do
       end do
 !     ylo
-      if (Ybc(2,1).eq.EXT_DIR) then
+      if (Ybc(2,1).eq.EXT_DIR.and.lo(2).le.dlo(2)) then
         do j = lo(2),dlo(2)
           do i = lo(1),hi(1)
             sumFlux = 0.d0
@@ -1669,8 +1670,8 @@ contains
         enddo
       endif
 !     yhi
-      if (Ybc(2,2).eq.EXT_DIR) then
-        do j = dhi(2)+1,hi(2)+1
+      if (Ybc(2,2).eq.EXT_DIR.and.hi(2).ge.dhi(2)) then
+        do j = dhi(2),hi(2)
           do i = lo(1),hi(1)
             sumFlux = 0.d0
             sumRhoYe = 0.d0

@@ -373,6 +373,7 @@ private:
   static void center_to_edge_fancy (const amrex::FArrayBox& cfab,
                                     amrex::FArrayBox&       efab,
                                     const amrex::Box&       ccBox,
+                                    const amrex::Box&       eBox,
                                     int              sComp,
                                     int              dComp,
                                     int              nComp,

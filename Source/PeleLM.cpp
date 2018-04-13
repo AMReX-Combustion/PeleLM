@@ -679,6 +679,7 @@ void
 PeleLM::center_to_edge_fancy (const FArrayBox& cfab,
                               FArrayBox&       efab,
                               const Box&       ccBox,
+                              const Box&       ebox,
                               int              sComp,
                               int              dComp,
                               int              nComp,
@@ -686,7 +687,7 @@ PeleLM::center_to_edge_fancy (const FArrayBox& cfab,
                               const FPLoc&     bc_lo,
                               const FPLoc&     bc_hi)
 {
-  const Box&      ebox = efab.box();
+  //const Box&      ebox = efab.box();
   const IndexType ixt  = ebox.ixType();
 
   BL_ASSERT(!(ixt.cellCentered()) && !(ixt.nodeCentered()));
@@ -2924,16 +2925,23 @@ PeleLM::adjust_spec_diffusion_fluxes (Real time)
   // averaging.
   //
   const Box& domain = geom.Domain();
-  for (MFIter mfi(S); mfi.isValid(); ++mfi)
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
+  for (MFIter mfi(S,true); mfi.isValid(); ++mfi)
   {
-    const Box& box   = mfi.validbox();
+    
     FArrayBox& Y = S[mfi];
     int sCompY=first_spec;
+    
 
     for (int d =0; d < BL_SPACEDIM; ++d)
     {
+      //amrex::Print() << box << std::endl ;
       FArrayBox& f = (*flux[d])[mfi];
-      repair_flux(box.loVect(), box.hiVect(), domain.loVect(), domain.hiVect(),
+      const Box& ebox   = mfi.nodaltilebox(d);
+      const Box& edomain = amrex::surroundingNodes(domain,d);  ;
+      repair_flux(ebox.loVect(), ebox.hiVect(), edomain.loVect(), edomain.hiVect(),
                        f.dataPtr(),      ARLIM(f.loVect()),ARLIM(f.hiVect()),
                        Y.dataPtr(sCompY),ARLIM(Y.loVect()),ARLIM(Y.hiVect()),
                        &d, Ybc.vect());
@@ -5924,8 +5932,7 @@ PeleLM::mac_sync ()
             eTemp.resize(ebox,1);
             FPLoc bc_lo = fpi_phys_loc(get_desc_lst()[State_Type].getBC(Temp).lo(d));
             FPLoc bc_hi = fpi_phys_loc(get_desc_lst()[State_Type].getBC(Temp).hi(d));
-              
-            center_to_edge_fancy(Tnew_fpi(),eTemp,amrex::grow(box,amrex::BASISV(d)),
+            center_to_edge_fancy(Tnew_fpi(),eTemp,amrex::grow(box,amrex::BASISV(d)),ebox,
                                  0,0,1,geom.Domain(),bc_lo,bc_hi);
 	      
             h.resize(ebox,nspecies);
@@ -6494,7 +6501,7 @@ PeleLM::differential_spec_diffuse_sync (Real dt,
   for (MFIter mfi(Ssync,true); mfi.isValid(); ++mfi)
   {
     int        iGrid = mfi.index();
-    const Box& box   = mfi.growntilebox();
+    const Box& box   = mfi.tilebox();
 
     // copy corrected (delta gamma) on edges into efab
     for (int d=0; d<BL_SPACEDIM; ++d)
@@ -6837,9 +6844,9 @@ PeleLM::getViscosity (MultiFab*  beta[BL_SPACEDIM],
     {
       FPLoc bc_lo = fpi_phys_loc(get_desc_lst()[State_Type].getBC(Density).lo(dir));
       FPLoc bc_hi = fpi_phys_loc(get_desc_lst()[State_Type].getBC(Density).hi(dir));
-
+      const Box& ebox = viscMfi.nodaltilebox(dir);
       center_to_edge_fancy((*visc)[viscMfi],(*beta[dir])[viscMfi],
-                           amrex::grow(box,amrex::BASISV(dir)), 0, 0, 1,
+                           amrex::grow(box,amrex::BASISV(dir)), ebox, 0, 0, 1,
                            geom.Domain(), bc_lo, bc_hi);
     }
   }
@@ -6873,9 +6880,9 @@ PeleLM::getDiffusivity (MultiFab*  beta[BL_SPACEDIM],
     {
       FPLoc bc_lo = fpi_phys_loc(get_desc_lst()[State_Type].getBC(state_comp).lo(dir));
       FPLoc bc_hi = fpi_phys_loc(get_desc_lst()[State_Type].getBC(state_comp).hi(dir));
-
+      const Box& ebox = diffMfi.nodaltilebox(dir);
       center_to_edge_fancy((*diff)[diffMfi],(*beta[dir])[diffMfi],
-                           amrex::grow(box,amrex::BASISV(dir)), diff_comp, 
+                           amrex::grow(box,amrex::BASISV(dir)), ebox, diff_comp, 
                            dst_comp, ncomp, geom.Domain(), bc_lo, bc_hi);
     }
   }
@@ -6902,9 +6909,9 @@ PeleLM::getDiffusivity_Wbar (MultiFab*  beta[BL_SPACEDIM],
     {
       FPLoc bc_lo = fpi_phys_loc(get_desc_lst()[State_Type].getBC(first_spec).lo(dir));
       FPLoc bc_hi = fpi_phys_loc(get_desc_lst()[State_Type].getBC(first_spec).hi(dir));
-
+      const Box& ebox = diffMfi.nodaltilebox(dir);
       center_to_edge_fancy(diff[diffMfi],(*beta[dir])[diffMfi],
-                           amrex::grow(box,amrex::BASISV(dir)), 0,
+                           amrex::grow(box,amrex::BASISV(dir)), ebox, 0,
                            0, nspecies, geom.Domain(), bc_lo, bc_hi);
     }
   }
