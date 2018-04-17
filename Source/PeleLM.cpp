@@ -1348,18 +1348,22 @@ PeleLM::estTimeStep ()
   MultiFab*   dsdt     = getDsdt(0,cur_time);
   MultiFab*   divu     = getDivCond(0,cur_time);
 
-  for (FillPatchIterator U_fpi(*this,*divu,n_grow,cur_time,State_Type,Xvel,BL_SPACEDIM);
-       U_fpi.isValid();
-       ++U_fpi)
+  FillPatchIterator U_fpi(*this,*divu,n_grow,cur_time,State_Type,Xvel,BL_SPACEDIM);
+  MultiFab& Umf=U_fpi.get_mf();
+  
+#ifdef _OPENMP
+#pragma omp parallel reduction(min:divu_dt)
+#endif  
+  for (MFIter mfi(Umf,true); mfi.isValid();++mfi)
   {
-    const int        i   = U_fpi.index();
-    FArrayBox&       U   = U_fpi();
-    const FArrayBox& Rho = rho_ctime[U_fpi];
-    const Box&     grdbx = grids[i];
-    const int*       lo  = grdbx.loVect();
-    const int*       hi  = grdbx.hiVect();
+    const int        i   = mfi.index();
+    const Box& bx = mfi.tilebox();
+    FArrayBox&       U   = Umf[mfi];
+    const FArrayBox& Rho = rho_ctime[mfi];
+    const int*       lo  = bx.loVect();
+    const int*       hi  = bx.hiVect();
 
-    DEF_CLIMITS((*divu)[U_fpi],sdat,slo,shi);
+    DEF_CLIMITS((*divu)[mfi],sdat,slo,shi);
     DEF_CLIMITS(Rho,rhodat,rholo,rhohi);
     DEF_CLIMITS(U,vel,ulo,uhi);
 
@@ -1372,7 +1376,7 @@ PeleLM::estTimeStep ()
 #endif
       est_divu_dt(divu_ceiling,&divu_dt_factor,
                        dx,sdat,ARLIM(slo),ARLIM(shi),
-                       (*dsdt)[U_fpi].dataPtr(),
+                       (*dsdt)[mfi].dataPtr(),
                        rhodat,ARLIM(rholo),ARLIM(rhohi),
                        vel,ARLIM(ulo),ARLIM(uhi),
                        vol,ARLIM(v_lo),ARLIM(v_hi),
@@ -1429,18 +1433,22 @@ PeleLM::checkTimeStep (Real dt)
   MultiFab*   dsdt      = getDsdt(0,cur_time);
   MultiFab*   divu      = getDivCond(0,cur_time);
 
-  for (FillPatchIterator U_fpi(*this,*divu,n_grow,cur_time,State_Type,Xvel,BL_SPACEDIM);
-       U_fpi.isValid();
-       ++U_fpi)
+  FillPatchIterator U_fpi(*this,*divu,n_grow,cur_time,State_Type,Xvel,BL_SPACEDIM);
+  MultiFab& Umf=U_fpi.get_mf();
+
+#ifdef _OPENMP
+#pragma omp parallel
+#endif  
+  for (MFIter mfi(Umf,true); mfi.isValid();++mfi)  
   {
-    const int        i   = U_fpi.index();
-    FArrayBox&       U   = U_fpi();
-    const FArrayBox& Rho = rho_ctime[U_fpi];
-    const Box&    grdbx  = grids[i];
+    const int        i   = mfi.index();
+    FArrayBox&       U   = Umf[mfi];
+    const FArrayBox& Rho = rho_ctime[mfi];
+    const Box&    grdbx  = mfi.tilebox();
     const int*       lo  = grdbx.loVect();
     const int*       hi  = grdbx.hiVect();
 
-    DEF_LIMITS((*divu)[U_fpi],sdat,slo,shi);
+    DEF_LIMITS((*divu)[mfi],sdat,slo,shi);
     DEF_CLIMITS(Rho,rhodat,rholo,rhohi);
     DEF_CLIMITS(U,vel,ulo,uhi);
 
@@ -1453,7 +1461,7 @@ PeleLM::checkTimeStep (Real dt)
 #endif
     check_divu_dt(divu_ceiling,&divu_dt_factor,
                        dx,sdat,ARLIM(slo),ARLIM(shi),
-                       (*dsdt)[U_fpi].dataPtr(),
+                       (*dsdt)[mfi].dataPtr(),
                        rhodat,ARLIM(rholo),ARLIM(rhohi),
                        vel,ARLIM(ulo),ARLIM(uhi),
                        vol,ARLIM(v_lo),ARLIM(v_hi),
@@ -1805,24 +1813,37 @@ PeleLM::init (AmrLevel& old)
   // Get best ydot data.
   //
   MultiFab& Ydot = get_new_data(RhoYdot_Type);
-
-  for (FillPatchIterator fpi(*oldht,Ydot,Ydot.nGrow(),cur_time,RhoYdot_Type,0,nspecies);
-       fpi.isValid();
-       ++fpi)
   {
-    Ydot[fpi].copy(fpi());
+    FillPatchIterator fpi(*oldht,Ydot,Ydot.nGrow(),cur_time,RhoYdot_Type,0,nspecies);
+    const MultiFab& mf_fpi = fpi.get_mf();
+#ifdef _OPENMP
+#pragma omp parallel
+#endif  
+    for (MFIter mfi(mf_fpi,true); mfi.isValid(); ++mfi)
+    {
+      const Box& vbx  = mfi.tilebox();
+      const FArrayBox& pfab = mf_fpi[mfi];
+       Ydot[mfi].copy(pfab,vbx,0,vbx,0,nspecies);
+    }
   }
-
+  
   RhoH_to_Temp(get_new_data(State_Type));
 
   MultiFab& FuncCount = get_new_data(FuncCount_Type);
-
-  for (FillPatchIterator fpi(*oldht,FuncCount,FuncCount.nGrow(),cur_time,FuncCount_Type,0,1);
-       fpi.isValid();
-       ++fpi)
   {
-    FuncCount[fpi].copy(fpi());
+    FillPatchIterator fpi(*oldht,FuncCount,FuncCount.nGrow(),cur_time,FuncCount_Type,0,1);
+    const MultiFab& mf_fpi = fpi.get_mf();
+#ifdef _OPENMP
+#pragma omp parallel
+#endif  
+      for (MFIter mfi(mf_fpi,true); mfi.isValid(); ++mfi)
+    {
+      const Box& vbx  = mfi.tilebox();
+      const FArrayBox& pfab = mf_fpi[mfi];
+      FuncCount[mfi].copy(pfab,vbx,0,vbx,0,1);
+    }
   }
+  
 }
 
 //
@@ -2932,15 +2953,13 @@ PeleLM::adjust_spec_diffusion_fluxes (Real time)
   {
     
     FArrayBox& Y = S[mfi];
-    int sCompY=first_spec;
-    
+    int sCompY=first_spec;   
 
     for (int d =0; d < BL_SPACEDIM; ++d)
     {
-      //amrex::Print() << box << std::endl ;
       FArrayBox& f = (*flux[d])[mfi];
       const Box& ebox   = mfi.nodaltilebox(d);
-      const Box& edomain = amrex::surroundingNodes(domain,d);  ;
+      const Box& edomain = amrex::surroundingNodes(domain,d);
       repair_flux(ebox.loVect(), ebox.hiVect(), edomain.loVect(), edomain.hiVect(),
                        f.dataPtr(),      ARLIM(f.loVect()),ARLIM(f.hiVect()),
                        Y.dataPtr(sCompY),ARLIM(Y.loVect()),ARLIM(Y.hiVect()),
