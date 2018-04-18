@@ -69,7 +69,7 @@ extern "C" {
   void est_divu_dt(const int& flag,  const amrex::Real* divu_dt_factor,
                         const amrex::Real* dx, 
                         const amrex::Real* sdat,ARLIM_P(slo),ARLIM_P(shi),
-                        const amrex::Real* dsdtdat,
+                        const amrex::Real* dsdtdat,ARLIM_P(dslo),ARLIM_P(dshi),
                         const amrex::Real* rhodat,ARLIM_P(rholo),ARLIM_P(rhohi),
                         const amrex::Real* vel,ARLIM_P(ulo),ARLIM_P(uhi),
                         const amrex::Real* volume, ARLIM_P (v_lo), ARLIM_P (v_hi), 

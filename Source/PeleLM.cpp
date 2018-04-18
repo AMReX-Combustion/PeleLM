@@ -1340,7 +1340,9 @@ PeleLM::estTimeStep ()
 
   const Real strt_time = ParallelDescriptor::second();
 
-  Real dt, ns_estdt = estdt, divu_dt = 1.0e20;
+  
+  Real ns_estdt = estdt;
+  Real divu_dt = 1.0e20;
 
   const int   n_grow   = 1;
   const Real  cur_time = state[State_Type].curTime();
@@ -1353,42 +1355,40 @@ PeleLM::estTimeStep ()
   
 #ifdef _OPENMP
 #pragma omp parallel reduction(min:divu_dt)
-#endif  
+#endif
+{
   for (MFIter mfi(Umf,true); mfi.isValid();++mfi)
   {
-    const int        i   = mfi.index();
+    Real dt;
     const Box& bx = mfi.tilebox();
-    FArrayBox&       U   = Umf[mfi];
+    const FArrayBox& dsdt_mf   =  (*dsdt)[mfi];
+    const FArrayBox& divu_mf   =  (*divu)[mfi];
+    const FArrayBox& U   = Umf[mfi];
     const FArrayBox& Rho = rho_ctime[mfi];
-    const int*       lo  = bx.loVect();
-    const int*       hi  = bx.hiVect();
-
-    DEF_CLIMITS((*divu)[mfi],sdat,slo,shi);
-    DEF_CLIMITS(Rho,rhodat,rholo,rhohi);
-    DEF_CLIMITS(U,vel,ulo,uhi);
-
-    DEF_CLIMITS(volume[i],vol,v_lo,v_hi);
-
-    DEF_CLIMITS(area[0][i],areax,ax_lo,ax_hi);
-    DEF_CLIMITS(area[1][i],areay,ay_lo,ay_hi);
+    const FArrayBox& vol = volume[mfi];
+    const FArrayBox& areax = area[0][mfi];
+    const FArrayBox& areay = area[1][mfi];
 #if (BL_SPACEDIM==3) 
-    DEF_CLIMITS(area[2][i],areaz,az_lo,az_hi)
+    const FArrayBox& areaz = area[2][mfi];
 #endif
-      est_divu_dt(divu_ceiling,&divu_dt_factor,
-                       dx,sdat,ARLIM(slo),ARLIM(shi),
-                       (*dsdt)[mfi].dataPtr(),
-                       rhodat,ARLIM(rholo),ARLIM(rhohi),
-                       vel,ARLIM(ulo),ARLIM(uhi),
-                       vol,ARLIM(v_lo),ARLIM(v_hi),
-                       areax,ARLIM(ax_lo),ARLIM(ax_hi),
-                       areay,ARLIM(ay_lo),ARLIM(ay_hi),
+
+    est_divu_dt(divu_ceiling,&divu_dt_factor,dx,
+                divu_mf.dataPtr(),ARLIM(divu_mf.loVect()),ARLIM(divu_mf.hiVect()),
+                dsdt_mf.dataPtr(),ARLIM(dsdt_mf.loVect()),ARLIM(dsdt_mf.hiVect()),
+                Rho.dataPtr(),ARLIM(Rho.loVect()),ARLIM(Rho.hiVect()),
+                U.dataPtr(),ARLIM(U.loVect()),ARLIM(U.hiVect()),
+                vol.dataPtr(),ARLIM(vol.loVect()),ARLIM(vol.hiVect()),
+                areax.dataPtr(),ARLIM(areax.loVect()),ARLIM(areax.hiVect()),
+                areay.dataPtr(),ARLIM(areay.loVect()),ARLIM(areay.hiVect()),
 #if (BL_SPACEDIM==3) 
-                       areaz,ARLIM(az_lo),ARLIM(az_hi),
+                areaz.dataPtr(),ARLIM(areaz.loVect()),ARLIM(areaz.hiVect()),
 #endif 
-                       lo,hi,&dt,&min_rho_divu_ceiling);
+                bx.loVect(),bx.hiVect(),&dt,&min_rho_divu_ceiling);
 
     divu_dt = std::min(divu_dt,dt);
+
   }
+}
 
   delete divu;
   delete dsdt;
