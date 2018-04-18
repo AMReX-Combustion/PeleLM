@@ -211,7 +211,7 @@ protected:
   static void Initialize ();
   static void Finalize ();
     
-#ifdef PARTICLES
+#ifdef AMREX_PARTICLES
   virtual int timestamp_num_extras () override;
   virtual void timestamp_add_extras (int lev, amrex::Real time, amrex::MultiFab& mf) override;
   static void read_particle_params ();

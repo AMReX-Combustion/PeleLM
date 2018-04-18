@@ -183,7 +183,7 @@ to_upper (const std::string& s)
 static std::map<std::string,FABio::Format> ShowMF_Fab_Format_map;
 
 
-#ifdef PARTICLES
+#ifdef AMREX_PARTICLES
 namespace
 {
   bool do_curvature_sample = false;
@@ -218,7 +218,7 @@ PeleLM::timestamp_add_extras (int lev,
   }
 }
 
-#endif /*PARTICLES*/
+#endif /*AMREX_PARTICLES*/
 
 void
 PeleLM::compute_rhohmix (Real      time,
@@ -506,7 +506,7 @@ PeleLM::Initialize ()
 
   }
 
-#ifdef PARTICLES
+#ifdef AMREX_PARTICLES
   read_particle_params();
 #endif
 
@@ -1697,7 +1697,7 @@ PeleLM::initData ()
   is_first_step_after_regrid = false;
   old_intersect_new          = grids;
 
-#ifdef PARTICLES
+#ifdef AMREX_PARTICLES
   NavierStokesBase::initParticleData();
 #endif
 }
@@ -4768,7 +4768,7 @@ PeleLM::advance (Real time,
 
   showMF("sdc",get_new_data(State_Type),"sdc_Snew_postProj",level,parent->levelSteps(level));
 
-#ifdef PARTICLES
+#ifdef AMREX_PARTICLES
   if (theNSPC() != 0)
   {
     theNSPC()->AdvectWithUmac(u_mac, level, dt);
@@ -7652,7 +7652,7 @@ PeleLM::derive (const std::string& name,
   } 
   else
   {
-#ifdef PARTICLES
+#ifdef AMREX_PARTICLES
     ParticleDerive(name,time,mf,dcomp);
 #else
     AmrLevel::derive(name,time,mf,dcomp);
