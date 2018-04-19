@@ -2297,12 +2297,16 @@ PeleLM::sum_integrated_quantities ()
       const Real  time   = state[State_Type].curTime();
       MultiFab&   mf     = get_new_data(State_Type);
 
-      for (FillPatchIterator Tfpi(*this,mf,1,time,State_Type,Temp,1);
-           Tfpi.isValid();
-           ++Tfpi)
+      FillPatchIterator Tfpi(*this,mf,1,time,State_Type,Temp,1);
+      MultiFab& Tmf=Tfpi.get_mf();
+  
+#ifdef _OPENMP
+#pragma omp parallel
+#endif  
+  for (MFIter mfi(Tmf,true); mfi.isValid();++mfi)
       {
-        const FArrayBox& fab  = Tfpi();
-        const Box&       vbox = Tfpi.validbox();
+        const FArrayBox& fab  = Tmf[mfi];
+        const Box&       vbox = mfi.tilebox();
 
         for (IntVect iv = vbox.smallEnd(); iv <= vbox.bigEnd(); vbox.next(iv))
         {
@@ -2920,19 +2924,27 @@ PeleLM::adjust_spec_diffusion_fluxes (Real time)
   //
   const int nGrow = 1;
   BL_ASSERT(S.nGrow()>=nGrow);
-  for (FillPatchIterator Tfpi(*this,S,nGrow,time,State_Type,Temp,1),
+  FillPatchIterator Tfpi(*this,S,nGrow,time,State_Type,Temp,1),
          Yfpi(*this,S,nGrow,time,State_Type,first_spec,nspecies);
-       Yfpi.isValid() && Tfpi.isValid();
-       ++Yfpi, ++Tfpi)
+  
+  MultiFab& Tmf = Tfpi.get_mf();
+  MultiFab& Ymf = Yfpi.get_mf();
+  
+#ifdef _OPENMP
+#pragma omp parallel
+#endif  
+  for (MFIter mfi(Tmf,true); mfi.isValid();++mfi)
   {
-    const Box& vbox = Yfpi.validbox();
-    FArrayBox& fab = S[Yfpi];
+    const Box& vbox = mfi.tilebox();
+    FArrayBox& fab = S[mfi];
+    const FArrayBox& Tpfab = Tmf[mfi];
+    const FArrayBox& Ypfab = Ymf[mfi];
     BoxList gcells = amrex::boxDiff(Box(vbox).grow(nGrow),vbox);
     for (BoxList::const_iterator it = gcells.begin(), end = gcells.end(); it != end; ++it)
     {
       const Box& gbox = *it;
-      fab.copy(Tfpi(),gbox,0,gbox,Temp,1);
-      fab.copy(Yfpi(),gbox,0,gbox,first_spec,nspecies);
+      fab.copy(Tpfab,gbox,0,gbox,Temp,1);
+      fab.copy(Ypfab,gbox,0,gbox,first_spec,nspecies);
     }
   }
   //
@@ -3006,14 +3018,27 @@ PeleLM::compute_enthalpy_fluxes (Real                   time,
   //
   // Fill ghost cells for rhoY and Temp.
   //
-  for (FillPatchIterator rYfpi(*this,S,1,time,State_Type,first_spec,nspecies),
+  FillPatchIterator rYfpi(*this,S,1,time,State_Type,first_spec,nspecies),
          Tfpi(*this,S,1,time,State_Type,Temp,1);
-       rYfpi.isValid() && Tfpi.isValid();
-       ++rYfpi,++Tfpi)
+         
+  MultiFab& Tmf = Tfpi.get_mf();
+  MultiFab& rYmf = rYfpi.get_mf();
+
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
+{
+  for (MFIter mfi(Tmf,true); mfi.isValid();++mfi)
   {
-    S[rYfpi].copy(rYfpi(),0,first_spec,nspecies);
-    S[rYfpi].copy(Tfpi(),0,Temp,1);
+    const Box& vbx  = mfi.tilebox();
+    const FArrayBox& Tfab = Tmf[mfi];
+    const FArrayBox& rYfab = rYmf[mfi];
+
+    S[mfi].copy(rYfab,vbx,0,vbx,first_spec,nspecies);
+    S[mfi].copy(Tfab,vbx,0,vbx,Temp,1);
   }
+}
+
 
   for (MFIter mfi(S); mfi.isValid(); ++mfi)
   {
@@ -3361,21 +3386,32 @@ PeleLM::compute_differential_diffusion_fluxes (const Real& time,
 
   BL_ASSERT(S.nGrow()>=nGrow);
 
-  for (FillPatchIterator Yfpi(*this,S,nGrow,time,State_Type,Density,nspecies+2),
+  FillPatchIterator Yfpi(*this,S,nGrow,time,State_Type,Density,nspecies+2),
          Tfpi(*this,S,nGrow,time,State_Type,Temp,1);
-       Yfpi.isValid() && Tfpi.isValid();
-       ++Yfpi, ++Tfpi)
+         
+  MultiFab& Tmf = Tfpi.get_mf();
+  MultiFab& Ymf = Yfpi.get_mf();
+
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
+{
+  for (MFIter mfi(Tmf,true); mfi.isValid();++mfi)
   {
-    const Box& vbox   = Yfpi.validbox();
-    FArrayBox& fab    = S[Tfpi];
+    const Box& vbox   = mfi.tilebox();
+    FArrayBox& fab    = S[mfi];
+    const FArrayBox& Tfab = Tmf[mfi];
+    const FArrayBox& Yfab = Ymf[mfi];
+
     BoxList    gcells = amrex::boxDiff(Box(vbox).grow(nGrow),vbox);
     for (BoxList::const_iterator it = gcells.begin(), end = gcells.end(); it != end; ++it)
     {
       const Box& gbox = *it;
-      fab.copy(Yfpi(),gbox,0,gbox,Density,nspecies+2);
-      fab.copy(Tfpi(),gbox,0,gbox,Temp,1);
+      fab.copy(Yfab,gbox,0,gbox,Density,nspecies+2);
+      fab.copy(Tfab,gbox,0,gbox,Temp,1);
     }
   }
+}
   showMF("dd",S,"dd_rsT_fp",level);
   //
   // Create and fill (Rho,RhoY,RhoH,T) at coarser level
@@ -3389,10 +3425,18 @@ PeleLM::compute_differential_diffusion_fluxes (const Real& time,
     Phi_crse.define(coarser->grids,coarser->dmap,        1, 2);
     S_crse.define  (coarser->grids,coarser->dmap,S.nComp(), 0);
 
-    for (FillPatchIterator S_fpi(*coarser,S_crse,0,time,State_Type,0,S.nComp());
-         S_fpi.isValid(); ++S_fpi)
+    FillPatchIterator S_fpi(*coarser,S_crse,0,time,State_Type,0,S.nComp());
+    MultiFab& Smf=S_fpi.get_mf();
+  
+#ifdef _OPENMP
+#pragma omp parallel
+#endif  
+  for (MFIter mfi(Smf,true); mfi.isValid();++mfi)
     {
-      S_crse[S_fpi].copy(S_fpi(),0,0,S.nComp());
+      const Box& vbx  = mfi.tilebox();
+      const FArrayBox& sfab = Smf[mfi];
+
+      S_crse[mfi].copy(sfab,vbx,0,vbx,0,S.nComp());
     }
   }
 
@@ -4149,6 +4193,7 @@ PeleLM::predict_velocity (Real  dt,
 #endif
                          U_fpi(), tforces);
   }
+
 
   showMF("mac",u_mac[0],"pv_umac0",level);
   showMF("mac",u_mac[1],"pv_umac1",level);
@@ -4925,10 +4970,17 @@ PeleLM::create_mac_rhs (MultiFab& mac_rhs, int nGrow, Real time, Real dt)
 
   int sCompDivU = 0;
   int nCompDivU = 1;
-  for (FillPatchIterator Divu_fpi(*this,mac_rhs,nGrow,time,Divu_Type,sCompDivU,nCompDivU);
-       Divu_fpi.isValid();
-       ++Divu_fpi) {
-    mac_rhs[Divu_fpi].copy(Divu_fpi(),0,sCompDivU,nCompDivU);
+  FillPatchIterator Divu_fpi(*this,mac_rhs,nGrow,time,Divu_Type,sCompDivU,nCompDivU);
+  MultiFab& divu_mf = Divu_fpi.get_mf();
+
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
+    for (MFIter mfi(divu_mf, true); mfi.isValid(); ++mfi)
+ {
+   const Box& bx = mfi.growntilebox(); 
+   const FArrayBox& pfab = divu_mf[mfi];
+    mac_rhs[mfi].copy(pfab,bx,0,bx,sCompDivU,nCompDivU);
   }
 }
 
