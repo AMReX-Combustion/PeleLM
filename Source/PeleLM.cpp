@@ -711,7 +711,7 @@ PeleLM::center_to_edge_fancy (const FArrayBox& cfab,
   // Shift cell-centered data to edges
   //
   const int isharm = def_harm_avg_cen2edge?1:0;
-  cen2edg(ccVBox.loVect(),ccVBox.hiVect(),
+  cen2edg(ebox.loVect(),ebox.hiVect(),
                ARLIM(cfab.loVect()),ARLIM(cfab.hiVect()),cfab.dataPtr(sComp),
                ARLIM(efab.loVect()),ARLIM(efab.hiVect()),efab.dataPtr(dComp),
                &nComp, &dir, &isharm);
@@ -5989,33 +5989,42 @@ PeleLM::mac_sync ()
         //
         // Multiply fluxi by h_i (let FLXDIV routine below sum up the fluxes)
         //
+        //FArrayBox eTemp, h;
+
+        FillPatchIterator Tnew_fpi(*this,S_new,nGrow,cur_time,State_Type,Temp,1);
+        const MultiFab& Tnew_mf = Tnew_fpi.get_mf();
+
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
+{
         FArrayBox eTemp, h;
 
-        for (FillPatchIterator Tnew_fpi(*this,S_new,nGrow,cur_time,State_Type,Temp,1);
-             Tnew_fpi.isValid();
-             ++Tnew_fpi)
+    for (MFIter mfi(Tnew_mf,true); mfi.isValid(); ++mfi)
         {
-          const Box& box = Tnew_fpi.validbox();
+          const Box& box = mfi.tilebox();
 
           for (int d = 0; d < BL_SPACEDIM; ++d)
           {
-            const Box& ebox = amrex::surroundingNodes(box,d);
+            const Box& ebox = mfi.nodaltilebox(d);
             eTemp.resize(ebox,1);
+
             FPLoc bc_lo = fpi_phys_loc(get_desc_lst()[State_Type].getBC(Temp).lo(d));
             FPLoc bc_hi = fpi_phys_loc(get_desc_lst()[State_Type].getBC(Temp).hi(d));
-            center_to_edge_fancy(Tnew_fpi(),eTemp,amrex::grow(box,amrex::BASISV(d)),ebox,
+            center_to_edge_fancy(Tnew_mf[mfi],eTemp,amrex::grow(box,amrex::BASISV(d)),ebox,
                                  0,0,1,geom.Domain(),bc_lo,bc_hi);
 	      
             h.resize(ebox,nspecies);
             getChemSolve().getHGivenT(h,eTemp,ebox,0,0);
 	      
             // multiply fluxNULN by h_m
-            (*fluxNULN[d])[Tnew_fpi].mult(h,ebox,0,0,nspecies);
+            (*fluxNULN[d])[mfi].mult(h,ebox,0,0,nspecies);
           }
         }
+}
+        //h.clear();
+        //eTemp.clear();
 
-        h.clear();
-        eTemp.clear();
         //
         // Add the NULN fluxes to the RHS of the (delta h)^sync diffusion solve
         // afterwards, the entire RHS should be ready.
