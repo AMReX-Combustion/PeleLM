@@ -6922,7 +6922,7 @@ PeleLM::calcDiffusivity_Wbar (const Real time)
     const FArrayBox& RD = diff[mfi];
     const FArrayBox& RYfab = mf[mfi];
     FArrayBox& Dfab_Wbar = diffWbar_cc[mfi];
-    const Box& gbox = mfi.tilebox();
+    const Box& gbox = mfi.growntilebox();
         
     BETA_WBAR(gbox.loVect(),gbox.hiVect(),
                    RD.dataPtr(),ARLIM(RD.loVect()),ARLIM(RD.hiVect()),
