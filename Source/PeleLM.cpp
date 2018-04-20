@@ -3039,10 +3039,21 @@ PeleLM::compute_enthalpy_fluxes (Real                   time,
   }
 }
 
-
-  for (MFIter mfi(S); mfi.isValid(); ++mfi)
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
+  for (MFIter mfi(S,true); mfi.isValid(); ++mfi)
   {
-    const Box& box = mfi.validbox();
+    const Box& box = mfi.tilebox();
+
+    const Box& ebox_x   = mfi.nodaltilebox(0);
+    const Box& edomain_x = amrex::surroundingNodes(domain,0);
+    const Box& ebox_y   = mfi.nodaltilebox(1);
+    const Box& edomain_y = amrex::surroundingNodes(domain,1);
+#if BL_SPACEDIM == 3
+    const Box& ebox_z   = mfi.nodaltilebox(2);
+    const Box& edomain_z = amrex::surroundingNodes(domain,2);
+#endif
             
     int              FComp    = 0;
     int              TComp    = Temp;
@@ -3063,23 +3074,28 @@ PeleLM::compute_enthalpy_fluxes (Real                   time,
 #endif
 
     enth_diff_terms(box.loVect(), box.hiVect(), domain.loVect(), domain.hiVect(), dx,
-                         T.dataPtr(TComp), ARLIM(T.loVect()),  ARLIM(T.hiVect()),
-                         RhoY.dataPtr(RhoYComp), ARLIM(RhoY.loVect()),  ARLIM(RhoY.hiVect()),
+                    ebox_x.loVect(), ebox_x.hiVect(), edomain_x.loVect(), edomain_x.hiVect(),
+                    ebox_y.loVect(), ebox_y.hiVect(), edomain_y.loVect(), edomain_y.hiVect(),
+#if BL_SPACEDIM == 3                    
+                    ebox_z.loVect(), ebox_z.hiVect(), edomain_z.loVect(), edomain_z.hiVect(),
+#endif                    
+                    T.dataPtr(TComp), ARLIM(T.loVect()),  ARLIM(T.hiVect()),
+                    RhoY.dataPtr(RhoYComp), ARLIM(RhoY.loVect()),  ARLIM(RhoY.hiVect()),
                                  
-                         rDx.dataPtr(dComp),ARLIM(rDx.loVect()),ARLIM(rDx.hiVect()),
-                         fix.dataPtr(FComp),ARLIM(fix.loVect()),ARLIM(fix.hiVect()),
-                         area[0][mfi].dataPtr(), ARLIM(area[0][mfi].loVect()),ARLIM(area[0][mfi].hiVect()),
-                                 
-                         rDy.dataPtr(dComp),ARLIM(rDy.loVect()),ARLIM(rDy.hiVect()),
-                         fiy.dataPtr(FComp),ARLIM(fiy.loVect()),ARLIM(fiy.hiVect()),
-                         area[1][mfi].dataPtr(), ARLIM(area[1][mfi].loVect()),ARLIM(area[1][mfi].hiVect()),
+                    rDx.dataPtr(dComp),ARLIM(rDx.loVect()),ARLIM(rDx.hiVect()),
+                    fix.dataPtr(FComp),ARLIM(fix.loVect()),ARLIM(fix.hiVect()),
+                    area[0][mfi].dataPtr(), ARLIM(area[0][mfi].loVect()),ARLIM(area[0][mfi].hiVect()),
+                               
+                    rDy.dataPtr(dComp),ARLIM(rDy.loVect()),ARLIM(rDy.hiVect()),
+                    fiy.dataPtr(FComp),ARLIM(fiy.loVect()),ARLIM(fiy.hiVect()),
+                    area[1][mfi].dataPtr(), ARLIM(area[1][mfi].loVect()),ARLIM(area[1][mfi].hiVect()),
 #if BL_SPACEDIM == 3
-                         rDz.dataPtr(dComp),ARLIM(rDz.loVect()),ARLIM(rDz.hiVect()),
-                         fiz.dataPtr(FComp),ARLIM(fiz.loVect()),ARLIM(fiz.hiVect()),
-                         area[2][mfi].dataPtr(), ARLIM(area[2][mfi].loVect()),ARLIM(area[2][mfi].hiVect()),
+                    rDz.dataPtr(dComp),ARLIM(rDz.loVect()),ARLIM(rDz.hiVect()),
+                    fiz.dataPtr(FComp),ARLIM(fiz.loVect()),ARLIM(fiz.hiVect()),
+                    area[2][mfi].dataPtr(), ARLIM(area[2][mfi].loVect()),ARLIM(area[2][mfi].hiVect()),
 #endif
-                         fh.dataPtr(),     ARLIM(fh.loVect()), ARLIM(fh.hiVect()),
-                         Tbc.vect() );
+                    fh.dataPtr(),     ARLIM(fh.loVect()), ARLIM(fh.hiVect()),
+                    Tbc.vect() );
   }
 
   if (verbose > 1)
