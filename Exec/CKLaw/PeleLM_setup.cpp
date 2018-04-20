@@ -863,7 +863,7 @@ PeleLM::variableSetUp ()
   std::string curv_str = "mean_progress_curvature";
   derive_lst.add(curv_str,IndexType::TheCellType(),1,&DeriveRec::GrowBoxByOne);
     
-#ifdef PARTICLES
+#ifdef AMREX_PARTICLES
   //
   // The particle count at this level.
   //
