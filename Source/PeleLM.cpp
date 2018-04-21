@@ -4029,7 +4029,10 @@ PeleLM::set_htt_hmixTYP ()
         AmrLevel& htf = getLevel(k+1);
         BoxArray  baf = htf.boxArray();
         baf.coarsen(parent->refRatio(k));
-        for (MFIter mfi(hmix); mfi.isValid(); ++mfi)
+#ifdef _OPENMP
+#pragma omp parallel
+#endif  
+        for (MFIter mfi(hmix,true); mfi.isValid(); ++mfi)
         {
           baf.intersections(ba[mfi.index()],isects);
           for (int i = 0; i < isects.size(); i++)
@@ -5019,6 +5022,8 @@ PeleLM::getFuncCountDM (const BoxArray& bxba, int ngrow)
 
   int count = 0;
   Vector<long> vwrk(bxba.size());
+
+// FIXME need to be tiled  
   for (MFIter mfi(fctmpnew); mfi.isValid(); ++mfi)
     vwrk[count++] = static_cast<long>(fctmpnew[mfi].sum(0));
 
@@ -5183,8 +5188,10 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
 
     STemp.copy(mf_old,first_spec,0,nspecies+3); // Parallel copy.
     FTemp.copy(Force);                          // Parallel copy.
-
-    for (MFIter Smfi(STemp); Smfi.isValid(); ++Smfi)
+#ifdef _OPENMP
+#pragma omp parallel
+#endif  
+    for (MFIter Smfi(STemp,true); Smfi.isValid(); ++Smfi)
     {
       const FArrayBox& rYo      = STemp[Smfi];
       const FArrayBox& rHo      = STemp[Smfi];
@@ -5192,7 +5199,7 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
       FArrayBox&       rYn      = STemp[Smfi];
       FArrayBox&       rHn      = STemp[Smfi];
       FArrayBox&       Tn       = STemp[Smfi];
-      const Box&       bx       = Smfi.validbox();
+      const Box&       bx       = Smfi.tilebox();
       FArrayBox&       fc       = fcnCntTemp[Smfi];
       const FArrayBox& frc      = FTemp[Smfi];
       FArrayBox*       chemDiag = (do_diag ? &(diagTemp[Smfi]) : 0);
@@ -6462,10 +6469,13 @@ PeleLM::compute_Wbar_fluxes(Real time,
   visc_op->applyBC(Wbar,0,1,0,LinOp::Inhomogeneous_BC);
 
   delete visc_op;
-   
-  for (MFIter mfi(Wbar); mfi.isValid(); ++mfi)
+  
+#ifdef _OPENMP
+#pragma omp parallel
+#endif   
+  for (MFIter mfi(Wbar,true); mfi.isValid(); ++mfi)
   {
-    const Box&       vbox = mfi.validbox();
+    
     const FArrayBox& wbar = Wbar[mfi];
     const Real       mult = -1.0;
 
@@ -6473,7 +6483,8 @@ PeleLM::compute_Wbar_fluxes(Real time,
     {
       const FArrayBox& rhoDe = (*betaWbar[d])[mfi];
       FArrayBox&       fluxfab  = (*SpecDiffusionFluxWbar[d])[mfi];
-		  
+		  const Box&       vbox = mfi.nodaltilebox(d);
+      
       for (int ispec=0; ispec<nspecies; ++ispec)
       {
         grad_wbar(vbox.loVect(), vbox.hiVect(),

@@ -2726,7 +2726,7 @@ contains
          if (dir.eq.0) then
             do k = lo(3),hi(3)
                do j = lo(2),hi(2)
-                  do i = lo(1),hi(1)+1
+                  do i = lo(1),hi(1)
                      Wgr =   fac*(Wbar(i,j,k) - Wbar(i-1,j,k))
                      flux(i,j,k) = rDe(i,j,k) * Wgr * area(i,j,k)
                   enddo
@@ -2736,7 +2736,7 @@ contains
          else if (dir.eq.1) then
 
             do k = lo(3),hi(3)
-               do j = lo(2),hi(2)+1
+               do j = lo(2),hi(2)
                   do i = lo(1),hi(1)
                      Wgr =   fac*(Wbar(i,j,k) - Wbar(i,j-1,k))
                      flux(i,j,k) = rDe(i,j,k) * Wgr * area(i,j,k)
@@ -2746,7 +2746,7 @@ contains
 
          else if (dir.eq.2) then
 
-            do k = lo(3),hi(3)+1
+            do k = lo(3),hi(3)
                do j = lo(2),hi(2)
                   do i = lo(1),hi(1)
                      Wgr =   fac*(Wbar(i,j,k) - Wbar(i,j,k-1))
@@ -2767,7 +2767,7 @@ contains
 
             do k = lo(3),hi(3)
                do j = lo(2),hi(2)
-                  do i = lo(1),hi(1)+1
+                  do i = lo(1),hi(1)
                      Wgr =   fac*(Wbar(i,j,k) - Wbar(i-1,j,k))
                      flux(i,j,k) = flux(i,j,k) + inc * rDe(i,j,k) * Wgr * area(i,j,k)
                   enddo
@@ -2777,7 +2777,7 @@ contains
          else if (dir.eq.1) then
 
             do k = lo(3),hi(3)
-               do j = lo(2),hi(2)+1
+               do j = lo(2),hi(2)
                   do i = lo(1),hi(1)
                      Wgr =   fac*(Wbar(i,j,k) - Wbar(i,j-1,k))
                      flux(i,j,k) = flux(i,j,k) + inc * rDe(i,j,k) * Wgr * area(i,j,k)
@@ -2787,7 +2787,7 @@ contains
 
          else if (dir.eq.2) then
 
-            do k = lo(3),hi(3)+1
+            do k = lo(3),hi(3)
                do j = lo(2),hi(2)
                   do i = lo(1),hi(1)
                      Wgr =   fac*(Wbar(i,j,k) - Wbar(i,j,k-1))
