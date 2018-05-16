@@ -4134,16 +4134,10 @@ PeleLM::predict_velocity (Real  dt,
   Real cflmax = 1.0e-10;
   comp_cfl    = (level == 0) ? cflmax : comp_cfl;
 
-  FArrayBox tforces;
-
-  Vector<int> bndry[BL_SPACEDIM];
-
   MultiFab Gp(grids,dmap,BL_SPACEDIM,1);
 
   getGradP(Gp, prev_pres_time);
     
-  FArrayBox null_fab;
-
   showMF("mac",Gp,"pv_Gp",level);
   showMF("mac",rho_ptime,"pv_rho_old",level);
   showMF("mac",visc_terms,"pv_visc_terms",level);
@@ -4156,63 +4150,65 @@ PeleLM::predict_velocity (Real  dt,
   Force.setVal(0);
 #endif
 
-  for (FillPatchIterator U_fpi(*this,visc_terms,Godunov::hypgrow(),prev_time,State_Type,Xvel,BL_SPACEDIM)
+  FillPatchIterator U_fpi(*this,visc_terms,Godunov::hypgrow(),prev_time,State_Type,Xvel,BL_SPACEDIM);
+  MultiFab& Umf=U_fpi.get_mf();
+  
 #ifdef MOREGENGETFORCE
-         , S_fpi(*this,visc_terms,1,prev_time,State_Type,Density,NUM_SCALARS);
-       S_fpi.isValid() && U_fpi.isValid();
-       ++S_fpi, ++U_fpi
-#else
-         ; U_fpi.isValid();
-       ++U_fpi
+  FillPatchIterator S_fpi(*this,visc_terms,1,prev_time,State_Type,Density,NUM_SCALARS);
+  MultiFab& Smf=S_fpi.get_mf();
 #endif
-    )
+
+#ifdef _OPENMP
+#pragma omp parallel
+#endif      
+{
+  FArrayBox tforces;
+
+  Vector<int> bndry[BL_SPACEDIM];
+
+  FArrayBox null_fab;
+
+  for (MFIter U_mfi(Umf,true); U_mfi.isValid(); ++U_mfi)
   {
-    const int i = U_fpi.index();
+    Box bx=U_mfi.tilebox();
+    FArrayBox& Ufab = Umf[U_mfi];
 
 #ifdef GENGETFORCE
-    getForce(tforces,i,1,Xvel,BL_SPACEDIM,prev_time,rho_ptime[U_fpi]);
+    getForce(tforces,bx,1,Xvel,BL_SPACEDIM,prev_time,rho_ptime[U_mfi]);
 #elif MOREGENGETFORCE
     if (getForceVerbose)
       amrex::Print() << "---" << '\n' << "A - Predict velocity:" << '\n' 
 		     << " Calling getForce..." << '\n';
-    getForce(tforces,i,1,Xvel,BL_SPACEDIM,prev_time,U_fpi(),S_fpi(),0);
+    getForce(tforces,bx,1,Xvel,BL_SPACEDIM,prev_time,Ufab,Smf[U_mfi],0);
 #else
-    getForce(tforces,i,1,Xvel,BL_SPACEDIM,rho_ptime[U_fpi]);
+    getForce(tforces,bx,1,Xvel,BL_SPACEDIM,rho_ptime[U_mfi]);
 #endif		 
     //
     // Test velocities, rho and cfl.
     //
-    cflgrid  = godunov->test_u_rho(U_fpi(),rho_ptime[U_fpi],grids[i],dx,dt,u_max);
+    cflgrid  = godunov->test_u_rho(Ufab,rho_ptime[U_mfi],bx,dx,dt,u_max);
     cflmax   = std::max(cflgrid,cflmax);
     comp_cfl = std::max(cflgrid,comp_cfl);
     //
     // Compute the total forcing.
     //
-    godunov->Sum_tf_gp_visc(tforces,0,visc_terms[U_fpi],0,Gp[U_fpi],0,rho_ptime[U_fpi],0);
+    godunov->Sum_tf_gp_visc(tforces,0,visc_terms[U_mfi],0,Gp[U_mfi],0,rho_ptime[U_mfi],0);
 
 #ifndef NDEBUG
     Force[U_fpi].copy(tforces,0,0,BL_SPACEDIM);
 #endif
 
-    D_TERM(bndry[0] = getBCArray(State_Type,i,0,1);,
-           bndry[1] = getBCArray(State_Type,i,1,1);,
-           bndry[2] = getBCArray(State_Type,i,2,1);)
+    D_TERM(bndry[0] = fetchBCArray(State_Type,bx,0,1);,
+           bndry[1] = fetchBCArray(State_Type,bx,1,1);,
+           bndry[2] = fetchBCArray(State_Type,bx,2,1);)
 
-      godunov->Setup(grids[i], dx, dt, 1,
-                     D_DECL(null_fab,null_fab,null_fab),
-                     D_DECL(bndry[0].dataPtr(),bndry[1].dataPtr(),bndry[2].dataPtr()),
-                     D_DECL(U_fpi(),U_fpi(),U_fpi()), D_DECL(0,1,2),
-                     tforces,0);
+    godunov->ExtrapVelToFaces(bx, dx, dt,
+                              D_DECL(u_mac[0][U_mfi], u_mac[1][U_mfi], u_mac[2][U_mfi]),
+                              D_DECL(bndry[0],        bndry[1],        bndry[2]),
+                              Ufab, tforces);
 
-    godunov->ComputeUmac(grids[i], dx, dt, 
-                         u_mac[0][U_fpi], bndry[0].dataPtr(),
-                         u_mac[1][U_fpi], bndry[1].dataPtr(),
-#if (BL_SPACEDIM == 3)
-                         u_mac[2][U_fpi], bndry[2].dataPtr(),
-#endif
-                         U_fpi(), tforces);
   }
-
+}
 
   showMF("mac",u_mac[0],"pv_umac0",level);
   showMF("mac",u_mac[1],"pv_umac1",level);
