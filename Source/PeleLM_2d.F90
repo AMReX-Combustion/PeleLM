@@ -383,8 +383,8 @@ contains
 
     rhoInv = 0
     do n=1,Nspec
-      do j=lo_y(2)-1,hi_y(2)+1
-        do i=lo_x(1)-1,hi_x(1)+1
+      do j=lo_y(2)-1,hi_y(2)
+        do i=lo_x(1)-1,hi_x(1)
           rhoInv(i,j) = rhoInv(i,j) + RhoY(i,j,n)
         enddo
       enddo
