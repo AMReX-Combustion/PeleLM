@@ -5208,7 +5208,7 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
 
         getChemSolve().solveTransient_sdc(rYn,rHn,Tn,rYo,rHo,To,frc,fc,ba[i],
                                           s_spec,s_rhoh,s_temp,dt,chemDiag,
-					                                use_stiff_solver);
+					  use_stiff_solver);
       }
     }
 
@@ -5286,123 +5286,200 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
   const Real  strt_time = ParallelDescriptor::second();
   const Real* dx        = geom.CellSize();
   const Real  prev_time = state[State_Type].prevTime();
+  
   //
   // Gather info necesary to build transverse velocities
   // (stored internal to Godunov)
   //
-  MultiFab Gp, VelViscTerms;
-  const int use_forces_in_trans = godunov->useForcesInTrans();
-  if (use_forces_in_trans || (do_mom_diff == 1))
-  {
-    VelViscTerms.define(grids,dmap,BL_SPACEDIM,nGrowAdvForcing);
-    getViscTerms(VelViscTerms,Xvel,BL_SPACEDIM,prev_time);
-    showMF("dd",VelViscTerms,"dd_VelViscTerms_in_aofs",level);
+  //MultiFab Gp, VelViscTerms;
+  //const int use_forces_in_trans = godunov->useForcesInTrans();
+  //if (use_forces_in_trans || (do_mom_diff == 1))
+  //{
+  //  VelViscTerms.define(grids,dmap,BL_SPACEDIM,nGrowAdvForcing);
+  //  getViscTerms(VelViscTerms,Xvel,BL_SPACEDIM,prev_time);
+  //  showMF("dd",VelViscTerms,"dd_VelViscTerms_in_aofs",level);
+  //
+  //  Gp.define(grids,dmap,BL_SPACEDIM,nGrowAdvForcing);
+  //  getGradP(Gp, state[Press_Type].prevTime());
+  //  showMF("dd",Gp,"dd_Gp_in_aofs",level);
+  //}
 
-    Gp.define(grids,dmap,BL_SPACEDIM,nGrowAdvForcing);
-    getGradP(Gp, state[Press_Type].prevTime());
-    showMF("dd",Gp,"dd_Gp_in_aofs",level);
-  }
 
-  FArrayBox tvelforces;
+  //FArrayBox tvelforces;
+  Vector<int> state_bc;
 
+  
   const int nState = desc_lst[State_Type].nComp();
 
   MultiFab dummy(grids,dmap,1,0,MFInfo().SetAlloc(false));
-  for (FillPatchIterator S_fpi(*this,dummy,Godunov::hypgrow(),prev_time,State_Type,0,nState);
-       S_fpi.isValid();
-       ++S_fpi)
+// We advect rho.Y and rho.h
+  FillPatchIterator S_fpi(*this,dummy,Godunov::hypgrow(),prev_time,State_Type,first_spec,nspecies+1);
+  const MultiFab& Smf=S_fpi.get_mf();
+
+  
+  FArrayBox cflux[BL_SPACEDIM];
+  FArrayBox edgstate[BL_SPACEDIM];
+
+  
+  for (MFIter S_mfi(Smf,true); S_mfi.isValid(); ++S_mfi)
   {
-    const Box& box = S_fpi.validbox();
-    const int i = S_fpi.index();
-    const FArrayBox& S = S_fpi();
-    const FArrayBox& divu = DivU[S_fpi];
-    const FArrayBox& force = Force[S_fpi];
+    const Box& bx = S_mfi.tilebox();
+    
+    //const int i = S_mfi.index();
+    const FArrayBox& S = Smf[S_mfi];
+    const FArrayBox& divu = DivU[S_mfi];
+    const FArrayBox& force = Force[S_mfi];
 
-    if (use_forces_in_trans || (do_mom_diff == 1))
-    {
-      NavierStokesBase::getForce(tvelforces,i,nGrowAdvForcing,Xvel,BL_SPACEDIM,
-#ifdef GENGETFORCE
-				 prev_time,
-#endif		 
-				 S,Density);
-
-      godunov->Sum_tf_gp_visc(tvelforces,0,VelViscTerms[S_fpi],0,Gp[S_fpi],0,S,Density);
+    //amrex::Print() << "box in mfiter" << bx << std::endl;
+    for (int d=0; d<BL_SPACEDIM; ++d) {
+      //const Box& ebx = S_mfi.nodaltilebox(d);
+      const Box& ebx = amrex::surroundingNodes(bx,d);
+      //amrex::Print() << "ebox to create flux/edgstate" << ebx << std::endl;
+      cflux[d].resize(ebx,nspecies+1);
+      edgstate[d].resize(ebx,nspecies+1);
     }
-    else
-    {
-      tvelforces.resize(amrex::grow(grids[i],nGrowAdvForcing),BL_SPACEDIM);
-      tvelforces.setVal(0);
-    }
-    //
-    // Set up the workspace internal to Godunov
-    //
-    Vector<int> u_bc[BL_SPACEDIM];
-    D_TERM(u_bc[0] = getBCArray(State_Type,i,0,1);,
-           u_bc[1] = getBCArray(State_Type,i,1,1);,
-           u_bc[2] = getBCArray(State_Type,i,2,1);)
-      godunov->BuildWorkSpace(box,dx,dt);
-    godunov->ComputeTransverVelocities(box,dx,dt,
-                                       D_DECL(u_bc[0].dataPtr(),u_bc[1].dataPtr(),u_bc[2].dataPtr()),
-                                       D_DECL(S,S,S), D_DECL(0,1,2), tvelforces, 0);
-
-    (*aofs)[i].setVal(0,aofs->boxArray()[i],Density,NUM_SCALARS);
+    
+    
+    (*aofs)[S_mfi].setVal(0,bx,Density,NUM_SCALARS);
     for (int d=0; d<BL_SPACEDIM; ++d)
     {
-      (*EdgeState[d])[i].setVal(0,(*EdgeState[d])[i].box(),Density,NUM_SCALARS);
-      (*EdgeFlux[d])[i].setVal(0,(*EdgeFlux[d])[i].box(),Density,NUM_SCALARS);
+      const Box& ebx = amrex::surroundingNodes(bx,d);
+      (*EdgeState[d])[S_mfi].setVal(0,ebx,Density,NUM_SCALARS);
+      (*EdgeFlux[d])[S_mfi].setVal(0,ebx,Density,NUM_SCALARS);
     } 
+    
+//    if (use_forces_in_trans || (do_mom_diff == 1))
+//    {
+//      NavierStokesBase::getForce(tvelforces,bx,nGrowAdvForcing,first_spec,BL_SPACEDIM,
+//#ifdef GENGETFORCE
+//				 prev_time,
+//#endif		 
+//				 S,Density);
+//
+//      godunov->Sum_tf_gp_visc(tvelforces,0,VelViscTerms[S_mfi],0,Gp[S_mfi],0,S,Density);
+//    }
+//    else
+//    {
+//      tvelforces.resize(amrex::grow(bx,nGrowAdvForcing),BL_SPACEDIM);
+//      tvelforces.setVal(0);
+//    }
+//    amrex::Print() << tvelforces << std::endl ;
+    
+    state_bc = fetchBCArray(State_Type,bx,first_spec,nspecies+1);
 
-    for (int comp = 0 ; comp < NUM_SCALARS ; comp++)
-    {
-      int state_ind = Density + comp;
-      bool advect_this_comp = ( (state_ind >= first_spec) && (state_ind <= last_spec) )
-        || state_ind == RhoH;
-
-      if (advect_this_comp) {
-
-        if (state_ind != Density) {
-          Vector<int> bc = getBCArray(State_Type,i,state_ind,1);
-	  int iconserv = advectionType[state_ind] == Conservative ? 1 : 0;
-
-          int fComp = Density + comp - first_spec;
-          BL_ASSERT(fComp>=0 && fComp<=force.nComp());
-          godunov->edge_states_fpu(box, dx, dt,
-                                   D_DECL(u_mac[0][i],u_mac[1][i],u_mac[2][i]), D_DECL(0,0,0),
-                                   D_DECL((*EdgeState[0])[i],(*EdgeState[1])[i],(*EdgeState[2])[i]),
-                                   D_DECL(state_ind,state_ind,state_ind),
-                                   S,state_ind,force,fComp,divu,0,state_ind,bc.dataPtr(),iconserv);
-          for (int d=0; d<BL_SPACEDIM; ++d)
-            (*EdgeFlux[d])[i].copy((*EdgeState[d])[i],state_ind,state_ind,1);
-          int avcomp = 0;
-          int ucomp = 0;
-          // Compute Div(flux.Area), return Area-scaled (extensive) fluxes
-          godunov->ComputeAofs(grids[i],
-                               D_DECL(area[0][i],area[1][i],area[2][i]),D_DECL(avcomp,avcomp,avcomp),
-                               D_DECL(u_mac[0][i],u_mac[1][i],u_mac[2][i]),D_DECL(ucomp,ucomp,ucomp),
-                               D_DECL((*EdgeFlux[0])[i],(*EdgeFlux[1])[i],(*EdgeFlux[2])[i]),
-                               D_DECL(state_ind,state_ind,state_ind), volume[i], avcomp,
-                               (*aofs)[i], state_ind, iconserv);
-
-          // Accumulate rho flux divergence, rho on edges, and rho flux on edges
-          if (state_ind >= first_spec && state_ind <= last_spec) {
-            (*aofs)[i].plus((*aofs)[i],state_ind,Density,1);
-            for (int d=0; d<BL_SPACEDIM; ++d) {
-              (*EdgeState[d])[i].plus((*EdgeState[d])[i],state_ind,Density,1);
-              (*EdgeFlux[d])[i].plus((*EdgeFlux[d])[i],state_ind,Density,1);
+    godunov->AdvectScalars(bx, dx, dt, 
+                           D_DECL(  area[0][S_mfi],  area[1][S_mfi],  area[2][S_mfi]),
+                           D_DECL( u_mac[0][S_mfi], u_mac[1][S_mfi], u_mac[2][S_mfi]),
+                           D_DECL(cflux[0],cflux[1],cflux[2]),
+                           D_DECL(edgstate[0],edgstate[1],edgstate[2]),
+                           S, 0, nspecies+1 , force, 0, divu, 0,
+                           (*aofs)[S_mfi], first_spec, advectionType, state_bc, FPU, volume[S_mfi]);
+   
+    //amrex::Print() << (*EdgeState[0])[S_mfi] << std::endl ;
+    
+    //amrex::Print() << (*EdgeFlux[0])[S_mfi] << std::endl ;
+    
+    // Accumulate rho flux divergence, rho on edges, and rho flux on edges
+    
+     for (int d=0; d<BL_SPACEDIM; ++d)
+     {
+          //const Box& ebx = S_mfi.nodaltilebox(d);
+          const Box& ebx = amrex::surroundingNodes(bx,d);
+           (*EdgeFlux[d])[S_mfi].copy(cflux[d],ebx,0,ebx,first_spec,nspecies+1);
+           (*EdgeState[d])[S_mfi].copy(edgstate[d],ebx,0,ebx,first_spec,nspecies+1);
+     }
+          
+     for (int comp = 0 ; comp < nspecies+1 ; comp++)
+     {      
+           int state_ind = first_spec + comp;
+            if (state_ind >= first_spec && state_ind <= last_spec) {
+            (*aofs)[S_mfi].plus((*aofs)[S_mfi],bx,bx,state_ind,Density,1);
+            for (int d=0; d<BL_SPACEDIM; d++) {
+                  //const Box& ebx = S_mfi.nodaltilebox(d);
+                  const Box& ebx = amrex::surroundingNodes(bx,d);
+              (*EdgeState[d])[S_mfi].plus(edgstate[d],ebx,ebx,comp,Density,1);
+              (*EdgeFlux[d])[S_mfi].plus(cflux[d],ebx,ebx,comp,Density,1);
             }
-          }
-        }
-      }
+            }
     }
+    
+    
+    
+//{    
+//    //
+//    // Set up the workspace internal to Godunov
+//    //
+//    Vector<int> u_bc[BL_SPACEDIM];
+//    D_TERM(u_bc[0] = getBCArray(State_Type,i,0,1);,
+//           u_bc[1] = getBCArray(State_Type,i,1,1);,
+//           u_bc[2] = getBCArray(State_Type,i,2,1);)
+//      godunov->BuildWorkSpace(box,dx,dt);
+//    godunov->ComputeTransverVelocities(box,dx,dt,
+//                                       D_DECL(u_bc[0].dataPtr(),u_bc[1].dataPtr(),u_bc[2].dataPtr()),
+//                                       D_DECL(S,S,S), D_DECL(0,1,2), tvelforces, 0);
+//
+//    (*aofs)[i].setVal(0,aofs->boxArray()[i],Density,NUM_SCALARS);
+//    for (int d=0; d<BL_SPACEDIM; ++d)
+//    {
+//      (*EdgeState[d])[i].setVal(0,(*EdgeState[d])[i].box(),Density,NUM_SCALARS);
+//      (*EdgeFlux[d])[i].setVal(0,(*EdgeFlux[d])[i].box(),Density,NUM_SCALARS);
+//    } 
+//
+//    for (int comp = 0 ; comp < NUM_SCALARS ; comp++)
+//    {
+//      int state_ind = Density + comp;
+//      bool advect_this_comp = ( (state_ind >= first_spec) && (state_ind <= last_spec) )
+//        || state_ind == RhoH;
+//
+//      if (advect_this_comp) {
+//
+//        if (state_ind != Density) {
+//          Vector<int> bc = getBCArray(State_Type,i,state_ind,1);
+//	  int iconserv = advectionType[state_ind] == Conservative ? 1 : 0;
+//
+//          int fComp = Density + comp - first_spec;
+//          BL_ASSERT(fComp>=0 && fComp<=force.nComp());
+//          godunov->edge_states_fpu(box, dx, dt,
+//                                   D_DECL(u_mac[0][i],u_mac[1][i],u_mac[2][i]), D_DECL(0,0,0),
+//                                   D_DECL((*EdgeState[0])[i],(*EdgeState[1])[i],(*EdgeState[2])[i]),
+//                                   D_DECL(state_ind,state_ind,state_ind),
+//                                   S,state_ind,force,fComp,divu,0,state_ind,bc.dataPtr(),iconserv);
+//          for (int d=0; d<BL_SPACEDIM; ++d)
+//            (*EdgeFlux[d])[i].copy((*EdgeState[d])[i],state_ind,state_ind,1);
+//          int avcomp = 0;
+//          int ucomp = 0;
+//          // Compute Div(flux.Area), return Area-scaled (extensive) fluxes
+//          godunov->ComputeAofs(grids[i],
+//                               D_DECL(area[0][i],area[1][i],area[2][i]),D_DECL(avcomp,avcomp,avcomp),
+//                               D_DECL(u_mac[0][i],u_mac[1][i],u_mac[2][i]),D_DECL(ucomp,ucomp,ucomp),
+//                               D_DECL((*EdgeFlux[0])[i],(*EdgeFlux[1])[i],(*EdgeFlux[2])[i]),
+//                               D_DECL(state_ind,state_ind,state_ind), volume[i], avcomp,
+//                               (*aofs)[i], state_ind, iconserv);
+//
+//          // Accumulate rho flux divergence, rho on edges, and rho flux on edges
+//          if (state_ind >= first_spec && state_ind <= last_spec) {
+//            (*aofs)[i].plus((*aofs)[i],state_ind,Density,1);
+//            for (int d=0; d<BL_SPACEDIM; ++d) {
+//              (*EdgeState[d])[i].plus((*EdgeState[d])[i],state_ind,Density,1);
+//              (*EdgeFlux[d])[i].plus((*EdgeFlux[d])[i],state_ind,Density,1);
+//            }
+//          }
+//        }
+//      }
+//    }
+//    
+//}
+    
+    
   }
 
-  tvelforces.clear();
-
-  if (use_forces_in_trans || (do_mom_diff == 1))
-  {
-    Gp.clear();
-    VelViscTerms.clear();
-  }
+  //tvelforces.clear();
+  //
+  //if (use_forces_in_trans || (do_mom_diff == 1))
+  //{
+  //  Gp.clear();
+  //  VelViscTerms.clear();
+  //}
 
   showMF("sdc",*EdgeState[0],"sdc_ESTATE_x",level,parent->levelSteps(level));
   showMF("sdc",*EdgeState[1],"sdc_ESTATE_y",level,parent->levelSteps(level));
