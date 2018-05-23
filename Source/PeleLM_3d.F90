@@ -972,7 +972,7 @@ contains
 !-------------------------------------------
 
   subroutine est_divu_dt(flag, dtfactor, delta, divu, DIMS(divu), &
-                         dsdt, rho, DIMS(rho),  &
+                         dsdt, DIMS(dsdt), rho, DIMS(rho),  &
                          u, DIMS(u), &
                          volume, DIMS(volume), &
                          areax,  DIMS(areax), &
@@ -989,11 +989,12 @@ contains
       integer DIMDEC(divu)
       integer DIMDEC(rho)
       integer DIMDEC(u)
+      integer DIMDEC(dsdt)
       REAL_T  rho(DIMV(rho))      
       REAL_T  u(DIMV(u),BL_SPACEDIM)      
       REAL_T  rhomin, dtfactor
       REAL_T  divu(DIMV(divu))
-      REAL_T  dsdt(DIMV(divu))
+      REAL_T  dsdt(DIMV(dsdt))
 
       integer DIMDEC(volume)
       integer DIMDEC(areax)
