@@ -1,13 +1,13 @@
 TOP = ../../..
 AMREX_HOME ?= ${TOP}/amrex
-IAMR_HOME ?= ${TOP}/IAMR
+IAMR_HOME ?= ${TOP}/IAMR_marc
 PELELM_HOME ?= ${TOP}/PeleLM
 
 #
 # Build configuration
 #
 
-DIM             = 2
+DIM             = 3
 COMP            = gnu
 DEBUG           = FALSE
 USE_MPI         = TRUE
@@ -17,6 +17,8 @@ VERBOSE         = FALSE
 
 TINY_PROFILE = TRUE
 #USE_WBAR = TRUE
+
+DEFINES+=-DALWAYS_NEW_J
 
 # Enable flctin namelist
 #USE_FLCTS       = TRUE

@@ -366,18 +366,18 @@ contains
 
       rhoInv = 0.0d0
       do n=1,Nspec
-         do k=lo_z(3)-1,hi_z(3)+1
-            do j=lo_y(2)-1,hi_y(2)+1
-               do i=lo_x(1)-1,hi_x(1)+1
+         do k=lo_z(3)-1,hi_z(3)
+            do j=lo_y(2)-1,hi_y(2)
+               do i=lo_x(1)-1,hi_x(1)
                rhoInv(i,j,k) = rhoInv(i,j,k) + RhoY(i,j,k,n)
                enddo
             enddo
          enddo
       enddo
 
-      do k=lo_z(3)-1,hi_z(3)+1
-         do j=lo_y(2)-1,hi_y(2)+1
-            do i=lo_x(1)-1,hi_x(1)+1
+      do k=lo_z(3)-1,hi_z(3)
+         do j=lo_y(2)-1,hi_y(2)
+            do i=lo_x(1)-1,hi_x(1)
                rhoInv(i,j,k) = 1.0D0/rhoInv(i,j,k)
             enddo
          enddo
