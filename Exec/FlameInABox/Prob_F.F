@@ -187,6 +187,7 @@ c     Note: for setup with no coflow, set Ro=Rf+wallth
 
 c     Initialize control variables
       tau_control = one
+      controlVelMax = 2.d0
       sest = zero
       corr = one
       changeMax_control = .05
