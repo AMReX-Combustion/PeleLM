@@ -202,6 +202,7 @@ c     Initialize control variables
       h_control = -one
       pseudo_gravity = 0
       nchemdiag = 1
+      controlVelMax = 5.d0
 
       write(6,*)"reading fortin"
       read(untin,fortin)
