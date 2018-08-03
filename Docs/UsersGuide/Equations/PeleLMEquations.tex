@@ -1,10 +1,51 @@
 %%%
+
+\section{Overview of \pelelm}
+
+\pelelm\ evolves chemically reacting low Mach number flows with block-structured adaptive mesh refinement (AMR).
+The code is built upon the core library, \amrex\ (\url{https://github.com/AMReX-Codes/amrex}),
+to manages the underlying data structures, and the numerical time stepping of
+a hierarchy of AMR grid levels. \pelelm\ borrows heavily
+from the source code and algorithmic infrastructure of the \iamr\ code (\url{https://github.com/AMReX-Codes/IAMR})
+that integrates the variable-density incompressible Navier-Stokes equations.
+The core algorithms in \pelelm\ (and \iamr) are described in a series of papers:
+
+\begin{itemize}
+
+\item {\it A conservative, thermodynamically consistent numerical approach for low Mach number 
+combustion. I. Single-level integration},
+A.~Nonaka, J.~B.~Bell, and M.~S.~Day, Combust. Theor. Model., vol. 22, no. 1, pp. 156-184, 2018
+\url{https://ccse.lbl.gov/Publications/nonaka/LMC_Pressure.pdf} \cite{LMC-P}.
+
+\item {\it A Deferred Correction Coupling Strategy for Low Mach Number Flow with Complex Chemistry},
+A.~Nonaka, J.~B.~Bell, M.~S.~Day, C.~Gilet, A.~S.~Almgren, and M.~L.~Minion,
+Combust. Theory and Modelling, 16(6), 1053-1088, 2012. 
+\url{http://www.tandfonline.com/doi/abs/10.1080/13647830.2012.701019} \cite{LMC_SDC}
+
+\item {\it Numerical Simulation of Laminar Reacting Flows with Complex Chemistry},
+M.~S.~Day and J.~B.~Bell,
+Combust. Theory Modelling 4(4) pp.535-556, 2000.
+\url{http://www.tandfonline.com/doi/abs/10.1088/1364-7830/4/4/309} \cite{DayBell:2000}
+
+\item {\it An Adaptive Projection Method for Unsteady, Low-Mach Number Combustion}, 
+R.~B.~Pember, L.~H.~Howell, J.~B.~Bell, P.~Colella, W.~Y.~Crutchfield, W.~A.~Fiveland, and J.~P.~Jessee,
+Comb. Sci. Tech., 140, pp. 123-168, 1998.
+\url{http://www.tandfonline.com/doi/abs/10.1080/00102209808915770} \cite{pember-flame}
+
+\item {\it A Conservative Adaptive Projection Method for the Variable Density Incompressible Navier-Stokes Equations},
+A.~S.~Almgren, J.~B.~Bell, P.~Colella, L.~H.~Howell, and M.~L.~Welcome,
+J.~Comp.~Phys., 142, pp. 1-46, 1998.
+\url{http://www.sciencedirect.com/science/article/pii/S0021999198958909} \cite{IAMR}
+
+\end{itemize}         
+
+
 \section{The low Mach number flow equations}
 \newcommand{\etal}{{\it et al.}}
 
-\pelelm\ solves the reacting Navier-Stokes flow equations in the \emph{low Mach number} regime~\cite{DayBell:2000,rehm1978equations,Majda:1985}. In the low Mach number regime, the characteristic fluid velocity is small compared to the sound speed, and the effect of acoustic wave propagation is unimportant to the overall dynamics of the system. As such, acoustic wave propagation is mathematically removed from the equations of motion, allowing for a time step based on an advective CFL condition and leading to an increase in the allowable time step of order $1/M$ over an explicit, fully compressible method ($M$ is the Mach number). In this framework, the total pressure is decomposed into the sum of a constant (ambient) thermodynamic pressure $P_0$ and a perturbational pressure $\pi$ such that $\pi/P_0 = \mathcal{O} (M^2)$. 
+\pelelm\ solves the reacting Navier-Stokes flow equations in the \emph{low Mach number} regime~\cite{DayBell:2000,rehm1978equations,Majda:1985}. In the low Mach number regime, the characteristic fluid velocity is small compared to the sound speed, and the effect of acoustic wave propagation is unimportant to the overall dynamics of the system. Accordingly, acoustic wave propagation can be mathematically removed from the equations of motion, allowing for a numerical time step based on an advective CFL condition, and leading to an increase in the allowable time step of order $1/M$ over an explicit, fully compressible method ($M$ is the Mach number). In this framework, the total pressure is decomposed into the sum of a spatially constant (ambient) thermodynamic pressure $P_0$ and a perturbational pressure $\pi$.  It has been shown that under suitable conditions (\cite{Majda:1985}), $\pi/P_0 = \mathcal{O} (M^2)$. 
 
-The considered set of equations is a system of PDEs with Advection-Diffusion-Reaction (ADR) processes constrained by an equation of state in the form of a divergence constraint on the velocity. The evolution equations for the velocity and thermodynamic variables reads:
+The set of conservation equations specialized to the low Mach number regime is a system of PDEs with advection, diffusion and reaction (ADR) processes that are constrained to evolve on the manifold of a spatially constant $P_0$:
 \begin{eqnarray}
 &&\frac{\partial (\rho \boldsymbol{u})}{\partial t} + 
 \nabla \cdot \left(\rho  \boldsymbol{u} \boldsymbol{u} + \tau \right)
