@@ -6,295 +6,292 @@
 
 The considered set of equations is a system of PDEs with Advection-Diffusion-Reaction (ADR) processes constrained by an equation of state in the form of a divergence constraint on the velocity. The evolution equations for the velocity and thermodynamic variables reads:
 \begin{eqnarray}
-\frac{\partial (\rho \boldsymbol{u})}{\partial t} + 
+&&\frac{\partial (\rho \boldsymbol{u})}{\partial t} + 
 \nabla \cdot \left(\rho  \boldsymbol{u} \boldsymbol{u} + \tau \right)
-&=& -\nabla \pi + \rho \, \boldsymbol{F}  ,
-\label{eq:mom}
+= -\nabla \pi + \rho \, \boldsymbol{F}  ,
+\nonumber
 \\
-\frac{\partial (\rho Y_m)}{\partial t} +
+&&\frac{\partial (\rho Y_m)}{\partial t} +
 \nabla \cdot \left( \rho Y_m \boldsymbol{u} + \boldsymbol{\mathcal{F}}_{m} \right)
-&=& \rho \, \dot{\omega}_m,
-\label{eq:species}
+= \rho \, \dot{\omega}_m,
+\label{eq:gen}
 \\
-\frac{ \partial (\rho h)}{ \partial t} +
-\nabla \cdot \left( \rho h \boldsymbol{u} + \boldsymbol{\mathcal{Q}} \right) &=& 0 ,
-\label{eq:enthalpy}
+&&\frac{ \partial (\rho h)}{ \partial t} +
+\nabla \cdot \left( \rho h \boldsymbol{u} + \boldsymbol{\mathcal{Q}} \right) = 0 ,
+\nonumber
 \end{eqnarray}
 where $\rho$ is the density, $\boldsymbol{u}$ is the velocity, $h$ is the mass-weighted enthalpy, $T$ is temperature and $Y_m$ is the mass fraction of species $m$. $\dot{\omega}_m$ is the molar production rate for species $m$, the modeling of which will be described in Section~\ref{ChemKinetics}. $\tau$ is the stress tensor, $\boldsymbol{\mathcal{Q}}$ is the heat flux vector and $\boldsymbol{\mathcal{F}}_m$
 %$\,=\,$$- \rho \boldsymbol{\mathcal{D}}_i \nabla X_{i}$ 
 are the species diffusion vectors. These transport fluxes require the evaluation of transport coefficients (e.g., the viscosity $\mu$, the conductivity $\lambda$ and the diffusivity matrix $D$) which are computed using the library EGLIB~\cite{EGLIB}, as will be described in more depth in Section~\ref{DifFluxesEGLIB}. The momentum source term, $\boldsymbol{F}$, is a long-wavelength forcing term designed to establish and maintain turbulence with the desired properties. Note that the definition of enthalpy includes the standard enthalpy of formation, so there is no net change to $h$ due to reactions.
 
-These evolution equations are supplemented by an equation of state:
+These evolution equations are supplemented by an equation of state for the thermodynamic pressure:
 \begin{eqnarray}
-P_0=\rho \mathcal{R} T \sum_m \frac{Y_m}{W_m}
+P_0(\rho,Y_m,T)=\rho \mathcal{R} T \sum_m \frac{Y_m}{W_m}
 \label{eq:eos}
 \end{eqnarray}
-where $W_m$ is the species $m$ molecular weight; and by a relationship between enthalpy, species and temperature:
+where $W_m$ is the species $m$ molecular weight, and by a relationship between enthalpy, species and temperature:
 \begin{eqnarray}
 h=\sum_m Y_m h_m(T)
 \end{eqnarray}
 where $h_m$ is the species $m$ enthalpy. 
 
-Neither species diffusion nor reactions redistribute the total mass, hence we have $\sum_m \boldsymbol{\mathcal{F}}_m = 0$ and $\sum_m \dot{\omega}_m = 0$. Thus, summing the species equations and using $\sum_m Y_m = 1$ we obtain the continuity equation from Eq.~\ref{eq:species}:
+Neither species diffusion nor reactions redistribute the total mass, hence we have $\sum_m \boldsymbol{\mathcal{F}}_m = 0$ and $\sum_m \dot{\omega}_m = 0$. Thus, summing the species equations and using the definition $\sum_m Y_m \equiv 1$ we obtain the continuity equation:
 \begin{eqnarray}
 \frac{\partial \rho}{\partial t} + \nabla \cdot \rho \boldsymbol{u} = 0
+\label{eq:cont}
 \end{eqnarray}
 
-The low Mach number constraint is derived by differentiating the equation of state along particle paths (see~\cite{pember-flame}):
+Equations~(\ref{eq:gen}), together with the equation of state, (\ref{eq:eos}) form a differential-algebraic equation (DAE) system that describes evolution subject to a constraint.  A standard approach to attacking such a system is to differente the constraint until it can be recast as an initial value problem.  Following this procedure, we set the thermodynamic pressure constant in the frame of the fluid,
+\begin{eqnarray}
+\frac{DP_0}{Dt} = 0
+\label{eq:deos}
+\end{eqnarray}
+and observe that if the initial conditions satisfy the constraint, an evolution satisfying (\ref{eq:deos}) 
+will continue to satisfy the constraint over all time.  Expanding (\ref{eq:deos}) via the chain rule, and using
+Eq.~\ref{eq:cont}:
 \begin{eqnarray}
 \nabla \cdot \boldsymbol{u} = \frac{1}{T}\frac{DT}{Dt} + W \sum_m \frac{1}{W_m} \frac{DY_m}{Dt} = S
 \label{eq:veloconstr}
 \end{eqnarray}
-where $W$ is the mean mixture molecular weight. An expression for S in the simplified framework described hereafter will be given in Section~\ref{SumUpEq}
+The constraint on the flow is apparent ($W$ here is the mean mixture molecular weight).
 
 
 
 
 
 %%%
-\section{The diffusive fluxes}
-\label{DifFluxesEGLIB}
-\subsection{Expressions for the diffusive fluxes}
+\subsection{Transport fluxes}
 \label{sub:DifFluxes}
-Expressions for the transport fluxes appearing in Eqs.~(\ref{eq:mom}-\ref{eq:enthalpy}) can be approximated in the Enskog-Chapman expansion as~\cite{Ern:1994multicomponent}:
- \begin{eqnarray}
-\tau_{i,j} = - \Big(\kappa - \frac{2}{3} \mu \Big) \delta_{i,j} \frac{\partial {u_k}}{\partial x_k} - \mu \Big(\frac{u_i}{\partial x_j} + \frac{u_j}{\partial x_i}\Big)
-\\
-\boldsymbol{\mathcal{F}}_{m} = \rho Y_m \boldsymbol{V_m}
-\\
-\boldsymbol{\mathcal{Q}} =  \sum_m h_m \boldsymbol{\mathcal{F}}_{m}  - \lambda' \nabla T - P_0 \sum_m \theta_m \boldsymbol{d_m}
-\end{eqnarray}
-where the $m$ species diffusion velocities vectors $\boldsymbol{V_m}$ are given by:
- \begin{eqnarray}
+Expressions for the transport fluxes appearing in Eqs.~(\ref{eq:gen}) can be approximated in the Enskog-Chapman expansion as~\cite{Ern:1994multicomponent}:
+ \begin{eqnarray*}
+&&\boldsymbol{\mathcal{F}}_{m} = \rho Y_m \boldsymbol{V_m}
+\\ [2mm]
+&&\tau_{i,j} = - \Big(\kappa - \frac{2}{3} \mu \Big) \delta_{i,j} \frac{\partial {u_k}}{\partial x_k} - \mu \Big(\frac{u_i}{\partial x_j} + \frac{u_j}{\partial x_i}\Big)
+\\ [2mm]
+&&\boldsymbol{\mathcal{Q}} =  \sum_m h_m \boldsymbol{\mathcal{F}}_{m}  - \lambda' \nabla T - P_0 \sum_m \theta_m \boldsymbol{d_m}
+\end{eqnarray*}
+where $\mu$ is the shear viscosity, $\kappa$ is the bulk viscosity, and $\lambda'$ is the partial thermal conductivity. In the \textit{full matrix diffusion model}, the $m$ species diffusion velocities vectors $\boldsymbol{V_m}$ are given by:
+ \begin{eqnarray*}
 \boldsymbol{V_m} = - \sum_j  {D}_{m,j} \boldsymbol{d_j} - \theta_m \nabla ln(T)
-\end{eqnarray}
-The vectors $\boldsymbol{d_m}$ incorporate the effects of various state variable gradients and external forces and are given by~\cite{Ern:1994multicomponent}:
- \begin{eqnarray}
+\end{eqnarray*}
+where ${D}_{m,j}$ are the binary diffusion coefficients, and $\theta_m$ are thermal diffusion coefficients associated with the Soret (mass concentration flux due to an energy gradient) and Dufour (the energy flux due to a mass concentration gradient) transport of species $m$. The transport driving force due to composition gradients, $\boldsymbol{d_m}$, is given by~\cite{Ern:1994multicomponent}:
+ \begin{eqnarray*}
 \boldsymbol{d_m} = \nabla X_m + (X_m -Y_m) \frac{\nabla P_0}{P_0}
 \label{dmeqs}
-\end{eqnarray}
-The $\theta_m$ are thermal diffusion vectors, associated with the Soret (mass concentration flux due to an energy gradient) and Dufour (the energy flux due to a mass concentration gradient) effects. Alternatively, the thermal diffusion \emph{ratios} $\chi_m$ may be preferred~\cite{Ern:1994multicomponent} and the diffusion velocities and energy flux recast as:
- \begin{eqnarray}
-\boldsymbol{V_m} = - \sum_j  {D}_{m,j} ( \boldsymbol{d_j} + \chi_j \nabla ln(T))
-\\
-\boldsymbol{\mathcal{Q}} =  \sum_m h_m \boldsymbol{\mathcal{F}}_{m}  - \lambda \nabla T + P_0 \sum_m \chi_m \boldsymbol{V_m}
-\end{eqnarray}
-where  $\theta_m = \sum_j  {D}_{m,j} \chi_j$ and $\lambda' \nabla T = \lambda \nabla T + P_0 \sum_m \theta_m \nabla ln(T)$.
+\end{eqnarray*}
 
-As can be seen, the expression for these fluxes relies upon several transport coefficients that need to be evaluated: the shear viscosity $\mu$, the volume viscosity $\kappa$, the diffusion matrix $ {D}_{m,j} $ and either the thermal diffusion vector $\boldsymbol{\theta}$ and the partial thermal conductivity $\lambda'$ or the thermal diffusion ratios $\boldsymbol{\chi}$ and the thermal conductivity $\lambda$. However, in the present framework several effects are neglected, thus simplifying the fluxes evaluation:
+%%%
+\section{The \pelelm\ equation set}
+\label{SumUpEq}
+For \pelelm, we make the following simplifying assumptions:
 \begin{enumerate}
-\item In a low Mach limit, the volume viscosity $\kappa$ is thought to have a very limited impact
-\item Likewise, pressure effects in Eqs.~\ref{dmeqs} are neglected since pressure variations are supposed to be very small
-\item Finally, we neglect the Dufour and Soret effects so that $\theta_m = 0 = \chi_m$ and $\lambda = \lambda '$
+\item The bulk viscosity, $\kappa$ is ignored
+\item The low Mach limit implies that there are no spacial gradients in the thermodynamic pressure
+\item The \textit{mixture-averaged}\ diffusion model is assumed, and we ignore Dufour and Soret effects
 \end{enumerate}
 
-\subsection{Pure species transport properties}
-With the usual Mason and Monchick approximations~\cite{Mason:1962}, the evaluation of the aforementioned transport coefficients reduces to the computation of pure species transport properties. These, in turn, depend upon the forces of interaction between colliding molecules. In reality, molecular interactions are complex functions of the shape and properties of the pair of species involved, as well as of their environment, intermolecular distance, etc. In practice, they are usually described by a Lennard-Jones 6-12 potential (for non polar molecules, Stockmayer potential otherwise) that relates the evolution of the potential energy of the pair of species to their intermolecular distance.
-
-In this standard framework, the single component viscosities and binary diffusion coefficients are given by~\cite{Hirschfelder:1954}:
+With these assumptions, the conservation equations take the following form:
 \begin{eqnarray}
-\eta_m = \frac{5}{16} \frac{\sqrt{\pi m_m k_B T}}{\pi \sigma^2_m \Omega^{(2,2)*}}
-\label{muCoefs}
+&&\frac{\partial (\rho \boldsymbol{u})}{\partial t} + 
+\nabla \cdot \left(\rho  \boldsymbol{u} \boldsymbol{u} + \tau \right)
+= -\nabla \pi + \rho \, \boldsymbol{F}  ,
+\nonumber
 \\
- \mathcal{D}_{m,j} = \frac{3}{16}\frac{\sqrt{2 \pi k^3_B T^3/m_{m,j}}}{P_0 \pi \sigma^2_{m,j} \Omega^{(1,1)*}}
- \label{difCoefs}
+&&\frac{\partial (\rho Y_i)}{\partial t} +
+\nabla \cdot \left( \rho Y_i \boldsymbol{u} + \boldsymbol{\mathcal{F}}_{i} \right)
+= \rho \, \dot{\omega}_i,
+\label{eq:pelelm}
+\\
+&&\frac{ \partial (\rho h)}{ \partial t} +
+\nabla \cdot \left( \rho h \boldsymbol{u} + \boldsymbol{\mathcal{Q}} \right) = 0 ,
+\nonumber
+\end{eqnarray}
+with
+ \begin{eqnarray*}
+&&\boldsymbol{\mathcal{F}}_{m} = \rho Y_m \boldsymbol{V_m} = - \rho D_{m,mix} \nabla X_m
+\\ [2mm]
+&&\tau_{i,j} = \frac{2}{3} \mu \delta_{i,j} \frac{\partial {u_k}}{\partial x_k} - \mu \Big(\frac{u_i}{\partial x_j} + \frac{u_j}{\partial x_i}\Big)
+\\ [2mm]
+&&\boldsymbol{\mathcal{Q}} =  \sum_m h_m \boldsymbol{\mathcal{F}}_{m}  - \lambda \nabla T
+\end{eqnarray*}
+Details about the computation of $\mu$, $\lambda$ and $D_{m,mix}$ are discussed in Section~\ref{subs:EGLIB}.
+With these specializations, the velocity constraint (Eq~\ref{eq:veloconstr}) becomes:
+\begin{eqnarray}
+\nabla \cdot \boldsymbol{u} \;\;  \equiv \; S&=& \frac{1}{\rho c_{p} T}(\nabla \cdot \lambda \nabla T - \sum_m  \boldsymbol{\mathcal{F}}_{m} \cdot \nabla h_m) \nonumber
+\\
+&-& \frac{W}{\rho} \sum_m \frac{1}{W_m} \nabla \cdot \boldsymbol{\mathcal{F}}_{m} + \frac{1}{\rho} \sum_m \Big( \frac{W}{W_m} -\frac{h_m(T)}{c_{p} T} \Big)\dot{\omega}_m
+\end{eqnarray}
+
+
+% We will talk about this later in the document...
+% The resolution of the system of equations presented is performed in a fractional step framework which prohibits, in general, to numerically conserve both species and enthalpy while satisfying the equation of state (eos) Eq.~\ref{eq:eos}. To deal with this issue, a pressure correction term is added to the constraint S in Eq.~\ref{eq:veloconstr} to damp the system back onto the ambient eos (?? CHECK THAT FORMULA):
+% \begin{eqnarray}
+% \hat{S} = S + f \frac{c_{p} - R}{\Delta t c_{p} \hat{p}} (\hat{p} - P_0)
+% \end{eqnarray}
+% where $\hat{p}$ is computed via the eos Eq.~\ref{eq:eos}, $R = \mathcal{R}/W$ and $f$ is a damping factor ($<1$).
+
+% \subsection{Transport coefficients and mixture rules: the Ern and Giovangigli approximations}
+% \label{subs:EGLIB}
+The mixture-averaged transport coefficients discussed above can be evaluated from transport properties of the pure species. We follow the treatment used in the EGLib library, based on the theory/approximations developed by Ern and Givangigli~\cite{Ern:1994,Ern:2004}.
+
+The following choices are currently implemented in \pelelm\ 
+\begin{itemize}
+\item The viscosity, $\mu$, is estimated based \textcolor{red}{FIXME}
+\item The conductivity, $\lambda$, is based on an empirical mixture formula:
+\begin{eqnarray*}
+\lambda = \Big( \sum_m X_m (\lambda_m)^{\alpha} \Big)^{1/\alpha}, \;\; \alpha = 1/4
+\end{eqnarray*}
+\item The flux diffusion flux is approximated using the diagonal matrix $diag(\widetilde{ \Upsilon})$, where:
+\begin{eqnarray}
+\widetilde{ \Upsilon}_m = \frac{W_m}{W} D_{m,mix}, \;\;\;\mbox{where} \;\;\; D_{m,mix} = \frac{1-Y_m}{ \sum_{j \neq m} X_j / \mathcal{D}_{m,j}}
+\label{eq:dmix}
+\end{eqnarray}
+This leads to a mixture-averaged approximation that is similar to that of Hirschfelder-Curtiss~\cite{Hirschfelder:1954}:
+\begin{eqnarray*}
+\rho Y_m \boldsymbol{V_m} = - \rho D_{m,mix} \frac{W_m}{W} \nabla X_m 
+\end{eqnarray*}
+\end{itemize}
+Note that with these definitions, there is no guarantee that $\sum \boldsymbol{\mathcal{F}}_{m} = 0$, as
+required for mass conservation. As discussed in Section~\ref{AlgoDetails}, an arbitrary ``correction flux,'' consistent with the mixture-averaged diffusion approximation, is added in \pelelm\ to enforce conservation.
+
+
+\subsection{Pure species transport properties}
+The mixture-averaged transport coefficients require expressions for the pure species binary transport coefficients.  These, in turn, depend upon the forces of interaction between colliding molecules, which are complex functions of the shape and properties of each binary pair of species involved, as well as of their environment, intermolecular distance, etc. In practice, these interactions are usually described by a Lennard-Jones 6-12 potential (for non polar molecules, Stockmayer potential otherwise) that relates the evolution of the potential energy of the pair of species to their intermolecular distance. Here, the single component viscosities and binary diffusion coefficients are given by~\cite{Hirschfelder:1954}:
+\begin{eqnarray}
+\eta_m = \frac{5}{16} \frac{\sqrt{\pi m_m k_B T}}{\pi \sigma^2_m \Omega^{(2,2)*}},
+\hspace{4mm}
+\mathcal{D}_{m,j} = \frac{3}{16}\frac{\sqrt{2 \pi k^3_B T^3/m_{m,j}}}{P_0 \pi \sigma^2_{m,j} \Omega^{(1,1)*}}
+\label{binary}
 \end{eqnarray}
 where $k_B$ is the Boltzmann constant, $\sigma_m$ is the Lennard-Jones collision diameter and $m_m (= W_k/\mathcal{A})$ is the molecular mass of species $m$. $m_{m,j}$ is the reduced molecular mass and $\sigma_{m,j}$ is the reduced collision diameter of the $(m,j)$ pair, given by:
 \begin{eqnarray}
-m_{m,j} = \frac{m_m m_j }{ (m_m + m_j)}
-\\
+m_{m,j} = \frac{m_m m_j }{ (m_m + m_j)},
+\hspace{4mm}
 \sigma_{m,j} = \frac{1}{2} \zeta^{-\frac{1}{6}}(\sigma_m + \sigma_j)
 \label{redCollision}
 \end{eqnarray}
 where $\zeta=1$ if the partners are either both polar or both nonpolar, but in the case of a polar molecule ($p$) interacting with a nonpolar ($n$) molecule:
-\begin{eqnarray}
+\begin{eqnarray*}
 \zeta=1 + \frac{1}{4} \alpha^*_n (\mu^*_p)^2 \sqrt{\frac{\epsilon_p}{\epsilon_n}}
-\end{eqnarray}
+\end{eqnarray*}
 with $ \alpha^*_n = \alpha_n / \sigma^3_n$ the reduced polarizability of the nonpolar molecule and  $\mu^*_p = \mu_p/\sqrt{\epsilon_p \sigma^3_p}$ the reduced dipole moment of the polar molecule, expressed in function of the Lennard-Jones potential $\epsilon_p$ of the $p$ molecule.
 
-Both quantities expressed by~\ref{muCoefs} and~\ref{difCoefs} rely upon the evaluation of \emph{collision integrals} $\Omega^{(\cdot,\cdot)*}$ -accounting for inter-molecular interactions, which are usually tabulated in function of reduced variables~\cite{Monchick:1961}:
+Both quantities appearing in~\ref{binary} rely upon the evaluation of \emph{collision integrals} $\Omega^{(\cdot,\cdot)*}$, which account for inter-molecular interactions, and are usually tabulated in function of reduced variables~\cite{Monchick:1961}:
 \begin{itemize}
 \item $\Omega^{(2,2)*}$ is tabulated in function of a reduced temperature ($T^*_m $) and a reduced dipole moment ($\delta^*_m$), given by:
-\begin{eqnarray}
-T^*_m = \frac{k_BT}{\epsilon_m}
-\\
+\begin{eqnarray*}
+T^*_m = \frac{k_BT}{\epsilon_m},
+\hspace{4mm}
 \delta^*_m = \frac{1}{2} \frac{\mu^2_m}{\epsilon_m \sigma^3_m}
-\end{eqnarray}
+\end{eqnarray*}
 %where $\epsilon_m$ is the Lennard-Jones potential well depth and $\mu_m$ is the dipole moment of species $m$. 
 \item $\Omega^{(1,1)*}$ is tabulated in function of a reduced temperature ($T^*_{m,j} $) and a reduced dipole moment ($\delta^*_{m,j}$), given by:
-\begin{eqnarray}
-T^*_{m,j} = \frac{k_BT}{\epsilon_{m,j}}
-\\
+\begin{eqnarray*}
+T^*_{m,j} = \frac{k_BT}{\epsilon_{m,j}},
+\hspace{4mm}
 \delta^*_{m,j} = \frac{1}{2} \frac{\mu^2_{m,j}}{\epsilon_{m,j} \sigma^3_{m,j}}
-\end{eqnarray}
+\end{eqnarray*}
 where the reduced collision diameter of the pair ($\sigma_{m,j}$) is given by \ref{redCollision}; and the Lennard-Jones potential $\epsilon_{m,j}$ and dipole moment $\mu_{m,j}$ of the $(m,j)$ pair are given by:
-\begin{eqnarray}
-\frac{\epsilon_{m,j}}{k_B} = \zeta^2 \sqrt{\frac{\epsilon_m}{k_B} \frac{\epsilon_j}{k_B}}
-\\
+\begin{eqnarray*}
+\frac{\epsilon_{m,j}}{k_B} = \zeta^2 \sqrt{\frac{\epsilon_m}{k_B} \frac{\epsilon_j}{k_B}},
+\hspace{4mm}
 \mu^2_{m,j} = \xi \mu_m \mu_j 
-\end{eqnarray}
+\end{eqnarray*}
 with $\xi = 1$ if $\zeta = 1$ and $\xi = 0$ otherwise.
 \end{itemize}
 
 The expression for the pure species thermal conductivities are more complex. They are assumed to be composed of translational, rotational and vibrational contributions~\cite{Warnatz:}:
-\begin{eqnarray}
+\begin{eqnarray*}
 \lambda_m = \frac{\eta_m}{W_m} (f_{tr}C_{v,tr} + f_{rot}C_{v,rot} + f_{vib}C_{v,vib})
-\end{eqnarray}
+\end{eqnarray*}
 where
-\begin{eqnarray}
-f_{tr} = \frac{5}{2}\Big(1-\frac{2}{\pi} \frac{C_{v,rot}}{C_{v,tr}} \frac{A}{B} \Big)
+\begin{eqnarray*}
+&&f_{tr} = \frac{5}{2}\Big(1-\frac{2}{\pi} \frac{C_{v,rot}}{C_{v,tr}} \frac{A}{B} \Big)
 \\
- f_{rot} = \frac{\rho \mathcal{D}_{m,m}}{\eta_m} \Big( 1 + \frac{2}{\pi} \frac{A}{B}  \Big)
+&&f_{rot} = \frac{\rho \mathcal{D}_{m,m}}{\eta_m} \Big( 1 + \frac{2}{\pi} \frac{A}{B}  \Big)
  \\
- f_{vib} = \frac{\rho \mathcal{D}_{m,m}}{\eta_m}
-\end{eqnarray}
+&&f_{vib} = \frac{\rho \mathcal{D}_{m,m}}{\eta_m}
+\end{eqnarray*}
 and
-\begin{eqnarray}
-A = \frac{5}{2} - \frac{\rho \mathcal{D}_{m,m}}{\eta_m}
-\\
+\begin{eqnarray*}
+A = \frac{5}{2} - \frac{\rho \mathcal{D}_{m,m}}{\eta_m},
+\hspace{4mm}
 B = Z_{rot} + \frac{2}{\pi} \Big( \frac{5}{3} \frac{C_{v,rot}}{\mathcal{R}} + \frac{\rho \mathcal{D}_{m,m}}{\eta_m} \Big)
-\end{eqnarray}
-The molar heat capacities $C_{v,\cdot}$ depend on the molecule shape. In the case of a linear molecule it reads:
-\begin{eqnarray}
-\frac{C_{v,tr}}{\mathcal{R}} = \frac{3}{2}
-\\
-\frac{C_{v,rot}}{\mathcal{R}} = 1
-\\
+\end{eqnarray*}
+The molar heat capacities $C_{v,\cdot}$ depend on the molecule shape. In the case of a linear molecule:
+\begin{eqnarray*}
+\frac{C_{v,tr}}{\mathcal{R}} = \frac{3}{2},
+\hspace{1.5em}
+\frac{C_{v,rot}}{\mathcal{R}} = 1,
+\hspace{1.5em} 
 {C_{v,vib}} = C_v - \frac{5}{2} \mathcal{R}
-\end{eqnarray}
-when in the case of a nonlinear molecule it reads:
-\begin{eqnarray}
-\frac{C_{v,tr}}{\mathcal{R}} = \frac{3}{2}
-\\
-\frac{C_{v,rot}}{\mathcal{R}} =  \frac{3}{2}
-\\
+\end{eqnarray*}
+In the case of a nonlinear molecule, the expressions are
+\begin{eqnarray*}
+\frac{C_{v,tr}}{\mathcal{R}} = \frac{3}{2},
+\hspace{1.5em} 
+\frac{C_{v,rot}}{\mathcal{R}} =  \frac{3}{2},
+\hspace{1.5em} 
 {C_{v,vib}} = C_v - 3 \mathcal{R}
-\end{eqnarray}
-Note that if the molecule is in fact an atom, then the thermal conductivity should reduce to:
-\begin{eqnarray}
-\lambda_m = \frac{\eta_m}{W_m} (f_{tr}C_{v,tr} ) = \frac{\eta_m}{W_m} \Big(\frac{5}{2}  \frac{3}{2} \mathcal{R}\Big) 
-\end{eqnarray}
+\end{eqnarray*}
+For single-atom molecules the thermal conductivity reduces to:
+\begin{eqnarray*}
+\lambda_m = \frac{\eta_m}{W_m} (f_{tr}C_{v,tr} ) = \frac{15 \, \eta_m \mathcal{R}}{4 \, W_m}
+\end{eqnarray*}
 Finally, $Z_{rot}$ is the rotational relaxation number, a parameter given by~\cite{Parker:}:
-\begin{eqnarray}
+\begin{eqnarray*}
 Z_{rot}(T) = Z_{rot} (298) \frac{F(298)}{F(T)}
-\end{eqnarray}
+\end{eqnarray*}
 with 
-\begin{eqnarray}
+\begin{eqnarray*}
 F(T) = 1 + \frac{\pi^{(3/2)}}{2} \sqrt{\frac{\epsilon/k_B}{T} } + \Big( \frac{\pi^2}{4} +2 \Big) \Big( \frac{\epsilon/k_B}{T} \Big) + \pi^{(3/2)}\Big( \frac{\epsilon/k_B}{T} \Big)^{(3/2)} 
-\end{eqnarray}
+\end{eqnarray*}
 
-In \pelelm, \; the pure species transport properties are evaluated with the preprocessing tool \emph{Fuego}, and a polynomial fit of the logarithm of the property versus the logarithm of the temperature is used to store the data in an external cpp subroutine. During a \pelelm \; run, these quantities are accessed via:
-\begin{eqnarray}
-ln(q_m) = \sum_{\substack{1<n<4}} a_{q,m,n} ln(T)^{(n-1)} 
-\end{eqnarray}
-where $q$ represents either $\eta_m$, $\lambda_m$ or $D_{m,j}$.
-
-
-\subsection{Transport coefficients and mixture rules: the Ern and Giovangigli approximations}
-\label{subs:EGLIB}
-The mixture transport coefficients discussed in Section~\ref{sub:DifFluxes} can now be evaluated from the pure species transport properties. If any accurate formulation requires solving a series of linear systems, however, several empirical mixing rules also exist, and a good compromise between accuracy and efficiency is most often case and code dependent. In \pelelm, the EGLib library is employed, building on the multicomponent transport theory developed by Ern and Givangigli~\cite{Ern:1994}. This library implements various algorithms to evaluate mixture transport coefficients, enabling to choose between a direct inversion, efficient and rigorously derived iterative methods providing various approximations or accurate mixture-averaged empirical formulations~\cite{Ern:2004}. If it is possible to navigate between the various evaluations, the following choices have been made in \pelelm \;(for more details about the formulations, see~\cite{Ern:1994,Ern:2004}):
-\begin{itemize}
-\item The viscosity $\mu$ is estimated based on the first step of a conjugate-gradient method 
-\item The condctivity $\lambda$ is based on an empirical formulation which reads:
-\begin{eqnarray}
-\lambda = \frac{1}{2} (\Xi(-1) + \Xi(1))
-\end{eqnarray}
-with
-\begin{eqnarray}
-\Xi(\alpha) = \Big( \sum_m X_m (\lambda_m)^{\alpha} \Big)^{1/\alpha}
-\end{eqnarray}
-\item The flux diffusion matrix ${\widetilde{D}_{m,j}} = Y_m D_{m,j}$ is approximated by the diagonal matrix $diag(\widetilde{ \Upsilon})$, where:
-\begin{eqnarray}
-\widetilde{ \Upsilon}_m = \frac{W_m}{W} D_{m,mix}
-\\
- D_{m,mix} = \frac{1-Y_m}{ \sum_{j \neq m} X_j / \mathcal{D}_{m,j}}
-\end{eqnarray}
-leading to a mixture-averaged approximation of the species diffusion fluxes similar to that of Hirschfelder-Curtiss~\cite{Hirschfelder:1954}:
-\begin{eqnarray}
-\rho Y_m \boldsymbol{V_m} = - \rho D_{m,mix} \frac{W_m}{W} \nabla X_m 
-\end{eqnarray}
-Note that with this approximation, the global mass is no longer conserved. To enforce it, a "conservation diffusion velocity" is introduced in the resolution algorithm, as will be further discussed in Section~\ref{AlgoDetails}.
-\end{itemize}
-
+In \pelelm\ the pure species transport properties are evaluated with EGLib functions.  EGLib requires polynomial fits of the logarithm of each quantity versus the logarithm of the temperature.
+\begin{eqnarray*}
+ln(q_m) = \sum_{n=1}^4 a_{q,m,n} \, ln(T)^{(n-1)} 
+\end{eqnarray*}
+where $q_m$ represents $\eta_m$, $\lambda_m$ or $D_{m,j}$. These fits are generated as part of a preprocessing step managed by the tool \fuego\ based on the formula (and input data) discussed above.  In particular, for each chemical species represented, $j$, the preprocessor tool requires the following data: XXXXXX.  The role of \fuego\ to preprocess the model parameters for transport as well as chemical kinetics and thermodynamics, is discussed in some detail in Chapter~\ref{ch:fuego}.
 
 %%%
 \section{Chemical kinetics and the reaction source term}
 \label{ChemKinetics}
-Chemistry in combustion systems always involves a large number of species interacting through multiple types of reactions, even for the most elementary mixtures. In practice this is modeled through a reaction scheme involving a finite number of elementary steps ($M_r$) between a finite number of necessary species ($N_s$):
-\begin{eqnarray}
-\sum_{\substack{1<m<N_s}} \nu_{m,j}'[X_m] \rightleftharpoons \sum_{\substack{1<m<N_s}} \nu_{m,j}''[X_m],\quad for \quad j \in [1,M_r] 
+Chemistry in combustion systems involves a number of species interacting through multiple types of reactions. A wide variety of chemical kinetics models can be represented as a set of $M_r$ elementary reaction steps that involve $N_s$ species.
+\begin{eqnarray*}
+\sum_{m=1}^{N_s} \nu_{m,j}'[X_m] \rightleftharpoons \sum_{m=1}^{N_s} \nu_{m,j}''[X_m],\quad for \quad j \in [1,M_r] 
 \label{IntroKM1}
-\end{eqnarray}
-where $[X_m]$ stands for the species $m$ molar concentration and $\nu_{m,j}'$, $\nu_{m,j}''$ are the molar stoichiometric coefficients of species $m$ in each side of reaction $j$. For such a system, all $M_r$ reaction rates have to be considered in describing the temporal evolution of the concentration of the species involved. The rate of a reaction $j$ ($R_j$) can be measured in terms of the rate laws of the forward ($k_{f,j}$) and backward ($k_{r,j}$) reactions, as:
-\begin{eqnarray} 
-R_{j} = k_{f,j}\prod_{\substack{1<m<N_s}}  [X_{m}]^{\nu_{m,j}'}-k_{r,j}\prod_{\substack{1<m<N_s}} [X_{m}]^{\nu_{m,j}''}
-\end{eqnarray} 
-Ultimately these are used to express $ \dot{\omega}_m$ for each species $m$ in Eq.~\ref{eq:species}, as:
-\begin{eqnarray}
-\dot{\omega}_m = \sum_{\substack{0<j<M_r}} \nu_{m,j} R_j 
+\end{eqnarray*}
+where $[X_m]$ stands for the species $m$ molar concentration and $\nu_{m,j}'$, $\nu_{m,j}''$ are the molar stoichiometric coefficients of species $m$ in each side of reaction $j$. For such a system, all $M_r$ reaction rates have to be considered in describing the temporal evolution of the concentration of the species involved. The rate of a reaction $j$ ($R_j$) can be expressed in terms of the rate laws of the forward ($k_{f,j}$) and backward ($k_{r,j}$) reactions, as:
+\begin{eqnarray*} 
+R_{j} = k_{f,j}\prod_{m=1}^{N_s}  [X_{m}]^{\nu_{m,j}'}-k_{r,j}\prod_{m=1}^{N_s} [X_{m}]^{\nu_{m,j}''}
+\end{eqnarray*}
+The net molar production rate, $ \dot{\omega}_m$, in Eq.~\ref{eq:species} of species $m$ is obtained by
+collating the rate of creation and destruction over reactions:
+\begin{eqnarray*}
+\dot{\omega}_m = \sum_{j=1}^{M_r} \nu_{m,j} R_j 
 \label{IntroKM3}
-\end{eqnarray}
-where $\nu_{m,j} =\nu_{m,j}'' - \nu_{m,j}'$. Expressions for the reaction rates coefficients $k_j$ depend on the type of reaction considered. \pelelm \; relies on the CHEMKIN reaction scheme format that supports a variety of reaction types; however, always expressed in the classical Arrhenius format:
-\begin{eqnarray}
-k_f = AT^{\beta} exp \left( \frac{-Ea}{RT}\right)
-\end{eqnarray}
-where $A$ is the pre-exponential factor or frequency factor, $\beta$ is the temperature exponent and $Ea$ is the activation energy. With this format, reactions can bear, e.g., pressure dependencies. See the CHEMKIN Manual or Cantera website for additional information~\cite{Kee:1989,cantera}.
+\end{eqnarray*}
+where $\nu_{m,j} =\nu_{m,j}'' - \nu_{m,j}'$. Expressions for the reaction rates coefficients $k_j$ depend on the type of reaction considered. \pelelm \; relies on the CHEMKIN Arrhenius reaction format:
+\begin{eqnarray*}
+k_f = AT^{\beta} exp \left( \frac{-E_a}{RT}\right)
+\end{eqnarray*}
+where $A$ is the pre-exponential (frequency) factor, $\beta$ is the temperature exponent and $E_a$ is the activation energy. The CHEMKIN format allows for a number of specializations of this format to represent pressure dependencies and third-body enhancements -- See the CHEMKIN Manual or Cantera website for additional information~\cite{Kee:1989,cantera}.
 
-Note that reaction information is usually provided as "one-way". Forward and backward reaction rates can be related through the {pressure equilibrium constant} $K_{p}$, a function temperature dependent, as : 
-\begin{equation}
-k_{r,j} = \frac{k_{f,j}}{K_{p}(T)} =\frac{k_{f}}{ {\left( \frac{P_0}{RT} \right)}^{\sum_{\substack{1<m<N_s}} \nu_{m,j}} exp \left( \frac{\Delta {S_j}^{0}}{R} - \frac{\Delta {H_j}^{0}}{RT} \right) }
-\end{equation}
-where $ \Delta$ stands for an enthaply ($H$) or entropy ($S$) variation between the products and the reactants of the reaction $j$ and $P_0$ is the standard atmospheric pressure (1 bar).
+Most fundamental Arrhenius reactions are bidirectional, and typically only the forward rates are specified. In this case, the balance of forward and reverse rates are dictacted by equilibrium thermodynamics, via the equilibrium ``constant'', $K_{c}$ that in a low Mach system, is only a function of temperature:
+\begin{eqnarray*}
+&&k_{r,j} = \frac{k_{f,j}}{K_{c}(T)} \;\;\; \mbox{where} \;\;\; K_c=K_{p_i} \left( \frac{P_{0}}{RT} \right)^{\sum_{k=1}^{N_s} \nu_{ki}}
+\\
+&&\mbox{and} \;\;\; K_{p_i}=\exp \left( \frac{\Delta {S_j}^{0}}{R} - \frac{\Delta {H_j}^{0}}{RT} \right)
+\end{eqnarray*}
+$\Delta H_j$ and $\Delta S_j$ are the change in enthaply and entropy of the reaction $j$, and $P_0$ is the ambient thermodynamic pressure.
 
-The preprocessing tool Fuego is used to manage the CHEMKIN input file, and expressions for an "on-the-fly" evaluation of reaction rates and species production rates during a \pelelm \; run are stored in a cpp subroutine.
+The preprocessing tool \fuego\ is used to import the parameters of the chemistry model for use by \pelelm.  The model parameters are loaded into a Python database, and are used to automatically generate highly efficient C source code that is linked into a \pelelm\ executable for evaluating all the necessary rate expressions.  Each model is fully contained in a single source file and can be linked separately to post-processing analysis tools as well.
 
 %%%
 \section{Thermodynamic properties}
 \label{ThermoProp}
 TODO
 
-
-%%%
-\section{Final \pelelm  \;  set of equations}
-\label{SumUpEq}
-
-\begin{eqnarray}
-\frac{\partial (\rho \boldsymbol{u})}{\partial t} + 
-\nabla \cdot \left(\rho  \boldsymbol{u} \boldsymbol{u} + \tau \right)
-&=& -\nabla \pi + \rho \, \boldsymbol{F}  ,
-\label{eq:mom}
-\\
-\frac{\partial (\rho Y_i)}{\partial t} +
-\nabla \cdot \left( \rho Y_i \boldsymbol{u} + \boldsymbol{\mathcal{F}}_{i} \right)
-&=& \rho \, \dot{\omega}_i,
-\label{eq:species}
-\\
-\frac{ \partial (\rho h)}{ \partial t} +
-\nabla \cdot \left( \rho h \boldsymbol{u} + \boldsymbol{\mathcal{Q}} \right) &=& 0 ,
-\label{eq:enthalpy}
-\end{eqnarray}
-with ( !!! I dont understand why grad Ym in 2nd eq ??)
- \begin{eqnarray}
-\tau_{i,j} = \frac{2}{3} \mu \delta_{i,j} \frac{\partial {u_k}}{\partial x_k} - \mu \Big(\frac{u_i}{\partial x_j} + \frac{u_j}{\partial x_i}\Big)
-\\
-\boldsymbol{\mathcal{F}}_{m} = \rho Y_m \boldsymbol{V_m} = - \rho D_{m,mix} \nabla Y_m
-\\
-\boldsymbol{\mathcal{Q}} =  \sum_m h_m \boldsymbol{\mathcal{F}}_{m}  - \lambda \nabla T
-\end{eqnarray}
-with $\mu$, $\lambda$ and $D_{mix}$ computed as in Section~\ref{subs:EGLIB}. In this context, the velocity constraint reads:
-\begin{eqnarray}
-\nabla \cdot \boldsymbol{u} = S= \frac{1}{\rho c_p T}(\nabla \cdot \lambda \nabla T - \sum_m  \boldsymbol{\mathcal{F}}_{m} \cdot \nabla h_m)
-\\
-- \frac{W}{\rho} \sum_m \frac{1}{W_m} \nabla \cdot \boldsymbol{\mathcal{F}}_{m} + \frac{1}{\rho} \sum_m \Big( \frac{W}{W_m} -\frac{h_m(T)}{c_p T} \Big)\dot{\omega}_m
-\end{eqnarray}
-
-
-
-The resolution of the system of equations presented is performed in a fractional step framework which prohibits, in general, to numerically conserve both species and enthalpy while satisfying the equation of state (eos) Eq.~\ref{eq:eos}. To deal with this issue, a pressure correction term is added to the constraint S in Eq.~\ref{eq:veloconstr} to damp the system back onto the ambient eos (?? CHECK THAT FORMULA):
-\begin{eqnarray}
-\hat{S} = S + f \frac{c_p - R}{\Delta t c_p \hat{p}} (\hat{p} - P_0)
-\end{eqnarray}
-where $\hat{p}$ is computed via the eos Eq.~\ref{eq:eos}, $R = \mathcal{R}/W$ and $f$ is a damping factor ($<1$).
 
 %%%
 \section{The \pelelm  \; temporal integration}
