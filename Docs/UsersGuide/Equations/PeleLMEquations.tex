@@ -24,12 +24,13 @@ where $\rho$ is the density, $\boldsymbol{u}$ is the velocity, $h$ is the mass-w
 %$\,=\,$$- \rho \boldsymbol{\mathcal{D}}_i \nabla X_{i}$ 
 are the species diffusion vectors. These transport fluxes require the evaluation of transport coefficients (e.g., the viscosity $\mu$, the conductivity $\lambda$ and the diffusivity matrix $D$) which are computed using the library EGLIB~\cite{EGLIB}, as will be described in more depth in Section~\ref{DifFluxesEGLIB}. The momentum source term, $\boldsymbol{F}$, is a long-wavelength forcing term designed to establish and maintain turbulence with the desired properties. Note that the definition of enthalpy includes the standard enthalpy of formation, so there is no net change to $h$ due to reactions.
 
-These evolution equations are supplemented by an equation of state for the thermodynamic pressure:
+These evolution equations are supplemented by an equation of state for the thermodynamic pressure,
 \begin{eqnarray}
-P_0(\rho,Y_m,T)=\rho \mathcal{R} T \sum_m \frac{Y_m}{W_m}
+P_0(\rho,Y_m,T)=\frac{\rho \mathcal{R} T}{W}=\rho \mathcal{R} T \sum_m \frac{Y_m}{W_m}
 \label{eq:eos}
 \end{eqnarray}
-where $W_m$ is the species $m$ molecular weight, and by a relationship between enthalpy, species and temperature:
+where $W_m$ and $W$ are the species $m$, and mean molecular weights, respectively,
+and by a relationship between enthalpy, species and temperature:
 \begin{eqnarray}
 h=\sum_m Y_m h_m(T)
 \end{eqnarray}
@@ -53,10 +54,7 @@ Eq.~\ref{eq:cont}:
 \nabla \cdot \boldsymbol{u} = \frac{1}{T}\frac{DT}{Dt} + W \sum_m \frac{1}{W_m} \frac{DY_m}{Dt} = S
 \label{eq:veloconstr}
 \end{eqnarray}
-The constraint on the flow is apparent ($W$ here is the mean mixture molecular weight).
-
-
-
+The constraint appears here as a condition on the divergence of the flow.
 
 
 %%%
@@ -70,7 +68,7 @@ Expressions for the transport fluxes appearing in Eqs.~(\ref{eq:gen}) can be app
 \\ [2mm]
 &&\boldsymbol{\mathcal{Q}} =  \sum_m h_m \boldsymbol{\mathcal{F}}_{m}  - \lambda' \nabla T - P_0 \sum_m \theta_m \boldsymbol{d_m}
 \end{eqnarray*}
-where $\mu$ is the shear viscosity, $\kappa$ is the bulk viscosity, and $\lambda'$ is the partial thermal conductivity. In the \textit{full matrix diffusion model}, the $m$ species diffusion velocities vectors $\boldsymbol{V_m}$ are given by:
+where $\mu$ is the shear viscosity, $\kappa$ is the bulk viscosity, and $\lambda'$ is the partial thermal conductivity. In the \textit{full matrix diffusion model}, the vector of $m$ species diffusion velocities, $\boldsymbol{V_m}$, is given by:
  \begin{eqnarray*}
 \boldsymbol{V_m} = - \sum_j  {D}_{m,j} \boldsymbol{d_j} - \theta_m \nabla ln(T)
 \end{eqnarray*}
@@ -85,9 +83,10 @@ where ${D}_{m,j}$ are the binary diffusion coefficients, and $\theta_m$ are ther
 \label{SumUpEq}
 For \pelelm, we make the following simplifying assumptions:
 \begin{enumerate}
-\item The bulk viscosity, $\kappa$ is ignored
-\item The low Mach limit implies that there are no spacial gradients in the thermodynamic pressure
-\item The \textit{mixture-averaged}\ diffusion model is assumed, and we ignore Dufour and Soret effects
+\item The bulk viscosity, $\kappa$ is negligible, compared to the shear viscosity,
+\item The low Mach limit implies that there are no spacial gradients in the thermodynamic pressure,
+\item The \textit{mixture-averaged}\ diffusion model is assumed, and
+\item Dufour and Soret effects are negligible
 \end{enumerate}
 
 With these assumptions, the conservation equations take the following form:
@@ -256,28 +255,28 @@ where $q_m$ represents $\eta_m$, $\lambda_m$ or $D_{m,j}$. These fits are genera
 %%%
 \section{Chemical kinetics and the reaction source term}
 \label{ChemKinetics}
-Chemistry in combustion systems involves a number of species interacting through multiple types of reactions. A wide variety of chemical kinetics models can be represented as a set of $M_r$ elementary reaction steps that involve $N_s$ species.
+Chemistry in combustion systems involves the $N_s$ species interacting through a set of $M_r$ elementary reaction steps, expressed as
 \begin{eqnarray*}
 \sum_{m=1}^{N_s} \nu_{m,j}'[X_m] \rightleftharpoons \sum_{m=1}^{N_s} \nu_{m,j}''[X_m],\quad for \quad j \in [1,M_r] 
 \label{IntroKM1}
 \end{eqnarray*}
-where $[X_m]$ stands for the species $m$ molar concentration and $\nu_{m,j}'$, $\nu_{m,j}''$ are the molar stoichiometric coefficients of species $m$ in each side of reaction $j$. For such a system, all $M_r$ reaction rates have to be considered in describing the temporal evolution of the concentration of the species involved. The rate of a reaction $j$ ($R_j$) can be expressed in terms of the rate laws of the forward ($k_{f,j}$) and backward ($k_{r,j}$) reactions, as:
+where $[X_m]$ is the molar concentration of species $m$, and $\nu_{m,j}'$, $\nu_{m,j}''$ are the stoichiometric coefficients on the reactant and product sides of reaction $j$, associated with $m$. For such a system, the rate of reaction $j$ ($R_j$) can be expressed in terms of the the forward ($k_{f,j}$) and backward ($k_{r,j}$) rate coefficients,
 \begin{eqnarray*} 
 R_{j} = k_{f,j}\prod_{m=1}^{N_s}  [X_{m}]^{\nu_{m,j}'}-k_{r,j}\prod_{m=1}^{N_s} [X_{m}]^{\nu_{m,j}''}
 \end{eqnarray*}
-The net molar production rate, $ \dot{\omega}_m$, in Eq.~\ref{eq:species} of species $m$ is obtained by
+The net molar production rate, $ \dot{\omega}_m$, in Eq.~\ref{eq:pelelm} of species $m$ is obtained by
 collating the rate of creation and destruction over reactions:
 \begin{eqnarray*}
 \dot{\omega}_m = \sum_{j=1}^{M_r} \nu_{m,j} R_j 
 \label{IntroKM3}
 \end{eqnarray*}
-where $\nu_{m,j} =\nu_{m,j}'' - \nu_{m,j}'$. Expressions for the reaction rates coefficients $k_j$ depend on the type of reaction considered. \pelelm \; relies on the CHEMKIN Arrhenius reaction format:
+where $\nu_{m,j} =\nu_{m,j}'' - \nu_{m,j}'$. Expressions for the reaction rates coefficients $k_{(f,r),j}$ depend on the type of reaction considered. \pelelm \; relies on the CHEMKIN Arrhenius reaction format:
 \begin{eqnarray*}
 k_f = AT^{\beta} exp \left( \frac{-E_a}{RT}\right)
 \end{eqnarray*}
-where $A$ is the pre-exponential (frequency) factor, $\beta$ is the temperature exponent and $E_a$ is the activation energy. The CHEMKIN format allows for a number of specializations of this format to represent pressure dependencies and third-body enhancements -- See the CHEMKIN Manual or Cantera website for additional information~\cite{Kee:1989,cantera}.
+where $A$ is the pre-exponential (frequency) factor, $\beta$ is the temperature exponent and $E_a$ is the activation energy. The CHEMKIN format additionally allows for a number of specializations of this format to represent pressure dependencies and third-body enhancements -- See the CHEMKIN Manual or Cantera website for additional information~\cite{Kee:1989,cantera}.
 
-Most fundamental Arrhenius reactions are bidirectional, and typically only the forward rates are specified. In this case, the balance of forward and reverse rates are dictacted by equilibrium thermodynamics, via the equilibrium ``constant'', $K_{c}$ that in a low Mach system, is only a function of temperature:
+Most fundamental Arrhenius reactions are bidirectional, and typically only the forward rates are specified. In this case, the balance of forward and reverse rates are dictacted by equilibrium thermodynamics, via the equilibrium ``constant'', $K_{c,j}$.  In a low Mach system, $K_{c,j}$ is a function only of temperature and the thermodynamic properties of the reactants and products of reaction $j$,
 \begin{eqnarray*}
 &&k_{r,j} = \frac{k_{f,j}}{K_{c}(T)} \;\;\; \mbox{where} \;\;\; K_c=K_{p_i} \left( \frac{P_{0}}{RT} \right)^{\sum_{k=1}^{N_s} \nu_{ki}}
 \\
@@ -285,7 +284,7 @@ Most fundamental Arrhenius reactions are bidirectional, and typically only the f
 \end{eqnarray*}
 $\Delta H_j$ and $\Delta S_j$ are the change in enthaply and entropy of the reaction $j$, and $P_0$ is the ambient thermodynamic pressure.
 
-The preprocessing tool \fuego\ is used to import the parameters of the chemistry model for use by \pelelm.  The model parameters are loaded into a Python database, and are used to automatically generate highly efficient C source code that is linked into a \pelelm\ executable for evaluating all the necessary rate expressions.  Each model is fully contained in a single source file and can be linked separately to post-processing analysis tools as well.
+A typical model for \pelelm\ consists of a large number of parameters associated with the CHEMKIN parameterization of the Arrhenius reaction set, as well as fitting coefficients for the thermodynamic relationships, and the specification of the species, including the parameters necessary to specify all the required pure-species transport properties.  As is traditional in the combustion literature, these parameters are communicated throughout the community in the form of text files that conform to the CHEMKIN standard.  Earlier versions of \pelelm\ then linked to CHEMKIN-provided functions for evaluating the associated properties and rates.  However, those evaluations were not very efficient because the functions stepped through the full, generic expressions.  The current version of \pelelm\ instead relies on a preprocessing tool, \fuego, to load the model parameters into a Python data base that is then used to automatically generate a highly efficient optimized C-code implementation of the model that is linked directly into a \pelelm\ executable at compile time.  Through this preprocessing step, each model becomes fully contained wothin a single source file, which can be linked separately to post-processing analysis tools as well.
 
 %%%
 \section{Thermodynamic properties}
@@ -294,8 +293,7 @@ TODO
 
 
 %%%
-\section{The \pelelm  \; temporal integration}
-\subsection{Overview}
+\section{The \pelelm\ temporal integration}
 The basic discretization combines a simplified spectral deferred correction (SDC) coupling of chemistry and transport \cite{LMC_SDC} with a density-weighted approximate projection method for low Mach number flow \cite{DayBell:2000}.  The projection method implements a constrained evolution on the velocity field via the SDC iterations, which ensures that the update simultaneously satisfies the  equation of state and discrete conservation of mass and total enthalpy.
 A time-explicit approach is used for advection; faster diffusion and chemistry processes are treated time-implicitly, and iteratively coupled together within the deferred corrections strategy. Since the low Mach system does not support acoustic waves, the time step size is governed by a CFL constraint based on advective transport.
 The integration algorithm is second-order accurate in space and time.
@@ -303,6 +301,344 @@ The integration algorithm is second-order accurate in space and time.
 
 \subsection{Algorithm details}
 \label{AlgoDetails}
-TODO: get stuff from 1D code with electric field ?
+SDC methods for ODEs are introduced in Dutt et al.~\cite{Dutt:2000}.
+The basic idea of SDC is to write the solution of an ODE
+\begin{eqnarray}
+\phi_t &=& F(t,\phi(t)), \qquad t\in[t^n,t^{n+1}];\\
+\phi(t^n) &=& \phi^n,
+\end{eqnarray}
+as an integral,
+\begin{equation}
+\phi(t) = \phi^n + \int_{t^n}^{t} F(\phi)~d\tau,
+\end{equation}
+where we suppress explicit dependence of $F$ and $\phi$ on $t$ for notational simplicity.
+Given an approximation $\phi^{(k)}(t)$ to $\phi(t)$, one can then define a residual,
+\begin{equation}
+E(t,\phi^{(k)}) = \phi^n + \int_{t^n}^t F(\phi^{(k)})~d\tau - \phi^{(k)}(t).\label{eq:residual}
+\end{equation}
+Defining the error as $\delta^{(k)}(t) = \phi(t) - \phi^{(k)}(t)$, one can then show that
+\begin{equation}
+\delta^{(k)}(t) = \int_{t^n}^t \left[F(\phi^{(k)}+ \delta^{(k)}) - F(\phi^{(k)})\right]d\tau + E(t,\phi^{(k)}).\label{eq:correction}
+\end{equation}
+In SDC algorithms, the integral in (\ref{eq:residual}) 
+is evaluated with a higher-order quadrature rule.
+By using a low-order discretization of the integral in (\ref{eq:correction}) one can construct
+an iterative scheme that improves the overall order of accuracy of the approximation by one per
+iteration, up to the order of accuracy of the underlying quadrature rule 
+used to evaluate the integral in (\ref{eq:residual}).
+Specifically, if we let $\phi^{(k)}$ represent the current approximation and define 
+$\phi^{(k+1)} = \phi^{(k)} + \delta^{(k)}$ to be the iterative update, 
+then combining (\ref{eq:residual}) and (\ref{eq:correction}) results in an update equation,
+\begin{equation}
+\phi^{(k+1)}(t) = \phi^n + \int_{t^n}^t \left[F(\phi^{(k+1)}) - F(\phi^{(k)})\right]d\tau +
+ \int_{t^n}^t F(\phi^{(k)})~d\tau,\label{eq:update}
+\end{equation}
+where a low-order discretization (e.g., forward or backward Euler) is used for the first integral 
+and a higher-order quadrature is used to evaluate the second integral.  For our reacting flow model,
+the underlying projection methodology for the time-advancement of velocity is second-order,
+so we require the use of second-order (or higher) numerical quadrature for the second integral.
 
-%The performance of the numerical scheme for direct numerical simulation of premixed flame systems in regimes comparable to the present study was examined in \cite{Aspden08b}.  An {\em effective} Kolmogorov length scale, $\eta_{\mbox{\it eff}}$, was formulated, which measures the actual Kolmogorov length scale realised in a simulation at a given resolution. Here, the most computationally demanding simulation, having the highest turbulence levels, has a computational cell width that is approximately 1.27 times the Kolmogorov length scale, $\eta$.  In this case, the numerical scheme produces $\eta_{\mbox{\it eff}}/\eta\,$$<\,$1.03.  All other cases were better resolved.
+\subsection{MISDC Correction Equations}
+Bourlioux et al.~\cite{BLM:2003} and Layton and Minion \cite{Layton:2004}
+introduce a variant of SDC, referred to as MISDC, in which $F$ is decomposed into distinct
+processes, each treated separately with methods appropriate to its own time scale.  Here, we write
+\begin{equation}
+\phi_t = F \equiv A(\phi) + D(\phi) + R(\phi),\label{eq:multi}
+\end{equation}
+to refer to advection, diffusion, and reaction processes.
+For this construction we assume that we are given an approximate solution $\phi^{(k)}$ that
+we want to improve. 
+Using the ideas in \cite{BLM:2003,Layton:2004}, we develop 
+a series of correction equations to update $\phi^{(k)}$ that uses relatively
+simple second-order discretizations of $A(\phi)$ and $D(\phi)$ but a high-accuracy 
+treatment of $R(\phi)$.  In our approach, $A(\phi^{(k)})$ is piecewise-constant over 
+each time step, and is evaluated using a second-order Godunov procedure 
+(see \cite{almgren-iamr} for full details on the Godunov procedure).
+The Godunov procedure computes a time-centered 
+advection term at $t^{n+\myhalf}$, and incorporates an explicit diffusion source term and an 
+iteratively lagged reaction source term, i.e.,
+\begin{equation}
+A(\phi^{(k)}) \equiv A^{n+\myhalf,(k)} = A\left(\phi^n,D(\phi^n),I_R^{(k-1)}\right),
+\end{equation}
+where $I_R^{(k-1)}$ is the effective contribution due to reactions from the previous iteration, i.e.,
+\begin{equation}
+I_R^{(k-1)} = \frac{1}{t^{n+1}-t^n}\int_{t^n}^{t^{n+1}} R(\phi^{(k-1)})~d\tau.\label{eq:IR}
+\end{equation}
+$I_R^{(k-1)}$ is computed from a high-accuracy
+integration of the reaction kinetics equations,
+augmented with piecewise constant-in-time representation of advection and diffusion.
+Details of this procedure are given below.
+We also represent $D(\phi^{(k)})$ as piecewise-constant 
+over the time step, found by using a midpoint rule,
+\begin{equation}
+D(\phi^{(k)}) = \half\left[D(\phi^n) + D(\phi^{n+1,(k)})\right].\label{eq:D^k}
+\end{equation}
+
+In the spirit of MISDC, we solve correction equations for the individual processes in 
+(\ref{eq:multi}) sequentially.  We begin by discretizing (\ref{eq:update}), but only
+including the advection and diffusion terms in the correction integral,
+\begin{equation}
+\phi_{\rm AD}^{(k+1)}(t) = \phi^n + \int_{t^n}^t \left[A(\phi^{(k+1)}) - A(\phi^{(k)}) + D(\phi^{(k+1)}) - D(\phi^{(k)})\right]d\tau + \int_{t^n}^t F(\phi^{(k)})~d\tau.\label{eq:AD Correction}
+\end{equation}
+Thus, $\phi_{\rm AD}^{(k+1)}(t)$ represents an updated approximation of the solution after correcting the
+advection and diffusion terms only.  For the first integral, we use an explicit update for the advection term and a 
+backward Euler discretization for the diffusion term.
+For the second integral, we represent $F$ in terms of $A$, $D$, and $R$ and
+use the definition
+of $A(\phi^{(k)})$, $D(\phi^{(k)})$, and $I_R^{(k-1)}$ to obtain
+a discretization of (\ref{eq:AD Correction}) for 
+$\phi_{\rm AD}^{n+1,(k+1)}$:
+\begin{eqnarray}
+\phi_{\rm AD}^{n+1,(k+1)} &=& \phi^n + \Delta t  \left[A^{n+\myhalf,(k+1)} - A^{n+\myhalf,(k)} + D(\phi_{\rm AD}^{n+1,(k+1)}) - D(\phi^{n+1,(k)})\right] \nonumber \\
+&&\hspace{0.5cm}+ \Delta t\left[A^{n+\myhalf,(k)} + \half\left(D(\phi^n) + D(\phi^{n+1,(k)})\right) + I_R^{(k)}\right],
+\end{eqnarray}
+where $I_R^{(k)}$ is defined using (\ref{eq:IR}).
+This equation simplifies to the following backward Euler type linear system, with the
+right-hand-side consisting of known quantities:
+\begin{equation}
+(\mathcal{I} - \Delta t D)\phi_{\rm AD}^{n+1,(k+1)} = \phi^n + \Delta t \left[A^{n+\myhalf,(k+1)} + \half\left(D(\phi^n) - D(\phi^{n+1,(k)})\right) + I_R^{(k)}\right].
+\end{equation}
+After computing $\phi_{\rm AD}^{n+1,(k+1)}$, we complete the update by solving a correction equation for
+the reaction term.  Standard MISDC approaches would formulate the reaction correction equation as
+\begin{eqnarray}
+{\phi}^{(k+1)}(t) = \phi^n &+& \int_{t^n}^t \left[ A^{n+\myhalf,(k+1)} - A^{n+\myhalf,(k)} + D(\phi_{\rm AD}^{n+1,(k+1)}) - D(\phi^{n+1,(k)}) \right]~d\tau \nonumber \\
+&+& \int_{t^n}^t \left[R(\phi^{(k+1)}) - R(\phi^{(k)})\right]d\tau + \int_{t^n}^t F(\phi^{(k)})~d\tau, \label{eq:stdreact}
+\end{eqnarray}
+and use a backward Euler type discretization for the integral of the reaction terms.
+Here, to address stiffness issues with detailed chemical kinetics, we will instead
+formulate the correction equation for the 
+reaction as an ODE, which will be approximated using the VODE package.
+In particular, by differentiating (\ref{eq:stdreact}) we obtain
+\begin{eqnarray}
+{\phi}^{(k+1)}_t &=& \left[ A^{n+\myhalf,(k+1)} - A^{n+\myhalf,(k)} + D(\phi_{\rm AD}^{n+1,(k+1)}) - D(\phi^{n+1,(k)}) \right]\nonumber\\
+&&\hspace{-0.5cm}+ \left[R(\phi^{(k+1)}) - R(\phi^{(k)})\right] + \left[A^{n+\myhalf,(k)} + \half\left(D(\phi^n) + D(\phi^{n+1,(k)})\right) + R(\phi^{(k)})\right]\nonumber\\
+&=& R(\phi^{(k+1)}) + \underbrace{A^{n+\myhalf,(k+1)} + D(\phi_{\rm AD}^{n+1,(k+1)}) + \half\left[D(\phi^n) - D(\phi^{n+1,(k)})\right]}_{F_{\rm AD}^{(k+1)}}, \label{eq:MISDCint}
+\end{eqnarray}
+which we then integrate with VODE to advance $\phi^n$ over $\Delta t$ to obtain $\phi^{n+1,(k+1)}$.
+We note that from the integration, we can easily evaluate
+$I_R^{(k+1)}$ that is needed for the next iteration,
+\begin{equation}
+I_R^{(k+1)} = \frac{\phi^{n+1,(k+1)} - \phi^n}{\Delta t} - F_{\rm AD}^{(k+1)}.
+\end{equation}
+
+
+\section{Algorithmic Details}\label{sec:Algorithmic Details}
+In this section we describe the numerical discretization of the low Mach number model, with
+particular emphasis on the time-advancement of the thermodynamic variables.  The
+overall approach is a second-order projection method with an embedded MISDC
+strategy for advancing the thermodynamic variables.  
+
+We use a finite-volume, Cartesian grid approach with constant grid spacing, where
+$U$, $\rho$, $\rho Y_m$, $\rho h$, and $T$ represent cell averages,
+whereas $\pi$ is defined as point-values on nodes at half 
+time levels. There are three major steps in the algorithm:\\
+
+{\bf Step 1}: ({\it Compute advection velocities}) Use a second-order Godunov procedure to predict a time-centered
+velocity, $\uadvstar$, on cell faces using the cell-centered data at $t^n$ and the lagged pressure 
+gradient from $t^{n-\myhalf}$.  
+(An iterative procedure is used to define an initial pressure profile
+for the algorithm; see \cite{AlmBelColHowWel98,DayBell:2000} for details.)
+The provisional field, $\uadvstar$, represents 
+a normal velocity on cell faces analogous to a MAC-type staggered grid discretization of the 
+Navier-Stokes equations (see \cite{harlowwelch}, for example).  However, $\uadvstar$ fails to 
+satisfy the divergence constraint (\ref{eq:modified constraint}).  We apply a discrete projection by solving the 
+elliptic equation
+\begin{equation}
+D^{{\rm FC}\rightarrow{\rm CC}}\frac{1}{\rho^n}G^{{\rm CC}\rightarrow{\rm FC}}\phi = D^{{\rm FC}\rightarrow{\rm CC}}\uadvstar - \left(\widehat S^n + \frac{\Delta t^n}{2}\frac{\widehat S^n - \widehat S^{n-1}}{\Delta t^{n-1}}\right),
+\end{equation}
+for $\phi$ at cell-centers, where $D^{{\rm FC}\rightarrow{\rm CC}}$ represents a cell-centered divergence of face-centered data,
+and $G^{{\rm CC}\rightarrow{\rm FC}}$ represents a face-centered gradient of cell-centered data, and $\rho^n$ is computed on
+cell faces using arithmetic averaging from neighboring cell centers.
+The solution, $\phi$, is then used to define
+\begin{equation}
+\uadv = \uadvstar - \frac{1}{\rho^n}G^{{\rm CC}\rightarrow{\rm FC}}\phi,
+\end{equation}
+Thus, $\uadv$ is a second-order accurate, staggered grid vector field at $t^{n+\myhalf}$ that discretely 
+satisfies the constraint (\ref{eq:modified constraint}), and is used for computing the time-explicit 
+advective fluxes for $U$, $\rho h$, and $\rho Y_m$.\\
+
+{\bf Step 2}: ({\it Advance thermodynamic variables}) Integrate $(\rho Y_m,\rho h)$ over the full time step.\\
+
+{\bf Step 3}: ({\it Advance the velocity}) Compute $S^{n+1}$ from the new-time 
+thermodynamic variables and an estimate of $\dot\omega_m^{n+1}$.  Evaluate
+$\dot\omega_m^{n+1}$  directly from the new-time thermodynamic variables.
+
+Next, we compute an intermediate cell-centered velocity field, 
+$U^{n+1,*}$ using the lagged pressure gradient, by solving
+\begin{equation}
+\rho^{n+\myhalf}\frac{U^{n+1,*}-U^n}{\Delta t} + \left(\uadv\cdot\nabla U\right)^{n+\myhalf} = \half\left(\nabla\cdot\tau^n + \nabla\cdot\tau^{n+1,*}\right) - \nabla\pi^{n-\myhalf},
+\end{equation}
+where $\tau^{n+1,*} = \mu^{n+1}[\nabla U^{n+1,*} +(\nabla U^{n+1,*})^T - 2\mathcal{I}\widehat S^{n+1}/3]$ and 
+$\rho^{n+\myhalf} = (\rho^n + \rho^{n+1})/2$.  This is a semi-implicit discretization for $U$, requiring
+a linear solve.  The time-centered velocity in the advective derivative,
+$U^{n+\myhalf}$, is computed in the same way 
+as $\uadvstar$, but also includes the viscous stress tensor evaluated at $t^n$ as a source term
+in the Godunov integrator.  At 
+this point, the intermediate velocity field $U^{n+1,*}$ does not satisfy the constraint
+(\ref{eq:modified constraint}).  Hence, we apply an 
+approximate projection to update the pressure and to project $U^{n+1,*}$ onto the constraint surface.  
+In particular, we solve
+\begin{equation}
+L^{{\rm N}\rightarrow{\rm N}}\phi = D^{{\rm CC}\rightarrow{\rm N}}\left(U^{n+1,*} + \frac{\Delta t}{\rho^{n+\myhalf}}G^{{\rm N}\rightarrow{\rm CC}}\pi^{n-\myhalf}\right) - \widehat S^{n+1}
+\end{equation}
+for nodal values of $\phi$.  Here, $L^{{\rm N}\rightarrow{\rm N}}$ represents a nodal Laplacian of nodal data, computed
+using the standard bilinear finite-element approximation to $\nabla\cdot(1/\rho^{n+\myhalf})\nabla$.
+Also, $D^{{\rm CC}\rightarrow{\rm N}}$ is a discrete
+second-order operator that approximates the divergence at nodes from cell-centered data 
+and $G^{{\rm N}\rightarrow{\rm CC}}$ approximates a cell-centered gradient from nodal data.  We compute nodal 
+values for $\widehat S^{n+1}$ by interpolating the cell-centered values.  Finally, we 
+determine the new-time cell-centered velocity field using
+\begin{equation}
+U^{n+1} = U^{n+1,*} - \frac{\Delta t}{\rho^{n+\myhalf}}G^{{\rm N}\rightarrow{\rm CC}}(\phi-\pi^{n-\myhalf}),
+\end{equation}
+and the new time-centered pressure using $\pi^{n+\myhalf} = \phi$.  This completes the 
+description of the time-advancement algorithm.
+
+\subsection{Thermodynamic Advance}\label{sec:Thermodynamic Advance}
+Here we describe the details of Step 2 above, in
+which we advance $(\rho Y_m,\rho h)$ over the full time step.
+
+\subsubsection{MISDC Algorithm}
+The MISDC algorithm uses a MOL integration to advance the PDEs describing the thermodynamic
+variables given by species and enthalpy.
+As discussed in Section \ref{sec:Algorithmic Overview}, we use a first-order in time predictor to compute 
+an estimate of the time-advanced state, and then iteratively solve correction equations 
+to improve the accuracy of the solution.  There are two steps in the MISDC thermodynamic advance:
+\begin{itemize}
+\item {\bf Step 2A:} ({\it Predictor}) Advance 
+               $(\rho Y_m,\rho h)^n \rightarrow (\rho Y_m,\rho h)^{n+1,(0)}$ by 
+               discretizing the full ADR system over the time interval $\Delta t$ using 
+               a method that is first-order in time due to the use of
+               time-lagged thermodynamic coefficients in the implicit
+               treatment of diffusive terms. In this section, we simplify notation
+               by suppressing the time step index,
+               e.g., $(\rho Y_m,\rho h)^{n+1,(k)} \equiv (\rho Y_m,\rho h)^{(k)}$.
+\item {\bf Step 2B:} ({\it Corrector}) Iteratively improve the accuracy of
+               $(\rho Y_m,\rho h)^{(k)}$, for $k \in (1,k_{\rm max})$. 
+               The final iteration defines the time-advanced state, 
+               $(\rho Y_m,\rho h)^{n+1} = (\rho Y_m,\rho h)^{(k_{\rm max})}$.
+\end{itemize}
+To formally achieve
+second-order accuracy, $k_{\rm max} \ge 1$.  A larger value of $k_{\rm max}$ will reduce the error 
+of the final solution to that of the underlying quadrature scheme used to integrate (\ref{eq:MISDCint}),
+but cannot further improve the convergence rate of the method.
+
+{\bf MISDC Step 2A-I:} Compute $(\lambda,c_p,\mathcal D_m,h_m)^n$ from $(Y_m,T)^n$.  Compute 
+$\widetilde\Gamma_m^n = \rho^n \mathcal D_m^n \nabla Y_m^n$ and conservatively
+correct these fluxes as discussed in Section \ref{sec:Low Mach Number Equation Set} 
+to obtain $\Gamma_m^n$.  Use a second-order Godunov integrator to compute 
+time-centered edge states, $(\rho Y_m,\rho h)^{n+\myhalf,(0)}$, with explicitly evaluated diffusion
+processes and time-lagged reaction processes (i.e., $I_R^{\rm lagged}$) as source terms.
+Then, compute the time-advanced density, $\rho^{n+1}$, using a time-explicit discretization
+of (\ref{eq:continuity}),
+\begin{equation}
+\frac{\rho^{n+1} - \rho^n}{\Delta t} = -\sum_m\nabla\cdot\left(\uadv\rho Y_m\right)^{n+\myhalf,(0)}.
+\end{equation}
+
+{\bf Step 2A-II:} Compute provisional, time-advanced species mass fractions,
+$\widetilde Y_{m,{\rm AD}}^{(0)}$, using a discretization of (\ref{eq:cons mass}) with lagged transport coefficients 
+and time-lagged reaction source terms,
+\begin{equation}
+\frac{\rho^{n+1}\widetilde Y_{m,{\rm AD}}^{(0)} - (\rho Y_m)^n}{\Delta t} = -\nabla\cdot\left(\uadv\rho Y_m\right)^{n+\myhalf,(0)} + \half\nabla\cdot\left(\Gamma_m^n + \rho^n\mathcal D_m^n\nabla\widetilde Y_{m,{\rm AD}}^{(0)}\right)+ I_{R,\rho Y_m}^{\rm lagged}.
+\end{equation}
+Each of the species equations requires a linear solve for $\widetilde Y_{m,{\rm AD}}^{(0)}$.\\
+
+{\bf Step 2A-III:} Compute $\Gamma_{m,{\rm AD}}^{(0)}$, which are conservatively corrected versions of 
+$\widetilde\Gamma_{m,{\rm AD}}^{(0)} = \rho^n\mathcal D_m^n\nabla\widetilde Y_{m,{\rm AD}}^{(0)}$, and compute updated provisional time-advanced species mass fractions, $Y_{m,{\rm AD}}^{(0)}$, using
+\begin{equation}
+\frac{\rho^{n+1}Y_{m,{\rm AD}}^{(0)} - (\rho Y_m)^n}{\Delta t} = \underbrace{-\nabla\cdot\left(\uadv\rho Y_m\right)^{n+\myhalf,(0)} + \half\nabla\cdot\left(\Gamma_m^n + \Gamma_{m,{\rm AD}}^{(0)}\right)}_{Q_{\rho Y_m}^{(0)}} + I_{R,\rho Y_m}^{\rm lagged},
+\end{equation}
+where $Q_{\rho Y_m}^{(0)}$ represents an effective contribution of advection-diffusion to the update of $\rho Y_m$.\\
+
+{\bf Step 2A-IV:} Compute a provisional, time-advanced enthalpy, $h_{\rm AD}^{(0)}$, using a discretization
+of (\ref{eq:cons energy}) with lagged transport coefficients,
+\begin{eqnarray}
+\frac{\rho^{n+1}h_{\rm AD}^{(0)} - (\rho h)^n}{\Delta t} &=& -\nabla\cdot\left(\uadv\rho h\right)^{n+\myhalf,(0)}\nonumber\\
+&&\hspace{-2.5cm}+ \half\left(\nabla\cdot\frac{\lambda^n}{c_p^n}\nabla h^n + \nabla\cdot\frac{\lambda^n}{c_p^n}\nabla h_{\rm AD}^{(0)}\right)\nonumber\\
+&&\hspace{-2.5cm}+ \half\sum_m\nabla\cdot\left[h_m^n\left(\Gamma_m^n - \frac{\lambda^n}{c_p^n}\nabla Y_m^n\right) + h_m^n\left(\Gamma_{m,{\rm AD}}^{(0)} - \frac{\lambda^n}{c_p^n}\nabla Y_{m,{\rm AD}}^{(0)}\right)\right].\label{eq:MISDC rhoh predictor}
+\end{eqnarray}
+Note that the enthalpy diffusion term is semi-implicit, requiring a linear solve for $h_{\rm AD}^{(0)}$.
+The species enthalpy terms, $h_m$, are also lagged in order to avoid a more complicated linear system.
+Once we have computed $h_{\rm AD}^{(0)}$, we define $Q_{\rho h}^{(0)}$ as the evaluation of the 
+right-hand side of (\ref{eq:MISDC rhoh predictor}), which represents an effective contribution of 
+advection-diffusion to the update of $\rho h$.\\
+
+{\bf Step 2A-V:} Use VODE to integrate species (\ref{eq:cons mass}) and enthalpy (\ref{eq:cons energy}) over $\Delta t$
+to advance $(\rho Y_m,\rho h)^n$ to $(\rho Y_m,\rho h)^{(0)}$ using the piecewise-constant
+advection and diffusion source terms:
+\begin{eqnarray}
+\frac{\partial(\rho Y_m)}{\partial t} &=& Q_{\rho Y_m}^{(0)} + \dot\omega_m(Y_m,T),\label{eq:MISDC VODE 1}\\
+\frac{\partial(\rho h)}{\partial t} &=& Q_{\rho h}^{(0)}.\label{eq:MISDC VODE 2}
+\end{eqnarray}
+Note that each evaluation of the right-hand-side in the VODE solve requires a call to the equation 
+of state to obtain $T$ from $(Y_m,h)$ before computing $\dot\omega_m$.  After the 
+integration is complete, we make one final call to the equation of state
+to compute $T^{(0)}$ from $(Y_m,h)^{(0)}$.\\
+
+{\bf Step 2A-VI:} Compute the effect of reactions in the evolution of $\rho Y_m$ (recall that reactions do not
+affect $\rho h$) in the VODE integration using
+\begin{equation}
+I_{R,\rho Y_m}^{(0)} = \frac{(\rho Y_m)^{(0)} - (\rho Y_m)^n}{\Delta t} - Q_{\rho Y_m}^{(0)}.
+\end{equation}
+
+This is the end of the predictor.  In Step 2B, we improve upon the most recently computed
+time-advanced solution by solving correction equations.  We are also able to compute more accurate
+estimates of time-advanced thermodynamic coefficients, since we can use the most recently computed
+solution.  We now describe Step 2B as if we are performing an arbitrary number of iterations 
+from $k=0$ to $k_{\rm max}-1$.\\
+
+{\bf Step 2B-I:} 
+As in Step~2A-a, use a second-order Godunov integrator to compute updated time-centered edge states, 
+$(\rho Y_m,\rho h)^{n+\myhalf,(k+1)}$, but use $I_R^{(k)}$ rather than
+$I_R^{\rm lagged}$ as a source term in the Godunov integrator.\\
+
+{\bf Step 2B-II:} Compute time-advanced transport coefficients, $(\lambda,c_p,\mathcal D_m,h_m)^{(k)}$ from $(Y_m,T)^{(k)}$.
+Next, compute $\Gamma_m^{(k)}$, which are conservatively corrected versions of 
+$\widetilde\Gamma_m^{(k)} = \rho^{n+1}\mathcal D_m^{(k)}\nabla Y_m^{(k)}$.
+Then, compute provisional, time-advanced species mass fractions, $\widetilde Y_{m,{\rm AD}}^{(k+1)}$, by solving a backward Euler type
+correction equation,
+\begin{eqnarray}
+\frac{\rho^{n+1}\widetilde Y_{m,{\rm AD}}^{(k+1)} - (\rho Y_m)^n}{\Delta t} &=& -\nabla\cdot\left(\uadv\rho Y_m\right)^{n+\myhalf,(k+1)}\nonumber\\
+&&\hspace{-2.5cm}+ \nabla\cdot\rho^{n+1}\mathcal D_m^{(k)}\nabla\widetilde Y_{m,{\rm AD}}^{(k+1)}
++ \half\nabla\cdot\left(\Gamma_m^n - \Gamma_m^{(k)}\right)  + I_{R,\rho Y_m}^{(k)}.
+\end{eqnarray}
+Each of the species equations is implicit, requiring a linear solve for $\widetilde Y_{m,{\rm AD}}^{(k+1)}$.\\
+
+{\bf Step 2B-III:} Compute $\Gamma_{m,{\rm AD}}^{(k+1)}$, which are conservatively corrected versions of 
+$\widetilde\Gamma_{m,{\rm AD}}^{(k+1)} = \rho^{n+1}\mathcal D_m^{(k)}\nabla\widetilde Y_{m,{\rm AD}}^{(k+1)}$.
+Then, similar to Step 2A-III, define an effective contribution of advection-diffusion to the update of $\rho Y_m$,
+\begin{equation}
+Q_{\rho Y_m}^{(k+1)} = -\nabla\cdot\left(\uadv\rho Y_m\right)^{n+\myhalf,(k+1)} + \nabla\cdot\Gamma_{m,{\rm AD}}^{(k+1)} + \half\nabla\cdot\left(\Gamma_m^n - \Gamma_m^{(k)}\right).
+\end{equation}
+
+{\bf Step 2B-IV:} Compute a provisional, time-advanced enthalpy, $h_{\rm AD}^{(k+1)}$, by solving a backward Euler type correction equation,
+\begin{eqnarray}
+\frac{\rho^{n+1}h_{\rm AD}^{(k+1)} - (\rho h)^n}{\Delta t} &=& -\nabla\cdot(\uadv\rho h)^{n+\myhalf,(k+1)}\nonumber\\
+&&\hspace{-2.5cm}+ \nabla\cdot\frac{\lambda^{(k)}}{c_p^{(k)}}\nabla  h_{\rm AD}^{(k+1)} + \half\left(\nabla\cdot\frac{\lambda^n}{c_p^n}\nabla h^n - \nabla\cdot\frac{\lambda^{(k)}}{c_p^{(k)}}\nabla h^{(k)}\right)\nonumber\\
+&&\hspace{-2.5cm}+ \half\sum_m\nabla\cdot\left[h_m^n\left(\Gamma_m^n - \frac{\lambda^n}{c_p^n}\nabla Y_m^n\right) + h_m^{(k)}\left(\Gamma_m^{(k)} - \frac{\lambda^{(k)}}{c_p^{(k)}}\nabla Y_m^{(k)}\right)\right].
+\label{eq:MISDC rhoh correction}
+\end{eqnarray}
+The enthalpy term is implicit, requiring a linear solve for $h_{\rm AD}^{(k+1)}$, whereas the 
+species enthalpy terms, $h_m$, are discretized with a trapezoidal rule using iteratively lagged, 
+time-advanced values of $h_m$ in order to avoid a more complicated linear system.
+Once we have computed $h_{\rm AD}^{(k+1)}$, we define
+$Q_{\rho h}^{(k+1)}$ as the evaluation of the right-hand side of (\ref{eq:MISDC rhoh correction}),
+which represents an effective contribution of advection-diffusion to the update of $\rho h$.\\
+
+{\bf Step 2B-V:} Use VODE to integrate species (\ref{eq:cons mass}) and enthalpy (\ref{eq:cons energy}) over $\Delta t$
+to advance $(\rho Y_m,\rho h)^n$ to $(\rho Y_m,\rho h)^{(k+1)}$ using piecewise-constant
+advection and diffusion source terms:
+\begin{eqnarray}
+\frac{\partial(\rho Y_m)}{\partial t} &=& Q_{\rho Y_m}^{(k+1)} + \dot\omega_m(Y_m,T),\label{eq:MISDC VODE 3}\\
+\frac{\partial(\rho h)}{\partial t} &=& Q_{\rho h}^{(k+1)}.\label{eq:MISDC VODE 4}
+\end{eqnarray}
+After the integration is complete, we make one final call to the equation of state
+to compute $T^{(k+1)}$ from $(Y_m,h)^{(k+1)}$.\\
+
+{\bf Step 2B-VI:} Compute the effect of reactions in the evolution of $\rho Y_m$ in the VODE integration using,
+\begin{equation}
+I_{R,\rho Y_m}^{(k+1)} = \frac{(\rho Y_m)^{(k+1)} - (\rho Y_m)^n}{\Delta t} - Q_{\rho Y_m}^{(k+1)}.
+\end{equation}
+If $k<k_{\rm max}-1$, set $k=k+1$ and return to MISDC Step 2B-I.  Otherwise, the 
+time-advancement of the thermodynamic variables is complete, and set 
+$(\rho Y_m,\rho h)^{n+1} = (\rho Y_m,\rho h)^{(k+1)}$.
