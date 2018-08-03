@@ -347,7 +347,7 @@ The \fuego\ processing tool, and the functions necessary to interface the genera
 The basic temporal discretization in \pelelm\ combines a simplified spectral deferred correction (SDC) coupling of chemistry and transport \cite{LMC_SDC} with a density-weighted approximate projection method for low Mach number flow \cite{DayBell:2000}.  The projection method implements a constrained evolution on the velocity field via the SDC iterations, which ensures that the update simultaneously satisfies the  equation of state and discrete conservation of mass and total enthalpy.
 A time-explicit approach is used for advection; faster diffusion and chemistry processes are treated time-implicitly, and iteratively coupled together within the deferred corrections strategy. The integration algorithm, discussed in the following sections, is second-order accurate in space and time, and is implemented in the context of a subcycled approach to time-stepping a hierarchy of mesh levels, where each level consists of logically rectangular patches of rectangular cells.  All cells at a level have the same size, and are isotropic in all coordinates.  We discuss first the ``single-level'' advance, and then discuss modifications necessary to support the AMR subcycling strategy.
 
-\subsection{Algorithm details}
+\subsection{Algorithm summary}
 \label{AlgoDetails}
 SDC methods for ODEs are introduced in Dutt et al.~\cite{Dutt:2000}.
 The basic idea of SDC is to write the solution of an ODE
@@ -470,7 +470,7 @@ I_R^{(k+1)} = \frac{\phi^{n+1,(k+1)} - \phi^n}{\Delta t} - F_{\rm AD}^{(k+1)}.
 \end{equation}
 
 
-\section{Algorithmic Details}\label{sec:Algorithmic Details}
+\subsection{The \textit{MAC}\ and \textit{nodal}\ projections}
 In this section we describe the numerical discretization of the low Mach number model, with
 particular emphasis on the time-advancement of the thermodynamic variables.  The
 overall approach is a second-order projection method with an embedded MISDC
@@ -505,7 +505,7 @@ Thus, $\uadv$ is a second-order accurate, staggered grid vector field at $t^{n+\
 satisfies the constraint (\ref{eq:modified constraint}), and is used for computing the time-explicit 
 advective fluxes for $U$, $\rho h$, and $\rho Y_m$.\\
 
-{\bf Step 2}: ({\it Advance thermodynamic variables}) Integrate $(\rho Y_m,\rho h)$ over the full time step.\\
+{\bf Step 2}: ({\it Advance thermodynamic variables}) Integrate $(\rho Y_m,\rho h)$ over the full time step.  The details of this are presented in the next subsection.\\
 
 {\bf Step 3}: ({\it Advance the velocity}) Compute $S^{n+1}$ from the new-time 
 thermodynamic variables and an estimate of $\dot\omega_m^{n+1}$.  Evaluate
@@ -545,13 +545,7 @@ description of the time-advancement algorithm.
 \subsection{Thermodynamic Advance}\label{sec:Thermodynamic Advance}
 Here we describe the details of Step 2 above, in
 which we advance $(\rho Y_m,\rho h)$ over the full time step.
-
-\subsubsection{MISDC Algorithm}
-The MISDC algorithm uses a MOL integration to advance the PDEs describing the thermodynamic
-variables given by species and enthalpy.
-As discussed in Section \ref{sec:Algorithmic Overview}, we use a first-order in time predictor to compute 
-an estimate of the time-advanced state, and then iteratively solve correction equations 
-to improve the accuracy of the solution.  There are two steps in the MISDC thermodynamic advance:
+There are two steps:
 \begin{itemize}
 \item {\bf Step 2A:} ({\it Predictor}) Advance 
                $(\rho Y_m,\rho h)^n \rightarrow (\rho Y_m,\rho h)^{n+1,(0)}$ by 
