@@ -43,9 +43,10 @@ J.~Comp.~Phys., 142, pp. 1-46, 1998.
 \section{The low Mach number flow equations}
 \newcommand{\etal}{{\it et al.}}
 
-\pelelm\ solves the reacting Navier-Stokes flow equations in the \emph{low Mach number} regime~\cite{DayBell:2000,rehm1978equations,Majda:1985}. In the low Mach number regime, the characteristic fluid velocity is small compared to the sound speed, and the effect of acoustic wave propagation is unimportant to the overall dynamics of the system. Accordingly, acoustic wave propagation can be mathematically removed from the equations of motion, allowing for a numerical time step based on an advective CFL condition, and leading to an increase in the allowable time step of order $1/M$ over an explicit, fully compressible method ($M$ is the Mach number). In this framework, the total pressure is decomposed into the sum of a spatially constant (ambient) thermodynamic pressure $P_0$ and a perturbational pressure $\pi$.  It has been shown that under suitable conditions (\cite{Majda:1985}), $\pi/P_0 = \mathcal{O} (M^2)$. 
+\pelelm\ solves the reacting Navier-Stokes flow equations in the \emph{low Mach number} regime~\cite{DayBell:2000,rehm1978equations,Majda:1985}. In the low Mach number regime, the characteristic fluid velocity is small compared to the sound speed, and the effect of acoustic wave propagation is unimportant to the overall dynamics of the system. Accordingly, acoustic wave propagation can be mathematically removed from the equations of motion, allowing for a numerical time step based on an advective CFL condition, and this leads to an increase in the allowable time step of order $1/M$ over an explicit, fully compressible method ($M$ is the Mach number).  In this mathematical framework, the total pressure is decomposed into the sum of a spatially constant (ambient) thermodynamic pressure $P_0$ and a perturbational pressure, $\pi({\vec x})$ that drives the flow.  Under suitable conditions (\cite{Majda:1985}), $\pi/P_0 = \mathcal{O} (M^2)$. 
 
 The set of conservation equations specialized to the low Mach number regime is a system of PDEs with advection, diffusion and reaction (ADR) processes that are constrained to evolve on the manifold of a spatially constant $P_0$:
+
 \begin{eqnarray}
 &&\frac{\partial (\rho \boldsymbol{u})}{\partial t} + 
 \nabla \cdot \left(\rho  \boldsymbol{u} \boldsymbol{u} + \tau \right)
@@ -63,19 +64,21 @@ The set of conservation equations specialized to the low Mach number regime is a
 \end{eqnarray}
 where $\rho$ is the density, $\boldsymbol{u}$ is the velocity, $h$ is the mass-weighted enthalpy, $T$ is temperature and $Y_m$ is the mass fraction of species $m$. $\dot{\omega}_m$ is the molar production rate for species $m$, the modeling of which will be described in Section~\ref{ChemKinetics}. $\tau$ is the stress tensor, $\boldsymbol{\mathcal{Q}}$ is the heat flux vector and $\boldsymbol{\mathcal{F}}_m$
 %$\,=\,$$- \rho \boldsymbol{\mathcal{D}}_i \nabla X_{i}$ 
-are the species diffusion vectors. These transport fluxes require the evaluation of transport coefficients (e.g., the viscosity $\mu$, the conductivity $\lambda$ and the diffusivity matrix $D$) which are computed using the library EGLIB~\cite{EGLIB}, as will be described in more depth in Section~\ref{DifFluxesEGLIB}. The momentum source term, $\boldsymbol{F}$, is a long-wavelength forcing term designed to establish and maintain turbulence with the desired properties. Note that the definition of enthalpy includes the standard enthalpy of formation, so there is no net change to $h$ due to reactions.
+are the species diffusion vectors. These transport fluxes require the evaluation of transport coefficients (e.g., the viscosity $\mu$, the conductivity $\lambda$ and the diffusivity matrix $D$) which are computed using the library EGLIB~\cite{EGLIB}, as will be described in more depth in Section~\ref{DifFluxesEGLIB}. The momentum source, $\boldsymbol{F}$, is a long-wavelength forcing term.  For a subset of cases of interest, $\boldsymbol{F}$ has been used to establish and maintain quasi-stationary turbulence. Note also that our definition of enthalpy here incorporates the standard heat of formation; thus there is no net change to $h$ due to reactions.
 
-These evolution equations are supplemented by an equation of state for the thermodynamic pressure,
+These evolution equations are supplemented by an equation of state for the thermodynamic pressure.  For example, the ideal gas law,
 \begin{eqnarray}
 P_0(\rho,Y_m,T)=\frac{\rho \mathcal{R} T}{W}=\rho \mathcal{R} T \sum_m \frac{Y_m}{W_m}
 \label{eq:eos}
 \end{eqnarray}
-where $W_m$ and $W$ are the species $m$, and mean molecular weights, respectively,
-and by a relationship between enthalpy, species and temperature:
+can be used, although \pelelm\ will soon support other more general expressions, such as
+Soave-Redlich-Kwong~\cite{Soave1972}.  In (\ref{eq:eos}), $W_m$ and $W$ are the species $m$, and mean
+molecular weights, respectively.  To close the system
+we also require a relationship between enthalpy, species and temperature.  We adopt the definition used in the CHEMKIN standard, 
 \begin{eqnarray}
 h=\sum_m Y_m h_m(T)
 \end{eqnarray}
-where $h_m$ is the species $m$ enthalpy. 
+where $h_m$ is the species $m$ enthalpy.  As noted above, this form incorporates the heat of formation for each species into the data bases that provide expressions for $h_m(T)$.
 
 Neither species diffusion nor reactions redistribute the total mass, hence we have $\sum_m \boldsymbol{\mathcal{F}}_m = 0$ and $\sum_m \dot{\omega}_m = 0$. Thus, summing the species equations and using the definition $\sum_m Y_m \equiv 1$ we obtain the continuity equation:
 \begin{eqnarray}
@@ -83,7 +86,7 @@ Neither species diffusion nor reactions redistribute the total mass, hence we ha
 \label{eq:cont}
 \end{eqnarray}
 
-Equations~(\ref{eq:gen}), together with the equation of state, (\ref{eq:eos}) form a differential-algebraic equation (DAE) system that describes evolution subject to a constraint.  A standard approach to attacking such a system is to differente the constraint until it can be recast as an initial value problem.  Following this procedure, we set the thermodynamic pressure constant in the frame of the fluid,
+Equations~(\ref{eq:gen}), together with the equation of state, (\ref{eq:eos}) form a differential-algebraic equation (DAE) system that describes evolution subject to a constraint.  A standard approach to attacking such a system computationally is to differente the constraint until it can be recast as an initial value problem.  Following this procedure, we set the thermodynamic pressure constant in the frame of the fluid,
 \begin{eqnarray}
 \frac{DP_0}{Dt} = 0
 \label{eq:deos}
@@ -95,7 +98,7 @@ Eq.~\ref{eq:cont}:
 \nabla \cdot \boldsymbol{u} = \frac{1}{T}\frac{DT}{Dt} + W \sum_m \frac{1}{W_m} \frac{DY_m}{Dt} = S
 \label{eq:veloconstr}
 \end{eqnarray}
-The constraint appears here as a condition on the divergence of the flow.
+The constraint then take the form here as a condition on the divergence of the flow.  Note that the actual expressions to use in (\ref{eq:veloconstr}) will depend on the model for evaluating the transport fluxes in (\ref{eq:gen}).
 
 
 %%%
@@ -122,7 +125,7 @@ where ${D}_{m,j}$ are the binary diffusion coefficients, and $\theta_m$ are ther
 %%%
 \section{The \pelelm\ equation set}
 \label{SumUpEq}
-For \pelelm, we make the following simplifying assumptions:
+The full diffusion model couples together the advance of all thermodynamics fields, including a dense matrix transport operator that is cumbersome to deal with computationally, while also being generally viewed as overkill for most practical combustion applications -- particularly those involving turbulent fluid dynamics.  For \pelelm, we make the following simplifying assumptions:
 \begin{enumerate}
 \item The bulk viscosity, $\kappa$ is negligible, compared to the shear viscosity,
 \item The low Mach limit implies that there are no spacial gradients in the thermodynamic pressure,
@@ -325,20 +328,24 @@ Most fundamental Arrhenius reactions are bidirectional, and typically only the f
 \end{eqnarray*}
 $\Delta H_j$ and $\Delta S_j$ are the change in enthaply and entropy of the reaction $j$, and $P_0$ is the ambient thermodynamic pressure.
 
-A typical model for \pelelm\ consists of a large number of parameters associated with the CHEMKIN parameterization of the Arrhenius reaction set, as well as fitting coefficients for the thermodynamic relationships, and the specification of the species, including the parameters necessary to specify all the required pure-species transport properties.  As is traditional in the combustion literature, these parameters are communicated throughout the community in the form of text files that conform to the CHEMKIN standard.  Earlier versions of \pelelm\ then linked to CHEMKIN-provided functions for evaluating the associated properties and rates.  However, those evaluations were not very efficient because the functions stepped through the full, generic expressions.  The current version of \pelelm\ instead relies on a preprocessing tool, \fuego, to load the model parameters into a Python data base that is then used to automatically generate a highly efficient optimized C-code implementation of the model that is linked directly into a \pelelm\ executable at compile time.  Through this preprocessing step, each model becomes fully contained wothin a single source file, which can be linked separately to post-processing analysis tools as well.
-
-%%%
 \section{Thermodynamic properties}
 \label{ThermoProp}
 TODO
+%%%
 
+\section{\fuego\ chemistry preprocessing}
+\label{ThermoProp}
+
+As discussed above, a typical model for \pelelm\ consists of a large number of parameters associated with the CHEMKIN parameterization of the Arrhenius reaction set, as well as fitting coefficients for the thermodynamic relationships, and the specification of the species, including those required to compute pure-species transport properties.  In the combustion community, these parameters are communicated in the form of text files that conform to the CHEMKIN standard.  The CHEMKIN software can then be used to ingest these parameters and provide a set of functions for evaluating all the properties and rates required.  Earlier versions of \pelelm\ linked to the CHEMKIN codes (and thereby assumed that all problems consisted of a mixture of ideal gases).  However, evaluations done this way were not very efficient because the software functions stepped through full, generic expressions.  A more direct evaluation is potentially much more efficient alternative to the CHEMKIN software.  Moreover, a customized solution could be developed to extend \pelelm\ to handle a larger class of gas models, such as SRK.
+
+In a move away from CHEMKIN, \pelelm\ now relies on a preprocessing tool, \fuego, to generate highly efficient optimized C code implementations of the thermodynamic and kinetics evaluations.  This auto-generated code is linked into the \pelelm\ executable, customizing the executable for a specific model at compile time.  These implementation source code files can also be linked conveiently to post-processing analysis tools.
+
+The \fuego\ processing tool, and the functions necessary to interface the generated functions to \pelelm\ are contained in the code package, \pelephysics.  In addition to CHEMKIN and SRK implementations of eos functions, and the EGLib-based evaluations of transport coefficients, \pelephysics\ contains models (selected at compiled time) to support \textit{gama-law}\ equations-of-state, and constant transport properties.  The distribution comes with a large set of models for the combustion of hydrogen, carbon-monoxide, methane, heptane, $n$-dodecane, dimethyl ether, and others, as well as instructions for users to generate the source code required for \pelelm\ based on their own CHEMKIN-complaint input files.
 
 %%%
 \section{The \pelelm\ temporal integration}
 The basic discretization combines a simplified spectral deferred correction (SDC) coupling of chemistry and transport \cite{LMC_SDC} with a density-weighted approximate projection method for low Mach number flow \cite{DayBell:2000}.  The projection method implements a constrained evolution on the velocity field via the SDC iterations, which ensures that the update simultaneously satisfies the  equation of state and discrete conservation of mass and total enthalpy.
-A time-explicit approach is used for advection; faster diffusion and chemistry processes are treated time-implicitly, and iteratively coupled together within the deferred corrections strategy. Since the low Mach system does not support acoustic waves, the time step size is governed by a CFL constraint based on advective transport.
-The integration algorithm is second-order accurate in space and time.
-
+A time-explicit approach is used for advection; faster diffusion and chemistry processes are treated time-implicitly, and iteratively coupled together within the deferred corrections strategy. The integration algorithm, discussed in the following sections, is second-order accurate in space and time, and is implemented in the context of a subcycled approach to time-stepping a hierarchy of mesh levels, where each level consists of logically rectangular patches of rectangular cells.  All cells at a level have the same size, and are isotropic in all coordinates.  We discuss first the ``single-level'' advance, and then discuss modifications necessary to supported the AMR subcycling strategy.
 
 \subsection{Algorithm details}
 \label{AlgoDetails}
