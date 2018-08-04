@@ -78,15 +78,15 @@ we also require a relationship between enthalpy, species and temperature.  We ad
 \begin{eqnarray}
 h=\sum_m Y_m h_m(T)
 \end{eqnarray}
-where $h_m$ is the species $m$ enthalpy.  As noted above, this form incorporates the heat of formation for each species into the data bases that provide expressions for $h_m(T)$.
+where $h_m$ is the species $m$ enthalpy.  As noted above, this form incorporates the heat of formation for each species into the databases that provide expressions for $h_m(T)$ (see Section~\ref{ThermoProp}).
 
-Neither species diffusion nor reactions redistribute the total mass, hence we have $\sum_m \boldsymbol{\mathcal{F}}_m = 0$ and $\sum_m \dot{\omega}_m = 0$. Thus, summing the species equations and using the definition $\sum_m Y_m \equiv 1$ we obtain the continuity equation:
+Neither species diffusion nor reactions redistribute the total mass, hence we have $\sum_m \boldsymbol{\mathcal{F}}_m = 0$ and $\sum_m \dot{\omega}_m = 0$. Thus, summing the species equations and using the definition $\sum_m Y_m = 1$ we obtain the continuity equation:
 \begin{eqnarray}
 \frac{\partial \rho}{\partial t} + \nabla \cdot \rho \boldsymbol{u} = 0
 \label{eq:cont}
 \end{eqnarray}
 
-Equations~(\ref{eq:gen}), together with the equation of state, (\ref{eq:eos}) form a differential-algebraic equation (DAE) system that describes evolution subject to a constraint.  A standard approach to attacking such a system computationally is to differente the constraint until it can be recast as an initial value problem.  Following this procedure, we set the thermodynamic pressure constant in the frame of the fluid,
+Equations~(\ref{eq:gen}), together with the equation of state, (\ref{eq:eos}) form a differential-algebraic equation (DAE) system that describes an evolution subject to a constraint.  A standard approach to attacking such a system computationally is to differentiate the constraint until it can be recast as an initial value problem.  Following this procedure, we set the thermodynamic pressure constant in the frame of the fluid,
 \begin{eqnarray}
 \frac{DP_0}{Dt} = 0
 \label{eq:deos}
@@ -98,7 +98,7 @@ Eq.~\ref{eq:cont}:
 \nabla \cdot \boldsymbol{u} = \frac{1}{T}\frac{DT}{Dt} + W \sum_m \frac{1}{W_m} \frac{DY_m}{Dt} = S
 \label{eq:veloconstr}
 \end{eqnarray}
-The constraint then take the form here as a condition on the divergence of the flow.  Note that the actual expressions to use in (\ref{eq:veloconstr}) will depend on the model for evaluating the transport fluxes in (\ref{eq:gen}).
+The constraint here take the form of a condition on the divergence of the flow.  Note that the actual expressions to use in (\ref{eq:veloconstr}) will depend upon the chosen models for evaluating the transport fluxes in (\ref{eq:gen}).
 
 
 %%%
@@ -108,7 +108,7 @@ Expressions for the transport fluxes appearing in Eqs.~(\ref{eq:gen}) can be app
  \begin{eqnarray*}
 &&\boldsymbol{\mathcal{F}}_{m} = \rho Y_m \boldsymbol{V_m}
 \\ [2mm]
-&&\tau_{i,j} = - \Big(\kappa - \frac{2}{3} \mu \Big) \delta_{i,j} \frac{\partial {u_k}}{\partial x_k} - \mu \Big(\frac{u_i}{\partial x_j} + \frac{u_j}{\partial x_i}\Big)
+&&\tau_{i,j} = - \Big(\kappa - \frac{2}{3} \mu \Big) \delta_{i,j} \frac{\partial {u_k}}{\partial x_k} - \mu \Big(\frac{\partial u_i}{\partial x_j} + \frac{\partial u_j}{\partial x_i}\Big)
 \\ [2mm]
 &&\boldsymbol{\mathcal{Q}} =  \sum_m h_m \boldsymbol{\mathcal{F}}_{m}  - \lambda' \nabla T - P_0 \sum_m \theta_m \boldsymbol{d_m}
 \end{eqnarray*}
@@ -116,21 +116,34 @@ where $\mu$ is the shear viscosity, $\kappa$ is the bulk viscosity, and $\lambda
  \begin{eqnarray*}
 \boldsymbol{V_m} = - \sum_j  {D}_{m,j} \boldsymbol{d_j} - \theta_m \nabla ln(T)
 \end{eqnarray*}
-where ${D}_{m,j}$ are the binary diffusion coefficients, and $\theta_m$ are thermal diffusion coefficients associated with the Soret (mass concentration flux due to an energy gradient) and Dufour (the energy flux due to a mass concentration gradient) transport of species $m$. The transport driving force due to composition gradients, $\boldsymbol{d_m}$, is given by~\cite{Ern:1994multicomponent}:
+where ${D}_{m,j}$ is the diffusion matrix, and $\boldsymbol{\theta}$ are thermal diffusion coefficients associated with the Soret (mass concentration flux due to an energy gradient) and Dufour (the energy flux due to a mass concentration gradient) effects. The $m$ species transport driving force due to composition gradients, $\boldsymbol{d_m}$, is given by~\cite{Ern:1994multicomponent}:
  \begin{eqnarray*}
 \boldsymbol{d_m} = \nabla X_m + (X_m -Y_m) \frac{\nabla P_0}{P_0}
 \label{dmeqs}
 \end{eqnarray*}
 
+Alternatively (as in the library EGLIB~\cite{EGLIB}) the thermal diffusion \emph{ratios} $\boldsymbol{\chi}$ may be preferred~\cite{Ern:1994multicomponent} and the diffusion velocities and energy flux recast as:
+ \begin{eqnarray}
+\boldsymbol{V_m} = - \sum_j  {D}_{m,j} ( \boldsymbol{d_j} + \chi_j \nabla ln(T))
+\\
+\boldsymbol{\mathcal{Q}} =  \sum_m h_m \boldsymbol{\mathcal{F}}_{m}  - \lambda \nabla T + P_0 \sum_m \chi_m \boldsymbol{V_m}
+\end{eqnarray}
+where  ${D} \boldsymbol{\chi} = \boldsymbol{\theta}$.
+%and $\lambda' \nabla T = \lambda \nabla T + P_0 \sum_m \theta_m \nabla ln(T)$.
+
+As can be seen, the expression for these fluxes relies upon several transport coefficients that need to be evaluated. However, in the present framework several effects are neglected, thus simplifying the fluxes evaluation, as will be seen in Section~\ref{SumUpEq}.
+
+
+
 %%%
 \section{The \pelelm\ equation set}
 \label{SumUpEq}
-The full diffusion model couples together the advance of all thermodynamics fields, including a dense matrix transport operator that is cumbersome to deal with computationally, while also being generally viewed as overkill for most practical combustion applications -- particularly those involving turbulent fluid dynamics.  For \pelelm, we make the following simplifying assumptions:
+The full diffusion model couples together the advance of all thermodynamics fields, including a dense matrix transport operator that is cumbersome to deal with computationally, while also being generally viewed as an overkill for most practical combustion applications -- particularly those involving turbulent fluid dynamics.  For \pelelm, we make the following simplifying assumptions:
 \begin{enumerate}
 \item The bulk viscosity, $\kappa$ is negligible, compared to the shear viscosity,
-\item The low Mach limit implies that there are no spacial gradients in the thermodynamic pressure,
-\item The \textit{mixture-averaged}\ diffusion model is assumed, and
-\item Dufour and Soret effects are negligible
+\item The low Mach limit implies that there are no spatial gradients in the thermodynamic pressure,
+\item The \textit{mixture-averaged}\ diffusion model is assumed,
+\item Finally, Dufour and Soret effects are negligible
 \end{enumerate}
 
 With these assumptions, the conservation equations take the following form:
@@ -151,13 +164,12 @@ With these assumptions, the conservation equations take the following form:
 \end{eqnarray}
 with
  \begin{eqnarray*}
-&&\boldsymbol{\mathcal{F}}_{m} = \rho Y_m \boldsymbol{V_m} = - \rho D_{m,mix} \nabla X_m
+&&\boldsymbol{\mathcal{F}}_{m} = \rho Y_m \boldsymbol{V_m} = - \rho D_{m,mix} \frac{W_m}{W}  \nabla X_m
 \\ [2mm]
-&&\tau_{i,j} = \frac{2}{3} \mu \delta_{i,j} \frac{\partial {u_k}}{\partial x_k} - \mu \Big(\frac{u_i}{\partial x_j} + \frac{u_j}{\partial x_i}\Big)
+&&\tau_{i,j} = \frac{2}{3} \mu \delta_{i,j} \frac{\partial {u_k}}{\partial x_k} - \mu \Big(\frac{\partial  u_i}{\partial x_j} + \frac{\partial  u_j}{\partial x_i}\Big)
 \\ [2mm]
 &&\boldsymbol{\mathcal{Q}} =  \sum_m h_m \boldsymbol{\mathcal{F}}_{m}  - \lambda \nabla T
 \end{eqnarray*}
-Details about the computation of $\mu$, $\lambda$ and $D_{m,mix}$ are discussed in Section~\ref{subs:EGLIB}.
 With these specializations, the velocity constraint (Eq~\ref{eq:veloconstr}) becomes:
 \begin{eqnarray}
 \nabla \cdot \boldsymbol{u} \;\;  \equiv \; S&=& \frac{1}{\rho c_{p} T}(\nabla \cdot \lambda \nabla T - \sum_m  \boldsymbol{\mathcal{F}}_{m} \cdot \nabla h_m) \nonumber
@@ -175,15 +187,19 @@ With these specializations, the velocity constraint (Eq~\ref{eq:veloconstr}) bec
 
 % \subsection{Transport coefficients and mixture rules: the Ern and Giovangigli approximations}
 % \label{subs:EGLIB}
-The mixture-averaged transport coefficients discussed above can be evaluated from transport properties of the pure species. We follow the treatment used in the EGLib library, based on the theory/approximations developed by Ern and Givangigli~\cite{Ern:1994,Ern:2004}.
+The mixture-averaged transport coefficients discussed above ($\mu$, $\lambda$ and $D_{m,mix}$) can be evaluated from transport properties of the pure species. We follow the treatment used in the EGLib library, based on the theory/approximations developed by Ern and Givangigli~\cite{Ern:1994,Ern:2004}.
 
 The following choices are currently implemented in \pelelm\ 
 \begin{itemize}
 \item The viscosity, $\mu$, is estimated based \textcolor{red}{FIXME}
 \item The conductivity, $\lambda$, is based on an empirical mixture formula:
-\begin{eqnarray*}
-\lambda = \Big( \sum_m X_m (\lambda_m)^{\alpha} \Big)^{1/\alpha}, \;\; \alpha = 1/4
-\end{eqnarray*}
+\begin{eqnarray}
+\lambda = \frac{1}{2} (\mathcal{A}_{-1} + \mathcal{A}_{1})
+\end{eqnarray}
+with
+\begin{eqnarray}
+\mathcal{A}_{\alpha}= \Big( \sum_m X_m (\lambda_m)^{\alpha} \Big)^{1/\alpha}
+\end{eqnarray}
 \item The flux diffusion flux is approximated using the diagonal matrix $diag(\widetilde{ \Upsilon})$, where:
 \begin{eqnarray}
 \widetilde{ \Upsilon}_m = \frac{W_m}{W} D_{m,mix}, \;\;\;\mbox{where} \;\;\; D_{m,mix} = \frac{1-Y_m}{ \sum_{j \neq m} X_j / \mathcal{D}_{m,j}}
