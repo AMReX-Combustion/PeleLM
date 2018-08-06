@@ -307,11 +307,11 @@ with
 F(T) = 1 + \frac{\pi^{(3/2)}}{2} \sqrt{\frac{\epsilon/k_B}{T} } + \Big( \frac{\pi^2}{4} +2 \Big) \Big( \frac{\epsilon/k_B}{T} \Big) + \pi^{(3/2)}\Big( \frac{\epsilon/k_B}{T} \Big)^{(3/2)} 
 \end{eqnarray*}
 
-In \pelelm\ the pure species transport properties are evaluated with EGLib functions.  EGLib requires polynomial fits of the logarithm of each quantity versus the logarithm of the temperature.
+The pure species and mixture transport properties are evaluated with EGLib functions, which are linked directly into \pelelm.  EGLib requires as input polynomial fits of the logarithm of each quantity versus the logarithm of the temperature.
 \begin{eqnarray*}
 ln(q_m) = \sum_{n=1}^4 a_{q,m,n} \, ln(T)^{(n-1)} 
 \end{eqnarray*}
-where $q_m$ represents $\eta_m$, $\lambda_m$ or $D_{m,j}$. These fits are generated as part of a preprocessing step managed by the tool \fuego\ based on the formula (and input data) discussed above.  In particular, for each chemical species represented, $j$, the preprocessor tool requires the following data: XXXXXX.  The role of \fuego\ to preprocess the model parameters for transport as well as chemical kinetics and thermodynamics, is discussed in some detail in Section~\ref{FuegoDescr}.
+where $q_m$ represents $\eta_m$, $\lambda_m$ or $D_{m,j}$. These fits are generated as part of a preprocessing step managed by the tool \fuego\ based on the formula (and input data) discussed above. The role of \fuego\ to preprocess the model parameters for transport as well as chemical kinetics and thermodynamics, is discussed in some detail in Section~\ref{FuegoDescr}.
 
 %%%
 \section{Chemical kinetics and the reaction source term}
@@ -345,13 +345,12 @@ Most fundamental Arrhenius reactions are bidirectional, and typically only the f
 \end{eqnarray*}
 $\Delta H_j$ and $\Delta S_j$ are the change in enthalpy and entropy of the reaction $j$, and $P_0$ is the ambient thermodynamic pressure.
 
-In \pelelm\ evaluation of the species production rate through the formula discussed above relies on an external chemistry code file. This file is generated as part of a preprocessing step managed by the tool \fuego\, and is specific to each chemistry description (see Section~\ref{FuegoDescr} for details about \fuego\ and the chemistry file). In particular, for each reaction represented, the preprocessing tool requires the following data: XXXXXX.
-
+Species production rates are evaluated via functions that are generated as part of a preprocessing step managed by the tool \fuego\ (see next Section~\ref{FuegoDescr}).
 
 %%%
 \section{Thermodynamic properties}
 \label{ThermoProp}
-Expressions for the thermodynamic properties in \pelelm\ follows that of CHEMKIN~\cite{Kee:1989}. The species enthalpies and entropies are only functions  of  temperature (for perfect gases, they are independent of pressure)  and  are  given  in  terms  of  polynomial  fits  to  the species molar heat capacities ($C_{p,\cdot}$),
+Currently, expressions for the thermodynamic properties in \pelelm\ follow those of CHEMKIN~\cite{Kee:1989}, which assume a mixture of ideal gases. Species enthalpies and entropies are thus functions of only temperature (for perfect gases, they are independent of pressure) and are given in terms of polynomial fits to the species molar heat capacities ($C_{p,\cdot}$),
 \begin{eqnarray*}
 \frac{C_{p,m}(T)}{\mathcal{R}} = \sum_{k=1}^{N_s} a_{k,m}T^{k-1}
 \end{eqnarray*}
@@ -363,21 +362,19 @@ Accordingly, the standard-state molar enthalpy of species $m$ is given by:
 \begin{eqnarray}
 \frac{H_{m}(T)}{\mathcal{R}T} = a_{1,m} +\frac{a_{2,m}}{2} T   + \frac{a_{3,m}}{3} T^2 +  \frac{a_{4,m}}{4} T^3 + \frac{ a_{5,m}}{5} T^4 + a_{6,m}/T
 \end{eqnarray}
-And the standard-state molar entropy is written as:
+Note that the standard specifies that the heat of formation for the molecule is included in this expression.
+Similarly, the standard-state molar entropy is written as:
 \begin{eqnarray}
 \frac{S_{m}(T)}{\mathcal{R}} = a_{1,m}ln(T) + {a_{2,m}} T   + \frac{a_{3,m}}{2} T^2 +  \frac{a_{4,m}}{3} T^3 + \frac{ a_{5,m}}{4} T^4 + a_{7,m}
 \end{eqnarray}
-Other thermodynamic properties are easily given in terms of these quantities, see e.g. the CHEMKIN manual for additional details~\cite{Kee:1989}.
-
-In \pelelm\ evaluation of the species thermodynamic properties again relies on the external chemistry code file that is generated as part of a preprocessing step managed by the tool \fuego\ (see next Section~\ref{FuegoDescr}). In particular, for each $m$ species represented, the preprocessing tool requires knowledge of the coefficients $a_{k,m}$.
-
+For each species, $m$, in the model the user must specify the coefficients $a_{k,m}$. All other required thermodynamic properties are then determined (see, e.g., the CHEMKIN manual for additional details~\cite{Kee:1989}). Thermodynamic properties of the species, and those of the mixture, are evaluated via functions that are generated as part of a preprocessing step managed by the tool \fuego\ (see next Section~\ref{FuegoDescr}).
 
 
 %%%
 \section{\fuego\ chemistry preprocessing}
 \label{FuegoDescr}
 
-As discussed above, a typical chemistry model for \pelelm\ contains all the information associated with the CHEMKIN parameterization of the Arrhenius reaction set, as well as fitting coefficients for the thermodynamic relationships, and the specification of the species including data required to compute pure-species transport properties. In the combustion community, this information is communicated for each complete model --or ``mechanism'', through multiple text files that conform to the CHEMKIN standards. The CHEMKIN driver code (or equivalent) can then be used to ingest the large number of parameters contained in these files and provide a set of functions for evaluating all the properties and rates required.  Earlier versions of \pelelm\ linked to the CHEMKIN codes directly (and thereby assumed that all problems consisted of a mixture of ideal gases).  However, evaluations were not very efficient because the functions stepped through generic expressions that included a large number of conditional statements and unused generality.  Direct evaluation of these complex expressions allows for a much more efficient code that optimizes well with modern compilers. This is important because an appreciable fraction of \pelelm\ runtime is spent in these functions.  Performance issues notwithstanding, customized evaluators are necessary to extend \pelelm\ to a larger class of (``real'') gas models outside the CHEMKIN standard, such as SRK, that are already part of the \pelec\ code capabilities.
+A typical model for \pelelm\ contains all the information associated with the CHEMKIN parameterization of the Arrhenius reaction set, as well as fitting coefficients for the thermodynamic relationships, and the specification of the species including data required to compute pure-species transport properties. In the combustion community, this information is communicated for each complete model --or ``mechanism'', through multiple text files that conform to the CHEMKIN standards. The CHEMKIN driver code (or equivalent) can then be used to ingest the large number of parameters contained in these files and provide a set of functions for evaluating all the properties and rates required.  Earlier versions of \pelelm\ linked to the CHEMKIN codes directly (and thereby assumed that all problems consisted of a mixture of ideal gases).  However, evaluations were not very efficient because the functions stepped through generic expressions that included a large number of conditional statements and unused generality.  Direct evaluation of these complex expressions allows for a much more efficient code that optimizes well with modern compilers. This is important because an appreciable fraction of \pelelm\ runtime is spent in these functions.  Performance issues notwithstanding, customized evaluators will be necessary to extend \pelelm\ to a larger class of (``real'') gas models outside the CHEMKIN standard, such as SRK, that are already part of the \pelec\ code capabilities (\pelec\ shares use of \pelephysics for combustion model specification).
 
 For these reasons, \pelelm\ no longer uses CHEMKIN functions directly, but instead relies on a preprocessing tool, \fuego, to generate highly efficient C code implementations of the necessary thermodynamic, transport and kinetics evaluations.  The source code generated from \fuego\ is linked into the \pelelm\ executable, customizing each executable for a specific model at compile time.  The implementation source code files can also be linked conveniently to post-processing analysis tools, discussed in some detail in Section~(\textcolor{red}{TBD}). The \fuego\ processing tool, and the functions necessary to interface the generated functions to \pelelm\ are distributed in the auxiliary code package, \pelephysics.  Included in the \pelephysics\ distribution is a broad set of models for the combustion of hydrogen, carbon-monoxide, methane, heptane, $n$-dodecane, dimethyl ether, and others, as well as instructions for users to extend this set using \fuego, based on their own CHEMKIN-compliant inputs. \pelephysics\ also provides support for simpler \textit{gama-law}\ equations-of-state, and simple/constant transport properties.
 
