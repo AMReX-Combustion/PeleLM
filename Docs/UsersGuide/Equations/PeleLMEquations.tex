@@ -345,11 +345,35 @@ Most fundamental Arrhenius reactions are bidirectional, and typically only the f
 \end{eqnarray*}
 $\Delta H_j$ and $\Delta S_j$ are the change in enthalpy and entropy of the reaction $j$, and $P_0$ is the ambient thermodynamic pressure.
 
+In \pelelm\ evaluation of the species production rate through the formula discussed above relies on an external chemistry code file. This file is generated as part of a preprocessing step managed by the tool \fuego\, and is specific to each chemistry description (see Section~\ref{FuegoDescr} for details about \fuego\ and the chemistry file). In particular, for each reaction represented, the preprocessing tool requires the following data: XXXXXX.
+
+
+%%%
 \section{Thermodynamic properties}
 \label{ThermoProp}
-TODO
-%%%
+Expressions for the thermodynamic properties in \pelelm\ follows that of CHEMKIN~\cite{Kee:1989}. The species enthalpies and entropies are only functions  of  temperature (for perfect gases, they are independent of pressure)  and  are  given  in  terms  of  polynomial  fits  to  the species molar heat capacities ($C_{p,\cdot}$),
+\begin{eqnarray*}
+\frac{C_{p,m}(T)}{\mathcal{R}} = \sum_{k=1}^{N_s} a_{k,m}T^{k-1}
+\end{eqnarray*}
+where, in the standard CHEMKIN framework (the 7-coefficients NASA format), $N =5$,
+\begin{eqnarray}
+\frac{C_{p,m}(T)}{\mathcal{R}} = a_{1,m} + a_{2,m} T + a_{3,m} T^2 + a_{4,m} T^3 + a_{5,m} T^4
+\end{eqnarray}
+Accordingly, the standard-state molar enthalpy of species $m$ is given by:
+\begin{eqnarray}
+\frac{H_{m}(T)}{\mathcal{R}T} = a_{1,m} +\frac{a_{2,m}}{2} T   + \frac{a_{3,m}}{3} T^2 +  \frac{a_{4,m}}{4} T^3 + \frac{ a_{5,m}}{5} T^4 + a_{6,m}/T
+\end{eqnarray}
+And the standard-state molar entropy is written as:
+\begin{eqnarray}
+\frac{S_{m}(T)}{\mathcal{R}} = a_{1,m}ln(T) + {a_{2,m}} T   + \frac{a_{3,m}}{2} T^2 +  \frac{a_{4,m}}{3} T^3 + \frac{ a_{5,m}}{4} T^4 + a_{7,m}
+\end{eqnarray}
+Other thermodynamic properties are easily given in terms of these quantities, see e.g. the CHEMKIN manual for additional details~\cite{Kee:1989}.
 
+In \pelelm\ evaluation of the species thermodynamic properties again relies on the external chemistry code file that is generated as part of a preprocessing step managed by the tool \fuego\ (see next Section~\ref{FuegoDescr}). In particular, for each $m$ species represented, the preprocessing tool requires knowledge of the coefficients $a_{k,m}$.
+
+
+
+%%%
 \section{\fuego\ chemistry preprocessing}
 \label{FuegoDescr}
 
