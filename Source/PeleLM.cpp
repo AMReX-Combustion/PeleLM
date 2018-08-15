@@ -1354,7 +1354,7 @@ PeleLM::estTimeStep ()
   MultiFab& Umf=U_fpi.get_mf();
   
 #ifdef _OPENMP
-#pragma omp parallel reduction(min:divu_dt)
+#pragma omp parallel if (!system::regtest_reduction) reduction(min:divu_dt)
 #endif
 {
   for (MFIter mfi(Umf,true); mfi.isValid();++mfi)
@@ -4200,7 +4200,7 @@ PeleLM::predict_velocity (Real  dt,
 
     D_TERM(bndry[0] = fetchBCArray(State_Type,bx,0,1);,
            bndry[1] = fetchBCArray(State_Type,bx,1,1);,
-           bndry[2] = fetchBCArray(State_Type,bx,2,1);)
+           bndry[2] = fetchBCArray(State_Type,bx,2,1););
 
     godunov->ExtrapVelToFaces(bx, dx, dt,
                               D_DECL(u_mac[0][U_mfi], u_mac[1][U_mfi], u_mac[2][U_mfi]),
@@ -5326,6 +5326,7 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
         
     state_bc = fetchBCArray(State_Type,bx,first_spec,nspecies+1);
 
+    // Note that the FPU argument is no longer used in IAMR->Godunov.cpp because FPU is now default
     godunov->AdvectScalars(bx, dx, dt, 
                            D_DECL(  area[0][S_mfi],  area[1][S_mfi],  area[2][S_mfi]),
                            D_DECL( u_mac[0][S_mfi], u_mac[1][S_mfi], u_mac[2][S_mfi]),
