@@ -595,7 +595,7 @@ explicit diffusion forcing, $D^{n}$, and an iteration-lagged reaction term, $I_R
 Since diffusion and reactions will not affect the new-time density, we compute $\rho^{n+1,(k)}$, which will be needed in
 the trapezoidal-in-time diffusion solves:
 \begin{equation}
-  \frac{\rho^{n+1,(k)} - \rho^n}{\Delta t} = A_{\rho}^{(k)} = \sum A_{m}^{(k)}
+  \frac{\rho^{n+1,(k+1)} - \rho^n}{\Delta t} = A_{\rho}^{(k)} = \sum A_{m}^{(k)}
   = -\sum_m\nabla\cdot\left(\uadv\rho Y_m\right)^{n+\myhalf,(k)}.
 \end{equation}
 In addition to predicting $\rho$ and $\rho Y_m$ to the faces to compute advective fluxes, we need $\rho h$ there
@@ -603,52 +603,94 @@ as well. We could predict based on a Godunov scheme, however, because $h$ contai
 
 
 {\bf Step 2-II:} Update the transport coefficients (if necessary) with the most current thermodynamic state.
-Next, compute $\Gamma_m^{(k)}$, which are conservatively corrected versions of 
+Note that from here forward, we will drop the $n$+1 superscript of the $k$ and $k$+1 iterates.
+We next compute $\Gamma_m^{(k)}$, which are conservatively corrected versions of 
 $\widetilde\Gamma_m^{(k)} = - \rho^{n+1}\mathcal D_m^{(k)}\nabla X_m^{(k)}$ (see the footnote).
 Then, compute provisional, time-advanced species mass fractions, $\widetilde Y_{m,{\rm AD}}^{(k+1)}$, by solving a backward Euler type
 correction equation,
-\begin{eqnarray}
-  \frac{\rho^{n+1}\widetilde Y_{m,{\rm AD}}^{(k+1)} - (\rho Y_m)^n}{\Delta t}
-  &=& A_m^{{k}} + \widetilde D_{m,AD}^{(k+1)} + \half(D_m^n - D_m^{(k)}) + I_{R,m}^{(k)}
-\end{eqnarray}
+\begin{equation}
+  \frac{\rho^{(k+1)}\widetilde Y_{m,{\rm AD}}^{(k+1)} - (\rho Y_m)^n}{\Delta t}
+  = A_m^{{k}} + \widetilde D_{m,AD}^{(k+1)} + \half(D_m^n - D_m^{(k)}) + I_{R,m}^{(k)}
+ \label{eq:pY}
+\end{equation}
 where
 \begin{eqnarray*}
   &&D_m^n = - \nabla \cdot \Gamma_m^n\\ [2mm]
   &&D_m^{(k)} = - \nabla \cdot \Gamma_m^{(k)}\\
-  &&\widetilde D_{m,AD}^{(k+1)} = \nabla \cdot \rho^{n+1}\mathcal D_m^{(k)}\frac{W}{W_m}\nabla\widetilde Y_{m,{\rm AD}}^{(k+1)} +
-  \nabla \rho^{n+1}\frac{Y_m^{(k)}}{W_m} \nabla W^{(k)}
+  &&\widetilde D_{m,AD}^{(k+1)} = \nabla \cdot \rho^{(k+1)}\mathcal D_m^{(k)}\frac{W}{W_m}\nabla\widetilde Y_{m,{\rm AD}}^{(k+1)} +
+  \nabla \cdot \rho^{(k+1)}\frac{Y_m^{(k)}}{W_m} \nabla W^{(k)}
 \end{eqnarray*}
 By lagging the $\nabla W$ term, this equation is a scalar, time-implicit and parabolic in
 $\widetilde Y_{m,{\rm AD}}^{(k+1)}$, requiring
-a linear solve.  The form of this solve, from a software perspective, is identical to that of the \textit{MAC}\ projection
-discussed above.
+a linear solve.  The form of this solve, from a software perspective, is identical to that of
+the \textit{MAC}\ projection discussed above.
 
-{\bf Step 2-III:} Compute $\Gamma_{m,{\rm AD}}^{(k+1)}$, which are conservatively corrected versions of 
-$\widetilde\Gamma_{m,{\rm AD}}^{(k+1)} = -\rho^{n+1}\mathcal D_m^{(k)}\nabla\widetilde X_{m,{\rm AD}}^{(k+1)}$.
-Then define an effective contribution of advection-diffusion to the update of $\rho Y_m$,
-\begin{equation*}
-  Q_{m}^{(k+1)} = A_m^{(k+1)} + D_{m,AD}^{(k+1)} + \half(D_m^n - D_m^{(k)}).
-\end{equation*}
-Note that the conservative correction fluxes introduce a temporally explicit component to the species and the
-enthalpy flux values at $t^{n+1}$.  We have observed no numerical instabilities due to this issue.
+Once all the species equations are updated with (\ref{eq:pY}), compute $\Gamma_{m,{\rm AD}}^{(k+1)}$, which are
+conservatively corrected versions of $\widetilde\Gamma_{m,{\rm AD}}^{(k+1)}$,
+and then compute the updated species mass fractions, $Y_{m,{\rm AD}}^{(k+1)}$, using
+\begin{eqnarray}
+  \frac{\rho^{(k+1)}Y_{m,{\rm AD}}^{(k+1)} - (\rho Y_m)^n}{\Delta t}
+  &=& A_m^{{k}} + D_{m,AD}^{(k+1)} + \half(D_m^n - D_m^{(k)}) + I_{R,m}^{(k)}
+\end{eqnarray}
+where
+\begin{eqnarray*}
+   &&D_{m,AD}^{(k+1)} = - \nabla \cdot \Gamma_{m,{\rm AD}}^{(k+1)}
+\end{eqnarray*}
 
-{\bf Step 2-IV:} Compute a provisional, time-advanced enthalpy, $h_{\rm AD}^{(k+1)}$.  \textcolor{red}{FIXME: $\delta T$ formulation}
-The enthalpy term is implicit, requiring a linear solve for $h_{\rm AD}^{(k+1)}$, whereas the 
-species enthalpy terms, $h_m$, are discretized with a trapezoidal rule using iteratively lagged, 
-time-advanced values of $h_m$ in order to avoid a more complicated linear system.
-Once we have computed $h_{\rm AD}^{(k+1)}$, we define
-$Q_{\rho h}^{(k+1)}$ as the evaluation of the right-hand side of (\ref{eq:MISDC rhoh correction}),
-which represents an effective contribution of advection-diffusion to the update of $\rho h$.\\
 
-{\bf Step 2-V:} Integrate the ODE system for reactions over $\Delta t^n$
+
+Next, compute the time-advanced enthalpy, $h_{\rm AD}^{(k+1)}$.  Much like the species densities, $Y_m$, which diffuse
+with a $\nabla X_m$ driving force, making the Crank-Nicolson update lead formally to a nonlinear solve, the
+enthalpy diffuses with a $\nabla T$ driving force.  We begin by following the same SDC-correction formalism
+used for the species, and write
+
+\begin{equation}
+  \frac{\rho^{(k+1)}h_{{\rm AD}}^{(k+1)} - (\rho h)^n}{\Delta t}
+  = A_h^{(k)} + D_{T,AD}^{(k+1)} + H^{(k+1)} + \half \Big( D_T^n - D_m^{(k)} + H^n - H^{(k)} \Big)
+ \label{eq:hup}
+\end{equation}
+where
+\begin{eqnarray*}
+  &D^n = - \nabla \cdot \lambda^n \nabla T^n   \hspace{2cm}
+  &H^n = - \nabla \cdot \sum h_m(T^n) \; \Gamma_m^n\\
+  &D^{(k)} = - \nabla \cdot \lambda^{(k)} \nabla T^{{k}}
+  &H^{(k+1)} = - \nabla \cdot \sum h_m(T^{(k+1)}) \; \Gamma_m^{(k+1)}\\
+  &D_{T,AD}^{(k+1)} = \nabla \cdot \lambda_{AD}^{(k+1)} \nabla T_{AD}^{(k+1)}
+  &H^{(k)} = - \nabla \cdot  \sum h_m(T^{(k)}) \; \Gamma_m^{(k)}
+\end{eqnarray*}
+
+We solve this iteratively, by approximating
+$h_{{\rm AD}}^{(k+1),\ell+1} \approx h_{{\rm AD}}^{(k+1),\ell} + C_{p}^{(k+1),\ell} \delta T^{\ell+1}$, with
+$\delta T^{\ell+1} = T_{{\rm AD}}^{(k+1),\ell+1} - T_{{\rm AD}}^{(k+1),\ell}$, and iteration index, $\ell$ = 1,$\ell_{MAX}$.
+Equation~(\ref{eq:hup}) can then be recast into a linear solve for $\delta T^{\ell+1}$
+\begin{eqnarray}
+\rho^{(k+1)} C_p^{(k+1),\ell} \delta T^{\ell +1}  &-& \frac{\Delta t}{2} \nabla \cdot \lambda^{(k+1),\ell} \nabla \delta T^{\ell +1} \nonumber  \\
+ &=& \rho^n h^n - \rho^{(k+1)} h^{(k+1),\ell} + \Delta t \Big( A_h^{(k)} + D_{T,AD}^{(k+1)} + H^{(k+1)} \Big) \\
+&&+ \; \frac{\Delta t}{2} \Big( D_T^n - D_m^{(k)} + H^n - H^{(k)} \Big) \nonumber
+\end{eqnarray}
+
+Note that again the solve for this Crank-Nicolson update has a form that is identical to that of
+the \textit{MAC}\ projection discussed above.  After each 
+iteration, update $T_{{\rm AD}}^{(k+1),\ell+1} = T_{{\rm AD}}^{(k+1),\ell} + \delta T^{\ell+1}$ and 
+re-evaluate $(C_p,\lambda,h_m)^{(k+1),\ell+1}$ using $T_{{\rm AD}}^{(k+1),\ell+1}$ and $Y_{m,{\rm AD}}^{(k+1)}$.
+
+
+{\bf Step 2-III:} 
+Based on the updates above, we define an effective contribution of advection and diffusion to the
+update of $\rho Y_m$ and $\rho h$:
+\begin{eqnarray*}
+  &&Q_{m}^{(k+1)} = A_m^{(k+1)} + D_{m,AD}^{(k+1)} + \half(D_m^n - D_m^{(k)}) \\
+  &&Q_{h}^{(k+1)} = A_h^{(k+1)} + D_{T,AD}^{(k+1)} + \half(D_T^n - D_T^{(k)} + H^n - H^{(k)} )
+\end{eqnarray*}
+Integrate the ODE system for reactions over $\Delta t^n$
 to advance $(\rho Y_m,\rho h)^n$ to $(\rho Y_m,\rho h)^{(k+1)}$ with a piecewise-constant source term representing 
 advection and diffusion:
 \begin{eqnarray}
 \frac{\partial(\rho Y_m)}{\partial t} &=& Q_{m}^{(k+1)} + \rho\dot\omega_m(Y_m,T),\label{eq:MISDC VODE 3}\\
-\frac{\partial(\rho h)}{\partial t} &=& Q_{\rho h}^{(k+1)}.\label{eq:MISDC VODE 4}
+\frac{\partial(\rho h)}{\partial t} &=& Q_{h}^{(k+1)}.\label{eq:MISDC VODE 4}
 \end{eqnarray}
 After the integration is complete, we make one final call to the equation of state
-to compute $T^{(k+1)}$ from $(Y_m,h)^{(k+1)}$.  we also can compute the effect of reactions
+to compute $T^{(k+1)}$ from $(Y_m,h)^{(k+1)}$.  We also can compute the effect of reactions
 in the evolution of $\rho Y_m$ using,
 \begin{equation}
 I_{R,m}^{(k+1)} = \frac{(\rho Y_m)^{(k+1)} - (\rho Y_m)^n}{\Delta t} - Q_{m}^{(k+1)}.
