@@ -156,9 +156,9 @@ With these assumptions, the conservation equations take the following form:
 = -\nabla \pi + \rho \, \boldsymbol{F}  ,
 \nonumber
 \\
-&&\frac{\partial (\rho Y_i)}{\partial t} +
-\nabla \cdot \left( \rho Y_i \boldsymbol{u} + \boldsymbol{\mathcal{F}}_{i} \right)
-= \rho \, \dot{\omega}_i,
+&&\frac{\partial (\rho Y_m)}{\partial t} +
+\nabla \cdot \left( \rho Y_m \boldsymbol{u} + \boldsymbol{\mathcal{F}}_{m} \right)
+= \rho \, \dot{\omega}_m,
 \label{eq:pelelm}
 \\
 &&\frac{ \partial (\rho h)}{ \partial t} +
@@ -175,13 +175,13 @@ with
  \end{eqnarray*}
  Using these expressions, we can write an equation for $T$ that is needed in order to evaluate the right-hand side of the divergence constraint:
  \begin{eqnarray}
-   \rho c_p \frac{DT}{Dt} &=& \nabla \cdot \lambda \nabla T - \nabla \cdot h_m \boldsymbol{\mathcal{F}}_{m}
+   \rho \, C_p \frac{DT}{Dt} &=& \nabla \cdot \lambda \nabla T - \nabla \cdot h_m \boldsymbol{\mathcal{F}}_{m}
    -h_m (\rho \dot\omega_m - \nabla \cdot \boldsymbol{\mathcal{F}}_{m} )
    \label{eq:T}
  \end{eqnarray}
-where $c_p = \partial h/\partial T$ is the specific heat of the mixture at constant pressure. Equation~\ref{eq:veloconstr} then becomes:
+where $C_p = \partial h/\partial T$ is the specific heat of the mixture at constant pressure. Equation~\ref{eq:veloconstr} then becomes:
 \begin{eqnarray}
-  \nabla \cdot \boldsymbol{u} &=&\frac{1}{\rho c_{p} T}\Big[ \nabla \cdot \lambda \nabla T
+  \nabla \cdot \boldsymbol{u} &=&\frac{1}{\rho \, C_p T}\Big[ \nabla \cdot \lambda \nabla T
   - \sum_m \Big( \nabla \cdot h_m \boldsymbol{\mathcal{F}}_{m} + h_m \nabla \cdot \boldsymbol{\mathcal{F}}_{m} \Big) \Big] \nonumber
 \\
 &&- \frac{W}{\rho} \sum_m \frac{1}{W_m} \nabla \cdot \boldsymbol{\mathcal{F}}_{m} + \frac{1}{\rho} \sum_m \Big( \frac{W}{W_m} -\frac{h_m(T)}{c_{p} T} \Big)\dot{\omega}_m
@@ -384,7 +384,7 @@ For each species, $m$, in the model the user must specify the coefficients $a_{k
 \section{\fuego\ chemistry preprocessing}
 \label{FuegoDescr}
 
-A typical model for \pelelm\ contains all the information associated with the CHEMKIN parameterization of the Arrhenius reaction set, as well as fitting coefficients for the thermodynamic relationships, and the specification of the species including data required to compute pure-species transport properties. In the combustion community, this information is communicated for each complete model --or ``mechanism'', through multiple text files that conform to the CHEMKIN standards. The CHEMKIN driver code (or equivalent) can then be used to ingest the large number of parameters contained in these files and provide a set of functions for evaluating all the properties and rates required.  Earlier versions of \pelelm\ linked to the CHEMKIN codes directly (and thereby assumed that all problems consisted of a mixture of ideal gases).  However, evaluations were not very efficient because the functions stepped through generic expressions that included a large number of conditional statements and unused generality.  Direct evaluation of these complex expressions allows for a much more efficient code that optimizes well with modern compilers. This is important because an appreciable fraction of \pelelm\ runtime is spent in these functions.  Performance issues notwithstanding, customized evaluators will be necessary to extend \pelelm\ to a larger class of (``real'') gas models outside the CHEMKIN standard, such as SRK, that are already part of the \pelec\ code capabilities (\pelec\ shares use of \pelephysics for combustion model specification).
+A typical model for \pelelm\ contains all the information associated with the CHEMKIN parameterization of the Arrhenius reaction set, as well as fitting coefficients for the thermodynamic relationships, and the specification of the species including data required to compute pure-species transport properties. In the combustion community, this information is communicated for each complete model --or ``mechanism'', through multiple text files that conform to the CHEMKIN standards. The CHEMKIN driver code (or equivalent) can then be used to ingest the large number of parameters contained in these files and provide a set of functions for evaluating all the properties and rates required.  Earlier versions of \pelelm\ linked to the CHEMKIN codes directly (and thereby assumed that all problems consisted of a mixture of ideal gases).  However, evaluations were not very efficient because the functions stepped through generic expressions that included a large number of conditional statements and unused generality.  Direct evaluation of these complex expressions allows for a much more efficient code that optimizes well with modern compilers. This is important because an appreciable fraction of \pelelm\ runtime is spent in these functions.  Performance issues notwithstanding, customized evaluators will be necessary to extend \pelelm\ to a larger class of (``real'') gas models outside the CHEMKIN standard, such as SRK, that are already part of the \pelec\ code capabilities (\pelec\ shares use of \pelephysics\ for combustion model specification).
 
 For these reasons, \pelelm\ no longer uses CHEMKIN functions directly, but instead relies on a preprocessing tool, \fuego, to generate highly efficient C code implementations of the necessary thermodynamic, transport and kinetics evaluations.  The source code generated from \fuego\ is linked into the \pelelm\ executable, customizing each executable for a specific model at compile time.  The implementation source code files can also be linked conveniently to post-processing analysis tools, discussed in some detail in Section~(\textcolor{red}{TBD}). The \fuego\ processing tool, and the functions necessary to interface the generated functions to \pelelm\ are distributed in the auxiliary code package, \pelephysics.  Included in the \pelephysics\ distribution is a broad set of models for the combustion of hydrogen, carbon-monoxide, methane, heptane, $n$-dodecane, dimethyl ether, and others, as well as instructions for users to extend this set using \fuego, based on their own CHEMKIN-compliant inputs. \pelephysics\ also provides support for simpler \textit{gama-law}\ equations-of-state, and simple/constant transport properties.
 
@@ -487,6 +487,7 @@ This equation simplifies to the following backward Euler type linear system, wit
 right-hand-side consisting of known quantities:
 \begin{equation}
 \phi_{\rm AD}^{n+1,(k+1)} - \Delta t D_{\rm AD}^{(k+1)} = \phi^n + \Delta t \left[A^{(k+1)} + \half\left(D^n - D^{(k)}\right) + I_R^{(k)}\right].
+\label{eq:AD}
 \end{equation}
 After computing $\phi_{\rm AD}^{n+1,(k+1)}$, we complete the update by solving a correction equation for
 the reaction term.  Standard MISDC approaches would formulate the reaction correction equation as
@@ -582,7 +583,7 @@ Here we describe the details of {\bf Step 2} above, in
 which we iteratively advance $(\rho Y_m,\rho h)$ over the full time step.
 We begin by computing the diffusion
 operators at $t^n$ that will be needed throughout the iteration.  Specifically, we evaluate the transport coefficients
-$(\lambda,c_p,\mathcal D_m,h_m)^n$ from $(Y_m,T)^n$, and the provisional diffusion
+$(\lambda,C_p,\mathcal D_m,h_m)^n$ from $(Y_m,T)^n$, and the provisional diffusion
 fluxes, $\widetilde{\boldsymbol{\cal F}}_m^n$.  These fluxes are conservatively
 corrected as discussed in Section~\textcolor{red}{TBD} to obtain ${\boldsymbol{\cal F}}_m^n$ such that $\sum {\boldsymbol{\cal F}}_m^n = 0$.
 Finally, we copy the transport coefficients, diffusion fluxes and the thermodynamic state from $t^n$ as starting values for
@@ -605,7 +606,7 @@ as well. We could predict based on a Godunov scheme, however, because $h$ contai
 state, then interpolate those values to the cell faces.
 Note that from here forward, we will drop the $n$+1 superscript of the $k$ and $k$+1 iterates.
 We now compute provisional, time-advanced species mass fractions, $\widetilde Y_{m,{\rm AD}}^{(k+1)}$,
-by solving a backward Euler type correction equation for the Crank-Nicolson update\footnote{The provisional species diffusion fluxes $\widetilde{\boldsymbol{\cal F}}_{m,{\rm AD}}^{(0)} = -\rho^n\mathcal D_m^n\nabla\widetilde X_{m,{\rm AD}}^{(0)}$. However, this expression couples together all of the species mass fractions in the update of each, even for the mixture-averaged model. Computationally, it is much more tractable to write this as a diagonal matrix update with a lagged correction by noting that $X_m = (W/W_m)Y_m$.  Using the chain rule, $\widetilde{\boldsymbol{\cal F}}_{m,{\rm AD}}^{(0)}$ then has components proportional to $\nabla Y_m$ and $\nabla W$. The latter is lagged in the iterations, and is typically very small. In the limit of sufficient iterations, diffusion is driven by the true form of the the driving force, $d_m$, but in this form, each iteration involves decoupled diagonal solves.\label{fn:X}},
+by solving a backward Euler type correction equation for the Crank-Nicolson update\footnote{The provisional species diffusion fluxes $\widetilde{\boldsymbol{\cal F}}_{m,{\rm AD}}^{(0)} = -\rho^n\mathcal D_m^n\nabla\widetilde X_{m,{\rm AD}}^{(0)}$. However, this expression couples together all of the species mass fractions in the update of each, even for the mixture-averaged model. Computationally, it is much more tractable to write this as a diagonal matrix update with a lagged correction by noting that $X_m = (W/W_m)Y_m$.  Using the chain rule, $\widetilde{\boldsymbol{\cal F}}_{m,{\rm AD}}^{(0)}$ then has components proportional to $\nabla Y_m$ and $\nabla W$. The latter is lagged in the iterations, and is typically very small. In the limit of sufficient iterations, diffusion is driven by the true form of the the driving force, $d_m$, but in this form, each iteration involves decoupled diagonal solves.\label{fn:X}}, obtained by following the SDC formalism leading to (\ref{eq:AD}):
 \begin{equation}
   \frac{\rho^{(k+1)}\widetilde Y_{m,{\rm AD}}^{(k+1)} - (\rho Y_m)^n}{\Delta t}
   = A_m^{{(k+1)}} + \widetilde D_{m,AD}^{(k+1)} + \half(D_m^n - D_m^{(k)}) + I_{R,m}^{(k)}
@@ -635,9 +636,10 @@ where
 \end{eqnarray*}
 
 Next, we compute the time-advanced enthalpy, $h_{\rm AD}^{(k+1)}$.  Much like diffusion of the species densities,
-$Y_m$, with a $\nabla X_m$ driving force, leads in a nonlinear, coupled Crank-Nicolson update, the
+$Y_m$, with a $\nabla X_m$ driving force, leads to a nonlinear, coupled Crank-Nicolson update, the
 enthalpy diffuses with a $\nabla T$ driving force -- we define an alternative linearized strategy.
-We begin by following the same SDC-correction formalism used for the species, and write
+We begin by following the same SDC-correction formalism, (\ref{eq:AD}), used for the species, and write
+the nonlinear update for $\rho h$ (noting that there is no reaction source term here):
 \begin{equation}
   \frac{\rho^{(k+1)} h_{{\rm AD}}^{(k+1)} - (\rho h)^n}{\Delta t}
   = A_h^{(k+1)} + D_{T,AD}^{(k+1)} + H_{AD}^{(k+1)} + \half \Big( D_T^n - D_m^{(k)} + H^n - H^{(k)} \Big)
@@ -653,7 +655,7 @@ where
   &H_{AD}^{(k+1)} = - \nabla \cdot \sum h_m(T_{AD}^{(k+1)}) \; {\boldsymbol{\cal F}}_{m,AD}^{(k+1)}
 \end{eqnarray*}
 
-However, rather than computing $h_{{\rm AD}}^{(k+1)}$ directly, we solve this iteratively, based on the approximation
+However, since we cannot compute $h_{{\rm AD}}^{(k+1)}$ directly, we solve this iteratively based on the approximation
 $h_{{\rm AD}}^{(k+1),\ell+1} \approx h_{{\rm AD}}^{(k+1),\ell} + C_{p}^{(k+1),\ell} \delta T^{\ell+1}$, with
 $\delta T^{\ell+1} = T_{{\rm AD}}^{(k+1),\ell+1} - T_{{\rm AD}}^{(k+1),\ell}$, and iteration index, $\ell$ = 1:$\,\ell_{MAX}$.
 Equation~(\ref{eq:hup}) is thus recast into a linear equation for $\delta T^{\ell+1}$
