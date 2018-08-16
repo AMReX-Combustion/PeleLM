@@ -591,15 +591,14 @@ The following sequence is then repeated for each iteration, $k$=1:$k_{max}$
 
 {\bf MISDC Step 2-I:} Use a second-order Godunov integrator to predict
 time-centered edge states, $(\rho Y_m,\rho h)^{n+\myhalf,(k)}$.  Source terms for this prediction include
-explicit diffusion forcing, $D^{n}$, and an iteration-lagged reaction term, $I_R^{(k)}$).
-Since diffusion and reactions will not affect the new-time density, we compute $\rho^{n+1,(k)}$, which will be needed in
-the trapezoidal-in-time diffusion solves:
+explicit diffusion forcing, $D^{n}$, and an iteration-lagged reaction term, $I_R^{(k)}$.
+Since remaining steps of the algorithm (including diffusion and chemistry advances) will not affect the new-time density, we can already compute $\rho^{n+1,(k+1)}$.  This will be needed in the trapezoidal-in-time diffusion solves.
 \begin{equation}
-  \frac{\rho^{n+1,(k+1)} - \rho^n}{\Delta t} = A_{\rho}^{(k)} = \sum A_{m}^{(k)}
+  \frac{\rho^{n+1,(k+1)} - \rho^n}{\Delta t} = A_{\rho}^{(k+1)} = \sum A_{m}^{(k)}
   = -\sum_m\nabla\cdot\left(\uadv\rho Y_m\right)^{n+\myhalf,(k)}.
 \end{equation}
 In addition to predicting $\rho$ and $\rho Y_m$ to the faces to compute advective fluxes, we need $\rho h$ there
-as well. We could predict based on a Godunov scheme, however, because $h$ contains the heat of formation, scaled to an arbitrary reference state, it is not generally monotonic through flames. Also, because the equation of state is generally nonlinear, this will often lead to numerically-generated non-mononoticity in the temperature field. An analytically equivalent approach, based on the fact that temperature should be smoother and monotonic through the flame, is to instead predict temperature with the Godunov scheme to the cell faces directly.  Then, with $T$ and $Y_m = (\rho Y_m)/\rho$ on cell faces, we can use Eq.~\ref{eq:hofT} to define $h$ there instead of extrapolating. We can then evaluate the advective flux divergence, $A_{\rho h}^{(k)}$.
+as well. We could predict based on a Godunov scheme, however, because $h$ contains the heat of formation, scaled to an arbitrary reference state, it is not generally monotonic through flames. Also, because the equation of state is generally nonlinear, this will often lead to numerically-generated non-mononoticity in the temperature field. An analytically equivalent approach, based on the fact that temperature should be smoother and monotonic through the flame, is to instead predict temperature with the Godunov scheme to the cell faces directly.  Then, with $T$ and $Y_m = (\rho Y_m)/\rho$ on cell faces, we can use Eq.~\ref{eq:hofT} to define $h$ there instead of extrapolating. We can then evaluate the advective flux divergence, $A_{h}^{(k+1)}$.
 
 
 {\bf Step 2-II:} Update the transport coefficients (if necessary) with the most current thermodynamic state.
@@ -610,7 +609,7 @@ Then, compute provisional, time-advanced species mass fractions, $\widetilde Y_{
 correction equation,
 \begin{equation}
   \frac{\rho^{(k+1)}\widetilde Y_{m,{\rm AD}}^{(k+1)} - (\rho Y_m)^n}{\Delta t}
-  = A_m^{{k}} + \widetilde D_{m,AD}^{(k+1)} + \half(D_m^n - D_m^{(k)}) + I_{R,m}^{(k)}
+  = A_m^{{(k+1)}} + \widetilde D_{m,AD}^{(k+1)} + \half(D_m^n - D_m^{(k)}) + I_{R,m}^{(k)}
  \label{eq:pY}
 \end{equation}
 where
@@ -630,7 +629,7 @@ conservatively corrected versions of $\widetilde{\boldsymbol{\cal F}}_{m,{\rm AD
 and then compute the updated species mass fractions, $Y_{m,{\rm AD}}^{(k+1)}$, using
 \begin{eqnarray}
   \frac{\rho^{(k+1)}Y_{m,{\rm AD}}^{(k+1)} - (\rho Y_m)^n}{\Delta t}
-  &=& A_m^{{k}} + D_{m,AD}^{(k+1)} + \half(D_m^n - D_m^{(k)}) + I_{R,m}^{(k)}
+  &=& A_m^{{(k+1)}} + D_{m,AD}^{(k+1)} + \half(D_m^n - D_m^{(k)}) + I_{R,m}^{(k)}
 \end{eqnarray}
 where
 \begin{eqnarray*}
@@ -646,7 +645,7 @@ used for the species, and write
 
 \begin{equation}
   \frac{\rho^{(k+1)}h_{{\rm AD}}^{(k+1)} - (\rho h)^n}{\Delta t}
-  = A_h^{(k)} + D_{T,AD}^{(k+1)} + H^{(k+1)} + \half \Big( D_T^n - D_m^{(k)} + H^n - H^{(k)} \Big)
+  = A_h^{(k+1)} + D_{T,AD}^{(k+1)} + H^{(k+1)} + \half \Big( D_T^n - D_m^{(k)} + H^n - H^{(k)} \Big)
  \label{eq:hup}
 \end{equation}
 where
@@ -665,7 +664,7 @@ $\delta T^{\ell+1} = T_{{\rm AD}}^{(k+1),\ell+1} - T_{{\rm AD}}^{(k+1),\ell}$, a
 Equation~(\ref{eq:hup}) can then be recast into a linear solve for $\delta T^{\ell+1}$
 \begin{eqnarray}
 \rho^{(k+1)} C_p^{(k+1),\ell} \delta T^{\ell +1}  &-& \frac{\Delta t}{2} \nabla \cdot \lambda^{(k+1),\ell} \nabla \delta T^{\ell +1} \nonumber  \\
- &=& \rho^n h^n - \rho^{(k+1)} h^{(k+1),\ell} + \Delta t \Big( A_h^{(k)} + D_{T,AD}^{(k+1)} + H^{(k+1)} \Big) \\
+ &=& \rho^n h^n - \rho^{(k+1)} h^{(k+1),\ell} + \Delta t \Big( A_h^{(k+1)} + D_{T,AD}^{(k+1)} + H^{(k+1)} \Big) \\
 &&+ \; \frac{\Delta t}{2} \Big( D_T^n - D_m^{(k)} + H^n - H^{(k)} \Big) \nonumber
 \end{eqnarray}
 
