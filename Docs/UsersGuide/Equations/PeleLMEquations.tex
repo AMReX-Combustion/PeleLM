@@ -615,7 +615,7 @@ where
 \begin{eqnarray*}
   &D_m^n &= - \nabla \cdot {\boldsymbol{\cal F}}_m^n\\ [2mm]
   &D_m^{(k)} &= - \nabla \cdot {\boldsymbol{\cal F}}_m^{(k)}\\ [1mm]
-  &\widetilde D_{m,AD}^{(k+1)} &= - \nabla \cdot \widetilde {\boldsymbol{\cal F}}_{m}^{(k+1)}\\ [-1.5mm]
+  &\widetilde D_{m,AD}^{(k+1)} &= - \nabla \cdot \widetilde {\boldsymbol{\cal F}}_{m,AD}^{(k+1)}\\ [-1.5mm]
   & &= \;\; \nabla \cdot \Big[ \rho^{(k+1)}\mathcal D_m^{(k)}\frac{W}{W_m}\nabla\widetilde Y_{m,{\rm AD}}^{(k+1)}
        \; + \; \rho^{(k+1)}\frac{Y_m^{(k)}}{W_m} \nabla W^{(k)} \Big]
 \end{eqnarray*}
@@ -640,7 +640,7 @@ enthalpy diffuses with a $\nabla T$ driving force -- we define an alternative li
 We begin by following the same SDC-correction formalism used for the species, and write
 \begin{equation}
   \frac{\rho^{(k+1)} h_{{\rm AD}}^{(k+1)} - (\rho h)^n}{\Delta t}
-  = A_h^{(k+1)} + D_{T,AD}^{(k+1)} + H^{(k+1)} + \half \Big( D_T^n - D_m^{(k)} + H^n - H^{(k)} \Big)
+  = A_h^{(k+1)} + D_{T,AD}^{(k+1)} + H_{AD}^{(k+1)} + \half \Big( D_T^n - D_m^{(k)} + H^n - H^{(k)} \Big)
  \label{eq:hup}
 \end{equation}
 where
@@ -648,9 +648,9 @@ where
   &D^n = - \nabla \cdot \lambda^n \nabla T^n   \hspace{2cm}
   &H^n = - \nabla \cdot \sum h_m(T^n) \; {\boldsymbol{\cal F}}_m^n\\
   &D^{(k)} = - \nabla \cdot \lambda^{(k)} \nabla T^{{k}}
-  &H^{(k+1)} = - \nabla \cdot \sum h_m(T^{(k+1)}) \; {\boldsymbol{\cal F}}_m^{(k+1)}\\
+  &H^{(k)} = - \nabla \cdot  \sum h_m(T^{(k)}) \; {\boldsymbol{\cal F}}_m^{(k)}\\
   &D_{T,AD}^{(k+1)} = \nabla \cdot \lambda_{AD}^{(k+1)} \nabla T_{AD}^{(k+1)}
-  &H^{(k)} = - \nabla \cdot  \sum h_m(T^{(k)}) \; {\boldsymbol{\cal F}}_m^{(k)}
+  &H_{AD}^{(k+1)} = - \nabla \cdot \sum h_m(T_{AD}^{(k+1)}) \; {\boldsymbol{\cal F}}_{m,AD}^{(k+1)}
 \end{eqnarray*}
 
 However, rather than computing $h_{{\rm AD}}^{(k+1)}$ directly, we solve this iteratively, based on the approximation
@@ -659,11 +659,11 @@ $\delta T^{\ell+1} = T_{{\rm AD}}^{(k+1),\ell+1} - T_{{\rm AD}}^{(k+1),\ell}$, a
 Equation~(\ref{eq:hup}) is thus recast into a linear equation for $\delta T^{\ell+1}$
 \begin{eqnarray}
 \rho^{(k+1)} C_p^{(k+1),\ell} \delta T^{\ell +1}  &-& \frac{\Delta t}{2} \nabla \cdot \lambda^{(k+1),\ell} \nabla \delta T^{\ell +1} \nonumber  \\
- &=& \rho^n h^n - \rho^{(k+1)} h^{(k+1),\ell} + \Delta t \Big( A_h^{(k+1)} + D_{T,AD}^{(k+1)} + H^{(k+1)} \Big) \\
+ &=& \rho^n h^n - \rho^{(k+1)} h^{(k+1),\ell} + \Delta t \Big( A_h^{(k+1)} + D_{T,AD}^{(k+1),\ell} + H_{AD}^{(k+1),\ell} \Big) \\
 &&+ \; \frac{\Delta t}{2} \Big( D_T^n - D_m^{(k)} + H^n - H^{(k)} \Big) \nonumber
 \end{eqnarray}
-
-Note that again the solve for this Crank-Nicolson update has a form that is identical to that of
+where $H_{AD}^{(k+1,\ell)} = - \nabla \cdot \sum h_m(T_{AD}^{(k+1),\ell})$. Note that again the solve for this
+Crank-Nicolson update has a form that is identical to that of
 the \textit{MAC}\ projection discussed above.  After each 
 iteration, update $T_{{\rm AD}}^{(k+1),\ell+1} = T_{{\rm AD}}^{(k+1),\ell} + \delta T^{\ell+1}$ and 
 re-evaluate $(C_p,\lambda,h_m)^{(k+1),\ell+1}$ using $(T_{{\rm AD}}^{(k+1),\ell+1}, Y_{m,{\rm AD}}^{(k+1)}$).
