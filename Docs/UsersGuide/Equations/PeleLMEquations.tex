@@ -594,11 +594,11 @@ time-centered edge states, $(\rho Y_m,\rho h)^{n+\myhalf,(k)}$.  Source terms fo
 explicit diffusion forcing, $D^{n}$, and an iteration-lagged reaction term, $I_R^{(k)}$.
 Since remaining steps of the algorithm (including diffusion and chemistry advances) will not affect the new-time density, we can already compute $\rho^{n+1,(k+1)}$.  This will be needed in the trapezoidal-in-time diffusion solves.
 \begin{equation}
-  \frac{\rho^{n+1,(k+1)} - \rho^n}{\Delta t} = A_{\rho}^{(k+1)} = \sum A_{m}^{(k)}
+  \frac{\rho^{n+1,(k+1)} - \rho^n}{\Delta t} = A_{\rho}^{(k+1)} = \sum A_{m}^{(k+1)}
   = -\sum_m\nabla\cdot\left(\uadv\rho Y_m\right)^{n+\myhalf,(k)}.
 \end{equation}
 In addition to predicting $\rho$ and $\rho Y_m$ to the faces to compute advective fluxes, we need $\rho h$ there
-as well. We could predict based on a Godunov scheme, however, because $h$ contains the heat of formation, scaled to an arbitrary reference state, it is not generally monotonic through flames. Also, because the equation of state is generally nonlinear, this will often lead to numerically-generated non-mononoticity in the temperature field. An analytically equivalent approach, based on the fact that temperature should be smoother and monotonic through the flame, is to instead predict temperature with the Godunov scheme to the cell faces directly.  Then, with $T$ and $Y_m = (\rho Y_m)/\rho$ on cell faces, we can use Eq.~\ref{eq:hofT} to define $h$ there instead of extrapolating. We can then evaluate the advective flux divergence, $A_{h}^{(k+1)}$.
+as well. We could predict based on a Godunov scheme, however, because $h$ contains the heat of formation, scaled to an arbitrary reference state, it is not generally monotonic through flames. Also, because the equation of state is generally nonlinear, this will often lead to numerically-generated non-mononoticity in the temperature field. An analytically equivalent approach, based on the fact that temperature should be smoother and monotonic through the flame, is to instead predict temperature with the Godunov scheme to the cell faces directly.  Then, with $T$, $\rho = \sum \rho Y_m$ and $Y_m = (\rho Y_m)/\rho$ on cell faces, we can use Eq.~\ref{eq:hofT} to define $h$ there instead of extrapolating. We can then evaluate the advective flux divergence, $A_{h}^{(k+1)}$.
 
 
 {\bf Step 2-II:} Update the transport coefficients (if necessary) with the most current thermodynamic state.
