@@ -583,7 +583,7 @@ which we iteratively advance $(\rho Y_m,\rho h)$ over the full time step.
 We begin by computing the diffusion
 operators at $t^n$ that will be needed throughout the iteration.  Specifically, we evaluate the transport coefficients
 $(\lambda,c_p,\mathcal D_m,h_m)^n$ from $(Y_m,T)^n$, and the provisional diffusion
-fluxes\footnote{The provisional species diffusion fluxes $\widetilde{\boldsymbol{\cal F}}_{m,{\rm AD}}^{(0)} = -\rho^n\mathcal D_m^n\nabla\widetilde X_{m,{\rm AD}}^{(0)}$. However, this expression couples together all of the species mass fractions in the update of each, even for the mixture-averaged model. Computationally, it is much more tractable to write this as a diagonal matrix update with a lagged correction by noting that $X_m = (W/W_m)Y_m$.  Using the chain rule, $\widetilde{\boldsymbol{\cal F}}_{m,{\rm AD}}^{(0)}$ then has components proportional to $\nabla Y_m$ and $\nabla W$. The latter is lagged in the iterations, and is typically very small. In the limit of sufficient iterations, diffusion is driven by the true form of the the driving force, $d_m$, but in this form, each iteration involves decoupled diagonal solves.}, $\widetilde{\boldsymbol{\cal F}}_m^n$.  These fluxes are conservatively
+fluxes, $\widetilde{\boldsymbol{\cal F}}_m^n$.  These fluxes are conservatively
 corrected as discussed in Section~\textcolor{red}{TBD} to obtain ${\boldsymbol{\cal F}}_m^n$ such that $\sum {\boldsymbol{\cal F}}_m^n = 0$.
 Finally, we copy the transport coefficients, diffusion fluxes and the thermodynamic state from $t^n$ as starting values for
 $t^{n+1}$, and initialize the reaction terms, $I_R$ from the values used in the previous step.
@@ -598,15 +598,14 @@ Since remaining steps of the algorithm (including diffusion and chemistry advanc
   = -\sum_m\nabla\cdot\left(\uadv\rho Y_m\right)^{n+\myhalf,(k)}.
 \end{equation}
 In addition to predicting $\rho$ and $\rho Y_m$ to the faces to compute advective fluxes, we need $\rho h$ there
-as well. We could predict based on a Godunov scheme, however, because $h$ contains the heat of formation, scaled to an arbitrary reference state, it is not generally monotonic through flames. Also, because the equation of state is generally nonlinear, this will often lead to numerically-generated non-mononoticity in the temperature field. An analytically equivalent approach, based on the fact that temperature should be smoother and monotonic through the flame, is to instead predict temperature with the Godunov scheme to the cell faces directly.  Then, with $T$, $\rho = \sum \rho Y_m$ and $Y_m = (\rho Y_m)/\rho$ on cell faces, we can use Eq.~\ref{eq:hofT} to define $h$ there instead of extrapolating. We can then evaluate the advective flux divergence, $A_{h}^{(k+1)}$.
+as well. We could predict based on a Godunov scheme, however, because $h$ contains the heat of formation, scaled to an arbitrary reference state, it is not generally monotonic through flames. Also, because the equation of state is generally nonlinear, this will often lead to numerically-generated non-mononoticity in the temperature field. An analytically equivalent approach, based on the fact that temperature should be smoother and monotonic through the flame, is to instead predict temperature with the Godunov scheme to the cell faces directly.  Then, with $T$, $\rho = \sum (\rho Y_m)$ and $Y_m = (\rho Y_m)/\rho$ on cell faces, we can use Eq.~\ref{eq:hofT} to define $h$ there instead of extrapolating. We can then evaluate the advective flux divergence, $A_{h}^{(k+1)}$.
 
 
-{\bf Step 2-II:} Update the transport coefficients (if necessary) with the most current thermodynamic state.
+{\bf Step 2-II:} Update the transport coefficients (if necessary) with the most current cell-centered thermodynamic
+state, then interpolate those values to the cell faces.
 Note that from here forward, we will drop the $n$+1 superscript of the $k$ and $k$+1 iterates.
-We next compute ${\boldsymbol{\cal F}}_m^{(k)}$, which are conservatively corrected versions of 
-$\widetilde{\boldsymbol{\cal F}}_m^{(k)} = - \rho^{n+1}\mathcal D_m^{(k)}\nabla X_m^{(k)}$ (see the footnote).
-Then, compute provisional, time-advanced species mass fractions, $\widetilde Y_{m,{\rm AD}}^{(k+1)}$, by solving a backward Euler type
-correction equation,
+We now compute provisional, time-advanced species mass fractions, $\widetilde Y_{m,{\rm AD}}^{(k+1)}$,
+by solving a backward Euler type correction equation for the Crank-Nicolson update\footnote{The provisional species diffusion fluxes $\widetilde{\boldsymbol{\cal F}}_{m,{\rm AD}}^{(0)} = -\rho^n\mathcal D_m^n\nabla\widetilde X_{m,{\rm AD}}^{(0)}$. However, this expression couples together all of the species mass fractions in the update of each, even for the mixture-averaged model. Computationally, it is much more tractable to write this as a diagonal matrix update with a lagged correction by noting that $X_m = (W/W_m)Y_m$.  Using the chain rule, $\widetilde{\boldsymbol{\cal F}}_{m,{\rm AD}}^{(0)}$ then has components proportional to $\nabla Y_m$ and $\nabla W$. The latter is lagged in the iterations, and is typically very small. In the limit of sufficient iterations, diffusion is driven by the true form of the the driving force, $d_m$, but in this form, each iteration involves decoupled diagonal solves.\label{fn:X}},
 \begin{equation}
   \frac{\rho^{(k+1)}\widetilde Y_{m,{\rm AD}}^{(k+1)} - (\rho Y_m)^n}{\Delta t}
   = A_m^{{(k+1)}} + \widetilde D_{m,AD}^{(k+1)} + \half(D_m^n - D_m^{(k)}) + I_{R,m}^{(k)}
@@ -614,19 +613,18 @@ correction equation,
 \end{equation}
 where
 \begin{eqnarray*}
-  &&D_m^n = - \nabla \cdot {\boldsymbol{\cal F}}_m^n\\ [2mm]
-  &&D_m^{(k)} = - \nabla \cdot {\boldsymbol{\cal F}}_m^{(k)}\\
-  &&\widetilde D_{m,AD}^{(k+1)} = \nabla \cdot \rho^{(k+1)}\mathcal D_m^{(k)}\frac{W}{W_m}\nabla\widetilde Y_{m,{\rm AD}}^{(k+1)} +
-  \nabla \cdot \rho^{(k+1)}\frac{Y_m^{(k)}}{W_m} \nabla W^{(k)}
+  &D_m^n &= - \nabla \cdot {\boldsymbol{\cal F}}_m^n\\ [2mm]
+  &D_m^{(k)} &= - \nabla \cdot {\boldsymbol{\cal F}}_m^{(k)}\\ [1mm]
+  &\widetilde D_{m,AD}^{(k+1)} &= - \nabla \cdot \widetilde {\boldsymbol{\cal F}}_{m}^{(k+1)}\\ [-1.5mm]
+  & &= \;\; \nabla \cdot \Big[ \rho^{(k+1)}\mathcal D_m^{(k)}\frac{W}{W_m}\nabla\widetilde Y_{m,{\rm AD}}^{(k+1)}
+       \; + \; \rho^{(k+1)}\frac{Y_m^{(k)}}{W_m} \nabla W^{(k)} \Big]
 \end{eqnarray*}
-By lagging the $\nabla W$ term, this equation is a scalar, time-implicit and parabolic in
-$\widetilde Y_{m,{\rm AD}}^{(k+1)}$, requiring
-a linear solve.  The form of this solve, from a software perspective, is identical to that of
-the \textit{MAC}\ projection discussed above.
+By lagging the $\nabla W$ term (and $\mathcal D_m$), this equation is a scalar, time-implicit, parabolic and linear for the updated $\widetilde Y_{m,{\rm AD}}^{(k+1)}$ (and requires a linear solve).  The form of this solve, from a
+software perspective, is identical to that of the \textit{MAC}\ projection discussed above.
 
-Once all the species equations are updated with (\ref{eq:pY}), compute ${\boldsymbol{\cal F}}_{m,{\rm AD}}^{(k+1)}$, which are
-conservatively corrected versions of $\widetilde{\boldsymbol{\cal F}}_{m,{\rm AD}}^{(k+1)}$,
-and then compute the updated species mass fractions, $Y_{m,{\rm AD}}^{(k+1)}$, using
+Once all the species equations are updated with (\ref{eq:pY}), compute ${\boldsymbol{\cal F}}_{m,{\rm AD}}^{(k+1)}$,
+which are conservatively corrected versions of $\widetilde{\boldsymbol{\cal F}}_{m,{\rm AD}}^{(k+1)}$,
+and then re-compute the updated species mass fractions, $Y_{m,{\rm AD}}^{(k+1)}$, using
 \begin{eqnarray}
   \frac{\rho^{(k+1)}Y_{m,{\rm AD}}^{(k+1)} - (\rho Y_m)^n}{\Delta t}
   &=& A_m^{{(k+1)}} + D_{m,AD}^{(k+1)} + \half(D_m^n - D_m^{(k)}) + I_{R,m}^{(k)}
@@ -636,15 +634,12 @@ where
    &&D_{m,AD}^{(k+1)} = - \nabla \cdot {\boldsymbol{\cal F}}_{m,{\rm AD}}^{(k+1)}
 \end{eqnarray*}
 
-
-
-Next, compute the time-advanced enthalpy, $h_{\rm AD}^{(k+1)}$.  Much like the species densities, $Y_m$, which diffuse
-with a $\nabla X_m$ driving force, making the Crank-Nicolson update lead formally to a nonlinear solve, the
-enthalpy diffuses with a $\nabla T$ driving force.  We begin by following the same SDC-correction formalism
-used for the species, and write
-
+Next, we compute the time-advanced enthalpy, $h_{\rm AD}^{(k+1)}$.  Much like diffusion of the species densities,
+$Y_m$, with a $\nabla X_m$ driving force, leads in a nonlinear, coupled Crank-Nicolson update, the
+enthalpy diffuses with a $\nabla T$ driving force -- we define an alternative linearized strategy.
+We begin by following the same SDC-correction formalism used for the species, and write
 \begin{equation}
-  \frac{\rho^{(k+1)}h_{{\rm AD}}^{(k+1)} - (\rho h)^n}{\Delta t}
+  \frac{\rho^{(k+1)} h_{{\rm AD}}^{(k+1)} - (\rho h)^n}{\Delta t}
   = A_h^{(k+1)} + D_{T,AD}^{(k+1)} + H^{(k+1)} + \half \Big( D_T^n - D_m^{(k)} + H^n - H^{(k)} \Big)
  \label{eq:hup}
 \end{equation}
@@ -658,10 +653,10 @@ where
   &H^{(k)} = - \nabla \cdot  \sum h_m(T^{(k)}) \; {\boldsymbol{\cal F}}_m^{(k)}
 \end{eqnarray*}
 
-We solve this iteratively, by approximating
+However, rather than computing $h_{{\rm AD}}^{(k+1)}$ directly, we solve this iteratively, based on the approximation
 $h_{{\rm AD}}^{(k+1),\ell+1} \approx h_{{\rm AD}}^{(k+1),\ell} + C_{p}^{(k+1),\ell} \delta T^{\ell+1}$, with
-$\delta T^{\ell+1} = T_{{\rm AD}}^{(k+1),\ell+1} - T_{{\rm AD}}^{(k+1),\ell}$, and iteration index, $\ell$ = 1,$\ell_{MAX}$.
-Equation~(\ref{eq:hup}) can then be recast into a linear solve for $\delta T^{\ell+1}$
+$\delta T^{\ell+1} = T_{{\rm AD}}^{(k+1),\ell+1} - T_{{\rm AD}}^{(k+1),\ell}$, and iteration index, $\ell$ = 1:$\,\ell_{MAX}$.
+Equation~(\ref{eq:hup}) is thus recast into a linear equation for $\delta T^{\ell+1}$
 \begin{eqnarray}
 \rho^{(k+1)} C_p^{(k+1),\ell} \delta T^{\ell +1}  &-& \frac{\Delta t}{2} \nabla \cdot \lambda^{(k+1),\ell} \nabla \delta T^{\ell +1} \nonumber  \\
  &=& \rho^n h^n - \rho^{(k+1)} h^{(k+1),\ell} + \Delta t \Big( A_h^{(k+1)} + D_{T,AD}^{(k+1)} + H^{(k+1)} \Big) \\
@@ -671,7 +666,7 @@ Equation~(\ref{eq:hup}) can then be recast into a linear solve for $\delta T^{\e
 Note that again the solve for this Crank-Nicolson update has a form that is identical to that of
 the \textit{MAC}\ projection discussed above.  After each 
 iteration, update $T_{{\rm AD}}^{(k+1),\ell+1} = T_{{\rm AD}}^{(k+1),\ell} + \delta T^{\ell+1}$ and 
-re-evaluate $(C_p,\lambda,h_m)^{(k+1),\ell+1}$ using $T_{{\rm AD}}^{(k+1),\ell+1}$ and $Y_{m,{\rm AD}}^{(k+1)}$.
+re-evaluate $(C_p,\lambda,h_m)^{(k+1),\ell+1}$ using $(T_{{\rm AD}}^{(k+1),\ell+1}, Y_{m,{\rm AD}}^{(k+1)}$).
 
 
 {\bf Step 2-III:} 
