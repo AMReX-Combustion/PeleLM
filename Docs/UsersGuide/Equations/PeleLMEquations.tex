@@ -665,7 +665,8 @@ Equation~(\ref{eq:hup}) is thus recast into a linear equation for $\delta T^{\el
  &=& \rho^n h^n - \rho^{(k+1)} h^{(k+1),\ell} + \Delta t \Big( A_h^{(k+1)} + D_{T,AD}^{(k+1),\ell} + H_{AD}^{(k+1),\ell} \Big) \\
 &&+ \; \frac{\Delta t}{2} \Big( D_T^n - D_m^{(k)} + H^n - H^{(k)} \Big) \nonumber
 \end{eqnarray}
-where $H_{AD}^{(k+1),\ell} = - \nabla \cdot \sum h_m(T_{AD}^{(k+1),\ell})$. Note that again the solve for this
+where $H_{AD}^{(k+1),\ell} = - \nabla \cdot \sum h_m(T_{AD}^{(k+1),\ell}) \; {\boldsymbol{\cal F}}_{m,AD}^{(k+1)}$.
+Note that again the solve for this
 Crank-Nicolson update has a form that is identical to that of
 the \textit{MAC}\ projection discussed above.  After each 
 iteration, update $T_{{\rm AD}}^{(k+1),\ell+1} = T_{{\rm AD}}^{(k+1),\ell} + \delta T^{\ell+1}$ and 
