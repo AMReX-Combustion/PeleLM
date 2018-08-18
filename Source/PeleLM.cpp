@@ -2806,6 +2806,82 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
   {
     amrex::Error("differential_diffusion_update: hack_nospecdiff not implemented");
   }
+
+#if 0
+
+  MultiFab Rh; // not needed
+
+  int ng=1;
+  const Real prev_time = state[State_Type].prevTime();
+  const Real curr_time = state[State_Type].curTime();
+  const Real dt = curr_time - prev_time;
+  const int nComp = nspecies+1;
+
+  FillPatch(*this,get_old_data(State_Type),ng,prev_time,State_Type,Density,nComp,Density);
+  FillPatch(*this,get_new_data(State_Type),ng,curr_time,State_Type,Density,nComp,Density);
+
+  auto Snc = std::unique_ptr<MultiFab>(new MultiFab());
+  auto Snp1c = std::unique_ptr<MultiFab>(new MultiFab());
+
+  if (level > 0) {
+    auto& crselev = getLevel(level-1);
+    Snc->define(crselev.boxArray(), crselev.DistributionMap(), NUM_STATE, ng);
+    FillPatch(crselev,*Snc  ,ng,prev_time,State_Type,Density,nComp,Density);
+    
+    Snp1c->define(crselev.boxArray(), crselev.DistributionMap(), NUM_STATE, ng);
+    FillPatch(crselev,*Snp1c,ng,curr_time,State_Type,Density,nComp,Density);
+  }
+
+  const int nlev = 2;
+  Vector<MultiFab*> Sn(nlev,0), Snp1(nlev,0);
+  Sn[0]   = &(get_old_data(State_Type));
+  Snp1[0] = &(get_new_data(State_Type));
+  Sn[1]   = level > 0 ? Snc.get() : 0;
+  Snp1[1] = level > 0 ? Snp1c.get() : 0;
+  
+  const Vector<BCRec>& theBCs = AmrLevel::desc_lst[State_Type].getBCs();
+
+
+  MultiFab *delta_rhs = &Force;
+  const int rhsComp = FComp;
+
+  const MultiFab *alpha = 0;
+  const int alphaComp = 0, fluxComp = 0;
+
+  FluxBoxes fb_diffn, fb_diffnp1;
+  MultiFab **cmp_diffn = 0; // not needed
+  MultiFab **cmp_diffnp1 = fb_diffnp1.define(this,nspecies+2);
+  getDiffusivity(cmp_diffnp1, curr_time, first_spec, 0, nComp); // species (rhoD) and RhoH (lambda/cp)
+  getDiffusivity(cmp_diffnp1, curr_time, Temp, nComp, 1); // temperature (lambda)
+
+  Vector<int> diffuse_comp(nComp);
+  for (int icomp=0; icomp<nComp; ++icomp) {
+    diffuse_comp[icomp] = is_diffusive[first_spec + icomp];
+  }
+
+  const int rho_flag = Diffusion::set_rho_flag(diffusionType[first_spec]);
+  for (int icomp=1; icomp<nComp; ++icomp) {
+    BL_ASSERT(rho_flag == Diffusion::set_rho_flag(diffusionType[first_spec+icomp]));
+  }
+
+  const bool add_hoop_stress = false; // Only true if sigma == Xvel && Geometry::IsRZ())
+  const Diffusion::SolveMode& solve_mode = Diffusion::ONEPASS;
+  const bool add_old_time_divFlux = false; // rhs contains the time-explicit diff terms already
+
+  const int betaComp = 0;
+  const int visc_coef_comp = first_spec;
+  const int Rho_comp = Density;
+  const int bc_comp  = first_spec;
+            
+  diffusion->diffuse_scalar_msd(Sn, Sn, Snp1, Snp1, first_spec, nComp, Rho_comp,
+                                prev_time,curr_time,be_cn_theta,Rh,rho_flag,
+                                SpecDiffusionFluxn,SpecDiffusionFluxnp1,fluxComp,delta_rhs,rhsComp,alpha,alphaComp,
+                                cmp_diffn,cmp_diffnp1,betaComp,
+                                visc_coef,visc_coef_comp,volume,area,crse_ratio,theBCs,bc_comp,geom,
+                                add_hoop_stress,solve_mode,add_old_time_divFlux,diffuse_comp);
+
+#else
+
   MultiFab& S_old = get_old_data(State_Type);
   MultiFab& S_new = get_new_data(State_Type);
   Real prev_time = state[State_Type].prevTime();
@@ -2839,6 +2915,8 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
 			      SpecDiffusionFluxn,SpecDiffusionFluxnp1,sigma,&Force,sigma,alpha,
 			      alphaComp,betan,betanp1,betaComp,solve_mode,add_old_time_divFlux);
   }
+
+#endif
 
 #ifdef USE_WBAR
   // add lagged grad Wbar fluxes (SpecDiffusionFluxWbar) to time-advanced 
