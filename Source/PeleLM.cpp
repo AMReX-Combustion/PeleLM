@@ -2868,8 +2868,7 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
 
   const bool add_hoop_stress = false; // Only true if sigma == Xvel && Geometry::IsRZ())
   const Diffusion::SolveMode& solve_mode = Diffusion::ONEPASS;
-  //const bool add_old_time_divFlux = false; // rhs contains the time-explicit diff terms already
-  const bool add_old_time_divFlux = true;
+  const bool add_old_time_divFlux = false; // rhs contains the time-explicit diff terms already
   const Real be_cn_theta_SDC = 1;
 
   const int betaComp = 0;
