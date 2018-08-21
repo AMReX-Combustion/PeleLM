@@ -2875,9 +2875,10 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
             
   diffusion->diffuse_scalar_msd(Sn, Sn, Snp1, Snp1, first_spec, nComp, Rho_comp,
                                 prev_time,curr_time,be_cn_theta,Rh,rho_flag,
-                                SpecDiffusionFluxn,SpecDiffusionFluxnp1,fluxComp,delta_rhs,rhsComp,alpha,alphaComp,
-                                cmp_diffn,cmp_diffnp1,betaComp,
-                                visc_coef,visc_coef_comp,volume,area,crse_ratio,theBCs,bc_comp,geom,
+                                SpecDiffusionFluxn,SpecDiffusionFluxnp1,fluxComp,
+                                delta_rhs,rhsComp,alpha,alphaComp,
+                                cmp_diffn,cmp_diffnp1,betaComp,visc_coef,visc_coef_comp,
+                                volume,area,crse_ratio,theBCs,bc_comp,geom,
                                 add_hoop_stress,solve_mode,add_old_time_divFlux,diffuse_comp);
 
 #else
