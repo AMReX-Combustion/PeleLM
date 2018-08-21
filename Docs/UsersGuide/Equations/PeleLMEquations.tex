@@ -175,14 +175,16 @@ with
  \end{eqnarray*}
  Using these expressions, we can write an equation for $T$ that is needed in order to evaluate the right-hand side of the divergence constraint:
  \begin{eqnarray}
-   \rho \, C_p \frac{DT}{Dt} &=& \nabla \cdot \lambda \nabla T - \nabla \cdot h_m \boldsymbol{\mathcal{F}}_{m}
-   -h_m (\rho \dot\omega_m - \nabla \cdot \boldsymbol{\mathcal{F}}_{m} )
+   \rho \, C_p \frac{DT}{Dt} &=& \nabla \cdot \lambda \nabla T 
+   + \sum_m \Big( h_m \nabla \cdot \boldsymbol{\mathcal{F}}_{m}
+   - \nabla \cdot h_m \boldsymbol{\mathcal{F}}_{m}
+   - h_m \rho \dot\omega_m \Big)
    \label{eq:T}
  \end{eqnarray}
 where $C_p = \partial h/\partial T$ is the specific heat of the mixture at constant pressure. Equation~\ref{eq:veloconstr} then becomes:
 \begin{eqnarray}
   \nabla \cdot \boldsymbol{u} &=&\frac{1}{\rho \, C_p T}\Big[ \nabla \cdot \lambda \nabla T
-  - \sum_m \Big( \nabla \cdot h_m \boldsymbol{\mathcal{F}}_{m} + h_m \nabla \cdot \boldsymbol{\mathcal{F}}_{m} \Big) \Big] \nonumber
+  + \sum_m \Big( h_m \nabla \cdot \boldsymbol{\mathcal{F}}_{m}  - \nabla \cdot h_m \boldsymbol{\mathcal{F}}_{m}\Big) \Big] \nonumber
 \\
 &&- \frac{W}{\rho} \sum_m \frac{1}{W_m} \nabla \cdot \boldsymbol{\mathcal{F}}_{m} + \frac{1}{\rho} \sum_m \Big( \frac{W}{W_m} -\frac{h_m(T)}{c_{p} T} \Big)\dot{\omega}_m
 \label{eq:igldivu}
@@ -665,7 +667,8 @@ Equation~(\ref{eq:hup}) is thus recast into a linear equation for $\delta T^{\el
  &=& \rho^n h^n - \rho^{(k+1)} h^{(k+1),\ell} + \Delta t \Big( A_h^{(k+1)} + D_{T,AD}^{(k+1),\ell} + H_{AD}^{(k+1),\ell} \Big) \\
 &&+ \; \frac{\Delta t}{2} \Big( D_T^n - D_m^{(k)} + H^n - H^{(k)} \Big) \nonumber
 \end{eqnarray}
-where $H_{AD}^{(k+1),\ell} = - \nabla \cdot \sum h_m(T_{AD}^{(k+1),\ell}) \; {\boldsymbol{\cal F}}_{m,AD}^{(k+1)}$.
+where $H_{AD}^{(k+1),\ell} = - \nabla \cdot \sum h_m(T_{AD}^{(k+1),\ell}) \, {\boldsymbol{\cal F}}_{m,AD}^{(k+1)}$
+and $D_{T,AD}^{(k+1),\ell} = \nabla \cdot \lambda_{AD}^{(k+1),\ell} \, \nabla T_{AD}^{(k+1),\ell}$.
 Note that again the solve for this
 Crank-Nicolson update has a form that is identical to that of
 the \textit{MAC}\ projection discussed above.  After each 
