@@ -2807,7 +2807,7 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
     amrex::Error("differential_diffusion_update: hack_nospecdiff not implemented");
   }
 
-#if 0
+#if 1
 
   MultiFab Rh; // not needed
 
@@ -2816,6 +2816,8 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
   const Real curr_time = state[State_Type].curTime();
   const Real dt = curr_time - prev_time;
   const int nComp = nspecies+1;
+
+  MultiFab::Copy(get_new_data(State_Type),get_old_data(State_Type),first_spec,first_spec,nComp,0);
 
   FillPatch(*this,get_old_data(State_Type),ng,prev_time,State_Type,Density,nComp,Density);
   FillPatch(*this,get_new_data(State_Type),ng,curr_time,State_Type,Density,nComp,Density);
@@ -2866,18 +2868,21 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
 
   const bool add_hoop_stress = false; // Only true if sigma == Xvel && Geometry::IsRZ())
   const Diffusion::SolveMode& solve_mode = Diffusion::ONEPASS;
-  const bool add_old_time_divFlux = false; // rhs contains the time-explicit diff terms already
+  //const bool add_old_time_divFlux = false; // rhs contains the time-explicit diff terms already
+  const bool add_old_time_divFlux = true;
+  const Real be_cn_theta_SDC = 1;
 
   const int betaComp = 0;
   const int visc_coef_comp = first_spec;
   const int Rho_comp = Density;
   const int bc_comp  = first_spec;
-            
+        
   diffusion->diffuse_scalar_msd(Sn, Sn, Snp1, Snp1, first_spec, nComp, Rho_comp,
-                                prev_time,curr_time,be_cn_theta,Rh,rho_flag,
-                                SpecDiffusionFluxn,SpecDiffusionFluxnp1,fluxComp,delta_rhs,rhsComp,alpha,alphaComp,
-                                cmp_diffn,cmp_diffnp1,betaComp,
-                                visc_coef,visc_coef_comp,volume,area,crse_ratio,theBCs,bc_comp,geom,
+                                prev_time,curr_time,be_cn_theta_SDC,Rh,rho_flag,
+                                SpecDiffusionFluxn,SpecDiffusionFluxnp1,fluxComp,
+                                delta_rhs,rhsComp,alpha,alphaComp,
+                                cmp_diffn,cmp_diffnp1,betaComp,visc_coef,visc_coef_comp,
+                                volume,area,crse_ratio,theBCs[first_spec],geom,
                                 add_hoop_stress,solve_mode,add_old_time_divFlux,diffuse_comp);
 
 #else
@@ -2906,12 +2911,14 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
   MultiFab* alpha = 0; // Never need alpha for RhoY, RhoH
   int alphaComp = 0;
   int nComp = nspecies+1;
+  bool add_old_time_divFlux = false; // indicate that the rhs contains the time-explicit diff terms already
+  const Real be_cn_theta_SDC = 1;
+
   for (int sigma = 0; sigma < nComp; ++sigma)
   {
     int betaComp = sigma;
     const int state_ind = first_spec + sigma;
-    bool add_old_time_divFlux = false; // indicate that the rhs contains the time-explicit diff terms already
-    diffusion->diffuse_scalar(dt,state_ind,1.0,rho_half,rho_flag,
+    diffusion->diffuse_scalar(dt,state_ind,be_cn_theta_SDC,rho_half,rho_flag,
 			      SpecDiffusionFluxn,SpecDiffusionFluxnp1,sigma,&Force,sigma,alpha,
 			      alphaComp,betan,betanp1,betaComp,solve_mode,add_old_time_divFlux);
   }
