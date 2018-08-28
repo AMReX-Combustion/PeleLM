@@ -2834,16 +2834,19 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
     FillPatch(crselev,*Snp1c,ng,curr_time,State_Type,Density,nComp,Density);
   }
 
-  const int nlev = 2;
+  const int nlev = (level ==0 ? 1 : 2);
   Vector<MultiFab*> Sn(nlev,0), Snp1(nlev,0);
   Sn[0]   = &(get_old_data(State_Type));
   Snp1[0] = &(get_new_data(State_Type));
-  Sn[1]   = level > 0 ? Snc.get() : 0;
-  Snp1[1] = level > 0 ? Snp1c.get() : 0;
+    
+  if (nlev>1) {
+    Sn[1]   =  Snc.get() ;
+    Snp1[1] =  Snp1c.get() ;
+  }
   
   const Vector<BCRec>& theBCs = AmrLevel::desc_lst[State_Type].getBCs();
 
-
+  
   MultiFab *delta_rhs = &Force;
   const int rhsComp = FComp;
 
@@ -2871,7 +2874,7 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
   const bool add_old_time_divFlux = false; // rhs contains the time-explicit diff terms already
   const Real be_cn_theta_SDC = 1;
 
-  const int betaComp = 0;
+  const int betaComp = first_spec;
   const int visc_coef_comp = first_spec;
   const int Rho_comp = Density;
   const int bc_comp  = first_spec;
@@ -2970,7 +2973,7 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
   }
 
   flux_divergence(Dnew,DComp,SpecDiffusionFluxnp1,0,nComp,-1);
-    
+
   if (verbose)
   {
     const int IOProc   = ParallelDescriptor::IOProcessorNumber();
