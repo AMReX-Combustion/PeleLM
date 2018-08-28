@@ -2874,7 +2874,7 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
   const bool add_old_time_divFlux = false; // rhs contains the time-explicit diff terms already
   const Real be_cn_theta_SDC = 1;
 
-  const int betaComp = first_spec;
+  const int betaComp = 0;
   const int visc_coef_comp = first_spec;
   const int Rho_comp = Density;
   const int bc_comp  = first_spec;
