@@ -1,6 +1,6 @@
 TOP = ../../..
 AMREX_HOME ?= ${TOP}/amrex
-IAMR_HOME ?= ${TOP}/IAMR_marc
+IAMR_HOME ?= ${TOP}/IAMR_dev
 PELELM_HOME ?= ${TOP}/PeleLM
 
 #
@@ -9,9 +9,10 @@ PELELM_HOME ?= ${TOP}/PeleLM
 
 DIM             = 3
 COMP            = gnu
+DEBUG           = TRUE
 DEBUG           = FALSE
 USE_MPI         = TRUE
-USE_OMP         = TRUE
+USE_OMP         = FALSE
 PRECISION       = DOUBLE
 VERBOSE         = FALSE
 
