@@ -2819,8 +2819,8 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
 
   MultiFab::Copy(get_new_data(State_Type),get_old_data(State_Type),first_spec,first_spec,nComp,0);
 
-  FillPatch(*this,get_old_data(State_Type),ng,prev_time,State_Type,Density,nComp,Density);
-  FillPatch(*this,get_new_data(State_Type),ng,curr_time,State_Type,Density,nComp,Density);
+  FillPatch(*this,get_old_data(State_Type),ng,prev_time,State_Type,Density,nComp+1,Density);
+  FillPatch(*this,get_new_data(State_Type),ng,curr_time,State_Type,Density,nComp+1,Density);
 
   auto Snc = std::unique_ptr<MultiFab>(new MultiFab());
   auto Snp1c = std::unique_ptr<MultiFab>(new MultiFab());
@@ -2828,10 +2828,10 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
   if (level > 0) {
     auto& crselev = getLevel(level-1);
     Snc->define(crselev.boxArray(), crselev.DistributionMap(), NUM_STATE, ng);
-    FillPatch(crselev,*Snc  ,ng,prev_time,State_Type,Density,nComp,Density);
+    FillPatch(crselev,*Snc  ,ng,prev_time,State_Type,Density,nComp+1,Density);
     
     Snp1c->define(crselev.boxArray(), crselev.DistributionMap(), NUM_STATE, ng);
-    FillPatch(crselev,*Snp1c,ng,curr_time,State_Type,Density,nComp,Density);
+    FillPatch(crselev,*Snp1c,ng,curr_time,State_Type,Density,nComp+1,Density);
   }
 
   const int nlev = (level ==0 ? 1 : 2);
@@ -2986,6 +2986,14 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
   }
 
   BL_PROFILE_REGION_STOP("R::HT::differential_diffusion_update()");
+  
+  if (level == 0)
+  VisMF::Write(Dnew,"DIFF_0");
+  if (level == 1)
+  VisMF::Write(Dnew,"DIFF_1");
+  if (level == 2)
+  VisMF::Write(Dnew,"DIFF_2");
+  
 }
 
 void
