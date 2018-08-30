@@ -15,10 +15,10 @@
 EXE_DIR="${HOME}/PeleLM/Exec/FlameInABox"
 EXE="PeleLM3d.intel.mic-knl.MPI.ex"
 
-INPUTS_DIR=${EXE_DIR}
+INPUTS_DIR=${PWD}
 INPUTS="inputs.3d-regt_512proc"
 
-PROBIN_DIR=${EXE_DIR}
+PROBIN_DIR=${PWD}
 PROBIN="probin.3d.test"
 
 EXTRA="amr.plot_files_output=0 max_step=1 amrex.signal_handling=0 init_shrink=0.1"
