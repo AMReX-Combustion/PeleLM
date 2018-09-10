@@ -2838,14 +2838,13 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
   Vector<MultiFab*> Sn(nlev,0), Snp1(nlev,0);
   Sn[0]   = &(get_old_data(State_Type));
   Snp1[0] = &(get_new_data(State_Type));
-    
+
   if (nlev>1) {
-    Sn[1]   =  Snc.get() ;
-    Snp1[1] =  Snp1c.get() ;
+    Sn[1]   =  Snc.get();
+    Snp1[1] =  Snp1c.get();
   }
   
   const Vector<BCRec>& theBCs = AmrLevel::desc_lst[State_Type].getBCs();
-
   
   MultiFab *delta_rhs = &Force;
   const int rhsComp = FComp;
@@ -2865,8 +2864,10 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
   }
 
   const int rho_flag = Diffusion::set_rho_flag(diffusionType[first_spec]);
+  const BCRec& bc = theBCs[first_spec];
   for (int icomp=1; icomp<nComp; ++icomp) {
     BL_ASSERT(rho_flag == Diffusion::set_rho_flag(diffusionType[first_spec+icomp]));
+    BL_ASSERT(bc == theBCs[first_spec+icomp]);
   }
 
   const bool add_hoop_stress = false; // Only true if sigma == Xvel && Geometry::IsRZ())
@@ -2878,14 +2879,19 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
   const int visc_coef_comp = first_spec;
   const int Rho_comp = Density;
   const int bc_comp  = first_spec;
-        
+
+  const MultiFab *a[AMREX_SPACEDIM];
+  for (int d=0; d<AMREX_SPACEDIM; ++d) {
+      a[d] = &(area[d]);
+  }
+
   diffusion->diffuse_scalar_msd(Sn, Sn, Snp1, Snp1, first_spec, nComp, Rho_comp,
-                                prev_time,curr_time,be_cn_theta_SDC,Rh,rho_flag,
-                                SpecDiffusionFluxn,SpecDiffusionFluxnp1,fluxComp,
-                                delta_rhs,rhsComp,alpha,alphaComp,
-                                cmp_diffn,cmp_diffnp1,betaComp,visc_coef,visc_coef_comp,
-                                volume,area,crse_ratio,theBCs[first_spec],geom,
-                                add_hoop_stress,solve_mode,add_old_time_divFlux,diffuse_comp);
+                               prev_time,curr_time,be_cn_theta_SDC,Rh,rho_flag,
+                               SpecDiffusionFluxn,SpecDiffusionFluxnp1,fluxComp,
+                               delta_rhs,rhsComp,alpha,alphaComp,
+                               cmp_diffn,cmp_diffnp1,betaComp,visc_coef,visc_coef_comp,
+                               volume,a,crse_ratio,theBCs[first_spec],geom,
+                               add_hoop_stress,solve_mode,add_old_time_divFlux,diffuse_comp);
 
 #else
 
@@ -2972,7 +2978,22 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
     }
   }
 
+  Dnew.setVal(0);
   flux_divergence(Dnew,DComp,SpecDiffusionFluxnp1,0,nComp,-1);
+  //
+  // Ensure consistent grow cells
+  //
+  if (Dnew.nGrow() > 0)
+  {
+    Dnew.FillBoundary(DComp, nComp, geom.periodicity());
+    Extrapolater::FirstOrderExtrap(Dnew, geom, DComp, nComp);
+  }
+
+  if (DDnew.nGrow() > 0)
+  {
+    DDnew.FillBoundary(0, 1, geom.periodicity());
+    Extrapolater::FirstOrderExtrap(DDnew, geom, 0, 1);
+  }
 
   if (verbose)
   {
@@ -2986,14 +3007,6 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
   }
 
   BL_PROFILE_REGION_STOP("R::HT::differential_diffusion_update()");
-  
-  if (level == 0)
-  VisMF::Write(Dnew,"DIFF_0");
-  if (level == 1)
-  VisMF::Write(Dnew,"DIFF_1");
-  if (level == 2)
-  VisMF::Write(Dnew,"DIFF_2");
-  
 }
 
 void
