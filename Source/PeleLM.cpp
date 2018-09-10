@@ -4935,7 +4935,7 @@ PeleLM::advance (Real time,
 #ifdef _OPENMP
 #pragma omp parallel
 #endif            
-    for (MFIter mfi(divu_new); mfi.isValid();++mfi)
+    for (MFIter mfi(divu_new,true); mfi.isValid();++mfi)
     {
       auto isects = crsndgrids.intersections(mfi.tilebox());
 
