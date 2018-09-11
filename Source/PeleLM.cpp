@@ -898,6 +898,9 @@ PeleLM::define_data ()
 
   }
 
+  sumSpecFluxDotGradHn.define(grids,dmap,1,nGrow);
+  sumSpecFluxDotGradHnp1.define(grids,dmap,1,nGrow);
+
   for (const auto& kv : auxDiag_names)
   {
       auxDiag[kv.first] = std::unique_ptr<MultiFab>(new MultiFab(grids,dmap,kv.second.size(),0));
@@ -2855,10 +2858,10 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
   const int alphaComp = 0, fluxComp = 0;
 
   FluxBoxes fb_diffn, fb_diffnp1;
-  MultiFab **cmp_diffn = 0; // not needed
-  MultiFab **cmp_diffnp1 = fb_diffnp1.define(this,nspecies+2);
-  getDiffusivity(cmp_diffnp1, curr_time, first_spec, 0, nComp); // species (rhoD) and RhoH (lambda/cp)
-  getDiffusivity(cmp_diffnp1, curr_time, Temp, nComp, 1); // temperature (lambda)
+  MultiFab **betan = 0; // not needed
+  MultiFab **betanp1 = fb_diffnp1.define(this,nspecies+2);
+  getDiffusivity(betanp1, curr_time, first_spec, 0, nComp); // species (rhoD) and RhoH (lambda/cp)
+  getDiffusivity(betanp1, curr_time, Temp, nComp, 1); // temperature (lambda)
 
   Vector<int> diffuse_comp(nComp);
   for (int icomp=0; icomp<nComp; ++icomp) {
@@ -2891,7 +2894,7 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
                                prev_time,curr_time,be_cn_theta_SDC,Rh,rho_flag,
                                SpecDiffusionFluxn,SpecDiffusionFluxnp1,fluxComp,
                                delta_rhs,rhsComp,alpha,alphaComp,
-                               cmp_diffn,cmp_diffnp1,betaComp,visc_coef,visc_coef_comp,
+                               betan,betanp1,betaComp,visc_coef,visc_coef_comp,
                                volume,a,crse_ratio,theBCs[first_spec],geom,
                                add_hoop_stress,solve_mode,add_old_time_divFlux,diffuse_comp);
 
@@ -3017,10 +3020,6 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
   }
 
   BL_PROFILE_REGION_STOP("R::HT::differential_diffusion_update()");
-<<<<<<< HEAD
-=======
-    
->>>>>>> 32f3104160dea2d6a6d06261279ed4de3e3052ba
 }
 
 void
@@ -3124,7 +3123,8 @@ PeleLM::compute_enthalpy_fluxes (Real                   time,
 
   BL_ASSERT(whichTime == AmrOldTime || whichTime == AmrNewTime);    
 
-  MultiFab* const * flux = (whichTime == AmrOldTime) ? SpecDiffusionFluxn : SpecDiffusionFluxnp1;
+  MultiFab* const * flux = (whichTime == AmrOldTime) ? SpecDiffusionFluxn   : SpecDiffusionFluxnp1;
+  MultiFab& FiGHi =        (whichTime == AmrOldTime) ? sumSpecFluxDotGradHn : sumSpecFluxDotGradHnp1;
 
   MultiFab& S = get_data(State_Type,time);
 
@@ -3214,6 +3214,7 @@ PeleLM::compute_enthalpy_fluxes (Real                   time,
                     fiz.dataPtr(FComp),ARLIM(fiz.loVect()),ARLIM(fiz.hiVect()),
                     area[2][mfi].dataPtr(), ARLIM(area[2][mfi].loVect()),ARLIM(area[2][mfi].hiVect()),
 #endif
+                    FiGHi[mfi].dataPtr(), ARLIM(FiGHi[mfi].loVect()), ARLIM(FiGHi[mfi].hiVect()),
                     Tbc.vect() );
   }
 
@@ -7365,7 +7366,6 @@ PeleLM::calc_divu (Real      time,
   do_reflux = false;
     
   // DD is computed and stored in divu, but we don't need it and overwrite
-  // divu in CALCDIVU.
 #ifdef USE_WBAR
   compute_differential_diffusion_terms(mcViscTerms,divu,DWbar_temp,time,dt);
 #else
@@ -7382,7 +7382,7 @@ PeleLM::calc_divu (Real      time,
   MultiFab&  S       = get_data(State_Type,time);
   const bool use_IR  = (time == 0 && dt > 0);
 
-  MultiFab&  RhoYdot = (use_IR) ? get_new_data(RhoYdot_Type) : RhoYdotTmp;
+  MultiFab& RhoYdot = (use_IR) ? get_new_data(RhoYdot_Type) : RhoYdotTmp;
 
   if (!use_IR)
   {
@@ -7403,6 +7403,11 @@ PeleLM::calc_divu (Real      time,
       amrex::Abort("bad divu_logic - shouldn't be here");
     }
   }
+
+  const TimeLevel whichTime = which_time(State_Type,time);
+  MultiFab& FiGHi = (whichTime == AmrOldTime) ? sumSpecFluxDotGradHn : sumSpecFluxDotGradHnp1;
+  MultiFab::Copy(divu,FiGHi,0,0,1,0);
+  
 #ifdef _OPENMP
 #pragma omp parallel
 #endif

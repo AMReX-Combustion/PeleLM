@@ -91,7 +91,7 @@ contains
                enddo
 
                tmp = 0.d0
-               divu(i,j,k) = vtT(i,j,k)
+               divu(i,j,k) = divu(i,j,k) + vtT(i,j,k)
                do n=1,Nspec
                   tmp = tmp + (rYdot(i,j,k,n)+vtY(i,j,k,n))*invmtw(n)
                   divu(i,j,k) = divu(i,j,k) - rYdot(i,j,k,n)*H(n)
