@@ -5082,13 +5082,12 @@ PeleLM::advance (Real time,
     MultiFab& divu_old = get_old_data(Divu_Type);
     MultiFab& dsdt_old = get_old_data(Dsdt_Type);
 
-    std::vector< std::pair<int,Box> > isects;
 #ifdef _OPENMP
 #pragma omp parallel
 #endif            
-    for (MFIter mfi(divu_new); mfi.isValid();++mfi)
+    for (MFIter mfi(divu_new,true); mfi.isValid();++mfi)
     {
-      isects = crsndgrids.intersections(mfi.tilebox());
+      auto isects = crsndgrids.intersections(mfi.tilebox());
 
       for (int i = 0, N = isects.size(); i < N; i++)
       {
