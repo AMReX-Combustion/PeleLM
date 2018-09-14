@@ -2842,7 +2842,7 @@ diffusionFJDriver(ForkJoin&                   fj,
   S_new[0] = &(fj.get_mf("S_new_fine"));
   if (nlev>1) {
     S_old[1] = &(fj.get_mf("S_old_crse"));
-    S_new[1] = &(fj.get_mf("S_new_fine"));
+    S_new[1] = &(fj.get_mf("S_new_crse"));
   }
   int num_comp = S_old[0]->nComp();
 
@@ -2851,7 +2851,7 @@ diffusionFJDriver(ForkJoin&                   fj,
     Rho_new[0] = &(fj.get_mf("Rho_new_fine"));
     if (nlev>1) {
       Rho_old[1] = &(fj.get_mf("Rho_old_crse"));
-      Rho_new[1] = &(fj.get_mf("Rho_new_fine"));
+      Rho_new[1] = &(fj.get_mf("Rho_new_crse"));
     }
   }
 
@@ -2959,11 +2959,11 @@ PeleLM::diffuse_scalar_fj  (const Vector<MultiFab*>&  S_old,
     MultiFab *S_old_crse, *S_new_crse, *Rho_old_crse, *Rho_new_crse, *Alpha, *Rhs;
 
     const IntVect ng = {D_DECL(1, 1, 1)};
-    BL_ASSERT(S_old_fine.nGrow() >= 1 && S_new_fine.nGrow() >= 1);
+    AMREX_ALWAYS_ASSERT(S_old_fine.nGrow() >= 1 && S_new_fine.nGrow() >= 1);
     fj.reg_mf(S_old_fine,  "S_old_fine",  ForkJoin::Strategy::split,    ForkJoin::Intent::in,    ng);
     fj.reg_mf(S_new_fine,  "S_new_fine",  ForkJoin::Strategy::split,    ForkJoin::Intent::inout, ng);
     if (rho_flag == 2) {
-      BL_ASSERT(Rho_old_fine.nGrow() >= 1 && Rho_new_fine.nGrow() >= 1);
+      AMREX_ALWAYS_ASSERT(Rho_old_fine.nGrow() >= 1 && Rho_new_fine.nGrow() >= 1);
       fj.reg_mf(Rho_old_fine,"Rho_old_fine",ForkJoin::Strategy::duplicate,ForkJoin::Intent::in, ng);
       fj.reg_mf(Rho_new_fine,"Rho_new_fine",ForkJoin::Strategy::duplicate,ForkJoin::Intent::in, ng);
     }
@@ -2972,13 +2972,13 @@ PeleLM::diffuse_scalar_fj  (const Vector<MultiFab*>&  S_old,
     if (has_coarse_data) {
       S_old_crse = new MultiFab(*S_old[1], amrex::make_alias, S_comp, num_comp);
       S_new_crse = new MultiFab(*S_new[1], amrex::make_alias, S_comp, num_comp);
-      BL_ASSERT(S_old_crse->nGrow() >= 1 && S_new_crse->nGrow() >= 1);
+      AMREX_ALWAYS_ASSERT(S_old_crse->nGrow() >= 1 && S_new_crse->nGrow() >= 1);
       fj.reg_mf(*S_old_crse,  "S_old_crse",  ForkJoin::Strategy::split,    ForkJoin::Intent::in, ng);
       fj.reg_mf(*S_new_crse,  "S_new_crse",  ForkJoin::Strategy::split,    ForkJoin::Intent::in, ng);
       if (rho_flag == 2) {
         Rho_old_crse = new MultiFab(*Rho_old[1], amrex::make_alias, Rho_comp, 1);
         Rho_new_crse = new MultiFab(*Rho_new[1], amrex::make_alias, Rho_comp, 1);
-        BL_ASSERT(Rho_old_crse->nGrow() >= 1 && Rho_new_crse->nGrow() >= 1);
+        AMREX_ALWAYS_ASSERT(Rho_old_crse->nGrow() >= 1 && Rho_new_crse->nGrow() >= 1);
         fj.reg_mf(*Rho_old_crse,"Rho_old_crse",ForkJoin::Strategy::duplicate,ForkJoin::Intent::in, ng);
         fj.reg_mf(*Rho_new_crse,"Rho_new_crse",ForkJoin::Strategy::duplicate,ForkJoin::Intent::in, ng);
       }
@@ -2993,7 +2993,7 @@ PeleLM::diffuse_scalar_fj  (const Vector<MultiFab*>&  S_old,
 
     bool has_delta_rhs = false;
     if (delta_rhs != 0) {
-      BL_ASSERT(delta_rhs->nComp() >= rhsComp + num_comp);
+      AMREX_ALWAYS_ASSERT(delta_rhs->nComp() >= rhsComp + num_comp);
       Rhs = new MultiFab(*delta_rhs, amrex::make_alias, rhsComp, num_comp);
       fj.reg_mf(*Rhs,"delta_rhs",ForkJoin::Strategy::split,ForkJoin::Intent::in);
       has_delta_rhs = true;
@@ -3001,7 +3001,7 @@ PeleLM::diffuse_scalar_fj  (const Vector<MultiFab*>&  S_old,
 
     bool has_alpha_in = false;
     if (alpha_in != 0) {
-      BL_ASSERT(alpha_in->nComp() >= alpha_in_comp + num_comp);
+      AMREX_ALWAYS_ASSERT(alpha_in->nComp() >= alpha_in_comp + num_comp);
       Alpha = new MultiFab(*alpha_in, amrex::make_alias, alpha_in_comp, num_comp);
       fj.reg_mf(*Alpha,"alpha_in",ForkJoin::Strategy::split,ForkJoin::Intent::in);
       has_alpha_in = true;
@@ -3098,9 +3098,8 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
 
   if (level > 0) {
     auto& crselev = getLevel(level-1);
-    Snc->define(crselev.boxArray(), crselev.DistributionMap(), NUM_STATE, ng);
+    Snc->define(crselev.boxArray(), crselev.DistributionMap(), NUM_STATE, ng);  Snc->setVal(0,0,NUM_STATE,ng);
     FillPatch(crselev,*Snc  ,ng,prev_time,State_Type,Density,nspecies+2,Density);
-    
     Snp1c->define(crselev.boxArray(), crselev.DistributionMap(), NUM_STATE, ng);
     FillPatch(crselev,*Snp1c,ng,curr_time,State_Type,Density,nspecies+2,Density);
   }
