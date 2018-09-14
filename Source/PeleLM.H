@@ -6,6 +6,8 @@
 #include <NavierStokesBase.H>
 #include <ChemDriver.H>
 
+#include <AMReX_ForkJoin.H>
+
 #include <list>
 #include <map>
 #include <utility>
@@ -362,7 +364,40 @@ private:
                          const int  state_comp,
                          const int  dst_comp,
                          const int  ncomp) const;
-
+  
+  void diffuse_scalar_fj  (const amrex::Vector<amrex::MultiFab*>& S_old,
+                           const amrex::Vector<amrex::MultiFab*>& Rho_old,
+                           amrex::Vector<amrex::MultiFab*>&       S_new,
+                           const amrex::Vector<amrex::MultiFab*>& Rho_new,
+                           int                                    S_comp,
+                           int                                    num_comp,
+                           int                                    Rho_comp,
+                           amrex::Real                            prev_time,
+                           amrex::Real                            curr_time,
+                           amrex::Real                            be_cn_theta,
+                           const amrex::MultiFab&                 rho_half,
+                           int                                    rho_flag,
+                           amrex::MultiFab* const*                fluxn,
+                           amrex::MultiFab* const*                fluxnp1,
+                           int                                    fluxComp,
+                           amrex::MultiFab*                       delta_rhs, 
+                           int                                    rhsComp,
+                           const amrex::MultiFab*                 alpha, 
+                           int                                    alphaComp,
+                           const amrex::MultiFab* const*          betan, 
+                           const amrex::MultiFab* const*          betanp1,
+                           int                                    betaComp,
+                           const amrex::Vector<amrex::Real>&      visc_coef,
+                           int                                    visc_coef_comp,
+                           const amrex::MultiFab&                 volume,
+                           const amrex::MultiFab* const*          area,
+                           const amrex::IntVect&                  cratio,
+                           const amrex::BCRec&                    bc,
+                           const amrex::Geometry&                 geom,
+                           bool                                   add_hoop_stress,
+                           const Diffusion::SolveMode&            solve_mode = Diffusion::ONEPASS,
+                           bool                                   add_old_time_divFlux = true,
+                           const amrex::Vector<int>&              is_diffusive = amrex::Vector<int>());
   //
   // Functions for interpolating from cell centers to cell edges
   //
@@ -487,6 +522,7 @@ private:
   static std::map<std::string,amrex::Real> typical_values_FileVals;
   static int         sdc_iterMAX;
   static int         num_mac_sync_iter;
+  static int         n_forkjoin_tasks;
     
   static int nGrowAdvForcing;
 };
