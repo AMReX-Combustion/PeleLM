@@ -1167,13 +1167,13 @@ PeleLM::restart (Amr&          papa,
 }
 
 void
-PeleLM::set_typical_values(bool restart)
+PeleLM::set_typical_values(bool is_restart)
 {
   if (level==0)
   {
     const int nComp = typical_values.size();
 
-    if (restart)
+    if (is_restart)
     {
       BL_ASSERT(nComp==NUM_STATE);
 
@@ -1966,17 +1966,17 @@ PeleLM::post_restart ()
   Real dummy  = 0;
   int MyProc  = ParallelDescriptor::MyProc();
   int step    = parent->levelSteps(0);
-  int restart = 1;
+  int is_restart = 1;
 
   if (do_active_control)
   {
     int usetemp = 0;
-    active_control(&dummy,&dummy,&crse_dt,&MyProc,&step,&restart,&usetemp);
+    active_control(&dummy,&dummy,&crse_dt,&MyProc,&step,&is_restart,&usetemp);
   }
   else if (do_active_control_temp)
   {
     int usetemp = 1;
-    active_control(&dummy,&dummy,&crse_dt,&MyProc,&step,&restart,&usetemp);
+    active_control(&dummy,&dummy,&crse_dt,&MyProc,&step,&is_restart,&usetemp);
   }
 }
 
@@ -2282,7 +2282,7 @@ PeleLM::sum_integrated_quantities ()
   {
     int MyProc  = ParallelDescriptor::MyProc();
     int step    = parent->levelSteps(0);
-    int restart = 0;
+    int is_restart = 0;
 
     if (do_active_control)
     {
@@ -2296,7 +2296,7 @@ PeleLM::sum_integrated_quantities ()
 
       int usetemp = 0;
 
-      active_control(&fuelmass,&time,&crse_dt,&MyProc,&step,&restart,&usetemp);
+      active_control(&fuelmass,&time,&crse_dt,&MyProc,&step,&is_restart,&usetemp);
     }
     else if (do_active_control_temp)
     {
@@ -2354,7 +2354,7 @@ PeleLM::sum_integrated_quantities ()
 
       int usetemp = 1;
 
-      active_control(&hival,&ctime,&crse_dt,&MyProc,&step,&restart,&usetemp);
+      active_control(&hival,&ctime,&crse_dt,&MyProc,&step,&is_restart,&usetemp);
     }
     else
     {
@@ -2369,10 +2369,6 @@ PeleLM::sum_integrated_quantities ()
 
   if (getChemSolve().index(productName) >= 0)
   {
-      //int MyProc  = ParallelDescriptor::MyProc();
-      //int step    = parent->levelSteps(0);
-      //int restart = 0;
-
       Real productmass = 0.0;
       std::string product = "rho.Y(" + productName + ")";
       for (int lev = 0; lev <= finest_level; lev++)
@@ -2910,7 +2906,7 @@ PeleLM::diffuse_scalar_fj  (const Vector<MultiFab*>&  S_old,
                             Real                      prev_time,
                             Real                      curr_time,
                             Real                      be_cn_theta,
-                            const MultiFab&           rho_half,
+                            const MultiFab&           rho_mid,
                             int                       rho_flag,
                             MultiFab* const*          fluxn,
                             MultiFab* const*          fluxnp1,
@@ -2924,15 +2920,15 @@ PeleLM::diffuse_scalar_fj  (const Vector<MultiFab*>&  S_old,
                             int                       betaComp,
                             const Vector<Real>&       visc_coef,
                             int                       visc_coef_comp,
-                            const MultiFab&           volume,
-                            const MultiFab* const*    area,
+                            const MultiFab&           theVolume,
+                            const MultiFab* const*    theArea,
                             const IntVect&            cratio,
                             const BCRec&              bc,
-                            const Geometry&           geom,
+                            const Geometry&           theGeom,
                             bool                      add_hoop_stress,
                             const Diffusion::SolveMode& solve_mode,
                             bool                      add_old_time_divFlux,
-                            const amrex::Vector<int>& is_diffusive)
+                            const amrex::Vector<int>& diffuse_this_comp)
 {
   int n_procs = ParallelDescriptor::NProcs();
   int n_tasks_suggest = std::min(num_comp,n_procs);
@@ -2941,17 +2937,16 @@ PeleLM::diffuse_scalar_fj  (const Vector<MultiFab*>&  S_old,
   if (n_tasks == 1)
   {
     Diffusion::diffuse_scalar_msd(S_old,Rho_old,S_new,Rho_new,S_comp,num_comp,Rho_comp,
-                                  prev_time,curr_time,be_cn_theta,rho_half,rho_flag,
+                                  prev_time,curr_time,be_cn_theta,rho_mid,rho_flag,
                                   fluxn,fluxnp1,fluxComp,delta_rhs,rhsComp,
                                   alpha_in,alpha_in_comp,betan,betanp1,betaComp,
                                   visc_coef,visc_coef_comp,
-                                  volume,area,cratio,bc,geom,add_hoop_stress,
-                                  solve_mode,add_old_time_divFlux,is_diffusive);
+                                  theVolume,theArea,cratio,bc,theGeom,add_hoop_stress,
+                                  solve_mode,add_old_time_divFlux,diffuse_this_comp);
   }
   else
   {
 
-    Abort();
     Print() << "Diffusion: using " << n_tasks << " fork-join tasks for "
             << num_comp << " diffusion calls (on a total of " << n_procs << " ranks)" << std::endl;
 
@@ -2990,7 +2985,7 @@ PeleLM::diffuse_scalar_fj  (const Vector<MultiFab*>&  S_old,
     }
 
     if (rho_flag == 1) {
-      fj.reg_mf(rho_half,"rho_half",ForkJoin::Strategy::duplicate,ForkJoin::Intent::in);
+      fj.reg_mf(rho_mid,"rho_half",ForkJoin::Strategy::duplicate,ForkJoin::Intent::in);
     }
 
     fj.reg_mf_vec(GetVecOfPtrs(fluxn  ,fluxComp,num_comp),"fluxn",  ForkJoin::Strategy::split,ForkJoin::Intent::inout);
@@ -3027,11 +3022,11 @@ PeleLM::diffuse_scalar_fj  (const Vector<MultiFab*>&  S_old,
       has_betanp1 = true;
     }
 
-    fj.reg_mf(volume,"volume",ForkJoin::Strategy::duplicate,ForkJoin::Intent::in);
-    fj.reg_mf_vec(GetVecOfPtrs(area,0,1),"area",ForkJoin::Strategy::duplicate,ForkJoin::Intent::in);
+    fj.reg_mf(theVolume,"volume",ForkJoin::Strategy::duplicate,ForkJoin::Intent::in);
+    fj.reg_mf_vec(GetVecOfPtrs(theArea,0,1),"area",ForkJoin::Strategy::duplicate,ForkJoin::Intent::in);
 
     fj.fork_join(
-      [=,&bc,&geom,&visc_coef] (ForkJoin &f)
+      [=,&bc,&theGeom,&visc_coef] (ForkJoin &f)
       {
         diffusionFJDriver(f,
                           prev_time,
@@ -3042,11 +3037,11 @@ PeleLM::diffuse_scalar_fj  (const Vector<MultiFab*>&  S_old,
                           visc_coef_comp,
                           cratio,
                           bc,
-                          geom,
+                          theGeom,
                           add_hoop_stress,
                           solve_mode,
                           add_old_time_divFlux,
-                          is_diffusive,
+                          diffuse_this_comp,
                           has_coarse_data, has_delta_rhs, has_alpha_in, has_betan, has_betanp1);
       }
       );
@@ -3177,7 +3172,7 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
                                 delta_rhs,rhsComp+comp,alpha,alphaComp+comp,
                                 betan,betanp1,betaComp+comp,visc_coef,visc_coef_comp+comp,
                                 volume,a,crse_ratio,theBCs[first_spec+comp],geom,
-                                add_hoop_stress,solve_mode,add_old_time_divFlux,{diffuse_comp[first_spec+comp]});
+                                add_hoop_stress,solve_mode,add_old_time_divFlux,{diffuse_comp[comp]});
 
 #else
 
@@ -8232,14 +8227,14 @@ PeleLM::writePlotFile (const std::string& dir,
   //
   static const std::string BaseName = "/Cell";
 
-  std::string Level = amrex::Concatenate("Level_", level, 1);
+  std::string LevelStr = amrex::Concatenate("Level_", level, 1);
   //
   // Now for the full pathname of that directory.
   //
   std::string FullPath = dir;
   if (!FullPath.empty() && FullPath[FullPath.length()-1] != '/')
     FullPath += '/';
-  FullPath += Level;
+  FullPath += LevelStr;
   //
   // Only the I/O processor makes the directory if it doesn't already exist.
   //
@@ -8269,7 +8264,7 @@ PeleLM::writePlotFile (const std::string& dir,
     //
     if (n_data_items > 0)
     {
-      std::string PathNameInHeader = Level;
+      std::string PathNameInHeader = LevelStr;
       PathNameInHeader += BaseName;
       os << PathNameInHeader << '\n';
     }
