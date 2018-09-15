@@ -158,7 +158,6 @@ extern "C" {
                             const amrex::Real* Fiz,ARLIM_P(Fizlo),ARLIM_P(Fizhi),
                             const amrex::Real* az, ARLIM_P(azlo), ARLIM_P(azhi),
 #endif
-                            amrex::Real* fh,      ARLIM_P(fhlo), ARLIM_P(fhhi),
                             const int* Tbc);
 
   void incrwext_flx_div (const int* lo, const int* hi,

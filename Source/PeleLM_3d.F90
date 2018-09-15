@@ -191,10 +191,11 @@ contains
                               rhoDx, DIMS(rhoDx), Fx, DIMS(Fx), Ax, DIMS(Ax), &
                               rhoDy, DIMS(rhoDy), Fy, DIMS(Fy), Ay, DIMS(Ay), &
                               rhoDz, DIMS(rhoDz), Fz, DIMS(Fz), Az, DIMS(Az), &
-                              FiGHi, DIMS(FiGHi), Tbc ) &
+                              Tbc ) &
                               bind(C, name="enth_diff_terms")
 
       use chem_driver_3D, only: HfromT
+      use amrex_mempool_module, only : amrex_allocate, amrex_deallocate
       implicit none
 
 #include <cdwrk.H>      
@@ -230,20 +231,12 @@ contains
       integer DIMDEC(Az)
       REAL_T  Az(DIMV(Az))
 
-      integer DIMDEC(FiGHi)
-      REAL_T  FiGHi(DIMV(FiGHi))
-
-      REAL_T, allocatable :: H(:,:,:,:), AD(:,:,:,:)
+      REAL_T, pointer:: H(:,:,:,:)
 
       integer i, j, k, d, n
       integer lob(SDIM), hib(SDIM)
-      REAL_T AxDxInv_lo, AxDxInv_hi, dxInv
-      REAL_T AyDyInv_lo, AyDyInv_hi, dyInv
-      REAL_T AzDzInv_lo, AzDzInv_hi, dzInv
+      REAL_T dxInv, dyInv, dzInv
       logical fix_xlo, fix_xhi, fix_ylo, fix_yhi, fix_zlo, fix_zhi
-
-      REAL_T, allocatable :: rhoInv(:,:,:)
-      REAL_T gradY
 
       fix_xlo = .false.
       fix_xhi = .false.
@@ -262,7 +255,7 @@ contains
 !     Note that any cells on a physical boundary with Dirichlet conditions will 
 !     actually be centered on the edge, so the stencils below must reflect this
 
-      allocate( H(DIMV(T),1:Nspec) )
+      call amrex_allocate( H, T_l1, T_h1, T_l2, T_h2, T_l3, T_h3, 1, Nspec )
 
       call HfromT(lob, hib, H, DIMS(T), T, DIMS(T))
 
@@ -356,40 +349,17 @@ contains
          enddo
       endif
 
-!     Compute enthalpy flux as hi*(Fi+(lambda/cp).Grad(Yi))
+!     Compute hi*Fi
 
       Fx(lo_x(1):hi_x(1),lo_x(2):hi_x(2),lo_x(3):hi_x(3),Nspec+2) = 0.d0
       Fy(lo_y(1):hi_y(1),lo_y(2):hi_y(2),lo_y(3):hi_y(3),Nspec+2) = 0.d0
       Fz(lo_z(1):hi_z(1),lo_z(2):hi_z(2),lo_z(3):hi_z(3),Nspec+2) = 0.d0
 
-      allocate(rhoInv(lo_x(1)-1:hi_x(1)+1,lo_y(2)-1:hi_y(2)+1,lo_z(3)-1:hi_z(3)+1))
-
-      rhoInv = 0.0d0
-      do n=1,Nspec
-         do k=lo_z(3)-1,hi_z(3)
-            do j=lo_y(2)-1,hi_y(2)
-               do i=lo_x(1)-1,hi_x(1)
-               rhoInv(i,j,k) = rhoInv(i,j,k) + RhoY(i,j,k,n)
-               enddo
-            enddo
-         enddo
-      enddo
-
-      do k=lo_z(3)-1,hi_z(3)
-         do j=lo_y(2)-1,hi_y(2)
-            do i=lo_x(1)-1,hi_x(1)
-               rhoInv(i,j,k) = 1.0D0/rhoInv(i,j,k)
-            enddo
-         enddo
-      enddo
-
       do n=1,Nspec
       do k=lo_x(3),hi_x(3)
       do j=lo_x(2),hi_x(2)
       do i=lo_x(1),hi_x(1)
-         gradY = (RhoY(i,j,k,n)*rhoInv(i,j,k) - RhoY(i-1,j,k,n)*rhoInv(i-1,j,k))*dxInv
-         Fx(i,j,k,Nspec+2) = Fx(i,j,k,Nspec+2) &
-             + (Fx(i,j,k,n) + rhoDx(i,j,k,Nspec+1)*gradY*Ax(i,j,k))*(H(i,j,k,n)+H(i-1,j,k,n))*0.5d0
+         Fx(i,j,k,Nspec+2) = Fx(i,j,k,Nspec+2) + Fx(i,j,k,n)*Ax(i,j,k)*(H(i,j,k,n)+H(i-1,j,k,n))*0.5d0
       enddo
       enddo
       enddo
@@ -399,9 +369,7 @@ contains
       do k=lo_y(3),hi_y(3)
       do j=lo_y(2),hi_y(2)
       do i=lo_y(1),hi_y(1)
-         gradY = (RhoY(i,j,k,n)*rhoInv(i,j,k) - RhoY(i,j-1,k,n)*rhoInv(i,j-1,k))*dyInv
-         Fy(i,j,k,Nspec+2) = Fy(i,j,k,Nspec+2) &
-             + (Fy(i,j,k,n) + rhoDy(i,j,k,Nspec+1)*gradY*Ay(i,j,k))*(H(i,j,k,n)+H(i,j-1,k,n))*0.5d0
+         Fy(i,j,k,Nspec+2) = Fy(i,j,k,Nspec+2) + Fy(i,j,k,n)*Ay(i,j,k)*(H(i,j,k,n)+H(i,j-1,k,n))*0.5d0
       enddo
       enddo
       enddo
@@ -411,9 +379,7 @@ contains
       do k=lo_z(3),hi_z(3)
       do j=lo_z(2),hi_z(2)
       do i=lo_z(1),hi_z(1)
-         gradY = (RhoY(i,j,k,n)*rhoInv(i,j,k) - RhoY(i,j,k-1,n)*rhoInv(i,j,k-1))*dzInv
-         Fz(i,j,k,Nspec+2) = Fz(i,j,k,Nspec+2) &
-             + (Fz(i,j,k,n) + rhoDz(i,j,k,Nspec+1)*gradY*Az(i,j,k))*(H(i,j,k,n)+H(i,j,k-1,n))*0.5d0
+         Fz(i,j,k,Nspec+2) = Fz(i,j,k,Nspec+2) + Fz(i,j,k,n)*Az(i,j,k)*(H(i,j,k,n)+H(i,j,k-1,n))*0.5d0
       enddo
       enddo
       enddo
@@ -426,9 +392,7 @@ contains
          do n=1,Nspec
             do k=lo_z(3),hi_z(3)
                do j=lo_y(2),hi_y(2)
-                  gradY = 2*(RhoY(i,j,k,n)*rhoInv(i,j,k) - RhoY(i-1,j,k,n)*rhoInv(i-1,j,k))*dxInv
-                  Fx(i,j,k,Nspec+2) = Fx(i,j,k,Nspec+2) &
-                      + (Fx(i,j,k,n) + rhoDx(i,j,k,Nspec+1)*gradY*Ax(i,j,k))*H(i-1,j,k,n)
+                  Fx(i,j,k,Nspec+2) = Fx(i,j,k,Nspec+2) + Fx(i,j,k,n)*Ax(i,j,k)*H(i-1,j,k,n)
                enddo
             enddo
          enddo
@@ -440,9 +404,7 @@ contains
          do n=1,Nspec
             do k=lo_z(3),hi_z(3)
                do j=lo_y(2),hi_y(2)
-                  gradY = 2*(RhoY(i,j,k,n)*rhoInv(i,j,k) - RhoY(i-1,j,k,n)*rhoInv(i-1,j,k))*dxInv
-                  Fx(i,j,k,Nspec+2) = Fx(i,j,k,Nspec+2) &
-                      + (Fx(i,j,k,n) + rhoDx(i,j,k,Nspec+1)*gradY*Ax(i,j,k))*H(i,j,k,n)
+                  Fx(i,j,k,Nspec+2) = Fx(i,j,k,Nspec+2) + Fx(i,j,k,n)*Ax(i,j,k)*H(i,j,k,n)
                enddo
             enddo
          enddo
@@ -454,9 +416,7 @@ contains
          do n=1,Nspec
             do k=lo_z(3),hi_z(3)
                do i=lo_x(1),hi_x(1)
-                  gradY = 2*(RhoY(i,j,k,n)*rhoInv(i,j,k) - RhoY(i,j-1,k,n)*rhoInv(i,j-1,k))*dyInv
-                  Fy(i,j,k,Nspec+2) = Fy(i,j,k,Nspec+2) &
-                      + (Fy(i,j,k,n) + rhoDy(i,j,k,Nspec+1)*gradY*Ay(i,j,k))*H(i,j-1,k,n)
+                  Fy(i,j,k,Nspec+2) = Fy(i,j,k,Nspec+2) + Fy(i,j,k,n)*Ay(i,j,k)*H(i,j-1,k,n)
                enddo
             enddo
          enddo
@@ -468,9 +428,7 @@ contains
          do n=1,Nspec
             do k=lo_z(3),hi_z(3)
                do i=lo_x(1),hi_x(1)
-                  gradY = 2*(RhoY(i,j,k,n)*rhoInv(i,j,k) - RhoY(i,j-1,k,n)*rhoInv(i,j-1,k))*dyInv
-                  Fy(i,j,k,Nspec+2) = Fy(i,j,k,Nspec+2) &
-                      + (Fy(i,j,k,n) + rhoDy(i,j,k,Nspec+1)*gradY*Ay(i,j,k))*H(i,j,k,n)
+                  Fy(i,j,k,Nspec+2) = Fy(i,j,k,Nspec+2) + Fy(i,j,k,n)*Ay(i,j,k)*H(i,j,k,n)
                enddo
             enddo
          enddo
@@ -482,9 +440,7 @@ contains
          do n=1,Nspec
             do j=lo_y(2),hi_y(2)
                do i=lo_x(1),hi_x(1)
-                  gradY = 2*(RhoY(i,j,k,n)*rhoInv(i,j,k) - RhoY(i,j,k-1,n)*rhoInv(i,j,k-1))*dzInv
-                  Fz(i,j,k,Nspec+2) = Fz(i,j,k,Nspec+2) &
-                      + (Fz(i,j,k,n) + rhoDz(i,j,k,Nspec+1)*gradY*Az(i,j,k))*H(i,j,k-1,n)
+                  Fz(i,j,k,Nspec+2) = Fz(i,j,k,Nspec+2) + Fz(i,j,k,n)*Az(i,j,k)*H(i,j,k-1,n)
                enddo
             enddo
          enddo
@@ -496,239 +452,13 @@ contains
          do n=1,Nspec
             do j=lo_y(2),hi_y(2)
                do i=lo_x(1),hi_x(1)
-                  gradY = 2*(RhoY(i,j,k,n)*rhoInv(i,j,k) - RhoY(i,j,k-1,n)*rhoInv(i,j,k-1))*dzInv
-                  Fz(i,j,k,Nspec+2) = Fz(i,j,k,Nspec+2) &
-                      + (Fz(i,j,k,n) + rhoDz(i,j,k,Nspec+1)*gradY*Az(i,j,k))*H(i,j,k,n)
+                  Fz(i,j,k,Nspec+2) = Fz(i,j,k,Nspec+2) + Fz(i,j,k,n)*Az(i,j,k)*H(i,j,k,n)
                enddo
             enddo
          enddo
       endif
-      deallocate(rhoInv)
 
-
-!     Set FiGHi = (species flux) dot Grad(species enthalpy)
-!        compute Grad(H) on each face, and average across faces in each coordinate
-!        Fi is extensive here, so need to remove area.  Also, assume that we are 
-!        away from domain boundary, fix afterward
-!
-!     FIXME: This will fail for r-z since Ax(dlo(1),:)=0
-!
-
-      !
-      ! Use AD to cut down on some divides.
-      ! Unfortunately it ups memory usage a bit.
-      !
-      allocate(AD(6,lo(1):hi(1),lo(2):hi(2),lo(3):hi(3)))
-
-      do k=lo(3),hi(3)
-      do j=lo(2),hi(2)
-      do i=lo(1),hi(1)
-         AD(1,i,j,k) = 1.d0/(Ax(i,j,k)*dx(1))
-         AD(2,i,j,k) = 1.d0/(Ax(i+1,j,k)*dx(1))
-         AD(3,i,j,k) = 1.d0/(Ay(i,j,k)*dx(2))
-         AD(4,i,j,k) = 1.d0/(Ay(i,j+1,k)*dx(2))
-         AD(5,i,j,k) = 1.d0/(Az(i,j,k)*dx(3))
-         AD(6,i,j,k) = 1.d0/(Az(i,j,k+1)*dx(3))
-      enddo
-      enddo
-      enddo
-
-      FiGHi(lo(1):hi(1),lo(2):hi(2),lo(3):hi(3)) = 0.0D0
-
-
-      do n=1,Nspec
-      do k=lo(3),hi(3)
-      do j=lo(2),hi(2)
-      do i=lo(1),hi(1)
-         FiGHi(i,j,k) = FiGHi(i,j,k) - 0.5d0* &
-             ( ( H(i+1,j,k,n) - H(i,j,k,n) )*Fx(i+1,j  ,k  ,n)*AD(2,i,j,k) &
-             + ( H(i,j,k,n) - H(i-1,j,k,n) )*Fx(i  ,j  ,k  ,n)*AD(1,i,j,k) &
-             + ( H(i,j+1,k,n) - H(i,j,k,n) )*Fy(i  ,j+1,k  ,n)*AD(4,i,j,k) &
-             + ( H(i,j,k,n) - H(i,j-1,k,n) )*Fy(i  ,j  ,k  ,n)*AD(3,i,j,k) &
-             + ( H(i,j,k+1,n) - H(i,j,k,n) )*Fz(i  ,j  ,k+1,n)*AD(6,i,j,k) &
-             + ( H(i,j,k,n) - H(i,j,k-1,n) )*Fz(i  ,j  ,k  ,n)*AD(5,i,j,k) )
-      enddo
-      enddo
-      enddo
-      enddo
-
-      deallocate(AD)
-
-!     xlo
-      if (fix_xlo) then
-         i = lo(1)
-         do k=lo(3),hi(3)
-         do j=lo(2),hi(2)
-            FiGHi(i,j,k) = 0.d0
-         enddo
-         enddo
-         do n=1,Nspec
-         do k=lo(3),hi(3)
-         do j=lo(2),hi(2)
-            AxDxInv_lo = 2.d0/(Ax(i,j,k)*dx(1))
-            AxDxInv_hi = 1.d0/(Ax(i+1,j,k)*dx(1))
-            AyDyInv_lo = 1.d0/(Ay(i,j,k)*dx(2))
-            AyDyInv_hi = 1.d0/(Ay(i,j+1,k)*dx(2))
-            AzDzInv_lo = 1.d0/(Az(i,j,k)*dx(3))
-            AzDzInv_hi = 1.d0/(Az(i,j,k+1)*dx(3))
-            FiGHi(i,j,k) = FiGHi(i,j,k) - 0.5d0* &
-                ( ( H(i+1,j,k,n) - H(i,j,k,n) )*Fx(i+1,j  ,k  ,n)*AxDxInv_hi &
-                + ( H(i,j,k,n) - H(i-1,j,k,n) )*Fx(i  ,j  ,k  ,n)*AxDxInv_lo &
-                + ( H(i,j+1,k,n) - H(i,j,k,n) )*Fy(i  ,j+1,k  ,n)*AyDyInv_hi &
-                + ( H(i,j,k,n) - H(i,j-1,k,n) )*Fy(i  ,j  ,k  ,n)*AyDyInv_lo &
-                + ( H(i,j,k+1,n) - H(i,j,k,n) )*Fz(i  ,j  ,k+1,n)*AzDzInv_hi &
-                + ( H(i,j,k,n) - H(i,j,k-1,n) )*Fz(i  ,j  ,k  ,n)*AzDzInv_lo )
-         enddo
-         enddo
-         enddo
-      endif
-
-!     xhi
-      if (fix_xhi) then
-         i = hi(1)
-         do k=lo(3),hi(3)
-         do j=lo(2),hi(2)
-            FiGHi(i,j,k) = 0.d0
-         enddo
-         enddo
-         do n=1,Nspec
-         do k=lo(3),hi(3)
-         do j=lo(2),hi(2)
-            AxDxInv_lo = 2.d0/(Ax(i,j,k)*dx(1))
-            AxDxInv_hi = 1.d0/(Ax(i+1,j,k)*dx(1))
-            AyDyInv_lo = 1.d0/(Ay(i,j,k)*dx(2))
-            AyDyInv_hi = 1.d0/(Ay(i,j+1,k)*dx(2))
-            AzDzInv_lo = 1.d0/(Az(i,j,k)*dx(3))
-            AzDzInv_hi = 1.d0/(Az(i,j,k+1)*dx(3))
-            FiGHi(i,j,k) = FiGHi(i,j,k) - 0.5d0* &
-                ( ( H(i+1,j,k,n) - H(i,j,k,n) )*Fx(i+1,j  ,k  ,n)*AxDxInv_hi &
-                + ( H(i,j,k,n) - H(i-1,j,k,n) )*Fx(i  ,j  ,k  ,n)*AxDxInv_lo &
-                + ( H(i,j+1,k,n) - H(i,j,k,n) )*Fy(i  ,j+1,k  ,n)*AyDyInv_hi &
-                + ( H(i,j,k,n) - H(i,j-1,k,n) )*Fy(i  ,j  ,k  ,n)*AyDyInv_lo & 
-                + ( H(i,j,k+1,n) - H(i,j,k,n) )*Fz(i  ,j  ,k+1,n)*AzDzInv_hi &
-                + ( H(i,j,k,n) - H(i,j,k-1,n) )*Fz(i  ,j  ,k  ,n)*AzDzInv_lo )
-         enddo
-         enddo
-         enddo
-      endif
-
-!     ylo
-      if (fix_ylo) then
-         j = lo(2)
-         do k=lo(3),hi(3)
-         do i=lo(1),hi(1)
-            FiGHi(i,j,k) = 0.d0
-         enddo
-         enddo
-         do n=1,Nspec
-         do k=lo(3),hi(3)
-         do i=lo(1),hi(1)
-            AxDxInv_lo = 2.d0/(Ax(i,j,k)*dx(1))
-            AxDxInv_hi = 1.d0/(Ax(i+1,j,k)*dx(1))
-            AyDyInv_lo = 1.d0/(Ay(i,j,k)*dx(2))
-            AyDyInv_hi = 1.d0/(Ay(i,j+1,k)*dx(2))
-            AzDzInv_lo = 1.d0/(Az(i,j,k)*dx(3))
-            AzDzInv_hi = 1.d0/(Az(i,j,k+1)*dx(3))
-            FiGHi(i,j,k) = FiGHi(i,j,k) - 0.5d0* &
-                ( ( H(i+1,j,k,n) - H(i,j,k,n) )*Fx(i+1,j  ,k  ,n)*AxDxInv_hi &
-                + ( H(i,j,k,n) - H(i-1,j,k,n) )*Fx(i  ,j  ,k  ,n)*AxDxInv_lo &
-                + ( H(i,j+1,k,n) - H(i,j,k,n) )*Fy(i  ,j+1,k  ,n)*AyDyInv_hi &
-                + ( H(i,j,k,n) - H(i,j-1,k,n) )*Fy(i  ,j  ,k  ,n)*AyDyInv_lo &
-                + ( H(i,j,k+1,n) - H(i,j,k,n) )*Fz(i  ,j  ,k+1,n)*AzDzInv_hi &
-                + ( H(i,j,k,n) - H(i,j,k-1,n) )*Fz(i  ,j  ,k  ,n)*AzDzInv_lo )
-         enddo
-         enddo
-         enddo
-      endif
-
-!     yhi
-      if (fix_yhi) then
-         j = hi(2)
-         do k=lo(3),hi(3)
-         do i=lo(1),hi(1)
-            FiGHi(i,j,k) = 0.d0
-         enddo
-         enddo
-         do n=1,Nspec
-         do k=lo(3),hi(3)
-         do i=lo(1),hi(1)
-            AxDxInv_lo = 2.d0/(Ax(i,j,k)*dx(1))
-            AxDxInv_hi = 1.d0/(Ax(i+1,j,k)*dx(1))
-            AyDyInv_lo = 1.d0/(Ay(i,j,k)*dx(2))
-            AyDyInv_hi = 1.d0/(Ay(i,j+1,k)*dx(2))
-            AzDzInv_lo = 1.d0/(Az(i,j,k)*dx(3))
-            AzDzInv_hi = 1.d0/(Az(i,j,k+1)*dx(3))
-            FiGHi(i,j,k) = FiGHi(i,j,k) - 0.5d0* &
-                ( ( H(i+1,j,k,n) - H(i,j,k,n) )*Fx(i+1,j  ,k  ,n)*AxDxInv_hi &
-                + ( H(i,j,k,n) - H(i-1,j,k,n) )*Fx(i  ,j  ,k  ,n)*AxDxInv_lo &
-                + ( H(i,j+1,k,n) - H(i,j,k,n) )*Fy(i  ,j+1,k  ,n)*AyDyInv_hi &
-                + ( H(i,j,k,n) - H(i,j-1,k,n) )*Fy(i  ,j  ,k  ,n)*AyDyInv_lo &
-                + ( H(i,j,k+1,n) - H(i,j,k,n) )*Fz(i  ,j  ,k+1,n)*AzDzInv_hi &
-                + ( H(i,j,k,n) - H(i,j,k-1,n) )*Fz(i  ,j  ,k  ,n)*AzDzInv_lo )
-         enddo
-         enddo
-         enddo
-      endif
-
-!     zlo
-      if (fix_zlo) then
-         k = lo(3)
-         do j=lo(2),hi(2)
-         do i=lo(1),hi(1)
-            FiGHi(i,j,k) = 0.d0
-         enddo
-         enddo
-         do n=1,Nspec
-         do j=lo(2),hi(2)
-         do i=lo(1),hi(1)
-            AxDxInv_lo = 2.d0/(Ax(i,j,k)*dx(1))
-            AxDxInv_hi = 1.d0/(Ax(i+1,j,k)*dx(1))
-            AyDyInv_lo = 1.d0/(Ay(i,j,k)*dx(2))
-            AyDyInv_hi = 1.d0/(Ay(i,j+1,k)*dx(2))
-            AzDzInv_lo = 1.d0/(Az(i,j,k)*dx(3))
-            AzDzInv_hi = 1.d0/(Az(i,j,k+1)*dx(3))
-            FiGHi(i,j,k) = FiGHi(i,j,k) - 0.5d0* &
-                ( ( H(i+1,j,k,n) - H(i,j,k,n) )*Fx(i+1,j  ,k  ,n)*AxDxInv_hi &
-                + ( H(i,j,k,n) - H(i-1,j,k,n) )*Fx(i  ,j  ,k  ,n)*AxDxInv_lo &
-                + ( H(i,j+1,k,n) - H(i,j,k,n) )*Fy(i  ,j+1,k  ,n)*AyDyInv_hi &
-                + ( H(i,j,k,n) - H(i,j-1,k,n) )*Fy(i  ,j  ,k  ,n)*AyDyInv_lo & 
-                + ( H(i,j,k+1,n) - H(i,j,k,n) )*Fz(i  ,j  ,k+1,n)*AzDzInv_hi &
-                + ( H(i,j,k,n) - H(i,j,k-1,n) )*Fz(i  ,j  ,k  ,n)*AzDzInv_lo )
-         enddo
-         enddo
-         enddo
-      endif
-
-!     zhi
-      if (fix_zhi) then
-         k = hi(3)
-         do j=lo(2),hi(2)
-         do i=lo(1),hi(1)
-            FiGHi(i,j,k) = 0.d0
-         enddo
-         enddo
-         do n=1,Nspec
-         do j=lo(2),hi(2)
-         do i=lo(1),hi(1)
-            AxDxInv_lo = 2.d0/(Ax(i,j,k)*dx(1))
-            AxDxInv_hi = 1.d0/(Ax(i+1,j,k)*dx(1))
-            AyDyInv_lo = 1.d0/(Ay(i,j,k)*dx(2))
-            AyDyInv_hi = 1.d0/(Ay(i,j+1,k)*dx(2))
-            AzDzInv_lo = 1.d0/(Az(i,j,k)*dx(3))
-            AzDzInv_hi = 1.d0/(Az(i,j,k+1)*dx(3))
-            FiGHi(i,j,k) = FiGHi(i,j,k) - 0.5d0* &
-                ( ( H(i+1,j,k,n) - H(i,j,k,n) )*Fx(i+1,j  ,k  ,n)*AxDxInv_hi &
-                + ( H(i,j,k,n) - H(i-1,j,k,n) )*Fx(i  ,j  ,k  ,n)*AxDxInv_lo &
-                + ( H(i,j+1,k,n) - H(i,j,k,n) )*Fy(i  ,j+1,k  ,n)*AyDyInv_hi &
-                + ( H(i,j,k,n) - H(i,j-1,k,n) )*Fy(i  ,j  ,k  ,n)*AyDyInv_lo &
-                + ( H(i,j,k+1,n) - H(i,j,k,n) )*Fz(i  ,j  ,k+1,n)*AzDzInv_hi &
-                + ( H(i,j,k,n) - H(i,j,k-1,n) )*Fz(i  ,j  ,k  ,n)*AzDzInv_lo )
-         enddo
-         enddo
-         enddo
-      endif
-
-      deallocate(H)
+      call amrex_deallocate(H)
  
   end subroutine enth_diff_terms
 

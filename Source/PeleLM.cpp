@@ -101,7 +101,6 @@ namespace
   Real                  temp_control;
   Real                  crse_dt;
   int                   chem_box_chop_threshold;
-  bool                  godunov_extrap_temp;
 }
 
 Real PeleLM::p_amb_old;
@@ -301,7 +300,6 @@ PeleLM::Initialize ()
   do_not_use_funccount    = false;
   do_active_control       = false;
   do_active_control_temp  = false;
-  godunov_extrap_temp     = true;
   temp_control            = -1;
   crse_dt                 = -1;
   chem_box_chop_threshold = -1;
@@ -377,7 +375,6 @@ PeleLM::Initialize ()
   pp.query("do_active_control",do_active_control);
   pp.query("do_active_control_temp",do_active_control_temp);
   pp.query("temp_control",temp_control);
-  pp.query("godunov_extrap_temp",godunov_extrap_temp);
 
   if (do_active_control_temp && temp_control <= 0)
     amrex::Error("temp_control MUST be set with do_active_control_temp");
@@ -3260,14 +3257,15 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
   }
 
   // build heat flux and temperature source terms
-  // compute flux[nspecies+1] = - lambda grad T
-  // compute flux[nspecies+2] = sum_m (H_m Gamma_m)
+  // compute flux[nspecies+1] = sum_m (H_m Gamma_m)
+  // compute flux[nspecies+2] = - lambda grad T
   //
   compute_enthalpy_fluxes(curr_time,betanp1);
 
   Dnew.setVal(0);
   flux_divergence(Dnew,DComp,SpecDiffusionFluxnp1,0,nspecies+1,-1);
-  flux_divergence(DDnew,0,SpecDiffusionFluxnp1,nspecies+2,1,-1);
+  flux_divergence(Dnew,DComp+nspecies+1,SpecDiffusionFluxnp1,nspecies+2,1,-1);
+  flux_divergence(DDnew,0,SpecDiffusionFluxnp1,nspecies+1,1,-1);
   //
   // Ensure consistent grow cells
   //
@@ -3399,7 +3397,6 @@ PeleLM::compute_enthalpy_fluxes (Real                   time,
   BL_ASSERT(whichTime == AmrOldTime || whichTime == AmrNewTime);    
 
   MultiFab* const * flux = (whichTime == AmrOldTime) ? SpecDiffusionFluxn   : SpecDiffusionFluxnp1;
-  MultiFab& FiGHi =        (whichTime == AmrOldTime) ? sumSpecFluxDotGradHn : sumSpecFluxDotGradHnp1;
 
   MultiFab& S = get_data(State_Type,time);
 
@@ -3489,7 +3486,6 @@ PeleLM::compute_enthalpy_fluxes (Real                   time,
                     fiz.dataPtr(FComp),ARLIM(fiz.loVect()),ARLIM(fiz.hiVect()),
                     area[2][mfi].dataPtr(), ARLIM(area[2][mfi].loVect()),ARLIM(area[2][mfi].hiVect()),
 #endif
-                    FiGHi[mfi].dataPtr(), ARLIM(FiGHi[mfi].loVect()), ARLIM(FiGHi[mfi].hiVect()),
                     Tbc.vect() );
   }
 
@@ -4134,32 +4130,22 @@ PeleLM::compute_differential_diffusion_terms (MultiFab& D,
   // Compute/adjust species fluxes/heat flux/conduction, save in class data
   compute_differential_diffusion_fluxes(time,dt);
 
-
   // Compute "D":
-  // D[0:nspecies-1] = -Sum{ Div( Fk ) }
-  // D[  nspecies  ] =  Div( (lambda/cp) Grad(h) )  ! Unused if godunov_extrap_temp=f
+  // D[0:nspecies-1] = -Div( Fk )
+  // D[  nspecies  ] =  Div( (lambda/cp) Grad(h) )  ! Unused currently
   // D[ nspecies+1 ] =  Div(   lambda    Grad(T) )
   //
-
-  flux_divergence(D,0,flux,0,nspecies+2,-1);
+  flux_divergence(D,0,flux,0,nspecies+1,-1);
+  flux_divergence(D,nspecies+1,flux,nspecies+2,1,-1);
   
   // compute -Sum{ Div( hk . Fk ) } a.k.a. the "diffdiff" terms
-  flux_divergence(DD,0,flux,nspecies+2,1,-1);
+  flux_divergence(DD,0,flux,nspecies+1,1,-1);
 
 
 #ifdef USE_WBAR
   // compute div beta_for_Wbar grad Wbar
   flux_divergence(DWbar,0,fluxWbar,0,nspecies,-1);
 #endif
-
-  /*
-    Compute D for Temp, D[nspecies+1] = Div(lambda.Grad(T))
-                                      - Sum{ hk Div( Fk ) } = D[nspecies+1] - Sum{hk.Dk}
-                                          (FIXME:   add DD later, when/if this term actually used...)
-  */
-  // NTW: This is added twice.  Once here and another time in advance()
-  // Want to have these terms for calc_divu...
-  //const MultiFab& S = whichTime==AmrOldTime ? get_old_data(State_Type) : get_new_data(State_Type);
 
   if (D.nGrow() > 0 && DD.nGrow() > 0)
   {
@@ -4982,111 +4968,60 @@ PeleLM::advance (Real time,
     showMF("sdc",get_new_data(RhoYdot_Type),"sdc_R_for_A_forcing",level,sdc_iter,parent->levelSteps(level));
     BL_PROFILE_VAR("HT::advance::advection", HTADV);
     
-    
-    
-    Forcing.setVal(0); //EM: not sure about this one here
-
+    Forcing.setVal(0);
     MultiFab RhoCpInv;
-    if (godunov_extrap_temp) {
-      /*
-        Subtract Sum[ R_k*H_k ], so that F[Temp] = Div(lambda.Grad(T))
-                                                 - Sum{ hk Div( Fk ) }
-                                                 - Sum{   hk . R_k   }  NOTE: DD added below
-      */
-      RhoCpInv.define(grids,dmap,1,nGrowAdvForcing);
-      FArrayBox H, Y, Tnew, tmp;
-      FillPatchIterator fpiT(*this,S_old,nGrowAdvForcing,prev_time,State_Type,Temp,1);
-      FillPatchIterator fpiRYH(*this,S_old,nGrowAdvForcing,prev_time,State_Type,Density,nspecies+2);
-      MultiFab& Tg = fpiT.get_mf();
-      MultiFab& RYHg = fpiRYH.get_mf();
+    /*
+      F[Temp] = ( Div(lambda.Grad(T)) - Sum{ hk.( R_k + Div( Fk ) ) } )/(rho.Cp)    NOTE: DD added below
+              = ( D[N+1] + Sum{ hk.( R_k + D[k] ) } ) / (rho.Cp)
+    */
+    RhoCpInv.define(grids,dmap,1,nGrowAdvForcing);
+    FArrayBox H, Y, Tnew, tmp;
+    FillPatchIterator fpiT(*this,S_old,nGrowAdvForcing,prev_time,State_Type,Temp,1);
+    FillPatchIterator fpiRYH(*this,S_old,nGrowAdvForcing,prev_time,State_Type,Density,nspecies+2);
+    MultiFab& Tg = fpiT.get_mf();
+    MultiFab& RYHg = fpiRYH.get_mf();
 
-      for (MFIter mfi(Tg); mfi.isValid(); ++mfi)
-      {
-        FArrayBox& f = Forcing[mfi];
-        FArrayBox& dn = Dn[mfi];
-        const FArrayBox& r = get_new_data(RhoYdot_Type)[mfi];
-        const Box& gbox = amrex::grow(mfi.validbox(),nGrowAdvForcing);
-
-        RYHg[mfi].invert(1.0,0,1);        // RYHg[0] = 1/rho
-
-        // Compute Sum{ hk . Rk } and Sum{ hk . Div(Fk) }
-        if (1) {
-          // Method A: Sum{ hk(T_old) * R_k }
-          H.resize(gbox,nspecies);
-          getChemSolve().getHGivenT(H,Tg[mfi],gbox,0,0);
-
-          tmp.resize(gbox,nspecies);
-          tmp.copy(r,gbox,0,gbox,0,nspecies); // copy Rk to tmp 
-          tmp.plus(dn,0,0,nspecies);        // add Dn[spec] to tmp so now we have (Rk + Div(Fk) )
-
-          // H.mult(r,0,0,nspecies);
-          H.mult(tmp,0,0,nspecies);         // Multiply by hk, so now we have hk.( Rk + Div(Fk) )
-          for (int n=0; n<nspecies; ++n) {
-            f.minus(H,n,nspecies,1);
-          }
-        }
-        else {
-          // Method B: The term is actually dT/dt due to reactions over dt, compute directly
-          Y.resize(gbox,nspecies);
-          Y.copy(r,gbox,0,gbox,0,nspecies);
-          Y.mult(dt);
-          Y.plus(RYHg[mfi],1,0,nspecies); // RhoY_new due to reactions
-
-          // Get Y_new and H_new due to reactions from RhoY_new and RhoH_new (= RhoH_old)
-          for (int n=0; n<nspecies; ++n) {
-            Y.mult(RYHg[mfi],0,n,1);
-          }
-          RYHg[mfi].mult(RYHg[mfi],0,nspecies+1,1); // RYH[nsp+1] = H
-
-          Tnew.resize(gbox,1);
-          Tnew.copy(Tg[mfi]); // Guess for T_new
-          const Real eps = getChemSolve().getHtoTerrMAX();
-          Real errMAX = eps*htt_hmixTYP;
-          int Niters = getChemSolve().getTGivenHY(Tnew,RYHg[mfi],Y,gbox,nspecies+1,0,0,errMAX);
-          if (Niters<0) Abort("Niters<0 in advance");
-
-          f.copy(Tnew,gbox,0,gbox,nspecies,1);
-          f.minus(Tg[mfi],gbox,gbox,0,nspecies,1);
-          f.mult(1/dt);
-        }
-        for (int n=0; n<nspecies; ++n) {
-          RYHg[mfi].mult(RYHg[mfi],0,n+1,1); // RYg[1:nsp] = Y
-        }
-        getChemSolve().getCpmixGivenTY(RhoCpInv[mfi],Tg[mfi],RYHg[mfi],gbox,0,1,0);
-        RhoCpInv[mfi].invert(1.0,0,1);
-        RhoCpInv[mfi].mult(RYHg[mfi],0,0,1); // RhoCpInv = 1/(rho.Cp)
-      }
-    }
-    showMF("sdc",Forcing,"sdc_preForcing_for_A",level,sdc_iter,parent->levelSteps(level));
-    showMF("sdc",Dn,"sdc_Dn_for_A",level,sdc_iter,parent->levelSteps(level));
-    showMF("sdc",*SpecDiffusionFluxn[0],"sdc_Gx_for_A",level,sdc_iter,parent->levelSteps(level));
-    showMF("sdc",*SpecDiffusionFluxn[1],"sdc_Gy_for_A",level,sdc_iter,parent->levelSteps(level));
-    
-    
 #ifdef _OPENMP
 #pragma omp parallel
 #endif
-    for (MFIter mfi(Forcing,true); mfi.isValid(); ++mfi)
+    for (MFIter mfi(Tg,true); mfi.isValid(); ++mfi)
     {
-      FArrayBox& f = Forcing[mfi];
-      const FArrayBox& dn = Dn[mfi];
-      //const FArrayBox& ddn = DDn[mfi];
-      const FArrayBox& r = get_new_data(RhoYdot_Type)[mfi];
-      const Box& gbox = mfi.growntilebox();
-      f.plus(dn,gbox,gbox,0,0,nspecies); // add Dn to RhoY forcing
-      f.plus(dn,gbox,gbox,nspecies+1,nspecies,1); // add Dn(Temp) to RhoH/Temp forcing
-      //f.copy(dn,gbox,0,gbox,0,nspecies+1); // add Dn to RhoY and RhoH
-      //f.plus(ddn,gbox,gbox,0,nspecies,1); // add DDn to RhoH forcing
-      if (closed_chamber == 1)
-      {
-        f.plus(dp0dt,nspecies,1); // add dp0/dt to enthalpy forcing
-      }
-      f.plus(r,gbox,gbox,0,0,nspecies); // add R to RhoY, no contribution for RhoH
-    }
-    
-    if (godunov_extrap_temp) {
-      MultiFab::Multiply(Forcing,RhoCpInv,0,nspecies,1,nGrowAdvForcing);
-      RhoCpInv.clear();
+        FArrayBox& f = Forcing[mfi];
+        FArrayBox& dn = Dn[mfi];
+        const FArrayBox& r = get_new_data(RhoYdot_Type)[mfi];
+        const Box& gbox = mfi.growntilebox(nGrowAdvForcing);
+
+        RYHg[mfi].invert(1.0,0,1);        // RYHg[0] = 1/rho
+
+        H.resize(gbox,nspecies);
+        getChemSolve().getHGivenT(H,Tg[mfi],gbox,0,0);
+
+        tmp.resize(gbox,nspecies);
+        tmp.copy(r,gbox,0,gbox,0,nspecies); // copy Rk to tmp 
+        tmp.plus(dn,0,0,nspecies);          // add Dn[spec] to tmp so now we have (Rk + Div(Fk) )
+
+        H.mult(tmp,0,0,nspecies);           // Multiply by hk, so now we have hk.( Rk + Div(Fk) )
+        for (int n=0; n<nspecies; ++n) {
+            f.minus(H,n,nspecies,1);        // Build - Sum{ hk.( Rk + Div(Fk) ) }
+        }
+
+        f.plus(dn,gbox,gbox,nspecies+1,nspecies,1); // Build D[N+1] - Sum{ hk.( Rk + Div(Fk) ) }
+        if (closed_chamber == 1)
+        {
+            f.plus(dp0dt,nspecies,1); // add dp0/dt to Temp forcing
+        }
+
+        for (int n=0; n<nspecies; ++n) {
+            RYHg[mfi].mult(RYHg[mfi],0,n+1,1); // RYg[1:nsp] = Y
+        }
+        getChemSolve().getCpmixGivenTY(RhoCpInv[mfi],Tg[mfi],RYHg[mfi],gbox,0,1,0); // here, RhoCpInv = Cp
+        RhoCpInv[mfi].invert(1.0,0,1);                                              // here, RhoCpInv = 1/(Cp)
+        RhoCpInv[mfi].mult(RYHg[mfi],0,0,1);                                        // here, RhoCpInv = 1/(rho.Cp)
+
+        f.mult(RhoCpInv[mfi],gbox,0,nspecies,1); // Scale, so that F[Temp]= (Dn[Temp]- Sum{hk.(Rk+Div(Fk))})/(Rho.Cp)
+
+        f.copy(dn,gbox,0,gbox,0,nspecies);          // initialize RhoY forcing with Dn
+        f.plus(r,gbox,gbox,0,0,nspecies);           // add R to RhoY, so that F[i] = Dn[i] + R[i]
     }
     
     BL_PROFILE_VAR_STOP(HTADV);
@@ -5813,87 +5748,130 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
   const Real  strt_time = ParallelDescriptor::second();
   const Real* dx        = geom.CellSize();
   const Real  prev_time = state[State_Type].prevTime();  
-  //const int nState = desc_lst[State_Type].nComp();
 
   MultiFab dummy(grids,dmap,1,0,MFInfo().SetAlloc(false));
-  
-  // We advect rho.Y and rho.h
-  FillPatchIterator S_fpi(*this,dummy,Godunov::hypgrow(),prev_time,State_Type,first_spec,nspecies+1);
+  FillPatchIterator S_fpi(*this,dummy,Godunov::hypgrow(),prev_time,State_Type,first_spec,nspecies);
+  FillPatchIterator T_fpi(*this,dummy,Godunov::hypgrow(),prev_time,State_Type,Temp,1);
   const MultiFab& Smf=S_fpi.get_mf();
+  const MultiFab& Tmf=T_fpi.get_mf();
 
 #ifdef _OPENMP
 #pragma omp parallel
 #endif
-{
-  FArrayBox cflux[BL_SPACEDIM];
-  FArrayBox edgstate[BL_SPACEDIM];
-  Vector<int> state_bc;
- 
-  for (MFIter S_mfi(Smf,true); S_mfi.isValid(); ++S_mfi)
   {
-    const Box& bx = S_mfi.tilebox();
-    const FArrayBox& S = Smf[S_mfi];
-    const FArrayBox& divu = DivU[S_mfi];
-    const FArrayBox& force = Force[S_mfi];
-
-    for (int d=0; d<BL_SPACEDIM; ++d)
+    FArrayBox edgeflux[BL_SPACEDIM], edgestate[BL_SPACEDIM], eR, eY, eH;
+    Vector<int> state_bc;
+ 
+    for (MFIter S_mfi(Smf,true); S_mfi.isValid(); ++S_mfi)
     {
-      const Box& ebx = amrex::surroundingNodes(bx,d);
-      cflux[d].resize(ebx,nspecies+1);
-      edgstate[d].resize(ebx,nspecies+1);
+      const Box& bx = S_mfi.tilebox();
+      const FArrayBox& S = Smf[S_mfi];
+      const FArrayBox& T = Tmf[S_mfi];
+      const FArrayBox& divu = DivU[S_mfi];
+      const FArrayBox& force = Force[S_mfi];
+
+      for (int d=0; d<BL_SPACEDIM; ++d)
+      {
+        const Box& ebx = amrex::surroundingNodes(bx,d);
+        edgeflux[d].resize(ebx,nspecies+3);
+        edgestate[d].resize(ebx,nspecies+3); // Both will be 0:rho, 1:nspecies: rho*Y, nspecies+1: rho*H, nspecies+2: Temp
+      }
+
+      // Advect RhoY
+      state_bc = fetchBCArray(State_Type,bx,first_spec,nspecies+1);
+      godunov->AdvectScalars(bx, dx, dt, 
+                             D_DECL(  area[0][S_mfi],  area[1][S_mfi],  area[2][S_mfi]),
+                             D_DECL( u_mac[0][S_mfi], u_mac[1][S_mfi], u_mac[2][S_mfi]), 0,
+                             D_DECL(edgeflux[0],edgeflux[1],edgeflux[2]), 1,
+                             D_DECL(edgestate[0],edgestate[1],edgestate[2]), 1,
+                             S, 0, nspecies, force, 0, divu, 0,
+                             (*aofs)[S_mfi], first_spec, advectionType, state_bc, FPU, volume[S_mfi]);
+
+      // Set flux, flux divergence, and face values for rho as sums of the corresponding RhoY quantities
+      (*aofs)[S_mfi].setVal(0,bx,Density,1);
+      for (int comp=0; comp < nspecies; comp++){      
+        (*aofs)[S_mfi].plus((*aofs)[S_mfi],bx,bx,first_spec+comp,Density,1);
+      }
+
+      for (int d=0; d<BL_SPACEDIM; d++)
+      {
+        const Box& ebox = surroundingNodes(bx,d);
+        edgestate[d].setVal(0,ebox,0,1);
+        edgeflux[d].setVal(0,ebox,0,1);
+        for (int comp=0; comp < nspecies; comp++){      
+          edgestate[d].plus(edgestate[d],comp+1,0,1);
+          edgeflux[d].plus(edgeflux[d],comp+1,0,1);
+        }
+      }
+
+      // Extrapolate Temp, then compute flux divergence and value for RhoH from face values of T,Y,Rho
+      // Note that this requires that the nspecies component of force be the temperature forcing
+      state_bc = fetchBCArray(State_Type,bx,Temp,1);
+      godunov->AdvectScalars(bx, dx, dt, 
+                             D_DECL(  area[0][S_mfi],  area[1][S_mfi],  area[2][S_mfi]),
+                             D_DECL( u_mac[0][S_mfi], u_mac[1][S_mfi], u_mac[2][S_mfi]), 0,
+                             D_DECL(edgeflux[0],edgeflux[1],edgeflux[2]), nspecies+2,
+                             D_DECL(edgestate[0],edgestate[1],edgestate[2]), nspecies+2,
+                             T, 0, 1, force, nspecies, divu, 0,
+                             (*aofs)[S_mfi], Temp, advectionType, state_bc, FPU, volume[S_mfi]);
+
+      // Compute RhoH on faces, store in nspecies+2 component of edgestate[d]
+      for (int d=0; d<BL_SPACEDIM; ++d)
+      {
+        const Box& ebox = surroundingNodes(bx,d);
+        eR.resize(ebox,1);
+        eR.copy(edgestate[d],0,0,1);
+        eR.invert(1);
+
+        eY.resize(ebox,nspecies);
+        eY.copy(edgestate[d],1,0,nspecies);
+        for (int n=0; n<nspecies; ++n) {
+          eY.mult(eR,0,n,1);
+        }
+
+        eH.resize(ebox,1);
+        getChemSolve().getHmixGivenTY(eH, edgestate[d], eY, ebox, nspecies+2, 0, 0);
+
+        edgeflux[d].copy(eH,ebox,0,ebox,nspecies+1,1);       // Copy H into flux 
+        edgeflux[d].mult(edgeflux[d],ebox,0,nspecies+1,1);   // Make H.Rho.Umac into flux
+        edgestate[d].copy(eH,ebox,0,ebox,nspecies+1,1);      // Copy H into estate
+        edgestate[d].mult(edgestate[d],ebox,0,nspecies+1,1); // Make H.Rho into estate
+      }
+
+      // Compute -Div(flux.Area) for RhoH, return Area-scaled (extensive) fluxes
+      int avcomp = 0;
+      int ucomp = 0;
+      int iconserv = advectionType[RhoH] == Conservative ? 1 : 0;
+      godunov->ComputeAofs(bx,
+                           D_DECL(area[0][S_mfi],area[1][S_mfi],area[2][S_mfi]),D_DECL(avcomp,avcomp,avcomp),
+                           D_DECL(u_mac[0][S_mfi],u_mac[1][S_mfi],u_mac[2][S_mfi]),D_DECL(ucomp,ucomp,ucomp),
+                           D_DECL(edgeflux[0],edgeflux[1],edgeflux[2]),D_DECL(nspecies+1,nspecies+1,nspecies+1),
+                           volume[S_mfi], avcomp, (*aofs)[S_mfi], RhoH, iconserv);
+
+      // Load up non-overlapping bits of edge states and fluxes into mfs
+      for (int d=0; d<BL_SPACEDIM; ++d)
+      {
+        const Box& efbox = S_mfi.nodaltilebox(d);
+        (*EdgeState[d])[S_mfi].copy(edgestate[d],efbox,0,efbox,Density,nspecies+2);
+        (*EdgeState[d])[S_mfi].copy(edgestate[d],efbox,nspecies+2,efbox,Temp,1);
+        (*EdgeFlux[d])[S_mfi].copy(edgeflux[d],efbox,0,efbox,Density,nspecies+2);
+        (*EdgeFlux[d])[S_mfi].copy(edgeflux[d],efbox,nspecies+2,efbox,Temp,1);
+      }
     }
-     
-    (*aofs)[S_mfi].setVal(0,bx,Density,NUM_SCALARS);
-    for (int d=0; d<BL_SPACEDIM; ++d)
-    {
-      const Box& ebx = S_mfi.nodaltilebox(d);
-      (*EdgeState[d])[S_mfi].setVal(0,ebx,Density,NUM_SCALARS);
-      (*EdgeFlux[d])[S_mfi].setVal(0,ebx,Density,NUM_SCALARS);
-    } 
-        
-    state_bc = fetchBCArray(State_Type,bx,first_spec,nspecies+1);
-
-    // Note that the FPU argument is no longer used in IAMR->Godunov.cpp because FPU is now default
-    godunov->AdvectScalars(bx, dx, dt, 
-                           D_DECL(  area[0][S_mfi],  area[1][S_mfi],  area[2][S_mfi]),
-                           D_DECL( u_mac[0][S_mfi], u_mac[1][S_mfi], u_mac[2][S_mfi]),
-                           D_DECL(cflux[0],cflux[1],cflux[2]),
-                           D_DECL(edgstate[0],edgstate[1],edgstate[2]),
-                           S, 0, nspecies+1 , force, 0, divu, 0,
-                           (*aofs)[S_mfi], first_spec, advectionType, state_bc, FPU, volume[S_mfi]);
-       
-    // Accumulate rho flux divergence, rho on edges, and rho flux on edges
-    
-     for (int d=0; d<BL_SPACEDIM; ++d)
-     {
-       const Box& ebx = S_mfi.nodaltilebox(d);
-       (*EdgeFlux[d])[S_mfi].copy(cflux[d],ebx,0,ebx,first_spec,nspecies+1);
-       (*EdgeState[d])[S_mfi].copy(edgstate[d],ebx,0,ebx,first_spec,nspecies+1);
-     }
-          
-     for (int comp = 0 ; comp < nspecies+1 ; comp++)
-     {      
-       int state_ind = first_spec + comp;
-       if (state_ind >= first_spec && state_ind <= last_spec)
-       {
-         (*aofs)[S_mfi].plus((*aofs)[S_mfi],bx,bx,state_ind,Density,1);
-         for (int d=0; d<BL_SPACEDIM; d++)
-         {
-           const Box& ebx = S_mfi.nodaltilebox(d);
-           (*EdgeState[d])[S_mfi].plus(edgstate[d],ebx,ebx,comp,Density,1);
-           (*EdgeFlux[d])[S_mfi].plus(cflux[d],ebx,ebx,comp,Density,1);
-         }
-       }
-     }
-
-  }    
-}
+  }
 
   showMF("sdc",*EdgeState[0],"sdc_ESTATE_x",level,parent->levelSteps(level));
   showMF("sdc",*EdgeState[1],"sdc_ESTATE_y",level,parent->levelSteps(level));
 #if BL_SPACEDIM==3
   showMF("sdc",*EdgeState[2],"sdc_ESTATE_z",level,parent->levelSteps(level));
 #endif
+
+  showMF("sdc",*EdgeFlux[0],"sdc_FLUX_x",level,parent->levelSteps(level));
+  showMF("sdc",*EdgeFlux[1],"sdc_FLUX_y",level,parent->levelSteps(level));
+#if BL_SPACEDIM==3
+  showMF("sdc",*EdgeFlux[2],"sdc_FLUX_z",level,parent->levelSteps(level));
+#endif
+  showMF("sdc",*aofs,"sdc_aofs",level,parent->levelSteps(level));
 
   // NOTE: Change sense of aofs here so that d/dt ~ aofs...be sure we use our own update function!
   aofs->mult(-1,Density,NUM_SCALARS);
@@ -7637,8 +7615,8 @@ PeleLM::calc_divu (Real      time,
   // we don't want to update flux registers due to fluxes in divu computation
   bool do_reflux_hold = do_reflux;
   do_reflux = false;
-    
-  // DD is computed and stored in divu, but we don't need it and overwrite
+
+  // DD is computed and stored in divu, and passed in to initialize the calc of divu
 #ifdef USE_WBAR
   compute_differential_diffusion_terms(mcViscTerms,divu,DWbar_temp,time,dt);
 #else
@@ -7677,10 +7655,6 @@ PeleLM::calc_divu (Real      time,
     }
   }
 
-  const TimeLevel whichTime = which_time(State_Type,time);
-  MultiFab& FiGHi = (whichTime == AmrOldTime) ? sumSpecFluxDotGradHn : sumSpecFluxDotGradHnp1;
-  MultiFab::Copy(divu,FiGHi,0,0,1,0);
-  
 #ifdef _OPENMP
 #pragma omp parallel
 #endif
