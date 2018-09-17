@@ -125,10 +125,9 @@ ChemDriver::Parameter::GetParamString() const
   else if (param_id == SRI_D)     {return "SRI_D";}
   else if (param_id == SRI_E)     {return "SRI_E";}
   else if (param_id == THIRD_BODY) {return "THIRD_BODY";}
-  else{
-      amrex::Abort("Unknown reaction parameter");
-  }
 
+  amrex::Abort("Unknown reaction parameter");
+  return "Oops";
 }
 std::ostream&
 ChemDriver::Parameter::operator<<(std::ostream& os) const
@@ -267,8 +266,8 @@ static void modify_parameters(ChemDriver& cd)
 	}
 
 	std::string dptype; pppd.get("type",dptype);
-	std::map<std::string,REACTION_PARAMETER>::const_iterator it = PTypeMap.find(dptype);
-	if (it == PTypeMap.end()) {
+	std::map<std::string,REACTION_PARAMETER>::const_iterator it1 = PTypeMap.find(dptype);
+	if (it1 == PTypeMap.end()) {
 	  amrex::Abort("Unrecognized dependent reaction parameter");
 	}
 
@@ -279,7 +278,7 @@ static void modify_parameters(ChemDriver& cd)
 	  BL_ASSERT(id >= 0);
 	}
 
-	dependent_parameters[i][j].reset(new ChemDriver::Parameter(dpreaction_id,it->second,did));
+	dependent_parameters[i][j].reset(new ChemDriver::Parameter(dpreaction_id,it1->second,did));
       }
     }
   }
@@ -1320,16 +1319,16 @@ ChemDriver::getOTradLoss_TDF(FArrayBox&       Qloss,
 
 ChemDriver::Edge::Edge (const std::string& n1,
 			const std::string& n2,
-			const Vector<std::pair<int,Real> > rwl,
-			const ChemDriver* CD)
-  : sp1(n1), sp2(n2), RWL(rwl), cd(CD) {}
+			const Vector<std::pair<int,Real> > rwl_,
+			const ChemDriver* cd_)
+  : sp1(n1), sp2(n2), RWL(rwl_), cd(cd_) {}
 
 ChemDriver::Edge::Edge (const std::string& n1,
 			const std::string& n2,
 			int reac,
 			Real weight,
-			const ChemDriver* CD)
-  : sp1(n1), sp2(n2), cd(CD) { RWL.push_back(std::pair<int,Real>(reac,weight)); }
+			const ChemDriver* cd_)
+  : sp1(n1), sp2(n2), cd(cd_) { RWL.push_back(std::pair<int,Real>(reac,weight)); }
 
 int
 ChemDriver::Edge::equivSign (const Edge& rhs) const
