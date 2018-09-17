@@ -3230,6 +3230,18 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
   // Modify/update new-time fluxes to ensure sum of species fluxes = 0
   //
   adjust_spec_diffusion_fluxes(curr_time);
+
+  // build heat flux and temperature source terms
+  // compute flux[nspecies+1] = sum_m (H_m Gamma_m)
+  // compute flux[nspecies+2] = - lambda grad T
+  //
+  compute_enthalpy_fluxes(curr_time,betanp1);
+
+  Dnew.setVal(0);
+  flux_divergence(Dnew,DComp,SpecDiffusionFluxnp1,0,nspecies+1,-1);
+  flux_divergence(Dnew,DComp+nspecies+1,SpecDiffusionFluxnp1,nspecies+2,1,-1);
+  flux_divergence(DDnew,0,SpecDiffusionFluxnp1,nspecies+1,1,-1);
+
   //
   // AJN FLUXREG
   // We have just performed the correction diffusion solve for Y_m and h
@@ -3256,25 +3268,6 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
     }
   }
 
-  // build heat flux and temperature source terms
-  // compute flux[nspecies+1] = sum_m (H_m Gamma_m)
-  // compute flux[nspecies+2] = - lambda grad T
-  //
-  compute_enthalpy_fluxes(curr_time,betanp1);
-
-  Dnew.setVal(0);
-  flux_divergence(Dnew,DComp,SpecDiffusionFluxnp1,0,nspecies+1,-1);
-  flux_divergence(Dnew,DComp+nspecies+1,SpecDiffusionFluxnp1,nspecies+2,1,-1);
-  flux_divergence(DDnew,0,SpecDiffusionFluxnp1,nspecies+1,1,-1);
-
-  ParmParse pp("marc");
-  std::string file;
-  pp.get("file",file);
-  VisMF::Write(Dnew,file);
-  Abort();
-  
-
-    
   //
   // Ensure consistent grow cells
   //
@@ -3429,7 +3422,7 @@ PeleLM::compute_enthalpy_fluxes (Real                   time,
 #endif
   {
     Box edomain[BL_SPACEDIM];
-    FArrayBox ftmp[BL_SPACEDIM]
+    FArrayBox ftmp[BL_SPACEDIM];
     for (int d=0; d<BL_SPACEDIM; ++d) {
       edomain[d] = surroundingNodes(domain,d);
     }
@@ -3438,37 +3431,38 @@ PeleLM::compute_enthalpy_fluxes (Real                   time,
     for (MFIter mfi(S,true); mfi.isValid(); ++mfi)
     {
       const Box& box = mfi.tilebox();
-      
-      int              FComp    = 0;
-      int              TComp    = 0;
-      int              RhoYComp = 0;
-      int              dComp    = 0;            
-      FArrayBox&       T        = Tmf[mfi];
-      FArrayBox&       RhoY     = rYmf[mfi];
+      const FArrayBox& T    = Tmf[mfi];
+      const FArrayBox& RhoY = rYmf[mfi];
       
       for (int d=0; d<BL_SPACEDIM; ++d) {
         Box ebox = surroundingNodes(box,d);
-        ftmp[d].resize(ebox,nspecies+2);
-        ftmp[d].copy(*flux[d],ebox,FComp,0,nspecies);
+        ftmp[d].resize(ebox,nspecies+3);
+        ftmp[d].copy((*flux[d])[mfi],ebox,0,ebox,0,nspecies+1);
       }
 
       enth_diff_terms(box.loVect(), box.hiVect(), domain.loVect(), domain.hiVect(), dx,
-                      T.dataPtr(TComp), ARLIM(T.loVect()),  ARLIM(T.hiVect()),
-                      RhoY.dataPtr(RhoYComp), ARLIM(RhoY.loVect()),  ARLIM(RhoY.hiVect()),
+                      T.dataPtr(), ARLIM(T.loVect()),  ARLIM(T.hiVect()),
+                      RhoY.dataPtr(), ARLIM(RhoY.loVect()),  ARLIM(RhoY.hiVect()),
          
-                    rDx.dataPtr(dComp),ARLIM(rDx.loVect()),ARLIM(rDx.hiVect()),
-                    fix.dataPtr(FComp),ARLIM(fix.loVect()),ARLIM(fix.hiVect()),
-                    area[0][mfi].dataPtr(), ARLIM(area[0][mfi].loVect()),ARLIM(area[0][mfi].hiVect()),
+                      (*beta[0])[mfi].dataPtr(),ARLIM((*beta[0])[mfi].loVect()),ARLIM((*beta[0])[mfi].hiVect()),
+                      ftmp[0].dataPtr(),ARLIM(ftmp[0].loVect()),ARLIM(ftmp[0].hiVect()),
+                      area[0][mfi].dataPtr(), ARLIM(area[0][mfi].loVect()),ARLIM(area[0][mfi].hiVect()),
                                
-                    rDy.dataPtr(dComp),ARLIM(rDy.loVect()),ARLIM(rDy.hiVect()),
-                    fiy.dataPtr(FComp),ARLIM(fiy.loVect()),ARLIM(fiy.hiVect()),
-                    area[1][mfi].dataPtr(), ARLIM(area[1][mfi].loVect()),ARLIM(area[1][mfi].hiVect()),
+                      (*beta[1])[mfi].dataPtr(),ARLIM((*beta[1])[mfi].loVect()),ARLIM((*beta[1])[mfi].hiVect()),
+                      ftmp[1].dataPtr(),ARLIM(ftmp[1].loVect()),ARLIM(ftmp[1].hiVect()),
+                      area[1][mfi].dataPtr(), ARLIM(area[1][mfi].loVect()),ARLIM(area[1][mfi].hiVect()),
 #if BL_SPACEDIM == 3
-                    rDz.dataPtr(dComp),ARLIM(rDz.loVect()),ARLIM(rDz.hiVect()),
-                    fiz.dataPtr(FComp),ARLIM(fiz.loVect()),ARLIM(fiz.hiVect()),
-                    area[2][mfi].dataPtr(), ARLIM(area[2][mfi].loVect()),ARLIM(area[2][mfi].hiVect()),
+                      (*beta[2])[mfi].dataPtr(),ARLIM((*beta[2])[mfi].loVect()),ARLIM((*beta[2])[mfi].hiVect()),
+                      ftmp[2].dataPtr(),ARLIM(ftmp[2].loVect()),ARLIM(ftmp[2].hiVect()),
+                      area[2][mfi].dataPtr(), ARLIM(area[2][mfi].loVect()),ARLIM(area[2][mfi].hiVect()),
 #endif
-                    Tbc.vect() );
+                      Tbc.vect() );
+
+      for (int d=0; d<BL_SPACEDIM; ++d) {
+        Box etbox = mfi.nodaltilebox(d);
+        (*flux[d])[mfi].copy(ftmp[d],etbox,nspecies+1,etbox,nspecies+1,2);
+      }
+    }
   }
 
   if (verbose > 1)
@@ -4974,18 +4968,18 @@ PeleLM::advance (Real time,
         const FArrayBox& r = get_new_data(RhoYdot_Type)[mfi];
         const Box& gbox = mfi.growntilebox();
 
-        RYHg[mfi].invert(1.0,0,1);        // RYHg[0] = 1/rho
+        RYHg[mfi].invert(1.0,gbox,0,1);        // RYHg[0] = 1/rho
 
         H.resize(gbox,nspecies);
         getChemSolve().getHGivenT(H,Tg[mfi],gbox,0,0);
 
         tmp.resize(gbox,nspecies);
-        tmp.copy(r,gbox,0,gbox,0,nspecies); // copy Rk to tmp 
-        tmp.plus(dn,0,0,nspecies);          // add Dn[spec] to tmp so now we have (Rk + Div(Fk) )
+        tmp.copy(r,gbox,0,gbox,0,nspecies);         // copy Rk to tmp 
+        tmp.plus(dn,gbox,gbox,0,0,nspecies);        // add Dn[spec] to tmp so now we have (Rk + Div(Fk) )
 
-        H.mult(tmp,0,0,nspecies);           // Multiply by hk, so now we have hk.( Rk + Div(Fk) )
+        H.mult(tmp,gbox,gbox,0,0,nspecies);         // Multiply by hk, so now we have hk.( Rk + Div(Fk) )
         for (int n=0; n<nspecies; ++n) {
-          f.minus(H,n,nspecies,1);        // Build - Sum{ hk.( Rk + Div(Fk) ) }
+          f.minus(H,gbox,gbox,n,nspecies,1);        // Build - Sum{ hk.( Rk + Div(Fk) ) }
         }
 
         f.plus(dn,gbox,gbox,nspecies+1,nspecies,1); // Build D[N+1] - Sum{ hk.( Rk + Div(Fk) ) }
@@ -4995,13 +4989,13 @@ PeleLM::advance (Real time,
         }
 
         for (int n=0; n<nspecies; ++n) {
-          RYHg[mfi].mult(RYHg[mfi],0,n+1,1); // RYg[1:nsp] = Y
+          RYHg[mfi].mult(RYHg[mfi],gbox,gbox,0,n+1,1); // RYg[1:nsp] = Y
         }
         getChemSolve().getCpmixGivenTY(RhoCpInv[mfi],Tg[mfi],RYHg[mfi],gbox,0,1,0); // here, RhoCpInv = Cp
-        RhoCpInv[mfi].invert(1.0,0,1);                                              // here, RhoCpInv = 1/(Cp)
-        RhoCpInv[mfi].mult(RYHg[mfi],0,0,1);                                        // here, RhoCpInv = 1/(rho.Cp)
+        RhoCpInv[mfi].invert(1.0,gbox,0,1);                                              // here, RhoCpInv = 1/(Cp)
+        RhoCpInv[mfi].mult(RYHg[mfi],gbox,gbox,0,0,1);                                        // here, RhoCpInv = 1/(rho.Cp)
 
-        f.mult(RhoCpInv[mfi],gbox,0,nspecies,1); // Scale, so that F[Temp]= (Dn[Temp]- Sum{hk.(Rk+Div(Fk))})/(Rho.Cp)
+        f.mult(RhoCpInv[mfi],gbox,0,nspecies,1);    // Scale, so that F[Temp]= (Dn[Temp]- Sum{hk.(Rk+Div(Fk))})/(Rho.Cp)
 
         f.copy(dn,gbox,0,gbox,0,nspecies);          // initialize RhoY forcing with Dn
         f.plus(r,gbox,gbox,0,0,nspecies);           // add R to RhoY, so that F[i] = Dn[i] + R[i]
@@ -5073,8 +5067,7 @@ PeleLM::advance (Real time,
       f.minus(dnp1,box,box,nspecies+1,nspecies,1); // subtract Div(lamGradT) in Dnp1 from RhoH
       f.plus(ddn  ,box,box,0,nspecies,1); // add DDn to RhoH, no contribution for RhoY
       f.plus(ddnp1,box,box,0,nspecies,1); // add DDnp1 to RhoH, no contribution for RhoY
-      f.mult(0.5,box,0,nspecies+1);  //warning here for tiling
-      //f.mult(0.5);
+      f.mult(0.5,box,0,nspecies+1);
 #ifdef USE_WBAR
       const FArrayBox& dwbar = DWbar[mfi];
       f.plus(dwbar,box,box,0,0,nspecies); // add DWbar to RhoY
@@ -5114,7 +5107,7 @@ PeleLM::advance (Real time,
   {
     for (MFIter mfi(Forcing,true); mfi.isValid(); ++mfi) 
     {
-      const Box& box = mfi.validbox();
+      const Box& box = mfi.tilebox();
       FArrayBox& f = Forcing[mfi];
       const FArrayBox& a = (*aofs)[mfi];
       const FArrayBox& dn = Dn[mfi];
@@ -5130,8 +5123,7 @@ PeleLM::advance (Real time,
       f.minus(dnp1,box,box,nspecies+1,nspecies,1); // subtract Div(lam.GradT) in Dnp1 from RhoH
       f.plus(ddn  ,box,box,0,nspecies,1);   // add DDn to RhoH, no contribution for RhoY
       f.plus(ddnp1,box,box,0,nspecies,1);   // add DDnp1 to RhoH, no contribution for RhoY
-      //f.mult(0.5);
-      f.mult(0.5,box,0,nspecies+1); //warning here for tiling
+      f.mult(0.5,box,0,nspecies+1);
       if (closed_chamber == 1)
       {
         f.plus(dp0dt,box,nspecies,1); // add dp0/dt to enthalpy forcing
@@ -5154,6 +5146,7 @@ PeleLM::advance (Real time,
     showMF("sdc",Forcing,"sdc_Forcing_before_R",level,sdc_iter,parent->levelSteps(level));
     BL_PROFILE_VAR_START(HTREAC);
     advance_chemistry(S_old,S_new,dt,Forcing,0);
+
     RhoH_to_Temp(S_new);
     BL_PROFILE_VAR_STOP(HTREAC);
     showMF("sdc",S_new,"sdc_Snew_after_R",level,sdc_iter,parent->levelSteps(level));
@@ -5760,6 +5753,8 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
         const Box& ebx = amrex::surroundingNodes(bx,d);
         edgeflux[d].resize(ebx,nspecies+3);
         edgestate[d].resize(ebx,nspecies+3); // Both will be 0:rho, 1:nspecies: rho*Y, nspecies+1: rho*H, nspecies+2: Temp
+        edgeflux[d].setVal(0);
+        edgestate[d].setVal(0);
       }
 
       // Advect RhoY

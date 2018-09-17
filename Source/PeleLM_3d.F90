@@ -245,9 +245,8 @@ contains
 
       call HfromT(lob, hib, H, DIMS(T), T, DIMS(T))
 
-!     On entry, Fx(1:Nspec) = spec flux
+!     On entry, Fx(1:Nspec) = spec flux, Fx(Nspec+1) = rhoh flux (both untouched)
 !     On exit:
-!     Fx(Nspec+1) = untouched
 !     Fx(Nspec+2) = sum[ (species flux).(species enthalpy) ]
 !     Fx(Nspec+3) = extensive heat conduction
 
@@ -289,7 +288,6 @@ contains
          enddo
          enddo
       endif
-
 !     xhi
       if (hi(1).eq.dhi(1) .and. Tbc(1,2).eq.EXT_DIR) then
          i = dhi(1)+1
@@ -298,8 +296,7 @@ contains
             Fx(i,j,k,Nspec+3) = 2*Fx(i,j,k,Nspec+3)
          enddo
          enddo
-      endif
-      
+      endif      
 !     ylo
       if (lo(2).eq.dlo(2) .and. Tbc(2,1).eq.EXT_DIR) then
          j=lo(2)
@@ -309,7 +306,6 @@ contains
          enddo
          enddo
       endif
-      
 !     yhi
       if (hi(2).eq.dhi(2) .and. Tbc(2,2).eq.EXT_DIR) then
          j=hi(2)+1
@@ -318,8 +314,7 @@ contains
             Fy(i,j,k,Nspec+3) = 2*Fy(i,j,k,Nspec+3)
          enddo
          enddo
-      endif
-      
+      endif      
 !     zlo
       if (lo(3).eq.dlo(3) .and. Tbc(3,1).eq.EXT_DIR) then
          k=lo(3)
@@ -329,7 +324,6 @@ contains
          enddo
          enddo
       endif
-      
 !     zhi
       if (hi(3).eq.dhi(3) .and. Tbc(3,2).eq.EXT_DIR) then
          k=hi(3)+1
@@ -378,7 +372,7 @@ contains
 
 !     xlo
       if (lo(1).eq.dlo(1) .and. Tbc(1,1).eq.EXT_DIR) then
-         i = dlo_x(1)
+         i = dlo(1)
          Fx(i,lo(2):hi(2),lo(3):hi(3),Nspec+2) = 0.d0
          do n=1,Nspec
             do k=lo(3),hi(3)
@@ -387,8 +381,7 @@ contains
             enddo
             enddo
          enddo
-      endif
-      
+      endif      
 !     xhi
       if (hi(1).eq.dhi(1) .and. Tbc(1,2).eq.EXT_DIR) then
          i = dhi(1)+1
@@ -401,7 +394,6 @@ contains
             enddo
          enddo
       endif
-      
 !     ylo
       if (lo(2).eq.dlo(2) .and. Tbc(2,1).eq.EXT_DIR) then
          j = dlo(2)
@@ -414,7 +406,6 @@ contains
             enddo
          enddo
       endif
-      
 !     yhi
       if (hi(2).eq.dhi(2) .and. Tbc(2,2).eq.EXT_DIR) then
          j = dhi(2)+1
@@ -427,7 +418,6 @@ contains
             enddo
          enddo
       endif
-      
 !     zlo
       if (lo(3).eq.dlo(3) .and. Tbc(3,1).eq.EXT_DIR) then
          k = dlo(3)
@@ -440,7 +430,6 @@ contains
             enddo
          enddo
       endif
-      
 !     zhi
       if (hi(3).eq.dhi(3) .and. Tbc(3,2).eq.EXT_DIR) then
          k = dhi(3)+1
