@@ -522,7 +522,6 @@ private:
   static std::map<std::string,amrex::Real> typical_values_FileVals;
   static int         sdc_iterMAX;
   static int         num_mac_sync_iter;
-  static int         n_forkjoin_tasks;
     
   static int nGrowAdvForcing;
 };
