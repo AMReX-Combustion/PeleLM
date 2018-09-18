@@ -3285,11 +3285,12 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
 
     for (int L=0; L<num_deltaT_iters; ++L)
     {
-      MultiFab::Copy(Trhs,Force,nspecies,0,1,0);       // Initialize Rhs=(Dn[N+1]-Dnp1[N+1]+DDn-DDnp1)/2 + A
+      MultiFab::Copy(Trhs,get_old_data(State_Type),RhoH,0,1,0);     // Init with  (rho.h)^n
       MultiFab::Subtract(Trhs,get_new_data(State_Type),RhoH,0,1,0); // Add -(rho.h)^{n+1,k+1,L}
-      MultiFab::Add(Trhs,get_old_data(State_Type),RhoH,0,1,0);      // Add  (rho.h)^n
-      MultiFab::Add(Trhs,Dnew,DComp+nspecies+1,0,1,0);              // Add Dnew[N+1]
-      MultiFab::Add(Trhs,DDnew,0,0,1,0);                            // Add DDnew
+      Trhs.mult(1/dt);                                              // R = ( (rho.h)^n - (rho.h)^{n+1,k+1,L} )/dt
+      MultiFab::Add(Trhs,Force,nspecies,0,1,0);                     //      + (Dn[N+1]-Dnp1[N+1]+DDn-DDnp1)/2 + A
+      MultiFab::Add(Trhs,Dnew,DComp+nspecies+1,0,1,0);              //      +  Dnew[N+1]
+      MultiFab::Add(Trhs,DDnew,0,0,1,0);                            //      +  DDnew
 
       // Use S_new as location for deltaT from solve
       MultiFab::Copy(Told,*Snp1[0],Temp,0,1,1); // Save a copy of T^{k+1,L}
