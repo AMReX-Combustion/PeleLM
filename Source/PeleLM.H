@@ -224,7 +224,9 @@ private:
   // enum YdotAction { HT_EstimateYdotNew, HT_ImproveYdotOld, HT_LeaveYdotAlone };
   // enum Solver_Status {HT_InProgress, HT_Stalled, HT_Solved};
 
-  void adjust_spec_diffusion_fluxes (amrex::Real time);
+  void adjust_spec_diffusion_fluxes (amrex::MultiFab* const * flux,
+                                     const amrex::MultiFab&   S,
+                                     const amrex::BCRec&      bc);
 
   void advance_chemistry (amrex::MultiFab&       mf_old,
                           amrex::MultiFab&       mf_new,
@@ -244,7 +246,10 @@ private:
 
   void checkTimeStep (amrex::Real dt);
 
-  void compute_differential_diffusion_fluxes (const amrex::Real& time,
+  void compute_differential_diffusion_fluxes (const amrex::MultiFab& S,
+                                              const amrex::MultiFab* Scrse,
+                                              amrex::MultiFab* const * flux,
+                                              const amrex::MultiFab* const * beta,
                                               const amrex::Real& dt);
 
   void compute_differential_diffusion_terms (amrex::MultiFab& D,
@@ -255,7 +260,8 @@ private:
                                              amrex::Real      time,
                                              amrex::Real      dt);
 
-  void compute_enthalpy_fluxes (amrex::Real                   time,
+  void compute_enthalpy_fluxes (const amrex::MultiFab&        S,
+                                amrex::MultiFab* const*       flux,
                                 const amrex::MultiFab* const* beta);
 
   enum HowToFillGrow {HT_ZERO_GROW_CELLS, HT_EXTRAP_GROW_CELLS, HT_NUM_GROW_OPTIONS};
