@@ -272,8 +272,9 @@ private:
                                              int             nGrow = 0,
                                              HowToFillGrow   how = HT_ZERO_GROW_CELLS);
 
-  void compute_rhohmix (amrex::Real       time,
-                        amrex::MultiFab& rhohmix);
+  void compute_rhohmix (amrex::Real      time,
+                        amrex::MultiFab& rhohmix,
+                        int              dComp);
 
   void compute_rhoRT (const amrex::MultiFab& S,
                       amrex::MultiFab&       P,

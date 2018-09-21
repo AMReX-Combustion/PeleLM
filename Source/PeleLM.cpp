@@ -226,7 +226,8 @@ PeleLM::timestamp_add_extras (int lev,
 
 void
 PeleLM::compute_rhohmix (Real      time,
-                         MultiFab& rhohmix)
+                         MultiFab& rhohmix,
+                         int       dComp)
 {
   const Real strt_time = ParallelDescriptor::second();
 
@@ -237,7 +238,6 @@ PeleLM::compute_rhohmix (Real      time,
   const int sCompR = Density - sComp;
   const int sCompT = Temp - sComp;
   const int sCompY = first_spec - sComp;
-  const int sCompH = 0;
 
   FillPatchIterator fpi(*this,rhohmix,ngrow,time,State_Type,sComp,nComp);
   MultiFab& statemf = fpi.get_mf();
@@ -265,11 +265,11 @@ PeleLM::compute_rhohmix (Real      time,
       }
 	    
       getChemSolve().getHmixGivenTY(rhohmix[mfi],sfab,sfab,bx,
-                                    sCompT,sCompY,sCompH);
+                                    sCompT,sCompY,dComp);
       //
       // Convert hmix to rho*hmix
       //
-      rhohmix[mfi].mult(sfab,bx,sCompR,sCompH,1);
+      rhohmix[mfi].mult(sfab,bx,sCompR,dComp,1);
     }
   }
 
@@ -1728,27 +1728,20 @@ PeleLM::initData ()
 void
 PeleLM::initDataOtherTypes ()
 {
-  // to be consistent with Strang code, compute enthalpy with the EOS
+  // Fill RhoH component using EOS function explicitly
   const Real cur_time  = state[State_Type].curTime();
-  {
-    MultiFab rhoh(grids,dmap,1,0);
-    compute_rhohmix(cur_time,rhoh);
-    get_new_data(State_Type).copy(rhoh,0,RhoH,1);
-  }
-  //
+  compute_rhohmix(cur_time,get_new_data(State_Type),RhoH);
+
   // Assume that by now, S_new has "good" data
-  //
   MultiFab& R = get_new_data(RhoYdot_Type);
 
   // It is our current belief that at the beginning of a simulation we want omegadot=0
-  // This is how the Strang code does it
-  //    compute_instantaneous_reaction_rates(R,get_new_data(State_Type),nGrow);
   get_new_data(RhoYdot_Type).setVal(0);
 
-  showMFsub("1D",R,stripBox,"1D_dd_idot_R",level);
-
+  // Put something reasonable into the FuncCount variable
   get_new_data(FuncCount_Type).setVal(1);
 
+  // Fill the thermodynamic pressure
   setThermoPress(state[State_Type].curTime());
 }
 
