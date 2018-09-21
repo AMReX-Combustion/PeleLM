@@ -3310,34 +3310,7 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
                                     volume,a,crse_ratio,theBCs[Temp],geom,
                                     add_hoop_stress,solve_mode,add_old_time_divFlux,{true});
 
-      // Check residual:
-      MultiFab DdT(grids,dmap,1,0);
-      flux_divergence(DdT,0,SpecDiffusionFluxnp1,nspecies+2,1,-1);
-      MultiFab::Add(DdT,Trhs,0,0,1,0);
-      MultiFab tt(grids,dmap,1,0);
-      MultiFab::Copy(tt,*Snp1[0],Density,0,1,0);
-      MultiFab::Multiply(tt,Cp,0,0,1,0);
-      MultiFab::Multiply(tt,*Snp1[0],Temp,0,1,0);
-      tt.mult(-1/dt);
-      
-      MultiFab::Add(tt,DdT,0,0,1,0);
-      tt.mult(dt);
-      MultiFab::Multiply(tt,volume,0,0,1,0);
-      Print() << "DeltaT solve, resid norm = " << tt.norm0() << std::endl;
-      
-
       Print() << "DeltaT solve, norm = " << Snp1[0]->norm0(Temp) << std::endl;
-
-      if (L==num_deltaT_iters-1)
-      {
-        ParmParse pp("marc");
-        std::string file;
-        pp.get("file",file);
-        MultiFab t(grids,dmap,1,0);
-        MultiFab::Copy(t,*Snp1[0],Temp,0,1,0);
-        VisMF::Write(t,file);
-        Abort("In T");
-      }
 
       MultiFab::Add(get_new_data(State_Type),Told,0,Temp,1,1);                        // Update T^{k+1,L+1} in state
       compute_enthalpy_fluxes(get_new_data(State_Type),SpecDiffusionFluxnp1,betanp1); // get flux[N+1] (and flux[N+2])
@@ -3370,27 +3343,33 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
   }
 
   //
-  // AJN FLUXREG
   // We have just performed the correction diffusion solve for Y_m and h
   // If updateFluxReg=T, we update VISCOUS flux registers:
-  //   ADD Gamma_{m,AD}^(k+1),
-  //   ADD lambda^(k)/cp^(k) grad h_AD^(k+1).
+  //   ADD Gamma_{m,AD}^(k+1),           (in flux[0:nspecies-1])
+  //   ADD -lambda^(k) grad T_AD^(k+1)   (in flux[nspecies+2])
+  // 
+  // And update the ADVECTIVE flux registers:
+  //   ADD h_m . Gamma_{m,AD}            (in flux[nspecies+1])
   //
-
   if (do_reflux && updateFluxReg)
   {
     for (int d = 0; d < BL_SPACEDIM; d++)
     {
       if (level > 0)
       {
-	getViscFluxReg().FineAdd(*SpecDiffusionFluxnp1[d],d,
-				 0,first_spec,nspecies+1,dt);
+        auto& vfr = getViscFluxReg();
+        auto& afr = getViscFluxReg();
+        vfr.FineAdd(*SpecDiffusionFluxnp1[d],d,0,first_spec,nspecies,dt);
+        afr.FineAdd(*SpecDiffusionFluxnp1[d],d,nspecies+1,RhoH,1,dt);
+        vfr.FineAdd(*SpecDiffusionFluxnp1[d],d,nspecies+2,RhoH,1,dt);
       }
       if (level < parent->finestLevel())
       {
-	getLevel(level+1).getViscFluxReg().CrseInit((*SpecDiffusionFluxnp1[d]),d,
-						    0,first_spec,nspecies+1,-dt,
-						    FluxRegister::ADD);
+        auto& vfr = getLevel(level+1).getViscFluxReg();
+        auto& afr = getLevel(level+1).getAdvFluxReg();
+	vfr.CrseInit((*SpecDiffusionFluxnp1[d]),d,0,first_spec,nspecies+1,-dt,FluxRegister::ADD);
+	afr.CrseInit((*SpecDiffusionFluxnp1[d]),d,nspecies+1,RhoH,-dt,FluxRegister::ADD);
+	vfr.CrseInit((*SpecDiffusionFluxnp1[d]),d,nspecies+2,RhoH,-dt,FluxRegister::ADD);
       }
     }
   }
@@ -3832,14 +3811,14 @@ PeleLM::compute_differential_diffusion_fluxes (const MultiFab& S,
     Solnc->define(*bac, *dmc, 1, nGrow);
   }
 
-  LPInfo infon;
-  infon.setAgglomeration(1);
-  infon.setConsolidation(1);
-  infon.setMetricTerm(false);
-  infon.setMaxCoarseningLevel(0);
-  MLABecLaplacian opn({geom}, {grids}, {dmap}, infon);
-  opn.setMaxOrder(diffusion->maxOrder());
-  MLMG mgn(opn);
+  LPInfo info;
+  info.setAgglomeration(1);
+  info.setConsolidation(1);
+  info.setMetricTerm(false);
+  info.setMaxCoarseningLevel(0);
+  MLABecLaplacian op({geom}, {grids}, {dmap}, info);
+  op.setMaxOrder(diffusion->maxOrder());
+  MLMG mg(op);
 
   const Vector<BCRec>& theBCs = AmrLevel::desc_lst[State_Type].getBCs();
   const int rho_flag = 2;
@@ -3851,7 +3830,7 @@ PeleLM::compute_differential_diffusion_fluxes (const MultiFab& S,
   std::array<LinOpBCType,AMREX_SPACEDIM> mlmg_lobc;
   std::array<LinOpBCType,AMREX_SPACEDIM> mlmg_hibc;
   Diffusion::setDomainBC_msd(mlmg_lobc, mlmg_hibc, bc); // Same for all comps, by assumption
-  opn.setDomainBC(mlmg_lobc, mlmg_hibc);
+  op.setDomainBC(mlmg_lobc, mlmg_hibc);
 
   const MultiFab *aVec[AMREX_SPACEDIM];
   for (int d=0; d<AMREX_SPACEDIM; ++d) {
@@ -3874,13 +3853,13 @@ PeleLM::compute_differential_diffusion_fluxes (const MultiFab& S,
           if (rho_flag == 2) {
             MultiFab::Divide(*Solnc,*Scrse,Density,0,1,nGrow);
           }
-          opn.setCoarseFineBC(Solnc.get(), crse_ratio[0]);
+          op.setCoarseFineBC(Solnc.get(), crse_ratio[0]);
         }
         MultiFab::Copy(Soln,S,sigma,0,1,nGrow);
         if (rho_flag == 2) {
           MultiFab::Divide(Soln,S,Density,0,1,nGrow);
         }
-        opn.setLevelBC(0, &Soln);
+        op.setLevelBC(0, &Soln);
       }
 
       {
@@ -3889,20 +3868,20 @@ PeleLM::compute_differential_diffusion_fluxes (const MultiFab& S,
         Diffusion::computeAlpha_msd(Alpha, scalars, a, b, rh, rho_flag,
                                     rhsscale, alpha_in, alpha_in_comp+icomp, &S, Density,
                                     geom, volume, add_hoop_stress);
-        opn.setScalars(scalars.first, scalars.second);
-        opn.setACoeffs(0, Alpha);
+        op.setScalars(scalars.first, scalars.second);
+        op.setACoeffs(0, Alpha);
       }
         
       {
         Diffusion::computeBeta_msd(bcoeffs, beta, betaComp+icomp, geom, aVec);
-        opn.setBCoeffs(0, amrex::GetArrOfConstPtrs(bcoeffs));
+        op.setBCoeffs(0, amrex::GetArrOfConstPtrs(bcoeffs));
       }
 
       AMREX_D_TERM(MultiFab flxx(*flux[0], amrex::make_alias, fluxComp+icomp, 1);,
                    MultiFab flxy(*flux[1], amrex::make_alias, fluxComp+icomp, 1);,
                    MultiFab flxz(*flux[2], amrex::make_alias, fluxComp+icomp, 1););
       std::array<MultiFab*,AMREX_SPACEDIM> fp{AMREX_D_DECL(&flxx,&flxy,&flxz)};
-      mgn.getFluxes({fp},{&Soln});
+      mg.getFluxes({fp},{&Soln});
     }
     else
     {
@@ -5746,11 +5725,16 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
   const Real* dx        = geom.CellSize();
   const Real  prev_time = state[State_Type].prevTime();  
 
-  MultiFab dummy(grids,dmap,1,0,MFInfo().SetAlloc(false));
-  FillPatchIterator S_fpi(*this,dummy,Godunov::hypgrow(),prev_time,State_Type,first_spec,nspecies);
-  FillPatchIterator T_fpi(*this,dummy,Godunov::hypgrow(),prev_time,State_Type,Temp,1);
+  int ng = Godunov::hypgrow();
+  int sComp = std::min((int)Density, std::min((int)first_spec,(int)Temp) );
+  int eComp = std::max((int)Density, std::max((int)last_spec,(int)Temp) );
+  int nComp = eComp - sComp + 1;
+
+  FillPatchIterator S_fpi(*this,get_old_data(State_Type),ng,prev_time,State_Type,sComp,nComp);
+
   const MultiFab& Smf=S_fpi.get_mf();
-  const MultiFab& Tmf=T_fpi.get_mf();
+  int rhoYcomp = first_spec - sComp;
+  int Tcomp = Temp - sComp;
 
 #ifdef _OPENMP
 #pragma omp parallel
@@ -5762,8 +5746,7 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
     for (MFIter S_mfi(Smf,true); S_mfi.isValid(); ++S_mfi)
     {
       const Box& bx = S_mfi.tilebox();
-      const FArrayBox& S = Smf[S_mfi];
-      const FArrayBox& T = Tmf[S_mfi];
+      const FArrayBox& Sfab = Smf[S_mfi];
       const FArrayBox& divu = DivU[S_mfi];
       const FArrayBox& force = Force[S_mfi];
 
@@ -5771,7 +5754,7 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
       {
         const Box& ebx = amrex::surroundingNodes(bx,d);
         edgeflux[d].resize(ebx,nspecies+3);
-        edgestate[d].resize(ebx,nspecies+3); // Both will be 0:rho, 1:nspecies: rho*Y, nspecies+1: rho*H, nspecies+2: Temp
+        edgestate[d].resize(ebx,nspecies+3); // comps: 0:rho, 1:nspecies: rho*Y, nspecies+1: rho*H, nspecies+2: Temp
         edgeflux[d].setVal(0);
         edgestate[d].setVal(0);
       }
@@ -5783,7 +5766,7 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
                              D_DECL( u_mac[0][S_mfi], u_mac[1][S_mfi], u_mac[2][S_mfi]), 0,
                              D_DECL(edgeflux[0],edgeflux[1],edgeflux[2]), 1,
                              D_DECL(edgestate[0],edgestate[1],edgestate[2]), 1,
-                             S, 0, nspecies, force, 0, divu, 0,
+                             Sfab, rhoYcomp, nspecies, force, 0, divu, 0,
                              (*aofs)[S_mfi], first_spec, advectionType, state_bc, FPU, volume[S_mfi]);
 
       // Set flux, flux divergence, and face values for rho as sums of the corresponding RhoY quantities
@@ -5811,7 +5794,7 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
                              D_DECL( u_mac[0][S_mfi], u_mac[1][S_mfi], u_mac[2][S_mfi]), 0,
                              D_DECL(edgeflux[0],edgeflux[1],edgeflux[2]), nspecies+2,
                              D_DECL(edgestate[0],edgestate[1],edgestate[2]), nspecies+2,
-                             T, 0, 1, force, nspecies, divu, 0,
+                             Sfab, Tcomp, 1, force, nspecies, divu, 0,
                              (*aofs)[S_mfi], Temp, advectionType, state_bc, FPU, volume[S_mfi]);
 
       // Compute RhoH on faces, store in nspecies+2 component of edgestate[d]
