@@ -4949,27 +4949,36 @@ PeleLM::advance (Real time,
               = ( D[N+1] + Sum{ hk.( R_k + D[k] ) } ) / (rho.Cp)
     */
     RhoCpInv.define(grids,dmap,1,nGrowAdvForcing);
-    FillPatchIterator fpiT(*this,S_old,nGrowAdvForcing,prev_time,State_Type,Temp,1);
-    FillPatchIterator fpiRYH(*this,S_old,nGrowAdvForcing,prev_time,State_Type,Density,nspecies+2);
-    MultiFab& Tg = fpiT.get_mf();
-    MultiFab& RYHg = fpiRYH.get_mf();
+
+
+    int ng = nGrowAdvForcing;
+    int sComp = std::min(RhoH, std::min((int)Density, std::min((int)first_spec,(int)Temp) ) );
+    int eComp = std::max(RhoH, std::max((int)Density, std::max((int)last_spec, (int)Temp) ) );
+    int nComp = eComp - sComp + 1;
+
+    FillPatchIterator S_fpi(*this,get_old_data(State_Type),ng,prev_time,State_Type,sComp,nComp);
+
+    MultiFab& Smf=S_fpi.get_mf();
+    int Rcomp = Density - sComp;
+    int RYcomp = first_spec - sComp;
+    int RHcomp = RhoH - sComp;
+    int Tcomp = Temp - sComp;
 
 #ifdef _OPENMP
 #pragma omp parallel
 #endif
     {
       FArrayBox H, Y, Tnew, tmp;
-      for (MFIter mfi(Tg,true); mfi.isValid(); ++mfi)
+      for (MFIter mfi(Smf,true); mfi.isValid(); ++mfi)
       {
+        FArrayBox& Sfab = Smf[mfi];
         FArrayBox& f = Forcing[mfi];
         FArrayBox& dn = Dn[mfi];
         const FArrayBox& r = get_new_data(RhoYdot_Type)[mfi];
         const Box& gbox = mfi.growntilebox();
 
-        RYHg[mfi].invert(1.0,gbox,0,1);        // RYHg[0] = 1/rho
-
         H.resize(gbox,nspecies);
-        getChemSolve().getHGivenT(H,Tg[mfi],gbox,0,0);
+        getChemSolve().getHGivenT(H,Smf[mfi],gbox,Tcomp,0);
 
         tmp.resize(gbox,nspecies);
         tmp.copy(r,gbox,0,gbox,0,nspecies);         // copy Rk to tmp 
@@ -4986,12 +4995,13 @@ PeleLM::advance (Real time,
           f.plus(dp0dt,gbox,nspecies,1); // add dp0/dt to Temp forcing
         }
 
+        Sfab.invert(1.0,gbox,Rcomp,1);        // S[rho] = 1/rho
         for (int n=0; n<nspecies; ++n) {
-          RYHg[mfi].mult(RYHg[mfi],gbox,gbox,0,n+1,1); // RYg[1:nsp] = Y
+          Sfab.mult(Sfab,gbox,gbox,Rcomp,RYcomp+n,1); // S[1:nsp] = Y
         }
-        getChemSolve().getCpmixGivenTY(RhoCpInv[mfi],Tg[mfi],RYHg[mfi],gbox,0,1,0); // here, RhoCpInv = Cp
-        RhoCpInv[mfi].invert(1.0,gbox,0,1);                                              // here, RhoCpInv = 1/(Cp)
-        RhoCpInv[mfi].mult(RYHg[mfi],gbox,gbox,0,0,1);                                        // here, RhoCpInv = 1/(rho.Cp)
+        getChemSolve().getCpmixGivenTY(RhoCpInv[mfi],Sfab,Sfab,gbox,Tcomp,RYcomp,0); // here, RhoCpInv = Cp
+        RhoCpInv[mfi].invert(1.0,gbox,0,1);                                          // here, RhoCpInv = 1/(Cp)
+        RhoCpInv[mfi].mult(Sfab,gbox,gbox,Rcomp,0,1);                                // here, RhoCpInv = 1/(rho.Cp)
 
         f.mult(RhoCpInv[mfi],gbox,0,nspecies,1);    // Scale, so that F[Temp]= (Dn[Temp]- Sum{hk.(Rk+Div(Fk))})/(Rho.Cp)
 
