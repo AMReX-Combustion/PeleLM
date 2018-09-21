@@ -3328,7 +3328,7 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
             Y.mult(rhoInv,tbox,tbox,0,n,1);
           }
           getChemSolve().getCpmixGivenTY(Cp[mfi],(*Snp1[0])[mfi],Y,tbox,Temp,0,0); // Update Cp
-          getChemSolve().getHmixGivenTY((*Snp1[0])[mfi],(*Snp1[0])[mfi],Y,tbox,RhoH,0,0);   // Update RhoH
+          getChemSolve().getHmixGivenTY((*Snp1[0])[mfi],(*Snp1[0])[mfi],Y,tbox,Temp,0,RhoH);   // Update RhoH
           (*Snp1[0])[mfi].mult((*Snp1[0])[mfi],tbox,tbox,Density,RhoH,1);
         }
       }
