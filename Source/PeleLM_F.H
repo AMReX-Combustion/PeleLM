@@ -134,23 +134,23 @@ extern "C" {
                         const int* dir, const int* bc);
 
   void enth_diff_terms(const int* lo, const int* hi, 
-                            const int* dlo, const int* dhi, const amrex::Real* dx,
-                            const amrex::Real* T, ARLIM_P(Tlo),  ARLIM_P(Thi),
-                            const amrex::Real* RhoY, ARLIM_P(rYlo),  ARLIM_P(rYhi),
+                       const int* dlo, const int* dhi, const amrex::Real* dx,
+                       const amrex::Real* T, ARLIM_P(Tlo),  ARLIM_P(Thi),
+                       const amrex::Real* RhoY, ARLIM_P(rYlo),  ARLIM_P(rYhi),
 
-                            const amrex::Real* rDx,ARLIM_P(rDxlo),ARLIM_P(rDxhi),
-                            const amrex::Real* Fix,ARLIM_P(Fixlo),ARLIM_P(Fixhi),
-                            const amrex::Real* ax, ARLIM_P(axlo), ARLIM_P(axhi),
+                       const amrex::Real* rDx,ARLIM_P(rDxlo),ARLIM_P(rDxhi),
+                       const amrex::Real* Fix,ARLIM_P(Fixlo),ARLIM_P(Fixhi),
+                       const amrex::Real* ax, ARLIM_P(axlo), ARLIM_P(axhi),
 
-                            const amrex::Real* rDy,ARLIM_P(rDylo),ARLIM_P(rDyhi),
-                            const amrex::Real* Fiy,ARLIM_P(Fiylo),ARLIM_P(Fiyhi),
-                            const amrex::Real* ay, ARLIM_P(aylo), ARLIM_P(ayhi),
+                       const amrex::Real* rDy,ARLIM_P(rDylo),ARLIM_P(rDyhi),
+                       const amrex::Real* Fiy,ARLIM_P(Fiylo),ARLIM_P(Fiyhi),
+                       const amrex::Real* ay, ARLIM_P(aylo), ARLIM_P(ayhi),
 #if BL_SPACEDIM == 3
-                            const amrex::Real* rDz,ARLIM_P(rDzlo),ARLIM_P(rDzhi),
-                            const amrex::Real* Fiz,ARLIM_P(Fizlo),ARLIM_P(Fizhi),
-                            const amrex::Real* az, ARLIM_P(azlo), ARLIM_P(azhi),
+                       const amrex::Real* rDz,ARLIM_P(rDzlo),ARLIM_P(rDzhi),
+                       const amrex::Real* Fiz,ARLIM_P(Fizlo),ARLIM_P(Fizhi),
+                       const amrex::Real* az, ARLIM_P(azlo), ARLIM_P(azhi),
 #endif
-                            const int* Tbc);
+                       const int* Tbc);
 
   void incrwext_flx_div (const int* lo, const int* hi,
                            const amrex::Real* xflux, ARLIM_P(fxlo),  ARLIM_P(fxhi),
