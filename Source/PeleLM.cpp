@@ -232,15 +232,13 @@ PeleLM::compute_rhohmix (Real      time,
   const Real strt_time = ParallelDescriptor::second();
 
   const int ngrow  = 0; // We only do this on the valid region
-  const int sComp  = std::min(std::min((int)Density,(int)Temp),first_spec);
-  const int eComp  = std::max(std::max((int)Density,(int)Temp),first_spec+nspecies-1);
+  const int sComp  = std::min((int)Density,first_spec);
+  const int eComp  = std::max((int)Density,last_spec);
   const int nComp  = eComp - sComp + 1;
   const int sCompR = Density - sComp;
-  const int sCompT = Temp - sComp;
   const int sCompY = first_spec - sComp;
 
-  FillPatchIterator fpi(*this,rhohmix,ngrow,time,State_Type,sComp,nComp);
-  MultiFab& statemf = fpi.get_mf();
+  MultiFab& statemf = get_new_data(State_Type);
 
 #ifdef _OPENMP
 #pragma omp parallel
@@ -253,23 +251,22 @@ PeleLM::compute_rhohmix (Real      time,
       const Box& bx = mfi.tilebox();
       FArrayBox& sfab  = statemf[mfi];
 
+      tmp.resize(bx,nComp);
+      tmp.copy(sfab,sComp,0,nComp);
+
       //
       // Convert rho*Y to Y for this operation
       //
-      tmp.resize(bx,1);
-      tmp.copy(sfab,sCompR,0,1);
-      tmp.invert(1.0);
-	    
+      tmp.invert(1.0,bx,sCompR,1);
       for (int k = 0; k < nspecies; k++) {
-        sfab.mult(tmp,0,sCompY+k,1);
+        tmp.mult(tmp,sCompR,sCompY+k,1);
       }
 	    
-      getChemSolve().getHmixGivenTY(rhohmix[mfi],sfab,sfab,bx,
-                                    sCompT,sCompY,dComp);
+      getChemSolve().getHmixGivenTY(rhohmix[mfi],sfab,tmp,bx,Temp,sCompY,dComp);
       //
       // Convert hmix to rho*hmix
       //
-      rhohmix[mfi].mult(sfab,bx,sCompR,dComp,1);
+      rhohmix[mfi].mult(sfab,bx,Density,dComp,1);
     }
   }
 
@@ -283,6 +280,7 @@ PeleLM::compute_rhohmix (Real      time,
     amrex::Print() << "PeleLM::compute_rhohmix(): lev: " << level << ", time: " << run_time << '\n';
   }
 }
+
 void
 PeleLM::Initialize ()
 {
@@ -1729,11 +1727,7 @@ void
 PeleLM::initDataOtherTypes ()
 {
   // Fill RhoH component using EOS function explicitly
-  const Real cur_time  = state[State_Type].curTime();
-  compute_rhohmix(cur_time,get_new_data(State_Type),RhoH);
-
-  // Assume that by now, S_new has "good" data
-  MultiFab& R = get_new_data(RhoYdot_Type);
+  compute_rhohmix(state[State_Type].curTime(),get_new_data(State_Type),RhoH);
 
   // It is our current belief that at the beginning of a simulation we want omegadot=0
   get_new_data(RhoYdot_Type).setVal(0);
@@ -3878,6 +3872,7 @@ PeleLM::compute_differential_diffusion_fluxes (const MultiFab& S,
     }
     else
     {
+      Abort("Run with diffuse.use_mlmg_solver=1.  The =0 case is not yet debugged.");
       ViscBndry visc_bndry_0(grids,dmap,1,geom);
       MultiFab::Copy(Soln,S,sigma,0,1,0);
       MultiFab::Copy(*Solnc,*Scrse,sigma,0,1,nGrow);
@@ -4954,7 +4949,6 @@ PeleLM::advance (Real time,
     MultiFab& Smf=S_fpi.get_mf();
     int Rcomp = Density - sComp;
     int RYcomp = first_spec - sComp;
-    int RHcomp = RhoH - sComp;
     int Tcomp = Temp - sComp;
 
 #ifdef _OPENMP
@@ -5606,8 +5600,16 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
 
     DistributionMapping dm = getFuncCountDM(ba,ngrow);
 
+    int sComp = std::min(std::min((int)first_spec,(int)Temp), RhoH );
+    int eComp = std::max(std::max((int)last_spec, (int)Temp), RhoH );
+    int nComp = eComp - sComp + 1;
+
+    const int s_spec = first_spec - sComp;
+    const int s_rhoh = RhoH - sComp;
+    const int s_temp = Temp - sComp;
+
     MultiFab diagTemp;
-    MultiFab STemp(ba, dm, nspecies+3, 0);
+    MultiFab STemp(ba, dm, nComp, 0);
     MultiFab fcnCntTemp(ba, dm, 1, 0);
     MultiFab FTemp(ba, dm, Force.nComp(), 0);
 
@@ -5622,8 +5624,8 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
     if (verbose) 
       amrex::Print() << "*** advance_chemistry: FABs in tmp MF: " << STemp.size() << '\n';
 
-    STemp.copy(mf_old,first_spec,0,nspecies+3); // Parallel copy.
-    FTemp.copy(Force);                          // Parallel copy.
+    STemp.copy(mf_old,sComp,0,nComp); // Parallel copy.
+    FTemp.copy(Force);                // Parallel copy.
 
 #ifdef _OPENMP
 #pragma omp parallel
@@ -5645,8 +5647,6 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
 
       for (int i = 0; i < bach.size(); ++i)
       {
-        const int s_spec = 0, s_rhoh = nspecies, s_temp = nspecies+2;
-
         getChemSolve().solveTransient_sdc(rYn,rHn,Tn,rYo,rHo,To,frc,fc,bach[i],
                                           s_spec,s_rhoh,s_temp,dt,chemDiag,
 					  use_stiff_solver);
@@ -5655,7 +5655,7 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
 
     FTemp.clear();
 
-    mf_new.copy(STemp,0,first_spec,nspecies+3); // Parallel copy.
+    mf_new.copy(STemp,0,sComp,nComp); // Parallel copy.
 
     STemp.clear();
     //
