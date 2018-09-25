@@ -3072,15 +3072,15 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
   const Real curr_time = state[State_Type].curTime();
   const Real dt = curr_time - prev_time;
 
-  /*
-    Note: In all this, assume state is ordered Density,RhoY,RhoH, then others
-   */
-  AMREX_ALWAYS_ASSERT(first_spec == Density + 1);
-  AMREX_ALWAYS_ASSERT(RhoH == last_spec + 1);
+
+  int sComp = std::min((int)Density, std::min((int)first_spec,(int)Temp) );
+  int eComp = std::max((int)Density, std::max((int)last_spec,(int)Temp) );
+  int nComp = eComp - sComp + 1;
+
   MultiFab::Copy(get_new_data(State_Type),get_old_data(State_Type),first_spec,first_spec,nspecies+1,0);
 
-  FillPatch(*this,get_old_data(State_Type),ng,prev_time,State_Type,Density,nspecies+2,Density);
-  FillPatch(*this,get_new_data(State_Type),ng,curr_time,State_Type,Density,nspecies+2,Density);
+  FillPatch(*this,get_old_data(State_Type),ng,prev_time,State_Type,sComp,nComp,sComp);
+  FillPatch(*this,get_new_data(State_Type),ng,curr_time,State_Type,sComp,nComp,sComp);
 
   auto Snc = std::unique_ptr<MultiFab>(new MultiFab());
   auto Snp1c = std::unique_ptr<MultiFab>(new MultiFab());
@@ -3088,9 +3088,9 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
   if (level > 0) {
     auto& crselev = getLevel(level-1);
     Snc->define(crselev.boxArray(), crselev.DistributionMap(), NUM_STATE, ng);  Snc->setVal(0,0,NUM_STATE,ng);
-    FillPatch(crselev,*Snc  ,ng,prev_time,State_Type,Density,nspecies+2,Density);
+    FillPatch(crselev,*Snc  ,ng,prev_time,State_Type,sComp,nComp,sComp);
     Snp1c->define(crselev.boxArray(), crselev.DistributionMap(), NUM_STATE, ng);
-    FillPatch(crselev,*Snp1c,ng,curr_time,State_Type,Density,nspecies+2,Density);
+    FillPatch(crselev,*Snp1c,ng,curr_time,State_Type,sComp,nComp,sComp);
   }
 
   const int nlev = (level ==0 ? 1 : 2);
