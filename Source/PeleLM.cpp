@@ -7780,12 +7780,13 @@ PeleLM::RhoH_to_Temp (MultiFab& S,
   }
 
   int max_iters = 0;
+
 #ifdef _OPENMP
-#pragma omp parallel
+#pragma omp parallel if (!system::regtest_reduction) reduction(max:max_iters)
 #endif
   for (MFIter mfi(S,true); mfi.isValid(); ++mfi)
   {
-    const Box& box = amrex::grow(mfi.tilebox(),nGrow);
+    const Box& box = mfi.growntilebox(nGrow);
     max_iters = std::max(max_iters, RhoH_to_Temp(S[mfi],box,dominmax));
   }
 
