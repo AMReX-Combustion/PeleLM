@@ -7780,6 +7780,7 @@ PeleLM::RhoH_to_Temp (MultiFab& S,
   }
 
   int max_iters = 0;
+  AMREX_ALWAYS_ASSERT(nGrow <= S.nGrow());
 
 #ifdef _OPENMP
 #pragma omp parallel if (!system::regtest_reduction) reduction(max:max_iters)
