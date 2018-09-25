@@ -35,7 +35,7 @@ cg.unstable_criterion = 100
 ns.htt_tempmin=1.0
 ns.htt_tempmax=2.5
 ns.v = 1
-mac.v = 2
+mac.v = 1
 proj.v = 1
 ns.do_group_bndry_fills = 1
 
@@ -175,4 +175,9 @@ mac.do_outflow_bcs = 0
 #
 fab.format = NATIVE
 
-fabarray.mfiter_tile_size = 8 8 8
+#fabarray.mfiter_tile_size = 8 8 8
+
+diffuse.use_mlmg_solver=1
+mac.use_mlmg_solver = 1
+proj.use_mlmg_solver = 1
+
