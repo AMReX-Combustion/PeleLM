@@ -3077,7 +3077,7 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
   int eComp = std::max((int)Density, std::max((int)last_spec,(int)Temp) );
   int nComp = eComp - sComp + 1;
 
-  MultiFab::Copy(get_new_data(State_Type),get_old_data(State_Type),first_spec,first_spec,nspecies+1,0);
+  MultiFab::Copy(get_new_data(State_Type),get_old_data(State_Type),sComp,sComp,nComp,0);
 
   FillPatch(*this,get_old_data(State_Type),ng,prev_time,State_Type,sComp,nComp,sComp);
   FillPatch(*this,get_new_data(State_Type),ng,curr_time,State_Type,sComp,nComp,sComp);
