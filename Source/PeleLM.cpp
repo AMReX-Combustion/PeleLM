@@ -105,6 +105,7 @@ namespace
   int                   chem_box_chop_threshold;
   int                   num_deltaT_iters;
   int                   num_forkjoin_tasks;
+  bool                  forkjoin_verbose;
 }
 
 Real PeleLM::p_amb_old;
@@ -306,6 +307,7 @@ PeleLM::Initialize ()
   chem_box_chop_threshold = -1;
   num_deltaT_iters        = 3; // If <= 0, diffuse RhoH instead
   num_forkjoin_tasks      = 1;
+  forkjoin_verbose        = false;
 
   PeleLM::p_amb_old                 = -1.0;
   PeleLM::p_amb_new                 = -1.0;
@@ -484,6 +486,7 @@ PeleLM::Initialize ()
 
   ParmParse pplm("pelelm");
   pplm.query("num_forkjoin_tasks",num_forkjoin_tasks);
+  pplm.query("forkjoin_verbose",forkjoin_verbose);
   pplm.query("num_deltaT_iters",num_deltaT_iters);
   
   // Useful for debugging
@@ -2940,6 +2943,7 @@ PeleLM::diffuse_scalar_fj  (const Vector<MultiFab*>&  S_old,
             << num_comp << " diffusion calls (on a total of " << n_procs << " ranks)" << std::endl;
 
     ForkJoin fj(n_tasks);
+    fj.SetVerbose(forkjoin_verbose);
 
     MultiFab S_old_fine(*S_old[0], amrex::make_alias, S_comp, num_comp);
     MultiFab S_new_fine(*S_new[0], amrex::make_alias, S_comp, num_comp);
