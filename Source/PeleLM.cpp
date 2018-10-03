@@ -4809,7 +4809,7 @@ PeleLM::advance (Real time,
     BL_PROFILE_VAR_START(HTMAC);
     MultiFab Forcing(grids,dmap,nspecies+1,nGrowAdvForcing);
     Forcing.setBndry(1.e30);
-    create_mac_rhs(mac_divu,nGrowAdvForcing,time+0.5*dt,dt);
+    FillPatch(*this,mac_divu,nGrowAdvForcing,time+0.5*dt,Divu_Type,0,1,0);
     BL_PROFILE_VAR_STOP(HTMAC);
     showMF("sdc",Forcing,"sdc_mac_rhs1",level,sdc_iter,parent->levelSteps(level));
       
@@ -5406,28 +5406,6 @@ PeleLM::advance (Real time,
   BL_PROFILE_REGION_STOP("R::HT::advance()[src_sdc]");
 
   return dt_test;
-}
-
-void
-PeleLM::create_mac_rhs (MultiFab& mac_rhs, int nGrow, Real time, Real dt)
-{
-  BL_ASSERT(mac_rhs.nGrow()>=nGrow);
-  BL_ASSERT(mac_rhs.boxArray()==grids);
-
-  int sCompDivU = 0;
-  int nCompDivU = 1;
-  FillPatchIterator Divu_fpi(*this,mac_rhs,nGrow,time,Divu_Type,sCompDivU,nCompDivU);
-  MultiFab& divu_mf = Divu_fpi.get_mf();
-
-#ifdef _OPENMP
-#pragma omp parallel
-#endif
-    for (MFIter mfi(divu_mf, true); mfi.isValid(); ++mfi)
- {
-   const Box& bx = mfi.growntilebox(); 
-   const FArrayBox& pfab = divu_mf[mfi];
-    mac_rhs[mfi].copy(pfab,bx,0,bx,sCompDivU,nCompDivU);
-  }
 }
 
 DistributionMapping
