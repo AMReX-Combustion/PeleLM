@@ -146,7 +146,6 @@ Real PeleLM::htt_tempmin;
 Real PeleLM::htt_tempmax;
 Real PeleLM::htt_hmixTYP;
 int  PeleLM::zeroBndryVisc;
-int  PeleLM::do_add_nonunityLe_corr_to_rhoh_adv_flux;
 int  PeleLM::do_check_divudt;
 int  PeleLM::hack_nochem;
 int  PeleLM::hack_nospecdiff;
@@ -363,8 +362,6 @@ PeleLM::Initialize ()
   PeleLM::reset_typical_vals_int    = -1;
   PeleLM::typical_values_FileVals.clear();
 
-  PeleLM::do_add_nonunityLe_corr_to_rhoh_adv_flux = 1;
-
   PeleLM::sdc_iterMAX               = 1;
   PeleLM::num_mac_sync_iter         = 1;
 
@@ -439,7 +436,6 @@ PeleLM::Initialize ()
 		     << constant_lambda_val << '\n';
   }
 
-  pp.query("do_add_nonunityLe_corr_to_rhoh_adv_flux", do_add_nonunityLe_corr_to_rhoh_adv_flux);
   pp.query("hack_nochem",hack_nochem);
   pp.query("hack_nospecdiff",hack_nospecdiff);
   pp.query("hack_noavgdivu",hack_noavgdivu);
@@ -6004,7 +6000,6 @@ PeleLM::mac_sync ()
     // Increment density.
     //
     MultiFab::Add(S_new,Ssync,Density-BL_SPACEDIM,Density,1,0);
-
     make_rho_curr_time();
     BL_PROFILE_VAR_STOP(HTSSYNC);
     //
@@ -6032,9 +6027,7 @@ PeleLM::mac_sync ()
                                  last_mac_sync_iter);
       }
 	    
-      if (!unity_Le 
-          && nspecies>0 
-          && do_add_nonunityLe_corr_to_rhoh_adv_flux) 
+      if (!unity_Le && nspecies>0) 
       {
         //
         // Diffuse the species syncs such that sum(SpecDiffSyncFluxes) = 0

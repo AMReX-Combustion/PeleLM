@@ -509,7 +509,6 @@ private:
   static int         dpdt_option;
   static int         do_set_rho_to_species_sum;
   static int         zeroBndryVisc;
-  static int         do_add_nonunityLe_corr_to_rhoh_adv_flux;
   static int         do_check_divudt;
   static int         hack_nochem;
   static int         hack_nospecdiff;
