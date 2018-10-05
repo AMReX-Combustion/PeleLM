@@ -270,6 +270,8 @@ private:
                                              int             nGrow = 0,
                                              HowToFillGrow   how = HT_ZERO_GROW_CELLS);
 
+  amrex::Real adjust_p_and_divu_for_closed_chamber(amrex::MultiFab& mac_divu);
+
   void compute_rhohmix (amrex::Real      time,
                         amrex::MultiFab& rhohmix,
                         int              dComp);
