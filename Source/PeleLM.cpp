@@ -6001,16 +6001,9 @@ PeleLM::mac_sync ()
     }
 
     //
-    // Now, increment density.
+    // Increment density.
     //
-#ifdef _OPENMP
-#pragma omp parallel
-#endif
-    for (MFIter mfi(S_new,true); mfi.isValid(); ++mfi)
-    {
-      const Box& box = mfi.tilebox();
-      S_new[mfi].plus(Ssync[mfi],box,Density-BL_SPACEDIM,Density,1);
-    }
+    MultiFab::Add(S_new,Ssync,Density-BL_SPACEDIM,Density,1,0);
 
     make_rho_curr_time();
     BL_PROFILE_VAR_STOP(HTSSYNC);
@@ -6020,14 +6013,8 @@ PeleLM::mac_sync ()
     BL_PROFILE_VAR_START(HTVSYNC);
     if (do_mom_diff == 1)
     {
-      for (MFIter Vsyncmfi(Vsync); Vsyncmfi.isValid(); ++Vsyncmfi)
-      {
-        const int  i    = Vsyncmfi.index();
-        const Box& vbox = rho_ctime.box(i);
-
-        D_TERM(Vsync[Vsyncmfi].divide(rho_ctime[Vsyncmfi],vbox,0,Xvel,1);,
-               Vsync[Vsyncmfi].divide(rho_ctime[Vsyncmfi],vbox,0,Yvel,1);,
-               Vsync[Vsyncmfi].divide(rho_ctime[Vsyncmfi],vbox,0,Zvel,1););
+      for (int d=0; d<BL_SPACEDIM; ++d) {
+        MultiFab::Divide(Vsync,rho_ctime,0,Xvel+d,1,0);
       }
     }
     BL_PROFILE_VAR_STOP(HTVSYNC);
