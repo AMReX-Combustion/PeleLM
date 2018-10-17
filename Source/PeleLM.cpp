@@ -4912,6 +4912,7 @@ PeleLM::advance (Real time,
       }
     }
     advance_chemistry(S_old,S_new,dt,Forcing,0);
+
     RhoH_to_Temp(S_new);
     BL_PROFILE_VAR_STOP(HTREAC);
 
@@ -5917,6 +5918,8 @@ PeleLM::mac_sync ()
       }
     }
 
+    Ssync.mult(dt); // Turn this into an increment over dt
+
 #ifdef USE_WBAR
     // compute beta grad Wbar terms using the latest version of the post-sync state
     // Initialize containers first here, 1/2 is for C-N sync, dt mult later with everything else
@@ -5948,13 +5951,14 @@ PeleLM::mac_sync ()
     //       Ssync = Sync - DeltaYSync + DdWbar
     {
       S_new.invert(1,Density,1,0);
+      MultiFab::Copy(DeltaYsync,S_new,first_spec,0,nspecies,0);
       for (int n=0; n<nspecies; ++n) {
-        MultiFab::Copy(DeltaYsync,S_new,first_spec+n,n,1,0);
-        MultiFab::Multiply(DeltaYsync,S_new,Density,first_spec+n,1,0);
-        MultiFab::Multiply(DeltaYsync,Ssync,Density-BL_SPACEDIM,first_spec+n,1,0);
+        MultiFab::Multiply(DeltaYsync,S_new,Density,n,1,0);
+        MultiFab::Multiply(DeltaYsync,Ssync,Density-BL_SPACEDIM,n,1,0);
       }
       S_new.invert(1,Density,1,0);
     }
+
     MultiFab::Subtract(Ssync,DeltaYsync,0,first_spec-BL_SPACEDIM,nspecies,0);
 
 #ifdef USE_WBAR
@@ -5995,21 +5999,125 @@ PeleLM::mac_sync ()
       }
       BL_PROFILE_VAR_STOP(HTVSYNC);
 
-      BL_PROFILE_VAR_START(HTSSYNC);
-      differential_spec_diffuse_sync(dt, true, last_mac_sync_iter);
 
-      // FIXME: Do temperature diffusion here...
+      // species and temperature diffusion
+
+      BL_PROFILE_VAR_START(HTSSYNC);
+      // FIXME: Really wish there was a way to avoid this temporary....
+      FluxBoxes fb_GammaKp1(this, nspecies+3, 0);
+      MultiFab** GammaKp1 = fb_GammaKp1.get();
+      for (int d=0; d<BL_SPACEDIM; ++d) {
+        MultiFab::Copy(*GammaKp1[d],*SpecDiffusionFluxnp1[d],0,0,nspecies+3,0); // get Gamma^{presync}
+      }
+      FluxBoxes fb_betanp1(this, nspecies+2, 0);
+      MultiFab **betanp1 = fb_betanp1.get();
+      getDiffusivity(betanp1, curTime, first_spec, 0, nspecies+1); // species, rhoh (rhoh unused...FIXME)
+      getDiffusivity(betanp1, curTime, Temp, nspecies+1, 1); // temperature (lambda)
+      compute_enthalpy_fluxes(S_new,GammaKp1,betanp1); // Compute F[N+1], F[N=2]
+
+      // Diffuse species sync to get dGamma^{sync}, then form Gamma^{postsync} = Gamma^{presync} + dGamma^{sync}
+      differential_spec_diffuse_sync(dt, true, last_mac_sync_iter);
+      for (int d=0; d<BL_SPACEDIM; ++d) {
+        MultiFab::Add(*SpecDiffusionFluxnp1[d],*GammaKp1[d],0,0,nspecies+3,0);
+      }
+      //
+      // For all species increment sync by (sync_for_rho)*Y_presync.
+      // Before this, Ssync holds rho^{n+1} (delta Y)^sync
+      // DeltaYsync holds Y^{n+1,p} * (delta rho)^sync
+      //
+      BL_PROFILE_VAR_START(HTSSYNC);
+      MultiFab::Add(Ssync,DeltaYsync,0,first_spec-BL_SPACEDIM,nspecies,0);
+      MultiFab::Add(S_new,Ssync,first_spec-BL_SPACEDIM,first_spec,nspecies,0);
+
+      // Rhs0 = RhoH^{presync} + dt/2 ( Ssync - D_T^{presync} - H^{presync} )
+      // Rhs = Rhs0 - RhoH^{postsync} + dt/2 ( D_T^{postsync} + H^{postsync} )
+      MultiFab Trhs0(grids,dmap,1,0);
+      MultiFab Trhs(grids,dmap,1,0);
+      MultiFab Ttmp(grids,dmap,1,0);
+      MultiFab Cp(grids,dmap,1,0);
+      MultiFab DeltaT(grids,dmap,1,0); DeltaT.setVal(0);
+
+      flux_divergence(Ttmp,0,GammaKp1,nspecies+2,1,+1);  // - D_T^{presync}  = Div( -lambda grad T )    = Div(F[N+2])
+      flux_divergence(Trhs0,0,GammaKp1,nspecies+1,1,+1); // - H^{presync}    = Div(sum_m (H_m Gamma_m)) = Div(F[N+1])
+      MultiFab::Add(Trhs0,Ttmp,0,0,1,0);
+      MultiFab::Add(Trhs0,Ssync,RhoH-BL_SPACEDIM,0,1,0);
+      Trhs0.mult(0.5*dt);
+      MultiFab::Add(Trhs0,S_new,RhoH,0,1,0);
+
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
+      { // Compute Cp^(Y^{postsync},T^{presync}), this will be updated iteratively to Cp^{postsync}
+        FArrayBox rhoInv, Y;
+        for (MFIter mfi(S_new,true); mfi.isValid(); ++mfi)
+        {
+          const Box& tbox = mfi.tilebox();
+          rhoInv.resize(tbox,1);
+          Y.resize(tbox,nspecies);
+          rhoInv.copy(S_new[mfi],tbox,Density,tbox,0,1);
+          rhoInv.invert(1.0,tbox,0,1);
+          Y.copy(S_new[mfi],tbox,first_spec,tbox,0,nspecies);
+          for (int n=0; n<nspecies; ++n) {
+            Y.mult(rhoInv,tbox,tbox,0,n,1);
+          }
+          getChemSolve().getCpmixGivenTY(Cp[mfi],S_new[mfi],Y,tbox,Temp,0,0);
+        }
+      }
+
+      //for (int L=0; L<num_deltaT_iters; ++L)
+      for (int L=0; L<100; ++L)
+      {
+        flux_divergence(Ttmp,0,SpecDiffusionFluxnp1,nspecies+2,1,-1); // D_T^{postsync} = -Div(F[N+2]^{postsync})
+        flux_divergence(Trhs,0,SpecDiffusionFluxnp1,nspecies+1,1,-1); //   H^{postsync} = -Div(F[N+1]^{postsync})
+        MultiFab::Add(Trhs,Ttmp,0,0,1,0);
+        Trhs.mult(0.5*dt);
+        MultiFab::Subtract(Trhs,S_new,RhoH,0,1,0);
+        MultiFab::Add(Trhs,Trhs0,0,0,1,0);
+
+        MultiFab::Copy(Ssync,Trhs,0,Temp-BL_SPACEDIM,1,0);
+
+        // on exit,  Trhs = rho^{postsync} * (T^{L} - T^{L-1}) = rho^{postsync} * delT
+        // on exit,  SpecDiffusionFluxnp1 = - lambda.Grad(delT)
+        int rho_flagT = 1; // Op: alpha = alpha_in*rho_half*Vol, wont divide BCs by rho, alpha_in=Cp, rho_half=rho_new
+        diffusion->diffuse_Ssync(Ssync,Temp-BL_SPACEDIM,dt,be_cn_theta,rho_half,
+                                 rho_flagT,SpecDiffusionFluxnp1,nspecies+2,beta,0,&Cp,0);
+
+        Print() << "DeltaTsync solve, norm = " << Ssync.norm0(Temp-BL_SPACEDIM) << std::endl;
+
+        MultiFab::Add(S_new,Ssync,Temp-BL_SPACEDIM,Temp,1,0); // Set T^{postsync,L}
+        compute_enthalpy_fluxes(S_new,SpecDiffusionFluxnp1,betanp1); // Compute F[N+1], F[N=2]
+
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
+        {
+          // Update (RhoH, Cp)^{postsync,L}
+          FArrayBox rhoInv, Y;
+          for (MFIter mfi(S_new,true); mfi.isValid(); ++mfi)
+          {
+            const Box& tbox = mfi.tilebox();
+            rhoInv.resize(tbox,1);
+            Y.resize(tbox,nspecies);
+            rhoInv.copy(S_new[mfi],tbox,Density,tbox,0,1);
+            rhoInv.invert(1.0,tbox,0,1);
+            Y.copy(S_new[mfi],tbox,first_spec,tbox,0,nspecies);
+            for (int n=0; n<nspecies; ++n) {
+              Y.mult(rhoInv,tbox,tbox,0,n,1);
+            }
+            getChemSolve().getCpmixGivenTY(Cp[mfi],S_new[mfi],Y,tbox,Temp,0,0);
+            getChemSolve().getHmixGivenTY(S_new[mfi],S_new[mfi],Y,tbox,Temp,0,RhoH);
+            S_new[mfi].mult(S_new[mfi],tbox,tbox,Density,RhoH,1);
+          }
+        }
+        compute_enthalpy_fluxes(S_new,SpecDiffusionFluxnp1,betanp1); // Update F[N+2]^{postsync} and F[N+1]^{postsync}
+      }
+
       BL_PROFILE_VAR_STOP(HTSSYNC);
     }
-
-    //
-    // For all species increment sync by (sync_for_rho)*Y_presync.
-    // Before this, Ssync holds rho^{n+1} (delta Y)^sync
-    // DeltaYsync holds (delta rho)^sync phi^Y
-    //
-    BL_PROFILE_VAR_START(HTSSYNC);
-    MultiFab::Add(Ssync,DeltaYsync,0,first_spec-BL_SPACEDIM,nspecies,0);
-    MultiFab::Add(S_new,Ssync,first_spec-BL_SPACEDIM,first_spec,nspecies,0);
+    else
+    {
+      Abort("FIXME: Properly deal with do_diffuse_sync=0");
+    }
 
     //
     // Recompute temperature and rho R T
@@ -6560,6 +6668,7 @@ PeleLM::differential_spec_diffuse_sync (Real dt,
     Ssync[mfi].copy(update,box,0,box,first_spec-BL_SPACEDIM,nspecies);
   }
 }
+
   Rhs.clear();
   //
   // Do refluxing AFTER flux adjustment
