@@ -28,17 +28,12 @@ To build `PeleLM` and run a sample 2D flame problem:
 3. Set the environment variable, PELELM_HOME, and clone a copy of `PeleLM` there ::
 
     export PELELM_HOME=<location for PeleLM>
-    git clone git@code.ornl.gov:Pele/PeleLM.git ${PELELM_HOME}   (if you have access to the ORNL gitlab server)
-               or 
-    git clone git@bitbucket.org:berkeleylab/pelelm.git ${PELELM_HOME}   (if you have access to the bitbucket server) 
-
+    git clone git@github.com:AMReX-Combustion/PeleLM.git ${PELELM_HOME}
 
 4. Set the environment variable, PELE_PHYSICS_HOME, and clone a copy of `PelePhysics` there ::
 
-    export PELE_PHYSICS_HOME=<location for PeleLM>
-    git clone git@code.ornl.gov:Pele/PelePhysics.git ${PELELM_HOME}  (if you have access to the ORNL gitlab server)
-               or
-    git clone git@bitbucket.org:berkeleylab/pelephysics.git ${PELELM_HOME}   (if you have access to the bitbucket server)
+    export PELE_PHYSICS_HOME=<location for PelePhysics>
+    git clone git@github.com:AMReX-Combustion/PelePhysics.git ${PELEPHYSICS_HOME}
 
 5. Move to an example build folder, build an executable ::
 
@@ -73,7 +68,7 @@ To add a new feature to PeleLM, the procedure is:
 
     git push -u origin AmazingNewFeature [Note: -u option required only for the first push of new branch]
 
-4.  Submit a merge request through code.ornl.gov - be sure you are requesting to merge your branch to the development branch.
+4.  Submit a merge request through the github project page - be sure you are requesting to merge your branch to the development branch.
 
 Documentation
 -------------
