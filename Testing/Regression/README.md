@@ -56,7 +56,7 @@ testing area expected by reg test scripts:
     cd ${REGTEST_SCRATCH}; mkdir -p TestData/PeleLM
     ```
 
-4.  Edit the config file, ${REGTEST_SCRATCH}/PeleLM/Test/PeleLM-tests.ini
+4.  Edit the config file, ${REGTEST_SCRATCH}/PeleLM/Testing/Regression/PeleLM-tests.ini
 to set the AMReX, IAMR, PelePhysics and PeleLM scratch clone locations and desired branch/SHA.
 In that file, also set
 
