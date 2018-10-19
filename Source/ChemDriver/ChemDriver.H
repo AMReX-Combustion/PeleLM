@@ -5,7 +5,7 @@
 #include <map>
 #include <list>
 
-#include <AMReX_Array.H>
+#include <AMReX_Vector.H>
 #include <AMReX_FArrayBox.H>
 #include <ChemDriver_F.H>
 
@@ -87,20 +87,20 @@ public:
     int numSpecies () const;
     int numElements () const;
     int numReactions () const;
-    const amrex::Array<std::string>& speciesNames () const;
-    const amrex::Array<std::string>& elementNames () const;
-    amrex::Array<amrex::Real> speciesMolecWt () const;
-    amrex::Array<amrex::Real> elementAtomicWt () const;
+    const amrex::Vector<std::string>& speciesNames () const;
+    const amrex::Vector<std::string>& elementNames () const;
+    amrex::Vector<amrex::Real> speciesMolecWt () const;
+    amrex::Vector<amrex::Real> elementAtomicWt () const;
     int index (const std::string& specName) const;
     int indexElt (const std::string& eltName) const;
-    amrex::Array<int> reactionsWithXonL (const std::string& lSpecName) const;
-    amrex::Array<int> reactionsWithXonR (const std::string& rSpecName) const;
-    amrex::Array<std::pair<std::string,int> > specCoeffsInReactions (int reacIdx) const;
+    amrex::Vector<int> reactionsWithXonL (const std::string& lSpecName) const;
+    amrex::Vector<int> reactionsWithXonR (const std::string& rSpecName) const;
+    amrex::Vector<std::pair<std::string,int> > specCoeffsInReactions (int reacIdx) const;
     std::string reactionString (int reacIdx) const;
     std::string reactionStringBuild (int reacIdx) const;
     void printReactions() const;
-    const amrex::Array<int>& reactionMap() const;
-    const amrex::Array<int>& reactionReverseMap() const;
+    const amrex::Vector<int>& reactionMap() const;
+    const amrex::Vector<int>& reactionReverseMap() const;
 
     int numberOfElementXinSpeciesY (const std::string& eltX,
                                     const std::string& spcY) const;
@@ -206,8 +206,8 @@ public:
                      int              sCompT,
                      const amrex::Real&      errMAX = -1) const;
 
-    amrex::Array<amrex::Real> massFracToMoleFrac (const amrex::Array<amrex::Real>& Y) const;
-    amrex::Array<amrex::Real> moleFracToMassFrac (const amrex::Array<amrex::Real>& X) const;
+    amrex::Vector<amrex::Real> massFracToMoleFrac (const amrex::Vector<amrex::Real>& Y) const;
+    amrex::Vector<amrex::Real> moleFracToMassFrac (const amrex::Vector<amrex::Real>& X) const;
 
     void molarProduction (amrex::FArrayBox&       Q,
                           const std::string&   specName,
@@ -244,7 +244,7 @@ public:
 
     void fwdRevReacRatesGivenXTP (amrex::FArrayBox&        FwdK,
                                   amrex::FArrayBox&        RevK,
-                                  const amrex::Array<int>& rxnIDs,
+                                  const amrex::Vector<int>& rxnIDs,
                                   const amrex::FArrayBox&  X,
                                   const amrex::FArrayBox&  T,
                                   amrex::Real              Patm,
@@ -349,7 +349,7 @@ public:
     //
     // Handy functions.
     //
-    static amrex::Array<int> encodeStringForFortran(const std::string& astr);
+    static amrex::Vector<int> encodeStringForFortran(const std::string& astr);
     static std::string decodeStringFromFortran(const int* coded, int length);
 
     //
@@ -368,7 +368,7 @@ public:
 
         Edge (const std::string& n1,
 	      const std::string& n2,
-	      const amrex::Array<std::pair<int,amrex::Real> > rwl,
+	      const amrex::Vector<std::pair<int,amrex::Real> > rwl,
 	      const ChemDriver* CD);
         
         Edge (const std::string& n1,
@@ -385,7 +385,7 @@ public:
         
         void reverse();
 
-        const amrex::Array<std::pair<int,amrex::Real> >& rwl () const;
+        const amrex::Vector<std::pair<int,amrex::Real> >& rwl () const;
 
         const std::string left() const;
 
@@ -393,13 +393,13 @@ public:
 
         bool operator< (const Edge& rhs) const;
 
-        const amrex::Array<std::pair<int,amrex::Real> > RateWeightList() const {return RWL;}
+        const amrex::Vector<std::pair<int,amrex::Real> > RateWeightList() const {return RWL;}
 
         const ChemDriver* CD() const {return cd;}
 
     private:
         std::string sp1, sp2;
-        amrex::Array<std::pair<int,amrex::Real> > RWL; // RateWeightList, each pair is (reac,coeff)
+        amrex::Vector<std::pair<int,amrex::Real> > RWL; // RateWeightList, each pair is (reac,coeff)
         const ChemDriver* cd;
     };
 
@@ -456,14 +456,14 @@ private:
 
     void initOnce ();
 
-    amrex::Array<std::string> mSpeciesNames;
-    amrex::Array<std::string> mElementNames;
+    amrex::Vector<std::string> mSpeciesNames;
+    amrex::Vector<std::string> mElementNames;
     amrex::Real               mHtoTerrMAX;
     int                mHtoTiterMAX;
-    amrex::Array<amrex::Real>        mTmpData;
+    amrex::Vector<amrex::Real>        mTmpData;
     int mMaxreac, mMaxspec, mMaxelts, mMaxord, mMaxthrdb, mMaxtp, mMaxsp, mMaxspnml;
-    amrex::Array<int>         mNu;
-    amrex::Array<int> reaction_map, reaction_rev_map;
+    amrex::Vector<int>         mNu;
+    amrex::Vector<int> reaction_map, reaction_rev_map;
 };
 
 std::ostream& operator<< (std::ostream&  os, const ChemDriver::Parameter& param);
@@ -485,14 +485,14 @@ ChemDriver::numElements () const
 }
 
 inline
-const amrex::Array<std::string>&
+const amrex::Vector<std::string>&
 ChemDriver::speciesNames () const
 {
     return mSpeciesNames;
 }
 
 inline
-const amrex::Array<std::string>&
+const amrex::Vector<std::string>&
 ChemDriver::elementNames () const
 {
     return mElementNames;
@@ -555,14 +555,14 @@ ChemDriver::setHtoTiterMAX (int iter)
 }
 
 inline
-const amrex::Array<int>&
+const amrex::Vector<int>&
 ChemDriver::reactionMap() const
 {
   return reaction_map;
 }
 
 inline
-const amrex::Array<int>&
+const amrex::Vector<int>&
 ChemDriver::reactionReverseMap() const
 {
   return reaction_rev_map;

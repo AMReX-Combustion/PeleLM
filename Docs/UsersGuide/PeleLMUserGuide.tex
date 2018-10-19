@@ -150,6 +150,16 @@
 \def\myhalf {\sfrac{1}{2}}
 \def\nph    {{n+\myhalf}}
 
+% for non-stacked fractions
+\def\myhalf {\sfrac{1}{2}}
+\def\half   {\frac{1}{2}}
+
+\def\uadv     {U^{\rm ADV}}
+\def\uadvstar {U^{{\rm ADV},*}}
+
+\def\phimac     {\phi^{\rm MAC}}
+
+
 % Level Set Macros
 \def\ADDNODE       {{\tt{\bf ADDNODE}}}
 \def\ADVANCE       {{\tt{\bf ADVANCE}}}
@@ -209,6 +219,8 @@
 \newcommand{\pele}{{\sf Pele}}
 \newcommand{\pelec}{{\sf PeleC}}
 \newcommand{\pelelm}{{\sf PeleLM}}
+\newcommand{\pelephysics}{{\sf PelePhysics}}
+\newcommand{\fuego}{{\sf Fuego}}
 \newcommand{\iamr}{{\sf IAMR}}
 \newcommand{\castro}{{\sf Castro}}
 \newcommand{\maestro}{{\sf Maestro}}
@@ -293,10 +305,7 @@
 %-----------------------------------------------------------------------------
 \part{Overview of the \pelelm\ Algorithm}
 
-\chapter{Introduction}
-\input Introduction/PeleLMIntroduction
-
-\chapter{Equation Set}
+\chapter{Introduction: Theory and models}
 \input Equations/PeleLMEquations
 
 %-----------------------------------------------------------------------------

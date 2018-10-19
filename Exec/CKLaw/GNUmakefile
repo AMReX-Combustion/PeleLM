@@ -14,7 +14,7 @@ USE_OMP           = FALSE
 USE_MPI           = TRUE
 VERBOSE           = FALSE
 
-CHEMISTRY_MODEL= BURKEMOD
+Chemistry_Model= BURKEMOD
 fEXE_sources += pmf_BurkeMOD_040_10atm.f
 
 Blocs   := .

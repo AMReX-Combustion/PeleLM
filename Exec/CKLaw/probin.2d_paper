@@ -1,30 +1,24 @@
  &fortin
-  blobr = .002
   blobr = .001
   blobx = 0.
   bloby = 0.
-  y_offset = .03011
-  y_offset = -.03011
   y_offset = .006
+  reflect = 0.
   probtype = 1
   flametracval = .00001
   max_vort_lev = 3
-  vorterr = .2
-  vorterr = 1.e3
   vorterr = 100
   flametracval = 1.e-8
   V_in = 0
   phi_in = 0.4
   nchemdiag = 1
-  pertmag = .001
-  pertmag = .00
   pertmag = .02
   turb_scale = 1.0	  
  /
  &heattransin
   pamb = 1013250.0
   dpdt_factor = 1.0
-  closed_chamber = 0
+  closed_chamber = 1
  /
  &flctin
   flct_file = ""

@@ -150,7 +150,8 @@ c ::: -----------------------------------------------------------
      &                  xfrontw, yfrontw, refine_nozzle_x,
      &                  refine_nozzle_y, blobx, bloby,
      &                  blobr, xcen, v_strength,v_width,v_xcen,v_ycen,v_cl_x,
-     &                  y_offset, v_blob_r, v_blob_T, v_blob_airfrac, V_in, V_co,
+     &                  y_offset, reflect, 
+     &                  v_blob_r, v_blob_T, v_blob_airfrac, V_in, V_co,
      &                  stTh, Rf, R_hot, R_hotBL, twall, turb_scale, stBL,
      &                  max_trac_lev, max_nozzle_lev, pipeTh, pipeBL,
      &                  tV_in_l,tV_in_r,V_in_new,tV_co_l,tV_co_r,V_co_new,
@@ -217,6 +218,7 @@ c
       v_ycen = zero
       v_cl_x = probhi(1)
       y_offset = zero
+      reflect = zero
       pamb = 101325.d0
       closed_chamber = 0
       dpdt_factor = 0.3d0
@@ -818,23 +820,24 @@ c ::: -----------------------------------------------------------
  
 
            if(probtype .eq. 1) then
-
-c     use this for convergence test
-c              rfront = (y_offset - abs(y)) * 100.d0
-
-c     use this for 2d perturbed spherical flame
-              rfront = (blobr + pertmag* rfront * blobr - r + y_offset) *100.d0
+              
+              if (reflect .eq. 0.d0) then
+                 rfront = (blobr + pertmag* rfront * blobr 
+     &                     - r + y_offset) *100.d0
+              else
+                 rfront = (y_offset - abs(y)) * 100.d0
+              end if
  
-               call pmf(rfront,rfront,pmf_vals,n)
+              call pmf(rfront,rfront,pmf_vals,n)
  
-               if (n.ne.Nspec+3) then
-                  call bl_abort('INITDATA: n .ne. Nspec+3')
-               endif
- 
-               scal(i,j,Temp) = pmf_vals(1)
-               do n = 1,Nspec
-                  Xl(n) = pmf_vals(3+n)
-               end do
+              if (n.ne.Nspec+3) then
+                 call bl_abort('INITDATA: n .ne. Nspec+3')
+              endif
+               
+              scal(i,j,Temp) = pmf_vals(1)
+              do n = 1,Nspec
+                 Xl(n) = pmf_vals(3+n)
+              end do
 
             else
 

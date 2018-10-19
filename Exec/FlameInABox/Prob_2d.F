@@ -720,7 +720,7 @@ c ::: -----------------------------------------------------------
       if (level.lt.max_trac_lev) then
          do j = lo(2), hi(2)
             do i = lo(1), hi(1)
-               tag(i,j) = cvmgt(set,tag(i,j),
+               tag(i,j) = merge(set,tag(i,j),
      &              ftrac(i,j,1).gt.flametracval)
             enddo
          enddo
@@ -837,8 +837,8 @@ c              ax = MAX(ax,abs(temperature(i,j,1) - temperature(i-1,j,1)))
 c              ay = MAX(ay,abs(temperature(i,j,1) - temperature(i,j-1,1)))
 c              az = MAX(az,abs(temperature(i,j,1) - temperature(i,j-1,1)))
 c              aerr = max(ax,ay,az)
-c              tag(i,j) = cvmgt(set,tag(i,j),aerr.ge.tempgrad)
-               tag(i,j) = cvmgt(set,tag(i,j),temperature(i,j,1).lt.temperr)
+c              tag(i,j) = merge(set,tag(i,j),aerr.ge.tempgrad)
+               tag(i,j) = merge(set,tag(i,j),temperature(i,j,1).lt.temperr)
             enddo
          enddo
       endif
@@ -887,7 +887,7 @@ c ::: -----------------------------------------------------------
       if (level .lt. max_vort_lev) then
          do j = lo(2), hi(2)
             do i = lo(1), hi(1)
-               tag(i,j) = cvmgt(set,tag(i,j),
+               tag(i,j) = merge(set,tag(i,j),
      &              ABS(vort(i,j,1)).ge.vorterr*2.d0**level)
             enddo
          enddo

@@ -13,6 +13,48 @@ ifeq ($(USE_WBAR),TRUE)
     DEFINES += -DUSE_WBAR
 endif
 
+PELE_PHYSICS_HOME ?= $(TOP)/PelePhysics
+CHEM_HOME = $(PELE_PHYSICS_HOME)/Support/Fuego/Mechanism/Models
+
+ifeq ($(Chemistry_Model), CHEMH)
+  CHEM_DIR = $(CHEM_HOME)/chem-H
+endif
+ifeq ($(Chemistry_Model), DRM19)
+  CHEM_DIR = $(CHEM_HOME)/drm19
+endif
+ifeq ($(Chemistry_Model), GRI30)
+  CHEM_DIR = $(CHEM_HOME)/grimech30
+endif
+ifeq ($(Chemistry_Model), C12WANG)
+  CHEM_DIR = $(CHEM_HOME)/dodecane_wang
+endif
+ifeq ($(Chemistry_Model), C12LU)
+  CHEM_DIR = $(CHEM_HOME)/dodecane_lu
+endif
+ifeq (${Chemistry_Model}, BURKEMOD)
+  CHEM_DIR = $(CHEM_HOME)/BurkeDryer_mod
+endif
+ifeq (${Chemistry_Model}, LUDME)
+  CHEM_DIR = $(CHEM_HOME)/LuDME
+endif
+ifeq ($(Chemistry_Model), JL4)
+  CHEM_DIR = $(CHEM_HOME)/JL4
+endif
+ifeq ($(Chemistry_Model), CH4-15step)
+  CHEM_DIR = $(CHEM_HOME)/CH4-15step
+endif
+ifeq ($(Chemistry_Model), LIDRYER)
+  CHEM_DIR = $(CHEM_HOME)/LiDryer
+endif
+
+ifdef CHEM_DIR
+  VPATH_LOCATIONS += $(CHEM_DIR)
+  Bpack += $(CHEM_DIR)/Make.package
+  Blocs += $(CHEM_DIR)
+else
+ $(error Invalid Chemistry_Model, $(Chemistry_Model))
+endif
+
 #
 # Tells IAMR not to include the following: NS_error.cpp NS_setup.cpp NSBld.cpp
 #
@@ -37,11 +79,13 @@ endif
 Pdirs   += $(AMREX_HOME)/Src/LinearSolvers/C_CellMG
 Pdirs   += $(AMREX_HOME)/Src/LinearSolvers/C_TensorMG
 Pdirs   += $(AMREX_HOME)/Src/LinearSolvers/C_to_F_MG
+Pdirs   += $(AMREX_HOME)/Src/LinearSolvers/MLMG
 
 include $(AMREX_HOME)/Src/LinearSolvers/F_MG/FParallelMG.mak
 include $(AMREX_HOME)/Src/F_BaseLib/FParallelMG.mak
 
 Bpack	+= $(foreach dir, $(Pdirs), $(dir)/Make.package)
+Blocs	+= $(foreach dir, $(Pdirs), $(dir))
 
 include $(Bpack) 
 INCLUDE_LOCATIONS += $(Blocs)
@@ -68,37 +112,6 @@ ifeq ($(USE_NEWMECH), TRUE)
   INCLUDE_LOCATIONS += $(AMRVIS_HOME)
   VPATH_LOCATIONS   += $(AMRVIS_HOME)
   DEFINES += -DBL_NOLINEVALUES -DBL_USE_NEWMECH -DBL_PARALLEL_IO
-endif
-
-PELE_PHYSICS_HOME ?= $(TOP)/PelePhysics
-CHEM_DIR = $(PELE_PHYSICS_HOME)/Support/Fuego/Mechanism/Models
-ifeq ($(CHEMISTRY_MODEL), CHEMH)
-  cEXE_sources += chem-H.c
-  vpath %.c   $(VPATH_LOCATIONS) $(CHEM_DIR)/chem-H
-endif
-ifeq ($(CHEMISTRY_MODEL), DRM19)
-  cEXE_sources += drm19.c
-  vpath %.c   $(VPATH_LOCATIONS) $(CHEM_DIR)/drm19
-endif
-ifeq ($(CHEMISTRY_MODEL), GRI30)
-  cEXE_sources += grimech30.c
-  vpath %.c   $(VPATH_LOCATIONS) $(CHEM_DIR)/grimech30
-endif
-ifeq ($(CHEMISTRY_MODEL), C12WANG)
-  cEXE_sources += dodecane_wang.c
-  vpath %.c   $(VPATH_LOCATIONS) $(CHEM_DIR)/dodecane_wang
-endif
-ifeq ($(CHEMISTRY_MODEL), C12LU)
-  cEXE_sources += dodecane_lu.c
-  vpath %.c   $(VPATH_LOCATIONS) $(CHEM_DIR)/dodecane_lu
-endif
-ifeq (${CHEMISTRY_MODEL}, BURKEMOD)
-  cEXE_sources += BurkeDryer_mod.c
-  vpath %.c $(VPATH_LOCATIONS) $(CHEM_DIR)/BurkeDryer_mod
-endif
-ifeq (${CHEMISTRY_MODEL}, LUDME)
-  cEXE_sources += LuDME.c
-  vpath %.c $(VPATH_LOCATIONS) $(CHEM_DIR)/Lu
 endif
 
 # Enable time-dependent turbulence forcing term
@@ -157,7 +170,7 @@ AMReX_buildInfo.cpp:
           --amrex_home "$(AMREX_HOME)" \
           --COMP "$(COMP)" --COMP_VERSION "$(COMP_VERSION)" \
           --FCOMP "$(FCOMP)" --FCOMP_VERSION "$(FCOMP_VERSION)" \
-          --MODULES "Chemistry=$(CHEMISTRY_MODEL)" \
+          --MODULES "Chemistry=$(Chemistry_Model)" \
           --GIT "$(PELELM_HOME) $(AMREX_HOME) $(IAMR_HOME)" 
 
 

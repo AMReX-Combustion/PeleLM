@@ -218,16 +218,16 @@ static void modify_parameters(ChemDriver& cd)
   PTypeMap["THIRD_BODY"] = THIRD_BODY;
 
   ParmParse pp("chem");
-  Array<std::string> parameters;
+  Vector<std::string> parameters;
   int np = pp.countval("parameters");
   if (np>0) {
     pp.getarr("parameters",parameters,0,np);
   }
 
-  Array<std::unique_ptr<ChemDriver::Parameter> > p(np);
-  std::map<int,Array<std::unique_ptr<ChemDriver::Parameter> > > dependent_parameters;
+  Vector<std::unique_ptr<ChemDriver::Parameter> > p(np);
+  std::map<int,Vector<std::unique_ptr<ChemDriver::Parameter> > > dependent_parameters;
 
-  Array<Real> values(np);
+  Vector<Real> values(np);
   for (int i=0; i<np; ++i) {
     std::string prefix = parameters[i];
     ParmParse ppp(std::string("chem."+prefix).c_str());
@@ -255,7 +255,7 @@ static void modify_parameters(ChemDriver& cd)
     int ndp = ppp.countval("dependent_parameters");
     if (ndp > 0) {
       dependent_parameters[i].resize(ndp);
-      Array<std::string> dpnames; ppp.getarr("dependent_parameters",dpnames,0,ndp);
+      Vector<std::string> dpnames; ppp.getarr("dependent_parameters",dpnames,0,ndp);
       for (int j=0; j<ndp; ++j) {
 
 	std::string dplist = "chem." + prefix + ".dependent_parameters." + dpnames[j];
@@ -362,7 +362,7 @@ ChemDriver::set_max_vode_subcycles(int maxcyc)
 void
 ChemDriver::set_species_Yscales(const std::string& scalesFile)
 {
-    Array<int> file = encodeStringForFortran(scalesFile);
+    Vector<int> file = encodeStringForFortran(scalesFile);
     int len         = file.size();
     FORT_SETSPECSCALY(file.dataPtr(),&len);
 }
@@ -409,12 +409,12 @@ ChemDriver::getStoichCoeffs()
     FORT_SETNU(mNu.dataPtr(),mNu.size());
 }
 
-Array<int>
+Vector<int>
 ChemDriver::reactionsWithXonL(const std::string& specName) const
 {
     const int idx = index(specName) + 1;
     int Nreacs = -1;
-    Array<int> reactions(numReactions());
+    Vector<int> reactions(numReactions());
     FORT_FINDLHS(reactions.dataPtr(),&Nreacs,&idx);
     reactions.resize(Nreacs);
     for (int i=0; i<reactions.size(); ++i)
@@ -422,12 +422,12 @@ ChemDriver::reactionsWithXonL(const std::string& specName) const
     return reactions;
 }
 
-Array<int>
+Vector<int>
 ChemDriver::reactionsWithXonR(const std::string& specName) const
 {
     const int idx = index(specName) + 1;
     int Nreacs = -1;
-    Array<int> reactions(numReactions());
+    Vector<int> reactions(numReactions());
     FORT_FINDRHS(reactions.dataPtr(),&Nreacs,&idx);
     reactions.resize(Nreacs);
     for (int i=0; i<reactions.size(); ++i)
@@ -444,19 +444,19 @@ ChemDriver::numberOfElementXinSpeciesY(const std::string& eltX,
     return FORT_CKELTXINSPY(&eltID,&spID);
 }
 
-Array<std::pair<std::string,int> >
+Vector<std::pair<std::string,int> >
 ChemDriver::specCoeffsInReactions(int reacIdx) const
 {
     // TODO(rgrout) This may be less error prone if the reacIdx was the
     // reaction index in the chemkin input file instead of the array offset
     // I have applied the mapping in another function that uses this,
     // so if the mapping is put in here fix reactionStringBuild also
-    Array<int> KI(mMaxsp);
-    Array<int> NU(mMaxsp);
+    Vector<int> KI(mMaxsp);
+    Vector<int> NU(mMaxsp);
     int Nids = 0;
     const int fortReacIdx = reacIdx + 1;
     FORT_CKINU(&Nids,KI.dataPtr(),&mMaxsp,NU.dataPtr(),&mMaxsp,&fortReacIdx,mNu.dataPtr());
-    Array<std::pair<std::string,int> > result(Nids);
+    Vector<std::pair<std::string,int> > result(Nids);
     for (int i=0; i<Nids; ++i)
         result[i] = std::pair<std::string,int>(mSpeciesNames[KI[i]-1],NU[i]);
     return result;
@@ -483,12 +483,12 @@ std::string
 ChemDriver::reactionStringBuild(int reacIdx) const
 {
     std::stringstream sline;
-    Array<std::pair<std::string,int> > spcCoeffs; 
+    Vector<std::pair<std::string,int> > spcCoeffs; 
 
-    const Array<int> rxnmap = reactionMap();
+    const Vector<int> rxnmap = reactionMap();
     int rxn_array_index = rxnmap[reacIdx];
     spcCoeffs = specCoeffsInReactions(rxn_array_index);
-    Array<std::pair<std::string,int> > reactants, products; 
+    Vector<std::pair<std::string,int> > reactants, products; 
 
     for (int j = 0; j < spcCoeffs.size(); ++j) {
         if( spcCoeffs[j].second < 0 ) {
@@ -539,18 +539,18 @@ ChemDriver::printReactions() const
 }
 
 
-Array<Real>
+Vector<Real>
 ChemDriver::speciesMolecWt() const
 {
-    Array<Real> mwt(numSpecies());
+    Vector<Real> mwt(numSpecies());
     FORT_GETCKMWT(mwt.dataPtr());
     return mwt;
 }
 
-Array<Real>
+Vector<Real>
 ChemDriver::elementAtomicWt() const
 {
-    Array<Real> awt(numElements());
+    Vector<Real> awt(numElements());
     CD_MWT(awt.dataPtr());
     return awt;
 }
@@ -568,7 +568,7 @@ extern "C" {
     if (!initialized) {
       amrex::Abort("Must construct the ChemDriver prior to calling CD_XTY_PT");
     }
-    static Array<int> idx(BL_SPACEDIM,0);
+    static Vector<int> idx(BL_SPACEDIM,0);
     static int* p = idx.dataPtr();
     FORT_MOLETOMASS(p, p, X, ARLIM(p), ARLIM(p), Y, ARLIM(p), ARLIM(p));
   }
@@ -578,28 +578,28 @@ extern "C" {
     if (!initialized) {
       amrex::Abort("Must construct the ChemDriver prior to calling CD_YTX_PT");
     }
-    static Array<int> idx(BL_SPACEDIM,0);
+    static Vector<int> idx(BL_SPACEDIM,0);
     static int* p = idx.dataPtr();
     FORT_MASSTOMOLE(p, p, Y, ARLIM(p), ARLIM(p), X, ARLIM(p), ARLIM(p));
   }
 }
 
-Array<Real>
-ChemDriver::massFracToMoleFrac(const Array<Real>& Y) const
+Vector<Real>
+ChemDriver::massFracToMoleFrac(const Vector<Real>& Y) const
 {
     int nc = Y.size();
     BL_ASSERT(nc = numSpecies());
-    Array<Real> X(nc);
+    Vector<Real> X(nc);
     CD_YTX_PT(Y.dataPtr(), X.dataPtr());
     return X;
 }
 
-Array<Real>
-ChemDriver::moleFracToMassFrac(const Array<Real>& X) const
+Vector<Real>
+ChemDriver::moleFracToMassFrac(const Vector<Real>& X) const
 {
     int nc = X.size();
     BL_ASSERT(nc==numSpecies());
-    Array<Real> Y(nc);
+    Vector<Real> Y(nc);
     CD_XTY_PT(X.dataPtr(),Y.dataPtr());
     return Y;
 }
@@ -667,7 +667,7 @@ ChemDriver::molarProduction(FArrayBox&       Q,
 void
 ChemDriver::fwdRevReacRatesGivenXTP(FArrayBox&        FwdK,
                                        FArrayBox&        RevK,
-                                       const Array<int>& rxnIDs,
+                                       const Vector<int>& rxnIDs,
                                        const FArrayBox&  X,
                                        const FArrayBox&  T,
                                        Real              Patm,
@@ -887,11 +887,11 @@ ChemDriver::molarConcToMoleFrac(FArrayBox&       X,
 		      X.dataPtr(sCompX), ARLIM(mobx.loVect()), ARLIM(mobx.hiVect()));
 }
 
-Array<int>
+Vector<int>
 ChemDriver::encodeStringForFortran(const std::string& astr)
 {
     long length = astr.size();
-    Array<int> result(length);
+    Vector<int> result(length);
     for (int i = 0; i < length; ++i)
         result[i] = astr[i];
     return result;
@@ -1270,7 +1270,7 @@ ChemDriver::getElementMoles(FArrayBox&       C_elt,
     BL_ASSERT(C.nComp() >= sCompC+numSpecies());
     BL_ASSERT(C_elt.nComp() > sCompC_elt);
 
-    Array<int> name_enc = encodeStringForFortran(name);
+    Vector<int> name_enc = encodeStringForFortran(name);
     const int name_len = name_enc.size();
 
     FORT_GETELTMOLES(name_enc.dataPtr(), &name_len,
@@ -1320,7 +1320,7 @@ ChemDriver::getOTradLoss_TDF(FArrayBox&       Qloss,
 
 ChemDriver::Edge::Edge (const std::string& n1,
 			const std::string& n2,
-			const Array<std::pair<int,Real> > rwl,
+			const Vector<std::pair<int,Real> > rwl,
 			const ChemDriver* CD)
   : sp1(n1), sp2(n2), RWL(rwl), cd(CD) {}
 
@@ -1375,7 +1375,7 @@ ChemDriver::Edge::reverse()
     std::swap(sp1,sp2);
 }
 
-const Array<std::pair<int,Real> >&
+const Vector<std::pair<int,Real> >&
 ChemDriver::Edge::rwl () const
 {
     return RWL;
@@ -1403,7 +1403,7 @@ std::ostream& operator<< (std::ostream& os, const ChemDriver::Edge& e)
 {
   const ChemDriver* cd = e.CD();
   BL_ASSERT(cd != 0);
-  const Array<int>& rvmap = cd->reactionReverseMap();
+  const Vector<int>& rvmap = cd->reactionReverseMap();
   os << e.sp1 << " " << e.sp2 << " ";
   for (int i=0; i<e.RWL.size(); ++i) {
     const std::pair<int,Real>& p=e.RWL[i];
@@ -1640,8 +1640,8 @@ ChemDriver::getEdges (const std::string& trElt, int PrintVerbose, int HackSplitt
 {
     std::list<Edge> edges;
     std::map<std::string,Group> groups;
-    const Array<std::string>& spNames = speciesNames();
-    const Array<std::string>& eltNames = elementNames();
+    const Vector<std::string>& spNames = speciesNames();
+    const Vector<std::string>& eltNames = elementNames();
     for (int i=0; i<spNames.size(); ++i)
     {
         const std::string sp = spNames[i];
@@ -1658,7 +1658,7 @@ ChemDriver::getEdges (const std::string& trElt, int PrintVerbose, int HackSplitt
     }
     for (int r=0; r<numReactions(); ++r)
     {
-        const Array<std::pair<std::string,int> >& coeffs = specCoeffsInReactions(r);
+        const Vector<std::pair<std::string,int> >& coeffs = specCoeffsInReactions(r);
 
         std::map<std::string,int> net;
         for (int i=0; i<coeffs.size(); ++i)

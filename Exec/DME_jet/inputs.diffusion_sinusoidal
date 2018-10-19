@@ -13,7 +13,7 @@ ht.vode_itol = 2
 ns.do_active_control = 0
 mg.smooth_on_cg_unstable=1
 
-stop_time = 1.e-4
+stop_time = 6.e-5
 
 ns.do_fillPatchUMAC=1
 ns.zeroBndryVisc=1
@@ -58,16 +58,16 @@ geometry.prob_hi    =  0.00114 0.00228
 amr.n_cell          = 384 384
 amr.max_grid_size   = 128
 
-amr.n_cell          = 2048 2048
+amr.n_cell          = 1024 1024
 amr.max_grid_size   = 64
 
-#amr.refine_grid_layout = 0
+amr.refine_grid_layout = 0
 amr.blocking_factor = 16
 max_step            = 5000
 
 amr.plot_files_output = 1
 amr.plot_file       = plt
-amr.plot_int        = 100
+amr.plot_per        = 5.e-6
 
 amr.checkpoint_files_output = 1
 amr.check_file      = chk
@@ -154,6 +154,9 @@ geometry.is_periodic = 0 0
 godunov.slope_order = 4
 
 # ------------------  INPUTS TO DIFFUSION CLASS --------------------
+#diffuse.use_fboxlib_mg = 1
+vismf.usedynamicsetselection = 0
+
 diffuse.use_cg_solve = 0
 diffuse.max_order = 4
 diffuse.tensor_max_order = 4

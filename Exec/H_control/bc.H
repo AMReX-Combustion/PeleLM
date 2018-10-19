@@ -20,12 +20,12 @@ c     Note: Requires ckdwrk.H to obtain the value of maxspec
       REAL_T tau_control, cfix, coft_old, sest, V_in_old, corr,
      &     changeMax_control, tbase_control, dV_control, scale_control,
      &     zbase_control, h_control, controlVelMax
-      integer navg_pnts
+      integer navg_pnts, istemp
 
       common / control1 / tau_control, cfix, coft_old, sest, V_in_old,
      &     corr, changeMax_control, tbase_control, dV_control, scale_control,
      &     zbase_control, h_control, controlVelMax,
-     &     time_points,vel_points,cntl_points,navg_pnts,ac_hist_file
+     &     time_points,vel_points,cntl_points,navg_pnts,istemp,ac_hist_file
 
       integer pseudo_gravity
       common / control2 / pseudo_gravity

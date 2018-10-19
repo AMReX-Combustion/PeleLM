@@ -14,8 +14,8 @@ USE_OMP           = FALSE
 USE_MPI           = TRUE
 VERBOSE           = FALSE
 
-CHEMISTRY_MODEL = DRM19
-fEXE_sources += drm19Soln_seed_0.125.f
+Chemistry_Model = C12WANG
+fEXE_sources += wang_dodecane_phi_1000.f
 
 Blocs   := .
 

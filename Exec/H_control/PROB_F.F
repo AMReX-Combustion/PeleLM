@@ -71,7 +71,7 @@ c ::: -----------------------------------------------------------
 #endif
       namelist /control/ tau_control, sest, cfix, changeMax_control, h_control, 
      &     zbase_control, pseudo_gravity, ac_hist_file,
-     &     corr,controlVelMax,navg_pnts
+     &     corr,controlVelMax,navg_pnts,istemp
 
 #ifdef DO_LMC_FORCE
       REAL_T  twicePi, kxd, kyd, kzd
@@ -202,6 +202,7 @@ c     Initialize control variables
       h_control = -one
       pseudo_gravity = 0
       nchemdiag = 1
+      controlVelMax = 5.d0
 
       write(6,*)"reading fortin"
       read(untin,fortin)
@@ -254,7 +255,11 @@ c     Set up boundary functions
       do i=1,SDIM-1
          area = area*(domnhi(i)-domnlo(i))
       enddo
-      scale_control = Y_bc(fuelID-1,BL_FUELPIPE) * rho_bc(BL_FUELPIPE) * area
+      if(istemp.eq.0)then
+        scale_control = Y_bc(fuelID-1,BL_FUELPIPE) * rho_bc(BL_FUELPIPE) * area
+      else
+        scale_control = 1.d0
+      endif
       write(6,*)" control setup", area, Y_bc(fuelID-1,BL_FUELPIPE), rho_bc(BL_FUELPIPE)
       write(6,*)" fuelpipe",BL_FUELPIPE
 
@@ -613,7 +618,7 @@ c     Set amplitudes
       REAL_T a, phi
       REAL_T alpha,beta,gamma,delt,factor
       REAL_T Xt(maxspec), Yt(maxspec)
-      integer iO2,iH2,iCH4
+      integer iO2,iH2,iCH4, iC12H26
       integer n, len
       character*(maxspnml) name
 
@@ -629,6 +634,7 @@ c     Set amplitudes
             if (name .eq. 'O2' ) iO2 = n
             if (name .eq. 'H2' ) iH2 = n
             if (name .eq. 'CH4' ) iCH4 = n
+            if (name .eq. 'NC12H26' ) iC12H26 = n
         enddo
 
         do n = 1,Nspec
@@ -639,7 +645,7 @@ c     Set amplitudes
         beta = 1.d0 - H2_frac
         gamma = (0.5d0*alpha + 2.d0*beta) / phi_in
         delt = gamma*.79d0/.21d0
-        factor = alpha+beta +gamma+delt
+        factor = alpha+beta+gamma+delt
         if (iH2  > 0) Xt(iH2) = alpha / factor
         if (iCH4 > 0) Xt(iCH4) = beta / factor
         if (iO2  > 0) Xt(iO2) = gamma / factor
@@ -650,6 +656,7 @@ c     Set amplitudes
       do n=1,Nspec
          Xt(n) = zero
       enddo
+
       
 c     Set "a" for computing X from phi
 c     hc + a.O2 -> b.CO2 + c.H2O
@@ -663,6 +670,8 @@ c     hc + a.O2 -> b.CO2 + c.H2O
          a = .5d0
       else if (name .eq. 'C3H8') then
          a = 5.0d0
+      else if (name .eq. 'NC12H26') then
+         a = 18.50d0
       else
          call bl_abort('setupbc: Unknown fuel type')
       end if
