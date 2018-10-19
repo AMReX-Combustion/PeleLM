@@ -42,11 +42,11 @@ you.  We assume REGTEST_SCRATCH is defined to point to this location.
 2. Clone the required repos into the scratch area.
 
     ```
-    git clone https://github.com/AMReX-Codes/amrex.git ${REGTEST_SCRATCH}/amrex
-    git clone https://github.com/AMReX-Codes/regression_testing.git ${REGTEST_SCRATCH}/regression_testing
-    git clone https://github.com/AMReX-Codes/IAMR.git ${REGTEST_SCRATCH}/IAMR
-    git clone https://github.com/AMReX-Codes/PelePhysics.git ${REGTEST_SCRATCH}/PelePhysics
-    git clone https://github.com/AMReX-Codes/PeleLM.git ${REGTEST_SCRATCH}/PeleLM
+    git clone git@github.com:AMReX-Codes/amrex.git ${REGTEST_SCRATCH}/amrex
+    git clone git@github.com:AMReX-Codes/regression_testing.git ${REGTEST_SCRATCH}/regression_testing
+    git clone git@github.com:AMReX-Codes/IAMR.git ${REGTEST_SCRATCH}/IAMR
+    git clone git@github.com:AMReX-Combustion/PelePhysics.git ${REGTEST_SCRATCH}/PelePhysics
+    git clone git@github.com:AMReX-Combustion/PeleLM.git ${REGTEST_SCRATCH}/PeleLM
     ```
 
 3.  Move to the location where the tests will be built/run, create
