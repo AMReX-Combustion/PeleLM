@@ -65,7 +65,7 @@ This, together with the conservation equations form a differential-algebraic equ
 
     \frac{DP_0}{Dt} = 0
 
-and observe that if the initial conditions satisfy the constraint, an evolution satisfying the above will continue to satisfy the constraint over all time.  Expanding thsi expression via the chain rule and continuity:
+and observe that if the initial conditions satisfy the constraint, an evolution satisfying the above will continue to satisfy the constraint over all time.  Expanding this expression via the chain rule and continuity:
 
 .. math::
 
@@ -103,7 +103,7 @@ where :math:`{D}_{m,j}` is the diffusion matrix, and :math:`\boldsymbol{\theta}`
 
     \boldsymbol{d_m} = \nabla X_m + (X_m -Y_m) \frac{\nabla P_0}{P_0}
 
-Alternatively (as in the library EGLIB the thermal diffusion *ratios* :math:`\boldsymbol{\chi}` may be preferred and the diffusion velocities and energy flux recast as:
+Alternatively (as in the transport library, EGLIB) the thermal diffusion *ratios* :math:`\boldsymbol{\chi}` may be preferred and the diffusion velocities and energy flux recast as:
 
 .. math::
 
@@ -117,16 +117,17 @@ where  :math:`{D} \boldsymbol{\chi} = \boldsymbol{\theta}`.
 As can be seen, the expression for these fluxes relies upon several transport coefficients that need to be evaluated. However, in the present framework several effects are neglected, thus simplifying the fluxes evaluation.
 
 The `PeleLM` Equation Set
+^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The full diffusion model couples together the advance of all thermodynamics fields, including a dense matrix transport operator that is cumbersome to deal with computationally, while also being generally viewed as an overkill for most practical combustion applications -- particularly those involving turbulent fluid dynamics.  For `PeleLM`, we make the following simplifying assumptions:
 
-1. The bulk viscosity, :math:`\kappa` is negligible, compared to the shear viscosity,
+1. The bulk viscosity, :math:`\kappa`, is negligible, compared to the shear viscosity,
 
 2. The low Mach limit implies that there are no spatial gradients in the thermodynamic pressure,
 
 3. The *mixture-averaged* diffusion model is assumed,
 
-4. Finally, Dufour and Soret effects are negligible
+4. Dufour and Soret effects are negligible
 
 With these assumptions, the conservation equations take the following form:
 
