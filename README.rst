@@ -1,17 +1,10 @@
-PeleLM 
-==========================================
-*A low Mach number AMR combustion code*
-
 `PeleLM` is an adaptive-mesh low Mach number hydrodynamics code for reacting flows.
 
 Getting Started
 ---------------
 
-* To compile and run the `Pele` suite of codes, one needs a C++ compiler that supports 
-the C++11 standard and a Fortran compiler that supports the 2003 standard.  A hierarchical 
-strategy for parallelism is supported, based MPI + OpenMP.  The codes work with all major 
-MPI and OpenMP implementations.  The codes should build and run with no modifications to 
-the `make` system if using a Linux system with the GNU compilers, version 4.8.4 and above.
+* To compile and run the `Pele` suite of codes, one needs a C++ compiler that supports the C++11 standard and a Fortran compiler that supports the 2003 standard.  A hierarchical strategy for parallelism is supported, based MPI + OpenMP.  The codes work with all major MPI and OpenMP implementations.  The codes should build and run with no modifications to the `make` system if using a Linux system with the GNU compilers, version 4.8.4 and above.
+
 
 To build `PeleLM` and run a sample 2D flame problem:
 
@@ -43,9 +36,9 @@ To build `PeleLM` and run a sample 2D flame problem:
 Dependencies
 ------------
 
-`PeleLM` was created as a renamed, `LMC`, the low Mach code from CCSE 
-(``<https://ccse.lbl.gov/index.html>``),
-and is built on the `AMReX` library and the IAMR code (see above).
+`PeleLM` was created in 2017 by renaming `LMC`, the low Mach code from
+`CCSE <https://ccse.lbl.gov>`_, and is built on the `AMReX` library
+and the `IAMR` code (see above).
 
 Development model
 -----------------
