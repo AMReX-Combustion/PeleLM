@@ -6,8 +6,7 @@ eps_source = $(wildcard *.eps) $(wildcard */*.eps)
 
 pdf_source = $(eps_source:.eps=.pdf)
 
-section_sources = Introduction/PeleLMIntroduction.tex \
-                  GettingStarted/PeleLMGettingStarted.tex \
+section_sources = GettingStarted/PeleLMGettingStarted.tex \
 	          Inputs/PeleLMInputs.tex \
 	          Equations/PeleLMEquations.tex \
                   UnitsAndConstants/PeleLMUnits.tex \
