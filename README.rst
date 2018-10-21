@@ -2,7 +2,7 @@
 `homepage <https://amrex-combustion.github.io/PeleLM/>`_, and can be obtained via
 `GitHub <https://github.com/AMReX-Combustion/PeleLM>`_.
 
-.. image:: https://readthedocs.org/projects/pelelm/badge/?version=latest:target: https://pelelm.readthedocs.io/en/latest/?badge=latest:alt: Documentation Status
+.. image:: https://readthedocs.org/projects/pelelm/badge
 
 
 Getting Started
