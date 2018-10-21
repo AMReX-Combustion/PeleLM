@@ -2,11 +2,14 @@
 `homepage <https://amrex-combustion.github.io/PeleLM/>`_, and can be obtained via
 `GitHub <https://github.com/AMReX-Combustion/PeleLM>`_.
 
+Current project build status
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
 .. image:: https://readthedocs.org/projects/pelelm/badge
 
 
-Getting Started
----------------
+Getting started with PeleLM
+===========================
 
 * To compile and run the `Pele` suite of codes, one needs a C++ compiler that supports the C++11 standard and a Fortran compiler that supports the 2003 standard.  A hierarchical strategy for parallelism is supported, based MPI + OpenMP.  The codes work with all major MPI and OpenMP implementations.  The codes should build and run with no modifications to the `make` system if using a Linux system with the GNU compilers, version 4.8.4 and above.
 
