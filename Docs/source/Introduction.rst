@@ -35,7 +35,7 @@ The set of conservation equations specialized to the low Mach number regime is a
     \nabla \cdot \left( \rho h \boldsymbol{u}
     + \boldsymbol{\mathcal{Q}} \right) = 0 ,
 
-where :math:`\rho` is the density, :math:`\boldsymbol{u}` is the velocity, :math:`h` is the mass-weighted enthalpy, :math:`T` is temperature and :math:`Y_m` is the mass fraction of species :math:`m`. :math:`\dot{\omega}_m` is the molar production rate for species :math:`m`, the modeling of which will be described later in this section. :math:`\tau` is the stress tensor, :math:`\boldsymbol{\mathcal{Q}}` is the heat flux and \:math:`\boldsymbol{\mathcal{F}}_m` are the species diffusion fluxes. These transport fluxes require the evaluation of transport coefficients (e.g., the viscosity :math:`\mu`, the conductivity :math:`\lambda` and the diffusivity matrix :math:`D`) which are computed using the library EGLIB, as will be described in more depth in the diffusion section. The momentum source, :math:`\boldsymbol{F}`, is an external forcing term.  For example, we have used :math:`\boldsymbol{F}` to implement a long-wavelength time-dependent force to establish and maintain quasi-stationary turbulence.
+where :math:`\rho` is the density, :math:`\boldsymbol{u}` is the velocity, :math:`h` is the mass-weighted enthalpy, :math:`T` is temperature and :math:`Y_m` is the mass fraction of species :math:`m`. :math:`\dot{\omega}_m` is the molar production rate for species :math:`m`, the modeling of which will be described later in this section. :math:`\tau` is the stress tensor, :math:`\boldsymbol{\mathcal{Q}}` is the heat flux and :math:`\boldsymbol{\mathcal{F}}_m` are the species diffusion fluxes. These transport fluxes require the evaluation of transport coefficients (e.g., the viscosity :math:`\mu`, the conductivity :math:`\lambda` and the diffusivity matrix :math:`D`) which are computed using the library EGLIB, as will be described in more depth in the diffusion section. The momentum source, :math:`\boldsymbol{F}`, is an external forcing term.  For example, we have used :math:`\boldsymbol{F}` to implement a long-wavelength time-dependent force to establish and maintain quasi-stationary turbulence.
 
 These evolution equations are supplemented by an equation of state for the thermodynamic pressure.  For example, the ideal gas law,
 
@@ -156,7 +156,7 @@ Using these expressions, we can write an equation for :math:`T` that is needed i
 
     \rho C_p \frac{DT}{Dt} = \nabla \cdot \lambda \nabla T + \sum_m \Big( h_m \nabla \cdot \boldsymbol{\mathcal{F}}_{m} - \nabla \cdot h_m \boldsymbol{\mathcal{F}}_{m} - h_m \rho \dot\omega_m \Big)
 
-where :math:`C_p = \partial h/\partial T` is the specific heat of the mixture at constant pressure. The constraint then becomes:
+where :math:`C_p = \partial h/\partial T` is the specific heat of the mixture at constant pressure. For an ideal gas, the constraint then becomes:
 
 .. math::
 
@@ -166,12 +166,12 @@ where :math:`C_p = \partial h/\partial T` is the specific heat of the mixture at
     &&- \frac{W}{\rho} \sum_m \frac{1}{W_m} \nabla \cdot \boldsymbol{\mathcal{F}}_{m}
     + \frac{1}{\rho} \sum_m \Big( \frac{W}{W_m} -\frac{h_m(T)}{c_{p} T} \Big)\dot{\omega}_m
 
-The mixture-averaged transport coefficients discussed above (:math:`\mu`, :math:`\lambda` and :math:`D_{m,mix}`) can be evaluated from transport properties of the pure species. We follow the treatment used in the EGLib library, based on the theory/approximations developed by Ern and Givangigli.
+The mixture-averaged transport coefficients discussed above (:math:`\mu`, :math:`\lambda` and :math:`D_{m,mix}`) can be evaluated from transport properties of the pure species. We follow the treatment used in the EGLib library, based on the theory/approximations developed by Ern and Givangigli (however, `PeleLM` uses a recoded version of these routines that are thread safe and vectorize well on suitable processors).
 
 
 The following choices are currently implemented in `PeleLM`
 
-* The viscosity, :math:`\mu`, is estimated based \textcolor{red}{FIXME}
+* The viscosity, :math:`\mu`, is estimated based <something>
 
 * The conductivity, :math:`\lambda`, is based on an empirical mixture formula:
 
@@ -184,6 +184,8 @@ with
 .. math::
 
     \mathcal{A}_{\alpha}= \Big( \sum_m X_m (\lambda_m)^{\alpha} \Big)^{1/\alpha}
+
+<although this should be done as it is in `PeleC`).
 
 * The diffusion flux is approximated using the diagonal matrix :math:`diag(\widetilde{ \Upsilon})`, where:
 
@@ -200,125 +202,13 @@ This leads to a mixture-averaged approximation that is similar to that of Hirsch
 
 Note that with these definitions, there is no guarantee that :math:`\sum \boldsymbol{\mathcal{F}}_{m} = 0`, as required for mass conservation. An arbitrary *correction flux,* consistent with the mixture-averaged diffusion approximation, is added in `PeleLM` to enforce conservation.
 
-Pure species transport properties
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-The mixture-averaged transport coefficients require expressions for the pure species binary transport coefficients.  These, in turn, depend upon the forces of interaction between colliding molecules, which are complex functions of the shape and properties of each binary pair of species involved, as well as of their environment, intermolecular distance, etc. In practice, these interactions are usually described by a Lennard-Jones 6-12 potential (for non polar molecules, Stockmayer potential otherwise) that relates the evolution of the potential energy of the pair of species to their intermolecular distance. Here, the single component viscosities and binary diffusion coefficients are given by Hirschfelder:1954:
-
-.. math::
-
-    \eta_m = \frac{5}{16} \frac{\sqrt{\pi m_m k_B T}}{\pi \sigma^2_m \Omega^{(2,2)*}},
-    \hspace{4mm}
-    \mathcal{D}_{m,j} = \frac{3}{16}\frac{\sqrt{2 \pi k^3_B T^3/m_{m,j}}}{P_0 \pi \sigma^2_{m,j} \Omega^{(1,1)*}}
-
-where :math:`k_B` is the Boltzmann constant, :math:`\sigma_m` is the Lennard-Jones collision diameter and :math:`m_m (= W_k/\mathcal{A})` is the molecular mass of species :math:`m`. :math:`m_{m,j}` is the reduced molecular mass and :math:`\sigma_{m,j}` is the reduced collision diameter of the :math:`(m,j)` pair, given by:
-
-.. math::
-
-    m_{m,j} = \frac{m_m m_j }{ (m_m + m_j)},
-    \sigma_{m,j} = \frac{1}{2} \zeta^{-\frac{1}{6}}(\sigma_m + \sigma_j)
-
-where :math:`\zeta=1` if the partners are either both polar or both nonpolar, but in the case of a polar molecule (:math:`p`) interacting with a nonpolar (:math:`n`) molecule:
-
-.. math::
-
-    \zeta=1 + \frac{1}{4} \alpha^*_n (\mu^*_p)^2 \sqrt{\frac{\epsilon_p}{\epsilon_n}}
-
-with :math:` \alpha^*_n = \alpha_n / \sigma^3_n` the reduced polarizability of the nonpolar molecule and  :math:`\mu^*_p = \mu_p/\sqrt{\epsilon_p \sigma^3_p}` the reduced dipole moment of the polar molecule, expressed in function of the Lennard-Jones potential :math:`\epsilon_p` of the :math:`p` molecule.
-
-Both quantities rely upon the evaluation of *collision integrals* :math:`\Omega^{(\cdot,\cdot)*}`, which account for inter-molecular interactions, and are usually tabulated in function of reduced variables:
-
-* :math:`\Omega^{(2,2)*}` is tabulated in function of a reduced temperature, :math:`T^*_m` and a reduced dipole moment, :math:`\delta^*_m`, given by:
-
-.. math::
-
-    T^*_m = \frac{k_BT}{\epsilon_m},
-    \delta^*_m = \frac{1}{2} \frac{\mu^2_m}{\epsilon_m \sigma^3_m}
-
-%where :math:`\epsilon_m` is the Lennard-Jones potential well depth and :math:`\mu_m` is the dipole moment of species :math:`m`. 
-
-* :math:`\Omega^{(1,1)*}` is tabulated in function of a reduced temperature, :math:`T^*_{m,j}` and a reduced dipole moment, :math:`\delta^*_{m,j}`, given by:
-
-.. math::
-
-    T^*_{m,j} = \frac{k_BT}{\epsilon_{m,j}},
-    \delta^*_{m,j} = \frac{1}{2} \frac{\mu^2_{m,j}}{\epsilon_{m,j} \sigma^3_{m,j}}
-
-where the reduced collision diameter of the pair (:math:`\sigma_{m,j}`) is given by <redCollision>; and the Lennard-Jones potential :math:`\epsilon_{m,j}` and dipole moment :math:`\mu_{m,j}` of the :math:`(m,j)` pair are given by:
-
-.. math::
-
-    \frac{\epsilon_{m,j}}{k_B} = \zeta^2 \sqrt{\frac{\epsilon_m}{k_B} \frac{\epsilon_j}{k_B}},
-    \mu^2_{m,j} = \xi \mu_m \mu_j 
-
-with :math:`\xi = 1` if :math:`\zeta = 1` and :math:`\xi = 0` otherwise.
-
-The expression for the pure species thermal conductivities are more complex. They are assumed to be composed of translational, rotational and vibrational contributions:
-
-.. math::
-
-    \lambda_m = \frac{\eta_m}{W_m} (f_{tr}C_{v,tr} + f_{rot}C_{v,rot} + f_{vib}C_{v,vib})
-
-where
-
-.. math::
-
-    &&f_{tr} = \frac{5}{2}\Big(1-\frac{2}{\pi} \frac{C_{v,rot}}{C_{v,tr}} \frac{A}{B} \Big)\\
-    &&f_{rot} = \frac{\rho \mathcal{D}_{m,m}}{\eta_m} \Big( 1 + \frac{2}{\pi} \frac{A}{B}  \Big)\\
-    &&f_{vib} = \frac{\rho \mathcal{D}_{m,m}}{\eta_m}
-
-and
-
-.. math::
-
-    A = \frac{5}{2} - \frac{\rho \mathcal{D}_{m,m}}{\eta_m},
-    B = Z_{rot} + \frac{2}{\pi} \Big( \frac{5}{3} \frac{C_{v,rot}}{\mathcal{R}} + \frac{\rho \mathcal{D}_{m,m}}{\eta_m} \Big)
-
-The molar heat capacities :math:`C_{v,\cdot}` depend on the molecule shape. In the case of a linear molecule:
-
-.. math::
-
-    \frac{C_{v,tr}}{\mathcal{R}} = \frac{3}{2},
-    \hspace{1.5em}
-    \frac{C_{v,rot}}{\mathcal{R}} = 1,
-    \hspace{1.5em} 
-    {C_{v,vib}} = C_v - \frac{5}{2} \mathcal{R}
-
-In the case of a nonlinear molecule, the expressions are
-
-.. math::
-
-    \frac{C_{v,tr}}{\mathcal{R}} = \frac{3}{2},
-    \hspace{1.5em} 
-    \frac{C_{v,rot}}{\mathcal{R}} =  \frac{3}{2},
-    \hspace{1.5em} 
-    {C_{v,vib}} = C_v - 3 \mathcal{R}
-
-For single-atom molecules the thermal conductivity reduces to:
-
-.. math::
-
-    \lambda_m = \frac{\eta_m}{W_m} (f_{tr}C_{v,tr} ) = \frac{15 \eta_m \mathcal{R}}{4 W_m}
-
-Finally, :math:`Z_{rot}` is the rotational relaxation number, a parameter given by:
-
-.. math::
-
-    Z_{rot}(T) = Z_{rot} (298) \frac{F(298)}{F(T)}
-
-with 
-
-.. math::
-
-    F(T) = 1 + \frac{\pi^{(3/2)}}{2} \sqrt{\frac{\epsilon/k_B}{T} } + \Big( \frac{\pi^2}{4} +2 \Big) \Big( \frac{\epsilon/k_B}{T} \Big) + \pi^{(3/2)}\Big( \frac{\epsilon/k_B}{T} \Big)^{(3/2)} 
-
-The pure species and mixture transport properties are evaluated with EGLib functions, which are linked directly into `PeleLM`.  EGLib requires as input polynomial fits of the logarithm of each quantity versus the logarithm of the temperature.
+The pure species and mixture transport properties are evaluated with (thread-safe, vectorized) EGLib functions, which require as input polynomial fits of the logarithm of each quantity versus the logarithm of the temperature.
 
 .. math::
 
     ln(q_m) = \sum_{n=1}^4 a_{q,m,n} ln(T)^{(n-1)} 
 
-where :math:`q_m` represents :math:`\eta_m`, :math:`\lambda_m` or :math:`D_{m,j}`. These fits are generated as part of a preprocessing step managed by the tool `FUEGO` based on the formula (and input data) discussed above. The role of `FUEGO` to preprocess the model parameters for transport as well as chemical kinetics and thermodynamics, is discussed in some detail in <Section FuegoDescr>.
+:math:`q_m` represents :math:`\eta_m`, :math:`\lambda_m` or :math:`D_{m,j}`. These fits are generated as part of a preprocessing step managed by the tool `FUEGO` based on the formula (and input data) discussed above. The role of `FUEGO` to preprocess the model parameters for transport as well as chemical kinetics and thermodynamics, is discussed in some detail in <Section FuegoDescr>.
 
 
 Chemical kinetics and the reaction source term
