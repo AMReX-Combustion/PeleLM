@@ -198,7 +198,7 @@ This leads to a mixture-averaged approximation that is similar to that of Hirsch
 
     \rho Y_m \boldsymbol{V_m} = - \rho D_{m,mix} \nabla X_m 
 
-Note that with these definitions, there is no guarantee that :math:`\sum \boldsymbol{\mathcal{F}}_{m} = 0`, as required for mass conservation. An arbitrary *correction flux,* consistent with the mixture-averaged diffusion approximation, is added in \pelelm\ to enforce conservation.
+Note that with these definitions, there is no guarantee that :math:`\sum \boldsymbol{\mathcal{F}}_{m} = 0`, as required for mass conservation. An arbitrary *correction flux,* consistent with the mixture-averaged diffusion approximation, is added in `PeleLM` to enforce conservation.
 
 Pure species transport properties
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -312,7 +312,7 @@ with
 
     F(T) = 1 + \frac{\pi^{(3/2)}}{2} \sqrt{\frac{\epsilon/k_B}{T} } + \Big( \frac{\pi^2}{4} +2 \Big) \Big( \frac{\epsilon/k_B}{T} \Big) + \pi^{(3/2)}\Big( \frac{\epsilon/k_B}{T} \Big)^{(3/2)} 
 
-The pure species and mixture transport properties are evaluated with EGLib functions, which are linked directly into \pelelm.  EGLib requires as input polynomial fits of the logarithm of each quantity versus the logarithm of the temperature.
+The pure species and mixture transport properties are evaluated with EGLib functions, which are linked directly into `PeleLM`.  EGLib requires as input polynomial fits of the logarithm of each quantity versus the logarithm of the temperature.
 
 .. math::
 
@@ -343,7 +343,7 @@ collating the rate of creation and destruction over reactions:
 
     \dot{\omega}_m = \sum_{j=1}^{M_r} \nu_{m,j} R_j 
 
-where :math:`\nu_{m,j} =\nu_{m,j}'' - \nu_{m,j}'`. Expressions for the reaction rates coefficients :math:`k_{(f,r),j}` depend on the type of reaction considered. \pelelm \; relies on the CHEMKIN Arrhenius reaction format:
+where :math:`\nu_{m,j} =\nu_{m,j}'' - \nu_{m,j}'`. Expressions for the reaction rates coefficients :math:`k_{(f,r),j}` depend on the type of reaction considered. We use the CHEMKIN modified Arrhenius reaction format:
 
 .. math::
 
@@ -365,7 +365,7 @@ Species production rates are evaluated via functions that are generated as part 
 Thermodynamic properties
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
-Currently, expressions for the thermodynamic properties in \pelelm\ follow those of CHEMKIN, which assume a mixture of ideal gases. Species enthalpies and entropies are thus functions of only temperature (for perfect gases, they are independent of pressure) and are given in terms of polynomial fits to the species molar heat capacities (:math:`C_{p,\cdot}`),
+Currently, expressions for the thermodynamic properties in `PeleLM` follow those of CHEMKIN, which assume a mixture of ideal gases. Species enthalpies and entropies are thus functions of only temperature (for perfect gases, they are independent of pressure) and are given in terms of polynomial fits to the species molar heat capacities (:math:`C_{p,\cdot}`),
 
 .. math::
 
@@ -401,3 +401,455 @@ A typical model for `PeleLM` contains all the information associated with the CH
 For these reasons, `PeleLM` no longer uses CHEMKIN functions directly, but instead relies on a preprocessing tool, `FUEGO`, to generate highly efficient C code implementations of the necessary thermodynamic, transport and kinetics evaluations.  The source code generated from `FUEGO` is linked into the `PeleLM` executable, customizing each executable for a specific model at compile time.  The implementation source code files can also be linked conveniently to post-processing analysis tools. The `FUEGO` processing tool, and the functions necessary to interface the generated functions to `PeleLM` are distributed in the auxiliary code package, `PelePhysics`.  Included in the `PelePhysics` distribution is a broad set of models for the combustion of hydrogen, carbon-monoxide, methane, heptane, :math:`n`-dodecane, dimethyl ether, and others, as well as instructions for users to extend this set using `FUEGO`, based on their own CHEMKIN-compliant inputs. `PelePhysics` also provides support for simpler *gama-law* equations-of-state, and simple/constant transport properties.
 
 
+The `PeleLM` temporal integration
+=================================
+
+The temporal discretization in `PeleLM` combines a modified spectral deferred correction (SDC) coupling of chemistry and transport with a density-weighted approximate projection method for low Mach number flow.  The projection method enforces a constrained evolution of the velocity field, and is implemented iteratively in such a way as to ensure that the update simultaneously satisfies the  equation of state and discrete conservation of mass and total enthalpy.  A time-explicit approach is used for advection; faster diffusion and chemistry processes are treated time-implicitly, and iteratively coupled together within the deferred corrections strategy. The integration algorithm, discussed in the following sections, is second-order accurate in space and time, and is implemented in the context of a subcycled approach for a nested hierarchy of mesh levels, where each level consists of logically rectangular patches of rectangular cells.  All cells at a level have the same size in all coordinates.
+
+Due to the complexity of the `PeleLM` algorithm, it is best presented in a number of passes.  Focusing first on the single-level advance, we begin with a general discussion of the SDC-based time step iteration, which is designed to couple together the various physics processes.  We then describe the projection steps used to enforce the constraint in the context of this iterative update.  Next, we dive a little deeper into precisely how the advance of the thermodynamic components of the state is sequenced.  There are a few crucial nuances to the formulation/sequencing of the energy advection, energy diffusion, conservative corrections to the species diffusion fluxes, and of the projection that can then be discussed in the context of overall single-level time step.  Finally, with all these aspects defined, we give an overview of the modifications necessary to support the AMR subcycling strategy.
+
+SDC preliminaries
+^^^^^^^^^^^^^^^^^
+
+The basic idea of SDC is to write the solution of an ODE
+
+.. math::
+
+    &&\phi_t = F(t,\phi(t)), \qquad t\in[t^n,t^{n+1}];\\
+    &&\phi(t^n) = \phi^n,
+
+as an integral,
+
+.. math::
+
+    \phi(t) = \phi^n + \int_{t^n}^{t} F(\phi)~d\tau,
+
+where we suppress explicit dependence of :math:`F` and :math:`\phi` on :math:`t` for notational simplicity.
+Given an approximation :math:`\phi^{(k)}(t)` to :math:`\phi(t)`, one can then define a residual,
+
+.. math::
+
+    E(t,\phi^{(k)}) = \phi^n + \int_{t^n}^t F(\phi^{(k)})~d\tau - \phi^{(k)}(t).\label{eq:residual}
+
+Defining the error as :math:`\delta^{(k)}(t) = \phi(t) - \phi^{(k)}(t)`, one can then show that
+
+.. math::
+
+    \delta^{(k)}(t) = \int_{t^n}^t \left[F(\phi^{(k)}+ \delta^{(k)}) - F(\phi^{(k)})\right]d\tau + E(t,\phi^{(k)}).
+
+In SDC algorithms, the integral in the above equation
+is evaluated with a higher-order quadrature rule.
+By using a low-order discretization of the integral one can construct
+an iterative scheme that improves the overall order of accuracy of the approximation by one per
+iteration, up to the order of accuracy of the underlying quadrature rule 
+used to evaluate the integral.
+Specifically, if we let :math:`\phi^{(k)}` represent the current approximation and define 
+:math:`\phi^{(k+1)} = \phi^{(k)} + \delta^{(k)}` to be the iterative update, 
+then arrive at the update equation,
+
+.. math::
+
+    \phi^{(k+1)}(t) = \phi^n + \int_{t^n}^t \left[F(\phi^{(k+1)}) - F(\phi^{(k)})\right]d\tau +
+    \int_{t^n}^t F(\phi^{(k)})~d\tau,\label{eq:update}
+
+where a low-order discretization (e.g., forward or backward Euler) is used for the first integral 
+and a higher-order quadrature is used to evaluate the second integral.  For our reacting flow model,
+the underlying projection methodology for the time-advancement of velocity is second-order,
+so we require the use of second-order (or higher) numerical quadrature for the second integral.
+
+MISDC Correction Equations
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+We based the time advance here on a variant of SDC, referred to as MISDC, in which :math:`F` is decomposed into distinct
+processes, each treated separately with methods appropriate to its own time scale.  Here, we write
+
+.. math::
+
+    \phi_t = F \equiv A(\phi) + D(\phi) + R(\phi),\label{eq:multi}
+
+to refer to advection, diffusion, and reaction processes.
+For this construction we assume that we are given an approximate solution :math:`\phi^{(k)}` that
+we want to improve. 
+A series of correction equations is develop to update :math:`\phi^{(k)}` that uses relatively
+simple second-order discretizations of :math:`A(\phi)` and :math:`D(\phi)` but a high-accuracy 
+treatment of :math:`R(\phi)`.  In our approach, :math:`A(\phi^{(k)})` is piecewise-constant over 
+each time step, and is evaluated using a second-order Godunov procedure.
+The Godunov procedure computes a time-centered 
+advection term at :math:`t^{n+1/2}`, and incorporates an explicit diffusion source term and an 
+iteratively lagged reaction source term, i.e.,
+
+.. math::
+
+    A(\phi^{(k)}) \equiv A^{n+1/2,(k)} = A\left(\phi^n,D(\phi^n),I_R^{(k-1)}\right),
+
+where :math:`I_R^{(k-1)}` is the effective contribution due to reactions from the previous iteration, i.e.,
+
+.. math::
+
+    I_R^{(k-1)} = \frac{1}{\Delta t^n}\int_{t^n}^{t^{n+1}} R(\phi)~d\tau.\label{eq:IR}
+
+where :math:`\Delta t^n = t^{n+1} - t^n`.  Here :math:`I_R^{(k-1)}` is computed from a high-accuracy
+integration of the reaction kinetics equations,
+augmented with piecewise constant-in-time representation of advection and diffusion.
+Details of this procedure are given below.
+
+In the spirit of MISDC, we solve correction equations for the individual processes
+sequentially.  We begin by discretizing the update equation, but only
+including the advection and diffusion terms in the correction integral,
+
+.. math::
+
+    \phi_{\rm AD}^{(k+1)}(t) = \phi^n + \int_{t^n}^t
+    \left[A^{(k+1)} - A^{(k)} + D^{(k+1)} - D^{(k)}\right]d\tau
+    + \int_{t^n}^t F^{(k)}~d\tau.
+
+Thus, :math:`\phi_{\rm AD}^{(k+1)}(t)` represents an updated approximation of the solution after correcting the
+advection and diffusion terms only.  For the first integral, we use an explicit update for the advection term and a 
+backward Euler discretization for the diffusion term.
+For the second integral, we represent :math:`F` in terms of :math:`A`, :math:`D`, and :math:`R` and
+use the definition
+of :math:`A^{(k)}`, :math:`D^{(k)}`, and :math:`I_R^{(k-1)}` to obtain
+a discrete update for 
+:math:`\phi_{\rm AD}^{n+1,(k+1)}`:
+
+.. math::
+
+    \phi_{\rm AD}^{n+1,(k+1)} &=& \phi^n + \Delta t
+    \left[A^{(k+1)} - A^{(k)} + D_{\rm AD}^{(k+1)} - D^{n+1,(k)}\right] \\
+    &&\hspace{0.5cm}+ \Delta t\left[A^{(k)} + \frac{1}{2}\left(D^n + D^{(k)}\right) + I_R^{(k)}\right],
+
+where :math:`I_R^{(k)}` is defined using the definition of our reaction term.
+This equation simplifies to the following backward Euler type linear system, with the
+right-hand-side consisting of known quantities:
+
+.. math::
+
+    \phi_{\rm AD}^{n+1,(k+1)} - \Delta t D_{\rm AD}^{(k+1)} = \phi^n + \Delta t \left[A^{(k+1)} + \frac{1}{2}\left(D^n - D^{(k)}\right) + I_R^{(k)}\right].
+
+After computing :math:`\phi_{\rm AD}^{n+1,(k+1)}`, we complete the update by solving a correction equation for
+the reaction term.  Standard MISDC approaches would formulate the reaction correction equation as
+
+.. math::
+
+    {\phi}^{(k+1)}(t) = \phi^n &+& \int_{t^n}^t \left[ A^{(k+1)} - A^{(k)}
+    + D_{\rm AD}^{(k+1)} - D^{(k)} \right]~d\tau\\
+    &+& \int_{t^n}^t \left[R^{(k+1)} - R^{(k)}\right]d\tau + \int_{t^n}^t F^{(k)}~d\tau,
+
+and use a backward Euler type discretization for the integral of the reaction terms.
+Here, to address stiffness issues with detailed chemical kinetics, we will instead
+formulate the correction equation for the 
+reaction as an ODE, which is treated separately with an ODE integrator package.
+In particular, by differentiating the SDC update we obtain
+
+.. math::
+
+    {\phi}^{(k+1)}_t &=& \left[ A^{(k+1)} - A^{(k)} + D_{\rm AD}^{(k+1)} - D^{(k)} \right]\\
+    &&\hspace{-0.5cm}+ \left[R^{(k+1)} - R^{(k)}\right] + \left[A^{(k)} +
+    \frac{1}{2}\left(D^n + D^{(k)}\right) + R^{(k)}\right]\\
+    &=& R^{(k+1)} + \underbrace{A^{(k+1)} + D_{\rm AD}^{(k+1)} +
+    \frac{1}{2}\left[D^n - D^{(k)}\right]}_{F_{\rm AD}^{(k+1)}},
+
+which we then advance with the ODE integrator over :math:`\Delta t` to obtain :math:`\phi^{n+1,(k+1)}`.
+After the integration, we can evaluate :math:`I_R^{(k+1)}`, which is required for the next iteration
+
+.. math::
+
+    I_R^{(k+1)} = \frac{\phi^{n+1,(k+1)} - \phi^n}{\Delta t} - F_{\rm AD}^{(k+1)}.
+
+Summarizing, the variant of SDC used in the single-level time-step of `PeleLM` integrates the :math:`A`, :math:`D` and :math:`R` components of the discretization scheme in an iterative fashion, and each process incorporates a source term that is constructed using a lagged approximation of the other processes. In the case of the implicit diffusion, an additional source term arises from the SDC formulation.  If the SDC iterations were allowed to fully converge, all the process advanced implicitly would be implicitly coupled to all others.  Moreover, each process is discretized using methods that are tailored specifically to the needs of that operator. In the next section, we give more details for each of the components, including how and where the *velocity projections* play a role.
+
+Data centering, :math:`A`-:math:`D`-:math:`R`, and the projections
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+`PeleLM` implements a finite-volume, Cartesian grid discretization approach with constant grid spacing, where
+:math:`U`, :math:`\rho`, :math:`\rho Y_m`, :math:`\rho h`, and :math:`T` represent cell averages, and the pressure field, :math:`\pi`, is defined on the nodes
+of the grid, and is temporally constant on the intervals over the time step. There are three major steps in the algorithm:\\
+
+**Step 1**: (*Compute advection velocities*) Use a second-order Godunov procedure to predict a time-centered
+velocity, :math:`U^{{\rm ADV},*}`, on cell faces using the cell-centered data (plus sources due to any auxiliary forcing) at :math:`t^n`,
+and the lagged pressure gradient from the previous time interval, which we denote as :math:`\nabla \pi^{n-1/2}`.  
+The provisional field, :math:`U^{{\rm ADV},*}`, fails to 
+satisfy the divergence constraint.  We apply a discrete projection by solving the elliptic equation
+with a time-centered source term:
+
+.. math::
+
+    D^{{\rm FC}\rightarrow{\rm CC}}\frac{1}{\rho^n}G^{{\rm CC}\rightarrow{\rm FC}}\phi
+    = D^{{\rm FC}\rightarrow{\rm CC}}U^{{\rm ADV},*} - \left(\widehat S^n
+    + \frac{\Delta t^n}{2}\frac{\widehat S^n - \widehat S^{n-1}}{\Delta t^{n-1}}\right),
+
+for :math:`\phi` at cell-centers, where :math:`D^{{\rm FC}\rightarrow{\rm CC}}` represents a cell-centered divergence of face-centered data,
+and :math:`G^{{\rm CC}\rightarrow{\rm FC}}` represents a face-centered gradient of cell-centered data, and :math:`\rho^n` is computed on
+cell faces using arithmetic averaging from neighboring cell centers.  Also, :math:`\widehat S` refers to the RHS of the constraint
+equation, with adjustments to be discussed in the next section -- these adjustments are computed to ensure that the final update satisfied the equation of state. The solution, :math:`\phi`, is then used to define
+
+.. math::
+
+    U^{\rm ADV} = U^{{\rm ADV},*} - \frac{1}{\rho^n}G^{{\rm CC}\rightarrow{\rm FC}}\phi,
+
+After the *MAC*-projection, :math:`U^{\rm ADV}` is a second-order accurate, staggered grid vector
+field at :math:`t^{n+1/2}` that discretely satisfies the constraint.  This field is the advection velocity used for computing
+the time-explicit advective fluxes for :math:`U`, :math:`\rho h`, and :math:`\rho Y_m`.
+
+**Step 2**: (*Advance thermodynamic variables*) Integrate :math:`(\rho Y_m,\rho h)` over the full time step.  The details of this are presented in the next subsection.
+
+**Step 3**: (*Advance the velocity*) Compute an intermediate cell-centered velocity field, 
+:math:`U^{n+1,*}` using the lagged pressure gradient, by solving
+
+.. math::
+
+    \rho^{n+1/2}\frac{U^{n+1,*}-U^n}{\Delta t}
+    + \left(U^{\rm ADV}\cdot\nabla U\right)^{n+1/2} = \frac{1}{2}\left(\nabla\cdot\tau^n
+    + \nabla\cdot\tau^{n+1,*}\right) - \nabla\pi^{n-1/2} + \frac{1}{2}(F^n + F^{n+1}),
+
+where :math:`\tau^{n+1,*} = \mu^{n+1}[\nabla U^{n+1,*} +(\nabla U^{n+1,*})^T - 2\mathcal{I}\widehat S^{n+1}/3]` and 
+:math:`\rho^{n+1/2} = (\rho^n + \rho^{n+1})/2`, and :math:`F` is the velocity forcing.  This is a semi-implicit discretization for :math:`U`, requiring
+a linear solve that couples together all velocity components.  The time-centered velocity in the advective derivative,
+:math:`U^{n+1/2}`, is computed in the same way 
+as :math:`U^{{\rm ADV},*}`, but also includes the viscous stress tensor evaluated at :math:`t^n` as a source term
+in the Godunov integrator.  At 
+this point, the intermediate velocity field :math:`U^{n+1,*}` does not satisfy the constraint.  Hence, we apply an 
+approximate projection to update the pressure and to project :math:`U^{n+1,*}` onto the constraint surface.  
+In particular, we compute :math:`\widehat S^{n+1}` from the new-time 
+thermodynamic variables and an estimate of :math:`\dot\omega_m^{n+1}`, which is evaluated
+directly from the new-time thermodynamic variables. We project the new-time velocity by solving the elliptic equation,
+
+.. math::
+
+    L^{{\rm N}\rightarrow{\rm N}}\phi = D^{{\rm CC}\rightarrow{\rm N}}\left(U^{n+1,*}
+    + \frac{\Delta t}{\rho^{n+1/2}}G^{{\rm N}\rightarrow{\rm CC}}\pi^{n-1/2}\right) - \widehat S^{n+1}
+
+for nodal values of :math:`\phi`.  Here, :math:`L^{{\rm N}\rightarrow{\rm N}}` represents a nodal Laplacian of nodal data, computed
+using the standard bilinear finite-element approximation to :math:`\nabla\cdot(1/\rho^{n+1/2})\nabla`.
+Also, :math:`D^{{\rm CC}\rightarrow{\rm N}}` is a discrete
+second-order operator that approximates the divergence at nodes from cell-centered data 
+and :math:`G^{{\rm N}\rightarrow{\rm CC}}` approximates a cell-centered gradient from nodal data.  Nodal 
+values for :math:`\widehat S^{n+1}` required for this equation are obtained by interpolating the cell-centered values.  Finally, we 
+determine the new-time cell-centered velocity field using
+
+.. math::
+
+    U^{n+1} = U^{n+1,*} - \frac{\Delta t}{\rho^{n+1/2}}G^{{\rm N}\rightarrow{\rm CC}}(\phi-\pi^{n-1/2}),
+
+and the new time-centered pressure using :math:`\pi^{n+1/2} = \phi`.
+
+Thus, there are three different types of linear solves required to advance the velocity field.  The first is the *MAC* solve in order to obtain *face-centered* velocities used to compute advective fluxes.  The second is the multi-component *cell-centered* solver is used to obtain the provisional new-time velocities.  Finally, a *nodal* solver is used to project the provisional new-time velocities so that they satisfy the constraint.
+
+Thermodynamic Advance
+^^^^^^^^^^^^^^^^^^^^^
+
+Here we describe the details of **Step 2** above, in
+which we iteratively advance :math:`(\rho Y_m,\rho h)` over the full time step.
+We begin by computing the diffusion
+operators at :math:`t^n` that will be needed throughout the iteration.  Specifically, we evaluate the transport coefficients
+:math:`(\lambda,C_p,\mathcal D_m,h_m)^n` from :math:`(Y_m,T)^n`, and the provisional diffusion
+fluxes, :math:`\widetilde{\boldsymbol{\cal F}}_m^n`.  These fluxes are conservatively
+corrected (i.e., adjusted to sum to zero by adding a mass-weighted "correction velocity") to obtain :math:`{\boldsymbol{\cal F}}_m^n` such that :math:`\sum {\boldsymbol{\cal F}}_m^n = 0`.
+Finally, we copy the transport coefficients, diffusion fluxes and the thermodynamic state from :math:`t^n` as starting values for
+:math:`t^{n+1}`, and initialize the reaction terms, :math:`I_R` from the values used in the previous step.
+The following sequence is then repeated for each iteration, :math:`k<k_{max}`
+
+**Step 2-I:** Use a second-order Godunov integrator to predict
+time-centered edge states, :math:`(\rho Y_m,\rho h)^{n+1/2,(k)}`.  Source terms for this prediction include
+explicit diffusion forcing, :math:`D^{n}`, and an iteration-lagged reaction term, :math:`I_R^{(k)}`.
+Since remaining steps of the algorithm for this iteration (including diffusion and chemistry advances) will not affect the new-time density for this iteration, we can already compute :math:`\rho^{n+1,(k+1)}`.  This will be needed in the trapezoidal-in-time diffusion solves.
+
+.. math::
+
+    \frac{\rho^{n+1,(k+1)} - \rho^n}{\Delta t} = A_{\rho}^{(k+1)} = \sum A_{m}^{(k+1)}
+    = -\sum_m\nabla\cdot\left(U^{\rm ADV}\rho Y_m\right)^{n+1/2,(k)}.
+
+In addition to predicting :math:`\rho` and :math:`\rho Y_m` to the faces to compute advective fluxes, we need :math:`\rho h` there
+as well. We could predict based on a Godunov scheme, however, because :math:`h` contains the heat of formation, scaled to an arbitrary reference state, it is not generally monotonic through flames. Also, because the equation of state is generally nonlinear, this will often lead to numerically-generated non-mononoticity in the temperature field. An analytically equivalent approach, based on the fact that temperature should be smoother and monotonic through the flame, is to instead predict temperature with the Godunov scheme to the cell faces directly.  Then, with :math:`T`, :math:`\rho = \sum (\rho Y_m)` and :math:`Y_m = (\rho Y_m)/\rho` on cell faces, we can define :math:`h` there instead of extrapolating. We can then evaluate the advective flux divergence, :math:`A^{(k+1)}` for :math:`\rho Y_m`  and :math:`\rho h`. 
+
+
+**Step 2-II:** Update the transport coefficients (if necessary) with the most current cell-centered thermodynamic
+state, then interpolate those values to the cell faces.
+Note that from here forward, we will drop the :math:`n+1` superscript of the :math:`k` and :math:`k+1` iterates.
+We now compute provisional, time-advanced species mass fractions, :math:`\widetilde Y_{m,{\rm AD}}^{(k+1)}`,
+by solving a backward Euler type correction equation for the Crank-Nicolson update.  Note that the provisional species diffusion fluxes :math:`\widetilde{\boldsymbol{\cal F}}_{m,{\rm AD}}^{(0)} = -\rho^n\mathcal D_m^n\nabla\widetilde X_{m,{\rm AD}}^{(0)}`. However, this expression couples together all of the species mass fractions in the update of each, even for the mixture-averaged model. Computationally, it is much more tractable to write this as a diagonal matrix update with a lagged correction by noting that :math:`X_m = (W/W_m)Y_m`.  Using the chain rule, :math:`\widetilde{\boldsymbol{\cal F}}_{m,{\rm AD}}^{(0)}` then has components proportional to :math:`\nabla Y_m` and :math:`\nabla W`. The latter is lagged in the iterations, and is typically very small. In the limit of sufficient iterations, diffusion is driven by the true form of the the driving force, :math:`d_m`, but in this form, each iteration involves decoupled diagonal solves (following the SDC formalism used above):
+
+.. math::
+
+    \frac{\rho^{(k+1)}\widetilde Y_{m,{\rm AD}}^{(k+1)} - (\rho Y_m)^n}{\Delta t}
+    = A_m^{{(k+1)}} + \widetilde D_{m,AD}^{(k+1)} + \frac{1}{2}(D_m^n - D_m^{(k)}) + I_{R,m}^{(k)}
+
+where
+
+.. math::
+
+    &D_m^n &= - \nabla \cdot {\boldsymbol{\cal F}}_m^n\\
+    &D_m^{(k)} &= - \nabla \cdot {\boldsymbol{\cal F}}_m^{(k)}\\
+    &\widetilde D_{m,AD}^{(k+1)} &= - \nabla \cdot \widetilde {\boldsymbol{\cal F}}_{m,AD}^{(k+1)}\\
+    & &= \;\; \nabla \cdot \Big[ \rho^{(k+1)}\mathcal D_m^{(k)}\frac{W}{W_m}\nabla\widetilde Y_{m,{\rm AD}}^{(k+1)}
+    \; + \; \rho^{(k+1)}\frac{Y_m^{(k)}}{W_m} \nabla W^{(k)} \Big]
+
+By lagging the :math:`\nabla W` term (and :math:`\mathcal D_m`), this equation is a scalar, time-implicit, parabolic and linear for the updated :math:`\widetilde Y_{m,{\rm AD}}^{(k+1)}` (and requires a linear solve).  The form of this solve, from a
+software perspective, is identical to that of the *MAC* projection discussed above.
+
+Once all the species equations are updated, compute :math:`{\boldsymbol{\cal F}}_{m,{\rm AD}}^{(k+1)}`,
+which are conservatively corrected versions of :math:`\widetilde{\boldsymbol{\cal F}}_{m,{\rm AD}}^{(k+1)}`,
+and then re-compute the updated species mass fractions, :math:`Y_{m,{\rm AD}}^{(k+1)}`, using
+
+.. math::
+    \frac{\rho^{(k+1)}Y_{m,{\rm AD}}^{(k+1)} - (\rho Y_m)^n}{\Delta t}
+    = A_m^{{(k+1)}} + D_{m,AD}^{(k+1)} + \frac{1}{2}(D_m^n - D_m^{(k)}) + I_{R,m}^{(k)}
+
+where
+
+.. math::
+
+    D_{m,AD}^{(k+1)} = - \nabla \cdot {\boldsymbol{\cal F}}_{m,{\rm AD}}^{(k+1)}
+
+Next, we compute the time-advanced enthalpy, :math:`h_{\rm AD}^{(k+1)}`.  Much like diffusion of the species densities,
+:math:`Y_m`, with a :math:`\nabla X_m` driving force, leads to a nonlinear, coupled Crank-Nicolson update, the
+enthalpy diffuses with a :math:`\nabla T` driving force -- we define an alternative linearized strategy.
+We begin by following the same SDC-correction formalism used for the species, and write
+the nonlinear update for :math:`\rho h` (noting that there is no reaction source term here):
+
+.. math::
+
+    \frac{\rho^{(k+1)} h_{{\rm AD}}^{(k+1)} - (\rho h)^n}{\Delta t}
+    = A_h^{(k+1)} + D_{T,AD}^{(k+1)} + H_{AD}^{(k+1)} + \frac{1}{2} \Big( D_T^n - D_T^{(k)} + H^n - H^{(k)} \Big)
+
+where
+
+.. math::
+
+    &D_T^n = \nabla \cdot \lambda^n \nabla T^n   \hspace{2cm}
+    &H^n = - \nabla \cdot \sum h_m(T^n) \; {\boldsymbol{\cal F}}_m^n\\
+    &D_T^{(k)} = \nabla \cdot \lambda^{(k)} \nabla T^{{k}}
+    &H^{(k)} = - \nabla \cdot  \sum h_m(T^{(k)}) \; {\boldsymbol{\cal F}}_m^{(k)}\\
+    &D_{T,AD}^{(k+1)} = \nabla \cdot \lambda_{AD}^{(k+1)} \nabla T_{AD}^{(k+1)}
+    &H_{AD}^{(k+1)} = - \nabla \cdot \sum h_m(T_{AD}^{(k+1)}) \; {\boldsymbol{\cal F}}_{m,AD}^{(k+1)}
+
+However, since we cannot compute :math:`h_{{\rm AD}}^{(k+1)}` directly, we solve this iteratively based on the approximation
+:math:`h_{{\rm AD}}^{(k+1),\ell+1} \approx h_{{\rm AD}}^{(k+1),\ell} + C_{p}^{(k+1),\ell} \delta T^{\ell+1}`, with
+:math:`\delta T^{\ell+1} = T_{{\rm AD}}^{(k+1),\ell+1} - T_{{\rm AD}}^{(k+1),\ell}`, and iteration index, :math:`\ell` = 1::math:`\,\ell_{MAX}`.
+The enthalpy update equation is thus recast into a linear equation for :math:`\delta T^{\ell+1}`
+
+.. math::
+
+    \rho^{(k+1)} C_p^{(k+1),\ell} \delta T^{\ell +1}
+    &-& \Delta t \, \nabla \cdot \lambda^{(k+1),\ell} \nabla (\delta T^{\ell +1}) \nonumber  \\
+    &=& \rho^n h^n - \rho^{(k+1)} h^{(k+1),\ell} + \Delta t \Big( A_h^{(k+1)} + D_{T,AD}^{(k+1),\ell}
+    + H_{AD}^{(k+1),\ell} \Big) \\
+    &&+ \; \frac{\Delta t}{2} \Big( D_T^n - D_T^{(k)} + H^n - H^{(k)} \Big) \nonumber
+
+where :math:`H_{AD}^{(k+1),\ell} = - \nabla \cdot \sum h_m(T_{AD}^{(k+1),\ell}) \, {\boldsymbol{\cal F}}_{m,AD}^{(k+1)}`
+and :math:`D_{T,AD}^{(k+1),\ell} = \nabla \cdot \lambda_{AD}^{(k+1),\ell} \, \nabla T_{AD}^{(k+1),\ell}`.
+Note that again the solve for this
+Crank-Nicolson update has a form that is identical to that of
+the *MAC* projection discussed above.  After each 
+iteration, update :math:`T_{{\rm AD}}^{(k+1),\ell+1} = T_{{\rm AD}}^{(k+1),\ell} + \delta T^{\ell+1}` and 
+re-evaluate :math:`(C_p,\lambda,h_m)^{(k+1),\ell+1}` using :math:`(T_{{\rm AD}}^{(k+1),\ell+1}, Y_{m,{\rm AD}}^{(k+1)}`).
+After the iterations are complete, set
+
+.. math::
+
+    D_{T,AD}^{(k+1)} = D_{T,AD}^{(k+1),\ell_{MAX}-1} + \nabla \cdot \lambda^{(k+1),\ell_{MAX}-1}
+    \nabla (\delta T^{\ell_{MAX}})
+
+**Step 2-III:**
+Based on the updates above, we define an effective contribution of advection and diffusion to the
+update of :math:`\rho Y_m` and :math:`\rho h`:
+
+.. math::
+
+    &&Q_{m}^{(k+1)} = A_m^{(k+1)} + D_{m,AD}^{(k+1)} + \frac{1}{2}(D_m^n - D_m^{(k)}) \\
+    &&Q_{h}^{(k+1)} = A_h^{(k+1)} + D_{T,AD}^{(k+1)} + \frac{1}{2}(D_T^n - D_T^{(k)} + H^n - H^{(k)} )
+
+Integrate the ODE system for reactions over :math:`\Delta t^n`
+to advance :math:`(\rho Y_m,\rho h)^n` to :math:`(\rho Y_m,\rho h)^{(k+1)}` with a piecewise-constant source term representing 
+advection and diffusion:
+
+.. math::
+
+    \frac{\partial(\rho Y_m)}{\partial t} &=& Q_{m}^{(k+1)} + \rho\dot\omega_m(Y_m,T),\label{eq:MISDC VODE 3}\\
+    \frac{\partial(\rho h)}{\partial t} &=& Q_{h}^{(k+1)}.\label{eq:MISDC VODE 4}
+
+After the integration is complete, we make one final call to the equation of state
+to compute :math:`T^{(k+1)}` from :math:`(Y_m,h)^{(k+1)}`.  We also can compute the effect of reactions
+in the evolution of :math:`\rho Y_m` using,
+
+.. math::
+
+    I_{R,m}^{(k+1)} = \frac{(\rho Y_m)^{(k+1)} - (\rho Y_m)^n}{\Delta t} - Q_{m}^{(k+1)}.
+
+If :math:`k<k_{\rm max}-1`, set :math:`k=k+1` and return to **Step 2-I**.  Otherwise, the 
+time-advancement of the thermodynamic variables is complete, and set 
+:math:`(\rho Y_m,\rho h)^{n+1} = (\rho Y_m,\rho h)^{(k+1)}`.
+If :math:`k`+1=:math:`k_{max}`, **Step 2** of our algorithm is complete.
+
+
+Modifications for AMR
+=====================
+
+The framework to manage adaptive mesh refinement (AMR) used in `PeleLM` borrows heavily from the `AMReX` library,
+and the `IAMR` code; the reader is referred to documentation of both of these components in order to understand the
+nested, logically rectangular data structures used, and the recursive time-stepping strategy for
+advancing a hierarchy of grid levels.  Summarizing, there is a bulk-synchronous advance of each level over its
+respective time step, :math:`dt`, followed by :math:`N` steps advanced :math:`dt/N` of the next level of cells,
+finer is space by an isotropic factor of :math:`N`, where the coarser level provides Dirichlet boundary conditions
+for the finer-level advance (the levels are properly nested so that the finer level is fully contained within
+the coarser level, except perhaps at physical boundaries, where their edges can be coincident.
+After two adjacent levels in the hierarchy reach the same physical time, a *synchronization* operation is performed,
+to ensure that the coarse data is consistent with the average of the fine data, and that fluxes across of the
+coarse-fine interface are determined by those of the fine solution.
+
+Generically, the synchronization process follows that described for the `IAMR` code, but with modifications to
+explicitly enforce that the sum of the species diffusion correction fluxes is zero, that the nonlinear enthalpy
+update is solved (similar to how described above for the single-level advance), and the corection for the
+advection velocity is adjusted iterative so that the final synchronized state satisfies the EOS.
+
+In order to get the equation for the sync correction, we ask how the enthalpy equation would be re-written for the final
+values of density, :math:`\rho^* = \rho^{(k+1)} + \Delta \rho^{sync}` and enthalpy, :math:`h^* = h^{(k+1)} + \Delta h^{sync}`.
+
+.. math::
+
+    \frac{\rho^{*} h_{{\rm AD}}^{*} - (\rho h)^n}{dt}
+    = A_h^{*} + \frac{1}{2} \Big( D_T^{*} + D_T^n + H^{*} + H^n\Big)
+
+If we define :math:`S_h^{sync}` to contain all the usual sync source terms, including the divergence of the re-advected enthalpy, and the refluxing of the advective and diffusive flux registers, we obtain
+
+.. math::
+
+    \frac{ \rho^{*} h_{{\rm AD}}^{*} - (\rho h)^{(k+1)}}{dt}
+    = S_h^{sync} + \frac{1}{2} \Big( D_T^{*} - D_T^{(k+1)} + H^{*} - H^{(k+1)} \Big)
+
+Now, we make the following definitions: :math:`D_T^{*} = \nabla \cdot \lambda^{(k+1)} \nabla T^{*}`,
+:math:`H^{*} = - \nabla \cdot \sum h_m (T^{*}) {\boldsymbol{\cal F}}_{m,AD}^{*}`, and  
+:math:`{\boldsymbol{\cal F}}_{m,AD}^{*} = {\boldsymbol{\cal F}}_{m,AD}^{(k+1)} + \Delta {\boldsymbol{\cal F}}_{m}^{sync}`,
+where :math:`\Delta {\boldsymbol{\cal F}}_{m}^{sync}` are the species sync fluxes, normalized to sum to zero.
+Note that this suggests that we don't want to update the conductivity to :math:`\lambda^*`, but we do
+want to use :math:`h_m^{*}`.
+We can then identify how to form the right hand side for the enthalpy sync equation, because
+
+.. math::
+
+    &D_T^{*} - D_T^{(k+1)} = \nabla \cdot \lambda^{(k+1)} \nabla (\Delta T^{sync}), \; \;\mbox{and}  \\
+    &H^{*} - H^{(k+1)} = - \nabla \cdot \Big( h_m^{*} \Delta {\boldsymbol{\cal F}}_{m}^{sync}
+    + \Delta h_m^{sync} {\boldsymbol{\cal F}}_{m}^{(k+1)} \Big)
+
+where :math:`\Delta h_m^{sync} = h_m(T^{*}) - h_m(T^{(k+1)})`.
+
+Just as in the level advance, we cannot compute :math:`h_{{\rm AD}}^{*}` directly, so we solve this iteratively based on the approximation
+:math:`h_{{\rm AD}}^{*,\eta+1} \approx h_{{\rm AD}}^{*,\eta} + C_{p}^{*,\eta} \delta T^{\eta+1}`, with
+:math:`\delta T^{\eta+1} = T_{{\rm AD}}^{*,\eta+1} - T_{{\rm AD}}^{*,\eta}`, and iteration index, :math:`\eta` = 1::math:`\,\eta_{MAX}`.
+The sync equation is thus recast into a linear equation for :math:`\delta T^{\eta+1}`, and we
+lag the :math:`H` terms in iteration :math:`\eta`,
+
+.. math::
+
+    \rho^{*} C_p^{*,\eta} \delta T^{\eta +1}
+    - dt \, \nabla \cdot \lambda^{(k+1)} \nabla (\delta T^{\eta +1}) \hspace{10em}\\
+    = \rho^{(k+1)} h^{(k+1)} - \rho^{*} h^{*,\eta} + \frac{dt}{2} \Big( S_h^{sync} + 
+    \nabla \cdot \lambda^{(k+1)} \nabla (\Delta T^{sync}) \\
+    - \nabla \cdot \Big( h_m^{*} \Delta {\boldsymbol{\cal F}}_{m}^{sync}
+    + \Delta h_m^{sync} {\boldsymbol{\cal F}}_{m}^{(k+1)} \Big)
+
+After each iteration, update :math:`T_{{\rm AD}}^{*,\eta+1} = T_{{\rm AD}}^{*,\eta} + \delta T^{\eta+1}`, 
+:math:`\Delta T^{sync} = T^{*,\eta+1} - T^{(k+1)}`, and 
+re-evaluate :math:`(C_p,h_m)^{*,\eta+1}` using :math:`(T_{{\rm AD}}^{*,\eta+1}, Y_{m,{\rm AD}}^{*}`).  After the iterations are
+finished, set :math:`T_{{\rm AD}}^* = T_{{\rm AD}}^{(k+1)} + \Delta T^{\eta_{MAX}}`, and compute
+:math:`h_{{\rm AD}}^* = h(T_{{\rm AD}}^*,Y_{{\rm AD}}^*)`.
