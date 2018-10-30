@@ -4911,8 +4911,8 @@ PeleLM::advance (Real time,
         f.minus(ddnp1,box,box,0,nspecies,1); // subtract DDnp1 to make it 0.5(DDn - DDnp1) instead of 0.5(DDn + DDnp1)
       }
     }
-    advance_chemistry(S_old,S_new,dt,Forcing,0);
 
+    advance_chemistry(S_old,S_new,dt,Forcing,0);
     RhoH_to_Temp(S_new);
     BL_PROFILE_VAR_STOP(HTREAC);
 
@@ -5488,10 +5488,14 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
     }
 
     FTemp.clear();
-
     mf_new.copy(STemp,0,sComp,nComp); // Parallel copy.
-
     STemp.clear();
+
+    mf_new.setVal(0,Density,1,ngrow); // Fix density
+    for (int n=0; n<nspecies; ++n) {
+      MultiFab::Add(mf_new,mf_new,first_spec+n,Density,1,ngrow);
+    }
+
     //
     // Set React_new (I_R).
     //
@@ -5511,7 +5515,6 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
 
     MultiFab& FC = get_new_data(FuncCount_Type);
     FC.copy(fcnCntTemp,0,0,1,0,std::min(ngrow,FC.nGrow()));
-
     fcnCntTemp.clear();
     //
     // Approximate covered crse chemistry (I_R) with averaged down fine I_R from previous time step.
