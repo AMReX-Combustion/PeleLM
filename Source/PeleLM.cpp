@@ -5402,7 +5402,7 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
     }
 
     MultiFab&  React_new = get_new_data(RhoYdot_Type);
-    const int  ngrow     = React_new.nGrow();
+    const int  ngrow     = std::min(std::min(React_new.nGrow(),mf_old.nGrow()),mf_new.nGrow());
     //
     // Chop the grids to level out the chemistry work.
     // We want enough grids so that KNAPSACK works well,
