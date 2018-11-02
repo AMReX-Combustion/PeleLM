@@ -25,13 +25,13 @@ machine to point to the path name where you have put `AMReX`. You can add this t
 This will create a folder called ``IAMR/`` on your machine.
 Set the environment variable, ``IAMR_HOME``.
 
-3. Obtain an ORNL GitLab account and clone the `Pele` repositories: ::
+3. Clone the `Pele` repositories: ::
 
-    git clone https://<username>@code.ornl.gov/Pele/PeleLM.git
-    git clone https://<username>@code.ornl.gov/Pele/PelePhysics.git
+    git clone git@github.com:AMReX-Combustion/PeleLM.git
+    git clone git@github.com:AMReX-Combustion/PelePhysics.git
 
 This will create folders called ``PeleLM/`` and ``PelePhysics/`` on your machine.
-Set the environment variables, ``PELELM\_HOME`` and ``PELE_PHYSICS_HOME``.
+Set the environment variables, ``PELELM_HOME`` and ``PELE_PHYSICS_HOME``.
 
 4. You will want to periodically update each of these repositories
 by typing ``git pull`` within each repository.
