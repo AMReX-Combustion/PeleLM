@@ -11,6 +11,8 @@ Welcome to PeleLM's documentation!
    :caption: Contents:
 
    Introduction.rst
+   GettingStarted.rst
+   RunningPeleLM.rst
 
 .. _README:
 
