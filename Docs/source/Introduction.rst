@@ -677,69 +677,138 @@ Modifications for AMR
 
 The framework to manage adaptive mesh refinement (AMR) used in `PeleLM` borrows heavily from the `AMReX` library,
 and the `IAMR` code; the reader is referred to documentation of both of these components in order to understand the
-nested, logically rectangular data structures used, and the recursive time-stepping strategy for
-advancing a hierarchy of grid levels.  Summarizing, there is a bulk-synchronous advance of each level over its
-respective time step, :math:`dt`, followed by :math:`N` steps advanced :math:`dt/N` of the next level of cells,
-finer is space by an isotropic factor of :math:`N`, where the coarser level provides Dirichlet boundary conditions
-for the finer-level advance (the levels are properly nested so that the finer level is fully contained within
-the coarser level, except perhaps at physical boundaries, where their edges can be coincident.
-After two adjacent levels in the hierarchy reach the same physical time, a *synchronization* operation is performed,
-to ensure that the coarse data is consistent with the average of the fine data, and that fluxes across of the
-coarse-fine interface are determined by those of the fine solution.
+distributed, logically rectangular data structures used, and the recursive time-stepping strategy for
+advancing a hierarchy of nested grid levels.  Summarizing, there is a bulk-synchronous advance of each level over its
+respective time step, :math:`dt`, followed recursively by a number of (sub-)steps of the next-finer AMR level.
+Each fine level advanced is over an interval :math:`(1/R) dt`, if the fine cells are a factor of :math:`R`
+smaller, and in this scenario, the coarser level provides Dirichlet boundary condition data
+for the fine-level advances.  Note that the levels are properly nested so that the finer level is fully contained within
+the coarser level, except perhaps at physical boundaries, where their edges can be coincident - thus, the fine level has
+sufficient boundary data for a well-posed advance.
+After two adjacent levels in the hierarchy reach the same physical time, a *synchronization* operation is performed
+to ensure that the coarse data is consistent with the volume integral of the fine data that covers it, and the
+fluxes across of the coarse-fine interface are those of the fine solution.  The latter of these two operations can be
+quite complex, as it must correct coarse-grid errors committed by each of the operators used to perform the original
+advance.  It may also be non-local, in that cells far away from the coarse-fine interface may need to
+incorporate flux increments due to the mismatched coarse and fine solutions.
 
-Generically, the synchronization process follows that described for the `IAMR` code, but with modifications to
-explicitly enforce that the sum of the species diffusion correction fluxes is zero, that the nonlinear enthalpy
-update is solved (similar to how described above for the single-level advance), and the corection for the
-advection velocity is adjusted iterative so that the final synchronized state satisfies the EOS.
+Generically, the synchronization procedure in `PeleLM` follows that described for the `IAMR` code, but with
+modifications to explicitly enforce that the sum of the species diffusion correction fluxes is zero, that the
+nonlinear enthalpy update is solved (similar to how described above for the single-level advance), and the
+corection for the advection velocity is adjusted iteratively so that the final synchronized state satisfies the EOS.
 
-In order to get the equation for the sync correction, we ask how the enthalpy equation would be re-written for the final
-values of density, :math:`\rho^* = \rho^{(k+1)} + \Delta \rho^{sync}` and enthalpy, :math:`h^* = h^{(k+1)} + \Delta h^{sync}`.
+There are several components in `PeleLM` that contribute to the flux mismatch at the coarse-fine interface.
+The first component arise from the face-centered velocity, :math:`U^{ADV,\ell}`, used to advect the scalars
+at each AMR level :math:`\ell`, since the field satifies a divergence constraint on the coarse and fine levels
+separately.  We compute a velocity mismatch
 
 .. math::
 
-    \frac{\rho^{*} h_{{\rm AD}}^{*} - (\rho h)^n}{dt}
-    = A_h^{*} + \frac{1}{2} \Big( D_T^{*} + D_T^n + H^{*} + H^n\Big)
+    \delta U^{ADV,\ell} = -U^{ADV,\ell,n+1/2} + \frac{1}{R^{d-1}}\sum_{k=0}^{R-1} \sum_{edges} U^{ADV,\ell+1,n+k+1/2}
 
-If we define :math:`S_h^{sync}` to contain all the usual sync source terms, including the divergence of the re-advected enthalpy, and the refluxing of the advective and diffusive flux registers, we obtain
+(where :math:`d` is the number of spatial dimensions) along the coarse-fine boundary.  We then solve the elliptic
+projection equation
 
 .. math::
 
-    \frac{ \rho^{*} h_{{\rm AD}}^{*} - (\rho h)^{(k+1)}}{dt}
-    = S_h^{sync} + \frac{1}{2} \Big( D_T^{*} - D_T^{(k+1)} + H^{*} - H^{(k+1)} \Big)
+    D^{MAC} \frac{1}{\rho} \delta e^{\ell} = D^{MAC} \delta U^{ADV,\ell}
 
-Now, we make the following definitions: :math:`D_T^{*} = \nabla \cdot \lambda^{(k+1)} \nabla T^{*}`,
-:math:`H^{*} = - \nabla \cdot \sum h_m (T^{*}) {\boldsymbol{\cal F}}_{m,AD}^{*}`, and  
-:math:`{\boldsymbol{\cal F}}_{m,AD}^{*} = {\boldsymbol{\cal F}}_{m,AD}^{(k+1)} + \Delta {\boldsymbol{\cal F}}_{m}^{sync}`,
-where :math:`\Delta {\boldsymbol{\cal F}}_{m}^{sync}` are the species sync fluxes, normalized to sum to zero.
-Note that this suggests that we don't want to update the conductivity to :math:`\lambda^*`, but we do
-want to use :math:`h_m^{*}`.
+and compute the correction velocity
+
+.. math::
+
+    U^{ADV,\ell,corr} = -\frac{1}{\rho} G^{MAC} \delta e^{\ell}
+
+which is the increment of velocity to carry advection fluxes required to correct the errors made by advancing the
+coarse state with the wrong velocities.
+
+The second part of the mismatch arises because the advective and diffusive fluxes on the coarse grid were computed without explicitly accounting for the fine grid, while on the fine grid the fluxes were computed using coarse-grid Dirichlet boundary data.  We define the flux discrepancies 
+
+.. math::
+
+    \delta \boldsymbol{\cal F} = \Delta t^{\ell} \Big(
+    -\boldsymbol{\cal F}^{\ell,n+1/2} + \frac{1}{R^{d-1}} \sum_{k=0}^{R-1} \sum_{edges}
+    \boldsymbol{\cal F}^{\ell+1,n+k+1/2} \Big)
+
+where :math:`\boldsymbol{\cal F}` is the total (advective + diffusive) flux through a face on the coarse-fine
+interface prior the synchronization operations.
+
+Since mass is conserved, corrections to density, :math:`\delta \rho^{sync}` on the coarse grid associated with
+mismatched advection fluxes may be computed explicitly
+
+.. math::
+
+    \delta \rho^{sync} = -D^{MAC} \Big( \sum_m U^{ADV,corr} \rho Y_m \Big)^{n+1/2} 
+    + \sum_m \delta \boldsymbol{\cal F}_{\rho Y_m}
+
+The post-sync new-time value of density, :math:`\rho^{n+1} = \rho^{n+1,p} + \delta \rho^{sync}`.
+Given the corrected density we can decompose the corrections for :math:`Y_m` and :math:`h` into
+:math:`\delta ( \rho Y_m ) = Y^{n+1,p} \delta \rho^{sync} + \rho^{n+1} \delta Y^{sync}`.  Computing
+:math:`\delta Y^{sync}` requires solution of a linear system, since the flux mismatch
+contains implicit diffusion fluxes from the Crank-Nicolson discretization.
+
+.. math::
+
+    \rho^{n+1} \widetilde{\delta Y^{sync}} - \frac{\Delta t}{2} \nabla \cdot 
+    \widetilde{\delta {\cal F}}(\widetilde{\delta Y^{sync}})
+    = -D^{MAC} (U^{ADV,corr} \rho Y_m)^{n+1/2} + \delta \boldsymbol{\cal F} - Y^{n+1,p} \delta \rho^{sync}
+
+where :math:`\widetilde{\delta {\cal F}}` is the species correction flux due to the 
+sync source, :math:`\widetilde{\delta Y^{sync}}`. However, as in the single-level algorithm, the species
+fluxes must be corrected to sum to zero.  These adjusted fluxes are then used to recompute a :math:`\delta Y^{sync}`,
+which is then used via the expression above to compute :math:`\delta (\rho Y)^{sync}`, the increment to the
+species mass densities.
+
+In order to get the equation for the enthalpy sync correction, it will help to simplify notation a bit.
+We define :math:`S_h^{sync}` to contain all the usual sync source terms, including the divergence of the
+re-advected enthalpy flux, and the refluxed advective and diffusive fluxes (:math:`\delta \boldsymbol{\cal F}` above).
+We now write the enthalpy conservation equation for the composite system, after the sync.
+
+.. math::
+
+    \frac{\rho^{n+1} h_{{\rm AD}}^{n+1} - (\rho h)^n}{dt}
+    = A_h^{*} + \frac{1}{2} \Big( D_T^{n+1} + D_T^n + H^{n+1} + H^n\Big)
+
+where the terms here are defined analagously to those in the level-advance expression above.
+We subtract the equation used to compute :math:`(\rho h)^{n+1,p}` to arrive at an equation for the sync correction
+
+.. math::
+
+    \frac{ \rho^{n+1} h_{{\rm AD}}^{n+1} - (\rho h)^{(n+1,p)}}{dt}
+    = S_h^{sync} + \frac{1}{2} \Big( D_T^{n+1} - D_T^{(n+1,p)} + H^{n+1} - H^{(n+1,p)} \Big)
+
+Now, we make the following definitions: :math:`D_T^{n+1} = \nabla \cdot \lambda^{(n+1,p)} \nabla T^{n+1}, H^{n+1} = - \nabla \cdot \sum h_m (T^{n+1}) {\boldsymbol{\cal F}}_{m,AD}^{n+1}`, and  
+:math:`{\boldsymbol{\cal F}}_{m,AD}^{n+1} = {\boldsymbol{\cal F}}_{m,AD}^{(n+1,p)} 
++ \delta {\boldsymbol{\cal F}}_{m}`.
+Note that this suggests that we don't want to update the conductivity to :math:`\lambda^{n+1}`, but we do
+want to use :math:`h_m^{n+1}`.
 We can then identify how to form the right hand side for the enthalpy sync equation, because
 
 .. math::
 
-    &D_T^{*} - D_T^{(k+1)} = \nabla \cdot \lambda^{(k+1)} \nabla (\Delta T^{sync}), \; \;\mbox{and}  \\
-    &H^{*} - H^{(k+1)} = - \nabla \cdot \Big( h_m^{*} \Delta {\boldsymbol{\cal F}}_{m}^{sync}
-    + \Delta h_m^{sync} {\boldsymbol{\cal F}}_{m}^{(k+1)} \Big)
+    &D_T^{n+1} - D_T^{(n+1,p)} = \nabla \cdot \lambda^{(n+1,p)} \nabla (\delta T^{sync}), \; \;\mbox{and}  \\
+    &H^{n+1} - H^{(n+1,p)} = - \nabla \cdot \Big( h_m^{n+1} \delta {\boldsymbol{\cal F}}_{m}^{sync}
+    + \delta h_m^{sync} {\boldsymbol{\cal F}}_{m}^{(n+1,p)} \Big)
 
-where :math:`\Delta h_m^{sync} = h_m(T^{*}) - h_m(T^{(k+1)})`.
+where :math:`\delta h_m^{sync} = h_m(T^{n+1}) - h_m(T^{(n+1,p)})`.
 
-Just as in the level advance, we cannot compute :math:`h_{{\rm AD}}^{*}` directly, so we solve this iteratively based on the approximation
-:math:`h_{{\rm AD}}^{*,\eta+1} \approx h_{{\rm AD}}^{*,\eta} + C_{p}^{*,\eta} \delta T^{\eta+1}`, with
-:math:`\delta T^{\eta+1} = T_{{\rm AD}}^{*,\eta+1} - T_{{\rm AD}}^{*,\eta}`, and iteration index, :math:`\eta` = 1::math:`\,\eta_{MAX}`.
-The sync equation is thus recast into a linear equation for :math:`\delta T^{\eta+1}`, and we
+Just as in the level advance, we cannot compute :math:`h_{{\rm AD}}^{n+1}` directly, so we solve this iteratively based on the approximation
+:math:`h_{{\rm AD}}^{n+1,\eta+1} \approx h_{{\rm AD}}^{n+1,\eta} + C_{p}^{n+1,\eta} \Delta T^{\eta+1}`, with
+:math:`\Delta T^{\eta+1} = T_{{\rm AD}}^{n+1,\eta+1} - T_{{\rm AD}}^{n+1,\eta}`, and iteration index, :math:`\eta` = 1::math:`\,\eta_{MAX}`.
+The sync equation is thus recast into a linear equation for :math:`\Delta T^{\eta+1}`, and we
 lag the :math:`H` terms in iteration :math:`\eta`,
 
 .. math::
 
-    \rho^{*} C_p^{*,\eta} \delta T^{\eta +1}
-    - dt \, \nabla \cdot \lambda^{(k+1)} \nabla (\delta T^{\eta +1}) \hspace{10em}\\
-    = \rho^{(k+1)} h^{(k+1)} - \rho^{*} h^{*,\eta} + \frac{dt}{2} \Big( S_h^{sync} + 
-    \nabla \cdot \lambda^{(k+1)} \nabla (\Delta T^{sync}) \\
-    - \nabla \cdot \Big( h_m^{*} \Delta {\boldsymbol{\cal F}}_{m}^{sync}
-    + \Delta h_m^{sync} {\boldsymbol{\cal F}}_{m}^{(k+1)} \Big)
+    \rho^{n+1} C_p^{n+1,\eta} \Delta T^{\eta +1}
+    - dt \, \nabla \cdot \lambda^{(n+1,p)} \nabla (\Delta T^{\eta +1}) \hspace{10em}\\
+    = \rho^{(n+1,p)} h^{(n+1,p)} - \rho^{n+1} h^{n+1,\eta} + \frac{dt}{2} \Big( S_h^{sync} + 
+    \nabla \cdot \lambda^{(n+1,p)} \nabla (\delta T^{sync}) \\
+    - \nabla \cdot \Big( h_m^{n+1} \delta {\boldsymbol{\cal F}}_{m}^{sync}
+    + \delta h_m^{sync} {\boldsymbol{\cal F}}_{m}^{(k+1)} \Big)
 
-After each iteration, update :math:`T_{{\rm AD}}^{*,\eta+1} = T_{{\rm AD}}^{*,\eta} + \delta T^{\eta+1}`, 
-:math:`\Delta T^{sync} = T^{*,\eta+1} - T^{(k+1)}`, and 
-re-evaluate :math:`(C_p,h_m)^{*,\eta+1}` using :math:`(T_{{\rm AD}}^{*,\eta+1}, Y_{m,{\rm AD}}^{*}`).  After the iterations are
-finished, set :math:`T_{{\rm AD}}^* = T_{{\rm AD}}^{(k+1)} + \Delta T^{\eta_{MAX}}`, and compute
-:math:`h_{{\rm AD}}^* = h(T_{{\rm AD}}^*,Y_{{\rm AD}}^*)`.
+After each iteration, update :math:`T_{{\rm AD}}^{n+1,\eta+1} = T_{{\rm AD}}^{n+1,\eta} + \Delta T^{\eta+1}`, 
+:math:`\delta T^{sync} = T^{n+1,\eta+1} - T^{(n+1,p)}`, and 
+re-evaluate :math:`(C_p,h_m)^{n+1,\eta+1}` using :math:`(T_{{\rm AD}}^{n+1,\eta+1}, Y_{m,{\rm AD}}^{n+1}`).  After the iterations are
+finished, set :math:`T_{{\rm AD}}^{n+1} = T_{{\rm AD}}^{(n+1,p)} + \delta T^{\eta_{MAX}}`, and compute
+:math:`h_{{\rm AD}}^{n+1} = h(T_{{\rm AD}}^{n+1},Y_{{\rm AD}}^{n+1})`.
