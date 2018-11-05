@@ -10,8 +10,8 @@ Physical Units
 specified in MKS; output is in MKS unless otherwise specified.
 
 
-Input parameters
-^^^^^^^^^^^^^^^^
+Control parameters
+^^^^^^^^^^^^^^^^^^
 
 The `PeleLM` executable uses two inputs files at runtime to set and alter the
 behavior of the algorithm and initial conditions.
@@ -22,10 +22,10 @@ the `PeleLM` code.  Each parameter here has a namespace (like ``amr`` in a param
 
 The second inputs file, typically named ``probin`` is used by the
 Fortran code that initializes the problem setup.  It is read at
-problem initialization (via a Fortran ``namelist`` and the
+problem initialization (via a Fortran ``namelist``) and the
 problem-specific quantities are stored in a Fortran module ``probdata_module`` defined in the problem's ``probdata.f90`` file.
 
-The ``inputs`` file is specified on the commandline directly as an argument to the executable.  The
+The ``inputs`` file is specified on the command-line directly as an argument to the executable.  The
 associated ``probin`` file is specified inside the ``inputs`` file using the ``amr.probin_file`` parameter, e.g.,::
 
     amr.probin_file = my_special_probin
@@ -33,7 +33,7 @@ associated ``probin`` file is specified inside the ``inputs`` file using the ``a
 Here the Fortran code will read a file called ``my_special_probin``.
 
 Working with ``probin`` files
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+-----------------------------
 
 There are three different Fortran namelist's that can be defined in the
 ``probin`` file:
@@ -46,9 +46,12 @@ There are three different Fortran namelist's that can be defined in the
 
 - ``&control`` is used dynamically control the inflow velocity.
 
+Consult the problem-specific files for how parameters set in these namelists are used.  When defining your
+own problem, you should feel free to add any additional controls here that are useful for your case.
 
-Common ``inputs`` Options
-^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Working with ``inputs`` files
+-----------------------------
 
 **Important**: because the ``inputs`` file is handled by the `C++` portion of
 the code, any quantities you specify in scientific notation, must take the
@@ -74,13 +77,13 @@ domain (type: ``Real``; must be set. A number is needed for each dimension in th
 
 As an example, the following::
 
-    geometry.prob_lo = 0 0 0
-    geometry.prob_hi = 1.e8 2.e8 2.e8 
+    geometry.prob_lo = -0.1 -0.1 0.0
+    geometry.prob_hi = +0.1 +0.1 0.2 
     geometry.coord_sys = 0 
     geometry.is_periodic = 0 1 0 
 
-defines the domain to run from :math:`(0,0,0)` at the lower left to
-:math:`(10^8,2\times 10^8,2\times 10^8)` at the upper right in physical space, specifies a
+defines the domain to span the region from (-10,-10,0) cm at the lower left to
+(10, 10, 20) cm at the upper right in physical coordinates, specifies a
 Cartesian geometry, and makes the domain periodic in the :math:`y`-direction
 only.
 
@@ -124,9 +127,9 @@ The grid resolution is specified by defining the resolution at the
 coarsest level (level 0) and the number of refinement levels and
 factor of refinement between levels.  The relevant parameters are:
 
-- ``amr.n_cell``:  number of cells in each direction at the coarsest level (Integer $> 0$; must be set)
+- ``amr.n_cell``:  number of cells in each direction at the coarsest level (Integer > 0; must be set)
 
-- ``amr.max_level``:  number of levels of refinement above the coarsest level (Integer $\geq 0$; must be set)
+- ``amr.max_level``:  number of levels of refinement above the coarsest level (Integer >= 0; must be set)
 
 - ``amr.ref_ratio``: ratio of coarse to fine grid spacing between subsequent levels (2 or 4; must be set)
 
@@ -176,13 +179,11 @@ The details of the regridding strategy are described elsewhere; here we
 cover how the input parameters can control the gridding. The user defines functions which tag individual
 cells at a given level if they need refinement.  This list of tagged cells is
 sent to a grid generation routine, which uses the Berger-Rigoutsos algorithm
-to create rectangular grids that contain the tagged cells.   
-
-The relevant runtime parameters are:
+to create rectangular grids that contain the tagged cells. The relevant runtime parameters are:
 
 - ``amr.regrid_file``: name of file from which to read the grids (text; default: no file)
 
-If set to a filename, e.g.\ ``fixed_girds``, then list of grids
+If set to a filename, e.g.\ ``fixed_grids``, then list of grids
 at each fine level are read in from this file during the gridding
 procedure. These grids must not violate the ``amr.max_grid_size`` criterion.  The rest of the gridding procedure
 described below will not occur if ``amr.regrid_file`` is set.
@@ -195,12 +196,12 @@ described below will not occur if ``amr.regrid_file`` is set.
 
 Note: ``amr.max_grid_size`` must be even, and a multiple of ``amr.blocking_factor`` at every level.
    
-- ``amr.blocking_factor``:  grid size must be a multiple of this (Integer > 0; default: 2)
+- ``amr.blocking_factor``:  all generated grid dimensions will be a multiple of this (Integer > 0; default: 2)
 
 Note: ``amr.blocking_factor`` at every level must be a power of
 2 and the domain size must be a multiple of ``amr.blocking_factor`` at level 0.
    
-- ``amr.refine_grid_layout``: refine grids more if the number of processors greater than the number of grids
+- ``amr.refine_grid_layout``: refine grids more if the number of processors is greater than the number of grids
   (0 if false, 1 if true; default: 1) 
 
 Note also that ``amr.n_error_buf``, ``amr.max_grid_size`` and
@@ -213,14 +214,14 @@ As an example, consider: ::
     amr.max_grid_size = 64 
     amr.blocking_factor = 32
 
-The grid efficiency, ``amr.grid_eff``, means that during the grid
+The grid efficiency, ``amr.grid_eff``, here means that during the grid
 creation process, at least 90% of the cells in each grid at the level
 at which the grid creation occurs must be tagged cells.  A higher
 grid efficiency means fewer cells at higher levels, but may result
 in the production of lots of small grids, which have inefficient cache
 and OpenMP performance and higher communication costs.
 
-The ``amr.max_grid_size`` parameter means that the final grids
+The ``amr.max_grid_size`` parameter means that each of the final grids
 will be no longer than 64 cells on a side at every level.
 Alternately, we could specify a value for each level of refinement as:
 ``amr.max_grid_size = 64 32 16``, in which case our final grids
@@ -238,14 +239,10 @@ Getting good performance
 
 These parameters can have a large impact on the performance
 of `PeleLM`, so taking the time to experiment with is worth the effort.
-Having grids that are large enough to coarsen multiple levels in a
-V-cycle is essential for good multigrid performance.
+For example, having grids that are large enough to coarsen multiple levels in a
+V-cycle is essential for good multigrid performance. The gridding algorithm proceeds in this order:
 
-**How grids are created**
-
-The gridding algorithm proceeds in this order:
-
-1. Grids are created using the Berger-Rigoutsos clustering algorithm modified to ensure that all new fine grids are divisible by ``amr.blocking_factor``.
+1. Grids are created using the Berger-Rigoutsos clustering algorithm, modified to ensure that all new fine grids are divisible by ``amr.blocking_factor``.
 
 2. Next, the grid list is chopped up if any grids are larger than ``max_grid_size``. Note that because ``amr.max_grid_size`` is a multiple of ``amr.blocking_factor`` the ``amr.blocking_factor`` criterion is still satisfied.
 

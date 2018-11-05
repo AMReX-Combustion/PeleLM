@@ -1,27 +1,29 @@
 .. highlight:: rst
 
-Obtaining, building and running `PeleLM`
-========================================
+`PeleLM` Quickstart
+===================
+
+The following details how to obtain `PeleLM` and all the supporting software
+required, and how to build and run a simple case in order to obtain a first set of results.  
 
 Obtaining `PeleLM`
-^^^^^^^^^^^^^^^^^^
+------------------
 
-First, make sure that "git" is installed on your machine---we recommend version 1.7.x or higher.
+First, make sure that "git" is installed on your machine---we recommend version 1.7.x or higher. Then...
 
 1. Download the `AMReX` repository by typing: ::
 
     git clone https://github.com/AMReX-Codes/amrex.git
 
-
 This will create a folder called ``amrex/`` on your machine. Set the environment variable, ``AMREX_HOME``, on your
-machine to point to the path name where you have put `AMReX`. You can add this to your ``.bashrc`` as::
+machine to point to the path name where you have put `AMReX`::
 
-    export AMREX_HOME=/path/to/amrex/
-
+        export AMREX_HOME=/path/to/amrex/
+        
 2. Download the `IAMR` repository by typing: ::
 
     git clone https://github.com/AMReX-Codes/IAMR.git
-
+    
 This will create a folder called ``IAMR/`` on your machine.
 Set the environment variable, ``IAMR_HOME``.
 
@@ -31,14 +33,14 @@ Set the environment variable, ``IAMR_HOME``.
     git clone git@github.com:AMReX-Combustion/PelePhysics.git
 
 This will create folders called ``PeleLM/`` and ``PelePhysics/`` on your machine.
-Set the environment variables, ``PELELM_HOME`` and ``PELE_PHYSICS_HOME``.
+Set the environment variables, ``PELELM_HOME`` and ``PELE_PHYSICS_HOME``, respectively to where your put these.
 
 4. You will want to periodically update each of these repositories
 by typing ``git pull`` within each repository.
 
 
 Building `PeleLM`
-^^^^^^^^^^^^^^^^^
+-----------------
 
 The `PelePhysics` repository contains chemistry models and the encapsulating source 
 code that is used by `PeleLM` and `PeleC` (the compressible combustion solver).  More
@@ -68,7 +70,7 @@ In this setup, cold fuel enters the domain bottom and passes through a flame she
 Hot products exit the domain at the top.  The sides of the domain are periodic, and the coordinates are
 cartesian. From the folder in which you checked out the `PeleLM` git repo, type::
 
-cd PeleLM/Exec/FlameInABox
+    cd PeleLM/Exec/FlameInABox
 
 2. In ``FlameInABox/``, edit the ``GNUmakefile``, and set::
 
@@ -79,36 +81,38 @@ cd PeleLM/Exec/FlameInABox
     USE_OMP = FALSE
 
 If you want to try compilers other than those in the GNU suite, and you find that they don't
-work, please let us know.
+work, please let us know.  Note that for centers managing their enviroments with "modules", the
+programming environment determining your available compiler should agree with your choice of ``COMP``
+in the ``GNUmakefile`` (e.g., ``PrgEnv-gnu`` module requires ``COMP=gnu``).
 
-To build a serial (single-processor) code, set ``USE_MPI = FALSE``.
+To build a serial (single-processor) executable, set ``USE_MPI=FALSE``.
 This will compile the code without the `MPI` library.  If you want to do
-a parallel run, set ``USE_MPI = TRUE``.  In this
+a parallel run, set ``USE_MPI=TRUE``.  In this
 case, the build system will need to know about your `MPI` installation.
 This can be done by editing the makefiles in the `AMReX` tree.
 Set ``DEBUG=FALSE`` in order to create an optimized version for production runs.
 
-The resulting executable will look something like ``PeleLM2d.gnu.MPI.ex``,
+The resulting executable name will look something like ``PeleLM2d.gnu.MPI.ex``,
 suggesting that this is a 2D version of the code, made with 
 ``COMP=gnu`` and ``USE_MPI=TRUE``.
 
 Running `PeleLM`
-^^^^^^^^^^^^^^^^
+----------------
 
-1. `PeleLM` takes an input file as its first command-line argument.  The file may
-contain a set of parameter definitions that will overrides defaults set in the code.
-To run `PeleLM` with an example inputs file, type::
+1. `PeleLM` takes an input file as its first command-line argument.  The file
+contains a set of parameter definitions that will overrides defaults set in the code.
+To run `PeleLM` in serial with an example inputs file, type::
 
-    ./PeleLM2d.gnu.MPI.ex inputs.2d-regt
+    ./PeleLM2d.gnu.ex inputs.2d-regt
 
 2. `PeleLM` typically generates subfolders in the current folder that are named ``plt00000/``, ``plt00020/``, etc, and ``chk00000/``, ``chk00020/``, etc. These are "plotfiles" and "checkpoint" files. The plotfiles are used for visualization of derived fields; the checkpoint files are used for restarting the code.
 
 
-The output folders contain a collection of ASCII and binary files.  The field data is generally written in a self-describing binary format; the ASCII header files provide additional metadata to give AMR context to the field data.
+The output folders contain a collection of ASCII and binary files.  The field data is generally written in a self-describing binary format; the ASCII header files provide additional metadata to give the AMReX-compatible readers context to the field data.
 
 
 Visualization of the results
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+----------------------------
 
 There are several options for visualizing the data.  The popular
 `Vis-It` package supports the `AMReX` file format natively, as does
