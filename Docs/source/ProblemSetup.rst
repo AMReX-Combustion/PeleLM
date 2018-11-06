@@ -25,7 +25,7 @@ Initial Conditions
 
 At the beginning of a `PeleLM` run, for each level, after grids are generated, the cell-centered values of
 the state must be initialized.  In the code, this is done in an ``MFIter`` loop over grids, and a call to
-the user's initialization function:
+the user's initialization function, ``FORT_INITDATA``, that must be provided:
 
 ::
 
@@ -52,7 +52,7 @@ the user's initialization function:
                    dx,gridloc.lo(),gridloc.hi() );
   }
 
-The associated fortran routines must shape the data accordingly:
+The associated fortran routine must shape the arrays accordingly, and fill the data:
 
 ::
 
@@ -82,9 +82,9 @@ The associated fortran routines must shape the data accordingly:
       enddo
       end
 
-Note that in this example, the Fortran is preprocessed to define ``SDIM``, ``REAL_T``, ``DIMS``, ``DIMV``
+Note that in this f77 example, the Fortran is preprocessed to define ``SDIM``, ``REAL_T``, ``DIMS``, ``DIMV``
 convenience macros (TODO: clean this up...). Also, the user will need to know the order and definition of
-each state component.  The variables, and their order, are set in the function:
+each state component.  The variables, and their order, are set for all problems setups in the function:
 
 ::
 
@@ -104,33 +104,43 @@ each state component.  The variables, and their order, are set in the function:
     
 in the ``$(PELELM_HOME)/Source`` folder.  Note that the conserved states are stored for species and
 enthalpy (i.e., :math:`\rho Y_i` and :math:`\rho h`); these are the variables that the user must fill
-in the initial and boundary condition routines.  Typically, however, the primitive state is known instead
-(i.e., :math:`Y_i` and :math:`T`).  If that is the case, the user can make use of the compiled-in
-equation-of-state routines to translate primitive to conserved state values. Consult the example setups
-provided to see how to call these routines, and load the final values of the initial data.
+in the initial and boundary condition routines.  Typically, however, the primitive state
+(i.e., :math:`Y_i` and :math:`T`) is known directly.  If that is the case, the user can make use of
+the compiled-in model-specific equation-of-state routines to translate primitive to conserved state
+values. Consult the example setups provided to see how to call these routines, and how to load the
+final values required for initial data.
 
 Boundary Conditions
 -------------------
 
-In `PeleLM` separate functions are provided to fill each state component at physical boundaries.
-The ``variableSetup`` routine discussed above sets, for each state, which function will be called,
-but all of them have the same form/aguments.  A box of data will be provided with some overlap
-of the valid domain, and some overlap of the grow region outside the domain.  The region of
-index space defining the domain is level-specific, and so is passed directly to the boundary
-function, as is the time, the grid spacing, and an 2 x D array indicating the numerical boundary
-condition to apply (adapted from the ``inputs`` file parameters of the run). The task of this
-routine is to set values in the grow cells of the input array accordingly.  Generally, this is
-done by first calling a utility function, ``filcc`` that can fill grow cells for all of the boundary
-condition types, **except** ``EXT_DIR`` (external Dirichlet) -- those must be set directly by the
-user.  (so, ``filcc`` handles reflecting even/odd, extrapolation, etc).  Below, we include
-an example of typical logic for carrying this out.  First ``filcc`` is called, and then each
-boundary orientation is checked for whether the Dirichlet conditions need to be applied.  If so,
-corresponding values are set.  Here, we've made use of a local convenience function, ``bcfunction``
-endowed with the knowledge of all boundary values, and extract the appropriate quantity from the
-results of that call.  This was done to localize all boundary condition calculations to a single
-routine in the code, and helps to preserve consistency.  This is only one style though, and
-as long as appropriate Dirichlet values are set for this state, it makes no difference how the
-work is organized.
+In `PeleLM` separate functions are provided to fill each state
+component at physical boundaries.  The ``variableSetup`` routine
+discussed above sets, for each state, which function will be called,
+but all of them have the same form/aguments.  A box of data will be
+provided with some overlap of the valid domain, and some overlap of
+the grow region outside the domain.  The region of index space
+defining the domain is level-specific, and so is passed directly to
+the boundary function, as is the time, the grid spacing, and an 2 x D
+array indicating the numerical boundary condition to apply (adapted
+from the ``inputs`` file parameters of the run). The task of this
+routine is to set values in the grow cells of the input array
+accordingly.  Generally, this is done by first calling a utility
+function, ``filcc``, that can fill grow cells for all of the boundary
+condition types, **except** ``EXT_DIR`` (external Dirichlet) --
+Dirichlet values must be set directly by the user.  Below, we include
+an example of typical logic for carrying this out.  First ``filcc`` is
+called, and then each boundary orientation is checked for whether the
+Dirichlet conditions need to be applied.  If so, corresponding values
+are set.  Here, we've made use of a local convenience function,
+``bcfunction`` endowed with the knowledge of all boundary values, and
+extract the appropriate quantity from the results of that call.  This
+was done to localize all boundary condition calculations to a single
+routine in the code, and helps to preserve consistency.  This is only
+one style though, and as long as appropriate Dirichlet values are set
+for this state, it makes no difference how the work is organized.
+For example, data may be provided by interpolating "live data" being
+actively generated by a co-running separate code, by interpolating data
+files, evaluating functional forms, etc.
 
 ::
 
