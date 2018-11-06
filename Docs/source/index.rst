@@ -33,6 +33,7 @@ point your web browser at the file ``${PELELM_DIR}/Docs/build/html/index.html``.
    GNUmakeSystem.rst
    RunningPeleLM.rst
    Visualization.rst
+   Tutorials.rst
 
 Indices and tables
 ==================
