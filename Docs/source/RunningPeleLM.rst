@@ -18,7 +18,17 @@ behavior of the algorithm and initial conditions.
 
 The main inputs file, typically named ``inputs`` is used to
 set `AMReX` parameters and the control flow in the C++ portions of
-the `PeleLM` code.  Each parameter here has a namespace (like ``amr`` in a parameter listed as ``amr.max_grid``).  Parameters set here are read using the ``ParmParse`` class in `AMReX`.
+the `PeleLM` code.  Each parameter here has a namespace (like ``amr`` in
+a parameter listed as ``amr.max_grid``).  Parameters set here are read using
+the ``ParmParse`` class in `AMReX`.  The namespaces are typically used to group
+control parameters by source code class or overall functionality.  There are,
+for example, a large set of parameters that control the generation of the
+solution-adaptive meshes during the run, as well as the location and content of
+output files and logging information.  There are also a set of parameters that
+control the details of the ``PeleLM`` time-stepping strategy, such as the
+number of SDC iterations taken per time step, solver types and tolerances,
+and algorithmic variations.  These latter control parameters are detailed
+separately, in :ref:`sec:control:pelelm`.
 
 The second inputs file, typically named ``probin`` is used by the
 Fortran code that initializes the problem setup.  It is read at
@@ -467,3 +477,11 @@ simulation time, and 0.005 is the level-0 time step.  This file
 can be plotted very easily to monitor the time step.
 
 
+.. _sec:control:pelelm:
+
+`PeleLM` algorithm controls
+---------------------------
+
+
+
+Here, we document `PeleLM`-specific controls. --TODO

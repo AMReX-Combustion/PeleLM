@@ -30,7 +30,9 @@ point your web browser at the file ``${PELELM_DIR}/Docs/build/html/index.html``.
 
    GettingStarted.rst
    Model.rst
+   GNUmakeSystem.rst
    RunningPeleLM.rst
+   Visualization.rst
 
 Indices and tables
 ==================

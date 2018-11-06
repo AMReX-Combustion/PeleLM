@@ -3,6 +3,15 @@
 The `PeleLM` Model
 ==================
 
+In this section, we present the actual model that is evolved numerically by `PeleLM`, and the numerical algorithms
+to do it.  There are many control parameters to customize the solution strategy and process, and in order to actually
+set up and run specific problems with `PeleLM`, the user must specific the chemical model, and provide routines
+that implement initial and boundary data and refinement criteria for the adaptive mesh refinement.  We discuss
+setup and control of `PeleLM` in later sections.
+
+Overview of `PeleLM`
+--------------------
+
 `PeleLM` evolves chemically reacting low Mach number flows with block-structured adaptive mesh refinement (AMR). The code depends upon the `AMReX <https://github.com/AMReX-Codes/amrex>`_ library to provide the underlying data structures, and tools to manage and operate on them across massively parallel computing architectures. `PeleLM` also borrows heavily from the source code and algorithmic infrastructure of the `IAMR <https://github.com/AMReX-Codes/IAMR>`_. `IAMR` implements an AMR integration for the variable-density incompressible Navier-Stokes equations. `PeleLM` extends `IAMR` to include complex coupled models for generalized thermodynamic relationships, multi-species transport and chemical reactions.  The core algorithms in `PeleLM` (and `IAMR`) are described in the following papers:
 
 * *A conservative, thermodynamically consistent numerical approach for low Mach number combustion. I. Single-level integration*, A. Nonaka, J. B. Bell, and M. S. Day, *Combust. Theor. Model.*, **22** (1) 156-184 (2018)
