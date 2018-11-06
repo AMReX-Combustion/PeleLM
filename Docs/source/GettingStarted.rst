@@ -5,7 +5,7 @@
 
 For the impatient, the following summarizes how to obtain `PeleLM` and all the supporting software
 required, and how to build and run a simple case in order to obtain a first set of results.
-A thoroush discussion of the model equations, and time stepping algorithms in `PeleLM` is
+A thorough discussion of the model equations, and time stepping algorithms in `PeleLM` is
 given in :ref:`sec:model`.  More details about the make system are given in :ref:`sec:build:make`.
 Parameters provided for runtime control of `PeleLM` are discussed in :ref:`sec:control`.  Visualization
 of the results from `PeleLM` is discussed in :ref:`sec:visualization`.
