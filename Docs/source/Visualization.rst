@@ -1,7 +1,7 @@
 .. role:: cpp(code)
    :language: c++
 
-.. _Chap:Visualization:
+.. _sec:visualization:
 
 Visualization
 =============

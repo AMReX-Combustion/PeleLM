@@ -1,5 +1,7 @@
 .. highlight:: rst
 
+.. _sec:control:
+
 `PeleLM` control
 ================
 

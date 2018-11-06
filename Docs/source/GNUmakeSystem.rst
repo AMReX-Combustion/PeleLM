@@ -1,7 +1,6 @@
 .. role:: cpp(code)
    :language: c++
 
-
 .. _sec:build:make:
 
 Building with GNU Make
