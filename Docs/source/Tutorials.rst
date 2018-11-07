@@ -36,8 +36,8 @@ Tutorial 5 - DME Jet Flame
 
 Typical Dalakoti setup
 
-Tutorial 5 - Axisymetric Jet Jame
----------------------------------
+Tutorial 5 - Axisymetric Jet Flame
+----------------------------------
 
 Typical Michela setup
 
