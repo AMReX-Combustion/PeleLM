@@ -299,7 +299,8 @@ private:
                                       int       FComp,
                                       amrex::MultiFab& D,
                                       int       DComp,
-                                      amrex::MultiFab& DD);
+                                      amrex::MultiFab& DD,
+                                      amrex::MultiFab& DDhat);
 
   void differential_spec_diffuse_sync (amrex::Real dt,
                                        bool Wbar_corrector,

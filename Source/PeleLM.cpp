@@ -304,7 +304,7 @@ PeleLM::Initialize ()
   temp_control            = -1;
   crse_dt                 = -1;
   chem_box_chop_threshold = -1;
-  num_deltaT_iters        = 3; // If <= 0, diffuse RhoH instead
+  num_deltaT_iters        = 0; // If <= 0, diffuse RhoH instead
   num_forkjoin_tasks      = 1;
   forkjoin_verbose        = false;
 
@@ -3042,7 +3042,8 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
                                        int       FComp,
                                        MultiFab& Dnew,
                                        int       DComp,
-                                       MultiFab& DDnew)
+                                       MultiFab& DDnew,
+                                       MultiFab& DDhat)
 {
   BL_PROFILE_REGION_START("R::HT::differential_diffusion_update()");
   BL_PROFILE("HT::differential_diffusion_update()");
@@ -3141,7 +3142,7 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
   for (int d=0; d<AMREX_SPACEDIM; ++d) {
       a[d] = &(area[d]);
   }
-
+  
   // Diffuse all the species
   diffuse_scalar_fj(Sn, Sn, Snp1, Snp1, first_spec, nspecies, Rho_comp,
                     prev_time,curr_time,be_cn_theta_SDC,Rh,rho_flag,
@@ -3180,7 +3181,9 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
   //
 
   // Get T consistent with current state
-  RhoH_to_Temp(get_new_data(State_Type));
+
+  // NTW: if we update here, F[Temp] drifts
+  // RhoH_to_Temp(get_new_data(State_Type));
 
   // build heat fluxes based on species fluxes, Gamma_m, and cell-centered states
   // compute flux[nspecies+1] = sum_m (H_m Gamma_m)
@@ -3226,6 +3229,13 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
     MultiFab::Add(Trhs,Force,nspecies,0,1,0);                     //      + (Dn[N+1]-Dnp1[N+1]+DDn-DDnp1)/2 + A
     MultiFab::Add(Trhs,Dnew,DComp+nspecies+1,0,1,0);              //      +  Dnew[N+1]
     MultiFab::Add(Trhs,DDnew,0,0,1,0);                            //      +  DDnew
+
+    // NTW: bunch of changes (testing...)
+    // MultiFab::Add(Trhs,Force,nspecies,0,1,0);                     // NTW: this should be (Dn[N+1]-Dnp1[N+1]+DDn+DDnp1)/2 + A
+    // MultiFab::Subtract(Trhs,DDnew,0,0,1,0);                       // NTW: subtract DDnew to make it DDn-DDnp1
+    // MultiFab::Add(Trhs,Dnew,DComp+nspecies+1,0,1,0);              // NTW: + Dnew[N+1]
+    // MultiFab::Add(Trhs,DDhat,0,0,1,0);                            // + DDhat (this should be from before)
+
 
     // Use S_new as location for deltaT from solve
     MultiFab::Copy(Told,*Snp1[0],Temp,0,1,1); // Save a copy of T^{k+1,L}
@@ -3400,7 +3410,6 @@ PeleLM::compute_enthalpy_fluxes (const MultiFab&        S,
       edomain[d] = surroundingNodes(domain,d);
     }
     const Real* dx = geom.CellSize();
-
     for (MFIter mfi(S,true); mfi.isValid(); ++mfi)
     {
       const Box& box = mfi.tilebox();
@@ -3811,6 +3820,9 @@ PeleLM::compute_differential_diffusion_fluxes (const MultiFab& S,
                    MultiFab flxz(*flux[2], amrex::make_alias, fluxComp+icomp, 1););
       std::array<MultiFab*,AMREX_SPACEDIM> fp{AMREX_D_DECL(&flxx,&flxy,&flxz)};
       mg.getFluxes({fp},{&Soln});
+      // Remove scaling left in fluxes from solve. 
+      for (int i = 0; i < BL_SPACEDIM; ++i)
+        (*flux[i]).mult(b/(geom.CellSize()[i]),fluxComp+icomp,1,0);
     }
     else
     {
@@ -3862,7 +3874,6 @@ PeleLM::compute_differential_diffusion_fluxes (const MultiFab& S,
   // compute flux[nspecies+2] = - lambda grad T
   //
   compute_enthalpy_fluxes(S,flux,beta);
-
   //
   // We have just computed "DD" and heat fluxes given an input state.
   //
@@ -4037,14 +4048,13 @@ PeleLM::compute_differential_diffusion_terms (MultiFab& D,
   // Compute "D":
   // D[0:nspecies-1] = -Div( Fk )
   // D[  nspecies  ] =  Div( (lambda/cp) Grad(h) )  ! Unused currently
-  // D[ nspecies+1 ] =  Div(   lambda    Grad(T) )
+  // D[ nspecies+1 ] = Div( lambda    Grad(T) )
   //
   flux_divergence(D,0,flux,0,nspecies+1,-1);
   flux_divergence(D,nspecies+1,flux,nspecies+2,1,-1);
   
   // compute -Sum{ Div( hk . Fk ) } a.k.a. the "diffdiff" terms
   flux_divergence(DD,0,flux,nspecies+1,1,-1);
-
 
 #ifdef USE_WBAR
   // compute div beta_for_Wbar grad Wbar
@@ -4774,6 +4784,9 @@ PeleLM::advance (Real time,
     int Rcomp = Density - sComp;
     int RYcomp = first_spec - sComp;
     int Tcomp = Temp - sComp;
+    int DIDTemp = nspecies+1;
+    int FIDTemp = nspecies;
+    int FLXTemp = nspecies+2;
 
 #ifdef _OPENMP
 #pragma omp parallel
@@ -4785,11 +4798,12 @@ PeleLM::advance (Real time,
         FArrayBox& Sfab = Smf[mfi];
         FArrayBox& f = Forcing[mfi];
         FArrayBox& dn = Dn[mfi];
+        FArrayBox& ddn = DDn[mfi];
         const FArrayBox& r = get_new_data(RhoYdot_Type)[mfi];
         const Box& gbox = mfi.growntilebox();
 
         H.resize(gbox,nspecies);
-        getChemSolve().getHGivenT(H,Smf[mfi],gbox,Tcomp,0);
+        getChemSolve().getHGivenT(H,Sfab,gbox,Tcomp,0);
 
         tmp.resize(gbox,nspecies);
         tmp.copy(r,gbox,0,gbox,0,nspecies);         // copy Rk to tmp 
@@ -4797,9 +4811,10 @@ PeleLM::advance (Real time,
 
         H.mult(tmp,gbox,gbox,0,0,nspecies);         // Multiply by hk, so now we have hk.( Rk + Div(Fk) )
         for (int n=0; n<nspecies; ++n) {
-          f.minus(H,gbox,gbox,n,nspecies,1);        // Build - Sum{ hk.( Rk + Div(Fk) ) }
+          f.minus(H,gbox,gbox,n,nspecies,1);        // Build F[N] = - Sum{ hk.( Rk + Div(Fk) ) }
         }
-        f.plus(dn,gbox,gbox,nspecies+1,nspecies,1); // Build D[N+1] - Sum{ hk.( Rk + Div(Fk) ) }
+        f.plus(dn,gbox,gbox,nspecies+1,nspecies,1); // Build F[N] = Dn[N+1] - Sum{ hk.( Rk + Div(Fk) ) }
+        f.plus(ddn,gbox,gbox,0,nspecies,1);         // Add DDn to F[N]
         if (closed_chamber == 1)
           f.plus(dp0dt,gbox,nspecies,1);            // add dp0/dt to Temp forcing
         Sfab.invert(1.0,gbox,Rcomp,1);              // S[rho] = 1/rho
@@ -4860,7 +4875,7 @@ PeleLM::advance (Real time,
         f.minus(dnp1,box,box,0,0,nspecies);  // subtract Dnp1 from RhoY
         f.minus(dnp1,box,box,nspecies+1,nspecies,1); // subtract Div(lamGradT) in Dnp1 from RhoH
         f.plus(ddn  ,box,box,0,nspecies,1); // add DDn to RhoH, no contribution for RhoY
-        f.minus(ddnp1,box,box,0,nspecies,1); // add DDnp1 to RhoH, no contribution for RhoY
+        f.plus(ddnp1,box,box,0,nspecies,1); // add DDnp1 to RhoH, no contribution for RhoY
         f.mult(0.5,box,0,nspecies+1);
 #ifdef USE_WBAR
         const FArrayBox& dwbar = DWbar[mfi];
@@ -4872,7 +4887,9 @@ PeleLM::advance (Real time,
         f.plus(r,box,box,0,0,nspecies); // no reactions for RhoH
       }
     }
-    differential_diffusion_update(Forcing,0,Dhat,0,DDhat); // NTW: Do we still want to iteratively update DDnp1 or DDhat if we are inthe loop?
+
+    // NTW: We really want to keep the old DDhat, and get an updated DDnp1 from DDUpdate
+    differential_diffusion_update(Forcing,0,Dhat,0,DDhat,DDhat);  //NTW: changed from DDhat
     BL_PROFILE_VAR_STOP(HTDIFF);
 
     // 
@@ -4905,7 +4922,7 @@ PeleLM::advance (Real time,
         if (closed_chamber == 1)
           f.plus(dp0dt,box,nspecies,1); // add dp0/dt to enthalpy forcing
         f.plus(dhat,box,box,0,0,nspecies);         // add Dhat to RhoY
-        f.plus(dhat,box,box,nspecies+1,nspecies,1); // add Dhat to RHoH
+        f.plus(dhat,box,box,nspecies+1,nspecies,1); // add Dhat to RhoH
         f.plus(a,box,box,first_spec,0,nspecies+1); // add A to RhoY and RhoH
         f.plus(ddhat,box,box,0,nspecies,1);  //NTW: the addition of DDhat, along with -DDnp1, makes this a pseudo-SDC correction term
         f.minus(ddnp1,box,box,0,nspecies,1); // subtract DDnp1 to make it 0.5(DDn - DDnp1) instead of 0.5(DDn + DDnp1)
@@ -5368,10 +5385,9 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
   if (hack_nochem)
   {
     MultiFab::Copy(mf_new,mf_old,first_spec,first_spec,nspecies+2,0);
-    MultiFab::Saxpy(mf_new,dt,Force,nCompF,first_spec,nspecies+1,0);
+    MultiFab::Saxpy(mf_new,dt,Force,0,first_spec,nspecies+1,0);
     get_new_data(RhoYdot_Type).setVal(0);
     get_new_data(FuncCount_Type).setVal(0);
-    // RhoH_to_Temp(mf_new);
   }
 //  {
 //    FArrayBox tmp;
@@ -5620,7 +5636,7 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
         const Box& ebox = surroundingNodes(bx,d);
         edgestate[d].setVal(0,ebox,0,1);
         edgeflux[d].setVal(0,ebox,0,1);
-        for (int comp=0; comp < nspecies; comp++){      
+        for (int comp=0; comp < nspecies; comp++){
           edgestate[d].plus(edgestate[d],comp+1,0,1);
           edgeflux[d].plus(edgeflux[d],comp+1,0,1);
         }
@@ -5636,8 +5652,8 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
                              D_DECL(edgestate[0],edgestate[1],edgestate[2]), nspecies+2,
                              Sfab, Tcomp, 1, force, nspecies, divu, 0,
                              (*aofs)[S_mfi], Temp, advectionType, state_bc, FPU, volume[S_mfi]);
-
-      // Compute RhoH on faces, store in nspecies+2 component of edgestate[d]
+     
+      // Compute RhoH on faces, store in nspecies+1 component of edgestate[d]
       for (int d=0; d<BL_SPACEDIM; ++d)
       {
         const Box& ebox = surroundingNodes(bx,d);
@@ -5654,10 +5670,10 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
         eH.resize(ebox,1);
         getChemSolve().getHmixGivenTY(eH, edgestate[d], eY, ebox, nspecies+2, 0, 0);
 
-        edgeflux[d].copy(eH,ebox,0,ebox,nspecies+1,1);       // Copy H into flux 
-        edgeflux[d].mult(edgeflux[d],ebox,0,nspecies+1,1);   // Make H.Rho.Umac into flux
         edgestate[d].copy(eH,ebox,0,ebox,nspecies+1,1);      // Copy H into estate
         edgestate[d].mult(edgestate[d],ebox,0,nspecies+1,1); // Make H.Rho into estate
+        // Copy edgestate into edgeflux. ComputeAofs() overwrites but needs edgestate to start.
+        edgeflux[d].copy(edgestate[d],ebox,nspecies+1,ebox,nspecies+1,1);
       }
 
       // Compute -Div(flux.Area) for RhoH, return Area-scaled (extensive) fluxes
@@ -5674,9 +5690,11 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
       for (int d=0; d<BL_SPACEDIM; ++d)
       {
         const Box& efbox = S_mfi.nodaltilebox(d);
-        (*EdgeState[d])[S_mfi].copy(edgestate[d],efbox,0,efbox,Density,nspecies+2);
+        (*EdgeState[d])[S_mfi].copy(edgestate[d],efbox,0,efbox,Density,nspecies+1);
+        (*EdgeState[d])[S_mfi].copy(edgestate[d],efbox,nspecies+1,efbox,RhoH,1);
         (*EdgeState[d])[S_mfi].copy(edgestate[d],efbox,nspecies+2,efbox,Temp,1);
-        (*EdgeFlux[d])[S_mfi].copy(edgeflux[d],efbox,0,efbox,Density,nspecies+2);
+        (*EdgeFlux[d])[S_mfi].copy(edgeflux[d],efbox,0,efbox,Density,nspecies+1);
+        (*EdgeFlux[d])[S_mfi].copy(edgeflux[d],efbox,nspecies+1,efbox,RhoH,1);
         (*EdgeFlux[d])[S_mfi].copy(edgeflux[d],efbox,nspecies+2,efbox,Temp,1);
       }
     }
