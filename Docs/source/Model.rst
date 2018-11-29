@@ -80,8 +80,8 @@ and observe that if the initial conditions satisfy the constraint, an evolution 
 
 .. math::
 
-    \nabla \cdot \boldsymbol{u} = \frac{1}{\rho T}\frac{DT}{Dt}
-    + \frac{W}{\rho} \sum_m \frac{1}{W_m} \frac{DY_m}{Dt} = S
+    \nabla \cdot \boldsymbol{u} = \frac{1}{T}\frac{DT}{Dt}
+    + W \sum_m \frac{1}{W_m} \frac{DY_m}{Dt} = S
 
 The constraint here take the form of a condition on the divergence of the flow.  Note that the actual expressions to use here will depend upon the chosen models for evaluating the transport fluxes.
 
@@ -500,7 +500,7 @@ the time-explicit advective fluxes for :math:`U`, :math:`\rho h`, and :math:`\rh
 .. math::
 
     \rho^{n+1/2}\frac{U^{n+1,*}-U^n}{\Delta t}
-    + \left(U^{\rm ADV}\cdot\nabla U\right)^{n+1/2} = \frac{1}{2}\left(\nabla\cdot\tau^n
+    + \rho^{n+1/2}\left(U^{\rm ADV}\cdot\nabla U\right)^{n+1/2} = \frac{1}{2}\left(\nabla\cdot\tau^n
     + \nabla\cdot\tau^{n+1,*}\right) - \nabla\pi^{n-1/2} + \frac{1}{2}(F^n + F^{n+1}),
 
 where :math:`\tau^{n+1,*} = \mu^{n+1}[\nabla U^{n+1,*} +(\nabla U^{n+1,*})^T - 2\mathcal{I}\widehat S^{n+1}/3]` and 
