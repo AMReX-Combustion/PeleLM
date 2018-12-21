@@ -225,6 +225,8 @@ contains
     integer lob(SDIM), hib(SDIM)
     REAL_T dxInv, dyInv
 
+!    REAL_T tmp(60:63),tmpM(60:63)
+
 !   Compute species enthalpies on box grown by one
     do d=1,SDIM
       lob(d) = lo(d)-1
@@ -302,9 +304,19 @@ contains
        enddo
     enddo
 
+!    if (lo(2).eq.0.and.lo(1).eq.0) then
+!       tmp = 0.d0
+!       tmpM = 0.d0
+!       do n=1,Nspec
+!          tmp = tmp + Fx(60:63,0,n)*Ax(60:63,0)*(H(60:63,0,n)+H(59:62,0,n))*.5d0
+!       enddo
+!       print* ,tmp
+!       print *
+!    endif
+
     do n=1,Nspec
-       do j=lo(2),hi(2)
-       do i=lo(1),hi(1)+1
+       do j=lo(2),hi(2)+1
+       do i=lo(1),hi(1)
           Fy(i,j,Nspec+2) = Fy(i,j,Nspec+2) + Fy(i,j,n)*Ay(i,j)*(H(i,j,n)+H(i,j-1,n))*0.5d0
        enddo
        enddo

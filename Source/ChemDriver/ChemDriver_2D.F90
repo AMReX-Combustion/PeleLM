@@ -603,8 +603,15 @@ contains
       !
       !   c_0,c_1,rhoH_INIT,T_cell,rhoY_INIT,negative_Y_test
       !
+
+!      print*, hi, lo
+
       do j=lo(2),hi(2)
          do i=lo(1),hi(1)
+
+!            if(i.eq.66 .and. j.eq.0) then
+!              print*, "cell 66,0: ", Told(66,0)
+!	    endif
 
             TT1                = zero
             TT2                = dt
@@ -770,6 +777,10 @@ contains
 
                FuncCount(i,j) = FuncCount(i,j) + IWRK(dvbi+11)
             enddo
+
+!	    if(i.eq.64 .and. j.eq.0) then
+!                print*, "****", Z(Nspec+1), rhoHold(i,j)+dt*c_0(Nspec+1)	!OK
+!            endif
                
             rhoHnew(i,j) = Z(Nspec+1)
                
@@ -799,19 +810,38 @@ contains
                rhoYnew(i,j,m) = Z(m)
             end do
 
+!! ----- hack: turn off reactions -----
+!	    do n=1,Nspec
+!               rhoYnew(i,j,n) = rhoYold(i,j,n) + dt*c_0(n)
+!            enddo
+!!	    print*, rhoHnew(i,j)-(rhoHold(i,j) + dt*c_0(Nspec+1))
+!!	    print*, rhoYnew(i,j,1:Nspec)-(rhoYold(i,j,1:Nspec) + dt*c_0(1:Nspec))
+!!	    print*,
+!            rhoHnew(i,j) = rhoHold(i,j) + dt*c_0(Nspec+1)
+!!	    Tnew(i,j) = Told(i,j)
+!! -----
+
             do m=1,Nspec
                Y(m) = rhoYnew(i,j,m) * rhoInv
             enddo
+
+! ----- get wrong T...
             Tnew(i,j) = T_cell
             call TfromHYpt(Tnew(i,j),rhoHnew(i,j)*rhoInv,Y,HtoTerrMAX,HtoTiterMAX,res,Niter)
-
          end do
       end do
+
+!      if(lo(2).eq.0 .and. lo(1).eq.64) then
+!         print*, rhoYold(63,0,4), rhoYnew(63,0,4), rhoHold(63,0), rhoHnew(63,0)
+!      endif
 
       if (verbose .and. nfails .gt. 0) then
          print*, '*** DVODE failures for last chem block: ', nfails; call flush(6)
       end if
       CONPSOLV_SDC = 1
+
+!      print*, lo, hi
+
   end function CONPSOLV_SDC
 
   subroutine BETA_WBAR(lo, hi, RD, DIMS(RD), RD_Wbar, DIMS(RD_Wbar), Y, DIMS(Y))&
@@ -1074,6 +1104,7 @@ contains
       Ptmp = Patm * P1ATM
       do j=lo(2),hi(2)
          do i=lo(1),hi(1)
+!	    print*, "inside rhofromPTY ", T(i,j), Ptmp
             do n=1,Nspec
                Yt(n) = Y(i,j,n)
             end do
