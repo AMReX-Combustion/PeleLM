@@ -1897,9 +1897,9 @@ contains
 
   end subroutine rhoh_fill
   
-!
+! 
 ! Fill x & y velocity at once.
-!
+! 
 
   subroutine vel_fill (vel,DIMS(vel),domlo,domhi,delta, &
                               xlo,time,bc)&
@@ -1919,9 +1919,9 @@ contains
 
   end subroutine vel_fill
 
-!
+! 
 ! Fill all chem species at once
-!
+! 
 
   subroutine all_chem_fill (rhoY,DIMS(rhoY),domlo,domhi,delta, &
                             xlo,time,bc)&
@@ -2334,9 +2334,9 @@ contains
       ihi = min(ARG_H1(p),domhi(1))
       jlo = max(ARG_L2(p),domlo(2))
       jhi = min(ARG_H2(p),domhi(2))
-!
+! 
 !     ::::: left side
-!
+! 
 
       if (fix_xlo) then
          do i = ARG_L1(p), domlo(1)-1
@@ -2372,9 +2372,9 @@ contains
          end if
       end if
       
-!
+! 
 !     ::::: right side
-!
+! 
 
       if (fix_xhi) then
          do i = domhi(1)+1, ARG_H1(p)
