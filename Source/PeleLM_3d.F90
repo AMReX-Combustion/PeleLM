@@ -205,21 +205,21 @@ contains
       REAL_T  RhoY(DIMV(RhoY),Nspec)
 
       integer DIMDEC(rhoDx)
-      REAL_T  rhoDx(DIMV(rhoDx),Nspec+2)
+      REAL_T  rhoDx(DIMV(rhoDx),Nspec+3)
       integer DIMDEC(Fx)
       REAL_T  Fx(DIMV(Fx),Nspec+3)
       integer DIMDEC(Ax)
       REAL_T  Ax(DIMV(Ax))
 
       integer DIMDEC(rhoDy)
-      REAL_T  rhoDy(DIMV(rhoDy),Nspec+2)
+      REAL_T  rhoDy(DIMV(rhoDy),Nspec+3)
       integer DIMDEC(Fy)
       REAL_T  Fy(DIMV(Fy),Nspec+3)
       integer DIMDEC(Ay)
       REAL_T  Ay(DIMV(Ay))
 
       integer DIMDEC(rhoDz)
-      REAL_T  rhoDz(DIMV(rhoDz),Nspec+2)
+      REAL_T  rhoDz(DIMV(rhoDz),Nspec+3)
       integer DIMDEC(Fz)
       REAL_T  Fz(DIMV(Fz),Nspec+3)
       integer DIMDEC(Az)
@@ -258,7 +258,7 @@ contains
       do k=lo(3),hi(3)
       do j=lo(2),hi(2)
       do i=lo(1),hi(1)+1
-         Fx(i,j,k,Nspec+3) = - rhoDx(i,j,k,Nspec+2)*(T(i,j,k) - T(i-1,j,k))* dxInv * Ax(i,j,k)
+         Fx(i,j,k,Nspec+3) = - rhoDx(i,j,k,Nspec+3)*(T(i,j,k) - T(i-1,j,k)) * dxInv * Ax(i,j,k)
       enddo
       enddo
       enddo
@@ -266,7 +266,7 @@ contains
       do k=lo(3),hi(3)
       do j=lo(2),hi(2)+1
       do i=lo(1),hi(1)
-         Fy(i,j,k,Nspec+3) = - rhoDy(i,j,k,Nspec+2)*(T(i,j,k) - T(i,j-1,k)) * dyInv * Ay(i,j,k)
+         Fy(i,j,k,Nspec+3) = - rhoDy(i,j,k,Nspec+3)*(T(i,j,k) - T(i,j-1,k)) * dyInv * Ay(i,j,k)
       enddo
       enddo
       enddo
@@ -274,7 +274,7 @@ contains
       do k=lo(3),hi(3)+1
       do j=lo(2),hi(2)
       do i=lo(1),hi(1)
-         Fz(i,j,k,Nspec+3) = - rhoDz(i,j,k,Nspec+2)*(T(i,j,k) - T(i,j,k-1)) * dzInv * Az(i,j,k)
+         Fz(i,j,k,Nspec+3) = - rhoDz(i,j,k,Nspec+3)*(T(i,j,k) - T(i,j,k-1)) * dzInv * Az(i,j,k)
       enddo
       enddo
       enddo
@@ -344,7 +344,7 @@ contains
          do k=lo(3),hi(3)
          do j=lo(2),hi(2)
          do i=lo(1),hi(1)+1
-            Fx(i,j,k,Nspec+2) = Fx(i,j,k,Nspec+2) + Fx(i,j,k,n)*Ax(i,j,k)*(H(i,j,k,n)+H(i-1,j,k,n))*0.5d0
+            Fx(i,j,k,Nspec+2) = Fx(i,j,k,Nspec+2) + Fx(i,j,k,n)*(H(i,j,k,n)+H(i-1,j,k,n))*0.5d0
          enddo
          enddo
          enddo
@@ -354,7 +354,7 @@ contains
          do k=lo(3),hi(3)
          do j=lo(2),hi(2)+1
          do i=lo(1),hi(1)
-            Fy(i,j,k,Nspec+2) = Fy(i,j,k,Nspec+2) + Fy(i,j,k,n)*Ay(i,j,k)*(H(i,j,k,n)+H(i,j-1,k,n))*0.5d0
+            Fy(i,j,k,Nspec+2) = Fy(i,j,k,Nspec+2) + Fy(i,j,k,n)*(H(i,j,k,n)+H(i,j-1,k,n))*0.5d0
          enddo
          enddo
          enddo
@@ -364,7 +364,7 @@ contains
          do k=lo(3),hi(3)+1
          do j=lo(2),hi(2)
          do i=lo(1),hi(1)
-            Fz(i,j,k,Nspec+2) = Fz(i,j,k,Nspec+2) + Fz(i,j,k,n)*Az(i,j,k)*(H(i,j,k,n)+H(i,j,k-1,n))*0.5d0
+            Fz(i,j,k,Nspec+2) = Fz(i,j,k,Nspec+2) + Fz(i,j,k,n)*(H(i,j,k,n)+H(i,j,k-1,n))*0.5d0
          enddo
          enddo
          enddo

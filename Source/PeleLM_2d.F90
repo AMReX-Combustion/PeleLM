@@ -206,14 +206,14 @@ contains
     REAL_T  RhoY(DIMV(RhoY),Nspec)
 
     integer DIMDEC(rhoDx)
-    REAL_T  rhoDx(DIMV(rhoDx),Nspec+2)
+    REAL_T  rhoDx(DIMV(rhoDx),Nspec+3)
     integer DIMDEC(Fx)
     REAL_T  Fx(DIMV(Fx),Nspec+3)
     integer DIMDEC(Ax)
     REAL_T  Ax(DIMV(Ax))
 
     integer DIMDEC(rhoDy)
-    REAL_T  rhoDy(DIMV(rhoDy),Nspec+2)
+    REAL_T  rhoDy(DIMV(rhoDy),Nspec+3)
     integer DIMDEC(Fy)
     REAL_T  Fy(DIMV(Fy),Nspec+3)
     integer DIMDEC(Ay)
@@ -250,14 +250,13 @@ contains
 
     do j=lo(2),hi(2)
     do i=lo(1),hi(1)+1
-       Fx(i,j,Nspec+3) = - rhoDx(i,j,Nspec+2)*(T(i,j) - T(i-1,j))* dxInv * Ax(i,j)
-       ! print*,'x',i,j,Fx(i,j,Nspec+3)
+       Fx(i,j,Nspec+3) = - rhoDx(i,j,Nspec+3)*(T(i,j) - T(i-1,j)) * dxInv * Ax(i,j)
     enddo
     enddo
 
     do j=lo(2),hi(2)+1
     do i=lo(1),hi(1)
-       Fy(i,j,Nspec+3) = - rhoDy(i,j,Nspec+2)*(T(i,j) - T(i,j-1)) * dyInv * Ay(i,j)
+       Fy(i,j,Nspec+3) = - rhoDy(i,j,Nspec+3)*(T(i,j) - T(i,j-1)) * dyInv * Ay(i,j)
     enddo
     enddo
 
