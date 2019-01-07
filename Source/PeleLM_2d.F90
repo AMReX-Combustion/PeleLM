@@ -252,13 +252,15 @@ contains
 
     do j=lo(2),hi(2)
     do i=lo(1),hi(1)+1
-       Fx(i,j,Nspec+3) = - rhoDx(i,j,Nspec+2)*(T(i,j) - T(i-1,j))* dxInv * Ax(i,j)
+!       Fx(i,j,Nspec+3) = - rhoDx(i,j,Nspec+2)*(T(i,j) - T(i-1,j))* dxInv * Ax(i,j)	! original
+       Fx(i,j,Nspec+3) = - rhoDx(i,j,Nspec+3)*(T(i,j) - T(i-1,j))* dxInv * Ax(i,j)
     enddo
     enddo
 
     do j=lo(2),hi(2)+1
     do i=lo(1),hi(1)
-       Fy(i,j,Nspec+3) = - rhoDy(i,j,Nspec+2)*(T(i,j) - T(i,j-1)) * dyInv * Ay(i,j)
+!       Fy(i,j,Nspec+3) = - rhoDy(i,j,Nspec+2)*(T(i,j) - T(i,j-1)) * dyInv * Ay(i,j)	! original
+       Fy(i,j,Nspec+3) = - rhoDy(i,j,Nspec+3)*(T(i,j) - T(i,j-1)) * dyInv * Ay(i,j)
     enddo
     enddo
 
@@ -313,6 +315,13 @@ contains
 !       print* ,tmp
 !       print *
 !    endif
+
+    if (lo(2).eq.0.d0 .and.lo(1).eq.0) then
+       print*, "CH4 flux_x entering and leaving cell (0,62) is: ", Fx(62,0,11), Fx(63,0,11)
+       print*, "sum(h_m*Gamma_m) along x entering and leaving cell (0,62) is: ", Fx(62,0,Nspec+2), Fx(63,0,Nspec+2)
+       print*, "Heat flux_x entering and leaving cell (0,62) is: ", Fx(62,0,Nspec+3), Fx(63,0,Nspec+3)
+       print *
+    endif
 
     do n=1,Nspec
        do j=lo(2),hi(2)+1

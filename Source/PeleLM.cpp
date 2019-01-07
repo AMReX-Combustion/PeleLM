@@ -3250,50 +3250,81 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
     }
   }
 
+//  VisMF::Write(*Snp1[0],"RealState_before_Tsolve");
+
   for (int L=0; L<num_deltaT_iters; ++L)
   {
 
+// ----- original
     MultiFab::Copy(    Trhs,get_old_data(State_Type),RhoH,0,1,0);
     MultiFab::Subtract(Trhs,get_new_data(State_Type),RhoH,0,1,0);
     Trhs.mult(1/dt);                                              // F = ( (rho.h)^n - (rho.h)^{n+1,k+1,L} )/dt
-    VisMF::Write(Trhs,"Trhs_before_Tsolve00000");
+////    VisMF::Write(Trhs,"Trhs_before_Tsolve00000");
 
     MultiFab::Add(Trhs,Force,nspecies,0,1,0);                     //      + (Dn[N+1]-Dnp1[N+1]+DDn-DDnp1)/2 + A
-    VisMF::Write(Trhs,"Trhs_before_Tsolve1111");
+////    VisMF::Write(Trhs,"Trhs_before_Tsolve11111");
 
     MultiFab::Add(Trhs,Dnew,DComp+nspecies+1,0,1,0);              //      +  Dnew[N+1]
-    VisMF::Write(Dnew,"Dnew_before_Tsolve22222");
+////    VisMF::Write(Dnew,"Dnew_before_Tsolve22222");
 
     MultiFab::Add(Trhs,DDnew,0,0,1,0);                            //      +  DDnew
-    VisMF::Write(DDnew,"DDnew_before_Tsolve33333");
+////    VisMF::Write(DDnew,"DDnew_before_Tsolve33333");
+// -----
 
+
+//// ----- WRONG
+//    MultiFab::Copy(Trhs,Force,nspecies,0,1,0);				// F = (Dn[N+1]-Dnp1[N+1]+DDn-DDnp1)/2 + A
+////    VisMF::Write(Trhs,"Trhs_before_Tsolve11111");
+
+//    MultiFab::Add(Trhs,Dnew,DComp+nspecies+1,0,1,0);			//      +  Dnew[N+1]
+////    VisMF::Write(Dnew,"Dnew_before_Tsolve22222");
+
+//    MultiFab::Add(Trhs,DDnew,0,0,1,0);					//      +  DDnew
+////    VisMF::Write(DDnew,"DDnew_before_Tsolve33333");
+
+//    Trhs.mult(dt);							//  dt*F
+//    MultiFab::Add(    Trhs,get_old_data(State_Type),RhoH,0,1,0);
+//    MultiFab::Subtract(Trhs,get_new_data(State_Type),RhoH,0,1,0);	// + ( (rho.h)^n - (rho.h)^{n+1,k+1,L} )
+////    VisMF::Write(Trhs,"Trhs_before_Tsolve00000");
+//// -----
+
+//    VisMF::Write(Trhs,"Trhs_before_Tsolve");
+
+
+// ----- hack
 //    Trhs.setVal(0);
    
     Print() << "Solving deltaT iters" << std::endl;
-
-    VisMF::Write(Trhs,"Trhs_before_Tsolve");
 
     // Use S_new as location for deltaT from solve
     MultiFab::Copy(Told,*Snp1[0],Temp,0,1,1); // Save a copy of T^{k+1,L}
     Snp1[0]->setVal(0,Temp,1,1);              // Set initial and BC data for deltaT = 0
 
-    VisMF::Write(Told,"Told_Tsolve");
+//    VisMF::Write(Told,"Told_Tsolve");
 
 //    Abort();
   
     int rho_flagT = 1; // Op: alpha = alpha_in*rho_half*Vol, wont divide BCs by rho, alpha_in=Cp, rho_half=rho_new
+
+// ----- added, for consistency
+//    Vector<int> diffuse_comp(1);
+//    diffuse_comp[0] = is_diffusive[first_spec+(nspecies)];
+    Vector<int> diffuse_comp(1,1);			// vector of 1 componet, of value =1
+// -----
+
     diffusion->diffuse_scalar(Sn, Sn, Snp1, Snp1, Temp, 1, Rho_comp,
                                   prev_time,curr_time,be_cn_theta_SDC,RhT,rho_flagT,
                                   SpecDiffusionFluxn,SpecDiffusionFluxnp1,nspecies+2,
                                   &Trhs,0,&Cp,0,
                                   betan,betanp1,nspecies+1,visc_coef,visc_coef_comp,
                                   volume,a,crse_ratio,theBCs[Temp],geom,
-                                  add_hoop_stress,solve_mode,add_old_time_divFlux,{true});
+//                                  add_hoop_stress,solve_mode,add_old_time_divFlux,{true});		// original, but FORGOT "is_diffusive" term!!
+                                  add_hoop_stress,solve_mode,add_old_time_divFlux,diffuse_comp,{true});
 
     Print() << "DeltaT solve, norm = " << Snp1[0]->norm0(Temp) << std::endl;
 
-    VisMF::Write(Cp,"Cp_after_Tsolve");
-    VisMF::Write(*betanp1[0],"lambda_after_Tsolve");
+//    VisMF::Write(Cp,"Cp_after_Tsolve");				// OK
+//    VisMF::Write(*betanp1[0],"lambda_after_Tsolve");			// OK
 
     MultiFab::Add(get_new_data(State_Type),Told,0,Temp,1,1);                        // Update T^{k+1,L+1} in state
 
@@ -3302,13 +3333,11 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
 
 //    VisMF::Write(*Snp1[0],"State_after_Tsolve");
 
-    Abort();
+//    Abort("Aborted inside deltaT iters");
 
     compute_enthalpy_fluxes(get_new_data(State_Type),SpecDiffusionFluxnp1,betanp1); // get flux[N+1] (and flux[N+2])
     flux_divergence(Dnew,DComp+nspecies+1,SpecDiffusionFluxnp1,nspecies+2,1,-1);    // Dnew[N+1] = -Div(flux[N+2])
     flux_divergence(DDnew,0,SpecDiffusionFluxnp1,nspecies+1,1,-1);                  // DD = -Sum{ Div(H_m Gamma_m) }
-
-
 
 #ifdef _OPENMP
 #pragma omp parallel
@@ -3334,11 +3363,9 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
     }
   }
 
-    VisMF::Write(get_new_data(State_Type),"get_new_data_State_Type_after_Tsolve");
+//    VisMF::Write(*Snp1[0],"RealState_after_Tsolve");
 
-    VisMF::Write(*Snp1[0],"RealState_after_Tsolve");
-
-    amrex::Abort("After Tsolve");
+//    amrex::Abort("Aborted after Tsolve");
 
   //
   // We have just performed the correction diffusion solve for Y_m and h
@@ -4969,7 +4996,7 @@ PeleLM::advance (Real time,
 
 // ----- hack: for advance_chemistry, use same Forcing used for species eqn (just subtract S_old and the omegaDot term)
     MultiFab::Copy(Forcing,S_new,first_spec,0,nspecies+1,0);
-    MultiFab::Subtract(Forcing,S_old,first_spec,0,nspecies+1,0);
+    MultiFab::Subtract(Forcing,S_old,first_spec,0,nspecies+1,0);		// remove S_old term
     Forcing.mult(1/dt);
     MultiFab::Subtract(Forcing,get_new_data(RhoYdot_Type),0,0,nspecies,0);	// remove oomegaDot term
 // -----
@@ -5011,12 +5038,12 @@ PeleLM::advance (Real time,
 
 //    RhoH_to_Temp(S_new);
 
-    VisMF::Write(S_new,"Snew_before");
+//    VisMF::Write(S_new,"Snew_before");
     MultiFab tmp(grids, dmap, S_new.nComp(),S_new.nGrow());
     MultiFab::Copy(tmp,S_new,0,0,S_new.nComp(),S_new.nGrow());
     advance_chemistry(S_old,S_new,dt,Forcing,0);
     MultiFab::Subtract(tmp,S_new,0,0,S_new.nComp(),S_new.nGrow());
-    VisMF::Write(S_new,"Snew_after");
+//    VisMF::Write(S_new,"Snew_after");
 //    amrex::Abort();
 
     RhoH_to_Temp(S_new);
@@ -5112,7 +5139,7 @@ PeleLM::advance (Real time,
 
   calcViscosity(cur_time,dt,iteration,ncycle);
 
-  VisMF::Write(*viscnp1_cc,"viscnp1")
+//  VisMF::Write(*viscnp1_cc,"viscnp1")
 
   BL_PROFILE_VAR_STOP(HTDIFF);
   //
@@ -5128,9 +5155,9 @@ PeleLM::advance (Real time,
   calc_divu(time+dt, dt, get_new_data(Divu_Type));
   BL_PROFILE_VAR_STOP(HTPROJ);
 
-  VisMF::Write(get_new_data(Divu_Type), "Divu");
+//  VisMF::Write(get_new_data(Divu_Type), "Divu");
 
-  amrex::Abort();
+//  amrex::Abort();
 
   BL_PROFILE_VAR_START(HTPROJ);
   if (!NavierStokesBase::initial_step && level != parent->finestLevel())
@@ -5247,8 +5274,8 @@ PeleLM::advance (Real time,
 #endif
 
 // print something useful
-  VisMF::Write(get_new_data(Press_Type), "Pressure");
-  VisMF::Write(get_new_data(State_Type), "State");
+//  VisMF::Write(get_new_data(Press_Type), "Pressure");
+//  VisMF::Write(get_new_data(State_Type), "State");
 
 //  amrex::Abort();
 
