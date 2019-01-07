@@ -97,7 +97,7 @@ contains
         divu(i,j) = divu(i,j) + vtT(i,j)
         do n=1,Nspec
           tmp = tmp + (rYdot(i,j,n)+vtY(i,j,n))*invmtw(n)
-          divu(i,j) = divu(i,j) - rYdot(i,j,n)*H(n)
+          divu(i,j) = divu(i,j) - (rYdot(i,j,n)+vtY(i,j,n))*H(n)
          enddo
          divu(i,j) = ( divu(i,j)/(cpmix*T(i,j)) + tmp*mmw ) * rhoInv
         enddo
@@ -206,14 +206,14 @@ contains
     REAL_T  RhoY(DIMV(RhoY),Nspec)
 
     integer DIMDEC(rhoDx)
-    REAL_T  rhoDx(DIMV(rhoDx),Nspec+2)
+    REAL_T  rhoDx(DIMV(rhoDx),Nspec+3)
     integer DIMDEC(Fx)
     REAL_T  Fx(DIMV(Fx),Nspec+3)
     integer DIMDEC(Ax)
     REAL_T  Ax(DIMV(Ax))
 
     integer DIMDEC(rhoDy)
-    REAL_T  rhoDy(DIMV(rhoDy),Nspec+2)
+    REAL_T  rhoDy(DIMV(rhoDy),Nspec+3)
     integer DIMDEC(Fy)
     REAL_T  Fy(DIMV(Fy),Nspec+3)
     integer DIMDEC(Ay)
@@ -224,8 +224,6 @@ contains
     integer i, j, d, n
     integer lob(SDIM), hib(SDIM)
     REAL_T dxInv, dyInv
-
-!    REAL_T tmp(60:63),tmpM(60:63)
 
 !   Compute species enthalpies on box grown by one
     do d=1,SDIM
@@ -280,14 +278,14 @@ contains
     endif
 !   ylo
     if (lo(2).eq.dlo(2) .and. Tbc(2,1).eq.EXT_DIR) then
-       j=lo(2)
+       j=dlo(2)
        do i=lo(1),hi(1)
           Fy(i,j,Nspec+3) = 2*Fy(i,j,Nspec+3)
        enddo
     endif
 !   yhi
     if (hi(2).eq.dhi(2) .and. Tbc(2,2).eq.EXT_DIR) then
-       j=hi(2)+1
+       j=dhi(2)+1
        do i=lo(1),hi(1)
           Fy(i,j,Nspec+3) = 2*Fy(i,j,Nspec+3)
        enddo
@@ -301,20 +299,10 @@ contains
     do n=1,Nspec
        do j=lo(2),hi(2)
        do i=lo(1),hi(1)+1
-          Fx(i,j,Nspec+2) = Fx(i,j,Nspec+2) + Fx(i,j,n)*Ax(i,j)*(H(i,j,n)+H(i-1,j,n))*0.5d0
+          Fx(i,j,Nspec+2) = Fx(i,j,Nspec+2) + Fx(i,j,n)*(H(i,j,n)+H(i-1,j,n))*0.5d0
        enddo
        enddo
     enddo
-
-!    if (lo(2).eq.0.and.lo(1).eq.0) then
-!       tmp = 0.d0
-!       tmpM = 0.d0
-!       do n=1,Nspec
-!          tmp = tmp + Fx(60:63,0,n)*Ax(60:63,0)*(H(60:63,0,n)+H(59:62,0,n))*.5d0
-!       enddo
-!       print* ,tmp
-!       print *
-!    endif
 
     if (lo(2).eq.0.d0 .and.lo(1).eq.0) then
        print*, "CH4 flux_x entering and leaving cell (0,62) is: ", Fx(62,0,11), Fx(63,0,11)
@@ -326,7 +314,7 @@ contains
     do n=1,Nspec
        do j=lo(2),hi(2)+1
        do i=lo(1),hi(1)
-          Fy(i,j,Nspec+2) = Fy(i,j,Nspec+2) + Fy(i,j,n)*Ay(i,j)*(H(i,j,n)+H(i,j-1,n))*0.5d0
+          Fy(i,j,Nspec+2) = Fy(i,j,Nspec+2) + Fy(i,j,n)*(H(i,j,n)+H(i,j-1,n))*0.5d0
        enddo
        enddo
     enddo
@@ -337,7 +325,7 @@ contains
        Fx(i,lo(2):hi(2),Nspec+2) = 0.d0
        do n=1,Nspec
           do j=lo(2),hi(2)
-             Fx(i,j,Nspec+2) = Fx(i,j,Nspec+2) + Fx(i,j,n)*Ax(i,j)*H(i-1,j,n)
+             Fx(i,j,Nspec+2) = Fx(i,j,Nspec+2) + Fx(i,j,n)*H(i-1,j,n)
           enddo
       enddo
     endif
@@ -347,7 +335,7 @@ contains
        Fx(i,lo(2):hi(2),Nspec+2) = 0.d0
        do n=1,Nspec
           do j=lo(2),hi(2)
-             Fx(i,j,Nspec+2) = Fx(i,j,Nspec+2) + Fx(i,j,n)*Ax(i,j)*H(i,j,n)
+             Fx(i,j,Nspec+2) = Fx(i,j,Nspec+2) + Fx(i,j,n)*H(i,j,n)
           enddo
        enddo
     endif
@@ -357,7 +345,7 @@ contains
        Fy(lo(1):hi(1),j,Nspec+2) = 0.d0
        do n=1,Nspec
           do i=lo(1),hi(1)
-             Fy(i,j,Nspec+2) = Fy(i,j,Nspec+2) + Fy(i,j,n)*Ay(i,j)*H(i,j-1,n)
+             Fy(i,j,Nspec+2) = Fy(i,j,Nspec+2) + Fy(i,j,n)*H(i,j-1,n)
           enddo
        enddo
     endif
@@ -368,7 +356,7 @@ contains
        Fy(lo(1):hi(1),j,Nspec+2) = 0.d0
        do n=1,Nspec
           do i=lo(1),hi(1)
-             Fy(i,j,Nspec+2) = Fy(i,j,Nspec+2) + Fy(i,j,n)*Ay(i,j)*H(i,j,n)
+             Fy(i,j,Nspec+2) = Fy(i,j,Nspec+2) + Fy(i,j,n)*H(i,j,n)
           enddo
        enddo
     endif
@@ -1319,7 +1307,7 @@ contains
 !write(*,*) "DEBUG 2",DIMS(flux)
 !     First, assume away from physical boundaries, then use boundary-aware version below if applicable
       do j = lo(2),hi(2)
-        do i = lo(1),hi(1)
+        do i = lo(1),hi(1)+1
           sumFlux = 0.d0
           sumRhoYe = 0.d0
           do n=1,Nspec
@@ -1350,7 +1338,7 @@ contains
       endif
 !     xhi
       if (Ybc(1,2).eq.EXT_DIR.and.hi(1).ge.dhi(1)) then
-        do i = dhi(1),hi(1)
+        do i = dhi(1)+1,hi(1)+1
           do j = lo(2),hi(2)
             sumFlux = 0.d0
             sumRhoYe = 0.d0
@@ -1368,7 +1356,7 @@ contains
     else if (dir.eq.1) then
 
 !     First, assume away from physical boundaries, then replace with boundary-aware version below if applicable
-      do j = lo(2),hi(2)
+      do j = lo(2),hi(2)+1
         do i = lo(1),hi(1)
           sumFlux = 0.d0
           sumRhoYe = 0.d0
@@ -1400,7 +1388,7 @@ contains
       endif
 !     yhi
       if (Ybc(2,2).eq.EXT_DIR.and.hi(2).ge.dhi(2)) then
-        do j = dhi(2),hi(2)
+        do j = dhi(2)+1,hi(2)+1
           do i = lo(1),hi(1)
             sumFlux = 0.d0
             sumRhoYe = 0.d0
