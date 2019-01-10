@@ -248,7 +248,8 @@ private:
                                               const amrex::MultiFab* Scrse,
                                               amrex::MultiFab* const * flux,
                                               const amrex::MultiFab* const * beta,
-                                              const amrex::Real& dt);
+                                              amrex::Real dt,
+					      amrex::Real time);
 
   void compute_differential_diffusion_terms (amrex::MultiFab& D,
                                              amrex::MultiFab& DD,
@@ -260,7 +261,8 @@ private:
 
   void compute_enthalpy_fluxes (const amrex::MultiFab&        S,
                                 amrex::MultiFab* const*       flux,
-                                const amrex::MultiFab* const* beta);
+                                const amrex::MultiFab* const* beta,
+				amrex::Real		      time);
 
   enum HowToFillGrow {HT_ZERO_GROW_CELLS, HT_EXTRAP_GROW_CELLS, HT_NUM_GROW_OPTIONS};
 
@@ -299,8 +301,8 @@ private:
                                       int       FComp,
                                       amrex::MultiFab& D,
                                       int       DComp,
-                                      amrex::MultiFab& DD,
-                                      amrex::MultiFab& DDhat);
+                                      amrex::MultiFab& DD);
+//                                      amrex::MultiFab& DDhat);
 
   void differential_spec_diffuse_sync (amrex::Real dt,
                                        bool Wbar_corrector,

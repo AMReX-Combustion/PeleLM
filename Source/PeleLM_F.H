@@ -136,7 +136,7 @@ extern "C" {
   void enth_diff_terms(const int* lo, const int* hi, 
                        const int* dlo, const int* dhi, const amrex::Real* dx,
                        const amrex::Real* T, ARLIM_P(Tlo),  ARLIM_P(Thi),
-                       const amrex::Real* RhoY, ARLIM_P(rYlo),  ARLIM_P(rYhi),
+//                       const amrex::Real* RhoY, ARLIM_P(rYlo),  ARLIM_P(rYhi),
 
                        const amrex::Real* rDx,ARLIM_P(rDxlo),ARLIM_P(rDxhi),
                        const amrex::Real* Fix,ARLIM_P(Fixlo),ARLIM_P(Fixhi),

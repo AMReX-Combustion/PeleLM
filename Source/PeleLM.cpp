@@ -3042,8 +3042,8 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
                                        int       FComp,
                                        MultiFab& Dnew,
                                        int       DComp,
-                                       MultiFab& DDnew,
-                                       MultiFab& DDhat)
+                                       MultiFab& DDnew)
+//                                       MultiFab& DDhat)
 {
   BL_PROFILE_REGION_START("R::HT::differential_diffusion_update()");
   BL_PROFILE("HT::differential_diffusion_update()");
@@ -3142,6 +3142,8 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
   for (int d=0; d<AMREX_SPACEDIM; ++d) {
       a[d] = &(area[d]);
   }
+
+  VisMF::Write(*Snp1[0],"Snew_before_diffusescalarfj");	// OK
   
   // Diffuse all the species
   diffuse_scalar_fj(Sn, Sn, Snp1, Snp1, first_spec, nspecies, Rho_comp,
@@ -3151,6 +3153,8 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
                     betan,betanp1,betaComp,visc_coef,visc_coef_comp,
                     volume,a,crse_ratio,theBCs[bc_comp],geom,
                     add_hoop_stress,solve_mode,add_old_time_divFlux,diffuse_comp);
+
+  VisMF::Write(*Snp1[0],"Snew_after_diffusescalarfj");	// BAD
 
 #ifdef USE_WBAR
   // add lagged grad Wbar fluxes (SpecDiffusionFluxWbar) to time-advanced 
@@ -3171,8 +3175,14 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
   //
   // Modify/update new-time fluxes to ensure sum of species fluxes = 0, then compute Dnew[m] = -Div(flux[m])
   //
+
   const BCRec& Tbc = AmrLevel::desc_lst[State_Type].getBCs()[Temp];
   adjust_spec_diffusion_fluxes(SpecDiffusionFluxnp1,get_new_data(State_Type),Tbc);
+
+//// hack for species fluxes
+//    for (int i=0; i<BL_SPACEDIM; ++i){
+//	SpecDiffusionFluxnp1[i]->setVal(0);}
+
   Dnew.setVal(0);
 //  flux_divergence(Dnew,DComp,SpecDiffusionFluxnp1,0,nspecies+1,-1);	// original
   flux_divergence(Dnew,DComp,SpecDiffusionFluxnp1,0,nspecies,-1);	// should compute it only for species!!
@@ -3187,6 +3197,7 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
 //  RhoH_to_Temp(get_new_data(State_Type));			// comment this!!
 // -----
 // ----- new version -----
+
 #ifdef _OPENMP
 #pragma omp parallel
 #endif
@@ -3210,20 +3221,51 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
       }
     }
 
+    VisMF::Write(*Snp1[0],"Snew_start_SDC");	 // BAD
+
+//    Explicit update for species
+      for (MFIter mfi(*Snp1[0],true); mfi.isValid(); ++mfi)
+      {
+	const Box& tbox = mfi.tilebox();
+	(*Snp1[0])[mfi].copy(Force[mfi],tbox,0,tbox,first_spec,nspecies);
+        (*Snp1[0])[mfi].plus(Dnew[mfi],tbox,tbox,0,first_spec,nspecies);
+	(*Snp1[0])[mfi].mult(dt,tbox,first_spec,nspecies);
+	(*Snp1[0])[mfi].plus((*Sn[0])[mfi],tbox,tbox,first_spec,first_spec,nspecies);
+
+//	(*Snp1[0])[mfi].setVal(0,tbox,Density,1);
+//           for (int n=0; n<nspecies; ++n){
+//	     (*Snp1[0])[mfi].plus((*Snp1[0])[mfi],tbox,tbox,first_spec+n,Density,1);
+//	   }
+      }
+
+//    VisMF::Write(*Snp1[0],"Snew_start_SDC");	// WORST
 // -----
 
   // build heat fluxes based on species fluxes, Gamma_m, and cell-centered states
   // compute flux[nspecies+1] = sum_m (H_m Gamma_m)
   // compute flux[nspecies+2] = - lambda grad T
   //
-  compute_enthalpy_fluxes(get_new_data(State_Type),SpecDiffusionFluxnp1,betanp1);
+  compute_enthalpy_fluxes(get_new_data(State_Type),SpecDiffusionFluxnp1,betanp1,curr_time);
 
   // build divergence of the fluxes computed above
   flux_divergence(Dnew,DComp+nspecies+1,SpecDiffusionFluxnp1,nspecies+2,1,-1); // Dnew[N+1] = -Div(flux[N+2])
   flux_divergence(DDnew,0,SpecDiffusionFluxnp1,nspecies+1,1,-1);               // DD = -Sum{ Div(H_m Gamma_m) }
 
-//  VisMF::Write(Dnew,"Dnew_before_Tsolve");	// OK: zero everywhere (since T=const everywhere)
-//  VisMF::Write(DDnew,"DDnew_before_Tsolve");	// OK
+
+//    Explicit update for RhoH
+      for (MFIter mfi(*Snp1[0],true); mfi.isValid(); ++mfi)
+      {
+	const Box& tbox = mfi.tilebox();
+	(*Snp1[0])[mfi].copy(DDnew[mfi],tbox,0,tbox,RhoH,1);
+//	(*Snp1[0])[mfi].mult(0.5,tbox,RhoH,1);
+	(*Snp1[0])[mfi].plus(Force[mfi],tbox,tbox,nspecies,RhoH,1);
+	(*Snp1[0])[mfi].mult(dt,tbox,RhoH,1);
+	(*Snp1[0])[mfi].plus((*Sn[0])[mfi],tbox,tbox,RhoH,RhoH,1);
+      }
+
+  RhoH_to_Temp(get_new_data(State_Type));
+
+  VisMF::Write(*Snp1[0],"RealState_before_Tsolve");
 
   MultiFab Trhs(grids,dmap,1,0);
   MultiFab Told(grids,dmap,1,1);
@@ -3260,16 +3302,18 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
     MultiFab::Copy(    Trhs,get_old_data(State_Type),RhoH,0,1,0);
     MultiFab::Subtract(Trhs,get_new_data(State_Type),RhoH,0,1,0);
     Trhs.mult(1/dt);                                              // F = ( (rho.h)^n - (rho.h)^{n+1,k+1,L} )/dt
-////    VisMF::Write(Trhs,"Trhs_before_Tsolve00000");
+//    VisMF::Write(Trhs,"Trhs_before_Tsolve00000");
+
+//    Trhs.setVal(0);
 
     MultiFab::Add(Trhs,Force,nspecies,0,1,0);                     //      + (Dn[N+1]-Dnp1[N+1]+DDn-DDnp1)/2 + A
 ////    VisMF::Write(Trhs,"Trhs_before_Tsolve11111");
 
     MultiFab::Add(Trhs,Dnew,DComp+nspecies+1,0,1,0);              //      +  Dnew[N+1]
-////    VisMF::Write(Dnew,"Dnew_before_Tsolve22222");
+//    VisMF::Write(Dnew,"Dnew_before_Tsolve22222");
 
     MultiFab::Add(Trhs,DDnew,0,0,1,0);                            //      +  DDnew
-////    VisMF::Write(DDnew,"DDnew_before_Tsolve33333");
+//    VisMF::Write(DDnew,"DDnew_before_Tsolve33333");
 // -----
 
 
@@ -3289,7 +3333,7 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
 ////    VisMF::Write(Trhs,"Trhs_before_Tsolve00000");
 //// -----
 
-//    VisMF::Write(Trhs,"Trhs_before_Tsolve");
+    VisMF::Write(Trhs,"Trhs_before_Tsolve");
 
 
 // ----- hack
@@ -3301,9 +3345,7 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
     MultiFab::Copy(Told,*Snp1[0],Temp,0,1,1); // Save a copy of T^{k+1,L}
     Snp1[0]->setVal(0,Temp,1,1);              // Set initial and BC data for deltaT = 0
 
-//    VisMF::Write(Told,"Told_Tsolve");
-
-//    Abort();
+    VisMF::Write(Told,"Told_Tsolve");
   
     int rho_flagT = 1; // Op: alpha = alpha_in*rho_half*Vol, wont divide BCs by rho, alpha_in=Cp, rho_half=rho_new
 
@@ -3332,11 +3374,11 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
 // ---- hack
 //    get_new_data(State_Type).setVal(300,Temp,1,0);
 
-//    VisMF::Write(*Snp1[0],"State_after_Tsolve");
+    VisMF::Write(*Snp1[0],"State_after_Tsolve");
 
 //    Abort("Aborted inside deltaT iters");
 
-    compute_enthalpy_fluxes(get_new_data(State_Type),SpecDiffusionFluxnp1,betanp1); // get flux[N+1] (and flux[N+2])
+    compute_enthalpy_fluxes(get_new_data(State_Type),SpecDiffusionFluxnp1,betanp1,curr_time); // get flux[N+1] (and flux[N+2])
     flux_divergence(Dnew,DComp+nspecies+1,SpecDiffusionFluxnp1,nspecies+2,1,-1);    // Dnew[N+1] = -Div(flux[N+2])
     flux_divergence(DDnew,0,SpecDiffusionFluxnp1,nspecies+1,1,-1);                  // DD = -Sum{ Div(H_m Gamma_m) }
 
@@ -3364,7 +3406,7 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
     }
   }
 
-//    VisMF::Write(*Snp1[0],"RealState_after_Tsolve");
+    VisMF::Write(*Snp1[0],"RealState_after_Tsolve");
 
 //    amrex::Abort("Aborted after Tsolve");
 
@@ -3473,7 +3515,8 @@ PeleLM::adjust_spec_diffusion_fluxes (MultiFab* const * flux,
 void
 PeleLM::compute_enthalpy_fluxes (const MultiFab&        S,
                                  MultiFab* const*       flux,
-                                 const MultiFab* const* beta)
+                                 const MultiFab* const* beta,
+				 Real 			time)
 {
   /*
     Build heat fluxes based on species fluxes, Gamma_m, and fill-patched cell-centered states
@@ -3487,6 +3530,10 @@ PeleLM::compute_enthalpy_fluxes (const MultiFab&        S,
   const Box&    domain = geom.Domain();
   const BCRec&  Tbc    = get_desc_lst()[State_Type].getBC(Temp);
 
+  int ngrow = 1;
+  MultiFab TT(grids,dmap,1,ngrow);
+  FillPatch(*this,TT,ngrow,time,State_Type,Temp,1,0);
+
 #ifdef _OPENMP
 #pragma omp parallel
 #endif
@@ -3497,11 +3544,11 @@ PeleLM::compute_enthalpy_fluxes (const MultiFab&        S,
       edomain[d] = surroundingNodes(domain,d);
     }
     const Real* dx = geom.CellSize();
-    for (MFIter mfi(S,true); mfi.isValid(); ++mfi)
+    for (MFIter mfi(TT,true); mfi.isValid(); ++mfi)
     {
       const Box& box = mfi.tilebox();
-      const FArrayBox& T    = S[mfi];
-      const FArrayBox& RhoY = S[mfi];
+      const FArrayBox& T    = TT[mfi];
+//      const FArrayBox& RhoY = S[mfi];
       
       for (int d=0; d<BL_SPACEDIM; ++d) {
         Box ebox = surroundingNodes(box,d);
@@ -3510,8 +3557,8 @@ PeleLM::compute_enthalpy_fluxes (const MultiFab&        S,
       }
 
       enth_diff_terms(box.loVect(), box.hiVect(), domain.loVect(), domain.hiVect(), dx,
-                      T.dataPtr(Temp), ARLIM(T.loVect()),  ARLIM(T.hiVect()),
-                      RhoY.dataPtr(first_spec), ARLIM(RhoY.loVect()),  ARLIM(RhoY.hiVect()),
+                      T.dataPtr(0), ARLIM(T.loVect()),  ARLIM(T.hiVect()),
+//                      RhoY.dataPtr(first_spec), ARLIM(RhoY.loVect()),  ARLIM(RhoY.hiVect()),
 
                       (*beta[0])[mfi].dataPtr(),ARLIM((*beta[0])[mfi].loVect()),ARLIM((*beta[0])[mfi].hiVect()),
                       ftmp[0].dataPtr(),ARLIM(ftmp[0].loVect()),ARLIM(ftmp[0].hiVect()),
@@ -3798,7 +3845,8 @@ PeleLM::compute_differential_diffusion_fluxes (const MultiFab& S,
                                                const MultiFab* Scrse,
                                                MultiFab* const * flux,
                                                const MultiFab* const * beta,
-                                               const Real& dt)
+                                               Real dt,
+					       Real time)
 {
   BL_PROFILE("HT:::compute_differential_diffusion_fluxes_msd()");
   const Real strt_time = ParallelDescriptor::second();
@@ -3960,7 +4008,7 @@ PeleLM::compute_differential_diffusion_fluxes (const MultiFab& S,
   // compute flux[nspecies+1] = sum_m (H_m Gamma_m)
   // compute flux[nspecies+2] = - lambda grad T
   //
-  compute_enthalpy_fluxes(S,flux,beta);
+  compute_enthalpy_fluxes(S,flux,beta,time);
   //
   // We have just computed "DD" and heat fluxes given an input state.
   //
@@ -4130,7 +4178,11 @@ PeleLM::compute_differential_diffusion_terms (MultiFab& D,
   MultiFab **beta = fb_diff.define(this,nspecies+2);
   getDiffusivity(beta, time, first_spec, 0, nspecies+1); // species (rhoD) and RhoH (lambda/cp)
   getDiffusivity(beta, time, Temp, nspecies+1, 1); // temperature (lambda)
-  compute_differential_diffusion_fluxes(get_new_data(State_Type),Scrse.get(),flux,beta,dt);
+  compute_differential_diffusion_fluxes(get_new_data(State_Type),Scrse.get(),flux,beta,dt,time);
+
+// hack for species fluxes
+//  for (int i=0; i<BL_SPACEDIM;++i){
+//     flux[i]->setVal(0);}
 
   // Compute "D":
   // D[0:nspecies-1] = -Div( Fk )
@@ -4786,6 +4838,7 @@ PeleLM::advance (Real time,
   BL_PROFILE_VAR_NS("HT::advance::velocity_adv", HTVEL);
   for (int sdc_iter=1; sdc_iter<=sdc_iterMAX; ++sdc_iter)
   {
+
     if (sdc_iter == sdc_iterMAX)
       updateFluxReg = true;
 
@@ -4812,6 +4865,9 @@ PeleLM::advance (Real time,
       BL_PROFILE_VAR_START(HTMAC);
       calc_divu(cur_time, dt, get_new_data(Divu_Type));
       BL_PROFILE_VAR_STOP(HTMAC);
+
+      VisMF::Write(get_new_data(Divu_Type),"divu_mac");
+
     }
 
     // compute U^{ADV,*}
@@ -4845,6 +4901,11 @@ PeleLM::advance (Real time,
 
     // MAC-project... and overwrite U^{ADV,*}
     mac_project(time,dt,S_old,&mac_divu,1,nGrowAdvForcing,updateFluxReg);
+
+    VisMF::Write(mac_divu,"mac_divu");
+
+    VisMF::Write(u_mac[0],"umac_x");
+    VisMF::Write(u_mac[1],"umac_y");
 
     if (closed_chamber == 1 && level == 0 && Sbar != 0)
     {
@@ -4894,14 +4955,16 @@ PeleLM::advance (Real time,
 
         tmp.resize(gbox,nspecies);
         tmp.copy(r,gbox,0,gbox,0,nspecies);         // copy Rk to tmp 
-        tmp.plus(dn,gbox,gbox,0,0,nspecies);        // add Dn[spec] to tmp so now we have (Rk + Div(Fk) )
+        tmp.plus(dn,gbox,gbox,0,0,nspecies);        // add Dn[spec] to tmp so now we have (Rk + Div(Fk) )	// original
+//        tmp.minus(dn,gbox,gbox,0,0,nspecies);        // add Dn[spec] to tmp so now we have (Rk + Div(Fk) )
 
         H.mult(tmp,gbox,gbox,0,0,nspecies);         // Multiply by hk, so now we have hk.( Rk + Div(Fk) )
         for (int n=0; n<nspecies; ++n) {
           f.minus(H,gbox,gbox,n,nspecies,1);        // Build F[N] = - Sum{ hk.( Rk + Div(Fk) ) }
         }
-        f.plus(dn,gbox,gbox,nspecies+1,nspecies,1); // Build F[N] = Dn[N+1] - Sum{ hk.( Rk + Div(Fk) ) }
+        f.plus(dn,gbox,gbox,nspecies+1,nspecies,1); // Build F[N] = Dn[N+1] - Sum{ hk.( Rk + Div(Fk) ) }	// original
         f.plus(ddn,gbox,gbox,0,nspecies,1);         // Add DDn to F[N]
+//        f.minus(ddn,gbox,gbox,0,nspecies,1);         // Add DDn to F[N]
         if (closed_chamber == 1)
           f.plus(dp0dt,gbox,nspecies,1);            // add dp0/dt to Temp forcing
         Sfab.invert(1.0,gbox,Rcomp,1);              // S[rho] = 1/rho
@@ -4936,11 +4999,14 @@ PeleLM::advance (Real time,
 
     // 
     // Compute Dhat, diffuse with F 
-    //                 = A + R + 0.5(Dn + Dnp1) - Dnp1 + Dhat + 0.5(DDn + DDnp1)
-    //                 = A + R + 0.5(Dn - Dnp1) + Dhat + 0.5(DDn - DDnp1)
+    //                 = A + R + 0.5(Dn + Dnp1) - Dnp1 + Dhat + 0.5(DDn + DDnp1) - DDnp1 + DDHat
+    //                 = A + R + 0.5(Dn - Dnp1) + Dhat + 0.5(DDn - DDnp1) + DDhat
     //    
     BL_PROFILE_VAR_START(HTDIFF);
     Forcing.setVal(0);
+
+//    VisMF::Write(get_old_data(State_Type),"StateOld_before_forcing");
+//    VisMF::Write(get_new_data(State_Type),"StateNew_before_forcing");
 
 #ifdef _OPENMP
 #pragma omp parallel
@@ -4962,7 +5028,8 @@ PeleLM::advance (Real time,
         f.minus(dnp1,box,box,0,0,nspecies);  // subtract Dnp1 from RhoY
         f.minus(dnp1,box,box,nspecies+1,nspecies,1); // subtract Div(lamGradT) in Dnp1 from RhoH
         f.plus(ddn  ,box,box,0,nspecies,1); // add DDn to RhoH, no contribution for RhoY
-        f.plus(ddnp1,box,box,0,nspecies,1); // add DDnp1 to RhoH, no contribution for RhoY
+//        f.plus(ddnp1,box,box,0,nspecies,1); // add DDnp1 to RhoH, no contribution for RhoY
+        f.minus(ddnp1,box,box,0,nspecies,1); // subtract DDnp1 to RhoH, no contribution for RhoY
         f.mult(0.5,box,0,nspecies+1);
 #ifdef USE_WBAR
         const FArrayBox& dwbar = DWbar[mfi];
@@ -4974,26 +5041,77 @@ PeleLM::advance (Real time,
         f.plus(r,box,box,0,0,nspecies); // no reactions for RhoH
       }
     }
+    VisMF::Write(Forcing,"Forcing_for_diffusion_solve");
 
+// ----- modified
     {
-//  ----- just print some mf before and after d_d_u
+    //  ----- just print some mf before and after d_d_u
     MultiFab tmp(grids, dmap, S_new.nComp(),S_new.nGrow());
     MultiFab::Copy(tmp,S_new,0,0,S_new.nComp(),S_new.nGrow());
 
-//    VisMF::Write(Forcing,"Forcing");	// OK
+    VisMF::Write(S_new,"S_new_before_diffusion");
 
     differential_diffusion_update(Forcing,0,Dhat,0,DDhat); 
+
+    VisMF::Write(get_new_data(RhoYdot_Type),"ReactionRates");
+    VisMF::Write(Dn,"Dn");
+    VisMF::Write(Dnp1,"Dnp1");
+    VisMF::Write(Dhat,"Dhat");
+    VisMF::Write(DDhat,"DDhat");
+    VisMF::Write(*aofs,"aofs");
+    VisMF::Write(S_old,"S_old");
+
     MultiFab::Subtract(tmp,S_new,0,0,S_new.nComp(),S_new.nGrow());
-    }
+
+// ----- checks:
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
+    {
+      // Update (RhoH, Cp)^{k+1,L+1}
+      FArrayBox rhoInv, Y;
+      MultiFab tot(grids,dmap,1,0);
+      for (MFIter mfi(S_new,true); mfi.isValid(); ++mfi)
+      {
+        const Box& tbox = mfi.tilebox();
+        rhoInv.resize(tbox,1);
+        Y.resize(tbox,nspecies);
+        rhoInv.copy(S_new[mfi],tbox,Density,tbox,0,1);
+        rhoInv.invert(1.0,tbox,0,1);
+        Y.copy(S_new[mfi],tbox,first_spec,tbox,0,nspecies);
+        for (int n=0; n<nspecies; ++n) {
+          Y.mult(rhoInv,tbox,tbox,0,n,1);
+        }
+
+        tot[mfi].setVal(0,tbox,0,1);
+
+//        for (int n=0; n<nspecies; ++n) {
+//          tot[mfi].plus(Y,tbox,tbox,n,0,1);
+//        }
+
+        for (int n=0; n<nspecies; ++n) {
+          tot[mfi].plus(get_new_data(RhoYdot_Type)[mfi],tbox,tbox,n,0,1);
+//          tot[mfi].plus((*aofs)[mfi],tbox,tbox,first_spec+n,0,1);
+        }
+      }
+
+    VisMF::Write(tot,"tot_from_advance");
+//    VisMF::Write((*aofs),"aofs_from_advance");
+
+    } 
 
 
-//    differential_diffusion_update(Forcing,0,Dhat,0,DDhat); // NTW: Do we still want to iteratively update DDnp1 or DDhat if we are inthe loop?	// original
+    }    
+
+// -----
+// ----- original
+//    differential_diffusion_update(Forcing,0,Dhat,0,DDhat); // NTW: Do we still want to iteratively update DDnp1 or DDhat if we are inthe loop?
+// -----
+
     BL_PROFILE_VAR_STOP(HTDIFF);
 
-
-
     // 
-    // Compute R (F = A + 0.5(Dn - Dnp1 + DDn - DDnp1) + Dhat )
+    // Compute R (F = A + 0.5(Dn - Dnp1 + DDn - DDnp1) + Dhat + DDhat )
     // 
     BL_PROFILE_VAR_START(HTREAC);
 #ifdef _OPENMP
@@ -5003,9 +5121,10 @@ PeleLM::advance (Real time,
     MultiFab::Copy(Forcing,S_new,first_spec,0,nspecies+1,0);
     MultiFab::Subtract(Forcing,S_old,first_spec,0,nspecies+1,0);		// remove S_old term
     Forcing.mult(1/dt);
-    MultiFab::Subtract(Forcing,get_new_data(RhoYdot_Type),0,0,nspecies,0);	// remove oomegaDot term
-// -----
+    MultiFab::Subtract(Forcing,get_new_data(RhoYdot_Type),0,0,nspecies,0);	// remove omegaDot term
 
+    VisMF::Write(Forcing,"Forcing_for_chemistry_solve");
+// -----
 // ----- original
 //    {
 //      for (MFIter mfi(Forcing,true); mfi.isValid(); ++mfi) 
@@ -5039,19 +5158,24 @@ PeleLM::advance (Real time,
 ////        f.minus(ddnp1,box,box,0,nspecies,1); // subtract DDnp1 to make it 0.5(DDn - DDnp1) instead of 0.5(DDn + DDnp1)	// WRONG
 //      }
 //    }
-// -----
 
 //    RhoH_to_Temp(S_new);
+// -----
 
-//    VisMF::Write(S_new,"Snew_before");
-    MultiFab tmp(grids, dmap, S_new.nComp(),S_new.nGrow());
-    MultiFab::Copy(tmp,S_new,0,0,S_new.nComp(),S_new.nGrow());
+// ----- modified
+    VisMF::Write(S_new,"Snew_before_chemistry");
+//    MultiFab tmp(grids, dmap, S_new.nComp(),S_new.nGrow());
+//    MultiFab::Copy(tmp,S_new,0,0,S_new.nComp(),S_new.nGrow());
     advance_chemistry(S_old,S_new,dt,Forcing,0);
-    MultiFab::Subtract(tmp,S_new,0,0,S_new.nComp(),S_new.nGrow());
-//    VisMF::Write(S_new,"Snew_after");
+//    MultiFab::Subtract(tmp,S_new,0,0,S_new.nComp(),S_new.nGrow());
+    VisMF::Write(S_new,"Snew_after_chemistry");
 //    amrex::Abort();
+// ----- original
+//    advance_chemistry(S_old,S_new,dt,Forcing,0);
+// -----
 
-    advance_chemistry(S_old,S_new,dt,Forcing,0);
+    if (sdc_iter==2) Abort("Aborted after chemistry solve");
+
     RhoH_to_Temp(S_new);
     BL_PROFILE_VAR_STOP(HTREAC);
 
@@ -5077,6 +5201,7 @@ PeleLM::advance (Real time,
     BL_PROFILE_VAR_START(HTMAC);
     setThermoPress(cur_time);
     BL_PROFILE_VAR_STOP(HTMAC);
+
   }
 
   Dn.clear();
@@ -5595,6 +5720,9 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
     const int s_temp = Temp - sComp;
 
     MultiFab diagTemp;
+
+//    ba = BoxArray(geom.Domain());	// single box
+
     MultiFab STemp(ba, dm, nComp, 0);
     MultiFab STemp_new(ba, dm, nComp, 0);
     MultiFab fcnCntTemp(ba, dm, 1, 0);
@@ -5714,6 +5842,7 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
                                                         const MultiFab& DivU,
                                                         Real            dt)
 {
+
   BL_PROFILE("HT::comp_sc_adv_fluxes_and_div()");
   //
   // Compute -Div(advective fluxes)  [ which is -aofs in NS, BTW ... careful...
@@ -6177,7 +6306,7 @@ PeleLM::mac_sync ()
       MultiFab **betanp1 = fb_betanp1.get();
       getDiffusivity(betanp1, curTime, first_spec, 0, nspecies+1); // species, rhoh (rhoh unused...FIXME)
       getDiffusivity(betanp1, curTime, Temp, nspecies+1, 1); // temperature (lambda)
-      compute_enthalpy_fluxes(S_new,GammaKp1,betanp1); // Compute F[N+1], F[N=2]
+      compute_enthalpy_fluxes(S_new,GammaKp1,betanp1,curTime); // Compute F[N+1], F[N=2]
 
       // Diffuse species sync to get dGamma^{sync}, then form Gamma^{postsync} = Gamma^{presync} + dGamma^{sync}
       differential_spec_diffuse_sync(dt, true, last_mac_sync_iter);
@@ -6249,7 +6378,7 @@ PeleLM::mac_sync ()
         Print() << "DeltaTsync solve, norm = " << Ssync.norm0(Temp-BL_SPACEDIM) << std::endl;
 
         MultiFab::Add(S_new,Ssync,Temp-BL_SPACEDIM,Temp,1,0); // Set T^{postsync,L}
-        compute_enthalpy_fluxes(S_new,SpecDiffusionFluxnp1,betanp1); // Compute F[N+1], F[N=2]
+        compute_enthalpy_fluxes(S_new,SpecDiffusionFluxnp1,betanp1,curTime); // Compute F[N+1], F[N=2]
 
 #ifdef _OPENMP
 #pragma omp parallel
@@ -6273,7 +6402,7 @@ PeleLM::mac_sync ()
             S_new[mfi].mult(S_new[mfi],tbox,tbox,Density,RhoH,1);
           }
         }
-        compute_enthalpy_fluxes(S_new,SpecDiffusionFluxnp1,betanp1); // Update F[N+2]^{postsync} and F[N+1]^{postsync}
+        compute_enthalpy_fluxes(S_new,SpecDiffusionFluxnp1,betanp1,curTime); // Update F[N+2]^{postsync} and F[N+1]^{postsync}
       }
 
       BL_PROFILE_VAR_STOP(HTSSYNC);
@@ -7335,6 +7464,9 @@ PeleLM::calc_divu (Real      time,
 #else
   compute_differential_diffusion_terms(mcViscTerms,divu,time,dt);
 #endif
+
+  VisMF::Write(mcViscTerms,"D_from_calcdivu");
+  VisMF::Write(divu,"DD_from_calcdivu");
 
   do_reflux = do_reflux_hold;
 
