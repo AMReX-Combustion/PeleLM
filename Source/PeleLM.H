@@ -224,7 +224,8 @@ private:
 
   void adjust_spec_diffusion_fluxes (amrex::MultiFab* const * flux,
                                      const amrex::MultiFab&   S,
-                                     const amrex::BCRec&      bc);
+                                     const amrex::BCRec&      bc,
+				     amrex::Real 	      time);
 
   void advance_chemistry (amrex::MultiFab&       mf_old,
                           amrex::MultiFab&       mf_new,
@@ -259,8 +260,8 @@ private:
                                              amrex::Real      time,
                                              amrex::Real      dt);
 
-  void compute_enthalpy_fluxes (const amrex::MultiFab&        S,
-                                amrex::MultiFab* const*       flux,
+//  void compute_enthalpy_fluxes (const amrex::MultiFab&        S,
+  void compute_enthalpy_fluxes (amrex::MultiFab* const*       flux,
                                 const amrex::MultiFab* const* beta,
 				amrex::Real		      time);
 
@@ -302,7 +303,6 @@ private:
                                       amrex::MultiFab& D,
                                       int       DComp,
                                       amrex::MultiFab& DD);
-//                                      amrex::MultiFab& DDhat);
 
   void differential_spec_diffuse_sync (amrex::Real dt,
                                        bool Wbar_corrector,

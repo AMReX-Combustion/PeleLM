@@ -185,7 +185,8 @@ contains
 !-----------------------------------
 
   subroutine enth_diff_terms (lo, hi, dlo, dhi, dx, &
-                              T, DIMS(T), &!RhoY, DIMS(RhoY), &
+!                              T, DIMS(T), RhoY, DIMS(RhoY), &
+                              T, DIMS(T), &
                               rhoDx, DIMS(rhoDx), Fx, DIMS(Fx), Ax, DIMS(Ax), &
                               rhoDy, DIMS(rhoDy), Fy, DIMS(Fy), Ay, DIMS(Ay), &
                               Tbc ) &
@@ -206,14 +207,14 @@ contains
 !    REAL_T  RhoY(DIMV(RhoY),Nspec)
 
     integer DIMDEC(rhoDx)
-    REAL_T  rhoDx(DIMV(rhoDx),Nspec+3)
+    REAL_T  rhoDx(DIMV(rhoDx))
     integer DIMDEC(Fx)
     REAL_T  Fx(DIMV(Fx),Nspec+3)
     integer DIMDEC(Ax)
     REAL_T  Ax(DIMV(Ax))
 
     integer DIMDEC(rhoDy)
-    REAL_T  rhoDy(DIMV(rhoDy),Nspec+3)
+    REAL_T  rhoDy(DIMV(rhoDy))
     integer DIMDEC(Fy)
     REAL_T  Fy(DIMV(Fy),Nspec+3)
     integer DIMDEC(Ay)
@@ -224,10 +225,6 @@ contains
     integer i, j, d, n
     integer lob(SDIM), hib(SDIM)
     REAL_T dxInv, dyInv
-
-!    if (i.eq.64 .and. j.eq.0) then
-!       print*, "Temperature at cell (64,0) is: ", T(64,0)
-!    endif
 
 !   Compute species enthalpies on box grown by one
     do d=1,SDIM
@@ -254,15 +251,18 @@ contains
 
     do j=lo(2),hi(2)
     do i=lo(1),hi(1)+1
-!       Fx(i,j,Nspec+3) = - rhoDx(i,j,Nspec+2)*(T(i,j) - T(i-1,j))* dxInv * Ax(i,j)	! original
-       Fx(i,j,Nspec+3) = - rhoDx(i,j,Nspec+3)*(T(i,j) - T(i-1,j))* dxInv * Ax(i,j)
+!       Fx(i,j,Nspec+3) = - rhoDx(i,j,Nspec+2)*(T(i,j) - T(i-1,j))* dxInv * Ax(i,j)	! original, but WRONG
+       Fx(i,j,Nspec+3) = - rhoDx(i,j)*(T(i,j) - T(i-1,j))* dxInv * Ax(i,j)
+!       if (j.eq.192 .and. i.eq.128) then
+!	  print*, "flux and T", rhoDx(i,j), T(i,j), T(i-1,j)
+!       endif
     enddo
     enddo
 
     do j=lo(2),hi(2)+1
     do i=lo(1),hi(1)
-!       Fy(i,j,Nspec+3) = - rhoDy(i,j,Nspec+2)*(T(i,j) - T(i,j-1)) * dyInv * Ay(i,j)	! original
-       Fy(i,j,Nspec+3) = - rhoDy(i,j,Nspec+3)*(T(i,j) - T(i,j-1)) * dyInv * Ay(i,j)
+!       Fy(i,j,Nspec+3) = - rhoDy(i,j,Nspec+2)*(T(i,j) - T(i,j-1)) * dyInv * Ay(i,j)	! original, but WRONG
+       Fy(i,j,Nspec+3) = - rhoDy(i,j)*(T(i,j) - T(i,j-1)) * dyInv * Ay(i,j)
     enddo
     enddo
 
@@ -308,13 +308,6 @@ contains
        enddo
     enddo
 
-!    if (lo(2).eq.0.d0 .and.lo(1).eq.0) then
-!       print*, "CH4 flux_x entering and leaving cell (0,62) is: ", Fx(62,0,11), Fx(63,0,11)
-!       print*, "sum(h_m*Gamma_m) along x entering and leaving cell (0,62) is: ", Fx(62,0,Nspec+2), Fx(63,0,Nspec+2)
-!       print*, "Heat flux_x entering and leaving cell (0,62) is: ", Fx(62,0,Nspec+3), Fx(63,0,Nspec+3)
-!       print *
-!    endif
-
     do n=1,Nspec
        do j=lo(2),hi(2)+1
        do i=lo(1),hi(1)
@@ -322,14 +315,6 @@ contains
        enddo
        enddo
     enddo
-
-!    if (lo(2).eq.0.d0 .and.lo(1).eq.0) then
-!!    if (i.eq.62 .and. j.eq.0) then
-!       do n=1,Nspec
-!          print*, "Species flux_x and flux_y at cell (64,0) is: ",  Fx(64,0,n), Fy(64,0,n)
-!       enddo
-!!    endif
-!    endif
 
 !   xlo
     if (lo(1).eq.dlo(1) .and. Tbc(1,1).eq.EXT_DIR) then
@@ -1319,7 +1304,7 @@ contains
 !write(*,*) "DEBUG 2",DIMS(flux)
 !     First, assume away from physical boundaries, then use boundary-aware version below if applicable
       do j = lo(2),hi(2)
-!        do i = lo(1),hi(1)+1
+!        do i = lo(1),hi(1)+1						! original, but WRONG
         do i = lo(1),hi(1)
           sumFlux = 0.d0
           sumRhoYe = 0.d0
@@ -1350,9 +1335,9 @@ contains
         enddo
       endif
 !     xhi
-!      if (Ybc(1,2).eq.EXT_DIR.and.hi(1).ge.dhi(1)) then
+!      if (Ybc(1,2).eq.EXT_DIR.and.hi(1).ge.dhi(1)) then		! original, but WRONG
       if (Ybc(1,2).eq.EXT_DIR.and.hi(1).ge.dhi(1)+1) then
-!        do i = dhi(1)+1,hi(1)+1
+!        do i = dhi(1)+1,hi(1)+1					! original, but WRONG
         do i = dhi(1),hi(1)
           do j = lo(2),hi(2)
             sumFlux = 0.d0
@@ -1371,7 +1356,7 @@ contains
     else if (dir.eq.1) then
 
 !     First, assume away from physical boundaries, then replace with boundary-aware version below if applicable
-!      do j = lo(2),hi(2)+1
+!      do j = lo(2),hi(2)+1						! original, but WRONG
       do j = lo(2),hi(2)
         do i = lo(1),hi(1)
           sumFlux = 0.d0
@@ -1403,9 +1388,9 @@ contains
         enddo
       endif
 !     yhi
-!      if (Ybc(2,2).eq.EXT_DIR.and.hi(2).ge.dhi(2)) then
+!      if (Ybc(2,2).eq.EXT_DIR.and.hi(2).ge.dhi(2)) then		! original, but WRONG
       if (Ybc(2,2).eq.EXT_DIR.and.hi(2).ge.dhi(2)+1) then
-!        do j = dhi(2)+1,hi(2)+1
+!        do j = dhi(2)+1,hi(2)+1					! original, but WRONG
         do j = dhi(2),hi(2)
           do i = lo(1),hi(1)
             sumFlux = 0.d0
