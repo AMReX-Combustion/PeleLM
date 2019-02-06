@@ -1,0 +1,283 @@
+MPI initialized with 1 MPI processes
+AMReX (18.12-76-g800b1ab5ed73) initialized
+Successfully read inputs file ... 
+PeleLM::read_params: Using EGLib transport 
+   ******************************  Debug: ShowMF_Sets: 1D 
+
+Dumping ParmParse table:
+ 
+max_step(nvals = 1)  :: [10000]
+max_step(nvals = 1)  :: [1]
+stop_time(nvals = 1)  :: [4.00]
+proj.use_mlmg_solver(nvals = 1)  :: [t]
+diffuse.use_mlmg_solver(nvals = 1)  :: [1]
+mac.use_mlmg_solver(nvals = 1)  :: [1]
+ns.fixed_dt(nvals = 1)  :: [0.125e-4]
+ns.do_active_control(nvals = 1)  :: [0]
+mg.smooth_on_cg_unstable(nvals = 1)  :: [1]
+ns.do_fillPatchUMAC(nvals = 1)  :: [1]
+ns.zeroBndryVisc(nvals = 1)  :: [1]
+proj.proj_2(nvals = 1)  :: [1]
+ns.num_divu_iters(nvals = 1)  :: [3]
+pelelm.num_deltaT_iters(nvals = 1)  :: [5]
+ht.plot_rhoY(nvals = 1)  :: [0]
+ht.plot_molefrac(nvals = 1)  :: [0]
+ht.plot_massfrac(nvals = 1)  :: [1]
+ht.plot_ydot(nvals = 1)  :: [0]
+ht.plot_auxDiags(nvals = 1)  :: [1]
+mg.usecg(nvals = 1)  :: [1]
+cg.v(nvals = 1)  :: [0]
+cg.isExpert(nvals = 1)  :: [1]
+mg.v(nvals = 1)  :: [0]
+cg.maxiter(nvals = 1)  :: [1000]
+mg.maxiter(nvals = 1)  :: [1000]
+mg.nu_0(nvals = 1)  :: [1]
+mg.nu_1(nvals = 1)  :: [4]
+mg.nu_2(nvals = 1)  :: [4]
+mg.nu_f(nvals = 1)  :: [40]
+cg.unstable_criterion(nvals = 1)  :: [100]
+ns.htt_tempmin(nvals = 1)  :: [1.0]
+ns.htt_tempmax(nvals = 1)  :: [2.5]
+ns.v(nvals = 1)  :: [1]
+mac.v(nvals = 1)  :: [2]
+proj.v(nvals = 1)  :: [1]
+ns.do_group_bndry_fills(nvals = 1)  :: [1]
+cg.cg_solver(nvals = 1)  :: [1]
+amr.n_cell(nvals = 3)  :: [64, 64, 64]
+amr.n_cell(nvals = 3)  :: [128, 128, 128]
+amr.n_cell(nvals = 3)  :: [32, 32, 32]
+amr.n_cell(nvals = 3)  :: [64, 256, 32]
+amr.v(nvals = 1)  :: [1]
+amr.max_level(nvals = 1)  :: [0]
+amr.ref_ratio(nvals = 4)  :: [2, 2, 2, 2]
+amr.regrid_int(nvals = 1)  :: [2]
+amr.n_error_buf(nvals = 4)  :: [1, 1, 1, 2]
+amr.grid_eff(nvals = 1)  :: [0.9]
+amr.grid_eff(nvals = 1)  :: [0.7]
+amr.blocking_factor(nvals = 1)  :: [16]
+amr.checkpoint_files_output(nvals = 1)  :: [0]
+amr.check_file(nvals = 1)  :: [chk]
+amr.check_int(nvals = 1)  :: [5]
+amr.plot_file(nvals = 1)  :: [plt]
+amr.plot_int(nvals = 1)  :: [500]
+amr.derive_plot_vars(nvals = 6)  :: [rhoRT, mag_vort, avg_pressure, gradpx, gradpy, diveru]
+amr.grid_log(nvals = 1)  :: [grdlog]
+amr.max_grid_size(nvals = 1)  :: [64]
+amr.probin_file(nvals = 1)  :: [probin.3d.test]
+ns.dt_cutoff(nvals = 1)  :: [5.e-10]
+ns.visc_tol(nvals = 1)  :: [1.0e-14]
+ns.visc_abs_tol(nvals = 1)  :: [1.0e-14]
+ns.cfl(nvals = 1)  :: [0.7]
+ns.init_shrink(nvals = 1)  :: [1.0]
+ns.change_max(nvals = 1)  :: [1.1]
+ns.vel_visc_coef(nvals = 1)  :: [1.983e-5]
+ns.temp_cond_coef(nvals = 1)  :: [2.6091e-5]
+ns.scal_diff_coefs(nvals = 1)  :: [-0.01]
+ns.variable_vel_visc(nvals = 1)  :: [1]
+ns.variable_scal_diff(nvals = 1)  :: [1]
+ns.init_iter(nvals = 1)  :: [2]
+ns.gravity(nvals = 1)  :: [-9.81]
+ns.gravity(nvals = 1)  :: [0]
+ns.sum_interval(nvals = 1)  :: [1]
+ns.do_reflux(nvals = 1)  :: [1]
+ns.do_mac_proj(nvals = 1)  :: [1]
+ns.do_sync_proj(nvals = 1)  :: [1]
+ns.do_MLsync_proj(nvals = 1)  :: [1]
+ns.do_divu_sync(nvals = 1)  :: [0]
+ns.divu_relax_factor(nvals = 1)  :: [0.0]
+ns.be_cn_theta(nvals = 1)  :: [0.5]
+ns.S_in_vel_diffusion(nvals = 1)  :: [1]
+ns.do_temp(nvals = 1)  :: [1]
+ns.do_diffuse_sync(nvals = 1)  :: [1]
+ns.do_reflux_visc(nvals = 1)  :: [1]
+ns.divu_ceiling(nvals = 1)  :: [1]
+ns.divu_dt_factor(nvals = 1)  :: [.4]
+ns.min_rho_divu_ceiling(nvals = 1)  :: [.01]
+ns.fuelName(nvals = 1)  :: [CH4]
+ns.oxidizerName(nvals = 1)  :: [O2]
+ns.flameTracName(nvals = 1)  :: [H]
+ns.unity_Le(nvals = 1)  :: [0]
+ns.sdc_iterMAX(nvals = 1)  :: [2]
+ns.dpdt_option(nvals = 1)  :: [0]
+ns.lo_bc(nvals = 2)  :: [0, 5]
+ns.hi_bc(nvals = 2)  :: [0, 2]
+geometry.is_periodic(nvals = 2)  :: [1, 0]
+geometry.coord_sys(nvals = 1)  :: [0]
+geometry.prob_lo(nvals = 3)  :: [0., 0., 0.]
+geometry.prob_hi(nvals = 3)  :: [.004, .016, .016]
+godunov.slope_order(nvals = 1)  :: [4]
+diffuse.use_cg_solve(nvals = 1)  :: [0]
+diffuse.max_order(nvals = 1)  :: [4]
+diffuse.tensor_max_order(nvals = 1)  :: [4]
+diffuse.use_tensor_cg_solve(nvals = 1)  :: [0]
+diffuse.v(nvals = 1)  :: [0]
+diffuse.Rhs_in_abs_tol(nvals = 1)  :: [1]
+proj.proj_tol(nvals = 1)  :: [1.0e-1]
+proj.proj_tol(nvals = 1)  :: [1.0e-11]
+proj.sync_tol(nvals = 1)  :: [1.0e-8]
+proj.rho_wgt_vel_proj(nvals = 1)  :: [0]
+proj.Pcode(nvals = 1)  :: [0]
+proj.filter_factor(nvals = 1)  :: [0.0]
+proj.do_outflow_bcs(nvals = 1)  :: [0]
+proj.divu_minus_s_factor(nvals = 1)  :: [.5]
+proj.divu_minus_s_factor(nvals = 1)  :: [0.]
+mac.mac_tol(nvals = 1)  :: [1.0e-9]
+mac.mac_sync_tol(nvals = 1)  :: [1.0e-8]
+mac.mac_abs_tol(nvals = 1)  :: [1.0e-14]
+mac.use_cg_solve(nvals = 1)  :: [0]
+mac.do_outflow_bcs(nvals = 1)  :: [0]
+fab.format(nvals = 1)  :: [ASCII]
+fabarray.mfiter_tile_size(nvals = 3)  :: [8, 8, 8]
+ShowMF_Sets(nvals = 1)  :: [1D]
+ShowMF_Dir(nvals = 1)  :: [JUNK]
+ShowMF_Fab_Format(nvals = 1)  :: [ascii]
+
+... done dumping ParmParse table.
+
+21 Chemical species interpreted:
+ { H2  H  O  O2  OH  H2O  HO2  CH2  CH2(S)  CH3  CH4  CO  CO2  HCO  CH2O  CH3O  C2H4  C2H5  C2H6  N2  AR  }
+
+ fuel name CH4
+ index for fueld and oxidizer 10 3
+RhoYdot_Type, nrhoydot = 5 21
+Flame tracer will be H
+Successfully read inputs file ... 
+Starting to call amrex_probinit ... 
+&FORTIN
+ VORTERR=  1000.0000000000000     ,
+ TEMPERR=  500.00000000000000     ,
+ ADVERR=  1.0000000200408773E+020,
+ TEMPGRAD=  300.00000000000000     ,
+ FLAMETRACVAL=  9.9999999999999995E-007,
+ PROBTYPE="premixed_fixed_inlet                              ",
+ MAX_TEMP_LEV=          0,
+ MAX_VORT_LEV=          0,
+ MAX_TRAC_LEV=          3,
+ TRACESPECVAL=  1.0000000000000000E-010,
+ PHI_IN= 0.40000000000000002     ,
+ T_IN=  298.00000000000000     ,
+ TURB_SCALE=  0.0000000000000000     ,
+ V_IN= 0.14999999999999999     ,
+ V_CO=  0.0000000000000000     ,
+ STANDOFF= -2.4000000000000000E-002,
+ PERTMAG=  0.0000000000000000     ,
+ NCHEMDIAG=          1,
+ SPLITX=  2.0000000000000000E-003,
+ XFRONTW=  2.0000000000000001E-004,
+ SPLITY=  8.0000000000000002E-003,
+ YFRONTW=  8.0000000000000004E-004,
+ BLOBX=  2.0000000000000000E-003,
+ BLOBY=  8.0000000000000002E-003,
+ BLOBZ=  0.0000000000000000     ,
+ BLOBR=  0.0000000000000000     ,
+ BLOBT=  0.0000000000000000     ,
+ TFRONTW=  2.0000000000000001E-004,
+ STTH= -1.0000000000000000     ,
+ FUEL_N2_VOL_PERCENT=  0.0000000000000000     ,
+ /
+&HEATTRANSIN
+ PAMB=  101325.00000000000     ,
+ DPDT_FACTOR=  1.0000000000000000     ,
+ CLOSED_CHAMBER=          0,
+ /
+&CONTROL
+ TAU_CONTROL=  2.9999999999999997E-004,
+ SEST= 0.20000000000000001     ,
+ CFIX=  3.7021984196172814E-007,
+ CHANGEMAX_CONTROL= 0.20000000000000001     ,
+ H_CONTROL=  3.5000000000000001E-003,
+ ZBASE_CONTROL=  0.0000000000000000     ,
+ PSEUDO_GRAVITY=          0,
+ ISTEMP=          0,
+ CORR=  1.0000000000000000     ,
+ CONTROLVELMAX=  0.0000000000000000     ,
+ NAVG_PNTS=         10,
+ /
+Successfully run amrex_probinit
+NavierStokesBase::init_additional_state_types()::have_divu = 1
+NavierStokesBase::init_additional_state_types()::have_dsdt = 1
+NavierStokesBase::init_additional_state_types: num_state_type = 6
+Creating projector
+Installing projector level 0
+Creating mac_projector
+Installing MacProj level 0
+PeleLM::init_once(): num_state_type = 6
+   ******************************  Debug: writing JUNK/1D_S_0
+PeleLM::compute_rhohmix(): lev: 0, time: 0.004689216614
+   ******************************  Debug: writing JUNK/1D_calcD_visc_0
+Multiplying dt by init_shrink; dt = 1.25e-05
+Typical vals: 
+	Velocity: 0.7048632561 0.7048632561 
+	Density: 1.114932346
+	Temp:    1580.02432
+	RhoH:    126117.423
+	Y_H2: 0.003052272896
+	Y_H: 2.220526022e-05
+	Y_O: 0.00074266728
+	Y_O2: 0.2265773997
+	Y_OH: 0.001301761194
+	Y_H2O: 0.08166657388
+	Y_HO2: 0.0001374381643
+	Y_CH2: 1.211574273e-06
+	Y_CH2(S): 1e-06
+	Y_CH3: 0.0001442957216
+	Y_CH4: 0.02431019701
+	Y_CO: 0.01314018116
+	Y_CO2: 0.06660030346
+	Y_HCO: 7.363488835e-06
+	Y_CH2O: 0.0004688708299
+	Y_CH3O: 4.796324394e-06
+	Y_C2H4: 0.0001621030206
+	Y_C2H5: 6.307145287e-06
+	Y_C2H6: 0.000277396941
+	Y_N2: 0.747420256
+	Y_AR: 1e-06
+calling initialVelocityProject
+Projection::initialVelocityProject(): levels = 0  0
+CONSTANT DENSITY INITIAL VELOCITY PROJECTION
+Projection::initialVelocityProject(): time: 0.02183747292
+done calling initialVelocityProject
+Multiplying dt by init_shrink; dt = 1.25e-05
+doing num_divu_iters = 3
+*** advance_chemistry: FABs in tmp MF: 4
+PeleLM::advance_chemistry(): lev: 0, time: [5.064681768 ... 5.064681768]
+Projection::initialVelocityProject(): levels = 0  0
+CONSTANT DENSITY INITIAL VELOCITY PROJECTION
+Projection::initialVelocityProject(): time: 0.02429747581
+Multiplying dt by init_shrink; dt = 1.25e-05
+*** advance_chemistry: FABs in tmp MF: 4
+PeleLM::advance_chemistry(): lev: 0, time: [2.714037895 ... 2.714037895]
+Projection::initialVelocityProject(): levels = 0  0
+CONSTANT DENSITY INITIAL VELOCITY PROJECTION
+Projection::initialVelocityProject(): time: 0.01667952538
+Multiplying dt by init_shrink; dt = 1.25e-05
+*** advance_chemistry: FABs in tmp MF: 4
+PeleLM::advance_chemistry(): lev: 0, time: [2.716172218 ... 2.716172218]
+Projection::initialVelocityProject(): levels = 0  0
+CONSTANT DENSITY INITIAL VELOCITY PROJECTION
+Projection::initialVelocityProject(): time: 0.01149559021
+Multiplying dt by init_shrink; dt = 1.25e-05
+PeleLM::advance(): at start of time step
+SDC Advancing level 0 : starting time = 0 with dt = 1.25e-05
+   ******************************  Debug: writing JUNK/1D_calcD_visc_0
+setting htt_hmixTYP(from user input) = 126117.423
+Computing Dn, DDn, and DWbar 
+... predict edge velocities
+... mac_projection
+... mac_project at level 0
+MLMG: # of AMR levels: 1
+      # of MG levels on the coarsest AMR level: 6
+MLMG: Initial rhs               = 1999.739559
+MLMG: Initial residual (resid0) = 1999.739559
+MLMG: Iteration   1 Fine resid/bnorm = 0.09797368072
+MLMG: Iteration   2 Fine resid/bnorm = 0.006031073876
+MLMG: Iteration   3 Fine resid/bnorm = 0.0003775026691
+MLMG: Iteration   4 Fine resid/bnorm = 2.370516984e-05
+MLMG: Iteration   5 Fine resid/bnorm = 1.484338579e-06
+MLMG: Iteration   6 Fine resid/bnorm = 9.251426808e-08
+MLMG: Iteration   7 Fine resid/bnorm = 5.74409506e-09
+MLMG: Iteration   8 Fine resid/bnorm = 3.551502687e-10
+MLMG: Final Iter. 8 resid, resid/bnorm = 7.102080417e-07, 3.551502687e-10
+MLMG: Timers: Solve = 0.023425966 Iter = 0.022842468 Bottom = 0.000453267
+SUM of DIV(U_edge) = 546427.998904488
+NavierStokesBase:mac_project(): lev: 0, time: 0.02452611923
