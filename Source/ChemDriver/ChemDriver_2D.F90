@@ -604,14 +604,9 @@ contains
       !   c_0,c_1,rhoH_INIT,T_cell,rhoY_INIT,negative_Y_test
       !
 
-!      print*, hi, lo
-
       do j=lo(2),hi(2)
          do i=lo(1),hi(1)
 
-!            if(i.eq.66 .and. j.eq.0) then
-!              print*, "cell 66,0: ", Told(66,0)
-!	    endif
 
             TT1                = zero
             TT2                = dt
@@ -630,14 +625,6 @@ contains
 #ifdef ALWAYS_NEW_J
             FIRST = .TRUE.
 #endif
-
-!           if(i.eq.0 .and. j.eq.0)then
-!               write(6,*) " in conpsolv"
-!               print *, "Z", Z(1:Nspec)
-!               print *, "c_0", c_0(1:Nspec)
-!               print *, "rhoH_INIT", rhoH_INIT
-!               print *, "T_cell", T_cell
-!           endif
 
             if (do_diag.eq.1) then
                FuncCount(i,j) = 0
@@ -668,6 +655,18 @@ contains
                    dvi, CONPJ_FILE, MF, RWRK, IWRK)
 
                if (ISTATE .LE. -1 .or. negative_Y_test .eq. 1) then
+
+	 	  print*,"Failing at i,j:", i, j
+!		  call bl_abort()
+
+!                  if(i.eq.60 .and. j.eq.0) then
+!	     	     print*, "At VODE failure: "
+!	     	     print*, "Z(1:Nspec): ", Z(1:Nspec+1)
+!	     	     print*, "c_0: ", c_0
+!	     	     print*, "rhoH_INIT: ", rhoH_INIT
+!	     	     print*, "dt, T_Cell: ", dt, T_cell
+!!	     	     call bl_abort()
+!         	  endif
 
                   strang_fix = 1
 
@@ -778,10 +777,6 @@ contains
                FuncCount(i,j) = FuncCount(i,j) + IWRK(dvbi+11)
             enddo
 
-!	    if(i.eq.64 .and. j.eq.0) then
-!                print*, "****", Z(Nspec+1), rhoHold(i,j)+dt*c_0(Nspec+1)	!OK
-!            endif
-               
             rhoHnew(i,j) = Z(Nspec+1)
                
             if (strang_fix .eq. 1) rhooldInv = one / rho
@@ -825,22 +820,15 @@ contains
                Y(m) = rhoYnew(i,j,m) * rhoInv
             enddo
 
-! ----- get wrong T...
             Tnew(i,j) = T_cell
             call TfromHYpt(Tnew(i,j),rhoHnew(i,j)*rhoInv,Y,HtoTerrMAX,HtoTiterMAX,res,Niter)
          end do
       end do
 
-!      if(lo(2).eq.0 .and. lo(1).eq.64) then
-!         print*, rhoYold(63,0,4), rhoYnew(63,0,4), rhoHold(63,0), rhoHnew(63,0)
-!      endif
-
       if (verbose .and. nfails .gt. 0) then
          print*, '*** DVODE failures for last chem block: ', nfails; call flush(6)
       end if
       CONPSOLV_SDC = 1
-
-!      print*, lo, hi
 
   end function CONPSOLV_SDC
 
