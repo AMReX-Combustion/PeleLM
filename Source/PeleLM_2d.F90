@@ -185,7 +185,6 @@ contains
 !-----------------------------------
 
   subroutine enth_diff_terms (lo, hi, dlo, dhi, dx, &
-!                              T, DIMS(T), RhoY, DIMS(RhoY), &
                               T, DIMS(T), &
                               rhoDx, DIMS(rhoDx), Fx, DIMS(Fx), Ax, DIMS(Ax), &
                               rhoDy, DIMS(rhoDy), Fy, DIMS(Fy), Ay, DIMS(Ay), &
@@ -203,8 +202,6 @@ contains
     REAL_T  dx(SDIM)
     integer DIMDEC(T)
     REAL_T  T(DIMV(T))
-!    integer DIMDEC(RhoY)
-!    REAL_T  RhoY(DIMV(RhoY),Nspec)
 
     integer DIMDEC(rhoDx)
     REAL_T  rhoDx(DIMV(rhoDx))
@@ -251,17 +248,12 @@ contains
 
     do j=lo(2),hi(2)
     do i=lo(1),hi(1)+1
-!       Fx(i,j,Nspec+3) = - rhoDx(i,j,Nspec+2)*(T(i,j) - T(i-1,j))* dxInv * Ax(i,j)	! original, but WRONG
        Fx(i,j,Nspec+3) = - rhoDx(i,j)*(T(i,j) - T(i-1,j))* dxInv * Ax(i,j)
-!       if (j.eq.192 .and. i.eq.128) then
-!	  print*, "flux and T", rhoDx(i,j), T(i,j), T(i-1,j)
-!       endif
     enddo
     enddo
 
     do j=lo(2),hi(2)+1
     do i=lo(1),hi(1)
-!       Fy(i,j,Nspec+3) = - rhoDy(i,j,Nspec+2)*(T(i,j) - T(i,j-1)) * dyInv * Ay(i,j)	! original, but WRONG
        Fy(i,j,Nspec+3) = - rhoDy(i,j)*(T(i,j) - T(i,j-1)) * dyInv * Ay(i,j)
     enddo
     enddo
@@ -1304,7 +1296,6 @@ contains
 !write(*,*) "DEBUG 2",DIMS(flux)
 !     First, assume away from physical boundaries, then use boundary-aware version below if applicable
       do j = lo(2),hi(2)
-!        do i = lo(1),hi(1)+1						! original, but WRONG
         do i = lo(1),hi(1)
           sumFlux = 0.d0
           sumRhoYe = 0.d0
@@ -1335,9 +1326,7 @@ contains
         enddo
       endif
 !     xhi
-!      if (Ybc(1,2).eq.EXT_DIR.and.hi(1).ge.dhi(1)) then		! original, but WRONG
       if (Ybc(1,2).eq.EXT_DIR.and.hi(1).ge.dhi(1)+1) then
-!        do i = dhi(1)+1,hi(1)+1					! original, but WRONG
         do i = dhi(1),hi(1)
           do j = lo(2),hi(2)
             sumFlux = 0.d0
@@ -1356,12 +1345,19 @@ contains
     else if (dir.eq.1) then
 
 !     First, assume away from physical boundaries, then replace with boundary-aware version below if applicable
-!      do j = lo(2),hi(2)+1						! original, but WRONG
+
       do j = lo(2),hi(2)
         do i = lo(1),hi(1)
           sumFlux = 0.d0
           sumRhoYe = 0.d0
           do n=1,Nspec
+
+!! ----- added: check fluxes BEFORE repair
+!     if (i .eq. 0 .and. j .eq. 104) then
+!        print*, "Species flux of species ", n, " BEFORE repair at cell: ", i, j, "is: ", flux(i,j,n), flux(i,j+1,n)
+!     endif
+!! ----- 
+
             sumFlux = sumFlux + flux(i,j,n)
             RhoYe(n) = 0.5d0*(RhoY(i,j-1,n) + RhoY(i,j,n))
             sumRhoYe = sumRhoYe + RhoYe(n)
@@ -1371,6 +1367,19 @@ contains
           end do
         end do
       end do
+
+!! ----- added: check fluxes AFTER repair
+!      do j = lo(2),hi(2)
+!        do i = lo(1),hi(1)
+!          do n=1,Nspec
+!     	    if (i .eq. 0 .and. j .eq. 104) then
+!              print*, "Species flux of species ", n, " AFTER  repair at cell: ", i, j, "is: ", flux(i,j,n), flux(i,j+1,n)
+!     	    endif
+!          end do
+!        end do
+!      end do
+!! -----
+
 !     ylo
       if (Ybc(2,1).eq.EXT_DIR.and.lo(2).le.dlo(2)) then
         do j = lo(2),dlo(2)
@@ -1388,9 +1397,7 @@ contains
         enddo
       endif
 !     yhi
-!      if (Ybc(2,2).eq.EXT_DIR.and.hi(2).ge.dhi(2)) then		! original, but WRONG
       if (Ybc(2,2).eq.EXT_DIR.and.hi(2).ge.dhi(2)+1) then
-!        do j = dhi(2)+1,hi(2)+1					! original, but WRONG
         do j = dhi(2),hi(2)
           do i = lo(1),hi(1)
             sumFlux = 0.d0
