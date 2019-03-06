@@ -260,7 +260,6 @@ private:
                                              amrex::Real      time,
                                              amrex::Real      dt);
 
-//  void compute_enthalpy_fluxes (const amrex::MultiFab&        S,
   void compute_enthalpy_fluxes (amrex::MultiFab* const*       flux,
                                 const amrex::MultiFab* const* beta,
 				amrex::Real		      time);
