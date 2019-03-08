@@ -21,14 +21,33 @@
 
 #define SDIM 3
 
-      subroutine FORT_CALCDIVU(lo, hi,
-     &                         divu, DIMS(divu), rYdot, DIMS(rYdot),
-     &                         vtY,  DIMS(vtY),    vtT, DIMS(vtT),
-     &                         rhoY, DIMS(rhoY),     T, DIMS(T))
+module PeleLM_3d
+
+  implicit none
+
+  private
+
+  public ::  calc_divu_fortran, calc_gamma_pinv, floor_spec, enth_diff_terms, &
+             compute_rho_dgrad_hdot_grad_Y, vel_visc, spec_temp_visc, &
+             est_divu_dt, check_divu_dt, dqrad_fill, divu_fill, &
+             dsdt_fill, ydot_fill, rhoYdot_fill, fab_minmax, repair_flux, &
+             incrwext_flx_div, flux_div, compute_ugradp, conservative_T_floor, &
+             htdd_relax, part_cnt_err, mcurve, smooth, grad_wbar, recomp_update
+
+contains
+             
+  subroutine calc_divu_fortran(lo, hi, &
+                              divu, DIMS(divu), rYdot, DIMS(rYdot), &
+                              vtY,  DIMS(vtY),    vtT, DIMS(vtT), &
+                              rhoY, DIMS(rhoY),     T, DIMS(T)) &
+                              bind(C, name="calc_divu_fortran")
+
       implicit none
+
 #include <cdwrk.H>
 #include <visc.H>
 #include <htdata.H>
+
       integer lo(SDIM),hi(SDIM)
       integer DIMDEC(divu)
       integer DIMDEC(rYdot)
@@ -51,7 +70,6 @@
          invmtw(n) = one / invmtw(n)
       end do
 
-!$omp parallel do private(i,j,k,n,rhoInv,Y,cpmix,H,mmw,tmp)
       do k=lo(3),hi(3)
          do j=lo(2),hi(2)
             do i=lo(1),hi(1)
@@ -82,18 +100,24 @@
             enddo
          enddo
       enddo
-!$omp end parallel do
-      end
 
-      subroutine FORT_CALCGAMMAPINV(lo, hi,
-     &                              theta, DIMS(theta),
-     &                              rhoY, DIMS(rhoY),
-     &                              T, DIMS(T),
-     &                              Pamb_in)
+  end subroutine calc_divu_fortran
+  
+!----------------------------------------- 
+
+  subroutine calc_gamma_pinv(lo, hi, &
+                             theta, DIMS(theta), &
+                             rhoY, DIMS(rhoY), &
+                             T, DIMS(T), &
+                             Pamb_in)&
+                             bind(C, name="calc_gamma_pinv")
+                                                        
       implicit none
+      
 #include <cdwrk.H>
 #include <visc.H>
 #include <htdata.H>
+      
       integer lo(SDIM),hi(SDIM)
       integer DIMDEC(theta)
       integer DIMDEC(rhoY)
@@ -127,21 +151,24 @@
             enddo
          enddo
       enddo
-      end
+  end subroutine calc_gamma_pinv
 
-      subroutine FORT_FLOORSPEC(lo, hi,
-     &                          spec,  DIMS(spec))
+!-------------------------------------  
+  
+  subroutine floor_spec(lo, hi,spec,  DIMS(spec))bind(C, name="floor_spec")
+
       implicit none
+      
 #include <cdwrk.H>
 #include <visc.H>
 #include <htdata.H>
+      
       integer lo(SDIM),hi(SDIM)
       integer DIMDEC(spec)
       REAL_T  spec(DIMV(spec),1:Nspec)
       
       integer i, j, k, n
 
-!$omp parallel do private(i,j,k,n)
       do n=1,Nspec
          do k=lo(3),hi(3)
             do j=lo(2),hi(2)
@@ -151,20 +178,31 @@
             enddo
          enddo
       enddo
-!$omp end parallel do
-      end
 
-      subroutine FORT_ENTH_DIFF_TERMS(lo, hi, dlo, dhi, dx, T, DIMS(T), RhoY, DIMS(RhoY),
-     &                                rhoDx, DIMS(rhoDx), Fx, DIMS(Fx), Ax, DIMS(Ax), 
-     &                                rhoDy, DIMS(rhoDy), Fy, DIMS(Fy), Ay, DIMS(Ay), 
-     &                                rhoDz, DIMS(rhoDz), Fz, DIMS(Fz), Az, DIMS(Az), 
-     &                                FiGHi, DIMS(FiGHi), Tbc )
+  end subroutine floor_spec
+  
+!-----------------------------------  
+  
+  subroutine enth_diff_terms (lo, hi, dlo, dhi, dx, &
+                              lo_x, hi_x, dlo_x, dhi_x, &
+                              lo_y, hi_y, dlo_y, dhi_y, &
+                              lo_z, hi_z, dlo_z, dhi_z, &
+                              T, DIMS(T), RhoY, DIMS(RhoY), &
+                              rhoDx, DIMS(rhoDx), Fx, DIMS(Fx), Ax, DIMS(Ax), &
+                              rhoDy, DIMS(rhoDy), Fy, DIMS(Fy), Ay, DIMS(Ay), &
+                              rhoDz, DIMS(rhoDz), Fz, DIMS(Fz), Az, DIMS(Az), &
+                              FiGHi, DIMS(FiGHi), Tbc ) &
+                              bind(C, name="enth_diff_terms")
 
+      use chem_driver_3D, only: HfromT
       implicit none
 
 #include <cdwrk.H>      
 
       integer lo(SDIM), hi(SDIM), dlo(SDIM), dhi(SDIM), Tbc(SDIM,2)
+      integer lo_x(SDIM), hi_x(SDIM), dlo_x(SDIM), dhi_x(SDIM)
+      integer lo_y(SDIM), hi_y(SDIM), dlo_y(SDIM), dhi_y(SDIM)
+      integer lo_z(SDIM), hi_z(SDIM), dlo_z(SDIM), dhi_z(SDIM)
       REAL_T  dx(SDIM)
       integer DIMDEC(T)
       REAL_T  T(DIMV(T))
@@ -214,273 +252,253 @@
       fix_zlo = .false.
       fix_zhi = .false.
 
-c     Compute species enthalpies on box grown by one
+!     Compute species enthalpies on box grown by one
       do d=1,SDIM
          lob(d) = lo(d)-1
          hib(d) = hi(d)+1
       enddo
 
-c     Make space for Hi, use T box, since this better be big enough as well.
-c     Note that any cells on a physical boundary with Dirichlet conditions will 
-c     actually be centered on the edge, so the stencils below must reflect this
+!     Make space for Hi, use T box, since this better be big enough as well.
+!     Note that any cells on a physical boundary with Dirichlet conditions will 
+!     actually be centered on the edge, so the stencils below must reflect this
 
       allocate( H(DIMV(T),1:Nspec) )
 
-      call FORT_HfromT(lob, hib, H, DIMS(T), T, DIMS(T))
+      call HfromT(lob, hib, H, DIMS(T), T, DIMS(T))
 
-c     On entry, Fx(1:Nspec) = spec flux
-c     On exit:
-c     Fx(Nspec+1) = untouched
-c     Fx(Nspec+2) = sum[ (species flux).(species enthalpy) ]
-c     Fx(Nspec+3) = extensive heat conduction
+!     On entry, Fx(1:Nspec) = spec flux
+!     On exit:
+!     Fx(Nspec+1) = untouched
+!     Fx(Nspec+2) = sum[ (species flux).(species enthalpy) ]
+!     Fx(Nspec+3) = extensive heat conduction
 
-c     Compute lambda.Grad(T)
+!     Compute lambda.Grad(T)
       dxInv = 1.d0 / dx(1)
       dyInv = 1.d0 / dx(2)
       dzInv = 1.d0 / dx(3)
 
-!$omp parallel do private(i,j,k)
-      do k=lo(3),hi(3)
-         do j=lo(2),hi(2)
-            do i=lo(1),hi(1)+1
+      do k=lo_x(3),hi_x(3)
+         do j=lo_x(2),hi_x(2)
+            do i=lo_x(1),hi_x(1)
                Fx(i,j,k,Nspec+3) = - rhoDx(i,j,k,Nspec+2)*(T(i,j,k) - T(i-1,j,k))* dxInv * Ax(i,j,k)
             enddo
          enddo
       enddo
-!$omp end parallel do
 
-!$omp parallel do private(i,j,k)
-      do k=lo(3),hi(3)
-         do j=lo(2),hi(2)+1
-            do i=lo(1),hi(1)
+      do k=lo_y(3),hi_y(3)
+         do j=lo_y(2),hi_y(2)
+            do i=lo_y(1),hi_y(1)
                Fy(i,j,k,Nspec+3) = - rhoDy(i,j,k,Nspec+2)*(T(i,j,k) - T(i,j-1,k)) * dyInv * Ay(i,j,k)
             enddo
          enddo
       enddo
-!$omp end parallel do
 
-!$omp parallel do private(i,j,k)
-      do k=lo(3),hi(3)+1
-         do j=lo(2),hi(2)
-            do i=lo(1),hi(1)
+      do k=lo_z(3),hi_z(3)
+         do j=lo_z(2),hi_z(2)
+            do i=lo_z(1),hi_z(1)
                Fz(i,j,k,Nspec+3) = - rhoDz(i,j,k,Nspec+2)*(T(i,j,k) - T(i,j,k-1)) * dzInv * Az(i,j,k)
             enddo
          enddo
       enddo
-!$omp end parallel do
 
-c     xlo
-      if (lo(1).eq.dlo(1)  .and.  Tbc(1,1).eq.EXT_DIR) then
-         i = dlo(1)
-         do k=lo(3),hi(3)
-            do j=lo(2),hi(2)
+!     xlo
+      if (lo_x(1).eq.dlo_x(1)  .and.  Tbc(1,1).eq.EXT_DIR) then
+         i = dlo_x(1)
+         do k=lo_x(3),hi_x(3)
+            do j=lo_x(2),hi_x(2)
                Fx(i,j,k,Nspec+3) = 2*Fx(i,j,k,Nspec+3)
             enddo
          enddo
       endif
-c     xhi
-      if (hi(1).eq.dhi(1)  .and.  Tbc(1,2).eq.EXT_DIR) then
-         i = dhi(1)+1
-         do k=lo(3),hi(3)
-            do j=lo(2),hi(2)
+!     xhi
+      if (hi_x(1).eq.dhi_x(1)  .and.  Tbc(1,2).eq.EXT_DIR) then
+         i = dhi_x(1)
+         do k=lo_x(3),hi_x(3)
+            do j=lo_x(2),hi_x(2)
                Fx(i,j,k,Nspec+3) = 2*Fx(i,j,k,Nspec+3)
             enddo
          enddo
       endif
-c     ylo
-      if (lo(2).eq.dlo(2) .and. Tbc(2,1).eq.EXT_DIR) then
-         j=lo(2)
-         do k=lo(3),hi(3)
-            do i=lo(1),hi(1)
+!     ylo
+      if (lo_y(2).eq.dlo_y(2) .and. Tbc(2,1).eq.EXT_DIR) then
+         j=lo_y(2)
+         do k=lo_y(3),hi_y(3)
+            do i=lo_y(1),hi_y(1)
                Fy(i,j,k,Nspec+3) = 2*Fy(i,j,k,Nspec+3)
             enddo
          enddo
       endif
-c     yhi
-      if (hi(2).eq.dhi(2) .and. Tbc(2,2).eq.EXT_DIR) then
-         j=hi(2)+1
-         do k=lo(3),hi(3)
-            do i=lo(1),hi(1)
+!     yhi
+      if (hi_y(2).eq.dhi_y(2) .and. Tbc(2,2).eq.EXT_DIR) then
+         j=hi_y(2)
+         do k=lo_y(3),hi_y(3)
+            do i=lo_y(1),hi_y(1)
                Fy(i,j,k,Nspec+3) = 2*Fy(i,j,k,Nspec+3)
             enddo
          enddo
       endif
-c     zlo
-      if (lo(3).eq.dlo(3) .and. Tbc(3,1).eq.EXT_DIR) then
-         k=lo(3)
-         do j=lo(2),hi(2)
-            do i=lo(1),hi(1)
+!     zlo
+      if (lo_z(3).eq.dlo_z(3) .and. Tbc(3,1).eq.EXT_DIR) then
+         k=lo_z(3)
+         do j=lo_z(2),hi_z(2)
+            do i=lo_z(1),hi_z(1)
                Fz(i,j,k,Nspec+3) = 2*Fz(i,j,k,Nspec+3)
             enddo
          enddo
       endif
-c     zhi
-      if (hi(3).eq.dhi(3) .and. Tbc(3,2).eq.EXT_DIR) then
-         k=hi(3)+1
-         do j=lo(2),hi(2)
-            do i=lo(1),hi(1)
+!     zhi
+      if (hi_z(3).eq.dhi_z(3) .and. Tbc(3,2).eq.EXT_DIR) then
+         k=hi_z(3)
+         do j=lo_z(2),hi_z(2)
+            do i=lo_z(1),hi_z(1)
                Fz(i,j,k,Nspec+3) = 2*Fz(i,j,k,Nspec+3)
             enddo
          enddo
       endif
 
-c     Compute enthalpy flux as hi*(Fi+(lambda/cp).Grad(Yi))
+!     Compute enthalpy flux as hi*(Fi+(lambda/cp).Grad(Yi))
 
-      Fx(lo(1):hi(1)+1,lo(2):hi(2),lo(3):hi(3),Nspec+2) = 0.d0
-      Fy(lo(1):hi(1),lo(2):hi(2)+1,lo(3):hi(3),Nspec+2) = 0.d0
-      Fz(lo(1):hi(1),lo(2):hi(2),lo(3):hi(3)+1,Nspec+2) = 0.d0
+      Fx(lo_x(1):hi_x(1),lo_x(2):hi_x(2),lo_x(3):hi_x(3),Nspec+2) = 0.d0
+      Fy(lo_y(1):hi_y(1),lo_y(2):hi_y(2),lo_y(3):hi_y(3),Nspec+2) = 0.d0
+      Fz(lo_z(1):hi_z(1),lo_z(2):hi_z(2),lo_z(3):hi_z(3),Nspec+2) = 0.d0
 
-      allocate(rhoInv(lo(1)-1:hi(1)+1,lo(2)-1:hi(2)+1,lo(3)-1:hi(3)+1))
+      allocate(rhoInv(lo_x(1)-1:hi_x(1)+1,lo_y(2)-1:hi_y(2)+1,lo_z(3)-1:hi_z(3)+1))
 
       rhoInv = 0.0d0
       do n=1,Nspec
-         do k=lo(3)-1,hi(3)+1
-            do j=lo(2)-1,hi(2)+1
-               do i=lo(1)-1,hi(1)+1
+         do k=lo_z(3)-1,hi_z(3)
+            do j=lo_y(2)-1,hi_y(2)
+               do i=lo_x(1)-1,hi_x(1)
                rhoInv(i,j,k) = rhoInv(i,j,k) + RhoY(i,j,k,n)
                enddo
             enddo
          enddo
       enddo
 
-!$omp parallel do private(i,j,k)
-      do k=lo(3)-1,hi(3)+1
-         do j=lo(2)-1,hi(2)+1
-            do i=lo(1)-1,hi(1)+1
+      do k=lo_z(3)-1,hi_z(3)
+         do j=lo_y(2)-1,hi_y(2)
+            do i=lo_x(1)-1,hi_x(1)
                rhoInv(i,j,k) = 1.0D0/rhoInv(i,j,k)
             enddo
          enddo
       enddo
-!$omp end parallel do
 
-!$omp parallel private(i,j,k,n,gradY)
       do n=1,Nspec
-!$omp do
-      do k=lo(3),hi(3)
-      do j=lo(2),hi(2)
-      do i=lo(1),hi(1)+1
+      do k=lo_x(3),hi_x(3)
+      do j=lo_x(2),hi_x(2)
+      do i=lo_x(1),hi_x(1)
          gradY = (RhoY(i,j,k,n)*rhoInv(i,j,k) - RhoY(i-1,j,k,n)*rhoInv(i-1,j,k))*dxInv
-         Fx(i,j,k,Nspec+2) = Fx(i,j,k,Nspec+2)
-     &        + (Fx(i,j,k,n) + rhoDx(i,j,k,Nspec+1)*gradY*Ax(i,j,k))*(H(i,j,k,n)+H(i-1,j,k,n))*0.5d0
+         Fx(i,j,k,Nspec+2) = Fx(i,j,k,Nspec+2) &
+             + (Fx(i,j,k,n) + rhoDx(i,j,k,Nspec+1)*gradY*Ax(i,j,k))*(H(i,j,k,n)+H(i-1,j,k,n))*0.5d0
       enddo
       enddo
       enddo
-!$omp end do
       enddo
-!$omp end parallel
 
-!$omp parallel private(i,j,k,n,gradY)
       do n=1,Nspec
-!$omp do
-      do k=lo(3),hi(3)
-      do j=lo(2),hi(2)+1
-      do i=lo(1),hi(1)
+      do k=lo_y(3),hi_y(3)
+      do j=lo_y(2),hi_y(2)
+      do i=lo_y(1),hi_y(1)
          gradY = (RhoY(i,j,k,n)*rhoInv(i,j,k) - RhoY(i,j-1,k,n)*rhoInv(i,j-1,k))*dyInv
-         Fy(i,j,k,Nspec+2) = Fy(i,j,k,Nspec+2)
-     &        + (Fy(i,j,k,n) + rhoDy(i,j,k,Nspec+1)*gradY*Ay(i,j,k))*(H(i,j,k,n)+H(i,j-1,k,n))*0.5d0
+         Fy(i,j,k,Nspec+2) = Fy(i,j,k,Nspec+2) &
+             + (Fy(i,j,k,n) + rhoDy(i,j,k,Nspec+1)*gradY*Ay(i,j,k))*(H(i,j,k,n)+H(i,j-1,k,n))*0.5d0
       enddo
       enddo
       enddo
-!$omp end do
       enddo
-!$omp end parallel
 
-!$omp parallel private(i,j,k,n,gradY)
       do n=1,Nspec
-!$omp do
-      do k=lo(3),hi(3)+1
-      do j=lo(2),hi(2)
-      do i=lo(1),hi(1)
+      do k=lo_z(3),hi_z(3)
+      do j=lo_z(2),hi_z(2)
+      do i=lo_z(1),hi_z(1)
          gradY = (RhoY(i,j,k,n)*rhoInv(i,j,k) - RhoY(i,j,k-1,n)*rhoInv(i,j,k-1))*dzInv
-         Fz(i,j,k,Nspec+2) = Fz(i,j,k,Nspec+2)
-     &        + (Fz(i,j,k,n) + rhoDz(i,j,k,Nspec+1)*gradY*Az(i,j,k))*(H(i,j,k,n)+H(i,j,k-1,n))*0.5d0
+         Fz(i,j,k,Nspec+2) = Fz(i,j,k,Nspec+2) &
+             + (Fz(i,j,k,n) + rhoDz(i,j,k,Nspec+1)*gradY*Az(i,j,k))*(H(i,j,k,n)+H(i,j,k-1,n))*0.5d0
       enddo
       enddo
       enddo
-!$omp end do
       enddo
-!$omp end parallel
 
-c     xlo
-      if (lo(1).eq.dlo(1)  .and.  Tbc(1,1).eq.EXT_DIR) then
-         i = dlo(1)
-         Fx(i,lo(2):hi(2),lo(3):hi(3),Nspec+2) = 0.d0
+!     xlo
+      if (lo_x(1).eq.dlo_x(1)  .and.  Tbc(1,1).eq.EXT_DIR) then
+         i = dlo_x(1)
+         Fx(i,lo_y(2):hi_y(2),lo_z(3):hi_z(3),Nspec+2) = 0.d0
          do n=1,Nspec
-            do k=lo(3),hi(3)
-               do j=lo(2),hi(2)
+            do k=lo_z(3),hi_z(3)
+               do j=lo_y(2),hi_y(2)
                   gradY = 2*(RhoY(i,j,k,n)*rhoInv(i,j,k) - RhoY(i-1,j,k,n)*rhoInv(i-1,j,k))*dxInv
-                  Fx(i,j,k,Nspec+2) = Fx(i,j,k,Nspec+2)
-     &                 + (Fx(i,j,k,n) + rhoDx(i,j,k,Nspec+1)*gradY*Ax(i,j,k))*H(i-1,j,k,n)
+                  Fx(i,j,k,Nspec+2) = Fx(i,j,k,Nspec+2) &
+                      + (Fx(i,j,k,n) + rhoDx(i,j,k,Nspec+1)*gradY*Ax(i,j,k))*H(i-1,j,k,n)
                enddo
             enddo
          enddo
       endif
-c     xhi
-      if (hi(1).eq.dhi(1)  .and.  Tbc(1,2).eq.EXT_DIR) then
-         i = dhi(1)+1
-         Fx(i,lo(2):hi(2),lo(3):hi(3),Nspec+2) = 0.d0
+!     xhi
+      if (hi_x(1).eq.dhi_x(1)  .and.  Tbc(1,2).eq.EXT_DIR) then
+         i = dhi_x(1)
+         Fx(i,lo_y(2):hi_y(2),lo_z(3):hi_z(3),Nspec+2) = 0.d0
          do n=1,Nspec
-            do k=lo(3),hi(3)
-               do j=lo(2),hi(2)
+            do k=lo_z(3),hi_z(3)
+               do j=lo_y(2),hi_y(2)
                   gradY = 2*(RhoY(i,j,k,n)*rhoInv(i,j,k) - RhoY(i-1,j,k,n)*rhoInv(i-1,j,k))*dxInv
-                  Fx(i,j,k,Nspec+2) = Fx(i,j,k,Nspec+2)
-     &                 + (Fx(i,j,k,n) + rhoDx(i,j,k,Nspec+1)*gradY*Ax(i,j,k))*H(i,j,k,n)
+                  Fx(i,j,k,Nspec+2) = Fx(i,j,k,Nspec+2) &
+                      + (Fx(i,j,k,n) + rhoDx(i,j,k,Nspec+1)*gradY*Ax(i,j,k))*H(i,j,k,n)
                enddo
             enddo
          enddo
       endif
-c     ylo
-      if (lo(2).eq.dlo(2)  .and.  Tbc(2,1).eq.EXT_DIR) then
-         j = dlo(2)
-         Fy(lo(1):hi(1),j,lo(3):hi(3),Nspec+2) = 0.d0
+!     ylo
+      if (lo_y(2).eq.dlo_y(2)  .and.  Tbc(2,1).eq.EXT_DIR) then
+         j = dlo_y(2)
+         Fy(lo_x(1):hi_x(1),j,lo_z(3):hi_z(3),Nspec+2) = 0.d0
          do n=1,Nspec
-            do k=lo(3),hi(3)
-               do i=lo(1),hi(1)
+            do k=lo_z(3),hi_z(3)
+               do i=lo_x(1),hi_x(1)
                   gradY = 2*(RhoY(i,j,k,n)*rhoInv(i,j,k) - RhoY(i,j-1,k,n)*rhoInv(i,j-1,k))*dyInv
-                  Fy(i,j,k,Nspec+2) = Fy(i,j,k,Nspec+2)
-     &                 + (Fy(i,j,k,n) + rhoDy(i,j,k,Nspec+1)*gradY*Ay(i,j,k))*H(i,j-1,k,n)
+                  Fy(i,j,k,Nspec+2) = Fy(i,j,k,Nspec+2) &
+                      + (Fy(i,j,k,n) + rhoDy(i,j,k,Nspec+1)*gradY*Ay(i,j,k))*H(i,j-1,k,n)
                enddo
             enddo
          enddo
       endif
-c     yhi
-      if (hi(2).eq.dhi(2)  .and.  Tbc(2,2).eq.EXT_DIR) then
-         j = dhi(2)+1
-         Fy(lo(1):hi(1),j,lo(3):hi(3),Nspec+2) = 0.d0
+!     yhi
+      if (hi_y(2).eq.dhi_y(2)  .and.  Tbc(2,2).eq.EXT_DIR) then
+         j = dhi_y(2)
+         Fy(lo_x(1):hi_x(1),j,lo_z(3):hi_z(3),Nspec+2) = 0.d0
          do n=1,Nspec
-            do k=lo(3),hi(3)
-               do i=lo(1),hi(1)
+            do k=lo_z(3),hi_z(3)
+               do i=lo_x(1),hi_x(1)
                   gradY = 2*(RhoY(i,j,k,n)*rhoInv(i,j,k) - RhoY(i,j-1,k,n)*rhoInv(i,j-1,k))*dyInv
-                  Fy(i,j,k,Nspec+2) = Fy(i,j,k,Nspec+2)
-     &                 + (Fy(i,j,k,n) + rhoDy(i,j,k,Nspec+1)*gradY*Ay(i,j,k))*H(i,j,k,n)
+                  Fy(i,j,k,Nspec+2) = Fy(i,j,k,Nspec+2) &
+                      + (Fy(i,j,k,n) + rhoDy(i,j,k,Nspec+1)*gradY*Ay(i,j,k))*H(i,j,k,n)
                enddo
             enddo
          enddo
       endif
-c     zlo
-      if (lo(3).eq.dlo(3)  .and.  Tbc(3,1).eq.EXT_DIR) then
-         k = dlo(3)
-         Fz(lo(1):hi(1),lo(2):hi(2),k,Nspec+2) = 0.d0
+!     zlo
+      if (lo_z(3).eq.dlo_z(3)  .and.  Tbc(3,1).eq.EXT_DIR) then
+         k = dlo_z(3)
+         Fz(lo_x(1):hi_x(1),lo_y(2):hi_y(2),k,Nspec+2) = 0.d0
          do n=1,Nspec
-            do j=lo(2),hi(2)
-               do i=lo(1),hi(1)
+            do j=lo_y(2),hi_y(2)
+               do i=lo_x(1),hi_x(1)
                   gradY = 2*(RhoY(i,j,k,n)*rhoInv(i,j,k) - RhoY(i,j,k-1,n)*rhoInv(i,j,k-1))*dzInv
-                  Fz(i,j,k,Nspec+2) = Fz(i,j,k,Nspec+2)
-     &                 + (Fz(i,j,k,n) + rhoDz(i,j,k,Nspec+1)*gradY*Az(i,j,k))*H(i,j,k-1,n)
+                  Fz(i,j,k,Nspec+2) = Fz(i,j,k,Nspec+2) &
+                      + (Fz(i,j,k,n) + rhoDz(i,j,k,Nspec+1)*gradY*Az(i,j,k))*H(i,j,k-1,n)
                enddo
             enddo
          enddo
       endif
-c     zhi
-      if (hi(3).eq.dhi(3)  .and.  Tbc(3,2).eq.EXT_DIR) then
-         k = dhi(3)+1
-         Fz(lo(1):hi(1),lo(2):hi(2),k,Nspec+2) = 0.d0
+!     zhi
+      if (hi_z(3).eq.dhi_z(3)  .and.  Tbc(3,2).eq.EXT_DIR) then
+         k = dhi_z(3)
+         Fz(lo_x(1):hi_x(1),lo_y(2):hi_y(2),k,Nspec+2) = 0.d0
          do n=1,Nspec
-            do j=lo(2),hi(2)
-               do i=lo(1),hi(1)
+            do j=lo_y(2),hi_y(2)
+               do i=lo_x(1),hi_x(1)
                   gradY = 2*(RhoY(i,j,k,n)*rhoInv(i,j,k) - RhoY(i,j,k-1,n)*rhoInv(i,j,k-1))*dzInv
-                  Fz(i,j,k,Nspec+2) = Fz(i,j,k,Nspec+2)
-     &                 + (Fz(i,j,k,n) + rhoDz(i,j,k,Nspec+1)*gradY*Az(i,j,k))*H(i,j,k,n)
+                  Fz(i,j,k,Nspec+2) = Fz(i,j,k,Nspec+2) &
+                      + (Fz(i,j,k,n) + rhoDz(i,j,k,Nspec+1)*gradY*Az(i,j,k))*H(i,j,k,n)
                enddo
             enddo
          enddo
@@ -488,20 +506,20 @@ c     zhi
       deallocate(rhoInv)
 
 
-c     Set FiGHi = (species flux) dot Grad(species enthalpy)
-c        compute Grad(H) on each face, and average across faces in each coordinate
-c        Fi is extensive here, so need to remove area.  Also, assume that we are 
-c        away from domain boundary, fix afterward
-c
-c     FIXME: This will fail for r-z since Ax(dlo(1),:)=0
-c
+!     Set FiGHi = (species flux) dot Grad(species enthalpy)
+!        compute Grad(H) on each face, and average across faces in each coordinate
+!        Fi is extensive here, so need to remove area.  Also, assume that we are 
+!        away from domain boundary, fix afterward
+!
+!     FIXME: This will fail for r-z since Ax(dlo(1),:)=0
+!
+
       !
       ! Use AD to cut down on some divides.
       ! Unfortunately it ups memory usage a bit.
       !
       allocate(AD(6,lo(1):hi(1),lo(2):hi(2),lo(3):hi(3)))
 
-!$omp parallel do private(i,j,k)
       do k=lo(3),hi(3)
       do j=lo(2),hi(2)
       do i=lo(1),hi(1)
@@ -514,33 +532,29 @@ c
       enddo
       enddo
       enddo
-!$omp end parallel do
 
       FiGHi(lo(1):hi(1),lo(2):hi(2),lo(3):hi(3)) = 0.0D0
 
-!$omp parallel private(i,j,k,n)
+
       do n=1,Nspec
-!$omp do
       do k=lo(3),hi(3)
       do j=lo(2),hi(2)
       do i=lo(1),hi(1)
-         FiGHi(i,j,k) = FiGHi(i,j,k) - 0.5d0*
-     &        ( ( H(i+1,j,k,n) - H(i,j,k,n) )*Fx(i+1,j  ,k  ,n)*AD(2,i,j,k)
-     &        + ( H(i,j,k,n) - H(i-1,j,k,n) )*Fx(i  ,j  ,k  ,n)*AD(1,i,j,k)
-     &        + ( H(i,j+1,k,n) - H(i,j,k,n) )*Fy(i  ,j+1,k  ,n)*AD(4,i,j,k)
-     &        + ( H(i,j,k,n) - H(i,j-1,k,n) )*Fy(i  ,j  ,k  ,n)*AD(3,i,j,k)
-     &        + ( H(i,j,k+1,n) - H(i,j,k,n) )*Fz(i  ,j  ,k+1,n)*AD(6,i,j,k)
-     &        + ( H(i,j,k,n) - H(i,j,k-1,n) )*Fz(i  ,j  ,k  ,n)*AD(5,i,j,k) )
+         FiGHi(i,j,k) = FiGHi(i,j,k) - 0.5d0* &
+             ( ( H(i+1,j,k,n) - H(i,j,k,n) )*Fx(i+1,j  ,k  ,n)*AD(2,i,j,k) &
+             + ( H(i,j,k,n) - H(i-1,j,k,n) )*Fx(i  ,j  ,k  ,n)*AD(1,i,j,k) &
+             + ( H(i,j+1,k,n) - H(i,j,k,n) )*Fy(i  ,j+1,k  ,n)*AD(4,i,j,k) &
+             + ( H(i,j,k,n) - H(i,j-1,k,n) )*Fy(i  ,j  ,k  ,n)*AD(3,i,j,k) &
+             + ( H(i,j,k+1,n) - H(i,j,k,n) )*Fz(i  ,j  ,k+1,n)*AD(6,i,j,k) &
+             + ( H(i,j,k,n) - H(i,j,k-1,n) )*Fz(i  ,j  ,k  ,n)*AD(5,i,j,k) )
       enddo
       enddo
       enddo
-!$omp end do
       enddo
-!$omp end parallel
 
       deallocate(AD)
 
-c     xlo
+!     xlo
       if (fix_xlo) then
          i = lo(1)
          do k=lo(3),hi(3)
@@ -557,19 +571,19 @@ c     xlo
             AyDyInv_hi = 1.d0/(Ay(i,j+1,k)*dx(2))
             AzDzInv_lo = 1.d0/(Az(i,j,k)*dx(3))
             AzDzInv_hi = 1.d0/(Az(i,j,k+1)*dx(3))
-            FiGHi(i,j,k) = FiGHi(i,j,k) - 0.5d0*
-     &           ( ( H(i+1,j,k,n) - H(i,j,k,n) )*Fx(i+1,j  ,k  ,n)*AxDxInv_hi
-     &           + ( H(i,j,k,n) - H(i-1,j,k,n) )*Fx(i  ,j  ,k  ,n)*AxDxInv_lo
-     &           + ( H(i,j+1,k,n) - H(i,j,k,n) )*Fy(i  ,j+1,k  ,n)*AyDyInv_hi
-     &           + ( H(i,j,k,n) - H(i,j-1,k,n) )*Fy(i  ,j  ,k  ,n)*AyDyInv_lo 
-     &           + ( H(i,j,k+1,n) - H(i,j,k,n) )*Fz(i  ,j  ,k+1,n)*AzDzInv_hi
-     &           + ( H(i,j,k,n) - H(i,j,k-1,n) )*Fz(i  ,j  ,k  ,n)*AzDzInv_lo )
+            FiGHi(i,j,k) = FiGHi(i,j,k) - 0.5d0* &
+                ( ( H(i+1,j,k,n) - H(i,j,k,n) )*Fx(i+1,j  ,k  ,n)*AxDxInv_hi &
+                + ( H(i,j,k,n) - H(i-1,j,k,n) )*Fx(i  ,j  ,k  ,n)*AxDxInv_lo &
+                + ( H(i,j+1,k,n) - H(i,j,k,n) )*Fy(i  ,j+1,k  ,n)*AyDyInv_hi &
+                + ( H(i,j,k,n) - H(i,j-1,k,n) )*Fy(i  ,j  ,k  ,n)*AyDyInv_lo &
+                + ( H(i,j,k+1,n) - H(i,j,k,n) )*Fz(i  ,j  ,k+1,n)*AzDzInv_hi &
+                + ( H(i,j,k,n) - H(i,j,k-1,n) )*Fz(i  ,j  ,k  ,n)*AzDzInv_lo )
          enddo
          enddo
          enddo
       endif
 
-c     xhi
+!     xhi
       if (fix_xhi) then
          i = hi(1)
          do k=lo(3),hi(3)
@@ -586,19 +600,19 @@ c     xhi
             AyDyInv_hi = 1.d0/(Ay(i,j+1,k)*dx(2))
             AzDzInv_lo = 1.d0/(Az(i,j,k)*dx(3))
             AzDzInv_hi = 1.d0/(Az(i,j,k+1)*dx(3))
-            FiGHi(i,j,k) = FiGHi(i,j,k) - 0.5d0*
-     &           ( ( H(i+1,j,k,n) - H(i,j,k,n) )*Fx(i+1,j  ,k  ,n)*AxDxInv_hi
-     &           + ( H(i,j,k,n) - H(i-1,j,k,n) )*Fx(i  ,j  ,k  ,n)*AxDxInv_lo
-     &           + ( H(i,j+1,k,n) - H(i,j,k,n) )*Fy(i  ,j+1,k  ,n)*AyDyInv_hi
-     &           + ( H(i,j,k,n) - H(i,j-1,k,n) )*Fy(i  ,j  ,k  ,n)*AyDyInv_lo 
-     &           + ( H(i,j,k+1,n) - H(i,j,k,n) )*Fz(i  ,j  ,k+1,n)*AzDzInv_hi
-     &           + ( H(i,j,k,n) - H(i,j,k-1,n) )*Fz(i  ,j  ,k  ,n)*AzDzInv_lo )
+            FiGHi(i,j,k) = FiGHi(i,j,k) - 0.5d0* &
+                ( ( H(i+1,j,k,n) - H(i,j,k,n) )*Fx(i+1,j  ,k  ,n)*AxDxInv_hi &
+                + ( H(i,j,k,n) - H(i-1,j,k,n) )*Fx(i  ,j  ,k  ,n)*AxDxInv_lo &
+                + ( H(i,j+1,k,n) - H(i,j,k,n) )*Fy(i  ,j+1,k  ,n)*AyDyInv_hi &
+                + ( H(i,j,k,n) - H(i,j-1,k,n) )*Fy(i  ,j  ,k  ,n)*AyDyInv_lo & 
+                + ( H(i,j,k+1,n) - H(i,j,k,n) )*Fz(i  ,j  ,k+1,n)*AzDzInv_hi &
+                + ( H(i,j,k,n) - H(i,j,k-1,n) )*Fz(i  ,j  ,k  ,n)*AzDzInv_lo )
          enddo
          enddo
          enddo
       endif
 
-c     ylo
+!     ylo
       if (fix_ylo) then
          j = lo(2)
          do k=lo(3),hi(3)
@@ -615,19 +629,19 @@ c     ylo
             AyDyInv_hi = 1.d0/(Ay(i,j+1,k)*dx(2))
             AzDzInv_lo = 1.d0/(Az(i,j,k)*dx(3))
             AzDzInv_hi = 1.d0/(Az(i,j,k+1)*dx(3))
-            FiGHi(i,j,k) = FiGHi(i,j,k) - 0.5d0*
-     &           ( ( H(i+1,j,k,n) - H(i,j,k,n) )*Fx(i+1,j  ,k  ,n)*AxDxInv_hi
-     &           + ( H(i,j,k,n) - H(i-1,j,k,n) )*Fx(i  ,j  ,k  ,n)*AxDxInv_lo
-     &           + ( H(i,j+1,k,n) - H(i,j,k,n) )*Fy(i  ,j+1,k  ,n)*AyDyInv_hi
-     &           + ( H(i,j,k,n) - H(i,j-1,k,n) )*Fy(i  ,j  ,k  ,n)*AyDyInv_lo 
-     &           + ( H(i,j,k+1,n) - H(i,j,k,n) )*Fz(i  ,j  ,k+1,n)*AzDzInv_hi
-     &           + ( H(i,j,k,n) - H(i,j,k-1,n) )*Fz(i  ,j  ,k  ,n)*AzDzInv_lo )
+            FiGHi(i,j,k) = FiGHi(i,j,k) - 0.5d0* &
+                ( ( H(i+1,j,k,n) - H(i,j,k,n) )*Fx(i+1,j  ,k  ,n)*AxDxInv_hi &
+                + ( H(i,j,k,n) - H(i-1,j,k,n) )*Fx(i  ,j  ,k  ,n)*AxDxInv_lo &
+                + ( H(i,j+1,k,n) - H(i,j,k,n) )*Fy(i  ,j+1,k  ,n)*AyDyInv_hi &
+                + ( H(i,j,k,n) - H(i,j-1,k,n) )*Fy(i  ,j  ,k  ,n)*AyDyInv_lo &
+                + ( H(i,j,k+1,n) - H(i,j,k,n) )*Fz(i  ,j  ,k+1,n)*AzDzInv_hi &
+                + ( H(i,j,k,n) - H(i,j,k-1,n) )*Fz(i  ,j  ,k  ,n)*AzDzInv_lo )
          enddo
          enddo
          enddo
       endif
 
-c     yhi
+!     yhi
       if (fix_yhi) then
          j = hi(2)
          do k=lo(3),hi(3)
@@ -644,19 +658,19 @@ c     yhi
             AyDyInv_hi = 1.d0/(Ay(i,j+1,k)*dx(2))
             AzDzInv_lo = 1.d0/(Az(i,j,k)*dx(3))
             AzDzInv_hi = 1.d0/(Az(i,j,k+1)*dx(3))
-            FiGHi(i,j,k) = FiGHi(i,j,k) - 0.5d0*
-     &           ( ( H(i+1,j,k,n) - H(i,j,k,n) )*Fx(i+1,j  ,k  ,n)*AxDxInv_hi
-     &           + ( H(i,j,k,n) - H(i-1,j,k,n) )*Fx(i  ,j  ,k  ,n)*AxDxInv_lo
-     &           + ( H(i,j+1,k,n) - H(i,j,k,n) )*Fy(i  ,j+1,k  ,n)*AyDyInv_hi
-     &           + ( H(i,j,k,n) - H(i,j-1,k,n) )*Fy(i  ,j  ,k  ,n)*AyDyInv_lo 
-     &           + ( H(i,j,k+1,n) - H(i,j,k,n) )*Fz(i  ,j  ,k+1,n)*AzDzInv_hi
-     &           + ( H(i,j,k,n) - H(i,j,k-1,n) )*Fz(i  ,j  ,k  ,n)*AzDzInv_lo )
+            FiGHi(i,j,k) = FiGHi(i,j,k) - 0.5d0* &
+                ( ( H(i+1,j,k,n) - H(i,j,k,n) )*Fx(i+1,j  ,k  ,n)*AxDxInv_hi &
+                + ( H(i,j,k,n) - H(i-1,j,k,n) )*Fx(i  ,j  ,k  ,n)*AxDxInv_lo &
+                + ( H(i,j+1,k,n) - H(i,j,k,n) )*Fy(i  ,j+1,k  ,n)*AyDyInv_hi &
+                + ( H(i,j,k,n) - H(i,j-1,k,n) )*Fy(i  ,j  ,k  ,n)*AyDyInv_lo &
+                + ( H(i,j,k+1,n) - H(i,j,k,n) )*Fz(i  ,j  ,k+1,n)*AzDzInv_hi &
+                + ( H(i,j,k,n) - H(i,j,k-1,n) )*Fz(i  ,j  ,k  ,n)*AzDzInv_lo )
          enddo
          enddo
          enddo
       endif
 
-c     zlo
+!     zlo
       if (fix_zlo) then
          k = lo(3)
          do j=lo(2),hi(2)
@@ -673,19 +687,19 @@ c     zlo
             AyDyInv_hi = 1.d0/(Ay(i,j+1,k)*dx(2))
             AzDzInv_lo = 1.d0/(Az(i,j,k)*dx(3))
             AzDzInv_hi = 1.d0/(Az(i,j,k+1)*dx(3))
-            FiGHi(i,j,k) = FiGHi(i,j,k) - 0.5d0*
-     &           ( ( H(i+1,j,k,n) - H(i,j,k,n) )*Fx(i+1,j  ,k  ,n)*AxDxInv_hi
-     &           + ( H(i,j,k,n) - H(i-1,j,k,n) )*Fx(i  ,j  ,k  ,n)*AxDxInv_lo
-     &           + ( H(i,j+1,k,n) - H(i,j,k,n) )*Fy(i  ,j+1,k  ,n)*AyDyInv_hi
-     &           + ( H(i,j,k,n) - H(i,j-1,k,n) )*Fy(i  ,j  ,k  ,n)*AyDyInv_lo 
-     &           + ( H(i,j,k+1,n) - H(i,j,k,n) )*Fz(i  ,j  ,k+1,n)*AzDzInv_hi
-     &           + ( H(i,j,k,n) - H(i,j,k-1,n) )*Fz(i  ,j  ,k  ,n)*AzDzInv_lo )
+            FiGHi(i,j,k) = FiGHi(i,j,k) - 0.5d0* &
+                ( ( H(i+1,j,k,n) - H(i,j,k,n) )*Fx(i+1,j  ,k  ,n)*AxDxInv_hi &
+                + ( H(i,j,k,n) - H(i-1,j,k,n) )*Fx(i  ,j  ,k  ,n)*AxDxInv_lo &
+                + ( H(i,j+1,k,n) - H(i,j,k,n) )*Fy(i  ,j+1,k  ,n)*AyDyInv_hi &
+                + ( H(i,j,k,n) - H(i,j-1,k,n) )*Fy(i  ,j  ,k  ,n)*AyDyInv_lo & 
+                + ( H(i,j,k+1,n) - H(i,j,k,n) )*Fz(i  ,j  ,k+1,n)*AzDzInv_hi &
+                + ( H(i,j,k,n) - H(i,j,k-1,n) )*Fz(i  ,j  ,k  ,n)*AzDzInv_lo )
          enddo
          enddo
          enddo
       endif
 
-c     zhi
+!     zhi
       if (fix_zhi) then
          k = hi(3)
          do j=lo(2),hi(2)
@@ -702,26 +716,30 @@ c     zhi
             AyDyInv_hi = 1.d0/(Ay(i,j+1,k)*dx(2))
             AzDzInv_lo = 1.d0/(Az(i,j,k)*dx(3))
             AzDzInv_hi = 1.d0/(Az(i,j,k+1)*dx(3))
-            FiGHi(i,j,k) = FiGHi(i,j,k) - 0.5d0*
-     &           ( ( H(i+1,j,k,n) - H(i,j,k,n) )*Fx(i+1,j  ,k  ,n)*AxDxInv_hi
-     &           + ( H(i,j,k,n) - H(i-1,j,k,n) )*Fx(i  ,j  ,k  ,n)*AxDxInv_lo
-     &           + ( H(i,j+1,k,n) - H(i,j,k,n) )*Fy(i  ,j+1,k  ,n)*AyDyInv_hi
-     &           + ( H(i,j,k,n) - H(i,j-1,k,n) )*Fy(i  ,j  ,k  ,n)*AyDyInv_lo 
-     &           + ( H(i,j,k+1,n) - H(i,j,k,n) )*Fz(i  ,j  ,k+1,n)*AzDzInv_hi
-     &           + ( H(i,j,k,n) - H(i,j,k-1,n) )*Fz(i  ,j  ,k  ,n)*AzDzInv_lo )
+            FiGHi(i,j,k) = FiGHi(i,j,k) - 0.5d0* &
+                ( ( H(i+1,j,k,n) - H(i,j,k,n) )*Fx(i+1,j  ,k  ,n)*AxDxInv_hi &
+                + ( H(i,j,k,n) - H(i-1,j,k,n) )*Fx(i  ,j  ,k  ,n)*AxDxInv_lo &
+                + ( H(i,j+1,k,n) - H(i,j,k,n) )*Fy(i  ,j+1,k  ,n)*AyDyInv_hi &
+                + ( H(i,j,k,n) - H(i,j-1,k,n) )*Fy(i  ,j  ,k  ,n)*AyDyInv_lo &
+                + ( H(i,j,k+1,n) - H(i,j,k,n) )*Fz(i  ,j  ,k+1,n)*AzDzInv_hi &
+                + ( H(i,j,k,n) - H(i,j,k-1,n) )*Fz(i  ,j  ,k  ,n)*AzDzInv_lo )
          enddo
          enddo
          enddo
       endif
 
       deallocate(H)
-      end
+ 
+  end subroutine enth_diff_terms
 
-      subroutine FORT_COMPUTE_RHODGRADHDOTGRADY(dx,
-     &         lo, hi, DIMS(species), species,
-     &         DIMS(h), h, DIMS(betax), betax,
-     &         DIMS(betay), betay, DIMS(betaz), betaz, 
-     &         DIMS(rdghdgy), rdghdgy)
+!-------------------------------------
+
+  subroutine compute_rho_dgrad_hdot_grad_Y(dx, &
+              lo, hi, DIMS(species), species, &
+              DIMS(h), h, DIMS(betax), betax, &
+              DIMS(betay), betay, DIMS(betaz), betaz,  &
+              DIMS(rdghdgy), rdghdgy) &
+               bind(C, name="compute_rho_dgrad_hdot_grad_y")
 
       implicit none
 
@@ -750,38 +768,41 @@ c     zhi
       dysqr = 1.0D0/dx(2)**2
       dzsqr = 1.0D0/dx(3)**2
 
-!$omp parallel do private(i,j,k,bdotxlo,bdotxhi,bdotylo)
-!$omp&private(bdotyhi,bdotzlo,bdotzhi)
       do k=lo(3),hi(3)
         do j=lo(2),hi(2)
           do i=lo(1),hi(1)
-            bdotxlo = betax(i,j,k  )*(h(i,j,k)-h(i-1,j,k))
-     &            *(species(i,j,k)-species(i-1,j,k))
-            bdotxhi = betax(i+1,j,k)*(h(i+1,j,k)-h(i,j,k))
-     &           *(species(i+1,j,k)-species(i,j,k))
-            bdotylo = betay(i,j,k  )*(h(i,j,k)-h(i,j-1,k))
-     &           *(species(i,j,k)-species(i,j-1,k))
-            bdotyhi = betay(i,j+1,k)*(h(i,j+1,k)-h(i,j,k))
-     &           *(species(i,j+1,k)-species(i,j,k))
-            bdotzlo = betaz(i,j,k  )*(h(i,j,k)-h(i,j,k-1))
-     &           *(species(i,j,k)-species(i,j,k-1))
-            bdotzhi = betaz(i,j,k+1)*(h(i,j,k+1)-h(i,j,k))
-     &           *(species(i,j,k+1)-species(i,j,k))
-            rdghdgy(i,j,k) =  half*((bdotxlo + bdotxhi)*dxsqr +
-     &                              (bdotylo + bdotyhi)*dysqr +
-     &                              (bdotzlo + bdotzhi)*dysqr)
+            bdotxlo = betax(i,j,k  )*(h(i,j,k)-h(i-1,j,k)) &
+                 *(species(i,j,k)-species(i-1,j,k))
+            bdotxhi = betax(i+1,j,k)*(h(i+1,j,k)-h(i,j,k)) &
+                *(species(i+1,j,k)-species(i,j,k))
+            bdotylo = betay(i,j,k  )*(h(i,j,k)-h(i,j-1,k)) &
+                *(species(i,j,k)-species(i,j-1,k))
+            bdotyhi = betay(i,j+1,k)*(h(i,j+1,k)-h(i,j,k)) &
+                *(species(i,j+1,k)-species(i,j,k))
+            bdotzlo = betaz(i,j,k  )*(h(i,j,k)-h(i,j,k-1)) &
+                *(species(i,j,k)-species(i,j,k-1))
+            bdotzhi = betaz(i,j,k+1)*(h(i,j,k+1)-h(i,j,k)) &
+                *(species(i,j,k+1)-species(i,j,k))
+            rdghdgy(i,j,k) =  half*((bdotxlo + bdotxhi)*dxsqr + &
+                                   (bdotylo + bdotyhi)*dysqr + &
+                                   (bdotzlo + bdotzhi)*dysqr)
           enddo
         enddo
       enddo
-!$omp end parallel do
 
-      end
+  end subroutine compute_rho_dgrad_hdot_grad_y
 
-      subroutine FORT_VELVISC(lo,hi,
-     &                        DIMS(T), T,
-     &                        DIMS(Y), Y,
-     &                        DIMS(mu), mu)
+!--------------------------------------------------------------
+
+  subroutine vel_visc (lo,hi, &
+                       DIMS(T), T, &
+                       DIMS(Y), Y,&
+                       DIMS(mu), mu) &
+                       bind(C, name="vel_visc")
+                                 
+      use chem_driver_3D, only: MIX_SHEAR_VISC
       implicit none
+      
 #include <visc.H>
 #include <cdwrk.H>
       integer lo(SDIM),hi(SDIM)
@@ -796,10 +817,9 @@ c     zhi
 
       if (.not.use_constant_mu) then
          if (.not. LeEQ1) then
-            call FORT_MIX_SHEAR_VISC(lo, hi, mu, DIMS(mu),
-     &                               T, DIMS(T), Y, DIMS(Y))       
+            call MIX_SHEAR_VISC(lo, hi, mu, DIMS(mu), &
+                                T, DIMS(T), Y, DIMS(Y))       
          else
-!$omp parallel do private(i,j,k)
             do k=lo(3), hi(3)
                do j=lo(2), hi(2)
                   do i=lo(1), hi(1)
@@ -807,7 +827,6 @@ c     zhi
                   end do
                end do
             end do
-!$omp end parallel do
          end if
       else
          do k=lo(3), hi(3)
@@ -818,18 +837,26 @@ c     zhi
             end do
          end do
       end if
-      end
+  end subroutine vel_visc 
 
-      subroutine FORT_SPECTEMPVISC(lo,hi,
-     &     DIMS(T), T,
-     &     DIMS(Y), Y,
-     &     DIMS(rhoD), rhoD,
-     &     ncompd, P1ATM_MKS, do_temp, do_VelVisc,
-     &     Pamb_in)
+!-------------------------------------------------
+
+  subroutine spec_temp_visc(lo,hi, &
+          DIMS(T), T, &
+          DIMS(Y), Y, &
+          DIMS(rhoD), rhoD, &
+          ncompd, P1ATM_MKS, do_temp, do_VelVisc, &
+          Pamb_in)&
+          bind(C, name="spec_temp_visc")
+       
+      use chem_driver_3D, only: MIXAVG_RHODIFF_TEMP, CPMIXfromTY 
+           
       implicit none
+      
 #include <cdwrk.H>
 #include <visc.H>
 #include <htdata.H>
+
       integer lo(SDIM),hi(SDIM)
       integer DIMDEC(T)
       integer DIMDEC(Y)
@@ -843,13 +870,13 @@ c     zhi
       integer i, j, k, n, nc, ncs
       REAL_T P1ATM_MKS, Patm
       REAL_T Yt(maxspec)
-      REAL_T cpmix, Tfac, Yfac
+      REAL_T cpmix(1,1), Tfac, Yfac
       integer lo_chem(SDIM),hi_chem(SDIM)
       data lo_chem /1,1,1/
       data hi_chem /1,1,1/
 
-c     Nspec+1 is Temp stuff, if requested
-c     Nspec+2 is Velocity stuff, if requested
+!     Nspec+1 is Temp stuff, if requested
+!     Nspec+2 is Velocity stuff, if requested
       nc = Nspec
       ncs = nc
       if (do_temp.eq.1) then
@@ -866,18 +893,17 @@ c     Nspec+2 is Velocity stuff, if requested
          call bl_pd_abort("if do_VelVisc, rhoD requires do_temp")
       endif
 
-c     Warning, FORT_VELVISC is called separately from this routine, so if there's
-c     any hacking to be done on viscosity, be sure to catch it there as well.
+!     Warning, FORT_VELVISC is called separately from this routine, so if there's
+!     any hacking to be done on viscosity, be sure to catch it there as well.
       Tfac = thickFacTR / Pr
       Yfac = thickFacTR / Sc
 
       if (.not.use_constant_rhoD) then
          if (.not. LeEQ1) then
             Patm = Pamb_in / P1ATM_MKS
-            call FORT_MIXAVG_RHODIFF_TEMP(lo, hi, rhoD, DIMS(rhoD),
-     &           T, DIMS(T), Y, DIMS(Y), Patm, do_temp, do_VelVisc)
+            call MIXAVG_RHODIFF_TEMP(lo, hi, rhoD, DIMS(rhoD), &
+                T, DIMS(T), Y, DIMS(Y), Patm, do_temp, do_VelVisc)
             if (thickFacTR.ne.1.d0) then
-!$omp parallel do private(i,j,k,n)
                do n=1,ncs
                   do k=lo(3), hi(3)
                      do j=lo(2), hi(2)
@@ -887,12 +913,10 @@ c     any hacking to be done on viscosity, be sure to catch it there as well.
                      end do
                   end do
                end do
-!$omp end parallel do
             endif
          else
-            call FORT_VELVISC(lo,hi,DIMS(T),T,DIMS(Y),Y,
-     &           DIMS(rhoD),rhoD)
-!$omp parallel do private(i,j,k,n)
+            call vel_visc(lo,hi,DIMS(T),T,DIMS(Y),Y, &
+                DIMS(rhoD),rhoD)
             do k=lo(3), hi(3)
                do j=lo(2), hi(2)
                   do i=lo(1), hi(1)
@@ -903,9 +927,7 @@ c     any hacking to be done on viscosity, be sure to catch it there as well.
                   end do
                end do
             end do
-!$omp end parallel do
 
-!$omp parallel do private(i,j,k,n)
             do n=2,Nspec
                do k=lo(3), hi(3)
                   do j=lo(2), hi(2)
@@ -915,7 +937,6 @@ c     any hacking to be done on viscosity, be sure to catch it there as well.
                   end do
                end do
             end do
-!$omp end parallel do
 
             if (do_temp .ne. 0) then
                do k=lo(3), hi(3)
@@ -924,11 +945,11 @@ c     any hacking to be done on viscosity, be sure to catch it there as well.
                         do n=1,Nspec
                            Yt(n) = Y(i,j,k,n)
                         end do
-                        CALL FORT_CPMIXfromTY(lo_chem, hi_chem, 
-     &                       cpmix,  ARLIM(lo_chem), ARLIM(hi_chem),
-     &                       T(i,j,k), ARLIM(lo_chem), ARLIM(hi_chem),
-     &                       Yt,     ARLIM(lo_chem), ARLIM(hi_chem))
-                        rhoD(i,j,k,Nspec+1) = rhoD(i,j,k,Nspec+1)*cpmix*Tfac
+                        CALL CPMIXfromTY(lo_chem, hi_chem, &
+                            cpmix,  ARLIM(lo_chem), ARLIM(hi_chem), &
+                            T(i,j,k), ARLIM(lo_chem), ARLIM(hi_chem), &
+                            Yt,     ARLIM(lo_chem), ARLIM(hi_chem))
+                        rhoD(i,j,k,Nspec+1) = rhoD(i,j,k,Nspec+1)*cpmix(1,1)*Tfac
                      end do
                   end do
                end do
@@ -945,16 +966,20 @@ c     any hacking to be done on viscosity, be sure to catch it there as well.
             end do
          end do
       end if
-      end
+      
+  end subroutine spec_temp_visc
 
-      subroutine FORT_EST_DIVU_DT(flag, dtfactor, delta, divu, DIMS(divu), 
-     &                           dsdt, rho, DIMS(rho), 
-     &                           u, DIMS(u), 
-     &                           volume, DIMS(volume), 
-     &                           areax,  DIMS(areax),
-     &                           areay,  DIMS(areay),
-     &                           areaz,  DIMS(areaz),
-     &                           lo, hi, dt, rhomin)
+!-------------------------------------------
+
+  subroutine est_divu_dt(flag, dtfactor, delta, divu, DIMS(divu), &
+                         dsdt, DIMS(dsdt), rho, DIMS(rho),  &
+                         u, DIMS(u), &
+                         volume, DIMS(volume), &
+                         areax,  DIMS(areax), &
+                         areay,  DIMS(areay), &
+                         areaz,  DIMS(areaz), &
+                         lo, hi, dt, rhomin) &
+                         bind(C, name="est_divu_dt")
 
       implicit none
 
@@ -964,11 +989,12 @@ c     any hacking to be done on viscosity, be sure to catch it there as well.
       integer DIMDEC(divu)
       integer DIMDEC(rho)
       integer DIMDEC(u)
+      integer DIMDEC(dsdt)
       REAL_T  rho(DIMV(rho))      
       REAL_T  u(DIMV(u),BL_SPACEDIM)      
       REAL_T  rhomin, dtfactor
       REAL_T  divu(DIMV(divu))
-      REAL_T  dsdt(DIMV(divu))
+      REAL_T  dsdt(DIMV(dsdt))
 
       integer DIMDEC(volume)
       integer DIMDEC(areax)
@@ -988,9 +1014,6 @@ c     any hacking to be done on viscosity, be sure to catch it there as well.
 
       dt = 1.0D20
 
-!$omp parallel do reduction(min : dt) private(i,j,k,a,b,c)
-!$omp&private(dtcell,dtcell2,denom,rhominij,rhoij)
-!$omp&private(fluxxlo,fluxxhi,fluxylo,fluxyhi,fluxzlo,fluxzhi)
       do k=lo(3),hi(3)
          do j=lo(2),hi(2)
             do i=lo(1),hi(1)
@@ -1009,10 +1032,10 @@ c     any hacking to be done on viscosity, be sure to catch it there as well.
                            rhominij = 0.9D0*abs(rho(i,j,k)) 
                         endif
                         rhoij = abs(rho(i,j,k))
-c
-c     ... note: (-b+sqrt(b^2-4ac))/2a = 2c/(-b-sqrt(b^2-4ac))
-c     We use the latter because it is more robust
-c
+!
+!     ... note: (-b+sqrt(b^2-4ac))/2a = 2c/(-b-sqrt(b^2-4ac))
+!     We use the latter because it is more robust
+!
                         a = rhoij*dsdt(i,j,k)*half
                         b = rhoij*divu(i,j,k)
                         c = rhominij - rhoij
@@ -1026,10 +1049,10 @@ c
                      write(6,*)'aha'
                   endif
                else if (flag.eq.2) then
-                  denom = rho(i,j,k)*divu(i,j,k)+
-     &                 u(i,j,k,1)*(rho(i+1,j,k)-rho(i-1,j,k))/delta(1) +
-     &                 u(i,j,k,2)*(rho(i,j+1,k)-rho(i,j-1,k))/delta(2) +
-     &                 u(i,j,k,3)*(rho(i,j,k+1)-rho(i,j,k-1))/delta(3)
+                  denom = rho(i,j,k)*divu(i,j,k)+ &
+                      u(i,j,k,1)*(rho(i+1,j,k)-rho(i-1,j,k))/delta(1) + &
+                      u(i,j,k,2)*(rho(i,j+1,k)-rho(i,j-1,k))/delta(2) + &
+                      u(i,j,k,3)*(rho(i,j,k+1)-rho(i,j,k-1))/delta(3)
                   if(denom.gt.zero)then
                      if(rho(i,j,k).gt.rhomin) then
                         dtcell = dtfactor*(rho(i,j,k)-rhomin)/denom
@@ -1038,22 +1061,22 @@ c
                      endif
                   endif
                else if (flag.eq.3) then
-                  fluxxlo = fourth*(rho(i,j,k)+rho(i-1,j,k))
-     &                              *(u(i,j,k,1)+u(i-1,j,k,1))
-                  fluxxhi = fourth*(rho(i,j,k)+rho(i+1,j,k))
-     &                              *(u(i,j,k,1)+u(i+1,j,k,1))
-                  fluxylo = fourth*(rho(i,j,k)+rho(i,j-1,k))
-     &                              *(u(i,j,k,2)+u(i,j-1,k,2))
-                  fluxyhi = fourth*(rho(i,j,k)+rho(i,j+1,k))
-     &                              *(u(i,j,k,2)+u(i,j+1,k,2))
-                  fluxzhi = fourth*(rho(i,j,k)+rho(i,j,k-1))
-     &                              *(u(i,j,k,3)+u(i,j,k-1,3))
-                  fluxzlo = fourth*(rho(i,j,k)+rho(i,j,k+1))
-     &                              *(u(i,j,k,3)+u(i,j,k+1,3))
-                  denom = ((areax(i+1,j,k)*fluxxhi-areax(i,j,k)*fluxxlo)+
-     &                     (areay(i,j+1,k)*fluxyhi-areay(i,j,k)*fluxylo)+
-     &                     (areaz(i,j,k+1)*fluxzhi-areaz(i,j,k)*fluxzlo))
-     &                      /volume(i,j,k)
+                  fluxxlo = fourth*(rho(i,j,k)+rho(i-1,j,k)) &
+                                   *(u(i,j,k,1)+u(i-1,j,k,1))
+                  fluxxhi = fourth*(rho(i,j,k)+rho(i+1,j,k)) &
+                                   *(u(i,j,k,1)+u(i+1,j,k,1))
+                  fluxylo = fourth*(rho(i,j,k)+rho(i,j-1,k)) &
+                                   *(u(i,j,k,2)+u(i,j-1,k,2))
+                  fluxyhi = fourth*(rho(i,j,k)+rho(i,j+1,k)) &
+                                   *(u(i,j,k,2)+u(i,j+1,k,2))
+                  fluxzhi = fourth*(rho(i,j,k)+rho(i,j,k-1))  &
+                                   *(u(i,j,k,3)+u(i,j,k-1,3))
+                  fluxzlo = fourth*(rho(i,j,k)+rho(i,j,k+1)) &
+                                   *(u(i,j,k,3)+u(i,j,k+1,3))
+                  denom = ((areax(i+1,j,k)*fluxxhi-areax(i,j,k)*fluxxlo)+ &
+                          (areay(i,j+1,k)*fluxyhi-areay(i,j,k)*fluxylo)+ &
+                          (areaz(i,j,k+1)*fluxzhi-areaz(i,j,k)*fluxzlo)) &
+                           /volume(i,j,k)
                   
                   if(denom.gt.zero)then
                      if(rho(i,j,k).gt.rhomin) then
@@ -1070,19 +1093,21 @@ c
             enddo
          enddo
       enddo
-!$omp end parallel do
 
-      end
+  end subroutine est_divu_dt
 
-      subroutine FORT_CHECK_DIVU_DT(flag, dtfactor, delta, divu, DIMS(divu), 
-     &                           dsdt, rho, DIMS(rho), 
-     &                           u, DIMS(u), 
-     &                           volume, DIMS(volume), 
-     &                           areax,  DIMS(areax),
-     &                           areay,  DIMS(areay),
-     &                           areaz,  DIMS(areaz),
-     &                           lo, hi,
-     &                           dt, rhomin)
+!---------------------------------------------------------------
+
+  subroutine check_divu_dt(flag, dtfactor, delta, divu, DIMS(divu), &
+                           dsdt, rho, DIMS(rho),  &
+                           u, DIMS(u),  &
+                           volume, DIMS(volume), &
+                           areax,  DIMS(areax), &
+                           areay,  DIMS(areay), &
+                           areaz,  DIMS(areaz), &
+                           lo, hi, &
+                           dt, rhomin) &
+                           bind(C, name="check_divu_dt")
 
       implicit none
 
@@ -1113,9 +1138,6 @@ c
       REAL_T  fluxxlo,fluxxhi,fluxylo,fluxyhi,fluxzlo,fluxzhi
       REAL_T  a,b,c,dtcell2,rhominij,rhoij
 
-!$omp parallel do private(i,j,k,a,b,c)
-!$omp&private(dtcell,dtcell2,denom,rhominij,rhoij)
-!$omp&private(fluxxlo,fluxxhi,fluxylo,fluxyhi,fluxzlo,fluxzhi)
       do k=lo(3),hi(3)
          do j=lo(2),hi(2)
             do i=lo(1),hi(1)
@@ -1134,10 +1156,10 @@ c
                            rhominij = 0.9D0*abs(rho(i,j,k)) 
                         endif
                         rhoij = abs(rho(i,j,k))
-c
-c     ... note: (-b+sqrt(b^2-4ac))/2a = 2c/(-b-sqrt(b^2-4ac))
-c     We use the latter because it is more robust
-c
+!
+!     ... note: (-b+sqrt(b^2-4ac))/2a = 2c/(-b-sqrt(b^2-4ac))
+!     We use the latter because it is more robust
+!
                         a = rhoij*dsdt(i,j,k)*half
                         b = rhoij*divu(i,j,k)
                         c = rhominij - rhoij
@@ -1147,10 +1169,10 @@ c
                      endif
                   endif
                else if (flag.eq.2) then
-                  denom = rho(i,j,k)*divu(i,j,k)+
-     &                 u(i,j,k,1)*(rho(i+1,j,k)-rho(i-1,j,k))/delta(1) +
-     &                 u(i,j,k,2)*(rho(i,j+1,k)-rho(i,j-1,k))/delta(2) +
-     &                 u(i,j,k,3)*(rho(i,j,k+1)-rho(i,j,k-1))/delta(3)
+                  denom = rho(i,j,k)*divu(i,j,k)+ &
+                      u(i,j,k,1)*(rho(i+1,j,k)-rho(i-1,j,k))/delta(1) + &
+                      u(i,j,k,2)*(rho(i,j+1,k)-rho(i,j-1,k))/delta(2) + &
+                      u(i,j,k,3)*(rho(i,j,k+1)-rho(i,j,k-1))/delta(3)
                   if(denom.gt.zero)then
                      if(rho(i,j,k).gt.rhomin) then
                         dtcell = (rho(i,j,k)-rhomin)/denom
@@ -1159,22 +1181,22 @@ c
                      endif
                   endif
                else if (flag.eq.3) then
-                  fluxxlo = fourth*(rho(i,j,k)+rho(i-1,j,k))
-     &                              *(u(i,j,k,1)+u(i-1,j,k,1))
-                  fluxxhi = fourth*(rho(i,j,k)+rho(i+1,j,k))
-     &                              *(u(i,j,k,1)+u(i+1,j,k,1))
-                  fluxylo = fourth*(rho(i,j,k)+rho(i,j-1,k))
-     &                              *(u(i,j,k,2)+u(i,j-1,k,2))
-                  fluxyhi = fourth*(rho(i,j,k)+rho(i,j+1,k))
-     &                              *(u(i,j,k,2)+u(i,j+1,k,2))
-                  fluxzlo = fourth*(rho(i,j,k)+rho(i,j,k-1))
-     &                              *(u(i,j,k,3)+u(i,j,k-1,3))
-                  fluxzhi = fourth*(rho(i,j,k)+rho(i,j,k+1))
-     &                              *(u(i,j,k,3)+u(i,j,k+1,3))
-                  denom = ((areax(i+1,j,k)*fluxxhi-areax(i,j,k)*fluxxlo)+
-     &                     (areay(i,j+1,k)*fluxyhi-areay(i,j,k)*fluxylo)+
-     &                     (areaz(i,j,k+1)*fluxzhi-areaz(i,j,k)*fluxzlo))
-     &                      /volume(i,j,k)
+                  fluxxlo = fourth*(rho(i,j,k)+rho(i-1,j,k)) &
+                                   *(u(i,j,k,1)+u(i-1,j,k,1))
+                  fluxxhi = fourth*(rho(i,j,k)+rho(i+1,j,k)) &
+                                   *(u(i,j,k,1)+u(i+1,j,k,1))
+                  fluxylo = fourth*(rho(i,j,k)+rho(i,j-1,k)) &
+                                   *(u(i,j,k,2)+u(i,j-1,k,2))
+                  fluxyhi = fourth*(rho(i,j,k)+rho(i,j+1,k)) &
+                                   *(u(i,j,k,2)+u(i,j+1,k,2))
+                  fluxzlo = fourth*(rho(i,j,k)+rho(i,j,k-1)) &
+                                   *(u(i,j,k,3)+u(i,j,k-1,3))
+                  fluxzhi = fourth*(rho(i,j,k)+rho(i,j,k+1)) &
+                                   *(u(i,j,k,3)+u(i,j,k+1,3))
+                  denom = ((areax(i+1,j,k)*fluxxhi-areax(i,j,k)*fluxxlo)+ &
+                          (areay(i,j+1,k)*fluxyhi-areay(i,j,k)*fluxylo)+ &
+                          (areaz(i,j,k+1)*fluxzhi-areaz(i,j,k)*fluxzlo)) &
+                           /volume(i,j,k)
                   if(denom.gt.zero)then
                      if(rho(i,j,k).gt.rhomin) then
                         dtcell = (rho(i,j,k)-rhomin)/denom
@@ -1184,30 +1206,29 @@ c
                   endif
                endif
                if (dt.gt.dtcell) then
-                  write(6,*)'ERROR: FORT_CHECK_DIVU_DT : i,j,k,dt>dtcell = ',
-     &                 i,j,k,dt,dtcell
+                  write(6,*)'ERROR: FORT_CHECK_DIVU_DT : i,j,k,dt>dtcell = ', &
+                      i,j,k,dt,dtcell
                else if (dt.gt.dtcell*dtfactor) then
-                  write(6,*)'WARNING: FORT_CHECK_DIVU_DT : i,j,k,dt>dtcell*dtfactor = ',
-     &                 i,j,k,dt,dtcell*dtfactor
+                  write(6,*)'WARNING: FORT_CHECK_DIVU_DT : i,j,k,dt>dtcell*dtfactor = ', &
+                      i,j,k,dt,dtcell*dtfactor
                endif
             enddo
          enddo
       enddo
-!$omp end parallel do
 
-      end
+  end subroutine check_divu_dt
 
-c===================================================================
+!===================================================================
+!
+! ... The routines YDOTFILL, DIVUFILL, DQRADFILL, and DSDTFILL
+!     are here instead of in the problem dependent code because
+!     we always fill the quantitities ydot, divu, dqrad, and dsdt
+!     the same way
+!
+!===================================================================
 
-c ... The routines YDOTFILL, DIVUFILL, DQRADFILL, and DSDTFILL
-c     are here instead of in the problem dependent code because
-c     we always fill the quantitities ydot, divu, dqrad, and dsdt
-c     the same way
-
-c===================================================================
-
-      subroutine FORT_DQRADFILL (dqrad,DIMS(dqrad),domlo,domhi,delta,
-     &                         xlo,time,bc )
+  subroutine dqrad_fill  (dqrad,DIMS(dqrad),domlo,domhi,delta, &
+                          xlo,time,bc )bind(C, name="dqrad_fill")
 
       integer    DIMDEC(dqrad)
       integer    bc(SDIM,2)
@@ -1217,10 +1238,13 @@ c===================================================================
 
       call filcc (dqrad,DIMS(dqrad),domlo,domhi,delta,xlo,bc)
       call fillEdges(dqrad,DIMS(dqrad),domlo,domhi,bc)
-      end
+      
+  end subroutine dqrad_fill
 
-      subroutine FORT_DIVUFILL (divu,DIMS(divu),domlo,domhi,delta,
-     &                        xlo,time,bc )
+!--------------------------------------------------
+
+  subroutine divu_fill  (divu,DIMS(divu),domlo,domhi,delta, &
+                         xlo,time,bc )bind(C, name="divu_fill")
 
       integer    DIMDEC(divu)
       integer    bc(SDIM,2)
@@ -1232,10 +1256,12 @@ c===================================================================
 
       call fillEdges(divu,DIMS(divu),domlo,domhi,bc)
 
-      end
+  end subroutine divu_fill
 
-      subroutine FORT_DSDTFILL (dsdt,DIMS(dsdt),domlo,domhi,delta,
-     &                         xlo,time,bc )
+!--------------------------------------------
+
+  subroutine dsdt_fill (dsdt,DIMS(dsdt),domlo,domhi,delta, &
+                        xlo,time,bc )bind(C, name="dsdt_fill")
 
       integer    DIMDEC(dsdt)
       integer    bc(SDIM,2)
@@ -1247,10 +1273,12 @@ c===================================================================
 
       call fillWithZeros(dsdt,DIMS(dsdt),domlo,domhi,bc)
 
-      end
+  end subroutine dsdt_fill
 
-      subroutine FORT_YDOTFILL (ydot,DIMS(ydot),domlo,domhi,delta,
-     &                          xlo,time,bc)
+!--------------------------------------
+
+  subroutine ydot_fill (ydot,DIMS(ydot),domlo,domhi,delta, &
+                        xlo,time,bc)bind(C, name="ydot_fill")
 
       integer    DIMDEC(ydot), bc(SDIM,2)
       integer    domlo(SDIM), domhi(SDIM)
@@ -1261,10 +1289,12 @@ c===================================================================
 
       call fillWithZeros(ydot,DIMS(ydot),domlo,domhi,bc)
 
-      end
+  end subroutine ydot_fill
 
-      subroutine FORT_RHOYDOTFILL (rhoydot,DIMS(rhoydot),domlo,domhi,delta,
-     &                             xlo,time,bc)
+!-------------------------------------------
+
+  subroutine rhoYdot_fill (rhoydot,DIMS(rhoydot),domlo,domhi,delta, &
+                           xlo,time,bc)bind(C, name="rhoYdot_fill")
 
       integer    DIMDEC(rhoydot), bc(SDIM,2)
       integer    domlo(SDIM), domhi(SDIM)
@@ -1275,11 +1305,15 @@ c===================================================================
 
       call fillWithZeros(rhoydot,DIMS(rhoydot),domlo,domhi,bc)
 
-      end
+  end subroutine rhoYdot_fill
 
-      subroutine FORT_FABMINMAX(lo, hi, 
-     &                          fab, DIMS(fab),
-     &                          fmin, fmax, nc)
+!------------------------------------------------
+
+  subroutine fab_minmax(lo, hi, &
+                        fab, DIMS(fab), &
+                        fmin, fmax, nc) &
+                        bind(C, name="fab_minmax")
+                        
       integer lo(SDIM), hi(SDIM), nc
       integer DIMDEC(fab)
       REAL_T  fab(DIMV(fab),nc)
@@ -1287,9 +1321,8 @@ c===================================================================
 
       integer i,j,k,n
 
-!$omp parallel private(i,j,k,n)
+
       do n = 1,nc
-!$omp do
          do k=lo(3),hi(3)
             do j = lo(2), hi(2)
                do i = lo(1), hi(1)
@@ -1297,14 +1330,17 @@ c===================================================================
                end do
             end do
          end do
-!$omp end do nowait
       end do
-!$omp end parallel
-      end
 
-      subroutine FORT_REPAIR_FLUX(lo, hi, dlo, dhi,
-     &                            flux, DIMS(flux),
-     &                            RhoY, DIMS(RhoY), dir, Ybc)
+  end subroutine fab_minmax
+
+!--------------------------------------------------
+
+  subroutine repair_flux (lo, hi, dlo, dhi, &
+                          flux, DIMS(flux), &
+                          RhoY, DIMS(RhoY), dir, Ybc)&
+                          bind(C, name="repair_flux")
+                          
       implicit none
 
 #include <cdwrk.H>
@@ -1320,12 +1356,11 @@ c===================================================================
 
       if (dir.eq.0) then
 
-c     First, assume away from physical boundaries, then use boundary-aware version below if applicable
+!     First, assume away from physical boundaries, then use boundary-aware version below if applicable
 
-!$omp parallel do private(i,j,k,n,sumFlux,RhoYe,sumRhoYe)
          do k = lo(3),hi(3)
             do j = lo(2),hi(2)
-               do i = lo(1),hi(1)+1
+               do i = lo(1),hi(1)
                   sumFlux = 0.d0
                   sumRhoYe = 0.d0
                   do n=1,Nspec
@@ -1340,9 +1375,8 @@ c     First, assume away from physical boundaries, then use boundary-aware versi
                end do
             end do
          end do
-!$omp end parallel do
-c     xlo
-         if (Ybc(1,1).eq.EXT_DIR) then
+!     xlo
+         if (Ybc(1,1).eq.EXT_DIR.and.lo(1).le.dlo(1)) then
             do i = lo(1),dlo(1)
                do k = lo(3),hi(3)
                   do j = lo(2),hi(2)
@@ -1360,9 +1394,9 @@ c     xlo
                enddo
             enddo
          endif
-c     xhi
-         if (Ybc(1,2).eq.EXT_DIR) then
-            do i = dhi(1)+1,hi(1)+1
+!     xhi
+         if (Ybc(1,2).eq.EXT_DIR.and.hi(1).ge.dhi(1)) then
+            do i = dhi(1),hi(1)
                do k = lo(3),hi(3)
                   do j = lo(2),hi(2)
                      sumFlux = 0.d0
@@ -1382,11 +1416,10 @@ c     xhi
 
       else if (dir.eq.1) then
 
-c     First, assume away from physical boundaries, then replace with boundary-aware version below if applicable
+!     First, assume away from physical boundaries, then replace with boundary-aware version below if applicable
 
-!$omp parallel do private(i,j,k,n,sumFlux,RhoYe,sumRhoYe)
          do k = lo(3),hi(3)
-            do j = lo(2),hi(2)+1
+            do j = lo(2),hi(2)
                do i = lo(1),hi(1)
                   sumFlux = 0.d0
                   sumRhoYe = 0.d0
@@ -1402,9 +1435,8 @@ c     First, assume away from physical boundaries, then replace with boundary-aw
                end do
             end do
          end do
-!$omp end parallel do
-c     ylo
-         if (Ybc(2,1).eq.EXT_DIR) then
+!     ylo
+         if (Ybc(2,1).eq.EXT_DIR.and.lo(2).le.dlo(2)) then
             do j = lo(2),dlo(2)
                do k = lo(3),hi(3)
                   do i = lo(1),hi(1)
@@ -1422,9 +1454,9 @@ c     ylo
                enddo
             enddo
          endif
-c     yhi
-         if (Ybc(2,2).eq.EXT_DIR) then
-            do j = dhi(2)+1,hi(2)+1
+!     yhi
+         if (Ybc(2,2).eq.EXT_DIR.and.hi(2).ge.dhi(2)) then
+            do j = dhi(2),hi(2)
                do k = lo(3),hi(3)
                   do i = lo(1),hi(1)
                      sumFlux = 0.d0
@@ -1444,9 +1476,8 @@ c     yhi
 
       else if (dir.eq.2) then
 
-c     First, assume away from physical boundaries, then replace with boundary-aware version below if applicable
-!$omp parallel do private(i,j,k,n,sumFlux,RhoYe,sumRhoYe)
-         do k = lo(3),hi(3)+1
+!     First, assume away from physical boundaries, then replace with boundary-aware version below if applicable
+         do k = lo(3),hi(3)
             do j = lo(2),hi(2)
                do i = lo(1),hi(1)
                   sumFlux = 0.d0
@@ -1463,9 +1494,8 @@ c     First, assume away from physical boundaries, then replace with boundary-aw
                end do
             end do
          end do
-!$omp end parallel do
-c     zlo
-         if (Ybc(3,1).eq.EXT_DIR) then
+!     zlo
+         if (Ybc(3,1).eq.EXT_DIR.and.lo(3).le.dlo(3)) then
             do k = lo(3),dlo(3)
                do j = lo(2),hi(2)
                   do i = lo(1),hi(1)
@@ -1483,9 +1513,9 @@ c     zlo
                enddo
             enddo
          endif
-c     yzi
-         if (Ybc(3,2).eq.EXT_DIR) then
-            do k = dhi(3)+1,hi(3)+1
+!     yzi
+         if (Ybc(3,2).eq.EXT_DIR.and.hi(3).ge.dhi(3)) then
+            do k = dhi(3),hi(3)
                do j = lo(2),hi(2)
                   do i = lo(1),hi(1)
                      sumFlux = 0.d0
@@ -1504,16 +1534,21 @@ c     yzi
          endif
 
       endif
-      end
+      
+  end subroutine repair_flux
 
-      subroutine  FORT_INCRWEXTFLXDIV(lo, hi,
-     &                                xflux,  DIMS(xflux),
-     &                                yflux,  DIMS(yflux),
-     &                                zflux,  DIMS(zflux),
-     &                                stateo, DIMS(stateo),
-     &                                staten, DIMS(staten),
-     &                                vol,    DIMS(vol),
-     &                                nc, dt)
+!-----------------------------------------
+
+  subroutine incrwext_flx_div(lo, hi, &
+                              xflux,  DIMS(xflux), &
+                              yflux,  DIMS(yflux), &
+                              zflux,  DIMS(zflux), &
+                              stateo, DIMS(stateo), &
+                              staten, DIMS(staten), &
+                              vol,    DIMS(vol), &
+                              nc, dt) &
+                              bind(C, name="incrwext_flx_div")
+                              
       implicit none
       integer lo(SDIM), hi(SDIM), nc
       integer DIMDEC(xflux)
@@ -1533,30 +1568,34 @@ c     yzi
       integer i, j, k, n
       REAL_T dF
 
-!$omp parallel do private(i,j,k,n,dF)
       do k=lo(3),hi(3)
          do j=lo(2),hi(2)
             do i=lo(1),hi(1)
                dF = zero
                do n=1,nc
-                  dF = dF + ( xflux(i+1,j,k,n) - xflux(i,j,k,n) )
-     &                 +    ( yflux(i,j+1,k,n) - yflux(i,j,k,n) )
-     &                 +    ( zflux(i,j,k+1,n) - zflux(i,j,k,n) )
+                  dF = dF + ( xflux(i+1,j,k,n) - xflux(i,j,k,n) ) &
+                      +    ( yflux(i,j+1,k,n) - yflux(i,j,k,n) ) &
+                      +    ( zflux(i,j,k+1,n) - zflux(i,j,k,n) )
                end do
                staten(i,j,k) = stateo(i,j,k) + dF*dt/vol(i,j,k)
             end do
          end do
       end do
-!$omp end parallel do
-      end
 
-      subroutine  FORT_FLUXDIV(lo, hi,
-     &                         update, DIMS(update),
-     &                         xflux,  DIMS(xflux),
-     &                         yflux,  DIMS(yflux),
-     &                         zflux,  DIMS(zflux),
-     &                         vol,    DIMS(vol),
-     &                         nc, scal)
+  end subroutine incrwext_flx_div
+
+!----------------------------------------------
+
+  subroutine flux_div (lo, hi, &
+                       update, DIMS(update), &
+                       xflux,  DIMS(xflux), &
+                       yflux,  DIMS(yflux), &
+                       zflux,  DIMS(zflux), &
+                       vol,    DIMS(vol), &
+                       nc, scal) &
+                       bind(C, name="flux_div")
+     
+     
       implicit none
       integer lo(SDIM), hi(SDIM), nc
       integer DIMDEC(update)
@@ -1576,9 +1615,6 @@ c     yzi
 
       allocate(ivol(lo(1):hi(1),lo(2):hi(2),lo(3):hi(3)))
 
-!$omp parallel private(i,j,k,n)
-
-!$omp do
       do k=lo(3),hi(3)
          do j=lo(2),hi(2)
             do i=lo(1),hi(1)
@@ -1586,30 +1622,28 @@ c     yzi
             end do
          end do
       end do
-!$omp end do
 
       do n=1,nc
-!$omp do
          do k=lo(3),hi(3)
             do j=lo(2),hi(2)
                do i=lo(1),hi(1)
-                  update(i,j,k,n) = 
-     &                 ( (xflux(i+1,j,k,n)-xflux(i,j,k,n))
-     &                 + (yflux(i,j+1,k,n)-yflux(i,j,k,n)) 
-     &                 + (zflux(i,j,k+1,n)-zflux(i,j,k,n)) ) * ivol(i,j,k)
+                  update(i,j,k,n) = &
+                      ( (xflux(i+1,j,k,n)-xflux(i,j,k,n)) &
+                      + (yflux(i,j+1,k,n)-yflux(i,j,k,n))  &
+                      + (zflux(i,j,k+1,n)-zflux(i,j,k,n)) ) * ivol(i,j,k)
                end do
             end do
          end do
-!$omp end do nowait
       end do
 
-!$omp end parallel
+  end subroutine flux_div
 
-      end
-
-      subroutine fillEdges(dat,DIMS(dat),domlo,domhi,bc )
-c  This routine fills ghost cells with the value from the nearest
-c  interior cell.  
+!-----------------------------------------  
+  
+  subroutine fillEdges(dat,DIMS(dat),domlo,domhi,bc )bind(C, name="fillEdges")
+      
+!  This routine fills ghost cells with the value from the nearest
+!  interior cell.  
       integer    DIMDEC(dat)
       integer    bc(SDIM,2)
       integer    domlo(SDIM), domhi(SDIM)
@@ -2132,10 +2166,14 @@ c  interior cell.
                enddo
             enddo
          endif
-      endif            
-      end
+      endif
+      
+  end subroutine fillEdges
 
-      subroutine fillWithZeros(dat,DIMS(dat),domlo,domhi,bc)
+!-----------------------------------------  
+  
+  subroutine fillWithZeros(dat,DIMS(dat),domlo,domhi,bc)&
+                           bind(C, name="fillWithZeros")
 
       integer    DIMDEC(dat)
       integer    bc(SDIM,2)
@@ -2210,14 +2248,18 @@ c  interior cell.
                enddo
             enddo
          enddo
-      endif            
-      end
+      endif
+      
+  end subroutine fillWithZeros
 
-      subroutine  FORT_COMPUTE_UGRADP(p, DIMS(p), ugradp, DIMS(ugp),
-     &                                umac,  DIMS(umac),
-     &                                vmac,  DIMS(vmac),
-     &                                wmac,  DIMS(wmac),
-     &                                lo, hi, dx)
+!-----------------------------------------
+
+  subroutine compute_ugradp(p, DIMS(p), ugradp, DIMS(ugp), &
+                            umac,  DIMS(umac), &
+                            vmac,  DIMS(vmac), &
+                            wmac,  DIMS(wmac), &
+                            lo, hi, dx)&
+                            bind(C, name="compute_ugradp")
 
       implicit none
       integer lo(SDIM), hi(SDIM)
@@ -2239,8 +2281,6 @@ c  interior cell.
       REAL_T p_y_lo, p_y_hi
       REAL_T p_z_lo, p_z_hi
 
-!$omp parallel do private(i,j,k,uadv,vadv,wadv)
-!$omp&private(p_x_lo,p_x_hi,p_y_lo,p_y_hi,p_z_lo,p_z_hi)
       do k=lo(3),hi(3)
          do j=lo(2),hi(2)
             do i=lo(1),hi(1)
@@ -2253,20 +2293,23 @@ c  interior cell.
                p_y_lo = merge(p(i,j-1,k),p(i,j  ,k),vmac(i,j  ,k)>=zero)
                p_z_hi = merge(p(i,j,k  ),p(i,j,k+1),wmac(i,j,k+1)>=zero)
                p_z_lo = merge(p(i,j,k-1),p(i,j,k  ),wmac(i,j,k  )>=zero)
-               ugradp(i,j,k) = uadv * (p_x_hi - p_x_lo) / dx(1) +
-     &              vadv * (p_y_hi - p_y_lo) / dx(2) +    
-     &              wadv * (p_z_hi - p_z_lo) / dx(3)
+               ugradp(i,j,k) = uadv * (p_x_hi - p_x_lo) / dx(1) + &
+                   vadv * (p_y_hi - p_y_lo) / dx(2) +    &
+                   wadv * (p_z_hi - p_z_lo) / dx(3)
             end do
          end do
       end do
-!$omp end parallel do
 
-      end
+  end subroutine compute_ugradp
 
-      integer function FORT_CONSERVATIVE_T_FLOOR(
-     &     loF,hiF,state,DIMS(state),
-     &     min_T, Tcomp, Rcomp, first_spec, last_spec, RhoH,
-     &     ratio, tmp, nt)
+!------------------------------------------------
+
+  integer function conservative_T_floor ( &
+              loF,hiF,state,DIMS(state), &
+              min_T, Tcomp, Rcomp, first_spec, last_spec, RhoH, &
+              ratio, tmp, nt) &
+              bind(C, name="conservative_T_floor")
+              
       implicit none
 
       integer loF(SDIM), hiF(SDIM)
@@ -2278,8 +2321,8 @@ c  interior cell.
       Real ncellsInv
       logical bad_T
 
-c     Returns the number of fine cells fixed up
-      FORT_CONSERVATIVE_T_FLOOR = 0
+!     Returns the number of fine cells fixed up
+      conservative_T_floor = 0
 
       ncells = 1
       do n=1,SDIM
@@ -2333,7 +2376,7 @@ c     Returns the number of fine cells fixed up
                      enddo
                   enddo
 
-                  FORT_CONSERVATIVE_T_FLOOR = FORT_CONSERVATIVE_T_FLOOR + ncells
+                  conservative_T_floor = conservative_T_floor + ncells
                   tmp(Rcomp) = tmp(Rcomp) * ncellsInv
                   do n=first_spec,last_spec
                      tmp(n) = tmp(n) * ncellsInv
@@ -2363,13 +2406,20 @@ c     Returns the number of fine cells fixed up
             enddo
          enddo
       enddo
-      end
+      
+  end function conservative_T_floor
 
-      subroutine FORT_HTDDRELAX(lo, hi, S, DIMS(S), yc, Tc, hc, rc,
-     &     L, DIMS(L), a, DIMS(a), R, DIMS(R), thetaDt, fac, maxRes, maxCor,
-     &     for_T0_H1, res_only, mult)
+!-----------------------------------------
+
+  subroutine htdd_relax(lo, hi, S, DIMS(S), yc, Tc, hc, rc, &
+          L, DIMS(L), a, DIMS(a), R, DIMS(R), thetaDt, fac, maxRes, maxCor, &
+          for_T0_H1, res_only, mult) &
+          bind(C, name="htdd_relax")
+                   
       implicit none
-#include <cdwrk.H>      
+      
+#include <cdwrk.H>
+
       integer lo(SDIM), hi(SDIM), yc, Tc, hc, rc
       integer DIMDEC(S)
       integer DIMDEC(L)
@@ -2388,16 +2438,16 @@ c     Returns the number of fine cells fixed up
       REAL_T, allocatable :: tfab(:,:,:)
 #endif
 
-c
-c     Helper function to compute:
-c     (a) dR = Rhs + (rho.phi - theta.dt.Lphi)
-c     (b) Res = Rhs - A(S) = Rhs - (rho.phi - theta.dt.Lphi) for RhoH
-c         or  Res = Rhs - (phi - theta.dt.Lphi) for Temp
-c               and then relax: phi = phi + Res/alpha
-c     -- note that if for Temp both Lphi and alpha have been scaled by (1/rho.Cp)^nph
-c     
-c     NOTE: Assumes maxRes and maxCor have been initialized properly
-c
+!
+!     Helper function to compute:
+!     (a) dR = Rhs + (rho.phi - theta.dt.Lphi)
+!     (b) Res = Rhs - A(S) = Rhs - (rho.phi - theta.dt.Lphi) for RhoH
+!         or  Res = Rhs - (phi - theta.dt.Lphi) for Temp
+!               and then relax: phi = phi + Res/alpha
+!     -- note that if for Temp both Lphi and alpha have been scaled by (1/rho.Cp)^nph
+!     
+!     NOTE: Assumes maxRes and maxCor have been initialized properly
+!
 
       do n=0,Nspec-1
          do k=lo(3),hi(3)
@@ -2498,7 +2548,8 @@ c
             enddo
          endif
       endif
-      end
+      
+  end subroutine htdd_relax
 
 ! ::: -----------------------------------------------------------
 ! ::: This routine will tag high error cells based on whether or not
@@ -2520,11 +2571,13 @@ c
 ! ::: time      => problem evolution time
 ! ::: level     => refinement level of this array
 ! ::: -----------------------------------------------------------
-      subroutine FORT_PART_CNT_ERR(tag,tagl1,tagl2,tagl3,tagh1,tagh2,tagh3,
-     &     set,clear,
-     &     var,varl1,varl2,varl3,varh1,varh2,varh3,
-     &     lo,hi,nd,domlo,domhi,
-     &     delta,xlo,problo,time,level)
+
+  subroutine part_cnt_err(tag,tagl1,tagl2,tagl3,tagh1,tagh2,tagh3, &
+                          set,clear,  &
+                          var,varl1,varl2,varl3,varh1,varh2,varh3, &
+                          lo,hi,nd,domlo,domhi,  &
+                          delta,xlo,problo,time,level) &
+                          bind(C, name="part_cnt_err")
 
       implicit none
 
@@ -2546,10 +2599,12 @@ c
       end do
       end do
 
-      end subroutine
+  end subroutine part_cnt_err
 
-      subroutine FORT_MCURVE(lo, hi, T, DIMS(T), curv, DIMS(curv),
-     &     wrk, DIMS(wrk), delta)
+!------------------------
+
+  subroutine mcurve(lo, hi, T, DIMS(T), curv, DIMS(curv), &
+          wrk, DIMS(wrk), delta)bind(C, name="mcurve")
 
       implicit none
 
@@ -2565,7 +2620,7 @@ c
       integer i,j,k
       REAL_T mag
 
-c     Fill normal on nodes (assumes 1 grow cell properly filled)
+!     Fill normal on nodes (assumes 1 grow cell properly filled)
 
       REAL_T Tx,Ty,Tz,Txx,Tyy,Tzz,Txy,Tyz,Txz,tdxI(3),dxSqI(3)
 
@@ -2574,7 +2629,6 @@ c     Fill normal on nodes (assumes 1 grow cell properly filled)
          dxSqI(i) = one / (delta(i)*delta(i))
       enddo
 
-!$omp parallel do private(i,j,k,Tx,Ty,Tz,Txx,Tyy,Tzz,Txy,Txz,Tyz,mag)
       do k = lo(3),hi(3)
          do j = lo(2),hi(2)
             do i = lo(1),hi(1)
@@ -2593,18 +2647,20 @@ c     Fill normal on nodes (assumes 1 grow cell properly filled)
 
                mag = max(1.0d-12, SQRT(Tx*Tx + Ty*Ty + Tz*Tz))
 
-               curv(i,j,k) = -half*(Txx + Tyy + Tzz
-     &              - ( Tx*(Tx*Txx + Ty*Txy + Tz*Txz)
-     &                + Ty*(Tx*Txy + Ty*Tyy + Tz*Tyz)
-     &                + Tz*(Tx*Txz + Ty*Tyz + Tz*Tzz) )/mag**2 )/mag
+               curv(i,j,k) = -half*(Txx + Tyy + Tzz &
+                   - ( Tx*(Tx*Txx + Ty*Txy + Tz*Txz) &
+                     + Ty*(Tx*Txy + Ty*Tyy + Tz*Tyz) &
+                     + Tz*(Tx*Txz + Ty*Tyz + Tz*Tzz) )/mag**2 )/mag
             end do
          end do
       end do
-!$omp end parallel do
 
-      end
+  end subroutine mcurve
 
-      subroutine FORT_SMOOTH(lo, hi, Tin, DIMS(Tin), Tout, DIMS(Tout))
+!------------------------------------------
+
+  subroutine smooth(lo, hi, Tin, DIMS(Tin), Tout, DIMS(Tout))bind(C, name="smooth")
+  
       implicit none
       integer lo(SDIM), hi(SDIM)
       integer DIMDEC(Tin)
@@ -2614,7 +2670,6 @@ c     Fill normal on nodes (assumes 1 grow cell properly filled)
 
       integer i,j,k,ii,jj,kk
 
-!$omp parallel do private(i,j,k,ii,jj,kk)
       do k = lo(3),hi(3)
          do j = lo(2),hi(2)
             do i = lo(1),hi(1)
@@ -2622,11 +2677,11 @@ c     Fill normal on nodes (assumes 1 grow cell properly filled)
                do kk=0,1
                   do jj=0,1
                      do ii=0,1
-                        Tout(i,j,k) = Tout(i,j,k)
-     &                       + Tin(i+ii,j+jj,  k+kk-1) + Tin(i+ii-1,j+jj,  k+kk-1)
-     &                       + Tin(i+ii,j+jj-1,k+kk-1) + Tin(i+ii-1,j+jj-1,k+kk-1)
-     &                       + Tin(i+ii,j+jj,  k+kk)   + Tin(i+ii-1,j+jj,  k+kk  )
-     &                       + Tin(i+ii,j+jj-1,k+kk  ) + Tin(i+ii-1,j+jj-1,k+kk  )
+                        Tout(i,j,k) = Tout(i,j,k) &
+                            + Tin(i+ii,j+jj,  k+kk-1) + Tin(i+ii-1,j+jj,  k+kk-1) &
+                            + Tin(i+ii,j+jj-1,k+kk-1) + Tin(i+ii-1,j+jj-1,k+kk-1) &
+                            + Tin(i+ii,j+jj,  k+kk)   + Tin(i+ii-1,j+jj,  k+kk  ) &
+                            + Tin(i+ii,j+jj-1,k+kk  ) + Tin(i+ii-1,j+jj-1,k+kk  )
                      end do
                   end do
                end do
@@ -2634,15 +2689,20 @@ c     Fill normal on nodes (assumes 1 grow cell properly filled)
             end do
          end do
       end do
-!$omp end parallel do
 
-      end
+  end subroutine smooth
 
-      subroutine FORT_GRADWBAR(lo, hi, Wbar, DIMS(Wbar),
-     &     rDe, DIMS(rDe), flux, DIMS(flux),
-     &     area, DIMS(area), dx, dir, mult, inc)
+!-----------------------------------------
+
+  subroutine grad_wbar(lo, hi, Wbar, DIMS(Wbar), &
+                       rDe, DIMS(rDe), flux, DIMS(flux), &
+                       area, DIMS(area), dx, dir, mult, inc) &
+                       bind(C, name="grad_wbar")
+                       
       implicit none
+      
 #include <cdwrk.H>
+
       integer lo(SDIM), hi(SDIM)
       integer dir
       integer DIMDEC(Wbar)
@@ -2665,30 +2725,29 @@ c     Fill normal on nodes (assumes 1 grow cell properly filled)
 !     compute grad wbar fluxes
 
          if (dir.eq.0) then
-!     $omp parallel do private(i,j,k,Wgr)
             do k = lo(3),hi(3)
                do j = lo(2),hi(2)
-                  do i = lo(1),hi(1)+1
+                  do i = lo(1),hi(1)
                      Wgr =   fac*(Wbar(i,j,k) - Wbar(i-1,j,k))
                      flux(i,j,k) = rDe(i,j,k) * Wgr * area(i,j,k)
                   enddo
                enddo
             enddo
-!     $omp end parallel do
+
          else if (dir.eq.1) then
-!     $omp parallel do private(i,j,k,Wgr)
+
             do k = lo(3),hi(3)
-               do j = lo(2),hi(2)+1
+               do j = lo(2),hi(2)
                   do i = lo(1),hi(1)
                      Wgr =   fac*(Wbar(i,j,k) - Wbar(i,j-1,k))
                      flux(i,j,k) = rDe(i,j,k) * Wgr * area(i,j,k)
                   enddo
                enddo
             enddo
-!     $omp end parallel do
+
          else if (dir.eq.2) then
-!     $omp parallel do private(i,j,k,Wgr)
-            do k = lo(3),hi(3)+1
+
+            do k = lo(3),hi(3)
                do j = lo(2),hi(2)
                   do i = lo(1),hi(1)
                      Wgr =   fac*(Wbar(i,j,k) - Wbar(i,j,k-1))
@@ -2696,7 +2755,7 @@ c     Fill normal on nodes (assumes 1 grow cell properly filled)
                   enddo
                enddo
             enddo
-!     $omp end parallel do
+
          else
             call bl_pd_abort('Bad dir in FORT_GRADWBAR')
          endif
@@ -2706,30 +2765,30 @@ c     Fill normal on nodes (assumes 1 grow cell properly filled)
 !     increment grad wbar fluxes by a factor of inc (can be negative)
 
          if (dir.eq.0) then
-!     $omp parallel do private(i,j,k,Wgr)
+
             do k = lo(3),hi(3)
                do j = lo(2),hi(2)
-                  do i = lo(1),hi(1)+1
+                  do i = lo(1),hi(1)
                      Wgr =   fac*(Wbar(i,j,k) - Wbar(i-1,j,k))
                      flux(i,j,k) = flux(i,j,k) + inc * rDe(i,j,k) * Wgr * area(i,j,k)
                   enddo
                enddo
             enddo
-!     $omp end parallel do
+
          else if (dir.eq.1) then
-!     $omp parallel do private(i,j,k,Wgr)
+
             do k = lo(3),hi(3)
-               do j = lo(2),hi(2)+1
+               do j = lo(2),hi(2)
                   do i = lo(1),hi(1)
                      Wgr =   fac*(Wbar(i,j,k) - Wbar(i,j-1,k))
                      flux(i,j,k) = flux(i,j,k) + inc * rDe(i,j,k) * Wgr * area(i,j,k)
                   enddo
                enddo
             enddo
-!     $omp end parallel do
+
          else if (dir.eq.2) then
-!     $omp parallel do private(i,j,k,Wgr)
-            do k = lo(3),hi(3)+1
+
+            do k = lo(3),hi(3)
                do j = lo(2),hi(2)
                   do i = lo(1),hi(1)
                      Wgr =   fac*(Wbar(i,j,k) - Wbar(i,j,k-1))
@@ -2737,23 +2796,28 @@ c     Fill normal on nodes (assumes 1 grow cell properly filled)
                   enddo
                enddo
             enddo
-!     $omp end parallel do
+
          else
             call bl_pd_abort('Bad dir in FORT_GRADWBAR')
          endif
 
       end if
 
-      end
+  end subroutine grad_wbar
 
-      subroutine  FORT_RECOMP_UPDATE(lo, hi,
-     &                               update, DIMS(update),
-     &                               xflux,  DIMS(xflux),
-     &                               yflux,  DIMS(yflux),
-     &                               zflux,  DIMS(zflux),
-     &                               vol,    DIMS(vol),
-     &                               nc)
+!-----------------------------------
+
+  subroutine recomp_update(lo, hi, &
+                           update, DIMS(update), &
+                           xflux,  DIMS(xflux), &
+                           yflux,  DIMS(yflux), &
+                           zflux,  DIMS(zflux), &
+                           vol,    DIMS(vol), &
+                           nc) &
+                           bind(C, name="recomp_update")
+                           
       implicit none
+      
       integer lo(SDIM), hi(SDIM), nc
       integer DIMDEC(update)
       integer DIMDEC(xflux)
@@ -2768,20 +2832,19 @@ c     Fill normal on nodes (assumes 1 grow cell properly filled)
 
       integer i, j, k, n
 
-!$omp parallel private(i,j,k,n)
       do n=1,nc
-!$omp do
          do k=lo(3),hi(3)
             do j=lo(2),hi(2)
                do i=lo(1),hi(1)
-                  update(i,j,k,n)=-((xflux(i+1,j,k,n)-xflux(i,j,k,n))
-     &                 +            (yflux(i,j+1,k,n)-yflux(i,j,k,n))
-     &                 +            (zflux(i,j,k+1,n)-zflux(i,j,k,n)))
-     &                 /vol(i,j,k)
+                  update(i,j,k,n)=-((xflux(i+1,j,k,n)-xflux(i,j,k,n)) &
+                      +            (yflux(i,j+1,k,n)-yflux(i,j,k,n)) &
+                      +            (zflux(i,j,k+1,n)-zflux(i,j,k,n))) &
+                      /vol(i,j,k)
                end do
             end do
          end do
-!$omp end do nowait
       end do
-!$omp end parallel
-      end
+
+  end subroutine recomp_update
+
+end module PeleLM_3d

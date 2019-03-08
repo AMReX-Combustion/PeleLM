@@ -20,13 +20,27 @@
 
 #define SDIM 3
 
-      subroutine FORT_DERRHOMINUSSUMRHOY (e,DIMS(e),nv,dat,DIMS(dat),ncomp,
-     &                         lo,hi,domlo,domhi,delta,xlo,time,dt,bc,
-     $                         level,grid_no)
+module derive_PLM_3D
+
+  implicit none
+
+  private
+ 
+  public :: drhomry, dsrhoydot, drhort, dermolefrac, derconcentration
+
+contains
+
+
+  subroutine drhomry (e,DIMS(e),nv,dat,DIMS(dat),ncomp, &
+                      lo,hi,domlo,domhi,delta,xlo,time,dt,bc, &
+                      level,grid_no) &
+                      bind(C, name="drhomry")
+
+
       implicit none
-c
-c ::: This routine will computes rho - sum (rho*Y)
-c
+!
+! ::: This routine will computes rho - sum (rho*Y)
+!
 
 #include <cdwrk.H>
 #include <htdata.H>
@@ -64,9 +78,7 @@ c
          enddo
       enddo
 
-!$omp parallel private(i,j,k,n)
       do n=2,ncomp
-!$omp do
          do k=lo(3),hi(3)
             do j = lo(2), hi(2)
                do i = lo(1), hi(1)
@@ -74,22 +86,21 @@ c
                enddo
             enddo
          enddo
-!$omp end do nowait
       enddo
-!$omp end parallel
 
-      end
+  end subroutine drhomry
 
-c=========================================================
+!=========================================================
 
-      subroutine FORT_DERSUMRHOYDOT
-     &                        (e,DIMS(e),nv,dat,DIMS(dat),ncomp,
-     &                         lo,hi,domlo,domhi,delta,xlo,time,dt,bc,
-     &                         level,grid_no)
+  subroutine dsrhoydot (e,DIMS(e),nv,dat,DIMS(dat),ncomp, &
+                        lo,hi,domlo,domhi,delta,xlo,time,dt,bc, &
+                        level,grid_no) &
+                        bind(C, name="dsrhoydot")
+          
       implicit none
-c
-c ::: This routine will computes sum (rhoYdot or Ydot)
-c
+!
+! ::: This routine will computes sum (rhoYdot or Ydot)
+!
 
 #include <cdwrk.H>
 #include <htdata.H>
@@ -127,9 +138,7 @@ c
          enddo
       enddo
       
-!$omp parallel private(i,j,k,n)
       do n=1,ncomp
-!$omp do
          do k=lo(3),hi(3)
             do j = lo(2), hi(2)
                do i = lo(1), hi(1)
@@ -137,21 +146,22 @@ c
                enddo
             enddo
          enddo
-!$omp end do nowait
       enddo
-!$omp end parallel
 
-      end
+  end subroutine dsrhoydot
 
-c=========================================================
+!=========================================================
 
-      subroutine FORT_DERRHORT (e,DIMS(e),nv,dat,DIMS(dat),ncomp,
-     &                         lo,hi,domlo,domhi,delta,xlo,time,dt,bc,
-     $                         level,grid_no)
+  subroutine drhort (e,DIMS(e),nv,dat,DIMS(dat),ncomp, &
+                     lo,hi,domlo,domhi,delta,xlo,time,dt,bc, &
+                     level,grid_no) &
+                     bind(C, name="drhort")
+                     
+      use chem_driver_3D, only: PfromRTY
       implicit none
-c     
-c ::: This routine will derive rho*R*T
-c
+!     
+! ::: This routine will derive rho*R*T
+!
 
 #include <cdwrk.H>
 #include <htdata.H>
@@ -184,34 +194,37 @@ c
       if (nxlo+nxhi+nylo+nyhi+nzlo+nzhi .gt. 0) then
 	 call bl_abort("FORT_DERRHORT: outside domain")
       endif
-c      
-c     Set pointers into state (these must agree with setup for this derived quant).
-c
+!      
+!     Set pointers into state (these must agree with setup for this derived quant).
+!
       rho = 1
       T   = 2
       fS  = 3
 
-!$omp parallel do private(i,j,k,n,Yt)
       do k=lo(3),hi(3)
          do j=lo(2),hi(2)
             do i=lo(1),hi(1)
                do n=1,Nspec
                   Yt(n) = dat(i,j,k,fS+n-1) / dat(i,j,k,rho)
                end do
-               call FORT_PfromRTY(lo_chem, hi_chem, 
-     &              e(i,j,k,1),     ARLIM(lo_chem),ARLIM(hi_chem), 
-     &              dat(i,j,k,rho), ARLIM(lo_chem),ARLIM(hi_chem),
-     &              dat(i,j,k,T),   ARLIM(lo_chem),ARLIM(hi_chem), 
-     &              Yt,             ARLIM(lo_chem),ARLIM(hi_chem))
+               call PfromRTY(lo_chem, hi_chem, &
+                   e(i,j,k,1),     ARLIM(lo_chem),ARLIM(hi_chem), &
+                   dat(i,j,k,rho), ARLIM(lo_chem),ARLIM(hi_chem), &
+                   dat(i,j,k,T),   ARLIM(lo_chem),ARLIM(hi_chem), &
+                   Yt,             ARLIM(lo_chem),ARLIM(hi_chem))
             end do
          end do
       end do
-!$omp end parallel do
-      end
+  end subroutine drhort
 
-      subroutine FORT_DERMOLEFRAC (x,DIMS(x),nv,dat,DIMS(dat),ncomp,
-     &                         lo,hi,domlo,domhi,delta,xlo,time,dt,bc,
-     $                         level,grid_no)
+!=========================================================
+
+  subroutine dermolefrac(x,DIMS(x),nv,dat,DIMS(dat),ncomp, &
+                         lo,hi,domlo,domhi,delta,xlo,time,dt,bc, &
+                         level,grid_no) &
+                         bind(C, name="dermolefrac")
+                          
+      use chem_driver_3D, only : mass_to_mole
       implicit none
 
 #include <cdwrk.H>
@@ -237,29 +250,33 @@ c
       rho = 1 
       fS  = 2
 
-!$omp parallel do private(i,j,k,n,Xt,Yt)
       do k=lo(3),hi(3)
          do j=lo(2),hi(2)
             do i=lo(1),hi(1)
                do n = 1,Nspec
                   Yt(n) = dat(i,j,k,fS+n-1)/dat(i,j,k,rho) 
                enddo
-               call FORT_MASSTOMOLE(lo_chem, hi_chem,
-     &              Yt, ARLIM(lo_chem),ARLIM(hi_chem),
-     &              Xt, ARLIM(lo_chem),ARLIM(hi_chem))
+               call mass_to_mole(lo_chem, hi_chem, &
+                          Yt, ARLIM(lo_chem),ARLIM(hi_chem), &
+                          Xt, ARLIM(lo_chem),ARLIM(hi_chem))
                do n = 1,Nspec
                   x(i,j,k,n) = Xt(n)
                enddo
             enddo
          enddo
       enddo
-!$omp end parallel do
 
-      end
 
-      subroutine FORT_DERCONCENTRATION(C,DIMS(C),nv,dat,DIMS(dat),ncomp,
-     &                         lo,hi,domlo,domhi,delta,xlo,time,dt,bc,
-     $                         level,grid_no)
+  end subroutine dermolefrac
+
+!=========================================================
+  
+  subroutine derconcentration (C,DIMS(C),nv,dat,DIMS(dat),ncomp, &
+                              lo,hi,domlo,domhi,delta,xlo,time,dt,bc, &
+                              level,grid_no) &
+                               bind(C, name="derconcentration")
+                               
+      use chem_driver_3D, only: MASSR_TO_CONC
       implicit none
 
 #include <cdwrk.H>
@@ -286,36 +303,39 @@ c
       T   = 2
       fS  = 3
 
-!$omp parallel do private(i,j,k,n,Ct,Yt)
       do k=lo(3),hi(3)
          do j=lo(2),hi(2)
             do i=lo(1),hi(1)
                do n = 1,Nspec
                   Yt(n) = dat(i,j,k,fS+n-1)/dat(i,j,k,rho) 
                enddo
-               call FORT_MASSR_TO_CONC(lo_chem,hi_chem,
-     &           Yt,             ARLIM(lo_chem),ARLIM(hi_chem),
-     &           dat(i,j,k,T),   ARLIM(lo_chem),ARLIM(hi_chem),
-     &           dat(i,j,k,rho), ARLIM(lo_chem),ARLIM(hi_chem),
-     &           Ct,             ARLIM(lo_chem),ARLIM(hi_chem))
+               call MASSR_TO_CONC(lo_chem,hi_chem, &
+                Yt,             ARLIM(lo_chem),ARLIM(hi_chem), &
+                dat(i,j,k,T),   ARLIM(lo_chem),ARLIM(hi_chem), &
+                dat(i,j,k,rho), ARLIM(lo_chem),ARLIM(hi_chem), &
+                Ct,             ARLIM(lo_chem),ARLIM(hi_chem))
                do n = 1,Nspec
                   C(i,j,k,n) = Ct(n)
                enddo
             enddo
          enddo
       enddo
-!$omp end parallel do
-
-      end
 
 
-      subroutine FORT_DERFORCING (e,DIMS(e),nv,dat,DIMS(dat),ncomp,
-     &                         lo,hi,domlo,domhi,delta,xlo,time,dt,bc,
-     $                         level,grid_no)
+  end subroutine derconcentration
+
+!=========================================================
+
+  subroutine FORT_DERFORCING (e,DIMS(e),nv,dat,DIMS(dat),ncomp, &
+                              lo,hi,domlo,domhi,delta,xlo,time,dt,bc, &
+                              level,grid_no) &
+                              bind(C, name="FORT_DERFORCING")
+     
       implicit none
-c
-c ::: This routine will computes the forcing term
-c
+
+!
+! ::: This routine will computes the forcing term
+!
 
 #include <cdwrk.H>
 #include <htdata.H>
@@ -364,10 +384,10 @@ c
       jhi = hi(2)
       khi = hi(3)
 
-c     Homogeneous Isotropic Turbulence
+!     Homogeneous Isotropic Turbulence
       twicePi=two*Pi
       
-c     Adjust z offset for probtype 15
+!     Adjust z offset for probtype 15
       if (time_offset.gt.(-half)) then
          force_time = time + time_offset
       else
@@ -402,8 +422,6 @@ c     Adjust z offset for probtype 15
          HLz = Lz
       endif
 
-!$omp parallel do private(i,j,k,x,y,z,f1,f2,f3,u,v,w,rho)
-!$omp&private(kz,kzd,ky,kyd,kx,kxd,kappa,xT)
       do k = klo, khi
          z = xlo(3) + hz*(float(k-klo) + half)
          do j = jlo, jhi
@@ -423,12 +441,12 @@ c     Adjust z offset for probtype 15
                         if (kappa.le.kappaMax) then
                            xT = cos(FTX(kx,ky,kz)*force_time+TAT(kx,ky,kz))
                            if (div_free_force.eq.1) then
-                              f1 = f1 + xT * ( FAZ(kx,ky,kz)*twicePi*(kyd/HLy)*sin(twicePi*kxd*x/HLx+FPZX(kx,ky,kz)) * cos(twicePi*kyd*y/HLy+FPZY(kx,ky,kz)) * sin(twicePi*kzd*z/HLz+FPZZ(kx,ky,kz)) 
-     &                             -           FAY(kx,ky,kz)*twicePi*(kzd/HLz)*sin(twicePi*kxd*x/HLx+FPYX(kx,ky,kz)) * sin(twicePi*kyd*y/HLy+FPYY(kx,ky,kz)) * cos(twicePi*kzd*z/HLz+FPYZ(kx,ky,kz)) )
-                              f2 = f2 + xT * ( FAX(kx,ky,kz)*twicePi*(kzd/HLz)*sin(twicePi*kxd*x/HLx+FPXX(kx,ky,kz)) * sin(twicePi*kyd*y/HLy+FPXY(kx,ky,kz)) * cos(twicePi*kzd*z/HLz+FPXZ(kx,ky,kz)) 
-     &                             -           FAZ(kx,ky,kz)*twicePi*(kxd/HLx)*cos(twicePi*kxd*x/HLx+FPZX(kx,ky,kz)) * sin(twicePi*kyd*y/HLy+FPZY(kx,ky,kz)) * sin(twicePi*kzd*z/HLz+FPZZ(kx,ky,kz)) )
-                              f3 = f3 + xT * ( FAY(kx,ky,kz)*twicePi*(kxd/HLx)*cos(twicePi*kxd*x/HLx+FPYX(kx,ky,kz)) * sin(twicePi*kyd*y/HLy+FPYY(kx,ky,kz)) * sin(twicePi*kzd*z/HLz+FPYZ(kx,ky,kz)) 
-     &                             -           FAX(kx,ky,kz)*twicePi*(kyd/HLy)*sin(twicePi*kxd*x/HLx+FPXX(kx,ky,kz)) * cos(twicePi*kyd*y/HLy+FPXY(kx,ky,kz)) * sin(twicePi*kzd*z/HLz+FPXZ(kx,ky,kz)) )
+                              f1 = f1 + xT * ( FAZ(kx,ky,kz)*twicePi*(kyd/HLy)*sin(twicePi*kxd*x/HLx+FPZX(kx,ky,kz)) * cos(twicePi*kyd*y/HLy+FPZY(kx,ky,kz)) * sin(twicePi*kzd*z/HLz+FPZZ(kx,ky,kz)) &
+                                  -           FAY(kx,ky,kz)*twicePi*(kzd/HLz)*sin(twicePi*kxd*x/HLx+FPYX(kx,ky,kz)) * sin(twicePi*kyd*y/HLy+FPYY(kx,ky,kz)) * cos(twicePi*kzd*z/HLz+FPYZ(kx,ky,kz)) )
+                              f2 = f2 + xT * ( FAX(kx,ky,kz)*twicePi*(kzd/HLz)*sin(twicePi*kxd*x/HLx+FPXX(kx,ky,kz)) * sin(twicePi*kyd*y/HLy+FPXY(kx,ky,kz)) * cos(twicePi*kzd*z/HLz+FPXZ(kx,ky,kz)) &
+                                  -           FAZ(kx,ky,kz)*twicePi*(kxd/HLx)*cos(twicePi*kxd*x/HLx+FPZX(kx,ky,kz)) * sin(twicePi*kyd*y/HLy+FPZY(kx,ky,kz)) * sin(twicePi*kzd*z/HLz+FPZZ(kx,ky,kz)) )
+                              f3 = f3 + xT * ( FAY(kx,ky,kz)*twicePi*(kxd/HLx)*cos(twicePi*kxd*x/HLx+FPYX(kx,ky,kz)) * sin(twicePi*kyd*y/HLy+FPYY(kx,ky,kz)) * sin(twicePi*kzd*z/HLz+FPYZ(kx,ky,kz)) &
+                                  -           FAX(kx,ky,kz)*twicePi*(kyd/HLy)*sin(twicePi*kxd*x/HLx+FPXX(kx,ky,kz)) * cos(twicePi*kyd*y/HLy+FPXY(kx,ky,kz)) * sin(twicePi*kzd*z/HLz+FPXZ(kx,ky,kz)) )
                            else
                               f1 = f1 + xT*FAX(kx,ky,kz)*cos(twicePi*kxd*x/HLx+FPX(kx,ky,kz)) * sin(twicePi*kyd*y/HLy+FPY(kx,ky,kz)) * sin(twicePi*kzd*z/HLz+FPZ(kx,ky,kz))
                               f2 = f2 + xT*FAY(kx,ky,kz)*sin(twicePi*kxd*x/HLx+FPX(kx,ky,kz)) * cos(twicePi*kyd*y/HLy+FPY(kx,ky,kz)) * sin(twicePi*kzd*z/HLz+FPZ(kx,ky,kz))
@@ -448,12 +466,12 @@ c     Adjust z offset for probtype 15
                         if (kappa.le.kappaMax) then
                            xT = cos(FTX(kx,ky,kz)*force_time+TAT(kx,ky,kz))
                            if (div_free_force.eq.1) then
-                              f1 = f1 + xT * ( FAZ(kx,ky,kz)*twicePi*(kyd/HLy)*sin(twicePi*kxd*x/HLx+FPZX(kx,ky,kz)) * cos(twicePi*kyd*y/HLy+FPZY(kx,ky,kz)) * sin(twicePi*kzd*z/HLz+FPZZ(kx,ky,kz)) 
-     &                             -           FAY(kx,ky,kz)*twicePi*(kzd/HLz)*sin(twicePi*kxd*x/HLx+FPYX(kx,ky,kz)) * sin(twicePi*kyd*y/HLy+FPYY(kx,ky,kz)) * cos(twicePi*kzd*z/HLz+FPYZ(kx,ky,kz)) )
-                              f2 = f2 + xT * ( FAX(kx,ky,kz)*twicePi*(kzd/HLz)*sin(twicePi*kxd*x/HLx+FPXX(kx,ky,kz)) * sin(twicePi*kyd*y/HLy+FPXY(kx,ky,kz)) * cos(twicePi*kzd*z/HLz+FPXZ(kx,ky,kz)) 
-     &                             -           FAZ(kx,ky,kz)*twicePi*(kxd/HLx)*cos(twicePi*kxd*x/HLx+FPZX(kx,ky,kz)) * sin(twicePi*kyd*y/HLy+FPZY(kx,ky,kz)) * sin(twicePi*kzd*z/HLz+FPZZ(kx,ky,kz)) )
-                              f3 = f3 + xT * ( FAY(kx,ky,kz)*twicePi*(kxd/HLx)*cos(twicePi*kxd*x/HLx+FPYX(kx,ky,kz)) * sin(twicePi*kyd*y/HLy+FPYY(kx,ky,kz)) * sin(twicePi*kzd*z/HLz+FPYZ(kx,ky,kz)) 
-     &                             -           FAX(kx,ky,kz)*twicePi*(kyd/HLy)*sin(twicePi*kxd*x/HLx+FPXX(kx,ky,kz)) * cos(twicePi*kyd*y/HLy+FPXY(kx,ky,kz)) * sin(twicePi*kzd*z/HLz+FPXZ(kx,ky,kz)) )
+                              f1 = f1 + xT * ( FAZ(kx,ky,kz)*twicePi*(kyd/HLy)*sin(twicePi*kxd*x/HLx+FPZX(kx,ky,kz)) * cos(twicePi*kyd*y/HLy+FPZY(kx,ky,kz)) * sin(twicePi*kzd*z/HLz+FPZZ(kx,ky,kz)) &
+                                  -           FAY(kx,ky,kz)*twicePi*(kzd/HLz)*sin(twicePi*kxd*x/HLx+FPYX(kx,ky,kz)) * sin(twicePi*kyd*y/HLy+FPYY(kx,ky,kz)) * cos(twicePi*kzd*z/HLz+FPYZ(kx,ky,kz)) )
+                              f2 = f2 + xT * ( FAX(kx,ky,kz)*twicePi*(kzd/HLz)*sin(twicePi*kxd*x/HLx+FPXX(kx,ky,kz)) * sin(twicePi*kyd*y/HLy+FPXY(kx,ky,kz)) * cos(twicePi*kzd*z/HLz+FPXZ(kx,ky,kz)) &
+                                  -           FAZ(kx,ky,kz)*twicePi*(kxd/HLx)*cos(twicePi*kxd*x/HLx+FPZX(kx,ky,kz)) * sin(twicePi*kyd*y/HLy+FPZY(kx,ky,kz)) * sin(twicePi*kzd*z/HLz+FPZZ(kx,ky,kz)) )
+                              f3 = f3 + xT * ( FAY(kx,ky,kz)*twicePi*(kxd/HLx)*cos(twicePi*kxd*x/HLx+FPYX(kx,ky,kz)) * sin(twicePi*kyd*y/HLy+FPYY(kx,ky,kz)) * sin(twicePi*kzd*z/HLz+FPYZ(kx,ky,kz)) &
+                                  -           FAX(kx,ky,kz)*twicePi*(kyd/HLy)*sin(twicePi*kxd*x/HLx+FPXX(kx,ky,kz)) * cos(twicePi*kyd*y/HLy+FPXY(kx,ky,kz)) * sin(twicePi*kzd*z/HLz+FPXZ(kx,ky,kz)) )
                            else
                               f1 = f1 + xT*FAX(kx,ky,kz)*cos(twicePi*kxd*x/HLx+FPX(kx,ky,kz)) * sin(twicePi*kyd*y/HLy+FPY(kx,ky,kz)) * sin(twicePi*kzd*z/HLz+FPZ(kx,ky,kz))
                               f2 = f2 + xT*FAY(kx,ky,kz)*sin(twicePi*kxd*x/HLx+FPX(kx,ky,kz)) * cos(twicePi*kyd*y/HLy+FPY(kx,ky,kz)) * sin(twicePi*kzd*z/HLz+FPZ(kx,ky,kz))
@@ -479,17 +497,21 @@ c     Adjust z offset for probtype 15
             enddo
          enddo
       enddo
-!$omp end parallel do
 #endif
-      end
+  end subroutine FORT_DERFORCING 
 
-      subroutine FORT_DERFORCEX (e,DIMS(e),nv,dat,DIMS(dat),ncomp,
-     &                         lo,hi,domlo,domhi,delta,xlo,time,dt,bc,
-     $                         level,grid_no)
+!=========================================================  
+  
+  subroutine FORT_DERFORCEX (e,DIMS(e),nv,dat,DIMS(dat),ncomp, &
+                             lo,hi,domlo,domhi,delta,xlo,time,dt,bc, &
+                             level,grid_no) &
+                             bind(C, name="FORT_DERFORCEX")
+                             
       implicit none
-c
-c ::: This routine will computes the forcing term
-c
+
+!
+! ::: This routine will computes the forcing term
+!
 
 #include <cdwrk.H>
 #include <htdata.H>
@@ -537,10 +559,10 @@ c
       jhi = hi(2)
       khi = hi(3)
 
-c     Homogeneous Isotropic Turbulence
+!     Homogeneous Isotropic Turbulence
       twicePi=two*Pi
       
-c     Adjust z offset for probtype 15
+!     Adjust z offset for probtype 15
       if (time_offset.gt.(-half)) then
          force_time = time + time_offset
       else
@@ -574,9 +596,7 @@ c     Adjust z offset for probtype 15
          HLy = Ly
          HLz = Lz
       endif
-
-!$omp parallel do private(i,j,k,x,y,z,f1)
-!$omp&private(kz,kzd,ky,kyd,kx,kxd,kappa,xT)      
+   
       do k = klo, khi
          z = xlo(3) + hz*(float(k-klo) + half)
          do j = jlo, jhi
@@ -594,8 +614,8 @@ c     Adjust z offset for probtype 15
                         if (kappa.le.kappaMax) then
                            xT = cos(FTX(kx,ky,kz)*force_time+TAT(kx,ky,kz))
                            if (div_free_force.eq.1) then
-                              f1 = f1 + xT * ( FAZ(kx,ky,kz)*twicePi*(kyd/HLy)*sin(twicePi*kxd*x/HLx+FPZX(kx,ky,kz)) * cos(twicePi*kyd*y/HLy+FPZY(kx,ky,kz)) * sin(twicePi*kzd*z/HLz+FPZZ(kx,ky,kz)) 
-     &                             -           FAY(kx,ky,kz)*twicePi*(kzd/HLz)*sin(twicePi*kxd*x/HLx+FPYX(kx,ky,kz)) * sin(twicePi*kyd*y/HLy+FPYY(kx,ky,kz)) * cos(twicePi*kzd*z/HLz+FPYZ(kx,ky,kz)) )
+                              f1 = f1 + xT * ( FAZ(kx,ky,kz)*twicePi*(kyd/HLy)*sin(twicePi*kxd*x/HLx+FPZX(kx,ky,kz)) * cos(twicePi*kyd*y/HLy+FPZY(kx,ky,kz)) * sin(twicePi*kzd*z/HLz+FPZZ(kx,ky,kz)) &
+                                  -           FAY(kx,ky,kz)*twicePi*(kzd/HLz)*sin(twicePi*kxd*x/HLx+FPYX(kx,ky,kz)) * sin(twicePi*kyd*y/HLy+FPYY(kx,ky,kz)) * cos(twicePi*kzd*z/HLz+FPYZ(kx,ky,kz)) )
                            else
                               f1 = f1 + xT*FAX(kx,ky,kz)*cos(twicePi*kxd*x/HLx+FPX(kx,ky,kz)) * sin(twicePi*kyd*y/HLy+FPY(kx,ky,kz)) * sin(twicePi*kzd*z/HLz+FPZ(kx,ky,kz))
                            endif
@@ -613,8 +633,8 @@ c     Adjust z offset for probtype 15
                         if (kappa.le.kappaMax) then
                            xT = cos(FTX(kx,ky,kz)*force_time+TAT(kx,ky,kz))
                            if (div_free_force.eq.1) then
-                              f1 = f1 + xT * ( FAZ(kx,ky,kz)*twicePi*(kyd/HLy)*sin(twicePi*kxd*x/HLx+FPZX(kx,ky,kz)) * cos(twicePi*kyd*y/HLy+FPZY(kx,ky,kz)) * sin(twicePi*kzd*z/HLz+FPZZ(kx,ky,kz)) 
-     &                             -           FAY(kx,ky,kz)*twicePi*(kzd/HLz)*sin(twicePi*kxd*x/HLx+FPYX(kx,ky,kz)) * sin(twicePi*kyd*y/HLy+FPYY(kx,ky,kz)) * cos(twicePi*kzd*z/HLz+FPYZ(kx,ky,kz)) )
+                              f1 = f1 + xT * ( FAZ(kx,ky,kz)*twicePi*(kyd/HLy)*sin(twicePi*kxd*x/HLx+FPZX(kx,ky,kz)) * cos(twicePi*kyd*y/HLy+FPZY(kx,ky,kz)) * sin(twicePi*kzd*z/HLz+FPZZ(kx,ky,kz)) &
+                                  -           FAY(kx,ky,kz)*twicePi*(kzd/HLz)*sin(twicePi*kxd*x/HLx+FPYX(kx,ky,kz)) * sin(twicePi*kyd*y/HLy+FPYY(kx,ky,kz)) * cos(twicePi*kzd*z/HLz+FPYZ(kx,ky,kz)) )
                            else
                               f1 = f1 + xT*FAX(kx,ky,kz)*cos(twicePi*kxd*x/HLx+FPX(kx,ky,kz)) * sin(twicePi*kyd*y/HLy+FPY(kx,ky,kz)) * sin(twicePi*kzd*z/HLz+FPZ(kx,ky,kz))
                            endif
@@ -630,18 +650,20 @@ c     Adjust z offset for probtype 15
             enddo
          enddo
       enddo
-!$omp end parallel do
 #endif
-      end
+  end subroutine FORT_DERFORCEX
 
+!=========================================================
 
-      subroutine FORT_DERFORCEY (e,DIMS(e),nv,dat,DIMS(dat),ncomp,
-     &                         lo,hi,domlo,domhi,delta,xlo,time,dt,bc,
-     $                         level,grid_no)
+  subroutine FORT_DERFORCEY (e,DIMS(e),nv,dat,DIMS(dat),ncomp, &
+                             lo,hi,domlo,domhi,delta,xlo,time,dt,bc, &
+                             level,grid_no) &
+                             bind(C, name="FORT_DERFORCEY")
+                             
       implicit none
-c
-c ::: This routine will computes the forcing term
-c
+!
+! ::: This routine will computes the forcing term
+!
 
 #include <cdwrk.H>
 #include <htdata.H>
@@ -689,10 +711,10 @@ c
       jhi = hi(2)
       khi = hi(3)
 
-c     Homogeneous Isotropic Turbulence
+!     Homogeneous Isotropic Turbulence
       twicePi=two*Pi
       
-c     Adjust z offset for probtype 15
+!     Adjust z offset for probtype 15
       if (time_offset.gt.(-half)) then
          force_time = time + time_offset
       else
@@ -727,8 +749,6 @@ c     Adjust z offset for probtype 15
          HLz = Lz
       endif
 
-!$omp parallel do private(i,j,k,x,y,z,f2) 
-!$omp&private(kz,kzd,ky,kyd,kx,kxd,kappa,xT) 
       do k = klo, khi
          z = xlo(3) + hz*(float(k-klo) + half)
          do j = jlo, jhi
@@ -746,8 +766,8 @@ c     Adjust z offset for probtype 15
                         if (kappa.le.kappaMax) then
                            xT = cos(FTX(kx,ky,kz)*force_time+TAT(kx,ky,kz))
                            if (div_free_force.eq.1) then
-                              f2 = f2 + xT * ( FAX(kx,ky,kz)*twicePi*(kzd/HLz)*sin(twicePi*kxd*x/HLx+FPXX(kx,ky,kz)) * sin(twicePi*kyd*y/HLy+FPXY(kx,ky,kz)) * cos(twicePi*kzd*z/HLz+FPXZ(kx,ky,kz)) 
-     &                             -           FAZ(kx,ky,kz)*twicePi*(kxd/HLx)*cos(twicePi*kxd*x/HLx+FPZX(kx,ky,kz)) * sin(twicePi*kyd*y/HLy+FPZY(kx,ky,kz)) * sin(twicePi*kzd*z/HLz+FPZZ(kx,ky,kz)) )
+                              f2 = f2 + xT * ( FAX(kx,ky,kz)*twicePi*(kzd/HLz)*sin(twicePi*kxd*x/HLx+FPXX(kx,ky,kz)) * sin(twicePi*kyd*y/HLy+FPXY(kx,ky,kz)) * cos(twicePi*kzd*z/HLz+FPXZ(kx,ky,kz)) &
+                                  -           FAZ(kx,ky,kz)*twicePi*(kxd/HLx)*cos(twicePi*kxd*x/HLx+FPZX(kx,ky,kz)) * sin(twicePi*kyd*y/HLy+FPZY(kx,ky,kz)) * sin(twicePi*kzd*z/HLz+FPZZ(kx,ky,kz)) )
                            else
                               f2 = f2 + xT*FAY(kx,ky,kz)*sin(twicePi*kxd*x/HLx+FPX(kx,ky,kz)) * cos(twicePi*kyd*y/HLy+FPY(kx,ky,kz)) * sin(twicePi*kzd*z/HLz+FPZ(kx,ky,kz))
                            endif
@@ -765,8 +785,8 @@ c     Adjust z offset for probtype 15
                         if (kappa.le.kappaMax) then
                            xT = cos(FTX(kx,ky,kz)*force_time+TAT(kx,ky,kz))
                            if (div_free_force.eq.1) then
-                              f2 = f2 + xT * ( FAX(kx,ky,kz)*twicePi*(kzd/HLz)*sin(twicePi*kxd*x/HLx+FPXX(kx,ky,kz)) * sin(twicePi*kyd*y/HLy+FPXY(kx,ky,kz)) * cos(twicePi*kzd*z/HLz+FPXZ(kx,ky,kz)) 
-     &                             -           FAZ(kx,ky,kz)*twicePi*(kxd/HLx)*cos(twicePi*kxd*x/HLx+FPZX(kx,ky,kz)) * sin(twicePi*kyd*y/HLy+FPZY(kx,ky,kz)) * sin(twicePi*kzd*z/HLz+FPZZ(kx,ky,kz)) )
+                              f2 = f2 + xT * ( FAX(kx,ky,kz)*twicePi*(kzd/HLz)*sin(twicePi*kxd*x/HLx+FPXX(kx,ky,kz)) * sin(twicePi*kyd*y/HLy+FPXY(kx,ky,kz)) * cos(twicePi*kzd*z/HLz+FPXZ(kx,ky,kz)) &
+                                  -           FAZ(kx,ky,kz)*twicePi*(kxd/HLx)*cos(twicePi*kxd*x/HLx+FPZX(kx,ky,kz)) * sin(twicePi*kyd*y/HLy+FPZY(kx,ky,kz)) * sin(twicePi*kzd*z/HLz+FPZZ(kx,ky,kz)) )
                            else
                               f2 = f2 + xT*FAY(kx,ky,kz)*sin(twicePi*kxd*x/HLx+FPX(kx,ky,kz)) * cos(twicePi*kyd*y/HLy+FPY(kx,ky,kz)) * sin(twicePi*kzd*z/HLz+FPZ(kx,ky,kz))
                            endif
@@ -782,18 +802,21 @@ c     Adjust z offset for probtype 15
             enddo
          enddo
       enddo
-!$omp end parallel do
 #endif
-      end
+  end subroutine FORT_DERFORCEY
 
+!=========================================================
 
-      subroutine FORT_DERFORCEZ (e,DIMS(e),nv,dat,DIMS(dat),ncomp,
-     &                         lo,hi,domlo,domhi,delta,xlo,time,dt,bc,
-     $                         level,grid_no)
+  subroutine FORT_DERFORCEZ (e,DIMS(e),nv,dat,DIMS(dat),ncomp, &
+                             lo,hi,domlo,domhi,delta,xlo,time,dt,bc, &
+                             level,grid_no) &
+                             bind(C, name="FORT_DERFORCEZ")
+                             
       implicit none
-c
-c ::: This routine will computes the forcing term
-c
+
+!
+! ::: This routine will computes the forcing term
+!
 
 #include <cdwrk.H>
 #include <htdata.H>
@@ -841,10 +864,10 @@ c
       jhi = hi(2)
       khi = hi(3)
 
-c     Homogeneous Isotropic Turbulence
+!     Homogeneous Isotropic Turbulence
       twicePi=two*Pi
       
-c     Adjust z offset for probtype 15
+!     Adjust z offset for probtype 15
       if (time_offset.gt.(-half)) then
          force_time = time + time_offset
       else
@@ -878,9 +901,7 @@ c     Adjust z offset for probtype 15
          HLy = Ly
          HLz = Lz
       endif
-
-!$omp parallel do private(i,j,k,x,y,z,f3) 
-!$omp&private(kz,kzd,ky,kyd,kx,kxd,kappa,xT)      
+    
       do k = klo, khi
          z = xlo(3) + hz*(float(k-klo) + half)
          do j = jlo, jhi
@@ -898,8 +919,8 @@ c     Adjust z offset for probtype 15
                         if (kappa.le.kappaMax) then
                            xT = cos(FTX(kx,ky,kz)*force_time+TAT(kx,ky,kz))
                            if (div_free_force.eq.1) then
-                              f3 = f3 + xT * ( FAY(kx,ky,kz)*twicePi*(kxd/HLx)*cos(twicePi*kxd*x/HLx+FPYX(kx,ky,kz)) * sin(twicePi*kyd*y/HLy+FPYY(kx,ky,kz)) * sin(twicePi*kzd*z/HLz+FPYZ(kx,ky,kz)) 
-     &                             -           FAX(kx,ky,kz)*twicePi*(kyd/HLy)*sin(twicePi*kxd*x/HLx+FPXX(kx,ky,kz)) * cos(twicePi*kyd*y/HLy+FPXY(kx,ky,kz)) * sin(twicePi*kzd*z/HLz+FPXZ(kx,ky,kz)) )
+                              f3 = f3 + xT * ( FAY(kx,ky,kz)*twicePi*(kxd/HLx)*cos(twicePi*kxd*x/HLx+FPYX(kx,ky,kz)) * sin(twicePi*kyd*y/HLy+FPYY(kx,ky,kz)) * sin(twicePi*kzd*z/HLz+FPYZ(kx,ky,kz)) &
+                                  -           FAX(kx,ky,kz)*twicePi*(kyd/HLy)*sin(twicePi*kxd*x/HLx+FPXX(kx,ky,kz)) * cos(twicePi*kyd*y/HLy+FPXY(kx,ky,kz)) * sin(twicePi*kzd*z/HLz+FPXZ(kx,ky,kz)) )
                            else
                               f3 = f3 + xT*FAZ(kx,ky,kz)*sin(twicePi*kxd*x/HLx+FPX(kx,ky,kz)) * sin(twicePi*kyd*y/HLy+FPY(kx,ky,kz)) * cos(twicePi*kzd*z/HLz+FPZ(kx,ky,kz))
                            endif
@@ -917,8 +938,8 @@ c     Adjust z offset for probtype 15
                         if (kappa.le.kappaMax) then
                            xT = cos(FTX(kx,ky,kz)*force_time+TAT(kx,ky,kz))
                            if (div_free_force.eq.1) then
-                              f3 = f3 + xT * ( FAY(kx,ky,kz)*twicePi*(kxd/HLx)*cos(twicePi*kxd*x/HLx+FPYX(kx,ky,kz)) * sin(twicePi*kyd*y/HLy+FPYY(kx,ky,kz)) * sin(twicePi*kzd*z/HLz+FPYZ(kx,ky,kz)) 
-     &                             -           FAX(kx,ky,kz)*twicePi*(kyd/HLy)*sin(twicePi*kxd*x/HLx+FPXX(kx,ky,kz)) * cos(twicePi*kyd*y/HLy+FPXY(kx,ky,kz)) * sin(twicePi*kzd*z/HLz+FPXZ(kx,ky,kz)) )
+                              f3 = f3 + xT * ( FAY(kx,ky,kz)*twicePi*(kxd/HLx)*cos(twicePi*kxd*x/HLx+FPYX(kx,ky,kz)) * sin(twicePi*kyd*y/HLy+FPYY(kx,ky,kz)) * sin(twicePi*kzd*z/HLz+FPYZ(kx,ky,kz)) &
+                                  -           FAX(kx,ky,kz)*twicePi*(kyd/HLy)*sin(twicePi*kxd*x/HLx+FPXX(kx,ky,kz)) * cos(twicePi*kyd*y/HLy+FPXY(kx,ky,kz)) * sin(twicePi*kzd*z/HLz+FPXZ(kx,ky,kz)) )
                            else
                               f3 = f3 + xT*FAZ(kx,ky,kz)*sin(twicePi*kxd*x/HLx+FPX(kx,ky,kz)) * sin(twicePi*kyd*y/HLy+FPY(kx,ky,kz)) * cos(twicePi*kzd*z/HLz+FPZ(kx,ky,kz))
                            endif
@@ -934,6 +955,7 @@ c     Adjust z offset for probtype 15
             enddo
          enddo
       enddo
-!$omp end parallel do
 #endif
-      end
+  end subroutine FORT_DERFORCEZ
+
+end module derive_PLM_3D
