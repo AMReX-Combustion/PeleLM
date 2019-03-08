@@ -426,8 +426,6 @@ PeleLM::variableSetUp ()
 {
   BL_ASSERT(desc_lst.size() == 0);
 
-  int i;
-
   for (int dir = 0; dir < BL_SPACEDIM; dir++)
   {
     phys_bc.setLo(dir,SlipWall);
@@ -572,7 +570,7 @@ PeleLM::variableSetUp ()
 
   set_species_bc(bc,phys_bc);
 
-  for (i = 0; i < nspecies; i++)
+  for (int i = 0; i < nspecies; i++)
   {
     bcs[i]  = bc;
     name[i] = "rho.Y(" + names[i] + ")";
@@ -626,7 +624,7 @@ PeleLM::variableSetUp ()
   //
   // Assume everything is diffusive and then change it if it is not.
   //
-  for (i = 0; i < NUM_STATE; i++)
+  for (int i = 0; i < NUM_STATE; i++)
   {
     advectionType[i] = NonConservative;
     diffusionType[i] = RhoInverse_Laplacian_S;
@@ -746,18 +744,18 @@ PeleLM::variableSetUp ()
   //
   // Species mass fractions.
   //
-  for (i = 0; i < nspecies; i++)
+  for (int i = 0; i < nspecies; i++)
   {
-    const std::string name = "Y("+names[i]+")";
-    derive_lst.add(name,IndexType::TheCellType(),1,derdvrho,the_same_box);
-    derive_lst.addComponent(name,desc_lst,State_Type,Density,1);
-    derive_lst.addComponent(name,desc_lst,State_Type,FirstSpec + i,1);
+    const std::string chname = "Y("+names[i]+")";
+    derive_lst.add(chname,IndexType::TheCellType(),1,derdvrho,the_same_box);
+    derive_lst.addComponent(chname,desc_lst,State_Type,Density,1);
+    derive_lst.addComponent(chname,desc_lst,State_Type,FirstSpec + i,1);
   }
   //
   // Species mole fractions
   //
   Vector<std::string> var_names_molefrac(nspecies);
-  for (i = 0; i < nspecies; i++)
+  for (int i = 0; i < nspecies; i++)
     var_names_molefrac[i] = "X("+names[i]+")";
   derive_lst.add("molefrac",IndexType::TheCellType(),nspecies,
                  var_names_molefrac,dermolefrac,the_same_box);
@@ -768,7 +766,7 @@ PeleLM::variableSetUp ()
   // Species concentrations
   //
   Vector<std::string> var_names_conc(nspecies);
-  for (i = 0; i < nspecies; i++)
+  for (int i = 0; i < nspecies; i++)
     var_names_conc[i] = "C("+names[i]+")";
   derive_lst.add("concentration",IndexType::TheCellType(),nspecies,
                  var_names_conc,derconcentration,the_same_box);
@@ -784,7 +782,7 @@ PeleLM::variableSetUp ()
     //
     derive_lst.add("rhominsumrhoY",IndexType::TheCellType(),1,drhomry,the_same_box);
     derive_lst.addComponent("rhominsumrhoY",desc_lst,State_Type,Density,1);
-    for (i = 0; i < nspecies; i++)
+    for (int i = 0; i < nspecies; i++)
     {
       const int comp = FirstSpec + i;
       derive_lst.addComponent("rhominsumrhoY",desc_lst,State_Type,comp,1);
@@ -794,7 +792,7 @@ PeleLM::variableSetUp ()
   // Sum rhoYdot
   //
   derive_lst.add("sumRhoYdot",IndexType::TheCellType(),1,dsrhoydot,the_same_box);
-  for (i = 0; i < nspecies; i++)
+  for (int i = 0; i < nspecies; i++)
   {
     derive_lst.addComponent("sumRhoYdot",desc_lst,RhoYdot_Type,i,1);
   }
@@ -896,8 +894,8 @@ PeleLM::variableSetUp ()
   if (idx >= 0)
   {
     amrex::Print() << "Flame tracer will be " << flameTracName << '\n';
-    const std::string name = "Y("+flameTracName+")";
-    err_list.add(name,nGrowErr,ErrorRec::Special,flame_tracer_error);
+    const std::string chname = "Y("+flameTracName+")";
+    err_list.add(chname,nGrowErr,ErrorRec::Special,flame_tracer_error);
   }
 }
 

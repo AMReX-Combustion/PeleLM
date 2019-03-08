@@ -171,8 +171,6 @@ protected:
 
   virtual void calcDiffusivity (const amrex::Real time) override;
 
-  virtual void create_mac_rhs (amrex::MultiFab& mac_rhs, int nGrow, amrex::Real time, amrex::Real dt) override;
-
   virtual amrex::Real estTimeStep () override;
 
   virtual void getViscosity (amrex::MultiFab*  viscosity[BL_SPACEDIM],

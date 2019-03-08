@@ -1157,13 +1157,13 @@ PeleLM::restart (Amr&          papa,
 }
 
 void
-PeleLM::set_typical_values(bool restart)
+PeleLM::set_typical_values(bool is_restart)
 {
   if (level==0)
   {
     const int nComp = typical_values.size();
 
-    if (restart)
+    if (is_restart)
     {
       BL_ASSERT(nComp==NUM_STATE);
 
@@ -1956,17 +1956,17 @@ PeleLM::post_restart ()
   Real dummy  = 0;
   int MyProc  = ParallelDescriptor::MyProc();
   int step    = parent->levelSteps(0);
-  int restart = 1;
+  int is_restart = 1;
 
   if (do_active_control)
   {
     int usetemp = 0;
-    active_control(&dummy,&dummy,&crse_dt,&MyProc,&step,&restart,&usetemp);
+    active_control(&dummy,&dummy,&crse_dt,&MyProc,&step,&is_restart,&usetemp);
   }
   else if (do_active_control_temp)
   {
     int usetemp = 1;
-    active_control(&dummy,&dummy,&crse_dt,&MyProc,&step,&restart,&usetemp);
+    active_control(&dummy,&dummy,&crse_dt,&MyProc,&step,&is_restart,&usetemp);
   }
 }
 
@@ -2272,7 +2272,7 @@ PeleLM::sum_integrated_quantities ()
   {
     int MyProc  = ParallelDescriptor::MyProc();
     int step    = parent->levelSteps(0);
-    int restart = 0;
+    int is_restart = 0;
 
     if (do_active_control)
     {
@@ -2286,7 +2286,7 @@ PeleLM::sum_integrated_quantities ()
 
       int usetemp = 0;
 
-      active_control(&fuelmass,&time,&crse_dt,&MyProc,&step,&restart,&usetemp);
+      active_control(&fuelmass,&time,&crse_dt,&MyProc,&step,&is_restart,&usetemp);
     }
     else if (do_active_control_temp)
     {
@@ -2344,7 +2344,7 @@ PeleLM::sum_integrated_quantities ()
 
       int usetemp = 1;
 
-      active_control(&hival,&time,&crse_dt,&MyProc,&step,&restart,&usetemp);
+      active_control(&hival,&time,&crse_dt,&MyProc,&step,&is_restart,&usetemp);
     }
     else
     {
@@ -4447,7 +4447,7 @@ PeleLM::advance (Real time,
     BL_PROFILE_VAR_START(HTMAC);
     MultiFab Forcing(grids,dmap,nspecies+1,nGrowAdvForcing);
     Forcing.setBndry(1.e30);
-    create_mac_rhs(mac_divu,nGrowAdvForcing,time+0.5*dt,dt);
+    FillPatch(*this,mac_divu,nGrowAdvForcing,time+0.5*dt,Divu_Type,0,1,0);
     BL_PROFILE_VAR_STOP(HTMAC);
     showMF("sdc",Forcing,"sdc_mac_rhs1",level,sdc_iter,parent->levelSteps(level));
       
@@ -4976,28 +4976,6 @@ PeleLM::advance (Real time,
   return dt_test;
 }
 
-void
-PeleLM::create_mac_rhs (MultiFab& mac_rhs, int nGrow, Real time, Real dt)
-{
-  BL_ASSERT(mac_rhs.nGrow()>=nGrow);
-  BL_ASSERT(mac_rhs.boxArray()==grids);
-
-  int sCompDivU = 0;
-  int nCompDivU = 1;
-  FillPatchIterator Divu_fpi(*this,mac_rhs,nGrow,time,Divu_Type,sCompDivU,nCompDivU);
-  MultiFab& divu_mf = Divu_fpi.get_mf();
-
-#ifdef _OPENMP
-#pragma omp parallel
-#endif
-    for (MFIter mfi(divu_mf, true); mfi.isValid(); ++mfi)
- {
-   const Box& bx = mfi.growntilebox(); 
-   const FArrayBox& pfab = divu_mf[mfi];
-    mac_rhs[mfi].copy(pfab,bx,0,bx,sCompDivU,nCompDivU);
-  }
-}
-
 DistributionMapping
 PeleLM::getFuncCountDM (const BoxArray& bxba, int ngrow)
 {
@@ -5133,7 +5111,7 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
     }
 
     MultiFab&  React_new = get_new_data(RhoYdot_Type);
-    const int  ngrow     = React_new.nGrow();
+    const int  ngrow     = std::min(std::min(React_new.nGrow(),mf_old.nGrow()),mf_new.nGrow()); 
     //
     // Chop the grids to level out the chemistry work.
     // We want enough grids so that KNAPSACK works well,
@@ -5693,14 +5671,8 @@ PeleLM::mac_sync ()
     BL_PROFILE_VAR_START(HTVSYNC);
     if (do_mom_diff == 1)
     {
-      for (MFIter Vsyncmfi(Vsync); Vsyncmfi.isValid(); ++Vsyncmfi)
-      {
-        const int  i    = Vsyncmfi.index();
-        const Box& vbox = rho_ctime.box(i);
-
-        D_TERM(Vsync[Vsyncmfi].divide(rho_ctime[Vsyncmfi],vbox,0,Xvel,1);,
-               Vsync[Vsyncmfi].divide(rho_ctime[Vsyncmfi],vbox,0,Yvel,1);,
-               Vsync[Vsyncmfi].divide(rho_ctime[Vsyncmfi],vbox,0,Zvel,1););
+      for (int d=0; d<BL_SPACEDIM; ++d) {
+        MultiFab::Divide(Vsync,rho_ctime,0,Xvel+d,1,0); 
       }
     }
     BL_PROFILE_VAR_STOP(HTVSYNC);
@@ -7287,12 +7259,13 @@ PeleLM::RhoH_to_Temp (MultiFab& S,
   }
 
   int max_iters = 0;
+
 #ifdef _OPENMP
-#pragma omp parallel
+#pragma omp parallel if (!system::regtest_reduction) reduction(max:max_iters)
 #endif
   for (MFIter mfi(S,true); mfi.isValid(); ++mfi)
   {
-    const Box& box = amrex::grow(mfi.tilebox(),nGrow);
+    const Box& box = mfi.growntilebox(nGrow);
     max_iters = std::max(max_iters, RhoH_to_Temp(S[mfi],box,dominmax));
   }
 
