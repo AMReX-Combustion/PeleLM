@@ -1,21 +1,21 @@
 TOP = ../../..
 AMREX_HOME ?= ${TOP}/amrex
-IAMR_HOME ?= ${TOP}/IAMR_marc
-PELELM_HOME ?= ${TOP}/PeleLM
+IAMR_HOME ?= ${TOP}/IAMR
+PELELM_HOME ?= ${TOP}/PeleLM_GitHub_dev
 
 #
 # Build configuration
 #
 
-DIM             = 3
+DIM             = 2
 COMP            = gnu
 DEBUG           = FALSE
 USE_MPI         = TRUE
-USE_OMP         = TRUE
+USE_OMP         = FALSE
 PRECISION       = DOUBLE
 VERBOSE         = FALSE
 
-TINY_PROFILE = TRUE
+TINY_PROFILE = FALSE
 #USE_WBAR = TRUE
 
 DEFINES+=-DALWAYS_NEW_J
