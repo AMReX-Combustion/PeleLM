@@ -54,7 +54,7 @@ c     Take fuel mixture from pmf file
                Xt(n) = pmf_vals(3+n)
             end do 
             
-            CALL CKXTY (Xt, IWRK, RWRK, Yt)
+            CALL CKXTY (Xt, Yt)
 
             do n=1,Nspec
                Y_bc(n-1,zone) = Yt(n)
@@ -104,7 +104,7 @@ c     fuel shall be half O2, half H2 by volume
          Xt(iH2) = 0.5d0
 
 c     convert mole frac to mass frac
-         CALL CKXTY (Xt, IWRK, RWRK, Yt)
+         CALL CKXTY (Xt, Yt)
 
 c     set bc's
          do n=1,Nspec
@@ -120,7 +120,7 @@ c     Air - pure N2
          enddo
          Xt(iN2) = 1.d0
 
-         CALL CKXTY (Xt, IWRK, RWRK, Yt)         
+         CALL CKXTY (Xt, Yt)         
          do n=1,Nspec
             Y_bc(n-1,airZone) = Yt(n)
          end do
@@ -432,7 +432,7 @@ c ::: -----------------------------------------------------------
                   Xl(n) = pmf_vals(3+n)
                end do 
                
-               CALL CKXTY (Xl, IWRK, RWRK, Yl)
+               CALL CKXTY (Xl, Yl)
                
                do n = 1,Nspec
                   scal(i,j,FirstSpec+n-1) = Yl(n)
@@ -535,7 +535,7 @@ c     Superimpose blob of hot air
                   Xl(n) = pmf_vals(3+n)
                end do 
                
-               CALL CKXTY (Xl, IWRK, RWRK, Yl)
+               CALL CKXTY (Xl, Yl)
                
                do n = 1,Nspec
                   scal(i,j,FirstSpec+n-1) = Yl(n)
