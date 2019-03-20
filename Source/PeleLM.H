@@ -10,10 +10,6 @@
 #include <map>
 #include <utility>
 
-#ifdef AMREX_USE_EB
-#include <AMReX_EBFabFactory.H>
-#endif
-
 //
 // Note: define TEMPERATURE if you want a variable T in the 
 //       State_Type part of the state

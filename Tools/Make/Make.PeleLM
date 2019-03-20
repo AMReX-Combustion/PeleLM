@@ -69,7 +69,7 @@ Bdirs += $(IAMR_HOME)/Source/InflowForce
 Bpack	+= $(foreach dir, $(Bdirs), $(dir)/Make.package)
 Blocs	+= $(foreach dir, $(Bdirs), $(dir))
 
-# BoxLib 
+# AMReX 
 Pdirs   += $(AMREX_HOME)/Src/Base
 Pdirs   += $(AMREX_HOME)/Src/AmrCore
 Pdirs   += $(AMREX_HOME)/Src/Amr
@@ -80,6 +80,10 @@ endif
 Pdirs   += $(AMREX_HOME)/Src/LinearSolvers/C_CellMG
 Pdirs   += $(AMREX_HOME)/Src/LinearSolvers/C_TensorMG
 Pdirs   += $(AMREX_HOME)/Src/LinearSolvers/MLMG
+
+ifeq ($(USE_EB), TRUE)
+  Pdirs   += $(AMREX_HOME)/Src/EB
+endif
 
 Bpack	+= $(foreach dir, $(Pdirs), $(dir)/Make.package)
 Blocs	+= $(foreach dir, $(Pdirs), $(dir))

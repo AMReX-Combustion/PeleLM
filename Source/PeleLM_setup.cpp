@@ -40,10 +40,6 @@
 #include <AMReX_Utility.H>
 #include <NS_error_F.H>
 
-#ifdef AMREX_USE_EB
-#include <AMReX_EBFabFactory.H>
-#endif
-
 using namespace amrex;
 
 #define DEF_LIMITS(fab,fabdat,fablo,fabhi)      \

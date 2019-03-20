@@ -41,10 +41,6 @@
 
 #include <AMReX_buildInfo.H>
 
-#ifdef AMREX_USE_EB
-#include <AMReX_EBFabFactory.H>
-#endif
-
 using namespace amrex;
 
 static Box stripBox; // used for debugging
