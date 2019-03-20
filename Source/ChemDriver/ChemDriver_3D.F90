@@ -1068,7 +1068,7 @@ contains
                do n=1,Nspec
                   Yt(n) = Y(i,j,k,n)
                end do
-               CALL CKRHOY(Ptmp,T(i,j,k),YtRHO(i,j,k))
+               CALL CKRHOY(Ptmp,T(i,j,k),Yt,RHO(i,j,k))
                RHO(i,j,k) = RHO(i,j,k) * SCAL
             end do
          end do
