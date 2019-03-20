@@ -104,7 +104,7 @@ contains
       integer i,j,n
       REAL_T P1atm,RU,RUC,Pdyne,sum,Yt(maxspec)
 
-      CALL CKRP(IWRK(ckbi), RWRK(ckbr), RU, RUC, P1atm)
+      CALL CKRP(RU, RUC, P1atm)
       Pdyne = Patm * P1atm
       scale = million
 
@@ -114,7 +114,7 @@ contains
                Xt(n) = X(i,j,n)
             end do
 #ifdef DO_JBB_HACK
-            CALL CKXTY(Xt,IWRK(ckbi),RWRK(ckbr),Yt)
+            CALL CKXTY(Xt,Yt)
             sum = zero
             do n=1,Nspec
                Yt(n) =MAX( Yt(n),zero)
@@ -123,9 +123,9 @@ contains
             if (iN2 .gt. 0) then
                Yt(iN2) = Yt(iN2)+one-sum
             endif
-            CALL CKYTX(Yt,IWRK(ckbi),RWRK(ckbr),Xt)
+            CALL CKYTX(Yt,Xt)
 #endif
-            CALL CKKFKR(Pdyne,T(i,j),Xt,IWRK(ckbi),RWRK(ckbr),FwdKt,RevKt)
+            CALL CKKFKR(Pdyne,T(i,j),Xt,FwdKt,RevKt)
             do n=1,Nrxns
                FwdK(i,j,n) = FwdKt(rxns(n)+1)*scale
                RevK(i,j,n) = RevKt(rxns(n)+1)*scale
@@ -164,7 +164,7 @@ contains
 
       ndummy = Nspec
       tdummy = 0.
-      CALL CKRP(IWRK(ckbi), RWRK(ckbr), RU, RUC, P1atm)
+      CALL CKRP(RU, RUC, P1atm)
       RWRK(NP) = Patm * P1atm
 
       do j=lo(2),hi(2)
@@ -173,11 +173,11 @@ contains
             do n=1,Nspec
                Zt(n) = Y(i,j,n)
             end do
-            call CKHBMS(T(i,j),Zt,IWRK(ckbi),RWRK(ckbr),HMIX_CGS)
+            call CKHBMS(T(i,j),Zt,HMIX_CGS)
 
             Zt(Nspec+1) = HMIX_CGS * 1.d-4
 
-            call CKRHOY(RWRK(NP),T(i,j), Zt(1), IWRK(ckbi), RWRK(ckbr), RHO_CGS)
+            call CKRHOY(RWRK(NP),T(i,j), Zt(1),RHO_CGS)
             do n=1,Nspec
                Zt(n) = Zt(n) * (RHO_CGS * 1.d3)
             end do
@@ -187,7 +187,7 @@ contains
             T_cell = T(i,j)
             call conpFY_sdc(ndummy,tdummy,Zt,Zdott,RWRK,IWRK)
 
-            call CKHMS(T(i,j),IWRK(ckbi),RWRK(ckbr),H_CGS)
+            call CKHMS(T(i,j),H_CGS)
             Q(i,j) = 0.d0
             do n= 1, Nspec
                Q(i,j) = Q(i,j) - Zdott(n) * H_CGS(n) * 1.d-4
@@ -225,7 +225,7 @@ contains
       REAL_T TIME,P1atm,RU,RUC
 
       TIME = 0.
-      CALL CKRP(IWRK(ckbi), RWRK(ckbr), RU, RUC, P1atm)
+      CALL CKRP(RU, RUC, P1atm)
 
       do j=lo(2),hi(2)
          do i=lo(1),hi(1)
@@ -270,7 +270,7 @@ contains
             do n = 1,Nspec
                Yt(n) = Y(i,j,n)
             end do
-            CALL CKYTX(Yt,IWRK(ckbi),RWRK(ckbr),Xt)
+            CALL CKYTX(Yt,Xt)
             do n = 1,Nspec
                X(i,j,n) = Xt(n)
             end do
@@ -301,7 +301,7 @@ contains
             do n = 1,Nspec
                Xt(n) = X(i,j,n)
             end do
-            CALL CKXTY(Xt,IWRK(ckbi),RWRK(ckbr),Yt)
+            CALL CKXTY(Xt,Yt)
             do n = 1,Nspec
                Y(i,j,n) = Yt(n)
             end do
@@ -331,7 +331,7 @@ contains
       integer i,j,n
 
       scale = million
-      CALL CKRP(IWRK(ckbi),RWRK(ckbr),RU,RUC,P1ATM)
+      CALL CKRP(RU,RUC,P1ATM)
       Ptmp = Patm * P1ATM
 
       do j=lo(2),hi(2)
@@ -339,7 +339,7 @@ contains
             do n = 1,Nspec
                Yt(n) = Y(i,j,n)
             end do
-            CALL CKYTCP(Ptmp,T(i,j),Yt,IWRK(ckbi),RWRK(ckbr),Ct)
+            CALL CKYTCP(Ptmp,T(i,j),Yt,Ct)
             do n = 1,Nspec
                C(i,j,n) = Ct(n)*scale
             end do
@@ -377,7 +377,7 @@ contains
                Yt(n) = Y(i,j,n)
             end do
             rhoScl = RHO(i,j)*one2minus3
-            CALL CKYTCR(rhoScl,T(i,j),Yt,IWRK(ckbi),RWRK(ckbr),Ct)
+            CALL CKYTCR(rhoScl,T(i,j),Yt,Ct)
             do n = 1,Nspec
                C(i,j,n) = Ct(n)*million
             end do
@@ -409,7 +409,7 @@ contains
             do n = 1,Nspec
                Ct(n) = C(i,j,n)*scale
             end do
-            CALL CKCTX(Ct,IWRK(ckbi),RWRK(ckbr),Xt)
+            CALL CKCTX(Ct,Xt)
             do n = 1,Nspec
                X(i,j,n) = Xt(n)
             end do
@@ -435,23 +435,7 @@ contains
       REAL_T Ct(maxspec), Qt(maxreac), Qkt(maxreac), millionth
       integer i,j,n
 
-      millionth = one/million
-      do j=lo(2),hi(2)
-         do i=lo(1),hi(1)
-            do n = 1,Nspec
-               Ct(n) = C(i,j,n)*millionth
-            end do
-            CALL CKQC(T(i,j),Ct,IWRK(ckbi),RWRK(ckbr),Qt)
-#ifdef MIKE
-            CALL CKCONT(id,Qt,IWRK(ckbi),RWRK(ckbr),Qkt)
-#else
-            call bl_abort("FORT_MOLPROD not implemented")
-#endif
-            do n = 1,Nreac
-               Q(i,j,n) = Qkt(n)*million
-            end do
-         end do
-      end do
+      call bl_abort("FORT_MOLPROD not implemented")
   end subroutine mole_prod
       
 ! ----------------------------------------------------------------     
@@ -489,7 +473,7 @@ contains
          call bl_pd_abort()
       endif
 !     Get the matrix of elements versus species
-      call CKNCF(Nelt,IWRK,RWRK,NCF)
+      call CKNCF(Nelt,NCF)
       do j = lo(2),hi(2)
          do i = lo(1),hi(1)
             Celt(i,j) = zero
@@ -566,7 +550,7 @@ contains
       !
       ! Set molecular weights and pressure in area accessible by conpF
       !
-      CALL CKRP(IWRK(ckbi), RWRK(ckbr), RU, RUC, P1atm)
+      CALL CKRP( RU, RUC, P1atm)
 
       if (do_stiff .eq. 1) then
          MF = 22  ! Backward difference solver.
@@ -634,8 +618,8 @@ contains
 
             if (do_diag.eq.1) then
                FuncCount(i,j) = 0
-               CALL CKYTCP(RWRK(NP),T_cell,Z(1),IWRK(ckbi),RWRK(ckbr),Ct)
-               CALL CKQC(T_cell,Ct,IWRK(ckbi),RWRK(ckbr),Qt)
+               CALL CKYTCP(RWRK(NP),T_cell,Z(1),Ct)
+               CALL CKQC(T_cell,Ct,Qt)
                do m=1,Nreac
                   diag(i,j,m) = diag(i,j,m)+half*dtloc*Qt(m)*million
                enddo
@@ -761,8 +745,8 @@ contains
                TT1 = TT2
 
                if (do_diag.eq.1) then
-                  CALL CKYTCP(RWRK(NP),T_cell,Z(1),IWRK(ckbi),RWRK(ckbr),Ct)
-                  CALL CKQC(T_cell,Ct,IWRK(ckbi),RWRK(ckbr),Qt)
+                  CALL CKYTCP(RWRK(NP),T_cell,Z(1),Ct)
+                  CALL CKQC(T_cell,Ct,Qt)
                   do m=1,Nreac
                      diag(i,j,m) = diag(i,j,m)+weight*dtloc*Qt(m)*million
                   enddo
@@ -844,7 +828,7 @@ contains
                do n=1,Nspec
                   Yt(n) = Y(i,j,n) / RHO
                end do
-               CALL CKMMWY(Yt,IWRK(ckbi),RWRK(ckbr),Wavg)
+               CALL CKMMWY(Yt,Wavg)
 
                do n=1,Nspec
                   RD_Wbar(i,j,n) = RD(i,j,n) * Yt(n) / Wavg
@@ -867,7 +851,7 @@ contains
                   Yt(n) = Y(i,j,n) / RHO
                end do
 
-               CALL CKMMWY(Yt,IWRK(ckbi),RWRK(ckbr),Wavg)
+               CALL CKMMWY(Yt,Wavg)
                do n=1,Nspec
                   RD_Wbar(i,j,n) = RD(i,j,n) * Yt(n) / Wavg
                end do
@@ -903,9 +887,9 @@ contains
 
       parameter(SCAL = tenth, TSCAL = one / 100000.0D0)
 
-      CALL CKRP(IWRK(ckbi),RWRK(ckbr),RU,RUC,P1ATM)
+      CALL CKRP(RU,RUC,P1ATM)
       Ptmp = Patm * P1ATM
-      call CKWT(IWRK(ckbi),RWRK(ckbr),invmwt)
+      call CKWT(invmwt)
 
       do n=1,Nspec
          invmwt(n) = one / invmwt(n)
@@ -925,9 +909,9 @@ contains
                end do
 
                Tt = MAX(T(i,j),TMIN_TRANS) 
-               CALL CKMMWY(Yt,IWRK(ckbi),RWRK(ckbr),Wavg)
-               CALL CKCPMS(Tt,IWRK(ckbi),RWRK(ckbr),CPMS)
-               CALL CKYTX(Yt,IWRK(ckbi),RWRK(ckbr),X)
+               CALL CKMMWY(Yt,Wavg)
+               CALL CKCPMS(Tt,CPMS)
+               CALL CKYTX(Yt,X)
                CALL EGSPAR(Tt,X,Yt,CPMS,EGRWRK(1),EGIWRK(1))
                CALL EGSV1(Ptmp,Tt,Yt,Wavg,EGRWRK(1),Dt)
 
@@ -968,8 +952,8 @@ contains
                end do
 
                Tt = MAX(T(i,j),TMIN_TRANS) 
-               CALL CKMMWY(Yt,IWRK(ckbi),RWRK(ckbr),Wavg)
-               CALL CKYTX(Yt,IWRK(ckbi),RWRK(ckbr),X)
+               CALL CKMMWY(Yt,Wavg)
+               CALL CKYTX(Yt,X)
                CALL MCADIF(Ptmp,Tt,X,MCRWRK,Dt)
 
                RHO = RHO*1.d-3
@@ -1026,8 +1010,8 @@ contains
                   Yt(n) = Y(i,j,n)
                end do
                Tt = MAX(T(i,j),TMIN_TRANS) 
-               CALL CKCPMS(Tt,IWRK(ckbi),RWRK(ckbr),CPMS)
-               CALL CKYTX(Yt,IWRK(ckbi),RWRK(ckbr),X)
+               CALL CKCPMS(Tt,CPMS)
+               CALL CKYTX(Yt,X)
                CALL EGSPAR(Tt,X,Yt,CPMS,EGRWRK(1),EGIWRK(1))
                CALL EGSE3(Tt,Yt,EGRWRK(1),eta(i,j))
                eta(i,j) = eta(i,j) * SCAL
@@ -1040,7 +1024,7 @@ contains
                   Yt(n) = Y(i,j,n)
                end do
                Tt = MAX(T(i,j),TMIN_TRANS) 
-               CALL CKYTX(Yt,IWRK(ckbi),RWRK(ckbr),X)
+               CALL CKYTX(Yt,X)
                CALL MCAVIS(Tt,X,MCRWRK,eta(i,j))
                eta(i,j) = eta(i,j) * SCAL
             end do
@@ -1070,14 +1054,14 @@ contains
       
 !     NOTE: SCAL converts result from assumed cgs to MKS (1 g/cm^3 = 1.e3 kg/m^3)
       SCAL = one * 1000
-      CALL CKRP(IWRK(ckbi),RWRK(ckbr),RU,RUC,P1ATM)
+      CALL CKRP(RU,RUC,P1ATM)
       Ptmp = Patm * P1ATM
       do j=lo(2),hi(2)
          do i=lo(1),hi(1)
             do n=1,Nspec
                Yt(n) = Y(i,j,n)
             end do
-            CALL CKRHOY(Ptmp,T(i,j),Yt,IWRK(ckbi),RWRK(ckbr),RHO(i,j))
+            CALL CKRHOY(Ptmp,T(i,j),Yt,RHO(i,j))
             RHO(i,j) = RHO(i,j) * SCAL
          end do
       end do
@@ -1105,14 +1089,14 @@ contains
       
 !     NOTE: SCAL converts result from assumed cgs to MKS (1 g/cm^3 = 1.e3 kg/m^3)
       SCAL = one * 1000
-      CALL CKRP(IWRK(ckbi),RWRK(ckbr),RU,RUC,P1ATM)
+      CALL CKRP(RU,RUC,P1ATM)
       do j=lo(2),hi(2)
          do i=lo(1),hi(1)
             do n=1,Nspec
                Yt(n) = Y(i,j,n)
             end do
             Ptmp = P(i,j) * P1ATM
-            CALL CKRHOY(Ptmp,T(i,j),Yt,IWRK(ckbi),RWRK(ckbr),RHO(i,j))
+            CALL CKRHOY(Ptmp,T(i,j),Yt,RHO(i,j))
             RHO(i,j) = RHO(i,j) * SCAL
          end do
       end do
@@ -1148,7 +1132,7 @@ contains
                Yt(n) = Y(i,j,n)
             end do
             RHOt = RHO(i,j) * SCAL1
-            CALL CKPY(RHOt,T(i,j),Yt,IWRK(ckbi),RWRK(ckbr),P(i,j))
+            CALL CKPY(RHOt,T(i,j),Yt,P(i,j))
             P(i,j) = P(i,j) * SCAL
          end do
       end do
@@ -1174,7 +1158,7 @@ contains
       integer i, j, n
       REAL_T RU, RUC, P1ATM, Ptmp, Yt(maxspec), SCAL, Wavg, RHOt
       
-      CALL CKRP(IWRK(ckbi),RWRK(ckbr),RU,RUC,P1ATM)
+      CALL CKRP(RU,RUC,P1ATM)
       Ptmp = Patm * P1ATM
 
 !     NOTE: SCAL converts density (1 kg/m^3 = 1.e-3 g/cm^3)
@@ -1184,7 +1168,7 @@ contains
             do n=1,Nspec
                Yt(n) = Y(i,j,n)
             end do
-            CALL CKMMWY(Yt,IWRK(ckbi),RWRK(ckbr),Wavg)
+            CALL CKMMWY(Yt,Wavg)
             RHOt = RHO(i,j) * SCAL
             T(i,j) = Ptmp / (RHOt * RU / Wavg)
          end do
@@ -1217,7 +1201,7 @@ contains
             do n=1,Nspec
                Yt(n) = Y(i,j,n)
             end do
-            CALL CKCPBS(T(i,j),Yt,IWRK(ckbi),RWRK(ckbr),CPMIX(i,j))
+            CALL CKCPBS(T(i,j),Yt,CPMIX(i,j))
             CPMIX(i,j) = CPMIX(i,j) * SCAL
          end do
       end do
@@ -1248,7 +1232,7 @@ contains
             do n=1,Nspec
                Yt(n) = Y(i,j,n)
             end do
-            CALL CKCVBS(T(i,j),Yt,IWRK(ckbi),RWRK(ckbr),CVMIX(i,j))
+            CALL CKCVBS(T(i,j),Yt,CVMIX(i,j))
             CVMIX(i,j) = CVMIX(i,j) * SCAL
          end do
       end do
@@ -1279,7 +1263,7 @@ contains
             do n=1,Nspec
                Yt(n) = Y(i,j,n)
             end do
-            CALL CKHBMS(T(i,j),Yt,IWRK(ckbi),RWRK(ckbr),HMIX(i,j))
+            CALL CKHBMS(T(i,j),Yt,HMIX(i,j))
             HMIX(i,j) = HMIX(i,j) * SCAL
          end do
       end do
@@ -1306,7 +1290,7 @@ contains
             do n=1,Nspec
                Yt(n) = Y(i,j,n)
             end do
-            CALL CKMMWY(Yt,IWRK(ckbi),RWRK(ckbr),MWMIX(i,j))
+            CALL CKMMWY(Yt,MWMIX(i,j))
          end do
       end do
   end subroutine MWMIXfromY
@@ -1331,7 +1315,7 @@ contains
       SCAL = tenth**4
       do j=lo(2),hi(2)
          do i=lo(1),hi(1)
-            CALL CKCPMS(T(i,j),IWRK(ckbi),RWRK(ckbr),CPt)
+            CALL CKCPMS(T(i,j),CPt)
             do n=1,Nspec
                CP(i,j,n) = CPt(n) * SCAL
             end do
@@ -1358,7 +1342,7 @@ contains
       SCAL = tenth**4
       do j=lo(2),hi(2)
          do i=lo(1),hi(1)
-            CALL CKHMS(T(i,j),IWRK(ckbi),RWRK(ckbr),Ht)
+            CALL CKHMS(T(i,j),Ht)
             do n=1,Nspec
                H(i,j,n) = Ht(n) * SCAL
             end do
