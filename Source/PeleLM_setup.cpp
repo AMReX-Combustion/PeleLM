@@ -458,36 +458,40 @@ PeleLM::variableSetUp ()
 
   const Vector<std::string>& names = getChemSolve().speciesNames();
 
-  amrex::Print() << nspecies << " Chemical species interpreted:\n { ";
-  for (int i = 0; i < nspecies; i++)
-    amrex::Print() << names[i] << ' ' << ' ';
-  amrex::Print() << '}' << '\n' << '\n';
-
+  ParmParse pplm("pelelm");
+  bool verbose = false;
+  pplm.query("v",verbose);
+  if (verbose) {
+    amrex::Print() << nspecies << " Chemical species interpreted:\n { ";
+    for (int i = 0; i < nspecies; i++)
+      amrex::Print() << names[i] << ' ' << ' ';
+    amrex::Print() << '}' << '\n' << '\n';
+  }
   //
   // Send indices of fuel and oxidizer to fortran for setting prob data in common block
   //
-  ParmParse pp("ns");
-  pp.query("fuelName",fuelName);
+  ParmParse ppns("ns");
+  ppns.query("fuelName",fuelName);
   consumptionName[0] = fuelName;
-  if (int nc = pp.countval("consumptionName"))
+  if (int nc = ppns.countval("consumptionName"))
   {
     consumptionName.resize(nc);
-    pp.getarr("consumptionName",consumptionName,0,nc);
+    ppns.getarr("consumptionName",consumptionName,0,nc);
   }
-  pp.query("oxidizerName",oxidizerName);
-  pp.query("productName",productName);
-  pp.query("do_group_bndry_fills",do_group_bndry_fills);
+  ppns.query("oxidizerName",oxidizerName);
+  ppns.query("productName",productName);
+  ppns.query("do_group_bndry_fills",do_group_bndry_fills);
 
   //
   // Set scale of chemical components, used in ODE solves
   //
-  std::string speciesScaleFile; pp.query("speciesScaleFile",speciesScaleFile);
+  std::string speciesScaleFile; ppns.query("speciesScaleFile",speciesScaleFile);
   if (! speciesScaleFile.empty())
   {
     amrex::Print() << "  Setting scale values for chemical species\n\n";
     getChemSolve().set_species_Yscales(speciesScaleFile);
   }
-  int verbose_vode=0; pp.query("verbose_vode",verbose_vode);
+  int verbose_vode=0; ppns.query("verbose_vode",verbose_vode);
   if (verbose_vode!=0)
     getChemSolve().set_verbose_vode();
 
@@ -495,15 +499,16 @@ PeleLM::variableSetUp ()
   int oxidID = getChemSolve().index(oxidizerName);
   int prodID = getChemSolve().index(productName);
 
-  amrex::Print() << " fuel name " << fuelName << std::endl;
-  amrex::Print() << " index for fueld and oxidizer " << fuelID << " " << oxidID << std::endl;
-
+  if (verbose) {
+    amrex::Print() << " fuel name " << fuelName << std::endl;
+    amrex::Print() << " index for fueld and oxidizer " << fuelID << " " << oxidID << std::endl;
+  }
   set_prob_spec(&fuelID, &oxidID, &prodID, &nspecies);
   //
   // Get a species to use as a flame tracker.
   //
   std::string flameTracName = fuelName;
-  pp.query("flameTracName",flameTracName);    
+  ppns.query("flameTracName",flameTracName);    
   //
   // **************  DEFINE VELOCITY VARIABLES  ********************
   //
@@ -894,7 +899,9 @@ PeleLM::variableSetUp ()
   const int idx = getChemSolve().index(flameTracName);
   if (idx >= 0)
   {
-    amrex::Print() << "Flame tracer will be " << flameTracName << '\n';
+    if (verbose) {
+      amrex::Print() << "Flame tracer will be " << flameTracName << '\n';
+    }
     const std::string chname = "Y("+flameTracName+")";
     err_list.add(chname,nGrowErr,ErrorRec::Special,flame_tracer_error);
   }
@@ -980,9 +987,6 @@ PeleLM::rhoydotSetUp()
   RhoYdot_Type       = desc_lst.size();
   const int ngrow = 1;
   const int nrhoydot = getChemSolve().numSpecies();
-
-  amrex::Print() << "RhoYdot_Type, nrhoydot = " << RhoYdot_Type << ' ' << nrhoydot << '\n';
-
   desc_lst.addDescriptor(RhoYdot_Type,IndexType::TheCellType(),
                          StateDescriptor::Point,ngrow,nrhoydot,
                          &lincc_interp);

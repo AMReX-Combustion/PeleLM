@@ -28,11 +28,11 @@ module PeleLM_2d
   private
 
   public ::  calc_divu_fortran, calc_gamma_pinv, floor_spec, enth_diff_terms, &
-             compute_rho_dgrad_hdot_grad_Y, vel_visc, spec_temp_visc, &
+             vel_visc, spec_temp_visc, &
              est_divu_dt, check_divu_dt, dqrad_fill, divu_fill, &
              dsdt_fill, ydot_fill, rhoYdot_fill, fab_minmax, repair_flux, &
              incrwext_flx_div, flux_div, compute_ugradp, conservative_T_floor, &
-             htdd_relax, part_cnt_err, mcurve, smooth, grad_wbar, recomp_update
+             part_cnt_err, mcurve, smooth, grad_wbar
 
 contains
 
@@ -66,43 +66,41 @@ contains
     REAL_T  T(DIMV(T))
       
     integer i, j, n
-    REAL_T Y(maxspec), H(maxspec), cpmix, rhoInv, tmp, mmw, invmtw(maxspec)
+    REAL_T Y(maxspec), H(maxspec), cpmix, rho, rhoInv, mmw, invmwt(maxspec)
 
-    call CKWT(IWRK(ckbi),RWRK(ckbr),invmtw)
-
+    call CKWT(IWRK(ckbi),RWRK(ckbr),invmwt)
     do n=1,Nspec
-       invmtw(n) = one / invmtw(n)
+       invmwt(n) = one / invmwt(n)
     end do
 
     do j=lo(2),hi(2)
-      do i=lo(1),hi(1)
-        rhoInv = 0.d0
-        do n=1,Nspec
-          rhoInv = rhoInv + rhoY(i,j,n)
-        enddo
-        rhoInv = 1.d0 / rhoInv
-        do n=1,Nspec
-          Y(n) = rhoInv*rhoY(i,j,n)
-        enddo
-        CALL CKCPBS(T(i,j),Y,IWRK(ckbi),RWRK(ckbr),cpmix)
-        CALL CKHMS(T(i,j),IWRK(ckbi),RWRK(ckbr),H)
-        CALL CKMMWY(Y,IWRK(ckbi),RWRK(ckbr),mmw)
+       do i=lo(1),hi(1)
+          rho = 0.d0
+          do n=1,Nspec
+             rho = rho + rhoY(i,j,n)
+          enddo
+          rhoInv = 1.d0 / rho
+          do n=1,Nspec
+             Y(n) = rhoInv*rhoY(i,j,n)
+          enddo
+          CALL CKCPBS(T(i,j),Y,IWRK(ckbi),RWRK(ckbr),cpmix)
+          CALL CKHMS(T(i,j),IWRK(ckbi),RWRK(ckbr),H)
+          CALL CKMMWY(Y,IWRK(ckbi),RWRK(ckbr),mmw)
 
-        cpmix = cpmix*1.d-4
-        do n=1,Nspec
-          H(n) = H(n)*1.d-4
-        enddo
+          cpmix = cpmix*1.d-4
+          do n=1,Nspec
+             H(n) = H(n)*1.d-4
+          enddo
 
-        tmp = 0.d0
-        divu(i,j) = divu(i,j) + vtT(i,j)
-        do n=1,Nspec
-          tmp = tmp + (rYdot(i,j,n)+vtY(i,j,n))*invmtw(n)
-          divu(i,j) = divu(i,j) - (rYdot(i,j,n)+vtY(i,j,n))*H(n)
-         enddo
-         divu(i,j) = ( divu(i,j)/(cpmix*T(i,j)) + tmp*mmw ) * rhoInv
-        enddo
-      enddo
+          divu(i,j) = (divu(i,j) + vtT(i,j))/(rho*cpmix*T(i,j))
+          do n=1,Nspec
+             divu(i,j) = divu(i,j) &
+                  + (vtY(i,j,n) + rYdot(i,j,n)) &
+                  *(invmwt(n)*mmw*rhoInv - H(n)/(rho*cpmix*T(i,j)))
+          enddo
 
+       enddo
+    enddo
   end subroutine calc_divu_fortran
 
 !----------------------------------------- 
@@ -353,56 +351,6 @@ contains
     call amrex_deallocate(H)
 
   end subroutine enth_diff_terms
-
-!-------------------------------------
-
-  subroutine compute_rho_dgrad_hdot_grad_Y(dx, &
-               lo, hi, DIMS(species), species, &
-               DIMS(h), h, DIMS(betax), betax, &
-               DIMS(betay), betay, DIMS(rdghdgy), rdghdgy) &
-               bind(C, name="compute_rho_dgrad_hdot_grad_y")
-
-    implicit none
-
-! ... inputs
-
-    integer lo(SDIM), hi(SDIM)
-    REAL_T  dx(SDIM)
-    integer DIMDEC(species)
-    integer DIMDEC(h)
-    REAL_T  species(DIMV(species))
-    REAL_T  h(DIMV(h))
-    integer DIMDEC(betax)
-    integer DIMDEC(betay)
-    REAL_T betax(DIMV(betax))
-    REAL_T betay(DIMV(betay))
-    integer DIMDEC(rdghdgy)
-
-! ... outputs
-
-    REAL_T rdghdgy(DIMV(rdghdgy))
-
-! ... local
-
-    integer i,j
-    REAL_T  dxsqr, dysqr
-    REAL_T  betadotleft, betadotright
-    REAL_T  betadottop,  betadotbot
-
-    dxsqr = dx(1)**2
-    dysqr = dx(2)**2
-    do j=lo(2),hi(2)
-      do i=lo(1),hi(1)
-        betadotleft  = betax(i,j)*(h(i,j)-h(i-1,j))*(species(i,j)-species(i-1,j))
-        betadotright = betax(i+1,j)*(h(i+1,j)-h(i,j))*(species(i+1,j)-species(i,j))
-        betadotbot   = betay(i,j)*(h(i,j)-h(i,j-1))*(species(i,j)-species(i,j-1))
-        betadottop   = betay(i,j+1)*(h(i,j+1)-h(i,j))*(species(i,j+1)-species(i,j))
-        rdghdgy(i,j) =  half*((betadotleft + betadotright)/dxsqr + &
-                               (betadottop  + betadotbot)/dysqr)
-      enddo
-    enddo
-
-  end subroutine compute_rho_dgrad_hdot_grad_y
 
 !--------------------------------------------------------------
 
@@ -1628,129 +1576,6 @@ contains
 
   end function conservative_T_floor
 
-!-----------------------------------------
-
-  subroutine htdd_relax(lo, hi, S, DIMS(S), yc, Tc, hc, rc, &
-                  L, DIMS(L), a, DIMS(a), R, DIMS(R), thetaDt, fac, maxRes, maxCor, &
-                  for_T0_H1, res_only, mult) &
-                  bind(C, name="htdd_relax")
-
-    implicit none
-
-#include <cdwrk.H>      
-
-    integer lo(SDIM), hi(SDIM), yc, Tc, hc, rc
-    integer DIMDEC(S)
-    integer DIMDEC(L)
-    integer DIMDEC(a)
-    integer DIMDEC(R)
-    REAL_T S(DIMV(s),0:*)
-    REAL_T L(DIMV(L),0:*)
-    REAL_T a(DIMV(a),0:*)
-    REAL_T R(DIMV(R),0:*)
-    REAL_T thetaDt, fac(0:*), maxRes(0:*), maxCor(0:*)
-    integer for_T0_H1, res_only
-    REAL_T mult, cor
-    integer i, j, n
-
-#ifdef HT_SKIP_NITROGEN
-    REAL_T, allocatable :: tfab(:,:)
-#endif
-
-!
-!     Helper function to compute:
-!     (a) dR = Rhs + (rho.phi - theta.dt.Lphi)
-!     (b) Res = Rhs - A(S) = Rhs - (rho.phi - theta.dt.Lphi) for RhoH
-!         or  Res = Rhs - (phi - theta.dt.Lphi) for Temp
-!               and then relax: phi = phi + Res/alpha
-!     -- note that if for Temp both Lphi and alpha have been scaled by (1/rho.Cp)^nph
-!     
-!     NOTE: Assumes maxRes and maxCor have been initialized properly
-!
-    do n=0,Nspec-1
-      do j=lo(2),hi(2)
-        do i=lo(1),hi(1)
-          L(i,j,n) = R(i,j,n) + mult*(S(i,j,rc)*S(i,j,yc+n) - thetaDt*L(i,j,n))
-           maxRes(n) = MAX(maxRes(n),ABS(L(i,j,n)))
-         enddo
-      enddo
-    enddo
-#ifdef HT_SKIP_NITROGEN
-    do j=lo(2),hi(2)
-      do i=lo(1),hi(1)
-        L(i,j,Nspec-1) = 0.d0
-      enddo
-    enddo
-    maxRes(Nspec-1) = 0.d0
-#endif
-
-    if (for_T0_H1.eq.0) then
-      do j=lo(2),hi(2)
-        do i=lo(1),hi(1)
-          L(i,j,Nspec) = R(i,j,Nspec) + mult*(S(i,j,Tc) - thetaDt*L(i,j,Nspec))
-          maxRes(Nspec) = MAX(maxRes(Nspec),ABS(L(i,j,Nspec)))
-        enddo
-      enddo
-    else
-      do j=lo(2),hi(2)
-        do i=lo(1),hi(1)
-          L(i,j,Nspec) = R(i,j,Nspec) + mult*(S(i,j,rc)*S(i,j,Hc) - thetaDt*L(i,j,Nspec))
-          maxRes(Nspec) = MAX(maxRes(Nspec),ABS(L(i,j,Nspec)))
-        enddo
-      enddo
-    endif
-
-    if (res_only.ne.1) then
-      do n=0,Nspec-1
-        do j=lo(2),hi(2)
-          do i=lo(1),hi(1)
-            cor = fac(n) * L(i,j,n) / (S(i,j,rc) - thetaDt*a(i,j,n))
-            maxCor(n) = MAX(maxCor(n),ABS(cor))
-            S(i,j,yc+n) = S(i,j,yc+n)  +  cor
-          enddo
-        enddo
-      enddo
-
-#ifdef HT_SKIP_NITROGEN
-      allocate(tfab(lo(1):hi(1),lo(2):hi(2)))
-      tfab = 0.0d0
-      do n=0,Nspec-2
-        do j=lo(2),hi(2)
-          do i=lo(1),hi(1)
-            tfab(i,j) = tfab(i,j) + S(i,j,yc+n)
-          enddo
-        enddo
-      end do
-      do j=lo(2),hi(2)
-        do i=lo(1),hi(1)
-          S(i,j,Nspec-1) = 1.d0 - tfab(i,j)
-        enddo
-      enddo
-      maxCor(Nspec-1) = 0.d0
-      deallocate(tfab)
-#endif
-
-      if (for_T0_H1.eq.0) then
-        do j=lo(2),hi(2)
-          do i=lo(1),hi(1)
-            cor = fac(Nspec) * L(i,j,Nspec) / (1.d0 - thetaDt*a(i,j,Nspec))
-            maxCor(Nspec) = MAX(maxCor(Nspec),ABS(cor))
-            S(i,j,Tc) = S(i,j,Tc)  +  cor
-          enddo
-        enddo
-      else
-        do j=lo(2),hi(2)
-          do i=lo(1),hi(1)
-            cor = fac(Nspec) * L(i,j,Nspec) / (S(i,j,rc) - thetaDt*a(i,j,Nspec))
-            maxCor(Nspec) = MAX(maxCor(Nspec),ABS(cor))
-            S(i,j,hc) = S(i,j,hc)  +  cor
-          enddo
-        enddo
-      endif
-    endif
-
-  end subroutine htdd_relax
-
 ! ::: -----------------------------------------------------------
 ! ::: This routine will tag high error cells based on whether or not
 ! ::: they contain any particles.
@@ -1953,39 +1778,5 @@ contains
     end if
       
   end subroutine grad_wbar
-
-!-----------------------------------
-
-  subroutine recomp_update(lo, hi, &
-                           update, DIMS(update), &
-                           xflux,  DIMS(xflux), &
-                           yflux,  DIMS(yflux), &
-                           vol,    DIMS(vol), &
-                           nc) &
-                           bind(C, name="recomp_update")
-
-    implicit none
-    integer lo(SDIM), hi(SDIM), nc
-    integer DIMDEC(update)
-    integer DIMDEC(xflux)
-    integer DIMDEC(yflux)
-    integer DIMDEC(vol)
-    REAL_T update(DIMV(update),nc)
-    REAL_T xflux(DIMV(xflux),nc)
-    REAL_T yflux(DIMV(yflux),nc)
-    REAL_T vol(DIMV(vol))
-
-    integer i, j, n
-
-    do n=1,nc      
-      do j=lo(2),hi(2)
-        do i=lo(1),hi(1)
-          update(i,j,n)=-((xflux(i+1,j,n)-xflux(i,j,n)) &
-                   +          (yflux(i,j+1,n)-yflux(i,j,n)))/vol(i,j)
-        end do
-      end do
-    end do
-
-  end subroutine recomp_update
 
 end module PeleLM_2d

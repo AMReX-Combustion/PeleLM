@@ -200,16 +200,6 @@ extern "C" {
 #endif
                            const int* lo, const int* hi, const amrex::Real* dx);
 
-  void htdd_relax(const int* lo, const int* hi,
-                      amrex::Real* s, ARLIM_P(slo),  ARLIM_P(shi),
-                      const int& sCompY, const int& sCompT,
-                      const int& sCompH, const int& sCompR,
-                      const amrex::Real* L, ARLIM_P(Llo),  ARLIM_P(Lhi),
-                      const amrex::Real* a, ARLIM_P(alo),  ARLIM_P(ahi),
-                      const amrex::Real* r, ARLIM_P(rlo),  ARLIM_P(rhi),
-                      const amrex::Real& thetaDt, const amrex::Real* fac, amrex::Real* maxRes, amrex::Real* maxCor,
-                      const int& for_T0_H1, const int& res_only, const amrex::Real& mult);
-
   void get_typical_vals(amrex::Real* vals, const int* nVals);
 
   void set_typical_vals(const amrex::Real* vals, const int* nVals);
@@ -228,16 +218,6 @@ extern "C" {
                          const amrex::Real* dx, const amrex::Real* xlo,
                          const amrex::Real* prob_lo, const amrex::Real* time,
                          const int* level);
-
-  void recomp_update(const int* lo, const int* hi,
-                          const amrex::Real* updat, ARLIM_P(uplo), ARLIM_P(uphi),
-                          const amrex::Real* xflux, ARLIM_P(fxlo), ARLIM_P(fxhi),
-                          const amrex::Real* yflux, ARLIM_P(fylo), ARLIM_P(fyhi),
-#if BL_SPACEDIM == 3
-                          const amrex::Real* zflux, ARLIM_P(fzlo), ARLIM_P(fzhi),
-#endif
-                          const amrex::Real* vol,   ARLIM_P(vlo),  ARLIM_P(vhi),
-                          const int* nc);
 
   void mcurve(const int* lo, const int* hi,
                    const amrex::Real* T, ARLIM_P(Tlo),  ARLIM_P(Thi),

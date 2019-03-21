@@ -28,11 +28,11 @@ module PeleLM_3d
   private
 
   public ::  calc_divu_fortran, calc_gamma_pinv, floor_spec, enth_diff_terms, &
-             compute_rho_dgrad_hdot_grad_Y, vel_visc, spec_temp_visc, &
+             vel_visc, spec_temp_visc, &
              est_divu_dt, check_divu_dt, dqrad_fill, divu_fill, &
              dsdt_fill, ydot_fill, rhoYdot_fill, fab_minmax, repair_flux, &
              incrwext_flx_div, flux_div, compute_ugradp, conservative_T_floor, &
-             htdd_relax, part_cnt_err, mcurve, smooth, grad_wbar, recomp_update
+             part_cnt_err, mcurve, smooth, grad_wbar
 
 contains
              
@@ -63,21 +63,21 @@ contains
       REAL_T  T(DIMV(T))
       
       integer i, j, k, n
-      REAL_T Y(maxspec), H(maxspec), cpmix, rhoInv, tmp, mmw, invmtw(maxspec)
+      REAL_T Y(maxspec), H(maxspec), cpmix, rho, rhoInv, tmp, mmw, invmwt(maxspec)
 
-      call CKWT(IWRK(ckbi),RWRK(ckbr),invmtw)
+      call CKWT(IWRK(ckbi),RWRK(ckbr),invmwt)
       do n=1,Nspec
-         invmtw(n) = one / invmtw(n)
+         invmwt(n) = one / invmwt(n)
       end do
 
       do k=lo(3),hi(3)
          do j=lo(2),hi(2)
             do i=lo(1),hi(1)
-               rhoInv = 0.d0
+               rho = 0.d0
                do n=1,Nspec
-                  rhoInv = rhoInv + rhoY(i,j,k,n)
+                  rho = rho + rhoY(i,j,k,n)
                enddo
-               rhoInv = 1.d0 / rhoInv
+               rhoInv = 1.d0 / rho
                do n=1,Nspec
                   Y(n) = rhoInv*rhoY(i,j,k,n)
                enddo
@@ -90,13 +90,12 @@ contains
                   H(n) = H(n)*1.d-4
                enddo
 
-               tmp = 0.d0
-               divu(i,j,k) = divu(i,j,k) + vtT(i,j,k)
+               divu(i,j,k) = (divu(i,j,k) + vtT(i,j,k))/(rho*cpmix*T(i,j,k))
                do n=1,Nspec
-                  tmp = tmp + (rYdot(i,j,k,n)+vtY(i,j,k,n))*invmtw(n)
-                  divu(i,j,k) = divu(i,j,k) - rYdot(i,j,k,n)*H(n)
+                  divu(i,j,k) = divu(i,j,k) &
+                       + (vtY(i,j,k,n) + rYdot(i,j,k,n)) &
+                       *(invmwt(n)*mmw*rhoInv - H(n)/(rho*cpmix*T(i,j,k)))
                enddo
-               divu(i,j,k) = ( divu(i,j,k)/(cpmix*T(i,j,k)) + tmp*mmw ) * rhoInv
             enddo
          enddo
       enddo
@@ -184,7 +183,7 @@ contains
 !-----------------------------------  
   
   subroutine enth_diff_terms (lo, hi, dlo, dhi, dx, &
-                              T, DIMS(T), RhoY, DIMS(RhoY), &
+                              T, DIMS(T),
                               rhoDx, DIMS(rhoDx), Fx, DIMS(Fx), Ax, DIMS(Ax), &
                               rhoDy, DIMS(rhoDy), Fy, DIMS(Fy), Ay, DIMS(Ay), &
                               rhoDz, DIMS(rhoDz), Fz, DIMS(Fz), Az, DIMS(Az), &
@@ -201,25 +200,23 @@ contains
       REAL_T  dx(SDIM)
       integer DIMDEC(T)
       REAL_T  T(DIMV(T))
-      integer DIMDEC(RhoY)
-      REAL_T  RhoY(DIMV(RhoY),Nspec)
 
       integer DIMDEC(rhoDx)
-      REAL_T  rhoDx(DIMV(rhoDx),Nspec+3)
+      REAL_T  rhoDx(DIMV(rhoDx))
       integer DIMDEC(Fx)
       REAL_T  Fx(DIMV(Fx),Nspec+3)
       integer DIMDEC(Ax)
       REAL_T  Ax(DIMV(Ax))
 
       integer DIMDEC(rhoDy)
-      REAL_T  rhoDy(DIMV(rhoDy),Nspec+3)
+      REAL_T  rhoDy(DIMV(rhoDy))
       integer DIMDEC(Fy)
       REAL_T  Fy(DIMV(Fy),Nspec+3)
       integer DIMDEC(Ay)
       REAL_T  Ay(DIMV(Ay))
 
       integer DIMDEC(rhoDz)
-      REAL_T  rhoDz(DIMV(rhoDz),Nspec+3)
+      REAL_T  rhoDz(DIMV(rhoDz))
       integer DIMDEC(Fz)
       REAL_T  Fz(DIMV(Fz),Nspec+3)
       integer DIMDEC(Az)
@@ -258,7 +255,7 @@ contains
       do k=lo(3),hi(3)
       do j=lo(2),hi(2)
       do i=lo(1),hi(1)+1
-         Fx(i,j,k,Nspec+3) = - rhoDx(i,j,k,Nspec+3)*(T(i,j,k) - T(i-1,j,k)) * dxInv * Ax(i,j,k)
+         Fx(i,j,k,Nspec+3) = - rhoDx(i,j,k)*(T(i,j,k) - T(i-1,j,k)) * dxInv * Ax(i,j,k)
       enddo
       enddo
       enddo
@@ -266,7 +263,7 @@ contains
       do k=lo(3),hi(3)
       do j=lo(2),hi(2)+1
       do i=lo(1),hi(1)
-         Fy(i,j,k,Nspec+3) = - rhoDy(i,j,k,Nspec+3)*(T(i,j,k) - T(i,j-1,k)) * dyInv * Ay(i,j,k)
+         Fy(i,j,k,Nspec+3) = - rhoDy(i,j,k)*(T(i,j,k) - T(i,j-1,k)) * dyInv * Ay(i,j,k)
       enddo
       enddo
       enddo
@@ -274,7 +271,7 @@ contains
       do k=lo(3),hi(3)+1
       do j=lo(2),hi(2)
       do i=lo(1),hi(1)
-         Fz(i,j,k,Nspec+3) = - rhoDz(i,j,k,Nspec+3)*(T(i,j,k) - T(i,j,k-1)) * dzInv * Az(i,j,k)
+         Fz(i,j,k,Nspec+3) = - rhoDz(i,j,k)*(T(i,j,k) - T(i,j,k-1)) * dzInv * Az(i,j,k)
       enddo
       enddo
       enddo
@@ -377,7 +374,7 @@ contains
          do n=1,Nspec
             do k=lo(3),hi(3)
             do j=lo(2),hi(2)
-               Fx(i,j,k,Nspec+2) = Fx(i,j,k,Nspec+2) + Fx(i,j,k,n)*Ax(i,j,k)*H(i-1,j,k,n)
+               Fx(i,j,k,Nspec+2) = Fx(i,j,k,Nspec+2) + Fx(i,j,k,n)*H(i-1,j,k,n)
             enddo
             enddo
          enddo
@@ -389,7 +386,7 @@ contains
          do n=1,Nspec
             do k=lo(3),hi(3)
             do j=lo(2),hi(2)
-               Fx(i,j,k,Nspec+2) = Fx(i,j,k,Nspec+2) + Fx(i,j,k,n)*Ax(i,j,k)*H(i,j,k,n)
+               Fx(i,j,k,Nspec+2) = Fx(i,j,k,Nspec+2) + Fx(i,j,k,n)*H(i,j,k,n)
             enddo
             enddo
          enddo
@@ -401,7 +398,7 @@ contains
          do n=1,Nspec
             do k=lo(3),hi(3)
             do i=lo(1),hi(1)
-               Fy(i,j,k,Nspec+2) = Fy(i,j,k,Nspec+2) + Fy(i,j,k,n)*Ay(i,j,k)*H(i,j-1,k,n)
+               Fy(i,j,k,Nspec+2) = Fy(i,j,k,Nspec+2) + Fy(i,j,k,n)*H(i,j-1,k,n)
             enddo
             enddo
          enddo
@@ -413,7 +410,7 @@ contains
          do n=1,Nspec
             do k=lo(3),hi(3)
             do i=lo(1),hi(1)
-               Fy(i,j,k,Nspec+2) = Fy(i,j,k,Nspec+2) + Fy(i,j,k,n)*Ay(i,j,k)*H(i,j,k,n)
+               Fy(i,j,k,Nspec+2) = Fy(i,j,k,Nspec+2) + Fy(i,j,k,n)*H(i,j,k,n)
             enddo
             enddo
          enddo
@@ -425,7 +422,7 @@ contains
          do n=1,Nspec
             do j=lo(2),hi(2)
             do i=lo(1),hi(1)
-               Fz(i,j,k,Nspec+2) = Fz(i,j,k,Nspec+2) + Fz(i,j,k,n)*Az(i,j,k)*H(i,j,k-1,n)
+               Fz(i,j,k,Nspec+2) = Fz(i,j,k,Nspec+2) + Fz(i,j,k,n)*H(i,j,k-1,n)
             enddo
             enddo
          enddo
@@ -437,7 +434,7 @@ contains
          do n=1,Nspec
             do j=lo(2),hi(2)
             do i=lo(1),hi(1)
-               Fz(i,j,k,Nspec+2) = Fz(i,j,k,Nspec+2) + Fz(i,j,k,n)*Az(i,j,k)*H(i,j,k,n)
+               Fz(i,j,k,Nspec+2) = Fz(i,j,k,Nspec+2) + Fz(i,j,k,n)*H(i,j,k,n)
             enddo
             enddo
          enddo
@@ -446,66 +443,6 @@ contains
       call amrex_deallocate(H)
  
   end subroutine enth_diff_terms
-
-!-------------------------------------
-
-  subroutine compute_rho_dgrad_hdot_grad_Y(dx, &
-              lo, hi, DIMS(species), species, &
-              DIMS(h), h, DIMS(betax), betax, &
-              DIMS(betay), betay, DIMS(betaz), betaz,  &
-              DIMS(rdghdgy), rdghdgy) &
-               bind(C, name="compute_rho_dgrad_hdot_grad_y")
-
-      implicit none
-
-      integer lo(SDIM), hi(SDIM)
-      REAL_T  dx(SDIM)
-      integer DIMDEC(species)
-      integer DIMDEC(h)
-      REAL_T  species(DIMV(species))
-      REAL_T  h(DIMV(h))
-      integer DIMDEC(betax)
-      integer DIMDEC(betay)
-      integer DIMDEC(betaz)
-      REAL_T betax(DIMV(betax))
-      REAL_T betay(DIMV(betay))
-      REAL_T betaz(DIMV(betaz))
-      integer DIMDEC(rdghdgy)
-
-      REAL_T rdghdgy(DIMV(rdghdgy))
-
-      integer i,j,k
-      REAL_T  dxsqr, dysqr, dzsqr
-      REAL_T  bdotxlo, bdotxhi, bdotylo, bdotyhi
-      REAL_T  bdotzlo, bdotzhi
-
-      dxsqr = 1.0D0/dx(1)**2
-      dysqr = 1.0D0/dx(2)**2
-      dzsqr = 1.0D0/dx(3)**2
-
-      do k=lo(3),hi(3)
-        do j=lo(2),hi(2)
-          do i=lo(1),hi(1)
-            bdotxlo = betax(i,j,k  )*(h(i,j,k)-h(i-1,j,k)) &
-                 *(species(i,j,k)-species(i-1,j,k))
-            bdotxhi = betax(i+1,j,k)*(h(i+1,j,k)-h(i,j,k)) &
-                *(species(i+1,j,k)-species(i,j,k))
-            bdotylo = betay(i,j,k  )*(h(i,j,k)-h(i,j-1,k)) &
-                *(species(i,j,k)-species(i,j-1,k))
-            bdotyhi = betay(i,j+1,k)*(h(i,j+1,k)-h(i,j,k)) &
-                *(species(i,j+1,k)-species(i,j,k))
-            bdotzlo = betaz(i,j,k  )*(h(i,j,k)-h(i,j,k-1)) &
-                *(species(i,j,k)-species(i,j,k-1))
-            bdotzhi = betaz(i,j,k+1)*(h(i,j,k+1)-h(i,j,k)) &
-                *(species(i,j,k+1)-species(i,j,k))
-            rdghdgy(i,j,k) =  half*((bdotxlo + bdotxhi)*dxsqr + &
-                                   (bdotylo + bdotyhi)*dysqr + &
-                                   (bdotzlo + bdotzhi)*dysqr)
-          enddo
-        enddo
-      enddo
-
-  end subroutine compute_rho_dgrad_hdot_grad_y
 
 !--------------------------------------------------------------
 
@@ -2124,148 +2061,6 @@ contains
       
   end function conservative_T_floor
 
-!-----------------------------------------
-
-  subroutine htdd_relax(lo, hi, S, DIMS(S), yc, Tc, hc, rc, &
-          L, DIMS(L), a, DIMS(a), R, DIMS(R), thetaDt, fac, maxRes, maxCor, &
-          for_T0_H1, res_only, mult) &
-          bind(C, name="htdd_relax")
-                   
-      implicit none
-      
-#include <cdwrk.H>
-
-      integer lo(SDIM), hi(SDIM), yc, Tc, hc, rc
-      integer DIMDEC(S)
-      integer DIMDEC(L)
-      integer DIMDEC(a)
-      integer DIMDEC(R)
-      REAL_T S(DIMV(s),0:*)
-      REAL_T L(DIMV(L),0:*)
-      REAL_T a(DIMV(a),0:*)
-      REAL_T R(DIMV(R),0:*)
-      REAL_T thetaDt, fac(0:*), maxRes(0:*), maxCor(0:*)
-      integer for_T0_H1, res_only
-      REAL_T mult, cor
-      integer i, j, k, n
-
-#ifdef HT_SKIP_NITROGEN
-      REAL_T, allocatable :: tfab(:,:,:)
-#endif
-
-!
-!     Helper function to compute:
-!     (a) dR = Rhs + (rho.phi - theta.dt.Lphi)
-!     (b) Res = Rhs - A(S) = Rhs - (rho.phi - theta.dt.Lphi) for RhoH
-!         or  Res = Rhs - (phi - theta.dt.Lphi) for Temp
-!               and then relax: phi = phi + Res/alpha
-!     -- note that if for Temp both Lphi and alpha have been scaled by (1/rho.Cp)^nph
-!     
-!     NOTE: Assumes maxRes and maxCor have been initialized properly
-!
-
-      do n=0,Nspec-1
-         do k=lo(3),hi(3)
-            do j=lo(2),hi(2)
-               do i=lo(1),hi(1)
-                  L(i,j,k,n) = R(i,j,k,n) + mult*(S(i,j,k,rc)*S(i,j,k,yc+n) - thetaDt*L(i,j,k,n))
-                  maxRes(n) = MAX(maxRes(n),ABS(L(i,j,k,n)))
-               enddo
-            enddo
-         enddo
-      enddo
-
-#ifdef HT_SKIP_NITROGEN
-      do k=lo(3),hi(3)
-         do j=lo(2),hi(2)
-            do i=lo(1),hi(1)
-               L(i,j,k,Nspec-1) = 0.d0
-            enddo
-         enddo
-      enddo
-      maxRes(Nspec-1) = 0.d0
-#endif
-
-      if (for_T0_H1.eq.0) then
-         do k=lo(3),hi(3)
-            do j=lo(2),hi(2)
-               do i=lo(1),hi(1)
-                  L(i,j,k,Nspec) = R(i,j,k,Nspec) + mult*(S(i,j,k,Tc) - thetaDt*L(i,j,k,Nspec))
-                  maxRes(Nspec) = MAX(maxRes(Nspec),ABS(L(i,j,k,Nspec)))
-               enddo
-            enddo
-         enddo
-      else
-         do k=lo(3),hi(3)
-            do j=lo(2),hi(2)
-               do i=lo(1),hi(1)
-                  L(i,j,k,Nspec) = R(i,j,k,Nspec) + mult*(S(i,j,k,rc)*S(i,j,k,hc) - thetaDt*L(i,j,k,Nspec))
-                  maxRes(Nspec) = MAX(maxRes(Nspec),ABS(L(i,j,k,Nspec)))
-               enddo
-            enddo
-         enddo
-      endif
-
-      if (res_only.ne.1) then
-         do n=0,Nspec-1
-            do k=lo(3),hi(3)
-               do j=lo(2),hi(2)
-                  do i=lo(1),hi(1)
-                     cor = fac(n) * L(i,j,k,n) / (S(i,j,k,rc) - thetaDt*a(i,j,k,n))
-                     maxCor(n) = MAX(maxCor(n),ABS(cor))
-                     S(i,j,k,yc+n) = S(i,j,k,yc+n)  +  cor
-                  enddo
-               enddo
-            enddo
-         enddo
-#ifdef HT_SKIP_NITROGEN
-         allocate(tfab(lo(1):hi(1),lo(2):hi(2),lo(3):hi(3)))
-         tfab = zero
-         do n=0,Nspec-2
-            do k=lo(3),hi(3)
-               do j=lo(2),hi(2)
-                  do i=lo(1),hi(1)
-                     tfab(i,j,k) = tfab(i,j,k) + S(i,j,k,yc+n)
-                  enddo
-               enddo
-            enddo
-         end do
-         do k=lo(3),hi(3)
-            do j=lo(2),hi(2)
-               do i=lo(1),hi(1)
-                  S(i,j,k,Nspec-1) = 1.d0 - tfab(i,j,k)
-               enddo
-            enddo
-         enddo
-         maxCor(Nspec-1) = 0.d0
-         deallocate(tfab)
-#endif
-
-         if (for_T0_H1.eq.0) then
-            do k=lo(3),hi(3)
-               do j=lo(2),hi(2)
-                  do i=lo(1),hi(1)
-                     cor = fac(Nspec) * L(i,j,k,Nspec) / (1.d0 - thetaDt*a(i,j,k,Nspec))
-                     maxCor(Nspec) = MAX(maxCor(Nspec),ABS(cor))
-                     S(i,j,k,Tc) = S(i,j,k,Tc)  +  cor
-                  enddo
-               enddo
-            enddo
-         else
-            do k=lo(3),hi(3)
-               do j=lo(2),hi(2)
-                  do i=lo(1),hi(1)
-                     cor = fac(Nspec) * L(i,j,k,Nspec) / (S(i,j,k,rc) - thetaDt*a(i,j,k,Nspec))
-                     maxCor(Nspec) = MAX(maxCor(Nspec),ABS(cor))
-                     S(i,j,k,hc) = S(i,j,k,hc)  +  cor
-                  enddo
-               enddo
-            enddo
-         endif
-      endif
-      
-  end subroutine htdd_relax
-
 ! ::: -----------------------------------------------------------
 ! ::: This routine will tag high error cells based on whether or not
 ! ::: they contain any particles.
@@ -2519,47 +2314,5 @@ contains
       end if
 
   end subroutine grad_wbar
-
-!-----------------------------------
-
-  subroutine recomp_update(lo, hi, &
-                           update, DIMS(update), &
-                           xflux,  DIMS(xflux), &
-                           yflux,  DIMS(yflux), &
-                           zflux,  DIMS(zflux), &
-                           vol,    DIMS(vol), &
-                           nc) &
-                           bind(C, name="recomp_update")
-                           
-      implicit none
-      
-      integer lo(SDIM), hi(SDIM), nc
-      integer DIMDEC(update)
-      integer DIMDEC(xflux)
-      integer DIMDEC(yflux)
-      integer DIMDEC(zflux)
-      integer DIMDEC(vol)
-      REAL_T update(DIMV(update),nc)
-      REAL_T xflux(DIMV(xflux),nc)
-      REAL_T yflux(DIMV(yflux),nc)
-      REAL_T zflux(DIMV(zflux),nc)
-      REAL_T vol(DIMV(vol))
-
-      integer i, j, k, n
-
-      do n=1,nc
-         do k=lo(3),hi(3)
-            do j=lo(2),hi(2)
-               do i=lo(1),hi(1)
-                  update(i,j,k,n)=-((xflux(i+1,j,k,n)-xflux(i,j,k,n)) &
-                      +            (yflux(i,j+1,k,n)-yflux(i,j,k,n)) &
-                      +            (zflux(i,j,k+1,n)-zflux(i,j,k,n))) &
-                      /vol(i,j,k)
-               end do
-            end do
-         end do
-      end do
-
-  end subroutine recomp_update
 
 end module PeleLM_3d

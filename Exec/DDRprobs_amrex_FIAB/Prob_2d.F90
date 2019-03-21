@@ -591,14 +591,14 @@ contains
       endif
 #endif
 
-      if (isioproc.eq.1) then
-         write(6,fortin)
-         write(6,heattransin)
-#if defined(BL_DO_FLCT)
-         write(6,flctin)
-#endif
-         write(6,control)
-      end if
+!       if (isioproc.eq.1) then
+!          write(6,fortin)
+!          write(6,heattransin)
+! #if defined(BL_DO_FLCT)
+!          write(6,flctin)
+! #endif
+!          write(6,control)
+!       end if
 
   end subroutine amrex_probinit
   

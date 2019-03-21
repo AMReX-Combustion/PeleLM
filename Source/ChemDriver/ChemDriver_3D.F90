@@ -612,7 +612,8 @@ contains
                rhoY_INIT(1:Nspec) = Z(1:Nspec)
                rhoH_INIT          = rhoHold(i,j,k)
                Z(Nspec+1)         = rhoH_INIT
-               c_0(1:Nspec+1)     = const_src(i,j,k,1:Nspec+1)
+               c_0(1:Nspec)       = const_src(i,j,k,1:Nspec)
+               c_0(Nspec+1)       = const_src(i,j,k,Nspec+1)
                T_cell             = Told(i,j,k)
                FuncCount(i,j,k)   = 0
 
@@ -805,7 +806,7 @@ contains
       end if
   end function CONPSOLV_SDC
 
-  subroutine BETA_WBAR(lo, hi, RD, DIMS(RD), RD_Wbar, DIMS(RD_Wbar), Y, DIMS(Y)) &
+  subroutine BETA_WBAR(lo, hi, RD, DIMS(RD), RD_Wbar, DIMS(RD_Wbar), RY, DIMS(RY)) &
                        bind(C, name="BETA_WBAR")
                        
       implicit none
@@ -815,10 +816,10 @@ contains
       integer lo(SDIM), hi(SDIM)
       integer DIMDEC(RD)
       integer DIMDEC(RD_Wbar)
-      integer DIMDEC(Y)
+      integer DIMDEC(RY)
       REAL_T RD(DIMV(RD),*)
       REAL_T RD_Wbar(DIMV(RD_Wbar),*)
-      REAL_T Y(DIMV(Y),*)
+      REAL_T RY(DIMV(RY),*)
 
       integer i, j, k, n
       REAL_T Yt(maxspec), RHO, Wavg
@@ -830,11 +831,11 @@ contains
 
                   RHO = 0.d0
                   do n=1,Nspec
-                     RHO = RHO + Y(i,j,k,n)
+                     RHO = RHO + RY(i,j,k,n)
                   end do
 
                   do n=1,Nspec
-                     Yt(n) = Y(i,j,k,n) / RHO
+                     Yt(n) = RY(i,j,k,n) / RHO
                   end do
 
                   CALL CKMMWY(Yt,IWRK(ckbi),RWRK(ckbr),Wavg)
@@ -855,11 +856,11 @@ contains
 
                   RHO = 0.d0
                   do n=1,Nspec
-                     RHO = RHO + Y(i,j,k,n)
+                     RHO = RHO + RY(i,j,k,n)
                   end do
 
                   do n=1,Nspec
-                     Yt(n) = Y(i,j,k,n) / RHO
+                     Yt(n) = RY(i,j,k,n) / RHO
                   end do
 
                   CALL CKMMWY(Yt,IWRK(ckbi),RWRK(ckbr),Wavg)
@@ -876,7 +877,7 @@ contains
   end subroutine BETA_WBAR
 
   subroutine MIXAVG_RHODIFF_TEMP(lo, hi, RD, DIMS(RD), T, &
-                     DIMS(T), Y, DIMS(Y), Patm, do_temp, do_VelVisc)&
+                     DIMS(T), RY, DIMS(RY), Patm, do_temp, do_VelVisc)&
                      bind(C, name="MIXAVG_RHODIFF_TEMP")
                
                
@@ -887,10 +888,10 @@ contains
       integer lo(SDIM), hi(SDIM), do_temp, do_VelVisc
       integer DIMDEC(RD)
       integer DIMDEC(T)
-      integer DIMDEC(Y)
+      integer DIMDEC(RY)
       REAL_T RD(DIMV(RD),*)
       REAL_T T(DIMV(T))
-      REAL_T Y(DIMV(Y),*)
+      REAL_T RY(DIMV(RY),*)
       REAL_T Patm
 
       integer i, j, k, n
@@ -916,11 +917,11 @@ contains
 
                   RHO = 0.d0
                   do n=1,Nspec
-                     RHO = RHO + Y(i,j,k,n)
+                     RHO = RHO + RY(i,j,k,n)
                   end do
 
                   do n=1,Nspec
-                     Yt(n) = Y(i,j,k,n) / RHO
+                     Yt(n) = RY(i,j,k,n) / RHO
                   end do
                   Tt = MAX(T(i,j,k),TMIN_TRANS)
                   CALL CKMMWY(Yt,IWRK(ckbi),RWRK(ckbr),Wavg)
@@ -957,11 +958,11 @@ contains
 
                   RHO = 0.d0
                   do n=1,Nspec
-                     RHO = RHO + Y(i,j,k,n)
+                     RHO = RHO + RY(i,j,k,n)
                   end do
 
                   do n=1,Nspec
-                     Yt(n) = Y(i,j,k,n) / RHO
+                     Yt(n) = RY(i,j,k,n) / RHO
                   end do
 
                   Tt = MAX(T(i,j,k),TMIN_TRANS) 

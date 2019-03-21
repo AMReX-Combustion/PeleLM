@@ -250,15 +250,14 @@ private:
                                               amrex::MultiFab* const * flux,
                                               const amrex::MultiFab* const * beta,
                                               amrex::Real dt,
-					      amrex::Real time);
+					      amrex::Real time,
+                                              bool  include_Wbar_fluxes);
 
   void compute_differential_diffusion_terms (amrex::MultiFab& D,
                                              amrex::MultiFab& DD,
-#ifdef USE_WBAR
-                                             amrex::MultiFab& DWbar,
-#endif
                                              amrex::Real      time,
-                                             amrex::Real      dt);
+                                             amrex::Real      dt,
+                                             bool             include_Wbar_terms);
 
   void compute_enthalpy_fluxes (amrex::MultiFab* const*       flux,
                                 const amrex::MultiFab* const* beta,
@@ -530,6 +529,7 @@ private:
   static std::map<std::string,amrex::Real> typical_values_FileVals;
   static int         sdc_iterMAX;
   static int         num_mac_sync_iter;
+  static int         deltaT_verbose;
     
   static int nGrowAdvForcing;
 };

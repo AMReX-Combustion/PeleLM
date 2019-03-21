@@ -603,7 +603,6 @@ contains
       !
       !   c_0,c_1,rhoH_INIT,T_cell,rhoY_INIT,negative_Y_test
       !
-
       do j=lo(2),hi(2)
          do i=lo(1),hi(1)
 
@@ -618,7 +617,8 @@ contains
             rhoY_INIT(1:Nspec) = Z(1:Nspec)
             rhoH_INIT          = rhoHold(i,j)
             Z(Nspec+1)         = rhoH_INIT
-            c_0(1:Nspec+1)     = const_src(i,j,1:Nspec+1)
+            c_0(1:Nspec)       = const_src(i,j,1:Nspec)
+            c_0(Nspec+1)       = const_src(i,j,Nspec+1)
             T_cell             = Told(i,j)
             FuncCount(i,j)     = 0
 
@@ -655,18 +655,6 @@ contains
                    dvi, CONPJ_FILE, MF, RWRK, IWRK)
 
                if (ISTATE .LE. -1 .or. negative_Y_test .eq. 1) then
-
-	 	  print*,"Failing at i,j:", i, j
-!		  call bl_abort()
-
-!                  if(i.eq.60 .and. j.eq.0) then
-!	     	     print*, "At VODE failure: "
-!	     	     print*, "Z(1:Nspec): ", Z(1:Nspec+1)
-!	     	     print*, "c_0: ", c_0
-!	     	     print*, "rhoH_INIT: ", rhoH_INIT
-!	     	     print*, "dt, T_Cell: ", dt, T_cell
-!!	     	     call bl_abort()
-!         	  endif
 
                   strang_fix = 1
 
@@ -805,23 +793,13 @@ contains
                rhoYnew(i,j,m) = Z(m)
             end do
 
-!! ----- hack: turn off reactions -----
-!	    do n=1,Nspec
-!               rhoYnew(i,j,n) = rhoYold(i,j,n) + dt*c_0(n)
-!            enddo
-!!	    print*, rhoHnew(i,j)-(rhoHold(i,j) + dt*c_0(Nspec+1))
-!!	    print*, rhoYnew(i,j,1:Nspec)-(rhoYold(i,j,1:Nspec) + dt*c_0(1:Nspec))
-!!	    print*,
-!            rhoHnew(i,j) = rhoHold(i,j) + dt*c_0(Nspec+1)
-!!	    Tnew(i,j) = Told(i,j)
-!! -----
-
             do m=1,Nspec
                Y(m) = rhoYnew(i,j,m) * rhoInv
             enddo
 
             Tnew(i,j) = T_cell
             call TfromHYpt(Tnew(i,j),rhoHnew(i,j)*rhoInv,Y,HtoTerrMAX,HtoTiterMAX,res,Niter)
+
          end do
       end do
 
@@ -832,7 +810,7 @@ contains
 
   end function CONPSOLV_SDC
 
-  subroutine BETA_WBAR(lo, hi, RD, DIMS(RD), RD_Wbar, DIMS(RD_Wbar), Y, DIMS(Y))&
+  subroutine BETA_WBAR(lo, hi, RD, DIMS(RD), RD_Wbar, DIMS(RD_Wbar), RY, DIMS(RY))&
                        bind(C, name="BETA_WBAR")
   
       implicit none
@@ -842,10 +820,10 @@ contains
       integer lo(SDIM), hi(SDIM)
       integer DIMDEC(RD)
       integer DIMDEC(RD_Wbar)
-      integer DIMDEC(Y)
+      integer DIMDEC(RY)
       REAL_T RD(DIMV(RD),*)
       REAL_T RD_Wbar(DIMV(RD_Wbar),*)
-      REAL_T Y(DIMV(Y),*)
+      REAL_T RY(DIMV(RY),*)
 
       integer i, j, n
       REAL_T Yt(maxspec), RHO, Wavg
@@ -856,11 +834,11 @@ contains
 
                RHO = 0.d0
                do n=1,Nspec
-                  RHO = RHO + Y(i,j,n)
+                  RHO = RHO + RY(i,j,n)
                end do
 
                do n=1,Nspec
-                  Yt(n) = Y(i,j,n) / RHO
+                  Yt(n) = RY(i,j,n) / RHO
                end do
                CALL CKMMWY(Yt,IWRK(ckbi),RWRK(ckbr),Wavg)
 
@@ -878,11 +856,11 @@ contains
 
                RHO = 0.d0
                do n=1,Nspec
-                  RHO = RHO + Y(i,j,n)
+                  RHO = RHO + RY(i,j,n)
                end do
 
                do n=1,Nspec
-                  Yt(n) = Y(i,j,n) / RHO
+                  Yt(n) = RY(i,j,n) / RHO
                end do
 
                CALL CKMMWY(Yt,IWRK(ckbi),RWRK(ckbr),Wavg)
@@ -898,7 +876,7 @@ contains
   end subroutine BETA_WBAR
 
   subroutine MIXAVG_RHODIFF_TEMP(lo, hi, RD, DIMS(RD), T, &
-               DIMS(T), Y, DIMS(Y), Patm, do_temp, do_VelVisc)&
+               DIMS(T), RY, DIMS(RY), Patm, do_temp, do_VelVisc)&
                bind(C, name="MIXAVG_RHODIFF_TEMP")
           
       implicit none
@@ -908,10 +886,10 @@ contains
       integer lo(SDIM), hi(SDIM), do_temp, do_VelVisc
       integer DIMDEC(RD)
       integer DIMDEC(T)
-      integer DIMDEC(Y)
+      integer DIMDEC(RY)
       REAL_T RD(DIMV(RD),*)
       REAL_T T(DIMV(T))
-      REAL_T Y(DIMV(Y),*)
+      REAL_T RY(DIMV(RY),*)
       REAL_T Patm
 
       integer i, j, n
@@ -935,11 +913,11 @@ contains
 
                RHO = 0.d0
                do n=1,Nspec
-                  RHO = RHO + Y(i,j,n)
+                  RHO = RHO + RY(i,j,n)
                end do
 
                do n=1,Nspec
-                  Yt(n) = Y(i,j,n) / RHO
+                  Yt(n) = RY(i,j,n) / RHO
                end do
 
                Tt = MAX(T(i,j),TMIN_TRANS) 
@@ -978,11 +956,11 @@ contains
 
                RHO = 0.d0
                do n=1,Nspec
-                  RHO = RHO + Y(i,j,n)
+                  RHO = RHO + RY(i,j,n)
                end do
 
                do n=1,Nspec
-                  Yt(n) = Y(i,j,n) / RHO
+                  Yt(n) = RY(i,j,n) / RHO
                end do
 
                Tt = MAX(T(i,j),TMIN_TRANS) 
