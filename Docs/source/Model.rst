@@ -1,7 +1,18 @@
 .. highlight:: rst
 
-Introduction
-============
+.. _sec:model:
+
+The `PeleLM` Model
+==================
+
+In this section, we present the actual model that is evolved numerically by `PeleLM`, and the numerical algorithms
+to do it.  There are many control parameters to customize the solution strategy and process, and in order to actually
+set up and run specific problems with `PeleLM`, the user must specific the chemical model, and provide routines
+that implement initial and boundary data and refinement criteria for the adaptive mesh refinement.  We discuss
+setup and control of `PeleLM` in later sections.
+
+Overview of `PeleLM`
+--------------------
 
 `PeleLM` evolves chemically reacting low Mach number flows with block-structured adaptive mesh refinement (AMR). The code depends upon the `AMReX <https://github.com/AMReX-Codes/amrex>`_ library to provide the underlying data structures, and tools to manage and operate on them across massively parallel computing architectures. `PeleLM` also borrows heavily from the source code and algorithmic infrastructure of the `IAMR <https://github.com/AMReX-Codes/IAMR>`_. `IAMR` implements an AMR integration for the variable-density incompressible Navier-Stokes equations. `PeleLM` extends `IAMR` to include complex coupled models for generalized thermodynamic relationships, multi-species transport and chemical reactions.  The core algorithms in `PeleLM` (and `IAMR`) are described in the following papers:
 
@@ -16,7 +27,7 @@ Introduction
 * *A Conservative Adaptive Projection Method for the Variable Density Incompressible Navier-Stokes Equations,* A. S. Almgren, J. B. Bell, P. Colella, L. H. Howell, and M. L. Welcome, *J. Comp. Phys.*, **142** 1-46 (1998)
 
 The low Mach number flow equations
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+----------------------------------
 
 `PeleLM` solves the reacting Navier-Stokes flow equations in the *low Mach number* regime, where the characteristic fluid velocity is small compared to the sound speed, and the effect of acoustic wave propagation is unimportant to the overall dynamics of the system. Accordingly, acoustic wave propagation can be mathematically removed from the equations of motion, allowing for a numerical time step based on an advective CFL condition, and this leads to an increase in the allowable time step of order :math:`1/M` over an explicit, fully compressible method (:math:`M` is the Mach number).  In this mathematical framework, the total pressure is decomposed into the sum of a spatially constant (ambient) thermodynamic pressure :math:`P_0` and a perturbational pressure, :math:`\pi({\vec x})` that drives the flow.  Under suitable conditions, :math:`\pi/P_0 = \mathcal{O} (M^2)`. 
 
@@ -292,7 +303,7 @@ For these reasons, `PeleLM` no longer uses CHEMKIN functions directly, but inste
 
 
 The `PeleLM` temporal integration
-=================================
+---------------------------------
 
 The temporal discretization in `PeleLM` combines a modified spectral deferred correction (SDC) coupling of chemistry and transport with a density-weighted approximate projection method for low Mach number flow.  The projection method enforces a constrained evolution of the velocity field, and is implemented iteratively in such a way as to ensure that the update simultaneously satisfies the  equation of state and discrete conservation of mass and total enthalpy.  A time-explicit approach is used for advection; faster diffusion and chemistry processes are treated time-implicitly, and iteratively coupled together within the deferred corrections strategy. The integration algorithm, discussed in the following sections, is second-order accurate in space and time, and is implemented in the context of a subcycled approach for a nested hierarchy of mesh levels, where each level consists of logically rectangular patches of rectangular cells.  All cells at a level have the same size in all coordinates.
 
@@ -673,7 +684,7 @@ If :math:`k`+1=:math:`k_{max}`, **Step 2** of our algorithm is complete.
 
 
 Modifications for AMR
-=====================
+^^^^^^^^^^^^^^^^^^^^^
 
 The framework to manage adaptive mesh refinement (AMR) used in `PeleLM` borrows heavily from the `AMReX` library,
 and the `IAMR` code; the reader is referred to documentation of both of these components in order to understand the

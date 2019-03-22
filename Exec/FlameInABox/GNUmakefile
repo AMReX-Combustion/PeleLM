@@ -11,9 +11,14 @@ DIM             = 2
 COMP            = gnu
 DEBUG           = FALSE
 USE_MPI         = TRUE
-USE_OMP         = FALSE
+USE_OMP         = TRUE
 PRECISION       = DOUBLE
 VERBOSE         = FALSE
+
+TINY_PROFILE = FALSE
+#USE_WBAR = TRUE
+
+DEFINES+=-DALWAYS_NEW_J
 
 # Enable flctin namelist
 #USE_FLCTS       = TRUE
@@ -46,7 +51,7 @@ fEXE_sources += drm19Soln_seed_0.50.f
 Blocs   := .
 
 CEXE_sources +=
-FEXE_sources += Prob_$(DIM)d.F Prob_F.F
+F90EXE_sources += Prob_$(DIM)d.F90 Prob_F.F90
 CEXE_headers += 
 FEXE_headers += probdata.H Prob_F.H
 

@@ -54,7 +54,7 @@ c     Take fuel mixture from pmf file
                Xt(n) = pmf_vals(3+n)
             end do 
             
-            CALL CKXTY (Xt, IWRK, RWRK, Yt)
+            CALL CKXTY (Xt, Yt)
 
             do n=1,Nspec
                Y_bc(n-1,zone) = Yt(n)
@@ -83,7 +83,7 @@ c     Fuel
          end do 
          Xt(iN2) = fuel_N2_vol_percent*1.d-2
          Xt(fuelID) = 1.d0 - Xt(iN2)            
-         CALL CKXTY (Xt, IWRK, RWRK, Yt)
+         CALL CKXTY (Xt, Yt)
 
          do n=1,Nspec
             Y_bc(n-1,fuelZone) = Yt(n)
@@ -100,7 +100,7 @@ c     Air
          Xt(oxidID) = 0.21d0
          Xt(iN2)    = 1.d0 - Xt(oxidID)
 
-         CALL CKXTY (Xt, IWRK, RWRK, Yt)         
+         CALL CKXTY (Xt, Yt)         
          do n=1,Nspec
             Y_bc(n-1,airZone) = Yt(n)
          end do
@@ -466,7 +466,7 @@ c                 blend here if needed
                   endif
                   endif
 
-                  CALL CKXTY (Xl, IWRK, RWRK, Yl)
+                  CALL CKXTY (Xl, Yl)
                   
                   do n = 1,Nspec
                      scal(i,j,k,FirstSpec+n-1) = Yl(n)

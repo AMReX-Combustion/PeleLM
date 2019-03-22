@@ -1,0 +1,25 @@
+# Temporary files
+*~
+*.swp
+
+# BoxLib build directories
+d/
+o/
+f/
+extern.f90
+AMReX_buildInfo.cpp
+
+# Executable
+*.ex
+
+
+# Run output
+*.p3d
+plt*
+*plt*old*
+Backtrace*
+chk*
+diff/
+
+# OSX files
+.DS_Store

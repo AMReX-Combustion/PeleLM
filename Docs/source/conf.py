@@ -57,7 +57,7 @@ master_doc = 'index'
 # General information about the project.
 project = u'PeleLM'
 copyright = u'AMReX Copyright (c) 2018, The Regents of the University of California, through Lawrence Berkeley National Laboratory and the Alliance for Sustainable Energy, LLC., through National Renewable Energy Laboratory (subject to receipt of any required approvals from the U.S. Dept. of Energy).  All rights reserved.'
-author = u'J.B. Bell, M.S. Day, D. Graves, M. Henry de Frahan, R.W. Grout'
+author = u'J.B. Bell, M.S. Day, E. Motheau, D. Graves, M. Henry de Frahan, R.W. Grout'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -137,6 +137,7 @@ html_theme = 'sphinx_rtd_theme'
 #
 # html_theme_options = {}
 
+
 # Add any paths that contain custom themes here, relative to this directory.
 # html_theme_path = []
 
@@ -153,6 +154,7 @@ html_theme = 'sphinx_rtd_theme'
 # of the sidebar.
 #
 # html_logo = None
+html_logo = "_static/swirlH2Fast_OH_vort_256.png"
 
 # The name of an image file (relative to this directory) to use as a favicon of
 # the docs.  This file should be a Windows icon file (.ico) being 16x16 or 32x32

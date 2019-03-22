@@ -29,8 +29,25 @@
 
 #define SDIM 2
 
-      subroutine FORT_NORMMASS(lo, hi, xsID,
-     &                         Y, DIMS(Y), Ynorm, DIMS(YNORM))
+module chem_driver_2D
+
+  implicit none
+
+  private
+  
+  public :: norm_mass, FRrateXTP, HTRLS, RRATERHOY, mass_to_mole, &
+            mole_to_mass, MASSTP_TO_CONC, MASSR_TO_CONC, CONC_TO_MOLE, &
+            mole_prod, GETELTMOLES, CONPSOLV_SDC, BETA_WBAR, MIXAVG_RHODIFF_TEMP, &
+            MIX_SHEAR_VISC, RHOfromPTY, RHOfromPvTY, PfromRTY, TfromPRY, &
+            CPMIXfromTY, CVMIXfromTY, HMIXfromTY, MWMIXfromY, CPfromT, &
+            HfromT, TfromHY, OTrad_TDF  
+
+contains
+ 
+  subroutine norm_mass(lo, hi, xsID, &
+                       Y, DIMS(Y), Ynorm, DIMS(YNORM))&
+                       bind(C, name="norm_mass")
+                              
       implicit none
 
 #include "cdwrk.H"
@@ -56,11 +73,14 @@
             Ynorm(i,j,xsID) = Y(i,j,xsID)+ one - sum
          end do
       end do
-      end
+      
+  end subroutine norm_mass
 
-      subroutine FORT_FRrateXTP(lo,hi,X,DIMS(X),T,DIMS(T),
-     &                          FwdK,DIMS(FwdK),RevK,DIMS(RevK),
-     &                          Patm,rxns,Nrxns)
+  subroutine FRrateXTP(lo,hi,X,DIMS(X),T,DIMS(T), &
+                       FwdK,DIMS(FwdK),RevK,DIMS(RevK), &
+                       Patm,rxns,Nrxns)&
+                       bind(C, name="FRrateXTP")
+                               
       implicit none
 
 #include "cdwrk.H"
@@ -84,7 +104,7 @@
       integer i,j,n
       REAL_T P1atm,RU,RUC,Pdyne,sum,Yt(maxspec)
 
-      CALL CKRP(IWRK(ckbi), RWRK(ckbr), RU, RUC, P1atm)
+      CALL CKRP(RU, RUC, P1atm)
       Pdyne = Patm * P1atm
       scale = million
 
@@ -94,7 +114,7 @@
                Xt(n) = X(i,j,n)
             end do
 #ifdef DO_JBB_HACK
-            CALL CKXTY(Xt,IWRK(ckbi),RWRK(ckbr),Yt)
+            CALL CKXTY(Xt,Yt)
             sum = zero
             do n=1,Nspec
                Yt(n) =MAX( Yt(n),zero)
@@ -103,19 +123,24 @@
             if (iN2 .gt. 0) then
                Yt(iN2) = Yt(iN2)+one-sum
             endif
-            CALL CKYTX(Yt,IWRK(ckbi),RWRK(ckbr),Xt)
+            CALL CKYTX(Yt,Xt)
 #endif
-            CALL CKKFKR(Pdyne,T(i,j),Xt,IWRK(ckbi),RWRK(ckbr),FwdKt,RevKt)
+            CALL CKKFKR(Pdyne,T(i,j),Xt,FwdKt,RevKt)
             do n=1,Nrxns
                FwdK(i,j,n) = FwdKt(rxns(n)+1)*scale
                RevK(i,j,n) = RevKt(rxns(n)+1)*scale
             end do
          end do
       end do
-      end
+      
+  end subroutine FRrateXTP
 
-      subroutine FORT_HTRLS(lo,hi,Y,DIMS(Y),T,DIMS(T),
-     &                      Q,DIMS(Q),Patm)
+  subroutine HTRLS(lo,hi,Y,DIMS(Y),T,DIMS(T), &
+                   Q,DIMS(Q),Patm)&
+                   bind(C, name="HTRLS")
+
+      use chem_driver, only: conpFY_sdc
+                           
       implicit none
 
 #include "cdwrk.H"
@@ -139,7 +164,7 @@
 
       ndummy = Nspec
       tdummy = 0.
-      CALL CKRP(IWRK(ckbi), RWRK(ckbr), RU, RUC, P1atm)
+      CALL CKRP(RU, RUC, P1atm)
       RWRK(NP) = Patm * P1atm
 
       do j=lo(2),hi(2)
@@ -148,11 +173,11 @@
             do n=1,Nspec
                Zt(n) = Y(i,j,n)
             end do
-            call CKHBMS(T(i,j),Zt,IWRK(ckbi),RWRK(ckbr),HMIX_CGS)
+            call CKHBMS(T(i,j),Zt,HMIX_CGS)
 
             Zt(Nspec+1) = HMIX_CGS * 1.d-4
 
-            call CKRHOY(RWRK(NP),T(i,j), Zt(1), IWRK(ckbi), RWRK(ckbr), RHO_CGS)
+            call CKRHOY(RWRK(NP),T(i,j), Zt(1),RHO_CGS)
             do n=1,Nspec
                Zt(n) = Zt(n) * (RHO_CGS * 1.d3)
             end do
@@ -162,7 +187,7 @@
             T_cell = T(i,j)
             call conpFY_sdc(ndummy,tdummy,Zt,Zdott,RWRK,IWRK)
 
-            call CKHMS(T(i,j),IWRK(ckbi),RWRK(ckbr),H_CGS)
+            call CKHMS(T(i,j),H_CGS)
             Q(i,j) = 0.d0
             do n= 1, Nspec
                Q(i,j) = Q(i,j) - Zdott(n) * H_CGS(n) * 1.d-4
@@ -171,10 +196,14 @@
          end do
       end do
 
-      end
+  end subroutine HTRLS
 
-      subroutine FORT_RRATERHOY(lo,hi,RhoY,DIMS(RhoY),RhoH,DIMS(RhoH),T,DIMS(T),
-     &                          RhoYdot,DIMS(RhoYdot))
+  subroutine RRATERHOY(lo,hi,RhoY,DIMS(RhoY),RhoH,DIMS(RhoH),T,DIMS(T), &
+                       RhoYdot,DIMS(RhoYdot))&
+                       bind(C, name="RRATERHOY")
+      
+      use chem_driver, only: conpFY_sdc
+  
       implicit none
 
 #include "cdwrk.H"
@@ -196,7 +225,7 @@
       REAL_T TIME,P1atm,RU,RUC
 
       TIME = 0.
-      CALL CKRP(IWRK(ckbi), RWRK(ckbr), RU, RUC, P1atm)
+      CALL CKRP(RU, RUC, P1atm)
 
       do j=lo(2),hi(2)
          do i=lo(1),hi(1)
@@ -217,9 +246,11 @@
             end do
          end do
       end do
-      end
+      
+  end subroutine RRATERHOY
 
-      subroutine FORT_MASSTOMOLE(lo, hi, Y, DIMS(Y), X, DIMS(X))
+  subroutine mass_to_mole(lo, hi, Y, DIMS(Y), X, DIMS(X)) &
+                          bind(C, name="mass_to_mole")
       implicit none
 
 #include "cdwrk.H"
@@ -239,15 +270,18 @@
             do n = 1,Nspec
                Yt(n) = Y(i,j,n)
             end do
-            CALL CKYTX(Yt,IWRK(ckbi),RWRK(ckbr),Xt)
+            CALL CKYTX(Yt,Xt)
             do n = 1,Nspec
                X(i,j,n) = Xt(n)
             end do
          end do
       end do
-      end
       
-      subroutine FORT_MOLETOMASS(lo, hi, X, DIMS(X), Y, DIMS(Y))
+  end subroutine mass_to_mole
+      
+  subroutine mole_to_mass(lo, hi, X, DIMS(X), Y, DIMS(Y))&
+                          bind(C, name="mole_to_mass")
+                          
       implicit none
 
 #include "cdwrk.H"
@@ -267,16 +301,18 @@
             do n = 1,Nspec
                Xt(n) = X(i,j,n)
             end do
-            CALL CKXTY(Xt,IWRK(ckbi),RWRK(ckbr),Yt)
+            CALL CKXTY(Xt,Yt)
             do n = 1,Nspec
                Y(i,j,n) = Yt(n)
             end do
          end do
       end do
-      end
+  end subroutine mole_to_mass
 
-      subroutine FORT_MASSTP_TO_CONC(lo, hi, Patm,
-     &                           Y, DIMS(Y), T, DIMS(T), C, DIMS(C))
+  subroutine MASSTP_TO_CONC(lo, hi, Patm, &
+                            Y, DIMS(Y), T, DIMS(T), C, DIMS(C))&
+                            bind(C, name="MASSTP_TO_CONC")
+                               
       implicit none
 
 #include "cdwrk.H"
@@ -295,7 +331,7 @@
       integer i,j,n
 
       scale = million
-      CALL CKRP(IWRK(ckbi),RWRK(ckbr),RU,RUC,P1ATM)
+      CALL CKRP(RU,RUC,P1ATM)
       Ptmp = Patm * P1ATM
 
       do j=lo(2),hi(2)
@@ -303,16 +339,19 @@
             do n = 1,Nspec
                Yt(n) = Y(i,j,n)
             end do
-            CALL CKYTCP(Ptmp,T(i,j),Yt,IWRK(ckbi),RWRK(ckbr),Ct)
+            CALL CKYTCP(Ptmp,T(i,j),Yt,Ct)
             do n = 1,Nspec
                C(i,j,n) = Ct(n)*scale
             end do
          end do
       end do
-      end
+      
+  end subroutine MASSTP_TO_CONC
 
-      subroutine FORT_MASSR_TO_CONC(lo, hi, Y, DIMS(Y), 
-     &                              T, DIMS(T), RHO, DIMS(RHO), C, DIMS(C))
+  subroutine MASSR_TO_CONC(lo, hi, Y, DIMS(Y), &
+                           T, DIMS(T), RHO, DIMS(RHO), C, DIMS(C))&
+                           bind(C, name="MASSR_TO_CONC")
+                                   
       implicit none
 
 #include "cdwrk.H"
@@ -338,16 +377,18 @@
                Yt(n) = Y(i,j,n)
             end do
             rhoScl = RHO(i,j)*one2minus3
-            CALL CKYTCR(rhoScl,T(i,j),Yt,IWRK(ckbi),RWRK(ckbr),Ct)
+            CALL CKYTCR(rhoScl,T(i,j),Yt,Ct)
             do n = 1,Nspec
                C(i,j,n) = Ct(n)*million
             end do
          end do
       end do
-      end
+  end subroutine MASSR_TO_CONC
 
-      subroutine FORT_CONC_TO_MOLE(lo, hi,
-     &                             C, DIMS(C), X, DIMS(X))
+  subroutine CONC_TO_MOLE(lo, hi, &
+                          C, DIMS(C), X, DIMS(X))&
+                          bind(C, name="CONC_TO_MOLE")
+                                  
       implicit none
 
 #include "cdwrk.H"
@@ -368,16 +409,17 @@
             do n = 1,Nspec
                Ct(n) = C(i,j,n)*scale
             end do
-            CALL CKCTX(Ct,IWRK(ckbi),RWRK(ckbr),Xt)
+            CALL CKCTX(Ct,Xt)
             do n = 1,Nspec
                X(i,j,n) = Xt(n)
             end do
          end do
       end do
-      end
+  end subroutine CONC_TO_MOLE
 
-      subroutine FORT_MOLPROD(lo, hi, id, 
-     &                        Q, DIMS(Q), C, DIMS(C), T, DIMS(T) )
+  subroutine mole_prod(lo, hi, id, &
+                       Q, DIMS(Q), C, DIMS(C), T, DIMS(T) )&
+                       bind(C, name="mole_prod")
       implicit none
 
 #include "cdwrk.H"
@@ -393,29 +435,15 @@
       REAL_T Ct(maxspec), Qt(maxreac), Qkt(maxreac), millionth
       integer i,j,n
 
-      millionth = one/million
-      do j=lo(2),hi(2)
-         do i=lo(1),hi(1)
-            do n = 1,Nspec
-               Ct(n) = C(i,j,n)*millionth
-            end do
-            CALL CKQC(T(i,j),Ct,IWRK(ckbi),RWRK(ckbr),Qt)
-#ifdef MIKE
-            CALL CKCONT(id,Qt,IWRK(ckbi),RWRK(ckbr),Qkt)
-#else
-            call bl_abort("FORT_MOLPROD not implemented")
-#endif
-            do n = 1,Nreac
-               Q(i,j,n) = Qkt(n)*million
-            end do
-         end do
-      end do
-      end
+      call bl_abort("FORT_MOLPROD not implemented")
+  end subroutine mole_prod
       
-c ----------------------------------------------------------------     
+! ----------------------------------------------------------------     
       
-      subroutine FORT_GETELTMOLES(namenc, namlen, lo, hi,
-     &                            Celt, DIMS(Celt), C, DIMS(C))
+  subroutine GETELTMOLES(namenc, namlen, lo, hi, &
+                         Celt, DIMS(Celt), C, DIMS(C))&
+                         bind(C, name="GETELTMOLES")
+                                 
       implicit none
 
 #include "cdwrk.H"
@@ -431,7 +459,7 @@ c ----------------------------------------------------------------
       logical match
       integer i, j, k, theidx, n, lout
       integer NCF(Nelt,Nspec)
-c     Find index of desired element
+!     Find index of desired element
       CALL CKSYME(thenames,2)
       theidx = -1
       do i=1,Nelt
@@ -444,8 +472,8 @@ c     Find index of desired element
       if (theidx.lt.0) then
          call bl_pd_abort()
       endif
-c     Get the matrix of elements versus species
-      call CKNCF(Nelt,IWRK,RWRK,NCF)
+!     Get the matrix of elements versus species
+      call CKNCF(Nelt,NCF)
       do j = lo(2),hi(2)
          do i = lo(1),hi(1)
             Celt(i,j) = zero
@@ -454,19 +482,24 @@ c     Get the matrix of elements versus species
             end do
          end do
       end do
-      end
+      
+  end subroutine GETELTMOLES
 
-      integer function FORT_CONPSOLV_SDC(lo, hi,
-     &     rhoYnew,   DIMS(rhoYnew), 
-     &     rhoHnew,   DIMS(rhoHnew),
-     &     Tnew,      DIMS(Tnew),
-     &     rhoYold,   DIMS(rhoYold), 
-     &     rhoHold,   DIMS(rhoHold),
-     &     Told,      DIMS(Told),
-     &     const_src, DIMS(const_src),
-     &     FuncCount, DIMS(FuncCount),
-     &     dt,
-     &     diag, do_diag, do_stiff)
+  integer function CONPSOLV_SDC(lo, hi, &
+          rhoYnew,   DIMS(rhoYnew),  &
+          rhoHnew,   DIMS(rhoHnew), &
+          Tnew,      DIMS(Tnew), &
+          rhoYold,   DIMS(rhoYold),  &
+          rhoHold,   DIMS(rhoHold),  &
+          Told,      DIMS(Told), &
+          const_src, DIMS(const_src), &
+          FuncCount, DIMS(FuncCount), &
+          dt, &
+          diag, do_diag, do_stiff)&
+          bind(C, name="CONPSOLV_SDC")
+
+   use chem_driver
+          
       implicit none
 
 #include "cdwrk.H"
@@ -494,8 +527,7 @@ c     Get the matrix of elements versus species
       REAL_T dt
       REAL_T diag(DIMV(FuncCount),*)
 
-      integer open_vode_failure_file
-      external conpFY_sdc, CONPJ_FILE, open_vode_failure_file
+
       integer i, j,  m, MF, ISTATE, lout, ITOL
       integer nsub, node, strang_fix, Niter, nfails
       character*(maxspnml) name
@@ -518,7 +550,7 @@ c     Get the matrix of elements versus species
       !
       ! Set molecular weights and pressure in area accessible by conpF
       !
-      CALL CKRP(IWRK(ckbi), RWRK(ckbr), RU, RUC, P1atm)
+      CALL CKRP( RU, RUC, P1atm)
 
       if (do_stiff .eq. 1) then
          MF = 22  ! Backward difference solver.
@@ -586,8 +618,8 @@ c     Get the matrix of elements versus species
 
             if (do_diag.eq.1) then
                FuncCount(i,j) = 0
-               CALL CKYTCP(RWRK(NP),T_cell,Z(1),IWRK(ckbi),RWRK(ckbr),Ct)
-               CALL CKQC(T_cell,Ct,IWRK(ckbi),RWRK(ckbr),Qt)
+               CALL CKYTCP(RWRK(NP),T_cell,Z(1),Ct)
+               CALL CKQC(T_cell,Ct,Qt)
                do m=1,Nreac
                   diag(i,j,m) = diag(i,j,m)+half*dtloc*Qt(m)*million
                enddo
@@ -604,13 +636,13 @@ c     Get the matrix of elements versus species
                TT1save = TT1
 
 #if !defined(BL_USE_DOUBLE)
-               CALL SVODE
+               CALL SVODE &
 #else
-               CALL DVODE
+               CALL DVODE  &
 #endif
-     &              (conpFY_sdc, NEQ, Z, TT1, TT2, ITOL, RTOL, ATOL,
-     &              ITASK, ISTATE, IOPT, RWRK(dvbr), dvr, IWRK(dvbi),
-     &              dvi, CONPJ_FILE, MF, RWRK, IWRK)
+                   (conpFY_sdc, NEQ, Z, TT1, TT2, ITOL, RTOL, ATOL, &
+                   ITASK, ISTATE, IOPT, RWRK(dvbr), dvr, IWRK(dvbi), &
+                   dvi, CONPJ_FILE, MF, RWRK, IWRK)
 
                if (ISTATE .LE. -1 .or. negative_Y_test .eq. 1) then
 
@@ -653,31 +685,31 @@ c     Get the matrix of elements versus species
                   end if
 
 #if !defined(BL_USE_DOUBLE)
-                  CALL SVODE
+                  CALL SVODE &
 #else
-                  CALL DVODE
+                  CALL DVODE &
 #endif
-     &                 (conpFY_sdc, NEQ, Z, TT1, TT2, ITOL, RTOL, ATOL,
-     &                 ITASK, ISTATE, IOPT, RWRK(dvbr), dvr, IWRK(dvbi),
-     &                 dvi, CONPJ_FILE, MF, RWRK, IWRK)
+                      (conpFY_sdc, NEQ, Z, TT1, TT2, ITOL, RTOL, ATOL, &
+                      ITASK, ISTATE, IOPT, RWRK(dvbr), dvr, IWRK(dvbi), &
+                      dvi, CONPJ_FILE, MF, RWRK, IWRK)
                   
                   if (ISTATE .LE. -1) then
                      call conpFY_sdc(NEQ, TT1, Z, ZP, RWRK, IWRK)
                      lout = open_vode_failure_file()
                      write(lout,*)
-                     write(lout,995) 'VODE Failed at (i,j) = (',i,
-     &                       ',',j,'),   Return code = ',ISTATE
+                     write(lout,995) 'VODE Failed at (i,j) = (',i, &
+                            ',',j,'),   Return code = ',ISTATE
                      write(lout,996) 'time(T2,Tl,dt)  ',dt, TT1, dt-TT1
-                     write(lout,995) 
-     &                    'State ID,RY,RYp,dRH/dt,dRH/dt*(dt)'
+                     write(lout,995) &
+                         'State ID,RY,RYp,dRH/dt,dRH/dt*(dt)' 
                      name = 'RhoH'
-                     write(lout,996) name,
-     &                    RhoHold(i,j),Z(Nspec+1),
-     &                    ZP(Nspec+1),ZP(Nspec+1)*(dt-TT1)
+                     write(lout,996) name, &
+                         RhoHold(i,j),Z(Nspec+1), &
+                         ZP(Nspec+1),ZP(Nspec+1)*(dt-TT1)
                      do m=1,Nspec
                         call get_spec_name(name,m)
-                        write(lout,996) name,RhoYold(i,j,m),
-     &                       Z(m),ZP(m),ZP(m)*(dt-TT1)
+                        write(lout,996) name,RhoYold(i,j,m), &
+                            Z(m),ZP(m),ZP(m)*(dt-TT1)
                      end do
                      write(lout,996) 'T_cell:',Z(Nspec+2)
                      sum = zero
@@ -705,7 +737,7 @@ c     Get the matrix of elements versus species
  995                 format(a,3(i4,a))
  996                 format(a,1x,4e30.22)
                      close(lout)
-                     FORT_CONPSOLV_SDC = 0
+                     CONPSOLV_SDC = 0
                      return
                   end if
                end if
@@ -713,8 +745,8 @@ c     Get the matrix of elements versus species
                TT1 = TT2
 
                if (do_diag.eq.1) then
-                  CALL CKYTCP(RWRK(NP),T_cell,Z(1),IWRK(ckbi),RWRK(ckbr),Ct)
-                  CALL CKQC(T_cell,Ct,IWRK(ckbi),RWRK(ckbr),Qt)
+                  CALL CKYTCP(RWRK(NP),T_cell,Z(1),Ct)
+                  CALL CKQC(T_cell,Ct,Qt)
                   do m=1,Nreac
                      diag(i,j,m) = diag(i,j,m)+weight*dtloc*Qt(m)*million
                   enddo
@@ -755,7 +787,7 @@ c     Get the matrix of elements versus species
                Y(m) = rhoYnew(i,j,m) * rhoInv
             enddo
             Tnew(i,j) = T_cell
-            call FORT_TfromHYpt(Tnew(i,j),rhoHnew(i,j)*rhoInv,Y,HtoTerrMAX,HtoTiterMAX,res,Niter)
+            call TfromHYpt(Tnew(i,j),rhoHnew(i,j)*rhoInv,Y,HtoTerrMAX,HtoTiterMAX,res,Niter)
 
          end do
       end do
@@ -763,10 +795,12 @@ c     Get the matrix of elements versus species
       if (verbose .and. nfails .gt. 0) then
          print*, '*** DVODE failures for last chem block: ', nfails; call flush(6)
       end if
-      FORT_CONPSOLV_SDC = 1
-      end
+      CONPSOLV_SDC = 1
+  end function CONPSOLV_SDC
 
-      subroutine FORT_BETA_WBAR(lo, hi, RD, DIMS(RD), RD_Wbar, DIMS(RD_Wbar), Y, DIMS(Y))
+  subroutine BETA_WBAR(lo, hi, RD, DIMS(RD), RD_Wbar, DIMS(RD_Wbar), Y, DIMS(Y))&
+                       bind(C, name="BETA_WBAR")
+  
       implicit none
 
 #include "cdwrk.H"
@@ -794,7 +828,7 @@ c     Get the matrix of elements versus species
                do n=1,Nspec
                   Yt(n) = Y(i,j,n) / RHO
                end do
-               CALL CKMMWY(Yt,IWRK(ckbi),RWRK(ckbr),Wavg)
+               CALL CKMMWY(Yt,Wavg)
 
                do n=1,Nspec
                   RD_Wbar(i,j,n) = RD(i,j,n) * Yt(n) / Wavg
@@ -817,7 +851,7 @@ c     Get the matrix of elements versus species
                   Yt(n) = Y(i,j,n) / RHO
                end do
 
-               CALL CKMMWY(Yt,IWRK(ckbi),RWRK(ckbr),Wavg)
+               CALL CKMMWY(Yt,Wavg)
                do n=1,Nspec
                   RD_Wbar(i,j,n) = RD(i,j,n) * Yt(n) / Wavg
                end do
@@ -827,10 +861,12 @@ c     Get the matrix of elements versus species
 
       endif
 
-      end
+  end subroutine BETA_WBAR
 
-      subroutine FORT_MIXAVG_RHODIFF_TEMP(lo, hi, RD, DIMS(RD), T,
-     &     DIMS(T), Y, DIMS(Y), Patm, do_temp, do_VelVisc)
+  subroutine MIXAVG_RHODIFF_TEMP(lo, hi, RD, DIMS(RD), T, &
+               DIMS(T), Y, DIMS(Y), Patm, do_temp, do_VelVisc)&
+               bind(C, name="MIXAVG_RHODIFF_TEMP")
+          
       implicit none
 
 #include "cdwrk.H"
@@ -851,9 +887,9 @@ c     Get the matrix of elements versus species
 
       parameter(SCAL = tenth, TSCAL = one / 100000.0D0)
 
-      CALL CKRP(IWRK(ckbi),RWRK(ckbr),RU,RUC,P1ATM)
+      CALL CKRP(RU,RUC,P1ATM)
       Ptmp = Patm * P1ATM
-      call CKWT(IWRK(ckbi),RWRK(ckbr),invmwt)
+      call CKWT(invmwt)
 
       do n=1,Nspec
          invmwt(n) = one / invmwt(n)
@@ -873,9 +909,9 @@ c     Get the matrix of elements versus species
                end do
 
                Tt = MAX(T(i,j),TMIN_TRANS) 
-               CALL CKMMWY(Yt,IWRK(ckbi),RWRK(ckbr),Wavg)
-               CALL CKCPMS(Tt,IWRK(ckbi),RWRK(ckbr),CPMS)
-               CALL CKYTX(Yt,IWRK(ckbi),RWRK(ckbr),X)
+               CALL CKMMWY(Yt,Wavg)
+               CALL CKCPMS(Tt,CPMS)
+               CALL CKYTX(Yt,X)
                CALL EGSPAR(Tt,X,Yt,CPMS,EGRWRK(1),EGIWRK(1))
                CALL EGSV1(Ptmp,Tt,Yt,Wavg,EGRWRK(1),Dt)
 
@@ -916,8 +952,8 @@ c     Get the matrix of elements versus species
                end do
 
                Tt = MAX(T(i,j),TMIN_TRANS) 
-               CALL CKMMWY(Yt,IWRK(ckbi),RWRK(ckbr),Wavg)
-               CALL CKYTX(Yt,IWRK(ckbi),RWRK(ckbr),X)
+               CALL CKMMWY(Yt,Wavg)
+               CALL CKYTX(Yt,X)
                CALL MCADIF(Ptmp,Tt,X,MCRWRK,Dt)
 
                RHO = RHO*1.d-3
@@ -941,10 +977,11 @@ c     Get the matrix of elements versus species
 
       endif
 
-      end
+  end subroutine MIXAVG_RHODIFF_TEMP
 
-      subroutine FORT_MIX_SHEAR_VISC(lo, hi, eta, DIMS(eta),
-     &                               T, DIMS(T), Y, DIMS(Y))
+  subroutine MIX_SHEAR_VISC(lo, hi, eta, DIMS(eta), &
+                            T, DIMS(T), Y, DIMS(Y)) &
+                            bind(C, name="MIX_SHEAR_VISC")
       implicit none
 
 #include "cdwrk.H"
@@ -973,8 +1010,8 @@ c     Get the matrix of elements versus species
                   Yt(n) = Y(i,j,n)
                end do
                Tt = MAX(T(i,j),TMIN_TRANS) 
-               CALL CKCPMS(Tt,IWRK(ckbi),RWRK(ckbr),CPMS)
-               CALL CKYTX(Yt,IWRK(ckbi),RWRK(ckbr),X)
+               CALL CKCPMS(Tt,CPMS)
+               CALL CKYTX(Yt,X)
                CALL EGSPAR(Tt,X,Yt,CPMS,EGRWRK(1),EGIWRK(1))
                CALL EGSE3(Tt,Yt,EGRWRK(1),eta(i,j))
                eta(i,j) = eta(i,j) * SCAL
@@ -987,17 +1024,18 @@ c     Get the matrix of elements versus species
                   Yt(n) = Y(i,j,n)
                end do
                Tt = MAX(T(i,j),TMIN_TRANS) 
-               CALL CKYTX(Yt,IWRK(ckbi),RWRK(ckbr),X)
+               CALL CKYTX(Yt,X)
                CALL MCAVIS(Tt,X,MCRWRK,eta(i,j))
                eta(i,j) = eta(i,j) * SCAL
             end do
          end do
       endif
 
-      end
+  end subroutine MIX_SHEAR_VISC
 
-      subroutine FORT_RHOfromPTY(lo, hi, RHO, DIMS(RHO), T, DIMS(T),
-     &                           Y, DIMS(Y), Patm)
+  subroutine RHOfromPTY(lo, hi, RHO, DIMS(RHO), T, DIMS(T), &
+                        Y, DIMS(Y), Patm) &
+                        bind(C, name="RHOfromPTY")
       implicit none
 
 #include "cdwrk.H"
@@ -1014,23 +1052,24 @@ c     Get the matrix of elements versus species
       integer i, j, n
       REAL_T RU, RUC, P1ATM, Ptmp, Yt(maxspec), SCAL
       
-c     NOTE: SCAL converts result from assumed cgs to MKS (1 g/cm^3 = 1.e3 kg/m^3)
+!     NOTE: SCAL converts result from assumed cgs to MKS (1 g/cm^3 = 1.e3 kg/m^3)
       SCAL = one * 1000
-      CALL CKRP(IWRK(ckbi),RWRK(ckbr),RU,RUC,P1ATM)
+      CALL CKRP(RU,RUC,P1ATM)
       Ptmp = Patm * P1ATM
       do j=lo(2),hi(2)
          do i=lo(1),hi(1)
             do n=1,Nspec
                Yt(n) = Y(i,j,n)
             end do
-            CALL CKRHOY(Ptmp,T(i,j),Yt,IWRK(ckbi),RWRK(ckbr),RHO(i,j))
+            CALL CKRHOY(Ptmp,T(i,j),Yt,RHO(i,j))
             RHO(i,j) = RHO(i,j) * SCAL
          end do
       end do
-      end
+  end subroutine RHOfromPTY
       
-      subroutine FORT_RHOfromPvTY(lo, hi, RHO, DIMS(RHO), T, DIMS(T),
-     &                           Y, DIMS(Y), P, DIMS(P))
+  subroutine RHOfromPvTY(lo, hi, RHO, DIMS(RHO), T, DIMS(T), &
+                         Y, DIMS(Y), P, DIMS(P))&
+                         bind(C, name="RHOfromPvTY")
       implicit none
 
 #include "cdwrk.H"
@@ -1048,23 +1087,24 @@ c     NOTE: SCAL converts result from assumed cgs to MKS (1 g/cm^3 = 1.e3 kg/m^3
       integer i, j, n
       REAL_T RU, RUC, P1ATM, Ptmp, Yt(maxspec), SCAL
       
-c     NOTE: SCAL converts result from assumed cgs to MKS (1 g/cm^3 = 1.e3 kg/m^3)
+!     NOTE: SCAL converts result from assumed cgs to MKS (1 g/cm^3 = 1.e3 kg/m^3)
       SCAL = one * 1000
-      CALL CKRP(IWRK(ckbi),RWRK(ckbr),RU,RUC,P1ATM)
+      CALL CKRP(RU,RUC,P1ATM)
       do j=lo(2),hi(2)
          do i=lo(1),hi(1)
             do n=1,Nspec
                Yt(n) = Y(i,j,n)
             end do
             Ptmp = P(i,j) * P1ATM
-            CALL CKRHOY(Ptmp,T(i,j),Yt,IWRK(ckbi),RWRK(ckbr),RHO(i,j))
+            CALL CKRHOY(Ptmp,T(i,j),Yt,RHO(i,j))
             RHO(i,j) = RHO(i,j) * SCAL
          end do
       end do
-      end
+  end subroutine RHOfromPvTY
       
-      subroutine FORT_PfromRTY(lo, hi, P, DIMS(P), RHO, DIMS(RHO),
-     &                         T, DIMS(T), Y, DIMS(Y))
+  subroutine PfromRTY(lo, hi, P, DIMS(P), RHO, DIMS(RHO), &
+                      T, DIMS(T), Y, DIMS(Y))&
+                      bind(C, name="PfromRTY")
       implicit none
 
 #include "cdwrk.H"
@@ -1082,8 +1122,8 @@ c     NOTE: SCAL converts result from assumed cgs to MKS (1 g/cm^3 = 1.e3 kg/m^3
       integer i, j, n
       REAL_T Yt(maxspec), RHOt, SCAL, SCAL1
       
-c     NOTE: SCAL converts result from assumed cgs to MKS (1 dyne/cm^2 = .1 Pa)
-c           SCAL1 converts density (1 kg/m^3 = 1.e-3 g/cm^3)
+!     NOTE: SCAL converts result from assumed cgs to MKS (1 dyne/cm^2 = .1 Pa)
+!           SCAL1 converts density (1 kg/m^3 = 1.e-3 g/cm^3)
       SCAL = tenth
       SCAL1 = tenth**3
       do j=lo(2),hi(2)
@@ -1092,14 +1132,16 @@ c           SCAL1 converts density (1 kg/m^3 = 1.e-3 g/cm^3)
                Yt(n) = Y(i,j,n)
             end do
             RHOt = RHO(i,j) * SCAL1
-            CALL CKPY(RHOt,T(i,j),Yt,IWRK(ckbi),RWRK(ckbr),P(i,j))
+            CALL CKPY(RHOt,T(i,j),Yt,P(i,j))
             P(i,j) = P(i,j) * SCAL
          end do
       end do
-      end
+  end subroutine PfromRTY
       
-      subroutine FORT_TfromPRY(lo, hi, T, DIMS(T), RHO, DIMS(RHO),
-     &                         Y, DIMS(Y), Patm)
+  subroutine TfromPRY(lo, hi, T, DIMS(T), RHO, DIMS(RHO), &
+                      Y, DIMS(Y), Patm)&
+                      bind(C, name="TfromPRY")
+                              
       implicit none
 
 #include "cdwrk.H"
@@ -1116,25 +1158,27 @@ c           SCAL1 converts density (1 kg/m^3 = 1.e-3 g/cm^3)
       integer i, j, n
       REAL_T RU, RUC, P1ATM, Ptmp, Yt(maxspec), SCAL, Wavg, RHOt
       
-      CALL CKRP(IWRK(ckbi),RWRK(ckbr),RU,RUC,P1ATM)
+      CALL CKRP(RU,RUC,P1ATM)
       Ptmp = Patm * P1ATM
 
-c     NOTE: SCAL converts density (1 kg/m^3 = 1.e-3 g/cm^3)
+!     NOTE: SCAL converts density (1 kg/m^3 = 1.e-3 g/cm^3)
       SCAL = tenth**3
       do j=lo(2),hi(2)
          do i=lo(1),hi(1)
             do n=1,Nspec
                Yt(n) = Y(i,j,n)
             end do
-            CALL CKMMWY(Yt,IWRK(ckbi),RWRK(ckbr),Wavg)
+            CALL CKMMWY(Yt,Wavg)
             RHOt = RHO(i,j) * SCAL
             T(i,j) = Ptmp / (RHOt * RU / Wavg)
          end do
       end do
-      end
+  end subroutine TfromPRY
       
-      subroutine FORT_CPMIXfromTY(lo, hi, CPMIX, DIMS(CPMIX), T, DIMS(T),
-     &                            Y, DIMS(Y))
+  subroutine CPMIXfromTY(lo, hi, CPMIX, DIMS(CPMIX), T, DIMS(T), &
+                         Y, DIMS(Y))&
+                         bind(C,name="CPMIXfromTY")
+                         
       implicit none
 
 #include "cdwrk.H"
@@ -1150,21 +1194,22 @@ c     NOTE: SCAL converts density (1 kg/m^3 = 1.e-3 g/cm^3)
       integer i, j, n
       REAL_T Yt(maxspec), SCAL
       
-c     NOTE: SCAL converts result from assumed cgs to MKS (1 erg/g.K = 1.e-4 J/kg.K)
+!     NOTE: SCAL converts result from assumed cgs to MKS (1 erg/g.K = 1.e-4 J/kg.K)
       SCAL = tenth**4
       do j=lo(2),hi(2)
          do i=lo(1),hi(1)
             do n=1,Nspec
                Yt(n) = Y(i,j,n)
             end do
-            CALL CKCPBS(T(i,j),Yt,IWRK(ckbi),RWRK(ckbr),CPMIX(i,j))
+            CALL CKCPBS(T(i,j),Yt,CPMIX(i,j))
             CPMIX(i,j) = CPMIX(i,j) * SCAL
          end do
       end do
-      end
+  end subroutine CPMIXfromTY
       
-      subroutine FORT_CVMIXfromTY(lo, hi, CVMIX, DIMS(CVMIX), T, DIMS(T),
-     &                            Y, DIMS(Y))
+  subroutine CVMIXfromTY(lo, hi, CVMIX, DIMS(CVMIX), T, DIMS(T), &
+                         Y, DIMS(Y))&
+                         bind(C, name="CVMIXfromTY")
       implicit none
 
 #include "cdwrk.H"
@@ -1180,21 +1225,22 @@ c     NOTE: SCAL converts result from assumed cgs to MKS (1 erg/g.K = 1.e-4 J/kg
       integer i, j, n
       REAL_T Yt(maxspec), SCAL
       
-c     NOTE: SCAL converts result from assumed cgs to MKS (1 erg/g.K = 1.e-4 J/kg.K)
+!     NOTE: SCAL converts result from assumed cgs to MKS (1 erg/g.K = 1.e-4 J/kg.K)
       SCAL = tenth**4
       do j=lo(2),hi(2)
          do i=lo(1),hi(1)
             do n=1,Nspec
                Yt(n) = Y(i,j,n)
             end do
-            CALL CKCVBS(T(i,j),Yt,IWRK(ckbi),RWRK(ckbr),CVMIX(i,j))
+            CALL CKCVBS(T(i,j),Yt,CVMIX(i,j))
             CVMIX(i,j) = CVMIX(i,j) * SCAL
          end do
       end do
-      end
+  end subroutine CVMIXfromTY
       
-      subroutine FORT_HMIXfromTY(lo, hi, HMIX, DIMS(HMIX), T, DIMS(T),
-     &                           Y, DIMS(Y))
+  subroutine HMIXfromTY(lo, hi, HMIX, DIMS(HMIX), T, DIMS(T), &
+                        Y, DIMS(Y))&
+                        bind(C, name="HMIXfromTY")
       implicit none
 
 #include "cdwrk.H"
@@ -1210,20 +1256,21 @@ c     NOTE: SCAL converts result from assumed cgs to MKS (1 erg/g.K = 1.e-4 J/kg
       integer i, j, n
       REAL_T Yt(maxspec), SCAL
       
-c     NOTE: SCAL converts result from assumed cgs to MKS (1 erg/g = 1.e-4 J/kg)
+!     NOTE: SCAL converts result from assumed cgs to MKS (1 erg/g = 1.e-4 J/kg)
       SCAL = tenth**4
       do j=lo(2),hi(2)
          do i=lo(1),hi(1)
             do n=1,Nspec
                Yt(n) = Y(i,j,n)
             end do
-            CALL CKHBMS(T(i,j),Yt,IWRK(ckbi),RWRK(ckbr),HMIX(i,j))
+            CALL CKHBMS(T(i,j),Yt,HMIX(i,j))
             HMIX(i,j) = HMIX(i,j) * SCAL
          end do
       end do
-      end
+  end subroutine HMIXfromTY
       
-      subroutine FORT_MWMIXfromY(lo, hi, MWMIX, DIMS(MWMIX), Y, DIMS(Y))
+  subroutine MWMIXfromY(lo, hi, MWMIX, DIMS(MWMIX), Y, DIMS(Y))&
+                        bind(C, name="MWMIXfromY")
       implicit none
 
 #include "cdwrk.H"
@@ -1237,18 +1284,20 @@ c     NOTE: SCAL converts result from assumed cgs to MKS (1 erg/g = 1.e-4 J/kg)
       integer i, j, n
       REAL_T Yt(maxspec)
 
-c     Returns mean molecular weight in kg/kmole
+!     Returns mean molecular weight in kg/kmole
       do j=lo(2),hi(2)
          do i=lo(1),hi(1)
             do n=1,Nspec
                Yt(n) = Y(i,j,n)
             end do
-            CALL CKMMWY(Yt,IWRK(ckbi),RWRK(ckbr),MWMIX(i,j))
+            CALL CKMMWY(Yt,MWMIX(i,j))
          end do
       end do
-      end
+  end subroutine MWMIXfromY
       
-      subroutine FORT_CPfromT(lo, hi, CP, DIMS(CP), T, DIMS(T))
+  subroutine CPfromT(lo, hi, CP, DIMS(CP), T, DIMS(T))&
+                     bind(C, name="CPfromT")
+
       implicit none
 
 #include "cdwrk.H"
@@ -1262,19 +1311,20 @@ c     Returns mean molecular weight in kg/kmole
       integer i, j, n
       REAL_T SCAL, CPt(maxspec)
       
-c     NOTE: SCAL converts result from assumed cgs to MKS (1 erg/g.K = 1.e-4 J/kg.K)
+!     NOTE: SCAL converts result from assumed cgs to MKS (1 erg/g.K = 1.e-4 J/kg.K)
       SCAL = tenth**4
       do j=lo(2),hi(2)
          do i=lo(1),hi(1)
-            CALL CKCPMS(T(i,j),IWRK(ckbi),RWRK(ckbr),CPt)
+            CALL CKCPMS(T(i,j),CPt)
             do n=1,Nspec
                CP(i,j,n) = CPt(n) * SCAL
             end do
          end do
       end do
-      end
+  end subroutine CPfromT
       
-      subroutine FORT_HfromT(lo, hi, H, DIMS(H), T, DIMS(T))
+  subroutine HfromT(lo, hi, H, DIMS(H), T, DIMS(T))&
+                    bind(C, name="HfromT")
       implicit none
 
 #include "cdwrk.H"
@@ -1288,21 +1338,25 @@ c     NOTE: SCAL converts result from assumed cgs to MKS (1 erg/g.K = 1.e-4 J/kg
       integer i, j, n
       REAL_T SCAL, Ht(maxspec)
       
-c     NOTE: SCAL converts result from assumed cgs to MKS (1 erg/g = 1.e-4 J/kg)
+!     NOTE: SCAL converts result from assumed cgs to MKS (1 erg/g = 1.e-4 J/kg)
       SCAL = tenth**4
       do j=lo(2),hi(2)
          do i=lo(1),hi(1)
-            CALL CKHMS(T(i,j),IWRK(ckbi),RWRK(ckbr),Ht)
+            CALL CKHMS(T(i,j),Ht)
             do n=1,Nspec
                H(i,j,n) = Ht(n) * SCAL
             end do
          end do
       end do
-      end
+  end subroutine HfromT
 
-      integer function FORT_TfromHY(lo, hi, T, DIMS(T),
-     &                              HMIX, DIMS(HMIX), Y, DIMS(Y),
-     &                              errMax, NiterMAX, res)
+  integer function TfromHY(lo, hi, T, DIMS(T), &
+                           HMIX, DIMS(HMIX), Y, DIMS(Y), &
+                           errMax, NiterMAX, res)&
+                           bind(C, name="TfromHY")
+                           
+      use chem_driver, only: TfromHYpt
+      
       implicit none
 
 #include "cdwrk.H"
@@ -1328,7 +1382,7 @@ c     NOTE: SCAL converts result from assumed cgs to MKS (1 erg/g = 1.e-4 J/kg)
                Yt(n) = Y(i,j,n)
             end do
             Tguess = T(i,j)
-            call FORT_TfromHYpt(T(i,j),HMIX(i,j),Yt,errMax,NiterMAX,res,Niter)
+            call TfromHYpt(T(i,j),HMIX(i,j),Yt,errMax,NiterMAX,res,Niter)
             if (Niter .lt. 0) then
                write(6,996) 'T from h,y solve in FORT_TfromHY failed'
                write(6,997) 'Niter flag = ',Niter
@@ -1354,49 +1408,53 @@ c     NOTE: SCAL converts result from assumed cgs to MKS (1 erg/g = 1.e-4 J/kg)
          end do
       end do
 
-c     Set max iters taken during this solve, and exit
-      FORT_TfromHY = MAXiters
+!     Set max iters taken during this solve, and exit
+      TfromHY = MAXiters
       return
-      end
-c
-c     Optically thin radiation model, specified at
-c            http://www.ca.sandia.gov/tdf/Workshop/Submodels.html
-c     
-c     Q(T,species) = 4*sigma*SUM{pi*aP,i} *(T4-Tb4) 
-c     
-c     sigma=5.669e-08 W/m2K4 is the Steffan-Boltzmann constant, 
-c     SUM{ } represents a summation over the species in the radiation calculation, 
-c     pi is partial pressure of species i in atm (Xi times local pressure)
-c     aP,i is the Planck mean absorption coefficient of species i, 1/[m.atm]
-c     T is the local flame temperature (K)
-c     Tb is the background temperature (300K or as spec. in expt)
-c
-c     For H2O and CO2,
-c         aP = exp{c0 + c1*ln(T) + c2*{ln(T)}2 + c3*{ln(T)}3 + c4*{ln(T)}4} 
-c     
-c                            H2O                  CO2
-c              c0       0.278713E+03         0.96986E+03
-c              c1      -0.153240E+03        -0.58838E+03
-c              c2       0.321971E+02         0.13289E+03
-c              c3      -0.300870E+01        -0.13182E+02
-c              c4       0.104055E+00         0.48396E+00
-c     For CH4:
-c     
-c     aP,ch4 = 6.6334 - 0.0035686*T + 1.6682e-08*T2 + 2.5611e-10*T3 - 2.6558e-14*T4
-c
-c     For CO:   aP,co = c0+T*(c1 + T*(c2 + T*(c3 + T*c4)))
-c
-c           T <= 750                 else
-c      
-c         c0   4.7869              10.09       
-c         c1  -0.06953             -0.01183    
-c         c2   2.95775e-4          4.7753e-6   
-c         c3  -4.25732e-7          -5.87209e-10
-c         c4   2.02894e-10         -2.5334e-14 
-c      
+  end function TfromHY
+!c
+!c     Optically thin radiation model, specified at
+!c            http://www.ca.sandia.gov/tdf/Workshop/Submodels.html
+!c     
+!c     Q(T,species) = 4*sigma*SUM{pi*aP,i} *(T4-Tb4) 
+!c     
+!c     sigma=5.669e-08 W/m2K4 is the Steffan-Boltzmann constant, 
+!c     SUM{ } represents a summation over the species in the radiation calculation, 
+!c     pi is partial pressure of species i in atm (Xi times local pressure)
+!c     aP,i is the Planck mean absorption coefficient of species i, 1/[m.atm]
+!c     T is the local flame temperature (K)
+!c     Tb is the background temperature (300K or as spec. in expt)
+!c
+!c     For H2O and CO2,
+!c         aP = exp{c0 + c1*ln(T) + c2*{ln(T)}2 + c3*{ln(T)}3 + c4*{ln(T)}4} 
+!c     
+!c                            H2O                  CO2
+!c              c0       0.278713E+03         0.96986E+03
+!c              c1      -0.153240E+03        -0.58838E+03
+!c              c2       0.321971E+02         0.13289E+03
+!c              c3      -0.300870E+01        -0.13182E+02
+!c              c4       0.104055E+00         0.48396E+00
+!c     For CH4:
+!c     
+!c     aP,ch4 = 6.6334 - 0.0035686*T + 1.6682e-08*T2 + 2.5611e-10*T3 - 2.6558e-14*T4
+!c
+!c     For CO:   aP,co = c0+T*(c1 + T*(c2 + T*(c3 + T*c4)))
+!c
+!c           T <= 750                 else
+!c      
+!c         c0   4.7869              10.09       
+!c         c1  -0.06953             -0.01183    
+!c         c2   2.95775e-4          4.7753e-6   
+!c         c3  -4.25732e-7          -5.87209e-10
+!c         c4   2.02894e-10         -2.5334e-14 
+!c      
       
-      subroutine FORT_OTrad_TDF(lo, hi, Qloss, DIMS(Qloss),
-     &                          T, DIMS(T), X, DIMS(X), Patm, T_bg) 
+  subroutine OTrad_TDF(lo, hi, Qloss, DIMS(Qloss), &
+                       T, DIMS(T), X, DIMS(X), Patm, T_bg)&
+                       bind(C, name="OTrad_TDF")
+                       
+      use chem_driver, only: get_spec_name
+      
       implicit none
 
 #include "cdwrk.H"
@@ -1450,30 +1508,30 @@ c
             aP = zero
 
             if ((iH2O.gt.0).and.(X(i,j,iH2O).gt.zero)) then
-               aP = aP + X(i,j,iH2O)*EXP(
-     &              + 0.278713D+03
-     &              - 0.153240D+03*lnT1
-     &              + 0.321971D+02*lnT2
-     &              - 0.300870D+01*lnT3
-     &              + 0.104055D+00*lnT4 )
+               aP = aP + X(i,j,iH2O)*EXP( &
+                   + 0.278713D+03 &
+                   - 0.153240D+03*lnT1 &
+                   + 0.321971D+02*lnT2 &
+                   - 0.300870D+01*lnT3 &
+                   + 0.104055D+00*lnT4 )
             end if
             
             if ((iCO2.gt.0).and.(X(i,j,iCO2).gt.zero)) then            
-               aP = aP + X(i,j,iCO2)*EXP(
-     &              + 0.96986D+03
-     &              - 0.58838D+03*lnT1
-     &              + 0.13289D+03*lnT2
-     &              - 0.13182D+02*lnT3
-     &              + 0.48396D+00*lnT4 )
+               aP = aP + X(i,j,iCO2)*EXP( &
+                   + 0.96986D+03 &
+                   - 0.58838D+03*lnT1 &
+                   + 0.13289D+03*lnT2 &
+                   - 0.13182D+02*lnT3 &
+                   + 0.48396D+00*lnT4 )
             end if
 
             if ((iCH4.gt.0).and.(X(i,j,iCH4).gt.zero)) then
-               aP = aP + X(i,j,iCH4)*
-     &              ( 6.6334
-     &              - 0.0035686 *T1
-     &              + 1.6682D-08*T2
-     &              + 2.5611D-10*T3
-     &              - 2.6558D-14*T4 )         
+               aP = aP + X(i,j,iCH4)* &
+                   ( 6.6334 &
+                   - 0.0035686 *T1 &
+                   + 1.6682D-08*T2 &
+                   + 2.5611D-10*T3 &
+                   - 2.6558D-14*T4 )         
             end if
             
             if ((iCO.gt.0).and.(X(i,j,iCO).gt.zero)) then
@@ -1497,4 +1555,6 @@ c
             
          end do
       end do
-      end
+  end subroutine OTrad_TDF
+      
+end module chem_driver_2D
