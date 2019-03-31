@@ -43,6 +43,9 @@ endif
 ifeq ($(Chemistry_Model), CH4-15step)
   CHEM_DIR = $(CHEM_HOME)/CH4-15step
 endif
+ifeq ($(Chemistry_Model), LIDRYER)
+  CHEM_DIR = $(CHEM_HOME)/LiDryer
+endif
 
 ifdef CHEM_DIR
   VPATH_LOCATIONS += $(CHEM_DIR)

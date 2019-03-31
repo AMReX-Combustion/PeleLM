@@ -661,7 +661,7 @@ contains
           Xt(n) = pmf_vals(3+n)
         end do 
               
-        CALL CKXTY (Xt, IWRK, RWRK, Yt)
+        CALL CKXTY (Xt, Yt)
   
         do n=1,Nspec
           Y_bc(n-1,zone) = Yt(n)
@@ -690,7 +690,7 @@ contains
       end do 
       Xt(iN2) = fuel_N2_vol_percent*1.d-2
       Xt(fuelID) = 1.d0 - Xt(iN2)            
-      CALL CKXTY (Xt, IWRK, RWRK, Yt)
+      CALL CKXTY (Xt, Yt)
 
       do n=1,Nspec
         Y_bc(n-1,fuelZone) = Yt(n)
@@ -706,7 +706,7 @@ contains
       Xt(oxidID) = 0.21d0
       Xt(iN2)    = 1.d0 - Xt(oxidID)
 
-      CALL CKXTY (Xt, IWRK, RWRK, Yt)         
+      CALL CKXTY (Xt, Yt)         
       do n=1,Nspec
          Y_bc(n-1,airZone) = Yt(n)
       end do
@@ -1031,7 +1031,7 @@ contains
                   Xl(n) = pmf_vals(3+n)
                end do 
                
-               CALL CKXTY (Xl, IWRK, RWRK, Yl)
+               CALL CKXTY (Xl,Yl)
                
                do n = 1,Nspec
                   scal(i,j,FirstSpec+n-1) = Yl(n)
@@ -1072,7 +1072,7 @@ contains
                Xl(iH2O) = 0.0784d0
                Xl(iCH3OCH3) = 0.0374d0
                
-               CALL CKXTY (Xl, IWRK, RWRK, Yl)
+               CALL CKXTY (Xl,Yl)
                
 
          do j = lo(2), hi(2)

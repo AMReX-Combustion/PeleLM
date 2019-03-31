@@ -12,7 +12,7 @@ COMP            = gnu
 DEBUG           = TRUE
 DEBUG           = FALSE
 USE_MPI         = TRUE
-USE_OMP         = FALSE
+USE_OMP         = TRUE
 PRECISION       = DOUBLE
 VERBOSE         = FALSE
 

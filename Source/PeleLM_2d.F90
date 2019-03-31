@@ -68,7 +68,7 @@ contains
     integer i, j, n
     REAL_T Y(maxspec), H(maxspec), cpmix, rho, rhoInv, mmw, invmwt(maxspec)
 
-    call CKWT(IWRK(ckbi),RWRK(ckbr),invmwt)
+    call CKWT(invmwt)
     do n=1,Nspec
        invmwt(n) = one / invmwt(n)
     end do
@@ -83,9 +83,9 @@ contains
           do n=1,Nspec
              Y(n) = rhoInv*rhoY(i,j,n)
           enddo
-          CALL CKCPBS(T(i,j),Y,IWRK(ckbi),RWRK(ckbr),cpmix)
-          CALL CKHMS(T(i,j),IWRK(ckbi),RWRK(ckbr),H)
-          CALL CKMMWY(Y,IWRK(ckbi),RWRK(ckbr),mmw)
+          CALL CKCPBS(T(i,j),Y,cpmix)
+          CALL CKHMS(T(i,j),H)
+          CALL CKMMWY(Y,mmw)
 
           cpmix = cpmix*1.d-4
           do n=1,Nspec
@@ -142,9 +142,9 @@ contains
           Y(n) = rhoInv*rhoY(i,j,n)
         enddo
 
-        CALL CKCPBS(T(i,j),Y,IWRK(ckbi),RWRK(ckbr),cpmix)
+        CALL CKCPBS(T(i,j),Y,cpmix)
         cpmix = cpmix*1.d-4
-        CALL CKCVBS(T(i,j),Y,IWRK(ckbi),RWRK(ckbr),cvmix)
+        CALL CKCVBS(T(i,j),Y,cvmix)
         cvmix = cvmix*1.d-4
 
         theta(i,j) = cvmix / (cpmix*Pamb_in)

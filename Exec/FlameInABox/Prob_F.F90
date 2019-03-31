@@ -69,7 +69,7 @@ contains
       Xt(fuelID) = phi * Xt(oxidID) / a
       Xt(iN2)    = 1.d0 - Xt(fuelID) - Xt(oxidID)
       
-      CALL CKXTY (Xt, IWRK, RWRK, Yt)
+      CALL CKXTY (Xt, Yt)
       
   end subroutine set_Y_from_Phi
 

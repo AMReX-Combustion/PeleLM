@@ -1,17 +1,21 @@
-PeleLM 
-==========================================
-*A low Mach number AMR combustion code*
+PeleLM - README
+===============
 
-`PeleLM` is an adaptive-mesh low Mach number hydrodynamics code for reacting flows.
+`PeleLM` is an adaptive-mesh low Mach number hydrodynamics code for reacting flows.  `PeleLM` has a project
+`homepage <https://amrex-combustion.github.io/PeleLM/>`_, and can be obtained via
+`GitHub <https://github.com/AMReX-Combustion/PeleLM>`_.
 
-Getting Started
----------------
+Current project build status
+----------------------------
 
-* To compile and run the `Pele` suite of codes, one needs a C++ compiler that supports 
-the C++11 standard and a Fortran compiler that supports the 2003 standard.  A hierarchical 
-strategy for parallelism is supported, based MPI + OpenMP.  The codes work with all major 
-MPI and OpenMP implementations.  The codes should build and run with no modifications to 
-the `make` system if using a Linux system with the GNU compilers, version 4.8.4 and above.
+.. image:: https://readthedocs.org/projects/pelelm/badge
+
+
+Getting started with PeleLM
+---------------------------
+
+* To compile and run the `Pele` suite of codes, one needs a C++ compiler that supports the C++11 standard and a Fortran compiler that supports the 2003 standard.  A hierarchical strategy for parallelism is supported, based MPI + OpenMP.  The codes work with all major MPI and OpenMP implementations.  The codes should build and run with no modifications to the `make` system if using a Linux system with the GNU compilers, version 4.8.4 and above.
+
 
 To build `PeleLM` and run a sample 2D flame problem:
 
@@ -28,17 +32,12 @@ To build `PeleLM` and run a sample 2D flame problem:
 3. Set the environment variable, PELELM_HOME, and clone a copy of `PeleLM` there ::
 
     export PELELM_HOME=<location for PeleLM>
-    git clone git@code.ornl.gov:Pele/PeleLM.git ${PELELM_HOME}   (if you have access to the ORNL gitlab server)
-               or 
-    git clone git@bitbucket.org:berkeleylab/pelelm.git ${PELELM_HOME}   (if you have access to the bitbucket server) 
-
+    git clone git@github.com:AMReX-Combustion/PeleLM.git ${PELELM_HOME}
 
 4. Set the environment variable, PELE_PHYSICS_HOME, and clone a copy of `PelePhysics` there ::
 
-    export PELE_PHYSICS_HOME=<location for PeleLM>
-    git clone git@code.ornl.gov:Pele/PelePhysics.git ${PELELM_HOME}  (if you have access to the ORNL gitlab server)
-               or
-    git clone git@bitbucket.org:berkeleylab/pelephysics.git ${PELELM_HOME}   (if you have access to the bitbucket server)
+    export PELE_PHYSICS_HOME=<location for PelePhysics>
+    git clone git@github.com:AMReX-Combustion/PelePhysics.git ${PELEPHYSICS_HOME}
 
 5. Move to an example build folder, build an executable ::
 
@@ -48,9 +47,9 @@ To build `PeleLM` and run a sample 2D flame problem:
 Dependencies
 ------------
 
-`PeleLM` was created as a renamed, `LMC`, the low Mach code from CCSE 
-(``<https://ccse.lbl.gov/index.html>``),
-and is built on the `AMReX` library and the IAMR code (see above).
+`PeleLM` was created in 2017 by renaming `LMC`, the low Mach code from
+`CCSE <https://ccse.lbl.gov>`_, and is built on the `AMReX` library
+and the `IAMR` code (see above).
 
 Development model
 -----------------
@@ -73,12 +72,22 @@ To add a new feature to PeleLM, the procedure is:
 
     git push -u origin AmazingNewFeature [Note: -u option required only for the first push of new branch]
 
-4.  Submit a merge request through code.ornl.gov - be sure you are requesting to merge your branch to the development branch.
+4.  Submit a merge request through the github project page - be sure you are requesting to merge your branch to the development branch.
 
 Documentation
 -------------
 Documentation for PeleLM is under development in the Docs directory.  To build ::
 
-    cd ${PELELM_DIR}/Docs/UsersGuide
-    make
+    cd ${PELELM_DIR}/Docs
+    make html
 
+
+Acknowledgment
+--------------
+This research was supported by the Exascale Computing Project (ECP), Project
+Number: 17-SC-20-SC, a collaborative effort of two DOE organizations -- the
+Office of Science and the National Nuclear Security Administration --
+responsible for the planning and preparation of a capable exascale ecosystem --
+including software, applications, hardware, advanced system engineering, and
+early testbed platforms -- to support the nation's exascale computing
+imperative.

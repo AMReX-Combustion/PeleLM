@@ -56,7 +56,7 @@ c     Take fuel mixture from pmf file
                Xt(n) = pmf_vals(3+n)
             end do 
             
-            CALL CKXTY (Xt, IWRK, RWRK, Yt)
+            CALL CKXTY (Xt, Yt)
 
             do n=1,Nspec
                Y_bc(n-1,zone) = Yt(n)
@@ -99,7 +99,7 @@ c     Fuel
          Xt(iN2) = fuel_N2_vol_percent*1.d-2
          Xt(iNC12H26) = 1.d0 - Xt(iN2)            
 
-         CALL CKXTY (Xt, IWRK, RWRK, Yt)
+         CALL CKXTY (Xt,  Yt)
 
          do n=1,Nspec
             Y_bc(n-1,fuelZone) = Yt(n)
@@ -116,7 +116,7 @@ c     Air
          Xt(oxidID) = 0.21d0
          Xt(iN2)    = 1.d0 - Xt(oxidID)
 
-         CALL CKXTY (Xt, IWRK, RWRK, Yt)         
+         CALL CKXTY (Xt, Yt)         
          do n=1,Nspec
             Y_bc(n-1,airZone) = Yt(n)
          end do
@@ -137,13 +137,13 @@ c        Xt(iNC12H26) = .1208d0
 c        Xt(iO2) = .1319d0
 c        Xt(iN2) = 1.d0 -  Xt(iNC12H26) -  Xt(iO2)
 
-c        CALL CKXTY (Xt, IWRK, RWRK, Yt)
+c        CALL CKXTY (Xt, Yt)
 
          Yt(iNC12H26) = .45d0
          Yt(iO2) = .092268d0
          Yt(iN2) = 1.d0 -  Yt(iNC12H26) -  Yt(iO2)
 
-         CALL CKYTX (Yt, IWRK, RWRK, Xt)
+         CALL CKYTX (Yt, Xt)
 
          do n=1,Nspec
             Y_bc(n-1,fuelZone) = Yt(n)
@@ -160,7 +160,7 @@ c     Air
          Xt(oxidID) = 0.15d0
          Xt(iN2)    = 1.d0 - Xt(oxidID)
 
-         CALL CKXTY (Xt, IWRK, RWRK, Yt)         
+         CALL CKXTY (Xt, Yt)         
          do n=1,Nspec
             Y_bc(n-1,airZone) = Yt(n)
          end do
@@ -319,8 +319,8 @@ c ::: -----------------------------------------------------------
             if (name .eq. 'NC12H26' ) iNC12H26 = n
          enddo
 
-c        call CKHMS(T_bc(BL_FUELPIPE),IWRK(ckbi),RWRK(ckbr),h_fu)
-         call CKHMS(T_bc(BL_COFLOW),  IWRK(ckbi),RWRK(ckbr),h_ox)
+c        call CKHMS(T_bc(BL_FUELPIPE),h_fu)
+         call CKHMS(T_bc(BL_COFLOW),h_ox)
 c        h_fu = h_fu*1.d-4 ! cgs to MKS
 
 
@@ -567,7 +567,7 @@ c                 blend here if needed
                   endif
                   endif
 
-                  CALL CKXTY (Xl, IWRK, RWRK, Yl)
+                  CALL CKXTY (Xl, Yl)
                   
                   do n = 1,Nspec
                      scal(i,j,k,FirstSpec+n-1) = Yl(n)

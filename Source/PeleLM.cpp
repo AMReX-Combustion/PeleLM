@@ -4760,6 +4760,7 @@ PeleLM::advance (Real time,
     MultiFab Forcing(grids,dmap,nspecies+1,nGrowAdvForcing);
     Forcing.setBndry(1.e30);
     FillPatch(*this,mac_divu,nGrowAdvForcing,time+0.5*dt,Divu_Type,0,1,0);
+    BL_PROFILE_VAR_STOP(HTMAC);
       
     // compute new-time thermodynamic pressure and chi_increment
     setThermoPress(cur_time);
