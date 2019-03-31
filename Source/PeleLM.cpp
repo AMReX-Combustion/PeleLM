@@ -2775,6 +2775,7 @@ PeleLM::avgDown ()
   }
 }
 
+#if 0
 static
 Vector<const MultiFab *>
 GetVecOfPtrs(const MultiFab* const* a, int scomp, int ncomp)
@@ -3036,6 +3037,7 @@ PeleLM::diffuse_scalar_fj  (const Vector<MultiFab*>&  S_old,
       );
   }
 }
+#endif
 
 void
 PeleLM::differential_diffusion_update (MultiFab& Force,
@@ -3143,7 +3145,7 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
   }
 
   // Diffuse all the species
-  diffuse_scalar_fj(Sn, Sn, Snp1, Snp1, first_spec, nspecies, Rho_comp,
+  Diffusion::diffuse_scalar(Sn, Sn, Snp1, Snp1, first_spec, nspecies, Rho_comp,
                     prev_time,curr_time,be_cn_theta_SDC,Rh,rho_flag,
                     SpecDiffusionFluxn,SpecDiffusionFluxnp1,fluxComp,
                     delta_rhs,rhsComp,alpha,alphaComp,

@@ -372,7 +372,8 @@ private:
                          const int  state_comp,
                          const int  dst_comp,
                          const int  ncomp) const;
-  
+
+#if 0
   void diffuse_scalar_fj  (const amrex::Vector<amrex::MultiFab*>& S_old,
                            const amrex::Vector<amrex::MultiFab*>& Rho_old,
                            amrex::Vector<amrex::MultiFab*>&       S_new,
@@ -406,6 +407,7 @@ private:
                            const Diffusion::SolveMode&            solve_mode = Diffusion::ONEPASS,
                            bool                                   add_old_time_divFlux = true,
                            const amrex::Vector<int>&              is_diffusive = amrex::Vector<int>());
+#endif
   //
   // Functions for interpolating from cell centers to cell edges
   //

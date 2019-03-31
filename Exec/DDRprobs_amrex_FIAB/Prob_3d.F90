@@ -659,7 +659,7 @@ contains
                Xt(n) = pmf_vals(3+n)
             end do 
             
-            CALL CKXTY (Xt, IWRK, RWRK, Yt)
+            CALL CKXTY (Xt, Yt)
 
             do n=1,Nspec
                Y_bc(n-1,zone) = Yt(n)
@@ -958,7 +958,7 @@ contains
                      Xl(n) = pmf_vals(3+n)
                   end do 
                   
-                  CALL CKXTY (Xl, IWRK, RWRK, Yl)
+                  CALL CKXTY (Xl, Yl)
                   
                   do n = 1,Nspec
                      scal(i,j,k,FirstSpec+n-1) = Yl(n)
