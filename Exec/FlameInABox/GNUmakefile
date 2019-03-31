@@ -1,13 +1,13 @@
 TOP = ../../..
 AMREX_HOME ?= ${TOP}/amrex
-IAMR_HOME ?= ${TOP}/IAMR_dev
+IAMR_HOME ?= ${TOP}/IAMR
 PELELM_HOME ?= ${TOP}/PeleLM
 
 #
 # Build configuration
 #
 
-DIM             = 3
+DIM             = 2
 COMP            = gnu
 DEBUG           = TRUE
 DEBUG           = FALSE
@@ -16,7 +16,7 @@ USE_OMP         = FALSE
 PRECISION       = DOUBLE
 VERBOSE         = FALSE
 
-TINY_PROFILE = TRUE
+TINY_PROFILE = FALSE
 #USE_WBAR = TRUE
 
 DEFINES+=-DALWAYS_NEW_J
