@@ -304,7 +304,7 @@ PeleLM::Initialize ()
   temp_control            = -1;
   crse_dt                 = -1;
   chem_box_chop_threshold = -1;
-  num_deltaT_iters        = 0; // If <= 0, diffuse RhoH instead
+  num_deltaT_iters        = 5;
   num_forkjoin_tasks      = 1;
   forkjoin_verbose        = false;
 
@@ -719,7 +719,6 @@ PeleLM::center_to_edge_fancy (const FArrayBox& cfab,
   // Shift cell-centered data to edges
   //
   const int isharm = def_harm_avg_cen2edge?1:0;
-
   cen2edg(ebox.loVect(),ebox.hiVect(),
                ARLIM(cfab.loVect()),ARLIM(cfab.hiVect()),cfab.dataPtr(sComp),
                ARLIM(efab.loVect()),ARLIM(efab.hiVect()),efab.dataPtr(dComp),
@@ -903,9 +902,6 @@ PeleLM::define_data ()
 #endif
 
   }
-
-  sumSpecFluxDotGradHn.define(grids,dmap,1,nGrow);
-  sumSpecFluxDotGradHnp1.define(grids,dmap,1,nGrow);
 
   for (const auto& kv : auxDiag_names)
   {
@@ -3376,7 +3372,6 @@ PeleLM::adjust_spec_diffusion_fluxes (MultiFab* const * flux,
 #endif
   for (MFIter mfi(S,true); mfi.isValid(); ++mfi)
   {    
-//    const FArrayBox& Sfab = S[mfi];
     const FArrayBox& Sfab = TT[mfi];
     for (int d =0; d < BL_SPACEDIM; ++d)
     {
@@ -3385,7 +3380,6 @@ PeleLM::adjust_spec_diffusion_fluxes (MultiFab* const * flux,
       const Box& edomain = amrex::surroundingNodes(domain,d);
       repair_flux(ebox.loVect(), ebox.hiVect(), edomain.loVect(), edomain.hiVect(),
                   Ffab.dataPtr(),          ARLIM(Ffab.loVect()),ARLIM(Ffab.hiVect()),
-//                  Sfab.dataPtr(first_spec),ARLIM(Sfab.loVect()),ARLIM(Sfab.hiVect()),
                   Sfab.dataPtr(0),ARLIM(Sfab.loVect()),ARLIM(Sfab.hiVect()),
                   &d, bc.vect());
     }

@@ -447,12 +447,6 @@ private:
   amrex::MultiFab**  SpecDiffusionFluxnp1;
 #ifdef USE_WBAR
   amrex::MultiFab**  SpecDiffusionFluxWbar;
-#endif
-
-  amrex::MultiFab    sumSpecFluxDotGradHn;
-  amrex::MultiFab    sumSpecFluxDotGradHnp1;
-
-#ifdef USE_WBAR
   amrex::MultiFab    diffWbar_cc;
 #endif
 
