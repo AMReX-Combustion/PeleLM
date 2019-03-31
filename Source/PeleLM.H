@@ -486,8 +486,6 @@ private:
   static amrex::Real        htt_tempmin;
   static amrex::Real        htt_tempmax;
   static amrex::Real        htt_hmixTYP;
-  static int         Trac;
-  static int         have_trac;
   static int         RhoRT;
   static int         have_rhort;
   static int         first_spec;

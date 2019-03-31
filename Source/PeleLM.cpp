@@ -126,9 +126,7 @@ int  PeleLM::FuncCount_Type;
 int  PeleLM::divu_ceiling;
 Real PeleLM::divu_dt_factor;
 Real PeleLM::min_rho_divu_ceiling;
-int  PeleLM::have_trac;
 int  PeleLM::have_rhort;
-int  PeleLM::Trac;
 int  PeleLM::RhoRT;
 int  PeleLM::first_spec;
 int  PeleLM::last_spec;
@@ -324,9 +322,7 @@ PeleLM::Initialize ()
   PeleLM::divu_ceiling              = 0;
   PeleLM::divu_dt_factor            = .5;
   PeleLM::min_rho_divu_ceiling      = -1.e20;
-  PeleLM::have_trac                 = 0;
   PeleLM::have_rhort                = 0;
-  PeleLM::Trac                      = -1;
   PeleLM::RhoRT                     = -1;
   PeleLM::first_spec                = -1;
   PeleLM::last_spec                 = -2;
@@ -934,17 +930,11 @@ PeleLM::init_once ()
   have_temp = have_temp && isStateVariable("rhoh", dummy_State_Type, RhoH);
   have_temp = have_temp && State_Type == dummy_State_Type;
 
-  have_trac = isStateVariable("tracer", dummy_State_Type, Trac);
-  have_trac = have_trac && State_Type == dummy_State_Type;
-
   have_rhort = isStateVariable("RhoRT", dummy_State_Type, RhoRT);
   have_rhort = have_rhort && State_Type == dummy_State_Type;
 
   if (!have_temp)
     amrex::Abort("PeleLM::init_once(): RhoH & Temp must both be the state");
-    
-  if (!have_rhort && verbose)
-    amrex::Warning("PeleLM::init_once(): RhoRT being stored in the Tracer slot");
     
   if (Temp < RhoH)
     amrex::Abort("PeleLM::init_once(): must have RhoH < Temp");
@@ -981,7 +971,7 @@ PeleLM::init_once ()
   //
   const int density = (int)Density;
 
-  set_scal_numb(&density, &Temp, &Trac, &RhoH, &first_spec, &last_spec);
+  set_scal_numb(&density, &Temp, &RhoH, &first_spec, &last_spec);
   //
   // Load constants into Fortran common to compute viscosities, etc.
   //
@@ -1010,7 +1000,7 @@ PeleLM::init_once ()
       pp.get(ppStr.c_str(),typical_values_FileVals[speciesNames[i]]);
     }
   }
-  std::string otherKeys[4] = {"Temp", "RhoH", "Vel", "Trac"};
+  std::string otherKeys[3] = {"Temp", "RhoH", "Vel"};
   for (int i=0; i<4; ++i) {
     const std::string ppStr(std::string("typVal_")+otherKeys[i]);
     if (pp.countval(ppStr.c_str())>0) {
@@ -1230,8 +1220,6 @@ PeleLM::set_typical_values(bool is_restart)
           typical_values[Temp] = it->second;
         else if (it->first == "RhoH")
           typical_values[RhoH] = it->second;
-        else if (it->first == "Trac")
-          typical_values[Trac] = it->second;
         else if (it->first == "Vel")
         {
           for (int d=0; d<BL_SPACEDIM; ++d)
@@ -1305,8 +1293,6 @@ PeleLM::reset_typical_values (const MultiFab& S)
           typical_values[Temp] = it->second;
         else if (it->first == "RhoH")
           typical_values[RhoH] = it->second;
-        else if (it->first == "Trac")
-          typical_values[Trac] = it->second;
         else if (it->first == "Vel")
         {
           for (int d=0; d<BL_SPACEDIM; ++d)
@@ -4425,9 +4411,7 @@ PeleLM::setThermoPress(Real time)
     
   MultiFab& S = (whichTime == AmrOldTime) ? get_old_data(State_Type) : get_new_data(State_Type);
     
-  const int pComp = (have_rhort ? RhoRT : Trac);
-
-  compute_rhoRT (S,S,pComp);
+  compute_rhoRT (S,S,RhoRT);
 }
 
 Real
@@ -6235,7 +6219,7 @@ PeleLM::mac_sync ()
     }
 
     //
-    // Average down Trac = rho R T after interpolation of the mac_sync correction
+    // Average down rho R T after interpolation of the mac_sync correction
     //   of the individual quantities rho, Y, T.
     //
     for (int lev = finest_level-1; lev >= level; lev--)
@@ -6246,9 +6230,8 @@ PeleLM::mac_sync ()
       MultiFab& S_crse_loc = crse_level.get_new_data(State_Type);
       MultiFab& S_fine_loc = fine_level.get_new_data(State_Type);
         
-      const int pComp = (have_rhort ? RhoRT : Trac);
       amrex::average_down(S_fine_loc, S_crse_loc, fine_level.geom, crse_level.geom,
-                          pComp, 1, crse_level.fine_ratio);
+                          RhoRT, 1, crse_level.fine_ratio);
     }
 
     chi_sync_increment.setVal(0,0);
@@ -6369,7 +6352,7 @@ PeleLM::mac_sync ()
   }
 
   //
-  // Average down Trac = rho R T after interpolation of the mac_sync correction
+  // Average down rho R T after interpolation of the mac_sync correction
   //   of the individual quantities rho, Y, T.
   //
   for (int lev = finest_level-1; lev >= level; lev--)
@@ -6380,9 +6363,8 @@ PeleLM::mac_sync ()
     MultiFab& S_crse_loc = crse_level.get_new_data(State_Type);
     MultiFab& S_fine_loc = fine_level.get_new_data(State_Type);
 
-    const int pComp = (have_rhort ? RhoRT : Trac);
     amrex::average_down(S_fine_loc, S_crse_loc, fine_level.geom, crse_level.geom,
-                        pComp, 1, crse_level.fine_ratio);
+                        RhoRT, 1, crse_level.fine_ratio);
   }
   BL_PROFILE_VAR_STOP(HTSSYNC);
 
@@ -6968,9 +6950,9 @@ PeleLM::calcDiffusivity (const Real time)
         Dfab.invert(1,gbox,sCompCp,1);
         Dfab.mult(Dfab,gbox,Temp-offset,RhoH-offset,1);
       }
-      else if (icomp == Trac || icomp == RhoRT)
+      else if (icomp == RhoRT)
       {
-        // fill Trac and RhoRT slot so trac_diff_coef (typically zero)
+        // fill RhoRT slot so trac_diff_coef (typically zero)
         Dfab.setVal(trac_diff_coef, gbox, icomp-offset, 1);
       }
     }
@@ -7305,10 +7287,9 @@ PeleLM::calc_dpdt (Real      time,
     return;
   }
 
-  const int pComp = (have_rhort ? RhoRT : Trac);
   int nGrow = dpdt.nGrow();
   MultiFab Peos(grids,dmap,1,nGrow);
-  FillPatchIterator S_fpi(*this,Peos,nGrow,time,State_Type,pComp,1);
+  FillPatchIterator S_fpi(*this,Peos,nGrow,time,State_Type,RhoRT,1);
   MultiFab& Smf=S_fpi.get_mf();
   
 #ifdef _OPENMP

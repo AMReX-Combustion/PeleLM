@@ -441,18 +441,15 @@ PeleLM::variableSetUp ()
   int counter   = Density;
   int RhoH      = -1;
   int FirstSpec = -1;
-  int Trac      = -1;
   int RhoRT     = -1;
 
   FirstSpec = ++counter;
   nspecies  = getChemSolve().numSpecies();
   counter  += nspecies - 1;
   RhoH = ++counter;
-  Trac = ++counter;
   Temp = ++counter;
-#ifndef BL_RHORT_IN_TRACER
   RhoRT = ++counter;
-#endif
+
   NUM_STATE = ++counter;
   NUM_SCALARS = NUM_STATE - Density;
 
@@ -611,16 +608,8 @@ PeleLM::variableSetUp ()
   //
   if (RhoRT >= 0)
   {
-    set_scalar_bc(bc,phys_bc);
-    desc_lst.setComponent(State_Type,Trac,"tracer",bc,BndryFunc(adv_fill));
-
     set_reflect_bc(bc,phys_bc);
     desc_lst.setComponent(State_Type,RhoRT,"RhoRT",bc,BndryFunc(adv_fill));
-  }
-  else
-  {
-    set_reflect_bc(bc,phys_bc);
-    desc_lst.setComponent(State_Type,Trac,"tracer",bc,BndryFunc(adv_fill));
   }
 
   advectionType.resize(NUM_STATE);
@@ -645,21 +634,6 @@ PeleLM::variableSetUp ()
 
   if (RhoRT > 0)
     is_diffusive[RhoRT] = false;
-
-  if (Trac > 0)
-  {
-    if (RhoRT > 0)
-    {
-      advectionType[Trac] = NonConservative;
-      diffusionType[Trac] = Laplacian_S;
-      if (trac_diff_coef <= 0.0)
-        is_diffusive[Trac] = false;
-    }
-    else
-    {
-      is_diffusive[Trac] = false;
-    }
-  }
 
   advectionType[Density] = Conservative;
   diffusionType[Density] = Laplacian_SoverRho;

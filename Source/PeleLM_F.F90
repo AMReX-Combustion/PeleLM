@@ -23,7 +23,7 @@ module PeleLM_F
 
 contains
 
-  subroutine set_scal_numb(DensityIn, TempIn, TracIn, RhoHIn, &
+  subroutine set_scal_numb(DensityIn, TempIn, RhoHIn, &
                            FirstSpecIn, LastSpecIn) &
                            bind(C, name="set_scal_numb")
 
@@ -32,7 +32,7 @@ contains
 #include <cdwrk.H>
 #include <htdata.H>
 
-    integer DensityIn, TempIn, TracIn, RhoHIn, FirstSpecIn, LastSpecIn
+    integer DensityIn, TempIn, RhoHIn, FirstSpecIn, LastSpecIn
 
 !
 ! ::: Remove SPACEDIM from the counter, since those spots contain the
@@ -41,7 +41,6 @@ contains
 !     
     Density = DensityIn - BL_SPACEDIM + 1
     Temp = TempIn - BL_SPACEDIM + 1
-    Trac = TracIn - BL_SPACEDIM + 1
     RhoH = RhoHIn - BL_SPACEDIM + 1
     FirstSpec = FirstSpecIn - BL_SPACEDIM + 1
     LastSpec = LastSpecIn - BL_SPACEDIM + 1
@@ -66,7 +65,6 @@ contains
     if (Density.gt.nVals1 & 
           .or. Temp.gt.nVals1 &
           .or. RhoH.gt.nVals1 &
-          .or. Trac.gt.nVals1 &
           .or. LastSpec.gt.nVals) then
 
       call bl_pd_abort('cannot write typical values')
@@ -79,7 +77,6 @@ contains
     typ_vals(Density+BL_SPACEDIM) = typVal_Density
     typ_vals(Temp+BL_SPACEDIM)    = typVal_Temp
     typ_vals(RhoH+BL_SPACEDIM)    = typVal_RhoH
-    typ_vals(Trac+BL_SPACEDIM)    = typVal_Trac
     do n=1,Nspec
       typ_vals(FirstSpec+n-1+BL_SPACEDIM) = typVal_Y(n)
     enddo
@@ -104,7 +101,6 @@ contains
     if (Density.gt.nVals1 & 
           .or. Temp.gt.nVals1 &
           .or. RhoH.gt.nVals1 &
-          .or. Trac.gt.nVals1 &
           .or. LastSpec.gt.nVals) then
       call bl_pd_abort('cannot write typical values')
     endif
@@ -116,7 +112,6 @@ contains
     typVal_Density = typ_vals(Density+BL_SPACEDIM)
     typVal_Temp    = typ_vals(Temp+BL_SPACEDIM)
     typVal_RhoH    = typ_vals(RhoH+BL_SPACEDIM)
-    typVal_Trac    = typ_vals(Trac+BL_SPACEDIM)
 
     do n=1,Nspec
       typVal_Y(n) = typ_vals(FirstSpec+n-1+BL_SPACEDIM)
@@ -183,7 +178,6 @@ contains
     typVal_Density = zero
     typVal_Temp    = zero
     typVal_RhoH    = zero
-    typVal_Trac    = zero
     typVal_Y       = zero
     typVal_YMAX    = one
     typVal_YMIN    = 1.d-6
