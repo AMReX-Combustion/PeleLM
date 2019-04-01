@@ -2761,7 +2761,6 @@ PeleLM::avgDown ()
   }
 }
 
-#if 0
 static
 Vector<const MultiFab *>
 GetVecOfPtrs(const MultiFab* const* a, int scomp, int ncomp)
@@ -2934,7 +2933,7 @@ PeleLM::diffuse_scalar_fj  (const Vector<MultiFab*>&  S_old,
     MultiFab Rho_new_fine(*Rho_new[0], amrex::make_alias, Rho_comp, 1);
     MultiFab *S_old_crse, *S_new_crse, *Rho_old_crse, *Rho_new_crse, *Alpha, *Rhs;
 
-    const IntVect ng = {D_DECL(1, 1, 1)};
+    const int ng = 1;
     AMREX_ALWAYS_ASSERT(S_old_fine.nGrow() >= 1 && S_new_fine.nGrow() >= 1);
     fj.reg_mf(S_old_fine,  "S_old_fine",  ForkJoin::Strategy::split,    ForkJoin::Intent::in,    ng);
     fj.reg_mf(S_new_fine,  "S_new_fine",  ForkJoin::Strategy::split,    ForkJoin::Intent::inout, ng);
@@ -3023,7 +3022,6 @@ PeleLM::diffuse_scalar_fj  (const Vector<MultiFab*>&  S_old,
       );
   }
 }
-#endif
 
 void
 PeleLM::differential_diffusion_update (MultiFab& Force,
@@ -3131,7 +3129,7 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
   }
 
   // Diffuse all the species
-  Diffusion::diffuse_scalar(Sn, Sn, Snp1, Snp1, first_spec, nspecies, Rho_comp,
+  diffuse_scalar_fj(Sn, Sn, Snp1, Snp1, first_spec, nspecies, Rho_comp,
                     prev_time,curr_time,be_cn_theta_SDC,Rh,rho_flag,
                     SpecDiffusionFluxn,SpecDiffusionFluxnp1,fluxComp,
                     delta_rhs,rhsComp,alpha,alphaComp,
