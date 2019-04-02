@@ -606,11 +606,8 @@ PeleLM::variableSetUp ()
   // Force BCs to be REFLECT_EVEN for RhoRT ghost cells in UGRADP.
   // ADVFILL is ok for this, if all BC's are REFLECT_EVEN (ie, no EXT_DIR)
   //
-  if (RhoRT >= 0)
-  {
-    set_reflect_bc(bc,phys_bc);
-    desc_lst.setComponent(State_Type,RhoRT,"RhoRT",bc,BndryFunc(adv_fill));
-  }
+  set_reflect_bc(bc,phys_bc);
+  desc_lst.setComponent(State_Type,RhoRT,"RhoRT",bc,BndryFunc(adv_fill));
 
   advectionType.resize(NUM_STATE);
   diffusionType.resize(NUM_STATE);
@@ -866,7 +863,6 @@ PeleLM::variableSetUp ()
   const int nGrowErr = 1;
   err_list.add("temp", nGrowErr, ErrorRec::Special, temp_error);
   err_list.add("mag_vort", nGrowErr, ErrorRec::Special, mv_error);
-  err_list.add("tracer", nGrowErr, ErrorRec::Special, adv_error);
   //
   // Tag region of interesting chemistry.
   //
