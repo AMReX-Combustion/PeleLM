@@ -19,6 +19,7 @@ plt*
 *plt*old*
 Backtrace*
 chk*
+diff/
 
 # OSX files
 .DS_Store

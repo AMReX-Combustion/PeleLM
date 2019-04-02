@@ -163,8 +163,7 @@ contains
        end function
     end interface
       
-    integer n, RTOT, lout, egrlen, egilen, idummy(1)
-    double precision rdummy(1)
+    integer n, RTOT, lout, egrlen, egilen
     character*(maxspnml) name
     integer MAXFIT, NO, NFDIM, NT, NRANGE, NLITEMAX
     integer mcr, mci
@@ -180,7 +179,7 @@ contains
     ! Get chemistry mechanism parameters.
     !
     CALL CKINIT()
-    CALL CKINDX(idummy(1),rdummy(1),Nelt,Nspec,Nreac,Nfit)
+    CALL CKINDX(Nelt,Nspec,Nreac,Nfit)
     !
     ! Set up EGlib workspace.
     !
@@ -265,7 +264,7 @@ contains
     !
     ! Set molecular weights where conpF can access'm.
     !
-    CALL CKWT(IWRK(ckbi), RWRK(ckbr), RWRK(NWT))
+    CALL CKWT(RWRK(NWT))
     do n = 0,Nspec-1
       RWRK(NWTI+n) = 1.d0 / RWRK(NWT+n)
     enddo
@@ -369,28 +368,7 @@ contains
     implicit none
     integer reactions(*), Nreacs, id
 
-#ifdef MIKE
-#include "cdwrk.H"
-
-    integer j, n, Ndim, Nids, KI(maxsp), NU(maxsp)
-    Ndim = maxsp
-    if ((id.le.0).or.(id.gt.Nspec)) then
-      write(6,*) 'FINDLHS:  species id out of range: ',id
-      call bl_abort(" ")
-    end if
-    Nreacs = 0
-    do j=1,Nreac
-      CALL CKINU(j, Ndim, IWRK(ckbi), RWRK(ckbr), Nids, KI, NU)
-      do n=1,Nids
-        if ((KI(n).eq.id).and.(NU(n).lt.0)) then
-               Nreacs = Nreacs + 1
-               reactions(Nreacs) = j
-        endif
-      end do
-    end do
-#else
     call bl_abort("FINDLHS not implemented")
-#endif
   end subroutine FINDLHS
 
 !------------------------------------  
@@ -400,28 +378,7 @@ contains
     implicit none
     integer reactions(*), Nreacs, id
 
-#ifdef MIKE
-#include "cdwrk.H"
-    
-    integer j, n, Ndim, Nids, KI(maxsp), NU(maxsp)
-    Ndim = maxsp
-    if ((id.le.0).or.(id.gt.Nspec)) then
-      write(6,*) 'FINDRHS:  species id out of range: ',id
-      call bl_abort(" ")
-    end if
-    Nreacs = 0
-    do j=1,Nreac
-      CALL CKINU(j, Ndim, IWRK(ckbi), RWRK(ckbr), Nids, KI, NU)
-      do n=1,Nids
-        if ((KI(n).eq.id).and.(NU(n).gt.0)) then
-               Nreacs = Nreacs + 1
-               reactions(Nreacs) = j
-        endif
-      end do
-    end do
-#else
     call bl_abort("FINDRHS not implemented")
-#endif
   end subroutine FINDRHS
 
 !------------------------------------  
@@ -439,7 +396,7 @@ contains
       write(6,*) 'FORT_CKNU:  nu work array too small: '
       call bl_abort(" ")
     endif
-    call CKNU(maxreac, IWRK(ckbi), RWRK(ckbr), nu)
+    call CKNU(maxreac, nu)
  
   end subroutine SETNU
 
@@ -483,7 +440,7 @@ contains
 
     integer eltID, spID
     integer NCF(maxelts,maxspec)
-    CALL CKNCF(maxelts, IWRK(ckbi), RWRK(ckbr), NCF)
+    CALL CKNCF(maxelts, NCF)
     CKELTXINSPY = NCF(eltID+1,spID+1)
       
   end function CKELTXINSPY
@@ -533,7 +490,7 @@ contains
 
 #include "cdwrk.H"
 
-    call CKRP(IWRK(ckbi),RWRK(ckbr),RUNIV,Ruc,Pa)
+    call CKRP(RUNIV,Ruc,Pa)
 !     1 erg/(mole.K) = 1.e-4 J/(kmole.K)
     RUNIV = RUNIV*1.d-4
 
@@ -548,7 +505,7 @@ contains
 
 #include "cdwrk.H"
 
-    call CKRP(IWRK(ckbi),RWRK(ckbr),Ru,Ruc,Pa)
+    call CKRP(Ru,Ruc,Pa)
 !     1 N/(m.m) = 0.1 dyne/(cm.cm)
     P1ATMMKS = Pa*1.d-1
 
@@ -613,36 +570,8 @@ contains
     integer fortReacIdx
     integer coded(*)
 
-#ifdef MIKE
-#include "cdwrk.H"
-
-    character*(72) line 
-    integer j, str_len, istr, iend, lout
-    logical error
-
-    error = .false.
-    lout = 6
-    call CKSYMR(fortReacIdx,lout,IWRK(ckbi),RWRK(ckbr), &
-                CWRK(ckbc),str_len,line,error)
-    if (error) then
-      write(lout,*) 'Could not get reaction name for ',fortReacIdx
-      call bl_abort(" ")
-    end if
-!      
-!     Encode the name for transfer to C++
-!
-    istr = 1
-    do while (line(istr:istr) .EQ. ' ')
-      istr = istr + 1
-    end do
-    do j = 0, str_len-1
-      coded(j+1) = ICHAR(line(istr+j:istr+j))
-    end do
-    CKSYMR = str_len
-#else
     CKSYMR = 0
     call bl_abort("CKSYMR not implemented")
-#endif
   end function CKSYMR
 
 !------------------------------------  
@@ -696,7 +625,7 @@ contains
 
     REAL_T mwt(*)
 !     Result in kg/kmole
-    call CKWT(IWRK(ckbi),RWRK(ckbr),mwt)
+    call CKWT(mwt)
 
   end subroutine get_CKMWT
 
@@ -709,7 +638,7 @@ contains
 
     REAL_T awt(*)
 !     Result in kg/kmole
-    call CKAWT(IWRK(ckbi),RWRK(ckbr),awt)
+    call CKAWT(awt)
 
   end subroutine FORT_GETCKAWT
 
@@ -733,9 +662,9 @@ contains
 !     Variables in Z are:  Z(1)   = T
 !                          Z(K+1) = Y(K)
       
-    CALL CKRHOY(RPAR(NP),Z(1),Z(2),IPAR(ckbi),RPAR(ckbr),RHO)
-    CALL CKCPBS(Z(1),Z(2),IPAR(ckbi),RPAR(ckbr),CPB)
-    CALL CKYTCP(RPAR(NP),Z(1),Z(2),IPAR(ckbi),RPAR(ckbr),CONC)
+    CALL CKRHOY(RPAR(NP),Z(1),Z(2),RHO)
+    CALL CKCPBS(Z(1),Z(2),CPB)
+    CALL CKYTCP(RPAR(NP),Z(1),Z(2),CONC)
 
 !
 !     Get net production rates.  Compute such that production from -ve
@@ -754,8 +683,8 @@ contains
     end do 
 #endif
       
-    CALL CKWC(Z(1), CONC, IPAR(ckbi), RPAR(ckbr), WDOTS)
-    CALL CKHMS(Z(1), IPAR(ckbi), RPAR(ckbr), ENTHALPY)
+    CALL CKWC(Z(1), CONC, WDOTS)
+    CALL CKHMS(Z(1), ENTHALPY)
 
 !
 !     Form governing equation
@@ -858,7 +787,7 @@ contains
 
     HMIX_MKS = (rhoh_INIT + c_0(Nspec+1)*TIME) * RINV_MKS
     call TfromHYpt(T_cell,HMIX_MKS,Y,HtoTerrMAX,HtoTiterMAX,res,Niter)
-    call CKWC(T_cell,CONC_CGS,IWRK,RWRK,WDOT_CGS)
+    call CKWC(T_cell,CONC_CGS,WDOT_CGS)
 
     ZP(Nspec+1) = c_0(Nspec+1)
     THFAC = 1.d3/thickFacCH
@@ -903,14 +832,14 @@ contains
     ihitlo = 0
     ihithi = 0
 
-    CALL CKUBMS(T,Y,IWRK(ckbi),RWRK(ckbr),e)
+    CALL CKUBMS(T,Y,e)
 
     de = two*ABS(e - etarg)/(one + ABS(e) + ABS(etarg))
     res(Niter) = de
     converged = de.le.errMAX
 
     do while ((.not.converged) .and. (.not.soln_bad))
-      CALL CKCVBS(T,Y,IWRK(ckbi),RWRK(ckbr),cv)
+      CALL CKCVBS(T,Y,cv)
       dT = (etarg - e)/cv
       if ((Niter.le.NiterDAMP).and.(T+dT.ge.TMAX)) then
         T = TMAX
@@ -926,7 +855,7 @@ contains
         TfromeYpt = -1
         goto 100
       else
-        CALL CKUBMS(T,Y,IWRK(ckbi),RWRK(ckbr),e)
+        CALL CKUBMS(T,Y,e)
         de = two*ABS(e - etarg)/(one + ABS(e) + ABS(etarg))
         res(Niter) = de
         Niter = Niter + 1
@@ -939,15 +868,15 @@ contains
 
       if((ihitlo.eq.1).and.(e.gt.etarg))then
         T = 300.d0
-        CALL CKUBMS(T,Y,IWRK(ckbi),RWRK(ckbr),e300)
-        CALL CKCVBS(T,Y,IWRK(ckbi),RWRK(ckbr),cv300)
+        CALL CKUBMS(T,Y,e300)
+        CALL CKCVBS(T,Y,cv300)
         T=300.d0+(etarg-e300)/cv300
         converged = .true.
       endif
       if((ihithi.eq.1).and.(e.lt.etarg))then
         T = 6500.d0
-        CALL CKUBMS(T,Y,IWRK(ckbi),RWRK(ckbr),e6500)
-        CALL CKCVBS(T,Y,IWRK(ckbi),RWRK(ckbr),cv6500)
+        CALL CKUBMS(T,Y,e6500)
+        CALL CKCVBS(T,Y,cv6500)
         T=6500.d0+(etarg-e6500)/cv6500
         converged = .true.
       endif
@@ -1014,7 +943,7 @@ contains
       ihitlo    = 0
       ihithi    = 0
 
-      CALL CKHBMS(T,Y,IWRK(ckbi),RWRK(ckbr),H)
+      CALL CKHBMS(T,Y,H)
 
       old_T = T
       old_H = H
@@ -1026,7 +955,7 @@ contains
 
       do while ((.not.converged) .and. (.not.stalled) .and. (.not.soln_bad))
 
-         CALL CKCPBS(T,Y,IWRK(ckbi),RWRK(ckbr),cp)
+         CALL CKCPBS(T,Y,cp)
          dT = (Htarg - H)/cp
          old_T = T
          if ((Niter.le.NiterDAMP).and.(T+dT.ge.TMAX)) then
@@ -1044,7 +973,7 @@ contains
             exit
          else
             old_H = H
-            CALL CKHBMS(T,Y,IWRK(ckbi),RWRK(ckbr),H)
+            CALL CKHBMS(T,Y,H)
             dH = two*ABS(H - Htarg)/(one + ABS(H) + ABS(Htarg))
             res(Niter) = min(dH,abs(dT))
             Niter = Niter + 1
@@ -1061,15 +990,15 @@ contains
 
          if ((ihitlo.eq.1).and.(H.gt.Htarg)) then
             T = TMIN
-            CALL CKHBMS(T,Y,IWRK(ckbi),RWRK(ckbr),HMIN)
-            CALL CKCPBS(T,Y,IWRK(ckbi),RWRK(ckbr),cpMIN)
+            CALL CKHBMS(T,Y,HMIN)
+            CALL CKCPBS(T,Y,cpMIN)
             T=TMIN+(Htarg-HMIN)/cpMIN
             converged = .true.
          endif
          if ((ihithi.eq.1).and.(H.lt.Htarg)) then
             T = TMAX
-            CALL CKHBMS(T,Y,IWRK(ckbi),RWRK(ckbr),HMAX)
-            CALL CKCPBS(T,Y,IWRK(ckbi),RWRK(ckbr),cpMAX)
+            CALL CKHBMS(T,Y,HMAX)
+            CALL CKCPBS(T,Y,cpMAX)
             T=TMAX+(Htarg-HMAX)/cpMAX
             converged = .true.
          endif
@@ -1089,7 +1018,7 @@ contains
                   Niter = -3
                   exit
                endif
-               CALL CKHBMS(Tsec,Y,IWRK(ckbi),RWRK(ckbr),Hsec)
+               CALL CKHBMS(Tsec,Y,Hsec)
                if ( (Hsec-Htarg)*(Htarg-H) .gt. 0.d0 ) then
                   old_H = H
                   old_T = T

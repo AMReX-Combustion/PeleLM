@@ -65,7 +65,7 @@ c     fuel shall be half O2, half H2 by volume
          Xt(iN2) = 1.d0-Xt(iCH3OCH3)
 
 c     convert mole frac to mass frac
-         CALL CKXTY (Xt, IWRK, RWRK, Yt)
+         CALL CKXTY (Xt, Yt)
 
 c     set bc's
          do n=1,Nspec
@@ -82,7 +82,7 @@ c     Air
          Xt(iN2) = 0.79d0
          Xt(iO2) = 0.21
 
-         CALL CKXTY (Xt, IWRK, RWRK, Yt)         
+         CALL CKXTY (Xt, Yt)         
          do n=1,Nspec
             Y_bc(n-1,airZone) = Yt(n)
          end do

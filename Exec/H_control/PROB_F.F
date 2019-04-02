@@ -682,5 +682,5 @@ c     hc + a.O2 -> b.CO2 + c.H2O
 
       endif
       
-      CALL CKXTY (Xt, IWRK, RWRK, Yt)
+      CALL CKXTY (Xt, Yt)
       end
