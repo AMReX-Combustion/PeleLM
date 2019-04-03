@@ -6093,7 +6093,7 @@ PeleLM::mac_sync ()
         a[d] = &(area[d]);
       }
       const Vector<BCRec>& theBCs = AmrLevel::desc_lst[State_Type].getBCs();
-      const int nlev = 2;
+      const int nlev = 1;
       Vector<MultiFab*> Sn(nlev,0), Snp1(nlev,0);
       Sn[0]   = &(get_old_data(State_Type));
       Snp1[0] = &(get_new_data(State_Type));
@@ -6157,7 +6157,6 @@ PeleLM::mac_sync ()
 
         Print() << "DeltaTsync solve, norm = " << Snp1[0]->norm0(Temp) << std::endl;
 
-        Abort("Get solution from diffusion solve for dTsync");
         MultiFab::Add(get_new_data(State_Type),Told,0,Temp,1,0);
         compute_enthalpy_fluxes(SpecDiffusionFluxnp1,betanp1,curr_time); // Compute F[N+1], F[N=2]
         flux_divergence(DT_post,0,SpecDiffusionFluxnp1,nspecies+2,1,-1);
