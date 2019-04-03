@@ -21,22 +21,30 @@ To build `PeleLM` and run a sample 2D flame problem:
 
 1. Set the environment variable, AMREX_HOME, and clone a copy of `AMReX` there ::
 
-    export AMREX_HOME=<location for AMReX>    
+    export AMREX_HOME=<location for AMReX>
+    git clone https://github.com/AMReX-Codes/amrex.git ${AMREX_HOME}
+       or (if you have the proper SSH keys set in your GitHub settings)
     git clone git@github.com:AMReX-Codes/amrex.git ${AMREX_HOME}
 
 2. Set the environment variable, IAMR_HOME, and clone a copy of `IAMR` there ::
 
     export IAMR_HOME=<location for IAMR>
+    git clone https://github.com/AMReX-Codes/IAMR.git ${IAMR_HOME}
+       or (if you have the proper SSH keys set in your GitHub settings)    
     git clone git@github.com:AMReX-Codes/IAMR.git ${IAMR_HOME}
 
 3. Set the environment variable, PELELM_HOME, and clone a copy of `PeleLM` there ::
 
     export PELELM_HOME=<location for PeleLM>
+    git clone https://github.com/AMReX-Combustion/PeleLM.git ${PELELM_HOME}
+       or (if you have the proper SSH keys set in your GitHub settings)
     git clone git@github.com:AMReX-Combustion/PeleLM.git ${PELELM_HOME}
 
 4. Set the environment variable, PELE_PHYSICS_HOME, and clone a copy of `PelePhysics` there ::
 
     export PELE_PHYSICS_HOME=<location for PelePhysics>
+    git clone https://github.com/AMReX-Combustion/PelePhysics.git ${PELEPHYSICS_HOME}
+       or (if you have the proper SSH keys set in your GitHub settings)
     git clone git@github.com:AMReX-Combustion/PelePhysics.git ${PELEPHYSICS_HOME}
 
 5. Move to an example build folder, build an executable ::
