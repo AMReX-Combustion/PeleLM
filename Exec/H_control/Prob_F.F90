@@ -1,5 +1,5 @@
 
-#include <MyPROB_F.H>
+#include <MyProb_F.H>
 
 module probspec_module
 
