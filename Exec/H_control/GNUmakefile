@@ -8,7 +8,7 @@ PELELM_HOME ?= ${TOP}/PeleLM
 #
 PRECISION         = DOUBLE
 DEBUG	          = FALSE
-DIM    	          = 2
+DIM    	          = 3
 COMP              = gnu
 USE_OMP           = FALSE
 USE_MPI           = TRUE
@@ -20,7 +20,7 @@ fEXE_sources += wang_dodecane_phi_1000.f
 Blocs   := .
 
 CEXE_sources +=
-FEXE_sources += Prob_$(DIM)d.F PROB_F.F
+F90EXE_sources += Prob_$(DIM)d.F90 Prob_F.F90
 CEXE_headers += 
 FEXE_headers += probdata.H MyPROB_F.H
 
