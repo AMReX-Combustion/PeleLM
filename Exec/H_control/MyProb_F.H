@@ -22,6 +22,7 @@
 #define BL_PROB_DIFFUSION 'diffusion_two-stream'
 #define BL_PROB_UNDEFINED 'undefined_problem'
 #define BL_PROB_FUELBLOB 'fuelblob'
+#define BL_PROB_CHAMBER 'chamber'
 
 
 #define BL_XLO 0

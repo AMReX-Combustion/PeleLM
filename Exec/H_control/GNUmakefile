@@ -14,8 +14,8 @@ USE_OMP           = FALSE
 USE_MPI           = TRUE
 VERBOSE           = FALSE
 
-Chemistry_Model = C12WANG
-fEXE_sources += wang_dodecane_phi_1000.f
+Chemistry_Model = CHEMH
+fEXE_sources += H-flame_0500.f
 
 Blocs   := .
 

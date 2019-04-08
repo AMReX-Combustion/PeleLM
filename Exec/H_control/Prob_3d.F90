@@ -636,7 +636,8 @@ contains
     Patm = pamb / P1ATMMKS()
     num_zones_defined = 0
     len = len_trim(probtype)
-    if  (probtype(1:len).eq.BL_PROB_PREMIXED_FREE)  then
+    if ((probtype(1:len).eq.BL_PROB_PREMIXED_FREE) .or.  &
+        (probtype(1:len).eq.BL_PROB_CHAMBER))  then
 
        !     Take fuel mixture from prob data
 
@@ -766,9 +767,10 @@ contains
     getZone = BL_VOLUME
     len     = len_trim(probtype)
 
-    !     if ( (probtype(1:len).eq.BL_PROB_PREMIXED_FIXED_INFLOW) &
-    !         .or. (probtype(1:len).eq.BL_PROB_PREMIXED_CONTROLLED_INFLOW) ) then
-    if  (probtype(1:len).eq.BL_PROB_PREMIXED_FREE) then 
+         if ( (probtype(1:len).eq.BL_PROB_PREMIXED_FIXED_INFLOW) &
+             .or. (probtype(1:len).eq.BL_PROB_CHAMBER) &
+             .or. (probtype(1:len).eq.BL_PROB_PREMIXED_CONTROLLED_INFLOW) ) then
+    !if  (probtype(1:len).eq.BL_PROB_PREMIXED_FREE) then 
 
        getZone = BL_FUELPIPE
 
@@ -806,9 +808,10 @@ contains
 
     if ( (probtype(1:len).eq.BL_PROB_PREMIXED_FIXED_INFLOW) &
          .or. (probtype(1:len).eq.BL_PROB_PREMIXED_FREE) &
+         .or. (probtype(1:len).eq.BL_PROB_CHAMBER) &
          .or. (probtype(1:len).eq.BL_PROB_PREMIXED_CONTROLLED_INFLOW)) then
 
-       if (RegionID .eq. BL_ZLO) then
+     !  if (RegionID .eq. BL_ZLO) then
 
           zone = getZone(x,y,z)
           rho = rho_bc(zone)
@@ -825,15 +828,16 @@ contains
              if  ((probtype(1:len).eq.BL_PROB_PREMIXED_CONTROLLED_INFLOW)&
                   .or. (probtype(1:len).eq.BL_PROB_PREMIXED_FREE) ) then               
                 w =  V_in + (time-tbase_control)*dV_control
-             else if (probtype(1:len).eq.BL_PROB_PREMIXED_FIXED_INFLOW) then
-                w = v_bc(zone)
+             else if ((probtype(1:len).eq.BL_PROB_PREMIXED_FIXED_INFLOW) &
+                .or.  (probtype(1:len).eq.BL_PROB_CHAMBER)) then
+                w = w_bc(zone)
              endif
           endif
 
-       else
-          write(6,*) 'No bcfunction instruction for RegionID = ', RegionID
-          call bl_pd_abort(' ')
-       endif
+     ! else
+     !    write(6,*) 'No bcfunction instruction for RegionID = ', RegionID
+     !    call bl_pd_abort(' ')
+     ! endif
 
     elseif (probtype(1:len).eq.BL_PROB_DIFFUSION) then
 
@@ -1008,6 +1012,7 @@ contains
 
     if ( (probtype(1:len).eq.BL_PROB_PREMIXED_FREE) &
          .or. (probtype(1:len).eq.BL_PROB_PREMIXED_CONTROLLED_INFLOW)&
+         .or. (probtype(1:len).eq.BL_PROB_CHAMBER)&
          .or. (probtype(1:len).eq.BL_PROB_PREMIXED_FIXED_INFLOW) ) then
 
        if(probtype(1:len).eq.BL_PROB_PREMIXED_FREE)then
@@ -1043,8 +1048,8 @@ contains
 
                 endif
 
-                z1 = (z - standoff - 0.5d0*delta(2) + pert)*100.d0
-                z2 = (z - standoff + 0.5d0*delta(2) + pert)*100.d0
+                z1 = (z - standoff - 0.5d0*delta(2) )*100.d0 + pert
+                z2 = (z - standoff + 0.5d0*delta(2) )*100.d0 + pert
 
                 call pmf(z1,z2,pmf_vals,nPMF)               
                 if (nPMF.ne.Nspec+3) then

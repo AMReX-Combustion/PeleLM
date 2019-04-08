@@ -4,8 +4,10 @@
   V_in = 0.0
 
   standoff = -0.024
+  standoff = -0.0058
+  standoff = 0.001
 
-  pertmag = 0.00016
+  pertmag = 0.01
 
   max_trac_lev = 1
   flametracval = 1.e-6
