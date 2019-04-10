@@ -8,6 +8,7 @@ o/
 f/
 extern.f90
 AMReX_buildInfo.cpp
+*.dSYM
 
 # Executable
 *.ex
@@ -19,11 +20,6 @@ plt*
 *plt*old*
 Backtrace*
 chk*
-diff/
-divu_*
-vel_visc_*
-RhoYdot_*
-out
 grdlog
 *_bu
 
