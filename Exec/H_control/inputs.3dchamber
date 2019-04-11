@@ -45,11 +45,11 @@ geometry.prob_lo    = 0.0 0.0 0.0
 geometry.prob_hi    = 0.0028 0.0028 .0042
 amr.n_cell          = 64 64 96
 amr.blocking_factor = 8
-max_step            = 100
+max_step            = 5
 amr.check_file      = chk_3d_
 amr.plot_file       = plt_3d_
 amr.check_int       = 10
-amr.plot_int        = 10
+amr.plot_int        = 1
 ns.cfl              = 0.25
 
 amr.max_grid_size   = 32
@@ -121,6 +121,7 @@ ns.dpdt_option = 0
 ns.lo_bc          = 0 0 4
 ns.hi_bc          = 0 0 4
 
+fabarray.mfiter_tile_size = 1024 1024 1024
 
 geometry.is_periodic = 1 1 0
 
