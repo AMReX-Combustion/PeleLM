@@ -4585,7 +4585,7 @@ PeleLM::advance (Real time,
       f.plus(ddn,gbox,gbox,0,nspecies,1); // add DDn to RhoH forcing
       if (closed_chamber == 1)
       {
-        f.plus(dp0dt,nspecies,1); // add dp0/dt to enthalpy forcing
+        f.plus(dp0dt,gbox,nspecies,1); // add dp0/dt to enthalpy forcing
       }
       f.plus(r,gbox,gbox,0,0,nspecies); // add R to RhoY, no contribution for RhoH
     }
@@ -4655,7 +4655,7 @@ PeleLM::advance (Real time,
 #endif
       if (closed_chamber == 1)
       {
-        f.plus(dp0dt,nspecies,1); // add dp0/dt to enthalpy forcing
+        f.plus(dp0dt,box,nspecies,1); // add dp0/dt to enthalpy forcing
       }
       f.plus(a,box,box,first_spec,0,nspecies+1); // add A into RhoY and RhoH
       f.plus(r,box,box,0,0,nspecies); // no reactions for RhoH
@@ -4686,7 +4686,7 @@ PeleLM::advance (Real time,
 #pragma omp parallel
 #endif
   {
-    for (MFIter mfi(Forcing); mfi.isValid(); ++mfi) 
+    for (MFIter mfi(Forcing,true); mfi.isValid(); ++mfi) 
     {
       const Box& box = mfi.validbox();
       FArrayBox& f = Forcing[mfi];
@@ -4703,7 +4703,7 @@ PeleLM::advance (Real time,
       f.mult(0.5,box,0,nspecies+1);
       if (closed_chamber == 1)
       {
-        f.plus(dp0dt,nspecies,1); // add dp0/dt to enthalpy forcing
+        f.plus(dp0dt,box,nspecies,1); // add dp0/dt to enthalpy forcing
       }
       f.plus(dhat,box,box,0,0,nspecies+1);       // add Dhat to RhoY and RHoH
       f.plus(a,box,box,first_spec,0,nspecies+1); // add A to RhoY and RhoH
