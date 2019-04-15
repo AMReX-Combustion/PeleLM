@@ -901,12 +901,6 @@ contains
       integer i, j, n
       REAL_T Patm
  
-      do j = lo(2), hi(2)
-         do i = lo(1), hi(1)
-            scal(i,j,Trac) = zero
-         end do
-      end do
- 
       Patm = pamb / P1ATMMKS()
       call RHOfromPTY(lo,hi, &
           scal(ARG_L1(state),ARG_L2(state),Density),  DIMS(state), &
@@ -1037,8 +1031,6 @@ contains
                   scal(i,j,FirstSpec+n-1) = Yl(n)
                end do
 
-               scal(i,j,Trac) = 0.d0
-
                vel(i,j,1) = 0.d0
                vel(i,j,2) = pmf_vals(2)*1.d-2
 
@@ -1080,8 +1072,6 @@ contains
             do i = lo(1), hi(1)
                x = (float(i)+.5)*delta(1)+domnlo(1)
 
-               scal(i,j,Trac) = 0.d0
-
                vel(i,j,1) = 0.d0
                vel(i,j,2) = 0.d0
                
@@ -1121,7 +1111,6 @@ contains
                   
                   vel(i,j,1) = u_bc(airZone)*eta + (1.d0-eta)*u_bc(fuelZone)
                   vel(i,j,2) = v_bc(airZone)*eta + (1.d0-eta)*v_bc(fuelZone)
-                  scal(i,j,Trac) = 0.d0
 
                else
                
@@ -1143,7 +1132,6 @@ contains
                   
                   vel(i,j,1) = u_bc(airZone)*eta + (1.d0-eta)*u_bc(fuelZone)
                   vel(i,j,2) = v_bc(airZone)*eta + (1.d0-eta)*v_bc(fuelZone)
-                  scal(i,j,Trac) = 0.d0
                   
                   if (stTh.gt. 0.d0) then
                      call bcfunction(x,y,time,u,v,rho,Yl,T,h,delta,.true.)
@@ -1178,7 +1166,6 @@ contains
             enddo
             typVal_Density = MAX(scal(i,j,Density),typVal_Density)
             typVal_Temp    = MAX(scal(i,j,Temp),   typVal_Temp)
-            typVal_Trac    = MAX(scal(i,j,Trac),   typVal_Trac)
             typVal_RhoH = MAX(ABS(scal(i,j,RhoH)*scal(i,j,Density)),typVal_RhoH)
             do n = 1,BL_SPACEDIM
                typVal_Vel  = MAX(ABS(vel(i,j,n)),typVal_Vel)
@@ -2491,7 +2478,7 @@ contains
       REAL_T  hx, hy
       REAL_T  sga, cga
       integer isioproc
-      integer nXvel, nYvel, nRho, nTrac
+      integer nXvel, nYvel, nRho
 
       call bl_pd_is_ioproc(isioproc)
 
@@ -2511,7 +2498,6 @@ contains
       nXvel = 1
       nYvel = 2
       nRho  = 3
-      nTrac = 4
 
       if (scomp.eq.0) then
          if (abs(gravity).gt.0.0001) then
@@ -2546,13 +2532,6 @@ contains
          do n = max(scomp+1,nRho), scomp+ncomp
             if (n.eq.nRho) then
 !     Density
-               do j = jlo, jhi
-                  do i = ilo, ihi
-                     force(i,j,n) = zero
-                  enddo
-               enddo
-            else if (n.eq.nTrac) then
-!     Tracer
                do j = jlo, jhi
                   do i = ilo, ihi
                      force(i,j,n) = zero
