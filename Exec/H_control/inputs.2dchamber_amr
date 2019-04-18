@@ -64,7 +64,7 @@ amr.grid_eff        = 0.7     # what constitutes an efficient grid
 amr.grid_log        = grdlog  # name of grid logging file
 #amr.derive_plot_vars=ALL
 
-amr.probin_file = probin.2dchamber_amr
+amr.probin_file = probin.2dchamber
 
 # ------------------  INPUTS TO PHYSICS CLASS -------------------
 ns.dt_cutoff       = 5.e-10   # level 0 timestep below which we halt
