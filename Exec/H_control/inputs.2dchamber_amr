@@ -45,11 +45,11 @@ geometry.prob_lo    = 0.0 0.0
 geometry.prob_hi    = 0.012 0.012
 amr.n_cell          = 64 64
 amr.blocking_factor = 8
-max_step            = 5
+max_step            = 50
 amr.check_file      = chk_2d_
 amr.plot_file       = plt_2d_
-amr.check_int       = 1000
-amr.plot_int        = 1
+amr.check_int       = 10
+amr.plot_int        = 10
 ns.cfl              = 0.25
 
 amr.max_grid_size   = 32
@@ -84,8 +84,8 @@ ns.sum_interval   = 1        # timesteps between computing mass
 ns.do_reflux      = 1        # 1 => do refluxing
 ns.do_mac_proj    = 1        # 1 => do MAC projection
 
-ns.do_sync_proj   = 0        # 1 => do Sync Project
-ns.do_MLsync_proj = 0
+ns.do_sync_proj   = 1        # 1 => do Sync Project
+ns.do_MLsync_proj = 1
 ns.do_divu_sync = 0
 ns.divu_relax_factor   = 0.0
 
@@ -106,7 +106,7 @@ ns.oxidizerName    = O2
 ns.flameTracName   = H
 ns.unity_Le = 0
 
-ns.sdc_iterMAX = 2
+ns.sdc_iterMAX = 4
 ns.num_mac_sync_iter = 4
 
 ns.dpdt_option = 0
@@ -161,8 +161,6 @@ mac.mac_abs_tol    = 1.0e-14
 mac.use_cg_solve   = 0
 mac.do_outflow_bcs = 0
 
-# turn this off since we only want to do this for the level 0-1 sync
-#mac.fix_mac_sync_rhs = 1
 #
 # Select form of FAB output: default is NATIVE
 #
