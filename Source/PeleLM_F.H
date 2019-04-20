@@ -135,14 +135,6 @@ extern "C" {
 
   void enth_diff_terms(const int* lo, const int* hi, 
                             const int* dlo, const int* dhi, const amrex::Real* dx,
-                            const int* lo_x, const int* hi_x,
-                            const int* dlo_x, const int* dhi_x,
-                            const int* lo_y, const int* hi_y,
-                            const int* dlo_y, const int* dhi_y,
-#if BL_SPACEDIM == 3
-                            const int* lo_z, const int* hi_z,
-                            const int* dlo_z, const int* dhi_z,
-#endif
                             const amrex::Real* T, ARLIM_P(Tlo),  ARLIM_P(Thi),
                             const amrex::Real* RhoY, ARLIM_P(rYlo),  ARLIM_P(rYhi),
 
