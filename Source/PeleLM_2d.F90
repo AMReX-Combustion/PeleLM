@@ -185,8 +185,6 @@ contains
 !-----------------------------------
 
   subroutine enth_diff_terms (lo, hi, dlo, dhi, dx, &
-                              lo_x, hi_x, dlo_x, dhi_x, &
-                              lo_y, hi_y, dlo_y, dhi_y, &
                               T, DIMS(T), RhoY, DIMS(RhoY), &
                               rhoDx, DIMS(rhoDx), Fx, DIMS(Fx), Ax, DIMS(Ax), &
                               rhoDy, DIMS(rhoDy), Fy, DIMS(Fy), Ay, DIMS(Ay), &
@@ -200,8 +198,6 @@ contains
 #include <cdwrk.H>      
 
     integer lo(SDIM), hi(SDIM), dlo(SDIM), dhi(SDIM), Tbc(SDIM,2)
-    integer lo_x(SDIM), hi_x(SDIM), dlo_x(SDIM), dhi_x(SDIM)
-    integer lo_y(SDIM), hi_y(SDIM), dlo_y(SDIM), dhi_y(SDIM)
     REAL_T  dx(SDIM)
     integer DIMDEC(T)
     REAL_T  T(DIMV(T))
@@ -266,42 +262,42 @@ contains
     dxInv = 1.d0 / dx(1)
     dyInv = 1.d0 / dx(2)
 
-    do j=lo_x(2),hi_x(2)
-      do i=lo_x(1),hi_x(1)
+    do j=lo(2),hi(2)
+      do i=lo(1),hi(1)+1
         Fx(i,j,Nspec+3) = - rhoDx(i,j,Nspec+2)*(T(i,j) - T(i-1,j))* dxInv * Ax(i,j)
       enddo
     enddo
-    do j=lo_y(2),hi_y(2)
-      do i=lo_y(1),hi_y(1)
+    do j=lo(2),hi(2)+1
+      do i=lo(1),hi(1)
         Fy(i,j,Nspec+3) = - rhoDy(i,j,Nspec+2)*(T(i,j) - T(i,j-1)) * dyInv * Ay(i,j)
       enddo
     enddo
 
 !     xlo
-    if (lo_x(1).eq.dlo_x(1)  .and.  Tbc(1,1).eq.EXT_DIR) then
-      i = dlo_x(1)
-      do j=lo_x(2),hi_x(2)
+    if (lo(1).le.dlo(1)  .and.  Tbc(1,1).eq.EXT_DIR) then
+      i = dlo(1)
+      do j=lo(2),hi(2)
         Fx(i,j,Nspec+3) = 2*Fx(i,j,Nspec+3)
       enddo
     endif
 !     xhi
-    if (hi_x(1).eq.dhi_x(1)  .and.  Tbc(1,2).eq.EXT_DIR) then
-      i = dhi_x(1)
-      do j=lo_x(2),hi_x(2)
+    if (hi(1)+1.ge.dhi(1)+1  .and.  Tbc(1,2).eq.EXT_DIR) then
+      i = dhi(1)+1
+      do j=lo(2),hi(2)
         Fx(i,j,Nspec+3) = 2*Fx(i,j,Nspec+3)
       enddo
     endif
 !     ylo
-    if (lo_y(2).eq.dlo_y(2) .and. Tbc(2,1).eq.EXT_DIR) then
-      j=lo_y(2)
-      do i=lo_y(1),hi_y(1)
+    if (lo(2).le.dlo(2) .and. Tbc(2,1).eq.EXT_DIR) then
+      j=lo(2)
+      do i=lo(1),hi(1)
         Fy(i,j,Nspec+3) = 2*Fy(i,j,Nspec+3)
       enddo
     endif
 !     yhi
-    if (hi_y(2).eq.dhi_y(2) .and. Tbc(2,2).eq.EXT_DIR) then
-      j=hi_y(2)
-      do i=lo_y(1),hi_y(1)
+    if (hi(2)+1.ge.dhi(2)+1 .and. Tbc(2,2).eq.EXT_DIR) then
+      j=hi(2)+1
+      do i=lo(1),hi(1)
         Fy(i,j,Nspec+3) = 2*Fy(i,j,Nspec+3)
       enddo
     endif
@@ -309,64 +305,64 @@ contains
 #if 0  
 !     Compute enthalpy flux as Fi.hi.(Lei-1)
 
-    Fx(lo_x(1):hi_x(1),lo_x(2):hi_x(2),Nspec+2) = 0.d0
-    Fy(lo_y(1):hi_y(1),lo_y(2):hi_y(2),Nspec+2) = 0.d0
+    Fx(lo(1):hi(1)+1,lo(2):hi(2),Nspec+2) = 0.d0
+    Fy(lo(1):hi(1),lo(2):hi(2)+1,Nspec+2) = 0.d0
 
     do n=1,Nspec
-      do j=lo_x(2),hi_x(2)
-        do i=lo_x(1),hi_x(1)
+      do j=lo(2),hi(2)+1
+        do i=lo(1),hi(1)
           FiHi = + 0.5d0*(H(i,j,n)+H(i-1,j,n))*Fx(i,j,n)
           Fx(i,j,Nspec+2) = Fx(i,j,Nspec+2) + FiHi*(rhoDx(i,j,Nspec+1)/rhoDx(i,j,n) - 1.d0)
         enddo
       enddo
     enddo
     do n=1,Nspec
-      do j=lo_y(2),hi_y(2)
-        do i=lo_y(1),hi_y(1)
+      do j=lo(2),hi(2)+1
+        do i=lo(1),hi(1)
           FiHi = + 0.5d0*(H(i,j,n)+H(i,j-1,n))*Fy(i,j,n)
           Fy(i,j,Nspec+2) = Fy(i,j,Nspec+2) + FiHi*(rhoDy(i,j,Nspec+1)/rhoDy(i,j,n) - 1.d0)
         enddo
       enddo
     enddo
 !     xlo
-    if (lo_x(1).eq.dlo_x(1)  .and.  Tbc(1,1).eq.EXT_DIR) then
-      i = dlo_x(1)
-      Fx(i:i,lo_x(2):hi_x(2),Nspec+2) = 0.d0
+    if (lo(1).eq.dlo(1)  .and.  Tbc(1,1).eq.EXT_DIR) then
+      i = dlo(1)
+      Fx(i:i,lo(2):hi(2),Nspec+2) = 0.d0
       do n=1,Nspec
-        do j=lo_x(2),hi_x(2)
+        do j=lo(2),hi(2)
           FiHi = H(i,j,n)*Fx(i,j,n)
           Fx(i,j,Nspec+2) = Fx(i,j,Nspec+2) + FiHi*(rhoDx(i,j,Nspec+1)/rhoDx(i,j,n) - 1.d0)
         enddo
       enddo
     endif
 !     xhi
-    if (hi_x(1).eq.dhi_x(1)  .and.  Tbc(1,2).eq.EXT_DIR) then
-      i = dhi_x(1)
-      Fx(i:i,lo_x(2):hi_x(2),Nspec+2) = 0.d0
+    if (hi(1)+1.eq.dhi(1)+1  .and.  Tbc(1,2).eq.EXT_DIR) then
+      i = dhi(1)+1
+      Fx(i:i,lo(2):hi(2),Nspec+2) = 0.d0
       do n=1,Nspec
-        do j=lo_x(2),hi_x(2)
+        do j=lo(2),hi(2)
           FiHi = H(i,j,n)*Fx(i,j,n)
           Fx(i,j,Nspec+2) = Fx(i,j,Nspec+2) + FiHi*(rhoDx(i,j,Nspec+1)/rhoDx(i,j,n) - 1.d0)
         enddo
       enddo
     endif
 !     ylo
-    if (lo_y(2).eq.dlo_y(2)  .and.  Tbc(2,1).eq.EXT_DIR) then
-      j = dlo_y(2)
-      Fy(lo_y(1):hi_y(1),j:j,Nspec+2) = 0.d0
+    if (lo(2).eq.dlo(2)  .and.  Tbc(2,1).eq.EXT_DIR) then
+      j = dlo(2)
+      Fy(lo(1):hi(1),j:j,Nspec+2) = 0.d0
       do n=1,Nspec
-        do i=lo_y(1),hi_y(1)
+        do i=lo(1),hi(1)
           FiHi = H(i,j,n)*Fy(i,j,n)
           Fy(i,j,Nspec+2) = Fy(i,j,Nspec+2) + FiHi*(rhoDy(i,j,Nspec+1)/rhoDy(i,j,n) - 1.d0)
         enddo
       enddo
     endif
 !     yhi
-    if (hi_y(2).eq.dhi_y(2)  .and.  Tbc(2,2).eq.EXT_DIR) then
-      j = dhi_y(2)
-      Fy(lo_y(1):hi_y(1),j:j,Nspec+2) = 0.d0
+    if (hi(2)+1.eq.dhi(2)  .and.  Tbc(2,2).eq.EXT_DIR) then
+      j = dhi(2)+1
+      Fy(lo(1):hi(1),j:j,Nspec+2) = 0.d0
       do n=1,Nspec
-        do i=lo_y(1),hi_y(1)
+        do i=lo(1),hi(1)
           FiHi = H(i,j,n)*Fy(i,j,n)
           Fy(i,j,Nspec+2) = Fy(i,j,Nspec+2) + FiHi*(rhoDy(i,j,Nspec+1)/rhoDy(i,j,n) - 1.d0)
         enddo
@@ -376,15 +372,15 @@ contains
 
 !     Compute enthalpy flux as hi*(Fi+(lambda/cp).Grad(Yi))
 
-    Fx(lo_x(1):hi_x(1),lo_x(2):hi_x(2),Nspec+2) = 0.d0
-    Fy(lo_y(1):hi_y(1),lo_y(2):hi_y(2),Nspec+2) = 0.d0
+    Fx(lo(1):hi(1)+1,lo(2):hi(2),Nspec+2) = 0.d0
+    Fy(lo(1):hi(1),lo(2):hi(2)+1,Nspec+2) = 0.d0
 
-    allocate(rhoInv(lo_x(1)-1:hi_x(1)+1,lo_y(2)-1:hi_y(2)+1))
+    allocate(rhoInv(lo(1)-1:hi(1)+1,lo(2)-1:hi(2)+1))
 
     rhoInv = 0
     do n=1,Nspec
-      do j=lo_y(2)-1,hi_y(2)
-        do i=lo_x(1)-1,hi_x(1)
+      do j=lo(2)-1,hi(2)+1
+        do i=lo(1)-1,hi(1)+1
           rhoInv(i,j) = rhoInv(i,j) + RhoY(i,j,n)
         enddo
       enddo
@@ -392,8 +388,8 @@ contains
     rhoInv(:,:) = 1.d0/rhoInv(:,:)
 
     do n=1,Nspec
-      do j=lo_x(2),hi_x(2)
-        do i=lo_x(1),hi_x(1)
+      do j=lo(2),hi(2)
+        do i=lo(1),hi(1)+1
           gradY = (RhoY(i,j,n)*rhoInv(i,j) - RhoY(i-1,j,n)*rhoInv(i-1,j))*dxInv
           Fx(i,j,Nspec+2) = Fx(i,j,Nspec+2) &
                    + (Fx(i,j,n) + rhoDx(i,j,Nspec+1)*gradY*Ax(i,j))*(H(i,j,n)+H(i-1,j,n))*0.5d0
@@ -402,8 +398,8 @@ contains
     enddo
 
     do n=1,Nspec
-      do j=lo_y(2),hi_y(2)
-        do i=lo_y(1),hi_y(1)
+      do j=lo(2),hi(2)+1
+        do i=lo(1),hi(1)
           gradY = (RhoY(i,j,n)*rhoInv(i,j) - RhoY(i,j-1,n)*rhoInv(i,j-1))*dyInv
           Fy(i,j,Nspec+2) = Fy(i,j,Nspec+2) &
                    + (Fy(i,j,n) + rhoDy(i,j,Nspec+1)*gradY*Ay(i,j))*(H(i,j,n)+H(i,j-1,n))*0.5d0
@@ -412,11 +408,11 @@ contains
     enddo
 
 !     xlo
-    if (lo_x(1).eq.dlo_x(1)  .and.  Tbc(1,1).eq.EXT_DIR) then
-      i = dlo_x(1)
-      Fx(i:i,lo_y(2):hi_y(2),Nspec+2) = 0.d0
+    if (lo(1).eq.dlo(1)  .and.  Tbc(1,1).eq.EXT_DIR) then
+      i = dlo(1)
+      Fx(i:i,lo(2):hi(2),Nspec+2) = 0.d0
       do n=1,Nspec
-        do j=lo_y(2),hi_y(2)
+        do j=lo(2),hi(2)
           gradY = 2*(RhoY(i,j,n)*rhoInv(i,j) - RhoY(i-1,j,n)*rhoInv(i-1,j))*dxInv
           Fx(i,j,Nspec+2) = Fx(i,j,Nspec+2) &
                    + (Fx(i,j,n) + rhoDx(i,j,Nspec+1)*gradY*Ax(i,j))*H(i-1,j,n)
@@ -424,11 +420,11 @@ contains
       enddo
     endif
 !     xhi
-    if (hi_x(1).eq.dhi_x(1)  .and.  Tbc(1,2).eq.EXT_DIR) then
-      i = dhi_x(1)
-      Fx(i:i,lo_y(2):hi_y(2),Nspec+2) = 0.d0
+    if (hi(1).eq.dhi(1)+1  .and.  Tbc(1,2).eq.EXT_DIR) then
+      i = dhi(1)+1
+      Fx(i:i,lo(2):hi(2),Nspec+2) = 0.d0
       do n=1,Nspec
-        do j=lo_y(2),hi_y(2)
+        do j=lo(2),hi(2)
           gradY = 2*(RhoY(i,j,n)*rhoInv(i,j) - RhoY(i-1,j,n)*rhoInv(i-1,j))*dxInv
           Fx(i,j,Nspec+2) = Fx(i,j,Nspec+2) &
                    + (Fx(i,j,n) + rhoDx(i,j,Nspec+1)*gradY*Ax(i,j))*H(i,j,n)
@@ -436,11 +432,11 @@ contains
       enddo
     endif
 !     ylo
-    if (lo_y(2).eq.dlo_y(2)  .and.  Tbc(2,1).eq.EXT_DIR) then
-      j = dlo_y(2)
-      Fy(lo_x(1):hi_x(1),j:j,Nspec+2) = 0.d0
+    if (lo(2).eq.dlo(2)  .and.  Tbc(2,1).eq.EXT_DIR) then
+      j = dlo(2)
+      Fy(lo(1):hi(1),j:j,Nspec+2) = 0.d0
       do n=1,Nspec
-        do i=lo_x(1),hi_x(1)
+        do i=lo(1),hi(1)
           gradY = 2*(RhoY(i,j,n)*rhoInv(i,j) - RhoY(i,j-1,n)*rhoInv(i,j-1))*dyInv
           Fy(i,j,Nspec+2) = Fy(i,j,Nspec+2) &
                    + (Fy(i,j,n) + rhoDy(i,j,Nspec+1)*gradY*Ay(i,j))*H(i,j-1,n)
@@ -448,11 +444,11 @@ contains
       enddo
     endif
 !     yhi
-    if (hi_y(2).eq.dhi_y(2)  .and.  Tbc(2,2).eq.EXT_DIR) then
-      j = dhi_y(2)
-      Fy(lo_x(1):hi_x(1),j:j,Nspec+2) = 0.d0
+    if (hi(2)+1.eq.dhi(2)+1  .and.  Tbc(2,2).eq.EXT_DIR) then
+      j = dhi(2)+1
+      Fy(lo(1):hi(1),j:j,Nspec+2) = 0.d0
       do n=1,Nspec
-        do i=lo_x(1),hi_x(1)
+        do i=lo(1),hi(1)
           gradY = 2*(RhoY(i,j,n)*rhoInv(i,j) - RhoY(i,j-1,n)*rhoInv(i,j-1))*dyInv
           Fy(i,j,Nspec+2) = Fy(i,j,Nspec+2) &
                    + (Fy(i,j,n) + rhoDy(i,j,Nspec+1)*gradY*Ay(i,j))*H(i,j,n)
