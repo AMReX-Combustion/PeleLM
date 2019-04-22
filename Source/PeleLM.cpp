@@ -3047,12 +3047,9 @@ PeleLM::compute_enthalpy_fluxes (Real                   time,
     const Box& box = mfi.tilebox();
 
     const Box& ebox_x   = mfi.nodaltilebox(0);
-    const Box& edomain_x = amrex::surroundingNodes(domain,0);
     const Box& ebox_y   = mfi.nodaltilebox(1);
-    const Box& edomain_y = amrex::surroundingNodes(domain,1);
 #if BL_SPACEDIM == 3
     const Box& ebox_z   = mfi.nodaltilebox(2);
-    const Box& edomain_z = amrex::surroundingNodes(domain,2);
 #endif
             
     int              FComp    = 0;
@@ -3074,11 +3071,6 @@ PeleLM::compute_enthalpy_fluxes (Real                   time,
 #endif
 
     enth_diff_terms(box.loVect(), box.hiVect(), domain.loVect(), domain.hiVect(), dx,
-                    ebox_x.loVect(), ebox_x.hiVect(), edomain_x.loVect(), edomain_x.hiVect(),
-                    ebox_y.loVect(), ebox_y.hiVect(), edomain_y.loVect(), edomain_y.hiVect(),
-#if BL_SPACEDIM == 3                    
-                    ebox_z.loVect(), ebox_z.hiVect(), edomain_z.loVect(), edomain_z.hiVect(),
-#endif                    
                     T.dataPtr(TComp), ARLIM(T.loVect()),  ARLIM(T.hiVect()),
                     RhoY.dataPtr(RhoYComp), ARLIM(RhoY.loVect()),  ARLIM(RhoY.hiVect()),
                                  

@@ -631,7 +631,7 @@ contains
 
 !------------------------------------
 
-  subroutine FORT_GETCKAWT(awt)
+  subroutine FORT_GETCKAWT(awt)bind(C, name="FORT_GETCKAWT")
 
     implicit none
 #include "cdwrk.H"

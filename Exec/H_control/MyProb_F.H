@@ -9,7 +9,6 @@
 #include <AMReX_CONSTANTS.H>
 #include <AMReX_BC_TYPES.H>
 #include <AMReX_ArrayLim.H>
-#include <PROB_F.H>
 #include <Prob_F.H>
 #include <ChemDriver_F.H>
 #include <PeleLM_F.H>
