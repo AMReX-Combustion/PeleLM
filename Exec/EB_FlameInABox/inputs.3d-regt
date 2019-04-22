@@ -1,6 +1,6 @@
 #----------------------------TOP LEVEL INPUTS----------------------
 max_step  =  10000
-max_step  =  20
+max_step  =  5
 stop_time = 4.00
 
 #--------------------------MISC/UNSORTED INPUTS-----------------------------
@@ -44,25 +44,25 @@ cg.cg_solver=1
 #-------------------------AMR INPUTS----------------------------
 amr.n_cell    = 64 64 64
 amr.n_cell    = 128 128 128
-amr.n_cell    = 32 32 32
+amr.n_cell    = 16 16 16 
 
 amr.v=1
-amr.max_level =  0            # maximum level number allowed
+amr.max_level =  2            # maximum level number allowed
 amr.ref_ratio       = 2 2 2 2 # refinement ratio
 amr.regrid_int      = 2       # how often to regrid
 amr.n_error_buf     = 1 1 1 2 # number of buffer cells in error est
 amr.grid_eff        = 0.9     # what constitutes an efficient grid
 amr.grid_eff        = 0.7     # what constitutes an efficient grid
-amr.blocking_factor = 16      # block factor in grid generation
+amr.blocking_factor = 8       # block factor in grid generation
 
 amr.checkpoint_files_output = 0
 amr.check_file      = chk     # root name of checkpoint file
 amr.check_int       = 5       # number of timesteps between checkpoints
 
 amr.plot_file       = plt
-amr.plot_int        = 1 
+amr.plot_int        = 500
 #amr.derive_plot_vars=rhoRT mag_vort particle_count mean_progress_curvature
-amr.derive_plot_vars=rhoRT mag_vort avg_pressure gradpx gradpy diveru
+amr.derive_plot_vars=rhoRT mag_vort avg_pressure gradpx gradpy gradpz diveru
 
 amr.grid_log        = grdlog  # name of grid logging file
 amr.max_grid_size   = 64
@@ -122,9 +122,9 @@ ns.dpdt_option = 0
 #ns.constant_rhoD_val = 0.0714286
 # ----------------  PROBLEM DEPENDENT INPUTS
 
-ns.lo_bc          = 0 5
-ns.hi_bc          = 0 2
-geometry.is_periodic = 1 0
+ns.lo_bc          = 0 0 5
+ns.hi_bc          = 0 0 2
+geometry.is_periodic = 1 1 0
 
 # >>>>>>>>>>>>>  BC FLAGS <<<<<<<<<<<<<<<<
 # 0 = Interior           3 = Symmetry
@@ -175,6 +175,6 @@ mac.do_outflow_bcs = 0
 #
 fab.format = NATIVE
 
-fabarray.mfiter_tile_size = 8 8 8
+eb2.geom_type = all_regular
 
-ns.do_init_proj = 1 
+ns.do_init_proj = 1

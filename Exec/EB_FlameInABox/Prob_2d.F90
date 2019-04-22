@@ -988,7 +988,7 @@ contains
       REAL_T x, y, r, Yl(maxspec), Xl(maxspec), Patm
       REAL_T pmf_vals(maxspec+3), y1, y2
       REAL_T pert,Lx,eta,u,v,rho,T,h
-      REAL_T sigma
+      REAL_T sigma, dist, fac
 
       integer iO2,iCO2,iH2O,iCH3OCH3,len
       character*(maxspnml) name
@@ -1154,6 +1154,60 @@ contains
 
             enddo
          enddo
+         
+       else if ((probtype(1:len).eq.BL_PROB_EB_NODE)) then
+
+!                write(6,*)" found probtype"
+
+               do n=1,Nspec
+
+                  call get_spec_name(name,n)
+                  if (name .eq. 'O2' ) iO2 = n
+                  !if (name .eq. 'CO2' ) iCO2 = n
+                  !if (name .eq. 'H2O' ) iH2O = n
+                  !if (name .eq. 'CH3OCH3' ) iCH3OCH3 = n
+
+               enddo
+
+!               write(6,*)" species are",iN2,iO2,iCO2,iH2O,iCH3OCH3
+
+               sigma = .000451d0
+               
+               do n = 1,Nspec
+                  Xl(n) = 0.d0
+               end do 
+               !Xl(iN2) = .7192d0
+               Xl(iO2) = 1.0d0 !0.1128d0
+               !Xl(iCO2) = 0.0522d0
+               !Xl(iH2O) = 0.0784d0
+               !Xl(iCH3OCH3) = 0.0374d0
+               
+               CALL CKXTY (Xl,Yl)
+               
+
+         do j = lo(2), hi(2)
+            y = (float(j)+.5d0)*delta(2) - 0.5d0
+            do i = lo(1), hi(1)
+               x = (float(i)+.5d0)*delta(1) - 0.5d0
+
+               dist = sqrt((x)**2 + (y)**2)
+               fac = exp(-(dist*dist/(0.16d0*0.16d0)))
+               
+               scal(i,j,Trac) =  1.0d0*exp(-(10.0d0*dist)**2)
+
+               vel(i,j,1) = 2.0d0*dist*y/dist*fac
+               vel(i,j,2) = -2.0d0*dist*x/dist*fac
+               
+               
+               scal(i,j,Temp) = 300.d0 
+               do n = 1,Nspec
+                  scal(i,j,FirstSpec+n-1) = Yl(n)
+               end do
+
+            enddo
+         enddo
+         
+         
       endif
 
       Patm = pamb / P1ATMMKS()

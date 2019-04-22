@@ -15,6 +15,15 @@ USE_OMP         = FALSE
 PRECISION       = DOUBLE
 VERBOSE         = FALSE
 
+USE_EB = TRUE
+
+ifeq ($(DIM),3)
+USE_ALGOIM = TRUE
+else
+USE_ALGOIM = FALSE
+endif
+
+
 TINY_PROFILE = FALSE
 #USE_WBAR = TRUE
 
