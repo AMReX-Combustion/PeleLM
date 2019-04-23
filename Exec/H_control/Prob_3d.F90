@@ -166,6 +166,7 @@ contains
     yfrontw = 0.05d0 * (domnhi(2) - domnlo(2))
     blobx = 0.5d0 * (domnhi(1) + domnlo(1))
     bloby = 0.5d0 * (domnhi(2) + domnlo(2))
+    blobz = 0.d0
     blobT = T_in
     Tfrontw = xfrontw
     stTh = -1.d0
@@ -1048,8 +1049,8 @@ contains
 
                 endif
 
-                z1 = (z - standoff - 0.5d0*delta(2) )*100.d0 + pert
-                z2 = (z - standoff + 0.5d0*delta(2) )*100.d0 + pert
+                z1 = (z - blobz - standoff - 0.5d0*delta(2) + pert )*100.d0
+                z2 = (z - blobz - standoff + 0.5d0*delta(2) + pert )*100.d0 
 
                 call pmf(z1,z2,pmf_vals,nPMF)               
                 if (nPMF.ne.Nspec+3) then
