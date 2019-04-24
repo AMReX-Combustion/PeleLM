@@ -193,7 +193,7 @@ mac.use_mlmg_solver = 1
 ns.init_iter = 0
 ns.do_mac_proj = 0
 # to turn off initial projections set to 0
-ns.do_init_proj = 1
+ns.do_init_proj = 0 
 ns.do_sync_proj = 0
 ns.do_MLsync_proj = 0
 
