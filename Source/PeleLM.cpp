@@ -41,6 +41,8 @@
 
 #include <AMReX_buildInfo.H>
 
+#include <AMReX_Amr.H>
+
 using namespace amrex;
 
 static Box stripBox; // used for debugging
@@ -1154,6 +1156,23 @@ PeleLM::restart (Amr&          papa,
 
   // Deal with typical values
   set_typical_values(true);
+
+  if (closed_chamber) {
+      std::string line;
+      std::string file=papa.theRestartFile();
+
+      std::string File(file + "/PAMB");
+      Vector<char> fileCharPtr;
+      ParallelDescriptor::ReadAndBcastFile(File, fileCharPtr);
+      std::string fileCharPtrString(fileCharPtr.dataPtr());
+      std::istringstream is(fileCharPtrString, std::istringstream::in);
+
+      // read in title line
+      std::getline(is, line);
+
+      is >> p_amb_old;
+      p_amb_new = p_amb_old;
+  }
 }
 
 void
@@ -2022,6 +2041,38 @@ PeleLM::checkPoint (const std::string& dir,
       }
       tvfab.writeOn(tvos);
     }
+  }
+
+  if (closed_chamber) {
+
+      VisMF::IO_Buffer io_buffer(VisMF::IO_Buffer_Size);
+
+      if (ParallelDescriptor::IOProcessor()) {
+
+          std::ofstream PAMBFile;
+          PAMBFile.rdbuf()->pubsetbuf(io_buffer.dataPtr(), io_buffer.size());
+          std::string PAMBFileName(dir + "/PAMB");
+          PAMBFile.open(PAMBFileName.c_str(), std::ofstream::out   |
+                        std::ofstream::trunc |
+                        std::ofstream::binary);
+
+          if( !PAMBFile.good()) {
+              amrex::FileOpenFailed(PAMBFileName);
+          }
+          
+          PAMBFile.precision(17);
+          
+          int step = parent->levelSteps(0);
+
+          // write out title line
+          PAMBFile << "Writing p_amb to checkpoint\n";
+          if (step == 0) {
+              PAMBFile << p_amb_old << "\n";
+          }
+          else {
+              PAMBFile << p_amb_new << "\n";
+          }
+      }
   }
 }
 
