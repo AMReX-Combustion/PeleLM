@@ -209,9 +209,13 @@ contains
     nchemdiag = 1
     controlVelMax = 5.d0
 
-    write(6,*)"reading fortin"
+    if (isioproc .eq. 1) then
+       write(6,*)"reading fortin"
+    endif
     read(untin,fortin)
-    write(6,*)"done reading fortin"
+    if (isioproc .eq. 1) then
+       write(6,*)"done reading fortin"
+    endif
 
     !     Initialize control variables that depend on fortin variables
     V_in_old = V_in

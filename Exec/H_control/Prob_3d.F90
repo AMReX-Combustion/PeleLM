@@ -211,9 +211,15 @@ contains
     nchemdiag = 1
     controlVelMax = 5.d0
 
-    write(6,*)"reading fortin"
+    if (isioproc .eq. 1) then
+       write(6,*)"reading fortin"
+    endif
+
     read(untin,fortin)
-    write(6,*)"done reading fortin"
+
+    if (isioproc .eq. 1) then
+       write(6,*)"done reading fortin"
+    endif
 
     !     Initialize control variables that depend on fortin variables
     V_in_old = V_in
@@ -226,10 +232,8 @@ contains
     read(untin,flctin)
 #endif
 
-    write(6,*)"reading control"
     read(untin,control)
     close(unit=untin)
-    write(6,*)"done reading control"
 
 #if defined(BL_DO_FLCT)
     if (forceInflow .eqv. .FALSE.) then
@@ -254,9 +258,7 @@ contains
     endif
 #endif
     !     Set up boundary functions
-    write(6,*)" setup bc"
     call setupbc()
-    write(6,*)" done setup bc"
 
     area = 1.d0
     do i=1,SDIM-1
@@ -267,8 +269,10 @@ contains
     else
        scale_control = 1.d0
     endif
-    write(6,*)" control setup", area, Y_bc(fuelID-1,BL_FUELPIPE), rho_bc(BL_FUELPIPE)
-    write(6,*)" fuelpipe",BL_FUELPIPE
+    if (isioproc .eq. 1) then
+       write(6,*)" control setup", area, Y_bc(fuelID-1,BL_FUELPIPE), rho_bc(BL_FUELPIPE)
+       write(6,*)" fuelpipe",BL_FUELPIPE
+    endif
 
     if (h_control .gt. zero) then
        cfix = scale_control * h_control
