@@ -3846,7 +3846,7 @@ PeleLM::temperature_stats (MultiFab& S)
     Real tdhmin[3] = { 1.0e30, 1.0e30, 1.0e30};
     Real tdhmax[3] = {-1.0e30,-1.0e30,-1.0e30};
 #ifdef _OPENMP
-#pragma omp parallel
+#pragma omp parallel reduction(min:tdhmin[:3]) reduction(max:tdhmax[:3])
 #endif
     for (MFIter S_mfi(S,true); S_mfi.isValid(); ++S_mfi)
     {
