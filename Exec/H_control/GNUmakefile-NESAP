@@ -13,14 +13,12 @@ COMP              = gnu
 USE_OMP           = FALSE
 USE_MPI           = TRUE
 VERBOSE           = FALSE
-NESAP_BENCHMARK   = FALSE
+NESAP_BENCHMARK   = TRUE
 
 Chemistry_Model = CHEMH
-fEXE_sources += H-flame_0500.f
 
 ifeq ($(NESAP_BENCHMARK), TRUE)
   Chemistry_Model = FFCM1
-  fEXE_sources += CH4-1_O2-2_N2-2p5_H2-5p833.f
   COMP = intel
   DIM = 3
   PRECISION = DOUBLE
@@ -30,6 +28,12 @@ ifeq ($(NESAP_BENCHMARK), TRUE)
   TINY_PROFILE = TRUE
 endif
 
+ifeq ($(Chemistry_Model), CHEMH)
+  fEXE_sources += H-flame_0500.f
+endif
+ifeq ($(Chemistry_Model), FFCM1)
+  fEXE_sources += CH4-1_O2-2_N2-2p5_H2-5p833.f
+endif
 
 Blocs   := .
 
