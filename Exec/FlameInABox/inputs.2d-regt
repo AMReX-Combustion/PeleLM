@@ -178,3 +178,22 @@ fab.format = NATIVE
 fabarray.mfiter_tile_size = 8 8 8
 
 ns.do_init_proj = 1 
+
+
+# for eb need mlmg
+proj.use_mlmg_solver = 1
+mac.use_mlmg_solver = 1
+
+# for getting things started with eb skip some steps
+ns.init_iter = 0
+ns.do_mac_proj = 0
+# to turn off initial projections set to 0
+ns.do_init_proj = 0
+ns.do_sync_proj = 0
+ns.do_MLsync_proj = 0
+
+proj.v = 1
+proj.proj_tol = 1.e-12
+proj.proj_abs_tol = 1.e-15
+
+

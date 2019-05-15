@@ -40,6 +40,8 @@
 #include <DERIVE_F.H>
 
 #include <AMReX_buildInfo.H>
+//fixme, for writesingle level plotfile
+#include<AMReX_PlotFileUtil.H>
 
 using namespace amrex;
 
@@ -861,6 +863,7 @@ PeleLM::PeleLM (Amr&            papa,
   updateFluxReg = false;
 
   define_data();
+  
 }
 
 PeleLM::~PeleLM ()
@@ -4109,8 +4112,14 @@ PeleLM::predict_velocity (Real  dt,
   // c-f/phys boundary, since we have no interpolator fn, also,
   // preserve extrap for corners at periodic/non-periodic intersections.
   //
-  MultiFab visc_terms(grids,dmap,nComp,1);
 
+#ifdef AMREX_USE_EB 
+  //FIXME? does this really need EB? YES
+  MultiFab visc_terms(grids,dmap,nComp,1,MFInfo(), Factory());
+#else
+  MultiFab visc_terms(grids,dmap,nComp,1);
+#endif
+  
   if (be_cn_theta != 1.0)
   {
     getViscTerms(visc_terms,Xvel,nComp,prev_time);
@@ -4119,6 +4128,7 @@ PeleLM::predict_velocity (Real  dt,
   {
     visc_terms.setVal(0);
   }
+
   //
   // Set up the timestep estimation.
   //
@@ -4126,9 +4136,21 @@ PeleLM::predict_velocity (Real  dt,
   Real cflmax = 1.0e-10;
   comp_cfl    = (level == 0) ? cflmax : comp_cfl;
 
+#ifdef AMREX_USE_EB
+//  MultiFab& Gp = *gradp;
+  MultiFab& Gp = getGradP();
+  Gp.FillBoundary(geom.periodicity());
+#else
   MultiFab Gp(grids,dmap,BL_SPACEDIM,1);
-
   getGradP(Gp, prev_pres_time);
+#endif
+
+// EM_DEBUG 
+//amrex::Print() << "Gp \n" << Gp[0];
+//static int count=0;
+//       count++;
+//            amrex::WriteSingleLevelPlotfile("GpLM"+std::to_string(count), Gp, {"gpx","gpy"}, parent->Geom(0), 0.0, 0);
+//VisMF::Write(Gp,"gradp_PV_LM");
     
   showMF("mac",Gp,"pv_Gp",level);
   showMF("mac",rho_ptime,"pv_rho_old",level);
@@ -4201,6 +4223,10 @@ PeleLM::predict_velocity (Real  dt,
 
   }
 }
+
+// EM_DEBUG 
+//VisMF::Write(u_mac[0],"umac_x");
+//VisMF::Write(u_mac[1],"umac_y");
 
   showMF("mac",u_mac[0],"pv_umac0",level);
   showMF("mac",u_mac[1],"pv_umac1",level);
@@ -4437,7 +4463,11 @@ PeleLM::advance (Real time,
 
     // create S^{n+1/2} by averaging old and new
     BL_PROFILE_VAR_START(HTMAC);
+#ifdef AMREX_USE_EB
+    MultiFab Forcing(grids,dmap,nspecies+1,nGrowAdvForcing,MFInfo(),Factory());
+#else
     MultiFab Forcing(grids,dmap,nspecies+1,nGrowAdvForcing);
+#endif
     Forcing.setBndry(1.e30);
     FillPatch(*this,mac_divu,nGrowAdvForcing,time+0.5*dt,Divu_Type,0,1,0);
     BL_PROFILE_VAR_STOP(HTMAC);
@@ -4549,8 +4579,12 @@ PeleLM::advance (Real time,
     // MAC-project... and overwrite U^{ADV,*}
     showMF("sdc",Forcing,"sdc_Forcing_for_mac",level,sdc_iter,parent->levelSteps(level));
     BL_PROFILE_VAR_START(HTMAC);
+
     mac_project(time,dt,S_old,&mac_divu,1,nGrowAdvForcing,updateFluxReg);
 
+// EM_DEBUG     
+    //VisMF::Write(mac_divu,"mac_divu");  
+      
     if (closed_chamber == 1 && level == 0)
     {
       // add Sbar back to mac_divu
@@ -4845,6 +4879,7 @@ PeleLM::advance (Real time,
       }
     }
   }
+
   BL_PROFILE_VAR_STOP(HTPROJ);
   showMF("sdc",get_new_data(Divu_Type),"sdc_DivUnew",level,parent->levelSteps(level));
         
@@ -4861,9 +4896,17 @@ PeleLM::advance (Real time,
   // Add the advective and other terms to get velocity (or momentum) at t^{n+1}.
   //
   BL_PROFILE_VAR_START(HTVEL);
+  
+// EM_DEBUG 
+//VisMF::Write(*aofs,"AOFS_before_vel_advection");
+
   if (do_mom_diff == 0) {
     velocity_advection(dt);
   }
+  
+// EM_DEBUG 
+//VisMF::Write(*aofs,"AOFS_before_vel_update");
+
   velocity_update(dt);
   BL_PROFILE_VAR_STOP(HTVEL);
 
@@ -4938,6 +4981,16 @@ PeleLM::advance (Real time,
   BL_PROFILE_VAR("HT::advance::cleanup", HTCLEANUP);
   advance_cleanup(iteration,ncycle);
   BL_PROFILE_VAR_STOP(HTCLEANUP);
+
+// EM_DEBUG
+//std::cout << "HERE WE CALL ESTIMESTEP FROM ADVANCE" << std::endl;
+//MultiFab& mypres = get_new_data(Press_Type);
+//static int count6=0;
+//       count6++;
+//   //   VisMF::Write(rhs[0],"rhs2d");
+//      amrex::WriteSingleLevelPlotfile("mypres"+std::to_string(count6), mypres, {"rhs"}, geom, 0.0, 0);
+
+
   //
   // Update estimate for allowable time step.
   //
@@ -5257,8 +5310,12 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
   const Real  prev_time = state[State_Type].prevTime();  
   const int nState = desc_lst[State_Type].nComp();
 
+#ifdef AMREX_USE_EB
+  MultiFab dummy(grids,dmap,1,0,MFInfo().SetAlloc(false),Factory());
+#else
   MultiFab dummy(grids,dmap,1,0,MFInfo().SetAlloc(false));
-  
+#endif
+
   // We advect rho.Y and rho.h
   FillPatchIterator S_fpi(*this,dummy,Godunov::hypgrow(),prev_time,State_Type,first_spec,nspecies+1);
   const MultiFab& Smf=S_fpi.get_mf();
