@@ -330,7 +330,7 @@ private:
                         amrex::Vector<int>&  nc_save,
                         amrex::Vector<amrex::Real>& dt_save);
 
-  amrex::Real predict_velocity (amrex::Real dt, amrex::Real& comp_cfl);
+  amrex::Real predict_velocity (amrex::Real dt);
 
   void set_htt_hmixTYP ();
 

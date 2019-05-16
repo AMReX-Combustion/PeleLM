@@ -29,7 +29,7 @@
 #include <AMReX_Interpolater.H>
 #include <AMReX_ccse-mpi.H>
 #include <AMReX_Utility.H>
-#include <PeleLM_Util.H>
+#include <NS_util.H>
 
 #if defined(BL_USE_NEWMECH) || defined(BL_USE_VELOCITY)
 #include <AMReX_DataServices.H>
@@ -1198,9 +1198,9 @@ PeleLM::set_typical_values(bool is_restart)
         Slevs[lev] = &(getLevel(lev).get_new_data(State_Type));
       }
 
-      auto scaleMax = VectorMax(Slevs,FabArrayBase::mfiter_tile_size,Density,NUM_STATE-BL_SPACEDIM);
-      auto scaleMin = VectorMin(Slevs,FabArrayBase::mfiter_tile_size,Density,NUM_STATE-BL_SPACEDIM);      
-      auto velMaxV = VectorMaxAbs(Slevs,FabArrayBase::mfiter_tile_size,0,BL_SPACEDIM);
+      auto scaleMax = VectorMax(Slevs,FabArrayBase::mfiter_tile_size,Density,NUM_STATE-BL_SPACEDIM,0);
+      auto scaleMin = VectorMin(Slevs,FabArrayBase::mfiter_tile_size,Density,NUM_STATE-BL_SPACEDIM,0);      
+      auto velMaxV = VectorMaxAbs(Slevs,FabArrayBase::mfiter_tile_size,0,BL_SPACEDIM,0);
 
       auto velMax = *max_element(std::begin(velMaxV), std::end(velMaxV));
 
@@ -2269,12 +2269,15 @@ PeleLM::sum_integrated_quantities ()
   const int finest_level = parent->finestLevel();
   const Real time        = state[State_Type].curTime();
 
-  Real mass = 0.0;
-  for (int lev = 0; lev <= finest_level; lev++)
-    mass += getLevel(lev).volWgtSum("density",time);
+  if (verbose)
+  {
+    Real mass = 0.0;
+    for (int lev = 0; lev <= finest_level; lev++)
+      mass += getLevel(lev).volWgtSum("density",time);
 
-  if (verbose) amrex::Print() << "TIME= " << time << " MASS= " << mass;
-
+    Print() << "TIME= " << time << " MASS= " << mass;
+  }
+  
   if (getChemSolve().index(fuelName) >= 0)
   {
     int MyProc  = ParallelDescriptor::MyProc();
@@ -2287,13 +2290,11 @@ PeleLM::sum_integrated_quantities ()
       std::string fuel = "rho.Y(" + fuelName + ")";
       for (int lev = 0; lev <= finest_level; lev++)
         fuelmass += getLevel(lev).volWgtSum(fuel,time);
-
-      if (verbose)
-	amrex::Print() << " FUELMASS= " << fuelmass;
-
+        
+      if (verbose) amrex::Print() << " FUELMASS= " << fuelmass;
+        
       int usetemp = 0;
-
-      active_control(&fuelmass,&time,&crse_dt,&MyProc,&step,&is_restart,&usetemp);
+      active_control(&fuelmass,&time,&crse_dt,&MyProc,&step,&is_restart,&usetemp);      
     }
     else if (do_active_control_temp)
     {
@@ -2310,7 +2311,7 @@ PeleLM::sum_integrated_quantities ()
 #ifdef _OPENMP
 #pragma omp parallel
 #endif  
-  for (MFIter mfi(Tmf,true); mfi.isValid();++mfi)
+      for (MFIter mfi(Tmf,true); mfi.isValid();++mfi)
       {
         const FArrayBox& fab  = Tmf[mfi];
         const Box&       vbox = mfi.tilebox();
@@ -2328,7 +2329,7 @@ PeleLM::sum_integrated_quantities ()
               hival = hi;
 
               IntVect lo_iv = iv;
-
+              
               lo_iv[DM] -= 1;
 
               const Real T_lo = fab(lo_iv);
@@ -2337,7 +2338,7 @@ PeleLM::sum_integrated_quantities ()
               {
                 const Real lo    = problo[DM] + (lo_iv[DM] + .5) * dx[DM];
                 const Real slope = (T_hi - T_lo) / (hi - lo);
-
+                  
                 hival = (temp_control - T_lo) / slope + lo;
               }
             }
@@ -2346,89 +2347,65 @@ PeleLM::sum_integrated_quantities ()
       }
 
       ParallelDescriptor::ReduceRealMin(hival);
-
-      if (verbose) amrex::Print() << " HIVAL= " << hival;
-
-      int usetemp = 1;
-
-      active_control(&hival,&time,&crse_dt,&MyProc,&step,&is_restart,&usetemp);
+      
+      if (verbose) Print() << " HIVAL= " << hival;
+        
+      int usetemp = 1;      
+      active_control(&hival,&time,&crse_dt,&MyProc,&step,&is_restart,&usetemp);      
     }
     else
     {
       Real fuelmass = 0.0;
       std::string fuel = "rho.Y(" + fuelName + ")";
-      for (int lev = 0; lev <= finest_level; lev++)
+      for (int lev = 0; lev <= finest_level; lev++) {
         fuelmass += getLevel(lev).volWgtSum(fuel,time);
-	  
+      }
       if (verbose) amrex::Print() << " FUELMASS= " << fuelmass;
     }
   }
 
   if (getChemSolve().index(productName) >= 0)
   {
-      int MyProc  = ParallelDescriptor::MyProc();
-      int step    = parent->levelSteps(0);
-      int restart = 0;
+    int MyProc  = ParallelDescriptor::MyProc();
+    int step    = parent->levelSteps(0);
+    int restart = 0;
 
-      Real productmass = 0.0;
-      std::string product = "rho.Y(" + productName + ")";
-      for (int lev = 0; lev <= finest_level; lev++)
-          productmass += getLevel(lev).volWgtSum(product,time);
-	  
-      if (verbose && ParallelDescriptor::IOProcessor())
-          std::cout << " PRODUCTMASS= " << productmass;
+    Real productmass = 0.0;
+    std::string product = "rho.Y(" + productName + ")";
+    for (int lev = 0; lev <= finest_level; lev++) {
+      productmass += getLevel(lev).volWgtSum(product,time);
+    }	  
+    if (verbose) Print() << " PRODUCTMASS= " << productmass;
   }
+  if (verbose) Print() << '\n';
 
-  if (verbose) amrex::Print() << '\n';
-
-  Real rho_h    = 0.0;
-  Real rho_temp = 0.0;
-
-  for (int lev = 0; lev <= finest_level; lev++)
   {
-    rho_temp += getLevel(lev).volWgtSum("rho_temp",time);
-    rho_h     = getLevel(lev).volWgtSum("rhoh",time);
-    if (verbose)
-      amrex::Print() << "TIME= " << time << " LEV= " << lev << " RHOH= " << rho_h << '\n';
-  }
-  if (verbose)
-    amrex::Print() << "TIME= " << time << " RHO*TEMP= " << rho_temp << '\n';
-
-  if (verbose) {
-
-    int old_prec = std::cout.precision(15);
-    int nc=BL_SPACEDIM+1;
-    Vector<Real> vmin(nc), vmax(nc);
-    Vector<int> comps(nc);
-    for (int n=0; n<BL_SPACEDIM; ++n) {
-      comps[n] = Xvel+n;
-    }
-    comps[nc-1] = Temp;
-        
+    Real rho_h    = 0.0;
+    Real rho_temp = 0.0;
     for (int lev = 0; lev <= finest_level; lev++)
     {
-      MultiFab& newstate = getLevel(lev).get_data(State_Type,time);
-      for (int n=0; n<=BL_SPACEDIM; ++n) {
-        Real thismin = newstate.min(comps[n],0);
-        Real thismax = newstate.max(comps[n],0);
-
-        if (lev==0) {
-          vmin[n] = thismin;
-          vmax[n] = thismax;
-        } else {
-          vmin[n] = std::min(thismin,vmin[n]);
-          vmax[n] = std::max(thismax,vmax[n]);
-        }
-      }
+      rho_temp += getLevel(lev).volWgtSum("rho_temp",time);
+      rho_h     = getLevel(lev).volWgtSum("rhoh",time);
+      if (verbose) Print() << "TIME= " << time << " LEV= " << lev << " RHOH= " << rho_h << '\n';
     }
+    if (verbose) Print() << "TIME= " << time << " RHO*TEMP= " << rho_temp << '\n';
+  }
+  
+  if (verbose)
+  {
+    int old_prec = std::cout.precision(15);
+    
+    Vector<const MultiFab*> Slevs(parent->finestLevel()+1);  
+    for (int lev = 0; lev <= parent->finestLevel(); lev++) {
+      Slevs[lev] = &(getLevel(lev).get_new_data(State_Type));
+    }
+    auto Smin = VectorMin(Slevs,FabArrayBase::mfiter_tile_size,0,NUM_STATE,0);
+    auto Smax = VectorMax(Slevs,FabArrayBase::mfiter_tile_size,0,NUM_STATE,0);
 
-    amrex::Print() << "TIME= " << time 
-	      << " min,max temp = " << vmin[nc-1] << ", " << vmax[nc-1] << '\n';
+    Print() << "TIME= " << time << " min,max temp = " << Smin[Temp] << ", " << Smax[Temp] << '\n';
     for (int n=0; n<BL_SPACEDIM; ++n) {
       std::string str = (n==0 ? "xvel" : (n==1 ? "yvel" : "zvel") );
-      amrex::Print() << "TIME= " << time 
-		<< " min,max "<< str << "  = " << vmin[Xvel+n] 
-		<< ", " << vmax[Xvel+n] << '\n';
+      Print() << "TIME= " << time  << " min,max "<< str << "  = " << Smin[Xvel+n] << ", " << Smax[Xvel+n] << '\n';
     }
 
     if (nspecies > 0)
@@ -2447,10 +2424,10 @@ PeleLM::sum_integrated_quantities ()
         }
       }
             
-      amrex::Print() << "TIME= " << time 
-		     << " min,max rho-sum rho Y_l = "
-		     << min_sum << ", " << max_sum << '\n';
-            
+      Print() << "TIME= " << time 
+              << " min,max rho-sum rho Y_l = "
+              << min_sum << ", " << max_sum << '\n';
+      
       for (int lev = 0; lev <= finest_level; lev++)
       {
         auto mf = getLevel(lev).derive("sumRhoYdot",time,0);
@@ -2465,10 +2442,10 @@ PeleLM::sum_integrated_quantities ()
         }
       }
             
-      amrex::Print() << "TIME= " << time 
-		     << " min,max sum RhoYdot = "
-		     << min_sum << ", " << max_sum << '\n';
-    }       
+      Print() << "TIME= " << time 
+              << " min,max sum RhoYdot = "
+              << min_sum << ", " << max_sum << '\n';
+    }
     std::cout.precision(old_prec);
   }
 }
@@ -3049,52 +3026,54 @@ PeleLM::compute_enthalpy_fluxes (Real                   time,
 #ifdef _OPENMP
 #pragma omp parallel
 #endif
-  for (MFIter mfi(S,true); mfi.isValid(); ++mfi)
   {
-    const Box& box = mfi.tilebox();
+    FArrayBox ftmp[BL_SPACEDIM];
 
-    const Box& ebox_x   = mfi.nodaltilebox(0);
-    const Box& ebox_y   = mfi.nodaltilebox(1);
-#if BL_SPACEDIM == 3
-    const Box& ebox_z   = mfi.nodaltilebox(2);
-#endif
-            
-    int              FComp    = 0;
-    int              TComp    = Temp;
-    int              RhoYComp = first_spec;
-    int              dComp    = 0;
-    FArrayBox&       fh       = sumSpecFluxDotGradH[mfi];            
-    FArrayBox&       T        = S[mfi];
-    FArrayBox&       RhoY     = S[mfi];
-    const FArrayBox& rDx      = (*beta[0])[mfi];
-    FArrayBox&       fix      = (*flux[0])[mfi];
-    const FArrayBox& rDy      = (*beta[1])[mfi];
-    FArrayBox&       fiy      = (*flux[1])[mfi];
-    const Real*      dx       = geom.CellSize();
-            
-#if BL_SPACEDIM == 3        
-    const FArrayBox& rDz      = (*beta[2])[mfi];
-    FArrayBox&       fiz      = (*flux[2])[mfi];
-#endif
+    for (MFIter mfi(S,true); mfi.isValid(); ++mfi)
+    {
+      const Box& box = mfi.tilebox();
+      int              FComp    = 0;
+      int              TComp    = Temp;
+      int              RhoYComp = first_spec;
+      int              dComp    = 0;
+      FArrayBox&       fh       = sumSpecFluxDotGradH[mfi];            
+      FArrayBox&       T        = S[mfi];
+      FArrayBox&       RhoY     = S[mfi];
+      const Real*      dx       = geom.CellSize();
 
-    enth_diff_terms(box.loVect(), box.hiVect(), domain.loVect(), domain.hiVect(), dx,
-                    T.dataPtr(TComp), ARLIM(T.loVect()),  ARLIM(T.hiVect()),
-                    RhoY.dataPtr(RhoYComp), ARLIM(RhoY.loVect()),  ARLIM(RhoY.hiVect()),
-                                 
-                    rDx.dataPtr(dComp),ARLIM(rDx.loVect()),ARLIM(rDx.hiVect()),
-                    fix.dataPtr(FComp),ARLIM(fix.loVect()),ARLIM(fix.hiVect()),
-                    area[0][mfi].dataPtr(), ARLIM(area[0][mfi].loVect()),ARLIM(area[0][mfi].hiVect()),
-                               
-                    rDy.dataPtr(dComp),ARLIM(rDy.loVect()),ARLIM(rDy.hiVect()),
-                    fiy.dataPtr(FComp),ARLIM(fiy.loVect()),ARLIM(fiy.hiVect()),
-                    area[1][mfi].dataPtr(), ARLIM(area[1][mfi].loVect()),ARLIM(area[1][mfi].hiVect()),
+      for (int d=0; d<BL_SPACEDIM; ++d) {
+        Box ebox = surroundingNodes(box,d);
+        ftmp[d].resize(ebox,nspecies+3);
+        ftmp[d].copy((*flux[d])[mfi],ebox,0,ebox,0,nspecies+1);
+      }
+
+      enth_diff_terms(BL_TO_FORTRAN_BOX(box),
+                      BL_TO_FORTRAN_BOX(domain),
+                      dx,
+                      BL_TO_FORTRAN_N(T,TComp),
+                      BL_TO_FORTRAN_N(RhoY,RhoYComp),
+
+                      BL_TO_FORTRAN_N((*beta[0])[mfi],dComp),
+                      BL_TO_FORTRAN_N(ftmp[0],FComp),
+                      BL_TO_FORTRAN(area[0][mfi]),
+
+                      BL_TO_FORTRAN_N((*beta[1])[mfi],dComp),
+                      BL_TO_FORTRAN_N(ftmp[1],FComp),
+                      BL_TO_FORTRAN(area[1][mfi]),
 #if BL_SPACEDIM == 3
-                    rDz.dataPtr(dComp),ARLIM(rDz.loVect()),ARLIM(rDz.hiVect()),
-                    fiz.dataPtr(FComp),ARLIM(fiz.loVect()),ARLIM(fiz.hiVect()),
-                    area[2][mfi].dataPtr(), ARLIM(area[2][mfi].loVect()),ARLIM(area[2][mfi].hiVect()),
+                      BL_TO_FORTRAN_N((*beta[2])[mfi],dComp),
+                      BL_TO_FORTRAN_N(ftmp[2],FComp),
+                      BL_TO_FORTRAN(area[2][mfi]),
 #endif
-                    fh.dataPtr(),     ARLIM(fh.loVect()), ARLIM(fh.hiVect()),
-                    Tbc.vect() );
+                      BL_TO_FORTRAN(fh),
+                      Tbc.vect() );
+      
+      for (int d=0; d<BL_SPACEDIM; ++d) {
+        Box etbox = mfi.nodaltilebox(d);
+        (*flux[d])[mfi].copy(ftmp[d],etbox,nspecies+1,etbox,nspecies+1,2);
+      }
+
+    }
   }
 
   if (verbose > 1)
@@ -3850,75 +3829,33 @@ PeleLM::temperature_stats (MultiFab& S)
     //
     // Calculate some minimums and maximums.
     //
-    Real tdhmin[3] = { 1.0e30, 1.0e30, 1.0e30};
-    Real tdhmax[3] = {-1.0e30,-1.0e30,-1.0e30};
-#ifdef _OPENMP
-#pragma omp parallel
-#endif
-    for (MFIter S_mfi(S,true); S_mfi.isValid(); ++S_mfi)
-    {
-      const Box& bx = S_mfi.tilebox();
+    auto scaleMin = VectorMin({&S},FabArrayBase::mfiter_tile_size,Density,NUM_STATE-BL_SPACEDIM,0);
+    auto scaleMax = VectorMax({&S},FabArrayBase::mfiter_tile_size,Density,NUM_STATE-BL_SPACEDIM,0);
 
-      tdhmin[0] = std::min(tdhmin[0],S[S_mfi].min(bx,Temp));
-      tdhmin[1] = std::min(tdhmin[1],S[S_mfi].min(bx,Density));
-      tdhmin[2] = std::min(tdhmin[2],S[S_mfi].min(bx,RhoH));
-
-      tdhmax[0] = std::max(tdhmax[0],S[S_mfi].max(bx,Temp));
-      tdhmax[1] = std::max(tdhmax[1],S[S_mfi].max(bx,Density));
-      tdhmax[2] = std::max(tdhmax[2],S[S_mfi].max(bx,RhoH));
+    bool aNegY = false;
+    for (int i = 0; i < nspecies && !aNegY; ++i) {
+      if (scaleMin[first_spec+i-BL_SPACEDIM] < 0) aNegY = true;
     }
 
-    const int IOProc = ParallelDescriptor::IOProcessorNumber();
+    amrex::Print() << "  Min,max temp = " << scaleMin[Temp   - BL_SPACEDIM]
+                   << ", "                << scaleMax[Temp   - BL_SPACEDIM] << '\n';
+    amrex::Print() << "  Min,max rho  = " << scaleMin[Density- BL_SPACEDIM]
+                   << ", "                << scaleMax[Density- BL_SPACEDIM] << '\n';
+    amrex::Print() << "  Min,max rhoh = " << scaleMin[RhoH   - BL_SPACEDIM]
+                   << ", "                << scaleMax[RhoH   - BL_SPACEDIM] << '\n';
 
-    ParallelDescriptor::ReduceRealMin(tdhmin,3,IOProc);
-    ParallelDescriptor::ReduceRealMax(tdhmax,3,IOProc);
-    
-    bool        aNegY = false;
-    Vector<Real> minY(nspecies,1.e30);
-    
-#ifdef _OPENMP
-#pragma omp parallel
-#endif
-    {
-      FArrayBox   Y, tmp;
-  
-      for (MFIter S_mfi(S,true); S_mfi.isValid(); ++S_mfi)
-      {
-        const Box& bx = S_mfi.tilebox();
-        Y.resize(bx,1);
-  
-        tmp.resize(bx,1);
-        tmp.copy(S[S_mfi],bx,Density,bx,0,1);
-        tmp.invert(1,bx);
-  
-        for (int i = 0; i < nspecies; ++i)
-        {
-          Y.copy(S[S_mfi],bx,first_spec+i,bx,0,1);
-          Y.mult(tmp,bx,0,0,1);
-          minY[i] = std::min(minY[i],Y.min(bx,0));
+    if (aNegY) {
+      const Vector<std::string>& names = PeleLM::getChemSolve().speciesNames();
+
+      amrex::Print() << "  Species w/min < 0: ";
+      for (int i = 0; i < nspecies; ++i) {
+        int idx = first_spec + i - BL_SPACEDIM;
+        if ( scaleMin[idx] < 0) {
+          amrex::Print() << "Y(" << names[i] << ") [" << scaleMin[idx] << "]  ";
         }
-      }
-    }
-
-    ParallelDescriptor::ReduceRealMin(minY.dataPtr(),nspecies,IOProc);
-
-    for (int i = 0; i < nspecies; ++i)
-    {
-      if (minY[i] < 0) aNegY = true;
-    }
-
-    amrex::Print() << "  Min,max temp = " << tdhmin[0] << ", " << tdhmax[0] << '\n';
-    amrex::Print() << "  Min,max rho  = " << tdhmin[1] << ", " << tdhmax[1] << '\n';
-    amrex::Print() << "  Min,max rhoh = " << tdhmin[2] << ", " << tdhmax[2] << '\n';
-    if (aNegY)
-      {
-        const Vector<std::string>& names = PeleLM::getChemSolve().speciesNames();
-        amrex::Print() << "  Species w/min < 0: ";
-        for (int i = 0; i < nspecies; ++i)
-          if (minY[i] < 0)
-            amrex::Print() << "Y(" << names[i] << ") [" << minY[i] << "]  ";
         amrex::Print() << '\n';
-      }    
+      }
+    }    
   }
 }
 
@@ -4098,10 +4035,9 @@ PeleLM::setThermoPress(Real time)
 }
 
 Real
-PeleLM::predict_velocity (Real  dt,
-                          Real& comp_cfl)
+PeleLM::predict_velocity (Real  dt)
 {
-  amrex::Print() << "... predict edge velocities\n";
+  if (verbose) Print() << "... predict edge velocities\n";
   //
   // Get simulation parameters.
   //
@@ -4109,7 +4045,7 @@ PeleLM::predict_velocity (Real  dt,
   const Real* dx             = geom.CellSize();
   const Real  prev_time      = state[State_Type].prevTime();
   const Real  prev_pres_time = state[Press_Type].prevTime();
-  const Real strt_time       = ParallelDescriptor::second();
+  const Real  strt_time      = ParallelDescriptor::second();
   //
   // Compute viscous terms at level n.
   // Ensure reasonable values in 1 grow cell.  Here, do extrap for
@@ -4126,29 +4062,10 @@ PeleLM::predict_velocity (Real  dt,
   {
     visc_terms.setVal(0);
   }
-  //
-  // Set up the timestep estimation.
-  //
-  Real cflgrid,u_max[3];
-  Real cflmax = 1.0e-10;
-  comp_cfl    = (level == 0) ? cflmax : comp_cfl;
 
   MultiFab Gp(grids,dmap,BL_SPACEDIM,1);
-
   getGradP(Gp, prev_pres_time);
     
-  showMF("mac",Gp,"pv_Gp",level);
-  showMF("mac",rho_ptime,"pv_rho_old",level);
-  showMF("mac",visc_terms,"pv_visc_terms",level);
-
-#ifndef NDEBUG
-  for (int dir=0; dir<BL_SPACEDIM; ++dir) {
-    u_mac[dir].setVal(0);
-  }
-  MultiFab Force(grids,dmap,BL_SPACEDIM,Godunov::hypgrow());
-  Force.setVal(0);
-#endif
-
   FillPatchIterator U_fpi(*this,visc_terms,Godunov::hypgrow(),prev_time,State_Type,Xvel,BL_SPACEDIM);
   MultiFab& Umf=U_fpi.get_mf();
   
@@ -4156,71 +4073,53 @@ PeleLM::predict_velocity (Real  dt,
   FillPatchIterator S_fpi(*this,visc_terms,1,prev_time,State_Type,Density,NUM_SCALARS);
   MultiFab& Smf=S_fpi.get_mf();
 #endif
+  
+  //
+  // Compute "grid cfl number" based on cell-centered time-n velocities
+  //
+  auto umax = VectorMaxAbs({&Umf},FabArrayBase::mfiter_tile_size,0,BL_SPACEDIM,Umf.nGrow());
+  Real cflmax = dt*umax[0]/dx[0];
+  for (int d=1; d<BL_SPACEDIM; ++d) {
+    cflmax = std::max(cflmax,dt*umax[d]/dx[d]);
+  }
+  Real tempdt = std::min(change_max,cfl/cflmax);
 
 #ifdef _OPENMP
 #pragma omp parallel
 #endif      
-{
-  FArrayBox tforces;
-
-  Vector<int> bndry[BL_SPACEDIM];
-
-  FArrayBox null_fab;
-
-  for (MFIter U_mfi(Umf,true); U_mfi.isValid(); ++U_mfi)
   {
-    Box bx=U_mfi.tilebox();
-    FArrayBox& Ufab = Umf[U_mfi];
+    FArrayBox tforces;
+    Vector<int> bndry[BL_SPACEDIM];
+
+    for (MFIter U_mfi(Umf,true); U_mfi.isValid(); ++U_mfi)
+    {
+      Box bx=U_mfi.tilebox();
+      FArrayBox& Ufab = Umf[U_mfi];
 
 #ifdef GENGETFORCE
-    getForce(tforces,bx,1,Xvel,BL_SPACEDIM,prev_time,rho_ptime[U_mfi]);
+      getForce(tforces,bx,1,Xvel,BL_SPACEDIM,prev_time,rho_ptime[U_mfi]);
 #elif MOREGENGETFORCE
-    if (getForceVerbose)
-      amrex::Print() << "---" << '\n' << "A - Predict velocity:" << '\n' 
-		     << " Calling getForce..." << '\n';
-    getForce(tforces,bx,1,Xvel,BL_SPACEDIM,prev_time,Ufab,Smf[U_mfi],0);
+      if (getForceVerbose)
+        amrex::Print() << "---\nA - Predict velocity:\n Calling getForce..." << '\n';
+      getForce(tforces,bx,1,Xvel,BL_SPACEDIM,prev_time,Ufab,Smf[U_mfi],0);
 #else
-    getForce(tforces,bx,1,Xvel,BL_SPACEDIM,rho_ptime[U_mfi]);
-#endif		 
-    //
-    // Test velocities, rho and cfl.
-    //
-    cflgrid  = godunov->test_u_rho(Ufab,rho_ptime[U_mfi],bx,dx,dt,u_max);
-    cflmax   = std::max(cflgrid,cflmax);
-    comp_cfl = std::max(cflgrid,comp_cfl);
-    //
-    // Compute the total forcing.
-    //
-    godunov->Sum_tf_gp_visc(tforces,0,visc_terms[U_mfi],0,Gp[U_mfi],0,rho_ptime[U_mfi],0);
+      getForce(tforces,bx,1,Xvel,BL_SPACEDIM,rho_ptime[U_mfi]);
+#endif 
+      //
+      // Compute the total forcing.
+      //
+      godunov->Sum_tf_gp_visc(tforces,0,visc_terms[U_mfi],0,Gp[U_mfi],0,rho_ptime[U_mfi],0);
 
-#ifndef NDEBUG
-    Force[U_fpi].copy(tforces,0,0,BL_SPACEDIM);
-#endif
+      D_TERM(bndry[0] = fetchBCArray(State_Type,bx,0,1);,
+             bndry[1] = fetchBCArray(State_Type,bx,1,1);,
+             bndry[2] = fetchBCArray(State_Type,bx,2,1););
 
-    D_TERM(bndry[0] = fetchBCArray(State_Type,bx,0,1);,
-           bndry[1] = fetchBCArray(State_Type,bx,1,1);,
-           bndry[2] = fetchBCArray(State_Type,bx,2,1););
-
-    godunov->ExtrapVelToFaces(bx, dx, dt,
-                              D_DECL(u_mac[0][U_mfi], u_mac[1][U_mfi], u_mac[2][U_mfi]),
-                              D_DECL(bndry[0],        bndry[1],        bndry[2]),
-                              Ufab, tforces);
-
+      godunov->ExtrapVelToFaces(bx, dx, dt,
+                                D_DECL(u_mac[0][U_mfi], u_mac[1][U_mfi], u_mac[2][U_mfi]),
+                                D_DECL(bndry[0],        bndry[1],        bndry[2]),
+                                Ufab, tforces);
+    }
   }
-}
-
-  showMF("mac",u_mac[0],"pv_umac0",level);
-  showMF("mac",u_mac[1],"pv_umac1",level);
-#if BL_SPACEDIM==3
-  showMF("mac",u_mac[2],"pv_umac2",level);
-#endif
-#ifndef NDEBUG
-  showMF("mac",Force,"pv_force",level);
-#endif
-
-  Real tempdt = std::min(change_max,cfl/cflmax);
-
-  ParallelDescriptor::ReduceRealMin(tempdt);
 
   if (verbose > 1)
   {
@@ -4229,8 +4128,8 @@ PeleLM::predict_velocity (Real  dt,
 
     ParallelDescriptor::ReduceRealMax(run_time,IOProc);
 
-    amrex::Print() << "PeleLM::predict_velocity(): lev: " << level 
-		   << ", time: " << run_time << '\n';
+    Print() << "PeleLM::predict_velocity(): lev: " << level 
+            << ", time: " << run_time << '\n';
   }
 
   return dt*tempdt;
@@ -4312,7 +4211,7 @@ PeleLM::advance (Real time,
   const Real cur_time  = state[State_Type].curTime();
 
 
-  Real dt_test = 0.0, dummy = 0.0;    
+  Real dt_test = 0.0;    
 
   BL_PROFILE_VAR("HT::advance::diffusion", HTDIFF);
   if (floor_species == 1)
@@ -4437,9 +4336,8 @@ PeleLM::advance (Real time,
     }
 
     // compute U^{ADV,*}
-    // you could avoid having to redo this computation by saving this state
     BL_PROFILE_VAR_START(HTVEL);
-    dt_test = predict_velocity(dt,dummy);  
+    dt_test = predict_velocity(dt);  
     BL_PROFILE_VAR_STOP(HTVEL);
 
     // create S^{n+1/2} by averaging old and new
