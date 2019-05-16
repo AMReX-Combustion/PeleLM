@@ -29,6 +29,7 @@
 #include <AMReX_Interpolater.H>
 #include <AMReX_ccse-mpi.H>
 #include <AMReX_Utility.H>
+#include <PeleLM_Util.H>
 
 #if defined(BL_USE_NEWMECH) || defined(BL_USE_VELOCITY)
 #include <AMReX_DataServices.H>
@@ -157,6 +158,7 @@ Real PeleLM::new_T_threshold;
 int  PeleLM::nGrowAdvForcing=1;
 bool PeleLM::avg_down_chem;
 int  PeleLM::reset_typical_vals_int=-1;
+Real PeleLM::typical_Y_val_min=1.e-10;
 std::map<std::string,Real> PeleLM::typical_values_FileVals;
 
 std::string                                PeleLM::turbFile;
@@ -987,8 +989,6 @@ PeleLM::init_once ()
                           &var_diff, &constant_rhoD_val,
                           &prandtl,  &schmidt, &unity_Le);
 
-  // initialize default typical values
-  init_typcals_common();
   //
   // make space for typical values
   //
@@ -1191,17 +1191,32 @@ PeleLM::set_typical_values(bool is_restart)
     }
     else
     {
-      //
-      // Check fortan common values, override values set above if fortran values > 0.
-      //
-      Vector<Real> tvTmp(nComp,0);
-      get_typical_vals(tvTmp.dataPtr(), &nComp);
-      ParallelDescriptor::ReduceRealMax(tvTmp.dataPtr(),nComp);
-        
-      for (int i=0; i<nComp; ++i)
+      Vector<const MultiFab*> Slevs(parent->finestLevel()+1);
+      
+      for (int lev = 0; lev <= parent->finestLevel(); lev++)
       {
-        if (tvTmp[i] > 0)
-          typical_values[i] = tvTmp[i];
+        Slevs[lev] = &(getLevel(lev).get_new_data(State_Type));
+      }
+
+      auto scaleMax = VectorMax(Slevs,FabArrayBase::mfiter_tile_size,Density,NUM_STATE-BL_SPACEDIM);
+      auto scaleMin = VectorMin(Slevs,FabArrayBase::mfiter_tile_size,Density,NUM_STATE-BL_SPACEDIM);      
+      auto velMaxV = VectorMaxAbs(Slevs,FabArrayBase::mfiter_tile_size,0,BL_SPACEDIM);
+
+      auto velMax = *max_element(std::begin(velMaxV), std::end(velMaxV));
+
+      for (int i=0; i<NUM_STATE - BL_SPACEDIM; ++i) {
+        typical_values[i + BL_SPACEDIM] = std::abs(scaleMax[i] - scaleMin[i]);
+      }
+
+      for (int i=0; i<BL_SPACEDIM; ++i) {
+        typical_values[i] = velMax;
+      }
+
+      AMREX_ALWAYS_ASSERT(typical_values[Density] > 0);
+      typical_values[RhoH] = typical_values[RhoH] / typical_values[Density];
+      for (int i=0; i<nspecies; ++i) {
+        typical_values[first_spec + i] = std::max(typical_values[first_spec + i]/typical_values[Density],
+                                                  typical_Y_val_min);
       }
     }
     //
@@ -1228,28 +1243,24 @@ PeleLM::set_typical_values(bool is_restart)
         else if (it->first == "Vel")
         {
           for (int d=0; d<BL_SPACEDIM; ++d)
-            typical_values[d] = it->second;
+            typical_values[d] = std::max(it->second,typical_Y_val_min);
         }
       }
     }
 
-    set_typical_vals(typical_values.dataPtr(), &nComp);
-
     amrex::Print() << "Typical vals: " << '\n';
     amrex::Print() << "\tVelocity: ";
-    for (int i=0; i<BL_SPACEDIM; ++i)
-      {
-        amrex::Print() << typical_values[i] << ' ';
-      }
+    for (int i=0; i<BL_SPACEDIM; ++i) {
+      amrex::Print() << typical_values[i] << ' ';
+    }
     amrex::Print() << '\n';
     amrex::Print() << "\tDensity: " << typical_values[Density] << '\n';
     amrex::Print() << "\tTemp:    " << typical_values[Temp]    << '\n';
     amrex::Print() << "\tRhoH:    " << typical_values[RhoH]    << '\n';
     const Vector<std::string>& names = getChemSolve().speciesNames();
-    for (int i=0; i<nspecies; ++i)
-      {
-        amrex::Print() << "\tY_" << names[i] << ": " << typical_values[first_spec+i] << '\n';
-      }
+    for (int i=0; i<nspecies; ++i) {
+      amrex::Print() << "\tY_" << names[i] << ": " << typical_values[first_spec+i] << '\n';
+    }
   }
 }
 
@@ -1302,13 +1313,11 @@ PeleLM::reset_typical_values (const MultiFab& S)
         else if (it->first == "Vel")
         {
           for (int d=0; d<BL_SPACEDIM; ++d)
-            typical_values[d] = it->second;
+            typical_values[d] = std::max(it->second,typical_Y_val_min);
         }
       }
     }
   }
-
-  set_typical_vals(typical_values.dataPtr(), &nComp);
 
   amrex::Print() << "New typical vals: " << '\n';
   amrex::Print() << "\tVelocity: ";
@@ -1636,8 +1645,6 @@ PeleLM::initData ()
       DataServices::Dispatch(DataServices::ExitRequest, NULL);
 
     AmrData&                  amrData   = dataServices.AmrDataRef();
-    //const int                 nspecies  = getChemSolve().numSpecies();
-    //const Vector<std::string>& names     = getChemSolve().speciesNames();   
     Vector<std::string>        plotnames = amrData.PlotVarNames();
 
     if (amrData.FinestLevel() < level)
