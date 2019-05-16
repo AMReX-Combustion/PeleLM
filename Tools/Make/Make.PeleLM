@@ -13,49 +13,82 @@ ifeq ($(USE_WBAR),TRUE)
     DEFINES += -DUSE_WBAR
 endif
 
+all: $(executable)
+	$(SILENT) $(RM) AMReX_buildInfo.cpp
+	@echo SUCCESS
+
 PELE_PHYSICS_HOME ?= $(TOP)/PelePhysics
-CHEM_HOME = $(PELE_PHYSICS_HOME)/Support/Fuego/Mechanism/Models
+EOS_HOME       = $(PELE_PHYSICS_HOME)/Eos
+REACTIONS_HOME = $(PELE_PHYSICS_HOME)/Reactions
+TRAN_HOME      = $(PELE_PHYSICS_HOME)/Transport
 
-ifeq ($(Chemistry_Model), CHEMH)
-  CHEM_DIR = $(CHEM_HOME)/chem-H
-endif
-ifeq ($(Chemistry_Model), DRM19)
-  CHEM_DIR = $(CHEM_HOME)/drm19
-endif
-ifeq ($(Chemistry_Model), GRI30)
-  CHEM_DIR = $(CHEM_HOME)/grimech30
-endif
-ifeq ($(Chemistry_Model), C12WANG)
-  CHEM_DIR = $(CHEM_HOME)/dodecane_wang
-endif
-ifeq ($(Chemistry_Model), C12LU)
-  CHEM_DIR = $(CHEM_HOME)/dodecane_lu
-endif
-ifeq (${Chemistry_Model}, BURKEMOD)
-  CHEM_DIR = $(CHEM_HOME)/BurkeDryer_mod
-endif
-ifeq (${Chemistry_Model}, LUDME)
-  CHEM_DIR = $(CHEM_HOME)/LuDME
-endif
-ifeq ($(Chemistry_Model), JL4)
-  CHEM_DIR = $(CHEM_HOME)/JL4
-endif
-ifeq ($(Chemistry_Model), CH4-15step)
-  CHEM_DIR = $(CHEM_HOME)/CH4-15step
-endif
-ifeq ($(Chemistry_Model), LIDRYER)
-  CHEM_DIR = $(CHEM_HOME)/LiDryer
-endif
-ifeq ($(Chemistry_Model), FFCM1_Red)
-  CHEM_DIR = $(CHEM_HOME)/FFCM1_Red
-endif
-
-ifdef CHEM_DIR
-  VPATH_LOCATIONS += $(CHEM_DIR)
-  Bpack += $(CHEM_DIR)/Make.package
-  Blocs += $(CHEM_DIR)
+# EOS
+EOS_PATH := $(EOS_HOME)/$(strip $(Eos_dir))
+include $(EOS_HOME)/Make.package
+include $(EOS_PATH)/Make.package
+EXTERN_CORE       += $(EOS_HOME) $(EOS_PATH)
+INCLUDE_LOCATIONS += $(EOS_HOME) $(EOS_PATH)
+VPATH_LOCATIONS   += $(EOS_HOME) $(EOS_PATH)
+ifeq ($(Eos_dir), Fuego)
+  TRANSPORT_TYPE := IDEAL_GAS
 else
- $(error Invalid Chemistry_Model, $(Chemistry_Model))
+  ifeq ($(Eos_dir), GammaLaw)
+    TRANSPORT_TYPE := IDEAL_GAS
+  else
+    TRANSPORT_TYPE := REAL_GAS
+  endif
+endif
+
+# Reactions
+REACTIONS_PATH := $(REACTIONS_HOME)/$(strip $(Reactions_dir))
+include $(REACTIONS_HOME)/Make.package
+include $(REACTIONS_PATH)/Make.package
+EXTERN_CORE       += $(REACTIONS_HOME) $(REACTIONS_PATH)
+INCLUDE_LOCATIONS += $(REACTIONS_HOME) $(REACTIONS_PATH)
+VPATH_LOCATIONS   += $(REACTIONS_HOME) $(REACTIONS_PATH)
+ifdef Chemistry_Model
+  CHEM_DIR = $(PELE_PHYSICS_HOME)/Support/Fuego/Mechanism/Models/$(Chemistry_Model)
+  ifdef CHEM_DIR
+    VPATH_LOCATIONS += $(CHEM_DIR)
+    Bpack += $(CHEM_DIR)/Make.package
+    Blocs += $(CHEM_DIR)
+  else
+   $(error Invalid Chemistry_Model, $(Chemistry_Model))
+  endif
+  CHEM_HOME1 = $(PELE_PHYSICS_HOME)/Support/Fuego/Mechanism
+  VPATH_LOCATIONS += $(CHEM_HOME1)
+  Bpack += $(CHEM_HOME1)/Make.package
+  Blocs += $(CHEM_HOME1)
+endif
+
+# Transport
+TRAN_PATH := $(TRAN_HOME)/$(strip $(Transport_dir))
+include $(TRAN_HOME)/Make.package
+include $(TRAN_PATH)/Make.package
+EXTERN_CORE       += $(TRAN_HOME) $(TRAN_PATH)
+INCLUDE_LOCATIONS += $(TRAN_HOME) $(TRAN_PATH)
+VPATH_LOCATIONS   += $(TRAN_HOME) $(TRAN_PATH)
+USE_FUEGO = FALSE
+ifeq ($(Transport_dir), EGLib)
+  USE_FUEGO = TRUE
+  DEFINES += -DEGLIB_TRANSPORT
+  Bpack   += $(PELE_PHYSICS_HOME)/Support/Fuego/Mechanism/Make.package \
+             $(PELE_PHYSICS_HOME)/Support/Fuego/Evaluation/Make.package
+
+  Blocs   += $(PELE_PHYSICS_HOME)/Support/Fuego/Mechanism \
+             $(PELE_PHYSICS_HOME)/Support/Fuego/Evaluation
+endif
+
+ifeq ($(Transport_dir), Simple)
+  DEFINES += -DSIMPLE_TRANSPORT
+  Bpack   += $(PELE_PHYSICS_HOME)/Support/Fuego/Mechanism/Make.package \
+             $(PELE_PHYSICS_HOME)/Support/Fuego/Evaluation/Make.package
+
+  Blocs   += $(PELE_PHYSICS_HOME)/Support/Fuego/Mechanism \
+             $(PELE_PHYSICS_HOME)/Support/Fuego/Evaluation
+endif
+ifeq ($(Transport_dir), Constant)
+  DEFINES += -DCONSTANT_TRANSPORT
 endif
 
 #
@@ -90,6 +123,27 @@ Blocs	+= $(foreach dir, $(Pdirs), $(dir))
 include $(Bpack) 
 INCLUDE_LOCATIONS += $(Blocs)
 VPATH_LOCATIONS   += $(Blocs)
+
+#include $(PELEC_HOME)/constants/Make.package
+#EXTERN_CORE += $(PELEC_HOME)/constants
+#INCLUDE_LOCATIONS += $(PELEC_HOME)/constants
+#VPATH_LOCATIONS   += $(PELEC_HOME)/constants
+
+include $(AMREX_HOME)/Src/F_Interfaces/Base/Make.package
+INCLUDE_LOCATIONS += $(AMREX_HOME)/Src/F_Interfaces/Base
+VPATH_LOCATIONS   += $(AMREX_HOME)/Src/F_Interfaces/Base
+
+# runtime parameter support for extern/ routines
+f90EXE_sources += extern.f90
+
+EXTERN_TEMPLATE := $(PELE_PHYSICS_HOME)/Testing/Source/extern_probin.template
+
+EXTERN_PARAMETERS := $(shell $(AMREX_HOME)/Tools/F_scripts/findparams.py $(EXTERN_CORE))
+
+extern.f90: $(EXTERN_PARAMETERS) $(EXTERN_TEMPLATE)
+	$(AMREX_HOME)/Tools/F_scripts/write_probin.py \
+           -t $(EXTERN_TEMPLATE) -o extern.f90 -n extern \
+           --pa "$(EXTERN_PARAMETERS)" 
 
 # Hack in some LM-specific stuff
 
@@ -154,11 +208,8 @@ ifeq ($(REGRESSIONTEST),TRUE)
   DEFINES += -DREGRESSIONTEST
 endif
 
-all: $(executable)
-	$(SILENT) $(RM) AMReX_buildInfo.cpp
-	@echo SUCCESS
 
-$(executable):
+##$(executable):
 
 # job_info support
 CEXE_sources += AMReX_buildInfo.cpp
