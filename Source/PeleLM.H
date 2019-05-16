@@ -197,8 +197,6 @@ protected:
 
   virtual void sum_integrated_quantities () override;
 
-  virtual void compute_fctCount () override;
-
   virtual void scalar_advection_update (amrex::Real dt,
                                         int  first_scalar,
                                         int  last_scalar) override;
@@ -586,16 +584,8 @@ private:
   static int         mHtoTiterMAX;
   static amrex::Vector<amrex::Real> mTmpData;
 
-  static int  cvode_iJac;
   static int  cvode_iE;
-  static int  cvode_iDense;
-  static int  ncells_packing;
 
-  static int min_tag;
-  static int max_tag;
-  static int         evaluate_fc;
-  static amrex::Vector<int> tag_bds;
-    
   static int nGrowAdvForcing;
 
   static std::string probin_file;
