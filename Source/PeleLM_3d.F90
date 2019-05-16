@@ -802,7 +802,7 @@ contains
 
       do k=lo(3),hi(3)
          do j=lo(2),hi(2)
-            do i=lo(1),hi(1)+1
+            do i=lo(1),hi(1)
 
                 do n=1,nspec
                    Yt(n) = Y(i,j,k,n)
@@ -840,7 +840,7 @@ contains
 
       do k=lo(3),hi(3)
          do j=lo(2),hi(2)
-            do i=lo(1),hi(1)+1
+            do i=lo(1),hi(1)
                do n = 1,Nspec
                   Yt(n) = Y(i,j,k,n)
                end do
@@ -880,7 +880,7 @@ contains
 
       do k=lo(3),hi(3)
          do j=lo(2),hi(2)
-            do i=lo(1),hi(1)+1
+            do i=lo(1),hi(1)
                do n = 1,Nspec
                   Yt(n) = Y(i,j,k,n)
                end do
@@ -922,7 +922,7 @@ contains
 
       do k=lo(3),hi(3)
          do j=lo(2),hi(2)
-            do i=lo(1),hi(1)+1
+            do i=lo(1),hi(1)
 
                 do n=1,Nspec
                    Yt(n) = Y(i,j,k,n)
@@ -966,7 +966,7 @@ contains
       Ptmp = Patm * P1ATM
       do k=lo(3),hi(3)
          do j=lo(2),hi(2)
-            do i=lo(1),hi(1)+1
+            do i=lo(1),hi(1)
                 do n=1,Nspec
                    Yt(n) = Y(i,j,k,n)
                 end do
@@ -1000,7 +1000,7 @@ contains
 
       do k=lo(3),hi(3)
          do j=lo(2),hi(2)
-            do i=lo(1),hi(1)+1
+            do i=lo(1),hi(1)
                CALL CKHMS(T(i,j,k),Ht)
                do n=1,Nspec
                   H(i,j,k,n) = Ht(n) * SCAL
@@ -1110,7 +1110,7 @@ contains
       REAL_T errMAX
       REAL_T res(0:NiterMAX-1)
 
-      REAL_T Yt(nspec)
+      REAL_T Yt(nspec), lres(0:NiterMAX-1)
       integer i, j, k, n, lierr, Niter,MAXiters
       REAL_T HMIX_CGS, Tguess
 
@@ -1123,7 +1123,7 @@ contains
                   Yt(n) = Y(i,j,k,n)
                end do
 
-               call pphys_TfromHYpt(T(i,j,k),HMIX(i,j,k),Yt,errMax,NiterMAX,res,Niter)
+               call pphys_TfromHYpt(T(i,j,k),HMIX(i,j,k),Yt,errMax,NiterMAX,lres,Niter)
 
                if (Niter .lt. 0) then
                        call bl_abort(" Something went wrong in pphys_TfromHYpt ")
