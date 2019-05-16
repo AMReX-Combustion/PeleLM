@@ -154,6 +154,7 @@ Real PeleLM::P1atm_MKS;
 bool PeleLM::plot_reactions;
 bool PeleLM::plot_consumption;
 bool PeleLM::plot_heat_release;
+int  PeleLM::cvode_iE;
 static bool plot_rhoydot;
 Real PeleLM::new_T_threshold;
 int  PeleLM::nGrowAdvForcing=1;
@@ -645,6 +646,7 @@ PeleLM::Initialize ()
   PeleLM::sdc_iterMAX               = 1;
   PeleLM::num_mac_sync_iter         = 1;
   PeleLM::mHtoTiterMAX              = 20;
+  PeleLM::cvode_iE                  = 2;
 
   ParmParse pp("ns");
 
@@ -5364,8 +5366,8 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
 
   // FIXME
   const bool do_avg_down_chem = false; //avg_down_chem
-    && level < parent->finestLevel()
-    && getLevel(level+1).state[RhoYdot_Type].hasOldData();
+  //  && level < parent->finestLevel()
+  //  && getLevel(level+1).state[RhoYdot_Type].hasOldData();
 
   if (hack_nochem)
   {
