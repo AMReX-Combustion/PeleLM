@@ -39,7 +39,6 @@
 #include <PeleLM_F.H>
 #include <AMReX_Utility.H>
 #include <NS_error_F.H>
-#include <actual_Creactor.h>
 
 using namespace amrex;
 
@@ -446,7 +445,7 @@ PeleLM::variableSetUp ()
 #ifdef _OPENMP
 #pragma omp parallel
 #endif  
-  reactor_init(&cvode_iE,&ncells_packing);
+  reactor_init(&cvode_iE);
 
   init_transport(use_tranlib);
 
