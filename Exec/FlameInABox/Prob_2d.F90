@@ -47,6 +47,7 @@ contains
       REAL_T problo(SDIM), probhi(SDIM)
 
 #include <probdata.H>
+#include <cdwrk.H>
 #include <htdata.H>
 #include <bc.H>
 #if defined(BL_DO_FLCT)
@@ -899,6 +900,7 @@ contains
       REAL_T   scal(DIMV(state),nscal)
       REAL_T   press(DIMV(press))
  
+#include <cdwrk.H>
 #include <htdata.H>
 #include <bc.H>
 #include <probdata.H>
@@ -1936,6 +1938,7 @@ contains
 
       implicit none
 
+#include <cdwrk.H>
 #include <bc.H>
 #include <probdata.H>
 

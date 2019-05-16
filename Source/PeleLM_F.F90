@@ -290,6 +290,7 @@ end subroutine plm_extern_init
 
     implicit none
 
+#include <cdwrk.H>
 #include <conp.H>
 #include <htdata.H>
 
@@ -329,6 +330,7 @@ end subroutine plm_extern_init
 
     implicit none
 
+#include <cdwrk.H>
 #include <conp.H>
 #include <htdata.H>
 
@@ -413,6 +415,7 @@ end subroutine plm_extern_init
 
     implicit none
 
+#include <cdwrk.H>
 #include <conp.H>
 
     typVal_Density = zero
@@ -497,6 +500,7 @@ end subroutine plm_extern_init
 
     implicit none
 
+#include <cdwrk.H>
 #include <probdata.H>
 #include <bc.H>
 
