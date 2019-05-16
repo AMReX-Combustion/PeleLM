@@ -46,6 +46,7 @@ contains
       integer untin
       REAL_T problo(SDIM), probhi(SDIM)
 
+#include <cdwrk.H>
 #include <probdata.H>
 #include <htdata.H>
 #include <bc.H>
@@ -824,6 +825,7 @@ contains
       REAL_T   scal(DIMV(state),nscal)
       REAL_T   press(DIMV(press))
  
+#include <cdwrk.H>
 #include <htdata.H>
 #include <bc.H>
 #include <probdata.H>
@@ -841,12 +843,12 @@ contains
  
       Patm = pamb / 101325.0d0
  
-      call RHOfromPTY(lo,hi, &
+      call pphys_RHOfromPTY(lo,hi, &
           scal(ARG_L1(state),ARG_L2(state),ARG_L3(state),Density),  DIMS(state), &
           scal(ARG_L1(state),ARG_L2(state),ARG_L3(state),Temp),     DIMS(state), &
           scal(ARG_L1(state),ARG_L2(state),ARG_L3(state),FirstSpec),DIMS(state), &
           Patm)
-      call HMIXfromTY(lo,hi, &
+      call pphys_HMIXfromTY(lo,hi, &
           scal(ARG_L1(state),ARG_L2(state),ARG_L3(state),RhoH),     DIMS(state), &
           scal(ARG_L1(state),ARG_L2(state),ARG_L3(state),Temp),     DIMS(state), &
           scal(ARG_L1(state),ARG_L2(state),ARG_L3(state),FirstSpec),DIMS(state))
@@ -2959,6 +2961,8 @@ subroutine zero_visc(diff,DIMS(diff),lo,hi,domlo,domhi, &
   subroutine all_chem_fill(rhoY,DIMS(rhoY),domlo,domhi,delta, &
                            xlo,time,bc) &
                            bind(C, name="all_chem_fill")
+
+      use network,   only: nspec
 
       implicit none
 
