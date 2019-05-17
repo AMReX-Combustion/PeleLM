@@ -2692,11 +2692,11 @@ PeleLM::avgDown ()
 #ifdef _OPENMP
 #pragma omp parallel
 #endif
-  for (MFIter mfi(P_fine,true); mfi.isValid(); ++mfi)
+  for (MFIter mfi(crse_P_fine,true); mfi.isValid(); ++mfi)
   {
-    const int i = mfi.index();
+    const Box& bx = mfi.tilebox();
 
-    injectDown(crse_P_fine_BA[i],crse_P_fine[mfi],P_fine[mfi],fine_ratio);
+    injectDown(bx,crse_P_fine[mfi],P_fine[mfi],fine_ratio);
   }
 
   P_crse.copy(crse_P_fine, parent->Geom(level).periodicity());  // Parallel copy
@@ -3853,9 +3853,9 @@ PeleLM::temperature_stats (MultiFab& S)
         if ( scaleMin[idx] < 0) {
           amrex::Print() << "Y(" << names[i] << ") [" << scaleMin[idx] << "]  ";
         }
-        amrex::Print() << '\n';
       }
-    }    
+      amrex::Print() << '\n';
+    }
   }
 }
 
