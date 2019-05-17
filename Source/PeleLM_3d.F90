@@ -24,6 +24,8 @@ module PeleLM_3d
 
   implicit none
 
+  use fuego_chemistry
+
   private
 
   public ::  calc_divu_fortran, calc_gamma_pinv, floor_spec, enth_diff_terms, &
