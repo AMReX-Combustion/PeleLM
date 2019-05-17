@@ -8,7 +8,6 @@
 #include <AMReX_BC_TYPES.H>
 #include <Prob_F.H>
 #include <AMReX_ArrayLim.H>
-#include <ChemDriver_F.H>
 
 #   if   BL_SPACEDIM==1
 #       define  ARLIM(x)  x(1)
@@ -42,7 +41,6 @@ contains
 ! ::: This routine will computes rho - sum (rho*Y)
 !
 
-#include <cdwrk.H>
 #include <htdata.H>
 
     integer    lo(2), hi(2)
@@ -103,7 +101,6 @@ contains
 ! ::: This routine will computes sum (rhoYdot or Ydot)
 !
 
-#include <cdwrk.H>
 #include <htdata.H>
 
     integer    lo(2), hi(2)
@@ -157,7 +154,8 @@ contains
                      level,grid_no) &
                      bind(C, name="drhort")
 
-    use chem_driver_2D, only: PfromRTY
+    use network,        only : nspec
+    use PeleLM_2d, only: pphys_PfromRTY
     
     implicit none
 
@@ -165,7 +163,6 @@ contains
 ! ::: This routine will derive rho*R*T
 !
 
-#include <cdwrk.H>
 #include <htdata.H>
       
     integer    lo(2), hi(2)
@@ -181,7 +178,7 @@ contains
 
     integer    i, j, n, rho, T, fS
     integer    nlft, nrgt, nbot, ntop
-    REAL_T     Yt(maxspec)
+    REAL_T     Yt(nspec)
     integer lo_chem(SDIM),hi_chem(SDIM)
     data lo_chem /1,1/
     data hi_chem /1,1/
@@ -207,7 +204,7 @@ contains
           Yt(n) = dat(i,j,fS+n-1) / dat(i,j,rho)
          end do
 
-         call PfromRTY(lo_chem, hi_chem, &
+         call pphys_PfromRTY(lo_chem, hi_chem, &
               e(i,j,1),     ARLIM(lo_chem),ARLIM(hi_chem), &
               dat(i,j,rho), ARLIM(lo_chem),ARLIM(hi_chem), &
               dat(i,j,T),   ARLIM(lo_chem),ARLIM(hi_chem), &
@@ -224,12 +221,11 @@ contains
                           level,grid_no) &
                           bind(C, name="dermolefrac")
 
-    use chem_driver_2D, only : mass_to_mole
+    use network,        only : nspec
+    use PeleLM_2D, only : pphys_mass_to_mole
 
     implicit none
     
-#include <cdwrk.H>
-
     integer    lo(SDIM), hi(SDIM)
     integer    DIMDEC(x)
     integer    DIMDEC(dat)
@@ -242,7 +238,7 @@ contains
     integer    level, grid_no
 
     integer i,j,n
-    REAL_T Yt(maxspec),Xt(maxspec)
+    REAL_T Yt(nspec),Xt(nspec)
     integer fS,rho
     integer lo_chem(SDIM),hi_chem(SDIM)
     data lo_chem /1,1/
@@ -257,7 +253,7 @@ contains
           Yt(n) = dat(i,j,fS+n-1)/dat(i,j,rho) 
          enddo
 
-         call mass_to_mole(lo_chem, hi_chem, &
+         call pphys_mass_to_mole(lo_chem, hi_chem, &
                           Yt, ARLIM(lo_chem),ARLIM(hi_chem), &
                           Xt, ARLIM(lo_chem),ARLIM(hi_chem))
           do n = 1,Nspec
@@ -275,11 +271,10 @@ contains
                                level,grid_no) &
                                bind(C, name="derconcentration")
 
-    use chem_driver_2D, only: MASSR_TO_CONC
+    use network,        only : nspec
+    use PeleLM_2D, only: pphys_massr_to_conc
                                
     implicit none
-
-#include <cdwrk.H>
 
     integer    lo(SDIM), hi(SDIM)
     integer    DIMDEC(C)
@@ -293,7 +288,7 @@ contains
     integer    level, grid_no
 
     integer i,j,n
-    REAL_T Yt(maxspec),Ct(maxspec)
+    REAL_T Yt(nspec),Ct(nspec)
     integer fS,rho,T
     integer lo_chem(SDIM),hi_chem(SDIM)
     data lo_chem /1,1/
@@ -309,7 +304,7 @@ contains
           Yt(n) = dat(i,j,fS+n-1)/dat(i,j,rho) 
         enddo
 
-        call MASSR_TO_CONC(lo_chem,hi_chem, &
+        call pphys_massr_to_conc(lo_chem,hi_chem, &
                   Yt,           ARLIM(lo_chem),ARLIM(hi_chem), &
                   dat(i,j,T),   ARLIM(lo_chem),ARLIM(hi_chem), &
                   dat(i,j,rho), ARLIM(lo_chem),ARLIM(hi_chem), &
