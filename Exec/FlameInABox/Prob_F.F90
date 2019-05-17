@@ -3,6 +3,8 @@
 
 module probspec_module
 
+  use fuego_chemistry
+
   implicit none
   
   private

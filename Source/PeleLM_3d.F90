@@ -22,9 +22,9 @@
 
 module PeleLM_3d
 
-  implicit none
-
   use fuego_chemistry
+
+  implicit none
 
   private
 
