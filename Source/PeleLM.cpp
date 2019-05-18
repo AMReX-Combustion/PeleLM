@@ -4094,12 +4094,19 @@ PeleLM::predict_velocity (Real  dt)
 #pragma omp parallel
 #endif      
   {
-    FArrayBox tforces;
+    FArrayBox tforces, Ufab, Uface[BL_SPACEDIM];
     Vector<int> bndry[BL_SPACEDIM];
 
     for (MFIter U_mfi(Umf,true); U_mfi.isValid(); ++U_mfi)
     {
       Box bx=U_mfi.tilebox();
+      Box gbx=grow(bx,Umf.nGrow());
+      Ufab.resize(gbx,BL_SPACEDIM);
+      Ufab.copy(Umf[U_mfi],gbx,0,gbx,0,BL_SPACEDIM);
+      for (int d=0; d<BL_SPACEDIM; ++d) {
+        Uface[d].resize(surroundingNodes(bx,d),1);
+      }
+      
       FArrayBox& Ufab = Umf[U_mfi];
 
 #ifdef GENGETFORCE
@@ -4121,9 +4128,14 @@ PeleLM::predict_velocity (Real  dt)
              bndry[2] = fetchBCArray(State_Type,bx,2,1););
 
       godunov->ExtrapVelToFaces(bx, dx, dt,
-                                D_DECL(u_mac[0][U_mfi], u_mac[1][U_mfi], u_mac[2][U_mfi]),
-                                D_DECL(bndry[0],        bndry[1],        bndry[2]),
+                                D_DECL(Uface[0], Uface[1], Uface[2]),
+                                D_DECL(bndry[0], bndry[1], bndry[2]),
                                 Ufab, tforces);
+
+      for (int d=0; d<BL_SPACEDIM; ++d) {
+        const Box& ebx = U_mfi.nodaltilebox(d);
+        u_mac[d][U_mfi].copy(Uface[d],ebx,0,ebx,0,1);
+      }
     }
   }
 
