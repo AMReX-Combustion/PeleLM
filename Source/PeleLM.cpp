@@ -4079,7 +4079,7 @@ PeleLM::predict_velocity (Real  dt)
   FillPatchIterator S_fpi(*this,visc_terms,1,prev_time,State_Type,Density,NUM_SCALARS);
   MultiFab& Smf=S_fpi.get_mf();
 #endif
-  
+
   //
   // Compute "grid cfl number" based on cell-centered time-n velocities
   //
@@ -4106,8 +4106,6 @@ PeleLM::predict_velocity (Real  dt)
       for (int d=0; d<BL_SPACEDIM; ++d) {
         Uface[d].resize(surroundingNodes(bx,d),1);
       }
-      
-      FArrayBox& Ufab = Umf[U_mfi];
 
 #ifdef GENGETFORCE
       getForce(tforces,bx,1,Xvel,BL_SPACEDIM,prev_time,rho_ptime[U_mfi]);
@@ -5192,6 +5190,7 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
 {
   FArrayBox cflux[BL_SPACEDIM];
   FArrayBox edgstate[BL_SPACEDIM];
+  FArrayBox Sg;
   Vector<int> state_bc;
  
   for (MFIter S_mfi(Smf,true); S_mfi.isValid(); ++S_mfi)
@@ -5200,6 +5199,11 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
     const FArrayBox& S = Smf[S_mfi];
     const FArrayBox& divu = DivU[S_mfi];
     const FArrayBox& force = Force[S_mfi];
+
+    // This will get floored in the fortran, make a temporary to avoid a race condition
+    const Box& bxg = grow(bx,Godunov::hypgrow());
+    Sg.resize(bxg,nspecies+1);
+    Sg.copy(S,bxg,0,bxg,0,nspecies+1);
 
     for (int d=0; d<BL_SPACEDIM; ++d)
     {
@@ -5224,7 +5228,7 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
                            D_DECL( u_mac[0][S_mfi], u_mac[1][S_mfi], u_mac[2][S_mfi]),
                            D_DECL(cflux[0],cflux[1],cflux[2]),
                            D_DECL(edgstate[0],edgstate[1],edgstate[2]),
-                           S, 0, nspecies+1 , force, 0, divu, 0,
+                           Sg, 0, nspecies+1 , force, 0, divu, 0,
                            (*aofs)[S_mfi], first_spec, advectionType, state_bc, FPU, volume[S_mfi]);
        
     // Accumulate rho flux divergence, rho on edges, and rho flux on edges
