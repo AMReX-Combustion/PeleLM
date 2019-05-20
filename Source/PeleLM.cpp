@@ -39,6 +39,10 @@
 #include <NAVIERSTOKES_F.H>
 #include <DERIVE_F.H>
 
+#ifdef AMREX_USE_EB
+#include <AMReX_EBMultiFabUtil.H>
+#endif
+
 #include <AMReX_buildInfo.H>
 //fixme, for writesingle level plotfile
 #include<AMReX_PlotFileUtil.H>
@@ -4479,7 +4483,7 @@ PeleLM::advance (Real time,
 
     // compute chi_increment
     chi_increment.setVal(0.0,nGrowAdvForcing);
-    calc_dpdt(cur_time,dt,chi_increment,u_mac);
+    calc_dpdt(cur_time,dt,chi_increment,u_mac); // u_mac not used here EM_DEBUG
     BL_PROFILE_VAR_STOP(HTMAC);
 
     showMF("sdc",chi_increment,"sdc_chi_increment",level,sdc_iter,parent->levelSteps(level));
@@ -4579,11 +4583,13 @@ PeleLM::advance (Real time,
     // MAC-project... and overwrite U^{ADV,*}
     showMF("sdc",Forcing,"sdc_Forcing_for_mac",level,sdc_iter,parent->levelSteps(level));
     BL_PROFILE_VAR_START(HTMAC);
-
+//VisMF::Write(mac_divu,"mac_divu_before");
     mac_project(time,dt,S_old,&mac_divu,1,nGrowAdvForcing,updateFluxReg);
 
 // EM_DEBUG     
-    //VisMF::Write(mac_divu,"mac_divu");  
+    //VisMF::Write(mac_divu,"mac_divu_after");
+    //VisMF::Write(u_mac[0], "umacx");
+    //VisMF::Write(u_mac[1], "umacy");
       
     if (closed_chamber == 1 && level == 0)
     {
@@ -7552,6 +7558,12 @@ PeleLM::writePlotFile (const std::string& dir,
   }
 
   int n_data_items = plot_var_map.size() + num_derive + num_auxDiag;
+  
+#ifdef AMREX_USE_EB
+    // add in vol frac
+    n_data_items++;
+#endif
+
   Real cur_time = state[State_Type].curTime();
 
   if (level == 0 && ParallelDescriptor::IOProcessor())
@@ -7584,6 +7596,7 @@ PeleLM::writePlotFile (const std::string& dir,
       for (i = 0; i < rec->numDerive(); i++)
         os << rec->variableName(i) << '\n';
     }
+
     //
     // Hack in additional diagnostics.
     //
@@ -7595,6 +7608,11 @@ PeleLM::writePlotFile (const std::string& dir,
         os << it->second[i] << '\n';
     }
 
+#ifdef AMREX_USE_EB
+	//add in vol frac
+	os << "volFrac\n";
+#endif
+    
     os << BL_SPACEDIM << '\n';
     os << parent->cumTime() << '\n';
     int f_lev = parent->finestLevel();
@@ -7759,6 +7777,18 @@ PeleLM::writePlotFile (const std::string& dir,
       PathNameInHeader += BaseName;
       os << PathNameInHeader << '\n';
     }
+    
+#ifdef AMREX_USE_EB
+	// volfrac threshhold for amrvis
+	// fixme? pulled directly from CNS, might need adjustment
+        if (level == parent->finestLevel()) {
+            for (int lev = 0; lev <= parent->finestLevel(); ++lev) {
+                os << "1.0e-6\n";
+            }
+        }
+#endif
+    
+    
   }
   //
   // We combine all of the multifabs -- state, derived, etc -- into one
@@ -7819,6 +7849,8 @@ PeleLM::writePlotFile (const std::string& dir,
       cnt += ncomp;
     }
   }
+  
+ 
   //
   // Cull data from diagnostic multifabs.
   //
@@ -7828,6 +7860,20 @@ PeleLM::writePlotFile (const std::string& dir,
       MultiFab::Copy(plotMF,*kv.second,0,cnt,nComp,nGrow);
       cnt += nComp;
   }
+
+#ifdef AMREX_USE_EB
+    // add volume fraction to plotfile
+    const auto& ebfactory = dynamic_cast<EBFArrayBoxFactory const&>(Factory());
+    const amrex::MultiFab& volfrac = ebfactory.getVolFrac();
+
+    plotMF.setVal(0.0, cnt, 1, nGrow);
+    MultiFab::Copy(plotMF,volfrac,0,cnt,1,nGrow);
+
+    // set covered values for ease of viewing
+    // EM_DEBUG problem here if eb.regular
+    //EB_set_covered(plotMF, 0.0);
+#endif
+
   //
   // Use the Full pathname when naming the MultiFab.
   //
