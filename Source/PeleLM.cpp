@@ -4074,7 +4074,22 @@ PeleLM::predict_velocity (Real  dt)
     
   FillPatchIterator U_fpi(*this,visc_terms,Godunov::hypgrow(),prev_time,State_Type,Xvel,BL_SPACEDIM);
   MultiFab& Umf=U_fpi.get_mf();
-  
+
+  // Floor small values of states to be extrapolated
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
+  for (MFIter mfi(Umf,true); mfi.isValid(); ++mfi)
+  {
+    Box gbx=mfi.growntilebox(Godunov::hypgrow());
+    auto fab = Umf.array(mfi);
+    AMREX_HOST_DEVICE_FOR_4D ( gbx, BL_SPACEDIM, i, j, k, n,
+    {
+      auto& val = fab(i,j,k,n);
+      val = std::abs(val) > 1.e-20 ? val : 0;
+    });
+  }
+
 #ifdef MOREGENGETFORCE
   FillPatchIterator S_fpi(*this,visc_terms,1,prev_time,State_Type,Density,NUM_SCALARS);
   MultiFab& Smf=S_fpi.get_mf();
@@ -4094,15 +4109,12 @@ PeleLM::predict_velocity (Real  dt)
 #pragma omp parallel
 #endif      
   {
-    FArrayBox tforces, Ufab, Uface[BL_SPACEDIM];
+    FArrayBox tforces, Uface[BL_SPACEDIM];
     Vector<int> bndry[BL_SPACEDIM];
 
     for (MFIter U_mfi(Umf,true); U_mfi.isValid(); ++U_mfi)
     {
       Box bx=U_mfi.tilebox();
-      Box gbx=grow(bx,Umf.nGrow());
-      Ufab.resize(gbx,BL_SPACEDIM);
-      Ufab.copy(Umf[U_mfi],gbx,0,gbx,0,BL_SPACEDIM);
       for (int d=0; d<BL_SPACEDIM; ++d) {
         Uface[d].resize(surroundingNodes(bx,d),1);
       }
@@ -4128,7 +4140,8 @@ PeleLM::predict_velocity (Real  dt)
       godunov->ExtrapVelToFaces(bx, dx, dt,
                                 D_DECL(Uface[0], Uface[1], Uface[2]),
                                 D_DECL(bndry[0], bndry[1], bndry[2]),
-                                Ufab, tforces);
+                                //Ufab, tforces);
+                                Umf[U_mfi], tforces);
 
       for (int d=0; d<BL_SPACEDIM; ++d) {
         const Box& ebx = U_mfi.nodaltilebox(d);
@@ -5182,7 +5195,22 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
   
   // We advect rho.Y and rho.h
   FillPatchIterator S_fpi(*this,dummy,Godunov::hypgrow(),prev_time,State_Type,first_spec,nspecies+1);
-  const MultiFab& Smf=S_fpi.get_mf();
+  MultiFab& Smf=S_fpi.get_mf();
+
+  // Floor small values of states to be extrapolated
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
+  for (MFIter mfi(Smf,true); mfi.isValid(); ++mfi)
+  {
+    Box gbx=mfi.growntilebox(Godunov::hypgrow());
+    auto fab = Smf.array(mfi);
+    AMREX_HOST_DEVICE_FOR_4D ( gbx, nspecies+1, i, j, k, n,
+    {
+      auto& val = fab(i,j,k,n);
+      val = std::abs(val) > 1.e-20 ? val : 0;
+    });
+  }
 
 #ifdef _OPENMP
 #pragma omp parallel
@@ -5190,7 +5218,6 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
 {
   FArrayBox cflux[BL_SPACEDIM];
   FArrayBox edgstate[BL_SPACEDIM];
-  FArrayBox Sg;
   Vector<int> state_bc;
  
   for (MFIter S_mfi(Smf,true); S_mfi.isValid(); ++S_mfi)
@@ -5199,11 +5226,6 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
     const FArrayBox& S = Smf[S_mfi];
     const FArrayBox& divu = DivU[S_mfi];
     const FArrayBox& force = Force[S_mfi];
-
-    // This will get floored in the fortran, make a temporary to avoid a race condition
-    const Box& bxg = grow(bx,Godunov::hypgrow());
-    Sg.resize(bxg,nspecies+1);
-    Sg.copy(S,bxg,0,bxg,0,nspecies+1);
 
     for (int d=0; d<BL_SPACEDIM; ++d)
     {
@@ -5228,7 +5250,7 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
                            D_DECL( u_mac[0][S_mfi], u_mac[1][S_mfi], u_mac[2][S_mfi]),
                            D_DECL(cflux[0],cflux[1],cflux[2]),
                            D_DECL(edgstate[0],edgstate[1],edgstate[2]),
-                           Sg, 0, nspecies+1 , force, 0, divu, 0,
+                           Smf[S_mfi], 0, nspecies+1 , force, 0, divu, 0,
                            (*aofs)[S_mfi], first_spec, advectionType, state_bc, FPU, volume[S_mfi]);
        
     // Accumulate rho flux divergence, rho on edges, and rho flux on edges
