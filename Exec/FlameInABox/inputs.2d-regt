@@ -177,7 +177,6 @@ fab.format = NATIVE
 
 fabarray.mfiter_tile_size = 8 8 8
 
-ns.do_init_proj = 1 
 
 
 # for eb need mlmg

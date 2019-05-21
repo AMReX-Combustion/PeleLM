@@ -4140,10 +4140,43 @@ PeleLM::predict_velocity (Real  dt,
   Real cflmax = 1.0e-10;
   comp_cfl    = (level == 0) ? cflmax : comp_cfl;
 
+  FillPatchIterator U_fpi(*this,visc_terms,Godunov::hypgrow(),prev_time,State_Type,Xvel,BL_SPACEDIM);
+  MultiFab& Umf=U_fpi.get_mf();
+  
 #ifdef AMREX_USE_EB
 //  MultiFab& Gp = *gradp;
   MultiFab& Gp = getGradP();
   Gp.FillBoundary(geom.periodicity());
+  
+  const Box& domain = geom.Domain();
+    // Compute slopes and store for use in computing UgradU
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
+{
+    Vector<int> bndry[BL_SPACEDIM];
+    for (MFIter mfi(Umf, true); mfi.isValid(); ++mfi)
+    {
+       Box bx=mfi.tilebox();
+       D_TERM(bndry[0] = fetchBCArray(State_Type,bx,0,1);,
+	      bndry[1] = fetchBCArray(State_Type,bx,1,1);,
+	      bndry[2] = fetchBCArray(State_Type,bx,2,1););
+
+      godunov->ComputeVelocitySlopes(mfi, Umf,
+				     D_DECL(bndry[0], bndry[1], bndry[2]),
+				     domain);
+    }
+ }
+    //
+    // need to fill ghost cells for slopes here. 
+    // vel advection term ugradu uses these slopes (does not recompute in incflo
+    //  scheme) needs 4 ghost cells (comments say 5, but I only see use of 4 max)
+    // non-periodic BCs are in theory taken care of inside compute ugradu, but IAMR
+    //  only allows for periodic for now
+    //
+    godunov->slopes_FillBoundary(geom.periodicity());
+  
+  
 #else
   MultiFab Gp(grids,dmap,BL_SPACEDIM,1);
   getGradP(Gp, prev_pres_time);
@@ -4167,9 +4200,6 @@ PeleLM::predict_velocity (Real  dt,
   MultiFab Force(grids,dmap,BL_SPACEDIM,Godunov::hypgrow());
   Force.setVal(0);
 #endif
-
-  FillPatchIterator U_fpi(*this,visc_terms,Godunov::hypgrow(),prev_time,State_Type,Xvel,BL_SPACEDIM);
-  MultiFab& Umf=U_fpi.get_mf();
   
 #ifdef MOREGENGETFORCE
   FillPatchIterator S_fpi(*this,visc_terms,1,prev_time,State_Type,Density,NUM_SCALARS);
@@ -4220,17 +4250,37 @@ PeleLM::predict_velocity (Real  dt,
            bndry[1] = fetchBCArray(State_Type,bx,1,1);,
            bndry[2] = fetchBCArray(State_Type,bx,2,1););
 
+#ifdef AMREX_USE_EB
+	//
+	//  trace state to cell edges
+	//
+	// For now, import simple adv scheme from incflo
+	//
+	// FIXME 
+	//  GODUNOV uses mathematical bcs like reflect_odd
+	//  incflo convection uses phys bcs like slip wall
+	// for now, just doing periodic, so just make sure I don't trip the bcs
+	//
+	godunov->ExtrapVelToFaces(U_mfi,
+				  //dx, dt,  // these are not used yet
+				  D_DECL(u_mac[0][U_mfi], u_mac[1][U_mfi], u_mac[2][U_mfi]),
+				  D_DECL(bndry[0],        bndry[1],        bndry[2]),
+				  Ufab, tforces, domain);
+#else
+	// non-EB
+	//  1. compute slopes
+	//  2. trace state to cell edges
     godunov->ExtrapVelToFaces(bx, dx, dt,
                               D_DECL(u_mac[0][U_mfi], u_mac[1][U_mfi], u_mac[2][U_mfi]),
                               D_DECL(bndry[0],        bndry[1],        bndry[2]),
                               Ufab, tforces);
-
+#endif
   }
 }
 
 // EM_DEBUG 
-//VisMF::Write(u_mac[0],"umac_x");
-//VisMF::Write(u_mac[1],"umac_y");
+VisMF::Write(u_mac[0],"umac_x");
+VisMF::Write(u_mac[1],"umac_y");
 
   showMF("mac",u_mac[0],"pv_umac0",level);
   showMF("mac",u_mac[1],"pv_umac1",level);
@@ -7559,10 +7609,10 @@ PeleLM::writePlotFile (const std::string& dir,
 
   int n_data_items = plot_var_map.size() + num_derive + num_auxDiag;
   
-#ifdef AMREX_USE_EB
-    // add in vol frac
-    n_data_items++;
-#endif
+//#ifdef AMREX_USE_EB
+//    // add in vol frac
+//    n_data_items++;
+//#endif
 
   Real cur_time = state[State_Type].curTime();
 
@@ -7608,10 +7658,10 @@ PeleLM::writePlotFile (const std::string& dir,
         os << it->second[i] << '\n';
     }
 
-#ifdef AMREX_USE_EB
-	//add in vol frac
-	os << "volFrac\n";
-#endif
+//#ifdef AMREX_USE_EB
+//	//add in vol frac
+//	os << "volFrac\n";
+//#endif
     
     os << BL_SPACEDIM << '\n';
     os << parent->cumTime() << '\n';
@@ -7778,15 +7828,15 @@ PeleLM::writePlotFile (const std::string& dir,
       os << PathNameInHeader << '\n';
     }
     
-#ifdef AMREX_USE_EB
-	// volfrac threshhold for amrvis
-	// fixme? pulled directly from CNS, might need adjustment
-        if (level == parent->finestLevel()) {
-            for (int lev = 0; lev <= parent->finestLevel(); ++lev) {
-                os << "1.0e-6\n";
-            }
-        }
-#endif
+//#ifdef AMREX_USE_EB
+//	// volfrac threshhold for amrvis
+//	// fixme? pulled directly from CNS, might need adjustment
+//        if (level == parent->finestLevel()) {
+//            for (int lev = 0; lev <= parent->finestLevel(); ++lev) {
+//                os << "1.0e-6\n";
+//            }
+//        }
+//#endif
     
     
   }
@@ -7861,18 +7911,18 @@ PeleLM::writePlotFile (const std::string& dir,
       cnt += nComp;
   }
 
-#ifdef AMREX_USE_EB
-    // add volume fraction to plotfile
-    const auto& ebfactory = dynamic_cast<EBFArrayBoxFactory const&>(Factory());
-    const amrex::MultiFab& volfrac = ebfactory.getVolFrac();
-
-    plotMF.setVal(0.0, cnt, 1, nGrow);
-    MultiFab::Copy(plotMF,volfrac,0,cnt,1,nGrow);
-
-    // set covered values for ease of viewing
-    // EM_DEBUG problem here if eb.regular
-    //EB_set_covered(plotMF, 0.0);
-#endif
+//#ifdef AMREX_USE_EB
+//    // add volume fraction to plotfile
+//    const auto& ebfactory = dynamic_cast<EBFArrayBoxFactory const&>(Factory());
+//    const amrex::MultiFab& volfrac = ebfactory.getVolFrac();
+//
+//    plotMF.setVal(0.0, cnt, 1, nGrow);
+//    MultiFab::Copy(plotMF,volfrac,0,cnt,1,nGrow);
+//
+//    // set covered values for ease of viewing
+//    // EM_DEBUG problem here if eb.regular
+//    //EB_set_covered(plotMF, 0.0);
+//#endif
 
   //
   // Use the Full pathname when naming the MultiFab.
