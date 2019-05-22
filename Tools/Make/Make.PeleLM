@@ -46,6 +46,9 @@ endif
 ifeq ($(Chemistry_Model), LIDRYER)
   CHEM_DIR = $(CHEM_HOME)/LiDryer
 endif
+ifeq ($(Chemistry_Model), AIR)
+  CHEM_DIR = $(CHEM_HOME)/air
+endif
 
 ifdef CHEM_DIR
   VPATH_LOCATIONS += $(CHEM_DIR)
