@@ -398,8 +398,7 @@ protected:
 
   static int getStateID (const std::string& stateName)
     {
-      Vector<std::string> names;
-      PeleLM::getSpeciesNames(names);
+      const Vector<std::string>& names = PeleLM::getChemSolve().speciesNames();
       for (int i=0; i<names.size(); i++)
         if (names[i] == stateName)
           return i;
@@ -434,21 +433,6 @@ PeleLM::variableSetUp ()
   }
 
   Initialize();
-
-  // Initialize the runtime parameters for any of the external code
-  init_extern();
-
-  /* PelePhysics */
-  amrex::Print() << " Initialization of network, reactor and transport \n";
-  init_network();
-
-#ifdef _OPENMP
-#pragma omp parallel
-#endif  
-  reactor_init(&cvode_iE);
-
-  init_transport(use_tranlib);
-
   BCRec bc;
   //
   // Set state variable Id's (Density and velocities set already).
@@ -460,8 +444,7 @@ PeleLM::variableSetUp ()
   int RhoRT     = -1;
 
   FirstSpec = ++counter;
-  pphys_get_num_spec(&nspecies);
-  nreactions = pphys_numReactions();
+  nspecies  = getChemSolve().numSpecies();
   counter  += nspecies - 1;
   RhoH = ++counter;
   Trac = ++counter;
@@ -472,12 +455,11 @@ PeleLM::variableSetUp ()
   NUM_STATE = ++counter;
   NUM_SCALARS = NUM_STATE - Density;
 
-  getSpeciesNames(spec_names); 
+  const Vector<std::string>& names = getChemSolve().speciesNames();
 
-  amrex::Print() << nreactions << " Reactions in mechanism \n";
   amrex::Print() << nspecies << " Chemical species interpreted:\n { ";
   for (int i = 0; i < nspecies; i++)
-    amrex::Print() << spec_names[i] << ' ' << ' ';
+    amrex::Print() << names[i] << ' ' << ' ';
   amrex::Print() << '}' << '\n' << '\n';
 
   //
@@ -499,27 +481,23 @@ PeleLM::variableSetUp ()
   // Set scale of chemical components, used in ODE solves
   //
   std::string speciesScaleFile; pp.query("speciesScaleFile",speciesScaleFile);
-
-  // Fill spec_scalY that is not used anywhere anymore: FIXME 
-  //if (! speciesScaleFile.empty())
-  //{
-  //  amrex::Print() << "  Setting scale values for chemical species\n\n";
-  //  getChemSolve().set_species_Yscales(speciesScaleFile);
-  //}
+  if (! speciesScaleFile.empty())
+  {
+    amrex::Print() << "  Setting scale values for chemical species\n\n";
+    getChemSolve().set_species_Yscales(speciesScaleFile);
+  }
   int verbose_vode=0; pp.query("verbose_vode",verbose_vode);
   if (verbose_vode!=0)
-    pphys_set_verbose_vode();
+    getChemSolve().set_verbose_vode();
 
-  int fuelID = getSpeciesIdx(fuelName);
-  int oxidID = getSpeciesIdx(oxidizerName);
-  int prodID = getSpeciesIdx(productName);
-  int bathID = getSpeciesIdx("N2");
+  int fuelID = getChemSolve().index(fuelName);
+  int oxidID = getChemSolve().index(oxidizerName);
+  int prodID = getChemSolve().index(productName);
 
   amrex::Print() << " fuel name " << fuelName << std::endl;
-  amrex::Print() << " index for fuel and oxidizer " << fuelID << " " << oxidID << std::endl;
-  amrex::Print() << " index for bath " << bathID << std::endl;
+  amrex::Print() << " index for fueld and oxidizer " << fuelID << " " << oxidID << std::endl;
 
-  set_prob_spec(&bathID, &fuelID, &oxidID, &prodID, &nspecies);
+  set_prob_spec(&fuelID, &oxidID, &prodID, &nspecies);
   //
   // Get a species to use as a flame tracker.
   //
@@ -595,13 +573,13 @@ PeleLM::variableSetUp ()
   for (int i = 0; i < nspecies; i++)
   {
     bcs[i]  = bc;
-    name[i] = "rho.Y(" + spec_names[i] + ")";
+    name[i] = "rho.Y(" + names[i] + ")";
 
     desc_lst.setComponent(State_Type,
                           FirstSpec+i,
                           name[i].c_str(),
                           bc,
-                          ChemBndryFunc(chem_fill,spec_names[i]),
+                          ChemBndryFunc(chem_fill,names[i]),
                           &cell_cons_interp);
   }
   //
@@ -616,7 +594,7 @@ PeleLM::variableSetUp ()
                           FirstSpec,
                           name,
                           bcs,
-                          ChemBndryFunc(chem_fill,spec_names[0],all_chem_fill),
+                          ChemBndryFunc(chem_fill,names[0],all_chem_fill),
                           &cell_cons_interp);
   }
   //
@@ -768,7 +746,7 @@ PeleLM::variableSetUp ()
   //
   for (int i = 0; i < nspecies; i++)
   {
-    const std::string chname = "Y("+spec_names[i]+")";
+    const std::string chname = "Y("+names[i]+")";
     derive_lst.add(chname,IndexType::TheCellType(),1,derdvrho,the_same_box);
     derive_lst.addComponent(chname,desc_lst,State_Type,Density,1);
     derive_lst.addComponent(chname,desc_lst,State_Type,FirstSpec + i,1);
@@ -778,7 +756,7 @@ PeleLM::variableSetUp ()
   //
   Vector<std::string> var_names_molefrac(nspecies);
   for (int i = 0; i < nspecies; i++)
-    var_names_molefrac[i] = "X("+spec_names[i]+")";
+    var_names_molefrac[i] = "X("+names[i]+")";
   derive_lst.add("molefrac",IndexType::TheCellType(),nspecies,
                  var_names_molefrac,dermolefrac,the_same_box);
   derive_lst.addComponent("molefrac",desc_lst,State_Type,Density,1);
@@ -789,7 +767,7 @@ PeleLM::variableSetUp ()
   //
   Vector<std::string> var_names_conc(nspecies);
   for (int i = 0; i < nspecies; i++)
-    var_names_conc[i] = "C("+spec_names[i]+")";
+    var_names_conc[i] = "C("+names[i]+")";
   derive_lst.add("concentration",IndexType::TheCellType(),nspecies,
                  var_names_conc,derconcentration,the_same_box);
   derive_lst.addComponent("concentration",desc_lst,State_Type,Density,1);
@@ -912,7 +890,7 @@ PeleLM::variableSetUp ()
   //
   // Tag region of interesting chemistry.
   //
-  const int idx = getSpeciesIdx(flameTracName);
+  const int idx = getChemSolve().index(flameTracName);
   if (idx >= 0)
   {
     amrex::Print() << "Flame tracer will be " << flameTracName << '\n';
@@ -1000,8 +978,7 @@ PeleLM::rhoydotSetUp()
 {
   RhoYdot_Type       = desc_lst.size();
   const int ngrow = 1;
-  int nrhoydot;
-  pphys_get_num_spec(&nrhoydot);
+  const int nrhoydot = getChemSolve().numSpecies();
 
   amrex::Print() << "RhoYdot_Type, nrhoydot = " << RhoYdot_Type << ' ' << nrhoydot << '\n';
 
@@ -1010,12 +987,13 @@ PeleLM::rhoydotSetUp()
                          &lincc_interp);
 	
   //const StateDescriptor& d_cell = desc_lst[State_Type];
+  const Vector<std::string>& names   = getChemSolve().speciesNames();
 
   BCRec bc;	
   set_rhoydot_bc(bc,phys_bc);
   for (int i = 0; i < nrhoydot; i++)
   {
-    const std::string name = "I_R[rhoY("+spec_names[i]+")]";
+    const std::string name = "I_R[rhoY("+names[i]+")]";
     desc_lst.setComponent(RhoYdot_Type, i, name.c_str(), bc,
                           BndryFunc(rhoYdot_fill), &lincc_interp, 0, nrhoydot-1);
   }

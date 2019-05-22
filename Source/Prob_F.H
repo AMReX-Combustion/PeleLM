@@ -38,10 +38,10 @@
                                  const amrex::Real* dx,
                                  const amrex::Real* xlo, const amrex::Real* xhi);
                                  
-      void set_prob_spec (const int* bathID,  const int* fuelID,
-			                      const int* oxidID,
-			                      const int* prodID,
-			                      const int* numspec);
+      void set_prob_spec (const int* fuelID,
+			                    const int* oxidID,
+			                    const int* prodID,
+			                    const int* numspec);
      
      void flame_tracer_error (int* tag, ARLIM_P(tlo), ARLIM_P(thi),
                           const int* tagval, const int* clearval,

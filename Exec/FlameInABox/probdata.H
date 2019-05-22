@@ -10,7 +10,7 @@
       REAL_T domnlo(3), domnhi(3)
       
       integer max_vort_lev, max_temp_lev, max_trac_lev, max_nozzle_lev
-      integer bathID, fuelID, oxidID, prodID, nspecies
+      integer fuelID, oxidID, prodID, nspecies
       character*50 probtype
 
       common /prob1/ vorterr, temperr, adverr, tempgrad, flametracval, twall, &
@@ -18,7 +18,7 @@
       common /prob2/ domnlo, domnhi
       common /prob3/ max_vort_lev, max_temp_lev, max_trac_lev, &
                     max_nozzle_lev
-      common /prob4/ bathID, fuelID, oxidID, prodID, nspecies
+      common /prob4/ fuelID, oxidID, prodID, nspecies
       common /prob5/ probtype
       save /prob1/, /prob2/, /prob3/, /prob4/, /prob5/
 

@@ -20,11 +20,6 @@ TINY_PROFILE = FALSE
 
 DEFINES+=-DALWAYS_NEW_J
 
-#######################
-USE_SUNDIALS_3x4x = FALSE
-
-#######################
-
 # Enable flctin namelist
 #USE_FLCTS       = TRUE
 
@@ -41,7 +36,7 @@ USE_SUNDIALS_3x4x = FALSE
 #USE_TDEPFORCING = TRUE
 
 # Choose model (from list below), and pmf file
-Chemistry_Model = drm19
+Chemistry_Model = DRM19
 fEXE_sources += drm19Soln_seed_0.50.f
 
 #Chemistry_Model = LIDRYER
@@ -52,15 +47,6 @@ fEXE_sources += drm19Soln_seed_0.50.f
 
 #Chemistry_Model = GRI30
 #fEXE_sources += gri30_070.f
-
-# This sets the EOS directory in $(PELE_PHYSICS_HOME)/Eos
-Eos_dir     := Fuego
-
-# This sets the network directory in $(PELE_PHYSICS_HOME)/Reactions
-Reactions_dir := Fuego
-
-# This sets the transport directory in $(PELE_PHYSICS_HOME)/Transport
-Transport_dir := EGLib
 
 Blocs   := .
 

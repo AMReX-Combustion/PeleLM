@@ -13,250 +13,15 @@
 
 module PeleLM_F
 
-  use, intrinsic :: iso_c_binding
-
-
   implicit none
-
-  integer :: use_eg
 
   private
 
   public :: set_scal_numb, get_typical_vals, set_typical_vals, &
             set_ht_visc_common, init_typcals_common, get_pamb, &
-            get_closed_chamber, get_dpdt, set_common, active_control, &
-            pphys_calc_src_sdc, pphys_getP1atm_MKS, &
-            pphys_get_spec_name2, pphys_TfromHYpt
+            get_closed_chamber, get_dpdt, set_common, active_control 
 
 contains
-
-! Init/Close PelePhysics network, transport, reaction. Similar to PeleC.  
-
-  subroutine pphys_network_init() bind(C, name="pphys_network_init")                                                                                         
-
-     use network, only: network_init
-     
-     call network_init()
-       
-  end subroutine pphys_network_init 
-
-  subroutine pphys_network_close() bind(C, name="pphys_network_close")
-
-     use network, only: network_close
-
-     call network_close()
-
-  end subroutine pphys_network_close
-
-  subroutine pphys_transport_init(ieg) bind(C, name="pphys_transport_init")
-
-     use transport_module, only: transport_init
-
-     implicit none
-     integer(c_int), intent(in   ) :: ieg
-
-     call transport_init()
-     use_eg = ieg
-
-  end subroutine pphys_transport_init  
-
-  subroutine pphys_transport_close() bind(C, name="pphys_transport_close")
-
-      use transport_module, only: transport_close
-
-      call transport_close()
-
-  end subroutine pphys_transport_close
-
-!  subroutine pphys_reactor_close() bind(C, name="pphys_reactor_close")
-!
-!      use reactor_module, only: reactor_close
-!
-!      call reactor_close()
-!
-!  end subroutine pphys_reactor_close
-
-subroutine plm_extern_init(name,namlen) bind(C, name="plm_extern_init")
-
-  ! initialize the external runtime parameters in
-  ! extern_probin_module
-  !use extern_probin_module, only: runtime_init 
-
-  integer :: namlen
-  integer :: name(namlen)
-
-  call runtime_init(name,namlen)
-
-end subroutine plm_extern_init
-
-  subroutine pphys_get_num_spec(nspec_out) bind(C, name="pphys_get_num_spec")
-
-      use network, only : nspec
-
-      implicit none
-      integer(c_int), intent(out) :: nspec_out
-
-      nspec_out = nspec
-
-  end subroutine pphys_get_num_spec  
-
-  subroutine pphys_get_spec_name(spec_names_out,ispec,len) &
-             bind(C, name="pphys_get_spec_name")
-
-      use network, only : spec_names
-
-      implicit none
-      integer(c_int), intent(in   ) :: ispec
-      integer(c_int), intent(inout) :: len
-      integer(c_int), intent(inout) :: spec_names_out(len)
-
-      ! Local variables
-      integer   :: i
-
-      len = len_trim(spec_names(ispec+1))
-
-      do i = 1,len
-         spec_names_out(i) = ichar(spec_names(ispec+1)(i:i))
-      end do
-
-  end subroutine pphys_get_spec_name  
-
-  subroutine pphys_get_spec_name2(name, j)
-  
-    implicit none
-
-#include "cdwrk.H"
-
-    integer i, j
-    integer coded(maxspnml), len
-    character*(maxspnml) name
-
-    print *, "In 'pphys_get_spec_name2' bef call to pphys_getckspecname",maxspnml, len
-
-    len = pphys_getckspecname(j, coded)
-    do i = 1, maxspnml
-      name(i:i) = ' '
-    end do
-    do i = 1, len
-      name(i:i) = char(coded(i))
-    end do
-    
-  end subroutine pphys_get_spec_name2
-
-  integer function pphys_getckspecname(i, coded)
-  
-    implicit none
-      
-#include "cdwrk.H"
-
-    integer i
-    integer coded(*)
-    integer names(maxspec*maxspnml)
-    integer j, str_len
-    str_len = 0
-    call cksyms(names, maxspnml)
-    do j = 1, maxspnml
-      coded(j) = names(maxspnml*(i-1)+j)
-    end do
-    do j = 1, maxspnml
-      if (coded(j).eq.ICHAR(' ')) then
-        str_len = j
-        exit
-      endif 
-    end do
-    pphys_getckspecname = str_len - 1
- 
-  end function pphys_getckspecname
-
-  function pphys_getRuniversal() bind(C, name="pphys_getRuniversal") result(RUNIV)
-
-    implicit none
-    double precision Ruc, Pa, RUNIV
-
-    call CKRP(RUNIV,Ruc,Pa)
-!     1 erg/(mole.K) = 1.e-4 J/(kmole.K)
-    RUNIV = RUNIV*1.d-4
-
-  end function pphys_getRuniversal
-
-  function pphys_getP1atm_MKS() bind(C, name="pphys_getP1atm_MKS") result(P1ATM)
-
-    implicit none
-    double precision Ru, Ruc, P1ATM
-
-    call CKRP(Ru,Ruc,P1ATM)
-!     1 N/(m.m) = 0.1 dyne/(cm.cm)
-    P1ATM = P1ATM*1.d-1
-
-  end function pphys_getP1atm_MKS
-
-  function pphys_numReactions() bind(C, name="pphys_numReactions") result(NR)
-
-    implicit none
-    integer Nelt,Nspec,NR,Nfit
-      
-    call CKINDX(Nelt,Nspec,NR,Nfit)
-
-  end function pphys_numReactions
-
-  subroutine pphys_set_verbose_vode() bind(C, name="pphys_set_verbose_vode")
-
-    use vode_module, only: verbose
-
-    implicit none
-
-    verbose = 5
-
-  end subroutine pphys_set_verbose_vode
-
-  subroutine pphys_calc_src_sdc(N, TIME, TEMP, Z, ZP) bind(C, name="pphys_calc_src_sdc")
-!
-!     Variables in Z are:  Z(1:K) = rhoY(K) [MKS]
-!                          Z(K+1) = RhoH    [MKS]
-    use network, only : nspec
-
-    implicit none
-
-    integer(c_int), intent(inout)   :: N
-    double precision, intent(in   ) :: TIME
-    double precision, intent(inout) :: TEMP
-    double precision, intent(in   ) :: Z(nspec+1)
-    double precision, intent(out  ) :: ZP(nspec+1)
-
-    double precision WDOT_CGS(nspec)
-    double precision Y(nspec), CONC_CGS(nspec), MWT(nspec)
-    double precision RHO_MKS, RINV_MKS, THFAC, HMIX_MKS, HMIX_CGS
-    integer :: lierr, K
-
-
-    ! RHO MKS
-    RHO_MKS  = sum(Z(1:nspec))
-    RINV_MKS = 1.d0 / RHO_MKS
-    ! MW CGS
-    call CKWT(MWT);
-      
-    do K=1,nspec
-      CONC_CGS(K) = Z(K)/MWT(K)*1.d-3
-      Y(K) = Z(K) * RINV_MKS
-      !print *," Y, WT ", Z(K), 1./MWT(K)
-    enddo
-
-    HMIX_MKS = (Z(nspec+1) + 0.0d0*TIME) * RINV_MKS
-    HMIX_CGS = HMIX_MKS * 1.0d4
-    call get_t_given_hY(HMIX_CGS, Y, TEMP, lierr);
-    call CKWC(TEMP,CONC_CGS,WDOT_CGS)
-
-    ZP(Nspec+1) = 0.0d0
-    THFAC = 1.d3
-    do k= 1, Nspec
-      ZP(k) = WDOT_CGS(k) * MWT(k) * THFAC + 0.0d0
-      !print *," RHO, C(CGS), H, T",RHO_MKS, CONC_CGS(k), HMIX_MKS, TEMP
-      !print *," wdot(CGS), wdot", WDOT_CGS(k), ZP(k)
-    end do
-      
-  end subroutine pphys_calc_src_sdc
-
-!------------------------------------  
 
   subroutine set_scal_numb(DensityIn, TempIn, TracIn, RhoHIn, &
                            FirstSpecIn, LastSpecIn) &
@@ -264,6 +29,7 @@ end subroutine plm_extern_init
 
     implicit none
 
+#include <cdwrk.H>
 #include <htdata.H>
 
     integer DensityIn, TempIn, TracIn, RhoHIn, FirstSpecIn, LastSpecIn
@@ -285,8 +51,6 @@ end subroutine plm_extern_init
 !------------------------------------------
 
   subroutine get_typical_vals(typ_vals,nVals)bind(C, name="get_typical_vals")
-
-    use network, only : nspec
 
     implicit none
 
@@ -325,8 +89,6 @@ end subroutine plm_extern_init
 !-------------------------------------------------
 
   subroutine set_typical_vals(typ_vals,nVals)bind(C, name="set_typical_vals")
-
-    use network, only : nspec
 
     implicit none
 
@@ -500,8 +262,8 @@ end subroutine plm_extern_init
 
     implicit none
 
-#include <cdwrk.H>
 #include <probdata.H>
+#include <cdwrk.H>
 #include <bc.H>
 
 !
@@ -524,8 +286,7 @@ end subroutine plm_extern_init
 
 #else
 
-    REAL_T slocal,V_new,dVmax,dVmin
-    !REAL_T vslope,
+    REAL_T vslope,slocal,V_new,dVmax,dVmin
     integer ierr
     REAL_T r1,r2,r3,r4,r5,r6,r7
     REAL_T alpha,xsmb,vpmax,exp1 
@@ -756,130 +517,5 @@ end subroutine plm_extern_init
 #endif /*ACTIVE_CONTROL_IS_USABLE*/
 
   end subroutine active_control
-
-!-------------------------------------
-
-  subroutine pphys_TfromHYpt(T,Hin,Y,errMax,NiterMAX,res,Niter)&
-                  bind(C, name="pphys_TfromHYpt")
-
-      implicit none
-
-      REAL_T T,Y(*),Hin,errMax
-
-      integer NiterMAX,Niter,NiterDAMP,ihitlo,ihithi
-      REAL_T  T0,cp,dH
-      REAL_T  res(0:NiterMAX-1),dT, Htarg,HMIN,cpMIN,HMAX,cpMAX
-      logical converged, soln_bad, stalled
-      REAL_T  H, old_T, old_H, Tsec, Hsec
-
-      integer, parameter :: Discont_NiterMAX = 100
-      REAL_T,  parameter :: TMIN = 250.d0, TMAX = 5000.d0
-
-      if ((T.GE.TMIN).and.(T.LE.TMAX)) then
-            T0 = T
-      else
-            T0 = half*(TMIN+TMAX)
-            T  = T0
-      end if
-
-      NiterDAMP = NiterMAX
-      Niter     = 0
-      soln_bad  = .FALSE.
-      Htarg     = Hin * 1.d4
-      ihitlo    = 0
-      ihithi    = 0
-
-      CALL CKHBMS(T,Y,H)
-
-      old_T = T
-      old_H = H
-
-      dH         = two*ABS(H - Htarg)/(one + ABS(H) + ABS(Htarg))
-      res(Niter) = dH
-      converged  = dH.le.errMAX
-      stalled    = .false.
-
-      do while ((.not.converged) .and. (.not.stalled) .and. (.not.soln_bad))
-
-          CALL CKCPBS(T,Y,cp)
-          dT = (Htarg - H)/cp
-          old_T = T
-          if ((Niter.le.NiterDAMP).and.(T+dT.ge.TMAX)) then
-                  T = TMAX
-                  ihithi = 1
-          else if ((Niter.le.NiterDAMP).and.(T+dT.le.TMIN)) then
-                  T = TMIN
-                  ihitlo = 1
-          else
-                  T = T + dT
-          end if
-          soln_bad = (T.lt.TMIN-one) .or. (T.gt.TMAX)
-          if (soln_bad) then
-                  Niter = -1
-                  exit
-          else
-                  old_H = H
-                  CALL CKHBMS(T,Y,H)
-                  dH = two*ABS(H - Htarg)/(one + ABS(H) + ABS(Htarg))
-                  res(Niter) = min(dH,abs(dT))
-                  Niter = Niter + 1
-          end if
-          converged = (dH.le.errMAX) .or. (ABS(dT).le.errMAX)
-          if (Niter .ge. NiterMAX) then
-                  if(abs(T-1000.d0).le.1.d-3.and. dH.le.1.d-5)then
-                          converged = .true.
-                  else
-                          Niter = -2
-                          exit
-                  end if
-          end if
-
-          if ((ihitlo.eq.1).and.(H.gt.Htarg)) then
-                  T = TMIN
-                  CALL CKHBMS(T,Y,HMIN)
-                  CALL CKCPBS(T,Y,cpMIN)
-                  T=TMIN+(Htarg-HMIN)/cpMIN
-                  converged = .true.
-          end if
-          if ((ihithi.eq.1).and.(H.lt.Htarg)) then 
-                  T = TMAX
-                  CALL CKHBMS(T,Y,HMAX)
-                  CALL CKCPBS(T,Y,cpMAX)
-                  T=TMAX+(Htarg-HMAX)/cpMAX
-                  converged = .true.
-          end if
-
-          if (Niter .ge. NiterMAX) then
-              do while (.not. stalled)
-                  dT = - (H - Htarg) * (old_T - T)/(old_H - H)
-                  Tsec = T + dT
-                  soln_bad = (Tsec.lt.TMIN-one) .or. (Tsec.gt.TMAX)
-                  if (soln_bad) then
-                          Niter = -3
-                          exit
-                  end if
-                  CALL CKHBMS(Tsec,Y,Hsec)
-                  if ( (Hsec-Htarg)*(Htarg-H) .gt. 0.d0 ) then
-                          old_H = H
-                          old_T = T
-                  end if
-                  H = Hsec
-                  T = Tsec
-                  stalled = (2*ABS(old_T-T)/(old_T+T).le.errMAX)
-                  Niter = Niter + 1
-                  if (Niter.gt.NiterMAX+Discont_NiterMAX) then
-                          Niter = -2
-                          exit
-                  endif
-              end do
-              converged = .true.
-          end if
-      end do
-
-      if (converged) return
-
-  end subroutine pphys_TfromHYpt
-
-!-------------------------------------
 
 end module PeleLM_F
