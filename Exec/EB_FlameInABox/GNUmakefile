@@ -2,6 +2,7 @@ TOP = ../../..
 AMREX_HOME ?= ${TOP}/amrex
 IAMR_HOME ?= ${TOP}/IAMR_EB
 PELELM_HOME ?= ${TOP}/PeleLM_EB
+PELE_PHYSICS_HOME = /home/emotheau/GitCodes/PelePhysics_dev/
 
 #
 # Build configuration
