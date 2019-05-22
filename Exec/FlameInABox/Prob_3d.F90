@@ -3,8 +3,6 @@
 
 module prob_3D_module
 
-  use fuego_chemistry
-
   implicit none
 
   private

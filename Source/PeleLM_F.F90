@@ -15,7 +15,6 @@ module PeleLM_F
 
   use, intrinsic :: iso_c_binding
 
-  use fuego_chemistry
 
   implicit none
 

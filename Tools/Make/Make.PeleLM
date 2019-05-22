@@ -48,12 +48,10 @@ INCLUDE_LOCATIONS += $(REACTIONS_HOME) $(REACTIONS_PATH)
 VPATH_LOCATIONS   += $(REACTIONS_HOME) $(REACTIONS_PATH)
 ifdef Chemistry_Model
   CHEM_DIR = $(PELE_PHYSICS_HOME)/Support/Fuego/Mechanism/Models/$(Chemistry_Model)
-  CHEM_ALL = $(PELE_PHYSICS_HOME)/Support/Fuego/Mechanism/Models
   ifdef CHEM_DIR
-    VPATH_LOCATIONS += $(CHEM_DIR) $(CHEM_ALL)
-    Bpack += $(CHEM_DIR)/Make.package \
-             $(CHEM_ALL)/Make.package
-    Blocs += $(CHEM_DIR) $(CHEM_ALL)
+    VPATH_LOCATIONS += $(CHEM_DIR)
+    Bpack += $(CHEM_DIR)/Make.package
+    Blocs += $(CHEM_DIR)
   else
    $(error Invalid Chemistry_Model, $(Chemistry_Model))
   endif
