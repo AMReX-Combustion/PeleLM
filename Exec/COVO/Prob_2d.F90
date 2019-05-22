@@ -408,8 +408,8 @@ contains
             x = (float(i)+.5d0)*delta(1)+domnlo(1)
             
             scal(i,j,Temp) = T_mean
-            Yl(1) = 0.767
-            Yl(2) = 0.233
+            Yl(1) = 0.233
+            Yl(2) = 0.767
             
             do n = 1,Nspec
                scal(i,j,FirstSpec+n-1) = Yl(n)
