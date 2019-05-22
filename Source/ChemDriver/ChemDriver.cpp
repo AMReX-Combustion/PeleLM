@@ -550,7 +550,7 @@ Vector<Real>
 ChemDriver::elementAtomicWt() const
 {
     Vector<Real> awt(numElements());
-    CD_MWT(awt.dataPtr());
+    FORT_GETCKAWT(awt.dataPtr());
     return awt;
 }
 
