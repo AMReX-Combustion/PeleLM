@@ -32,3 +32,6 @@
   h_control = .0035
   changeMax_control = .2
  /
+ &extern
+  new_Jacobian_each_cell = 1
+ /
