@@ -455,11 +455,11 @@ PeleLM::variableSetUp ()
   //
   int counter   = Density;
   int RhoH      = -1;
-  int FirstSpec = -1;
+//  int FirstSpec = -1;
   int Trac      = -1;
   int RhoRT     = -1;
 
-  FirstSpec = ++counter;
+  first_spec = ++counter;
   pphys_get_num_spec(&nspecies);
   nreactions = pphys_numReactions();
   counter  += nspecies - 1;
@@ -594,18 +594,16 @@ PeleLM::variableSetUp ()
 
   for (int i = 0; i < nspecies; i++)
   {
-std::cout << "DEBUG 1 " << i << std::endl;
     bcs[i]  = bc;
     name[i] = "rho.Y(" + spec_names[i] + ")";
-std::cout << "DEBUG 0.1 " << spec_names[i] << std::endl;
-std::cout << "DEBUG 0.1.1 " << first_spec  << std::endl;
+
     desc_lst.setComponent(State_Type,
                           first_spec+i,
                           name[i].c_str(),
                           bc,
                           ChemBndryFunc(chem_fill,spec_names[i]),
                           &cell_cons_interp);
-std::cout << "DEBUG 0.2" << std::endl;
+
   }
   //
   // To enable "group" operations on filling species, we need to
@@ -655,7 +653,7 @@ std::cout << "DEBUG 0.2" << std::endl;
     diffusionType[i] = RhoInverse_Laplacian_S;
     is_diffusive[i]  = true;
   }
-std::cout << "DEBUG 2" << std::endl;
+
   if (do_mom_diff == 1)
     for (int d = 0; d < BL_SPACEDIM; d++)
       advectionType[Xvel+d] = Conservative;
