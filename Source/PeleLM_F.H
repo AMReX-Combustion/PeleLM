@@ -204,20 +204,18 @@ extern "C" {
                                const int* rhoDIsVar,   const amrex::Real* rhoDVal,
                                const amrex::Real* Pr, const amrex::Real* Sc, const int* unityLe);
 
-  void init_typcals_common();
-      
   void vel_visc(const int* lo, const int* hi,
-                const BL_FORT_FAB_ARG_3D(T),
-                const BL_FORT_FAB_ARG_3D(Y),
-                BL_FORT_FAB_ARG_3D(mu));
+                    ARLIM_P(tlo), ARLIM_P(thi), const amrex::Real* tempdat,
+                    ARLIM_P(slo), ARLIM_P(shi), const amrex::Real* specdat,
+                    ARLIM_P(blo), ARLIM_P(bhi), amrex::Real* betadat);
 
   void spec_temp_visc(const int* lo, const int* hi,
-                      const BL_FORT_FAB_ARG_3D(T),
-                      const BL_FORT_FAB_ARG_3D(Y),
-                      BL_FORT_FAB_ARG_3D(beta),
-                      const int* nCompD, const amrex::Real* P1ATM_MKS,
-                      const int* do_temp, const int* do_VelVisc, 
-                      const amrex::Real* Pamb_in);
+                         ARLIM_P(tlo), ARLIM_P(thi), const amrex::Real* tempdat,
+                         ARLIM_P(slo), ARLIM_P(shi), const amrex::Real* specdat,
+                         ARLIM_P(blo), ARLIM_P(bhi), amrex::Real* betadat,
+                         const int* nCompD, const amrex::Real* P1ATM_MKS,
+                         const int* do_temp, const int* do_VelVisc, 
+                         const amrex::Real* Pamb_in);
 
   void fab_minmax (const int* lo, const int* hi,
                       amrex::Real* fabdat, ARLIM_P(flo), ARLIM_P(fhi),
@@ -297,10 +295,6 @@ extern "C" {
                            const amrex::Real* wmac, ARLIM_P(wmac_lo),  ARLIM_P(wmac_hi),
 #endif
                            const int* lo, const int* hi, const amrex::Real* dx);
-
-  void get_typical_vals(amrex::Real* vals, const int* nVals);
-
-  void set_typical_vals(const amrex::Real* vals, const int* nVals);
 
   int conservative_T_floor(const int* lo, const int* hi,
                                 amrex::Real* fabdat, ARLIM_P(flo), ARLIM_P(fhi),

@@ -175,6 +175,8 @@ int PeleLM::num_mac_sync_iter;
 int PeleLM::mHtoTiterMAX;
 Vector<amrex::Real> PeleLM::mTmpData;
 
+std::string  PeleLM::probin_file = "probin";
+
 static
 std::string
 to_upper (const std::string& s)
@@ -508,7 +510,7 @@ PeleLM::getCpmixGivenTY_pphys(FArrayBox&       cpmix,
 
 
 int 
-PeleLM::getTGivenHY_pphys(FArrayBox&       T,
+PeleLM::getTGivenHY_pphys(FArrayBox&     T,
                         const FArrayBox& H,
                         const FArrayBox& Y,
                         const Box&       box,
@@ -760,6 +762,10 @@ PeleLM::Initialize ()
 
   for (int i = 0; i < visc_coef.size(); i++)
     visc_coef[i] = bogus_value;
+
+  // Get some useful amr inputs
+  ParmParse ppa("amr");
+  ppa.query("probin_file",probin_file);
 
   // Useful for debugging
   ParmParse pproot;
@@ -1278,8 +1284,6 @@ PeleLM::init_once ()
                           &var_diff, &constant_rhoD_val,
                           &prandtl,  &schmidt, &unity_Le);
 
-  // initialize fortran default typical values
-  init_typcals_common();
   //
   // make space for typical values
   //
@@ -4205,8 +4209,6 @@ PeleLM::compute_rhoRT (const MultiFab& S,
   
       for (int k = 0; k < nCompY; k++)
         sfab.mult(tmp,box,0,sCompY+k,1);
-  
-        state.mult(tmp,box,0,sCompY+k,1);
   
       getPGivenRTY_pphys(p[mfi],sfab,sfab,sfab,box,sCompR,sCompT,sCompY,pComp);
     }
@@ -7567,8 +7569,7 @@ PeleLM::RhoH_to_Temp (MultiFab& S,
   htt_hmixTYP = htt_hmixTYP_SAVE;
 }
 
-static
-int RhoH_to_Temp_DoIt(FArrayBox&       Tfab,
+int PeleLM::RhoH_to_Temp_DoIt(FArrayBox&       Tfab,
                       const FArrayBox& Hfab,
                       const FArrayBox& Yfab,
                       const Box&       box,
@@ -7581,7 +7582,7 @@ int RhoH_to_Temp_DoIt(FArrayBox&       Tfab,
   const Real eps = 1.0e-8; //getHtoTerrMAX_pphys();
   Real errMAX = eps*htt_hmixTYP;
 
-  int iters = getTGivenHY_pphys(Tfab,Hfab,Yfab,box,sCompH,sCompY,dCompT, errMAX);
+  int iters = getTGivenHY_pphys(Tfab,Hfab,Yfab,box,sCompH,sCompY,dCompT,errMAX);
 
   if (iters < 0)
     amrex::Error("PeleLM::RhoH_to_Temp(fab): error in H->T");
