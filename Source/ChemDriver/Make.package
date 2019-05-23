@@ -1,6 +1,2 @@
 
-CEXE_sources += ChemDriver.cpp
-CEXE_headers += ChemDriver.H
-F90EXE_sources += ChemDriver_F.F90 ChemDriver_$(DIM)D.F90 vode.F90
-FEXE_headers += ChemDriver_F.H cdwrk.H conp.H vode.H
-fEXE_sources += math_d.f ChemDriver_EG.f EGSlib.f EGini.f tranlib_d.f
+FEXE_headers += cdwrk.H conp.H 

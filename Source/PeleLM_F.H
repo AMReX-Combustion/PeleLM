@@ -4,10 +4,106 @@
 #ifndef BL_LANG_FORT
 
 #include <AMReX_ArrayLim.H>
+#include <AMReX_BLFort.H>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+//PelePhysics stuffs
+
+//  int pphys_CONPsolv_SDC(const int* lo, const int* hi,
+//	                 amrex::Real* rhoYnew, ARLIM_P(rhoYnlo), ARLIM_P(rhoYnhi),
+//	                 amrex::Real* rhoHnew, ARLIM_P(rhoHnlo), ARLIM_P(rhoHnhi),
+//	                 amrex::Real* Tnew, ARLIM_P(Tnlo), ARLIM_P(Tnhi),
+//	                 const amrex::Real* rhoYold, ARLIM_P(rhoYolo), ARLIM_P(rhoYohi),
+//	                 const amrex::Real* rhoHold, ARLIM_P(rhoHolo), ARLIM_P(rhoHohi),
+//	                 const amrex::Real* Told, ARLIM_P(Tolo), ARLIM_P(Tohi),
+//	                 const amrex::Real* const_src, ARLIM_P(cslo), ARLIM_P(cshi),
+//	                 amrex::Real* FuncCount, ARLIM_P(FuncCountlo), ARLIM_P(FuncCounthi),
+//	                 const amrex::Real* dt, amrex::Real* diag, 
+//                         const int* do_diag, const int* do_stiff);
+
+  void pphys_RRATERHOY(const int* lo, const int* hi,
+                        const amrex::Real* RhoY, ARLIM_P(RhoYlo),    ARLIM_P(RhoYhi),
+                        const amrex::Real* RhoH, ARLIM_P(RhoHlo),    ARLIM_P(RhoHhi),
+                        const amrex::Real* T,    ARLIM_P(Tlo),       ARLIM_P(Thi),
+                        amrex::Real*    RhoYdot, ARLIM_P(RhoYdotlo), ARLIM_P(RhoYdothi) );
+
+  void pphys_PfromRTY(const int* lo, const int* hi,
+		       amrex::Real*       P, ARLIM_P(Plo), ARLIM_P(Phi),
+		       const amrex::Real* R, ARLIM_P(Rlo), ARLIM_P(Rhi),
+		       const amrex::Real* T, ARLIM_P(Tlo), ARLIM_P(Thi),
+		       const amrex::Real* Y, ARLIM_P(Ylo), ARLIM_P(Yhi));
+
+  void pphys_HMIXfromTY(const int* lo, const int* hi,
+			 amrex::Real*    HMIX, ARLIM_P(Hlo), ARLIM_P(Hhi),
+			 const amrex::Real* T, ARLIM_P(Tlo), ARLIM_P(Thi),
+			 const amrex::Real* Y, ARLIM_P(Ylo), ARLIM_P(Yhi));
+
+  void pphys_HfromT(const int* lo, const int* hi,
+		     amrex::Real*       H, ARLIM_P(Hlo), ARLIM_P(Hhi),
+		     const amrex::Real* T, ARLIM_P(Tlo), ARLIM_P(Thi));
+
+  void pphys_MWMIXfromY(const int* lo, const int* hi,
+			 amrex::Real*    MWMIX,ARLIM_P(MWlo),ARLIM_P(MWhi),
+			 const amrex::Real* Y, ARLIM_P(Ylo), ARLIM_P(Yhi));
+
+  void pphys_CPMIXfromTY(const int* lo, const int* hi,
+                         BL_FORT_FAB_ARG_3D(CPMIX),
+                         const BL_FORT_FAB_ARG_3D(T),
+                         const BL_FORT_FAB_ARG_3D(Y));
+
+  int pphys_TfromHY(const int* lo, const int* hi,
+		     amrex::Real* T,       ARLIM_P(Tlo), ARLIM_P(Thi),
+		     const amrex::Real* h, ARLIM_P(hlo), ARLIM_P(hhi),
+		     const amrex::Real* Y, ARLIM_P(Ylo), ARLIM_P(Yhi),
+		     const amrex::Real* errMAX, const int* NiterMAX,const amrex::Real* tmp);
+
+  //void pphys_TfromHYpt(amrex::Real* T, const amrex::Real* Hin, const amrex::Real* Yin,
+  //                      const amrex::Real* errMAX, const int* NiterMAX, const amrex::Real* res,
+  //                      int* Niter);
+
+  void pphys_network_init();
+
+  void pphys_network_close();
+
+#ifndef AMREX_USE_SUNDIALS_3x4x 
+  int reactor_init(const int* cvode_iE);
+
+  int react(amrex::Real *rY_in, amrex::Real *rY_src_in, 
+		  amrex::Real *rX_in, amrex::Real *rX_src_in,
+		  amrex::Real *P_in,  amrex::Real *dt_react, amrex::Real *time, int *Init);
+#endif
+
+  //void pphys_reactor_close();
+
+  void pphys_transport_init(int* ieg);
+
+  void pphys_transport_close();
+
+  void plm_extern_init(const int* name, const int* namlen);
+
+  void pphys_get_num_spec(int* nspec);
+
+  void pphys_get_spec_name(int* spec_names, 
+                            int* ispec, 
+                            int* len);
+
+  void pphys_get_spec_index(int* spec,
+                            int* len,
+                            int* idx);
+
+  amrex::Real pphys_getRuniversal();
+
+  amrex::Real pphys_getP1atm_MKS();
+
+  int pphys_numReactions();
+
+  void pphys_set_verbose_vode ();
+
+  void pphys_calc_src_sdc(int* n, amrex::Real* time,  amrex::Real* temp, 
+		          amrex::Real* Z, amrex::Real* ZP);
 
   void active_control(const amrex::Real* fuelmass,
                           const amrex::Real* time,
@@ -111,17 +207,17 @@ extern "C" {
   void init_typcals_common();
       
   void vel_visc(const int* lo, const int* hi,
-                    ARLIM_P(tlo), ARLIM_P(thi), const amrex::Real* tempdat,
-                    ARLIM_P(slo), ARLIM_P(shi), const amrex::Real* specdat,
-                    ARLIM_P(blo), ARLIM_P(bhi), amrex::Real* betadat);
+                const BL_FORT_FAB_ARG_3D(T),
+                const BL_FORT_FAB_ARG_3D(Y),
+                BL_FORT_FAB_ARG_3D(mu));
 
   void spec_temp_visc(const int* lo, const int* hi,
-                         ARLIM_P(tlo), ARLIM_P(thi), const amrex::Real* tempdat,
-                         ARLIM_P(slo), ARLIM_P(shi), const amrex::Real* specdat,
-                         ARLIM_P(blo), ARLIM_P(bhi), amrex::Real* betadat,
-                         const int* nCompD, const amrex::Real* P1ATM_MKS,
-                         const int* do_temp, const int* do_VelVisc, 
-                         const amrex::Real* Pamb_in);
+                      const BL_FORT_FAB_ARG_3D(T),
+                      const BL_FORT_FAB_ARG_3D(Y),
+                      BL_FORT_FAB_ARG_3D(beta),
+                      const int* nCompD, const amrex::Real* P1ATM_MKS,
+                      const int* do_temp, const int* do_VelVisc, 
+                      const amrex::Real* Pamb_in);
 
   void fab_minmax (const int* lo, const int* hi,
                       amrex::Real* fabdat, ARLIM_P(flo), ARLIM_P(fhi),
@@ -202,15 +298,9 @@ extern "C" {
 #endif
                            const int* lo, const int* hi, const amrex::Real* dx);
 
-  void htdd_relax(const int* lo, const int* hi,
-                      amrex::Real* s, ARLIM_P(slo),  ARLIM_P(shi),
-                      const int& sCompY, const int& sCompT,
-                      const int& sCompH, const int& sCompR,
-                      const amrex::Real* L, ARLIM_P(Llo),  ARLIM_P(Lhi),
-                      const amrex::Real* a, ARLIM_P(alo),  ARLIM_P(ahi),
-                      const amrex::Real* r, ARLIM_P(rlo),  ARLIM_P(rhi),
-                      const amrex::Real& thetaDt, const amrex::Real* fac, amrex::Real* maxRes, amrex::Real* maxCor,
-                      const int& for_T0_H1, const int& res_only, const amrex::Real& mult);
+  void get_typical_vals(amrex::Real* vals, const int* nVals);
+
+  void set_typical_vals(const amrex::Real* vals, const int* nVals);
 
   int conservative_T_floor(const int* lo, const int* hi,
                                 amrex::Real* fabdat, ARLIM_P(flo), ARLIM_P(fhi),

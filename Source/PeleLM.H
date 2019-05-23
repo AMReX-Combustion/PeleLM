@@ -4,7 +4,6 @@
 
 #include <AMReX_AuxBoundaryData.H>
 #include <NavierStokesBase.H>
-#include <ChemDriver.H>
 
 #include <list>
 #include <map>
@@ -123,7 +122,6 @@ public:
   //    PeleLM public static functions                                //
   ////////////////////////////////////////////////////////////////////////////
 
-  static ChemDriver& getChemSolve () { return *chemSolve; }
   //
   // Define data descriptors.
   //
@@ -134,6 +132,10 @@ public:
   // Cleanup data descriptors at end of run.
   //
   static void variableCleanUp ();
+
+  static void getSpeciesNames(amrex::Vector<std::string>& spn);
+
+  static int getSpeciesIdx(const std::string& spName);
     
 protected:
 
@@ -380,7 +382,90 @@ private:
                                     const FPLoc&     bc_hi);
 
   static void init_once ();
-    
+
+  static void init_extern ();
+
+  static void init_network ();
+
+  static void init_transport (int iEG);
+
+  //bool solveChemistry_sdc(amrex::FArrayBox&        rhoYnew,
+  //                          amrex::FArrayBox&        rhoHnew,
+  //                          amrex::FArrayBox&        Tnew,
+  //                          const amrex::FArrayBox&  rhoYold,
+  //                          const amrex::FArrayBox&  rhoHold,
+  //                          const amrex::FArrayBox&  Told,
+  //                          const amrex::FArrayBox&  const_src,
+  //                          amrex::FArrayBox&        FuncCount,
+  //                          const amrex::Box&        box,
+  //                          int               sComprhoY,
+  //                          int               sComprhoH,
+  //                          int               sCompT,
+  //                          amrex::Real              dt,
+  //                          amrex::FArrayBox*        chemDiag,
+  //                          bool              use_stiff_solver = true) const;
+
+  void reactionRateRhoY_pphys(amrex::FArrayBox&       RhoYdot,
+                          const amrex::FArrayBox& RhoY,
+                          const amrex::FArrayBox& RhoH,
+                          const amrex::FArrayBox& T,
+                          const amrex::Box&       box,
+                          int              sCompRhoY,
+                          int              sCompRhoH,
+                          int              sCompT,
+                          int              sCompRhoYdot) const;
+
+  void getPGivenRTY_pphys(amrex::FArrayBox&       p,
+                         const amrex::FArrayBox& Rho,
+                         const amrex::FArrayBox& T,
+                         const amrex::FArrayBox& Y,
+                         const amrex::Box&       box,
+                         int              sCompR,
+                         int              sCompT,
+                         int              sCompY,
+                         int              sCompP) const;
+
+  void getMwmixGivenY_pphys(amrex::FArrayBox&       mwmix,
+                         const amrex::FArrayBox& Y,
+                         const amrex::Box&       box,
+                         int              sCompY,
+                         int              sCompMw) const;
+
+  void getHmixGivenTY_pphys (amrex::FArrayBox&       hmix,
+                         const amrex::FArrayBox& T,
+                         const amrex::FArrayBox& Y,
+                         const amrex::Box&       box,
+                         int              sCompT,
+                         int              sCompY,
+                         int              sCompH) const;
+
+  void getHGivenT_pphys (amrex::FArrayBox&       h,
+                     const amrex::FArrayBox& T,
+                     const amrex::Box&       box,
+                     int              sCompT,
+                     int              sCompH) const;
+
+  void getCpmixGivenTY_pphys (amrex::FArrayBox&       cpmix,
+                          const amrex::FArrayBox& T,
+                          const amrex::FArrayBox& Y,
+                          const amrex::Box&       box,
+                          int              sCompT,
+                          int              sCompY,
+                          int              sCompCp) const;
+
+  static int getTGivenHY_pphys (amrex::FArrayBox&       T,
+                     const amrex::FArrayBox& H,
+                     const amrex::FArrayBox& Y,
+                     const amrex::Box&       box,
+                     int              sCompH,
+                     int              sCompY,
+                     int              sCompT,
+                     const amrex::Real&      errMAX = -1);
+
+  void HfromT_pphys(const int* lo, const int* hi,
+		     amrex::Real*       H, ARLIM_P(Hlo), ARLIM_P(Hhi),
+		     const amrex::Real* T, ARLIM_P(Tlo), ARLIM_P(Thi));
+
   static void RhoH_to_Temp (amrex::MultiFab& S,
                             int       nGrow = 0,
                             int       dominmax = false);
@@ -388,6 +473,15 @@ private:
   static int RhoH_to_Temp (amrex::FArrayBox& S,
                            const amrex::Box& box,
                            int        dominmax = false);
+
+  static int RhoH_to_Temp_DoIt(amrex::FArrayBox&       T,
+		  const amrex::FArrayBox& H,
+		  const amrex::FArrayBox& Y,
+		  const amrex::Box&       box,
+		  int              sCompH, 
+		  int              sCompY,
+		  int              sCompT,  
+		  const amrex::Real&      htt_hmixTYP );
 
 
   ////////////////////////////////////////////////////////////////////////////
@@ -453,14 +547,15 @@ private:
   static int         first_spec;
   static int         last_spec;
   static int         nspecies;
+  static int         nreactions;
+  static amrex::Vector<std::string> spec_names;
   static int         floor_species;
-  static ChemDriver* chemSolve;
-  static amrex::Real rgas;
-  static amrex::Real prandtl;
-  static amrex::Real schmidt;
-  static amrex::Real constant_mu_val;
-  static amrex::Real constant_rhoD_val;
-  static amrex::Real constant_lambda_val;
+  static amrex::Real        rgas;
+  static amrex::Real        prandtl;
+  static amrex::Real        schmidt;
+  static amrex::Real        constant_mu_val;
+  static amrex::Real        constant_rhoD_val;
+  static amrex::Real        constant_lambda_val;
   static int         do_diffuse_sync;
   static int         do_reflux_visc;
   static int         dpdt_option;
@@ -486,8 +581,15 @@ private:
   static std::map<std::string,amrex::Real> typical_values_FileVals;
   static int         sdc_iterMAX;
   static int         num_mac_sync_iter;
-    
+  static int         iter_debug;
+  static int         mHtoTiterMAX;
+  static amrex::Vector<amrex::Real> mTmpData;
+
+  static int  cvode_iE;
+
   static int nGrowAdvForcing;
+
+  static std::string probin_file;
 };
 
 #endif /*_PeleLM_H_*/

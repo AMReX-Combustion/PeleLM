@@ -37,7 +37,8 @@ contains
   subroutine amrex_probinit (init,name,namlen,problo,probhi) bind(c)
   
       
-      use chem_driver, only: P1ATMMKS
+      use network,   only: nspec
+      use PeleLM_F,  only: pphys_getP1atm_MKS
       
       implicit none
       integer init, namlen
@@ -45,8 +46,8 @@ contains
       integer untin
       REAL_T problo(SDIM), probhi(SDIM)
 
-#include <probdata.H>
 #include <cdwrk.H>
+#include <probdata.H>
 #include <htdata.H>
 #include <bc.H>
 #if defined(BL_DO_FLCT)
@@ -155,7 +156,7 @@ contains
       max_vort_lev = 0
       max_trac_lev = 100
       traceSpecVal = 1.d-10
-      pamb = P1ATMMKS()
+      pamb = pphys_getP1atm_MKS()
       dpdt_factor = 0.3d0
       closed_chamber = 0
 
@@ -606,13 +607,15 @@ contains
 
   subroutine setupbc()bind(C, name="setupbc")
   
-      use chem_driver, only: P1ATMMKS
-      use chem_driver_3D, only: RHOfromPTY, HMIXfromTY
-      use probspec_module, only: set_Y_from_Phi
+    use network,   only: nspec
+    use PeleLM_F, only: pphys_getP1atm_MKS
+    use PeleLM_3D, only: pphys_RHOfromPTY, pphys_HMIXfromTY
+    use probspec_module, only: set_Y_from_Phi
   
       implicit none
       
 #include <cdwrk.H>
+#include <conp.H>
 #include <bc.H>
 #include <probdata.H>
 #include <htdata.H>
@@ -659,7 +662,7 @@ contains
                Xt(n) = pmf_vals(3+n)
             end do 
             
-            CALL CKXTY (Xt,  Yt)
+            CALL CKXTY (Xt, Yt)
 
             do n=1,Nspec
                Y_bc(n-1,zone) = Yt(n)
@@ -685,15 +688,16 @@ contains
       do zone=1,num_zones_defined
 !     Set density and hmix consistent with data
 
-         call RHOfromPTY(b, b, &
+         call pphys_RHOfromPTY(b, b, &
                              rho_bc(zone), DIMARG(b), DIMARG(b), &
                              T_bc(zone),   DIMARG(b), DIMARG(b), &
                              Y_bc(0,zone), DIMARG(b), DIMARG(b), Patm)
-         call HMIXfromTY(b, b, &
+         call pphys_HMIXfromTY(b, b, &
                              h_bc(zone),   DIMARG(b), DIMARG(b), &
                              T_bc(zone),   DIMARG(b), DIMARG(b), &
                              Y_bc(0,zone), DIMARG(b), DIMARG(b))
       enddo
+
       bcinit = .true.
 
   end subroutine setupbc
@@ -703,6 +707,7 @@ contains
   integer function getZone(x, y,z)bind(C, name="getZone")
 
       implicit none
+
 #include <cdwrk.H>
 #include <bc.H>
 #include <probdata.H>
@@ -739,6 +744,8 @@ contains
 
   subroutine bcfunction(x,y,z,time,u,v,w,rho,Yl,T,h,dx,getuvw) &
                         bind(C, name="bcfunction")
+
+      use network,   only: nspec
 
       implicit none
 
@@ -803,8 +810,9 @@ contains
                                  delta,xlo,xhi)&
                                  bind(C, name="init_data_new_mech")
           
-      use chem_driver, only: P1ATMMKS
-      use chem_driver_3D, only: RHOfromPTY, HMIXfromTY
+      use network,   only: nspec
+      use PeleLM_F,  only: pphys_getP1atm_MKS
+      use PeleLM_3D, only: pphys_RHOfromPTY, pphys_HMIXfromTY
       
       implicit none
       integer  level, nscal
@@ -835,12 +843,12 @@ contains
  
       Patm = pamb / 101325.0d0
  
-      call RHOfromPTY(lo,hi, &
+      call pphys_RHOfromPTY(lo,hi, &
           scal(ARG_L1(state),ARG_L2(state),ARG_L3(state),Density),  DIMS(state), &
           scal(ARG_L1(state),ARG_L2(state),ARG_L3(state),Temp),     DIMS(state), &
           scal(ARG_L1(state),ARG_L2(state),ARG_L3(state),FirstSpec),DIMS(state), &
           Patm)
-      call HMIXfromTY(lo,hi, &
+      call pphys_HMIXfromTY(lo,hi, &
           scal(ARG_L1(state),ARG_L2(state),ARG_L3(state),RhoH),     DIMS(state), &
           scal(ARG_L1(state),ARG_L2(state),ARG_L3(state),Temp),     DIMS(state), &
           scal(ARG_L1(state),ARG_L2(state),ARG_L3(state),FirstSpec),DIMS(state))
@@ -858,42 +866,42 @@ contains
  
   end subroutine init_data_new_mech
 
-!c ::: -----------------------------------------------------------
-!c ::: This routine is called at problem setup time and is used
-!c ::: to initialize data on each grid.  The velocity field you
-!c ::: provide does not have to be divergence free and the pressure
-!c ::: field need not be set.  A subsequent projection iteration
-!c ::: will define aa divergence free velocity field along with a
-!c ::: consistant pressure.
-!c ::: 
-!c ::: NOTE:  all arrays have one cell of ghost zones surrounding
-!c :::        the grid interior.  Values in these cells need not
-!c :::        be set here.
-!c ::: 
-!c ::: INPUTS/OUTPUTS:
-!c ::: 
-!c ::: level     => amr level of grid
-!c ::: time      => time at which to init data             
-!c ::: lo,hi     => index limits of grid interior (cell centered)
-!c ::: nscal     => number of scalar quantities.  You should know
-!c :::		   this already!
-!c ::: vel      <=  Velocity array
-!c ::: scal     <=  Scalar array
-!c ::: press    <=  Pressure array
-!c ::: delta     => cell size
-!c ::: xlo,xhi   => physical locations of lower left and upper
-!c :::              right hand corner of grid.  (does not include
-!c :::		   ghost region).
-!c ::: -----------------------------------------------------------
+! ::: -----------------------------------------------------------
+! ::: This routine is called at problem setup time and is used
+! ::: to initialize data on each grid.  The velocity field you
+! ::: provide does not have to be divergence free and the pressure
+! ::: field need not be set.  A subsequent projection iteration
+! ::: will define aa divergence free velocity field along with a
+! ::: consistant pressure.
+! ::: 
+! ::: NOTE:  all arrays have one cell of ghost zones surrounding
+! :::        the grid interior.  Values in these cells need not
+! :::        be set here.
+! ::: 
+! ::: INPUTS/OUTPUTS:
+! ::: 
+! ::: level     => amr level of grid
+! ::: time      => time at which to init data             
+! ::: lo,hi     => index limits of grid interior (cell centered)
+! ::: nscal     => number of scalar quantities.  You should know
+! :::		   this already!
+! ::: vel      <=  Velocity array
+! ::: scal     <=  Scalar array
+! ::: press    <=  Pressure array
+! ::: delta     => cell size
+! ::: xlo,xhi   => physical locations of lower left and upper
+! :::              right hand corner of grid.  (does not include
+! :::		   ghost region).
+! ::: -----------------------------------------------------------
 
   subroutine init_data(level,time,lo,hi,nscal, &
      	 	               vel,scal,DIMS(state),press,DIMS(press), &
                        delta,xlo,xhi) &
                        bind(C, name="init_data")
                        
-      use chem_driver, only: P1ATMMKS
-      use chem_driver_3D, only: RHOfromPTY, HMIXfromTY
-      use chem_driver, only: get_spec_name
+      use network,   only: nspec
+      use PeleLM_F,  only: pphys_getP1atm_MKS, pphys_get_spec_name2
+      use PeleLM_3D, only: pphys_RHOfromPTY, pphys_HMIXfromTY
       
       implicit none
       integer    level,nscal
@@ -986,15 +994,15 @@ contains
 
       endif
 
-      Patm = pamb / P1ATMMKS()
+      Patm = pamb / pphys_getP1atm_MKS()
 
-      call RHOfromPTY(lo,hi, &
+      call pphys_RHOfromPTY(lo,hi, &
           scal(ARG_L1(state),ARG_L2(state),ARG_L3(state),Density),  DIMS(state), &
           scal(ARG_L1(state),ARG_L2(state),ARG_L3(state),Temp),     DIMS(state), &
           scal(ARG_L1(state),ARG_L2(state),ARG_L3(state),FirstSpec),DIMS(state), &
           Patm)
 
-      call HMIXfromTY(lo,hi, &
+      call pphys_HMIXfromTY(lo,hi, &
           scal(ARG_L1(state),ARG_L2(state),ARG_L3(state),RhoH),     DIMS(state), &
           scal(ARG_L1(state),ARG_L2(state),ARG_L3(state),Temp),     DIMS(state), &
           scal(ARG_L1(state),ARG_L2(state),ARG_L3(state),FirstSpec),DIMS(state))
@@ -2932,6 +2940,8 @@ subroutine zero_visc(diff,DIMS(diff),lo,hi,domlo,domhi, &
   subroutine all_chem_fill(rhoY,DIMS(rhoY),domlo,domhi,delta, &
                            xlo,time,bc) &
                            bind(C, name="all_chem_fill")
+
+      use network,   only: nspec
 
       implicit none
 

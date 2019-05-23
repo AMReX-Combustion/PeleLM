@@ -37,7 +37,8 @@ contains
   subroutine amrex_probinit (init,name,namlen,problo,probhi) bind(c)
   
       
-      use chem_driver, only: P1ATMMKS
+      use network,   only: nspec
+      use PeleLM_F,  only: pphys_getP1atm_MKS
       
       implicit none
       integer init, namlen
@@ -155,7 +156,7 @@ contains
       max_vort_lev = 0
       max_trac_lev = 100
       traceSpecVal = 1.d-10
-      pamb = P1ATMMKS()
+      pamb = pphys_getP1atm_MKS()
       dpdt_factor = 0.3d0
       closed_chamber = 0
 
@@ -606,8 +607,9 @@ contains
   
   subroutine setupbc()bind(C, name="setupbc")
 
-    use chem_driver, only: P1ATMMKS
-    use chem_driver_2D, only: RHOfromPTY, HMIXfromTY
+    use network,   only: nspec
+    use PeleLM_F, only: pphys_getP1atm_MKS
+    use PeleLM_2D, only: pphys_RHOfromPTY, pphys_HMIXfromTY
     use probspec_module, only: set_Y_from_Phi
   
     implicit none
@@ -625,7 +627,7 @@ contains
     integer num_zones_defined, len
     data  b / 1, 1 /
       
-    Patm = pamb / P1ATMMKS()
+    Patm = pamb / pphys_getP1atm_MKS()
     num_zones_defined = 0
     len = len_trim(probtype)
     
@@ -688,8 +690,10 @@ contains
       do n = 1,Nspec
         Xt(n) = 0.d0
       end do 
-      Xt(iN2) = fuel_N2_vol_percent*1.d-2
-      Xt(fuelID) = 1.d0 - Xt(iN2)            
+
+      Xt(bathID) = fuel_N2_vol_percent*1.d-2
+      Xt(fuelID) = 1.d0 - Xt(bathID)            
+
       CALL CKXTY (Xt, Yt)
 
       do n=1,Nspec
@@ -704,7 +708,7 @@ contains
          Xt(n) = zero
       enddo
       Xt(oxidID) = 0.21d0
-      Xt(iN2)    = 1.d0 - Xt(oxidID)
+      Xt(bathID)    = 1.d0 - Xt(oxidID)
 
       CALL CKXTY (Xt, Yt)         
       do n=1,Nspec
@@ -728,11 +732,11 @@ contains
     do zone=1,num_zones_defined
 !     Set density and hmix consistent with data
 
-      call RHOfromPTY(b, b, &
+      call pphys_RHOfromPTY(b, b, &
                            rho_bc(zone), DIMARG(b), DIMARG(b), &
                            T_bc(zone),   DIMARG(b), DIMARG(b), &
                            Y_bc(0,zone), DIMARG(b), DIMARG(b), Patm)
-      call HMIXfromTY(b, b, &
+      call pphys_HMIXfromTY(b, b, &
                            h_bc(zone),   DIMARG(b), DIMARG(b), &
                            T_bc(zone),   DIMARG(b), DIMARG(b), &
                            Y_bc(0,zone), DIMARG(b), DIMARG(b))
@@ -789,6 +793,8 @@ contains
 
   subroutine bcfunction(x,y,time,u,v,rho,Yl,T,h,dx,getuv) &
                         bind(C, name="bcfunction")
+
+      use network,   only: nspec
 
       implicit none
 
@@ -879,8 +885,9 @@ contains
           delta,xlo,xhi)&
           bind(C, name="init_data_new_mech")
           
-      use chem_driver, only: P1ATMMKS
-      use chem_driver_2D, only: RHOfromPTY, HMIXfromTY
+      use network,   only: nspec
+      use PeleLM_F,  only: pphys_getP1atm_MKS
+      use PeleLM_2D, only: pphys_RHOfromPTY, pphys_HMIXfromTY
       
       implicit none
       integer  level, nscal
@@ -907,13 +914,13 @@ contains
          end do
       end do
  
-      Patm = pamb / P1ATMMKS()
-      call RHOfromPTY(lo,hi, &
+      Patm = pamb / pphys_getP1atm_MKS()
+      call pphys_RHOfromPTY(lo,hi, &
           scal(ARG_L1(state),ARG_L2(state),Density),  DIMS(state), &
           scal(ARG_L1(state),ARG_L2(state),Temp),     DIMS(state), &
           scal(ARG_L1(state),ARG_L2(state),FirstSpec),DIMS(state), &
           Patm)
-      call HMIXfromTY(lo,hi, &
+      call pphys_HMIXfromTY(lo,hi, &
           scal(ARG_L1(state),ARG_L2(state),RhoH),     DIMS(state), &
           scal(ARG_L1(state),ARG_L2(state),Temp),     DIMS(state), &
           scal(ARG_L1(state),ARG_L2(state),FirstSpec),DIMS(state)) 
@@ -962,9 +969,9 @@ contains
                            delta,xlo,xhi) &
                            bind(C, name="init_data")
                               
-      use chem_driver, only: P1ATMMKS
-      use chem_driver_2D, only: RHOfromPTY, HMIXfromTY
-      use chem_driver, only: get_spec_name
+      use network,   only: nspec
+      use PeleLM_F,  only: pphys_getP1atm_MKS, pphys_get_spec_name2
+      use PeleLM_2D, only: pphys_RHOfromPTY, pphys_HMIXfromTY
       
       implicit none
       integer    level, nscal
@@ -994,15 +1001,8 @@ contains
       character*(maxspnml) name
 
 !      write(6,*)" made it to initdata"
-      if (iN2.lt.1 .or. iN2.gt.Nspec) then
-         do n = 1,Nspec
-            call get_spec_name(name,n)
-            if (name .eq. 'N2' ) iN2 = n
-         end do
-         if (iN2.eq.-1) then
-            write(6,*) '.....warning: no N2 in chemistry species list'           
-            call bl_pd_abort()
-         endif
+      if (bathID.lt.1 .or. bathID.gt.Nspec) then
+         call bl_pd_abort()
       endif
 
       len = len_trim(probtype)
@@ -1038,7 +1038,7 @@ contains
                   Xl(n) = pmf_vals(3+n)
                end do 
                
-               CALL CKXTY (Xl,Yl)
+               CALL CKXTY (Xl, Yl)
                
                do n = 1,Nspec
                   scal(i,j,FirstSpec+n-1) = Yl(n)
@@ -1058,7 +1058,7 @@ contains
 
                do n=1,Nspec
 
-                  call get_spec_name(name,n)
+                  call pphys_get_spec_name2(name,n)
                   if (name .eq. 'O2' ) iO2 = n
                   if (name .eq. 'CO2' ) iCO2 = n
                   if (name .eq. 'H2O' ) iH2O = n
@@ -1073,7 +1073,7 @@ contains
                do n = 1,Nspec
                   Xl(n) = 0.d0
                end do 
-               Xl(iN2) = .7192d0
+               Xl(bathID) = .7192d0
                Xl(iO2) = 0.1128d0
                Xl(iCO2) = 0.0522d0
                Xl(iH2O) = 0.0784d0
@@ -1163,16 +1163,16 @@ contains
          enddo
       endif
 
-      Patm = pamb / P1ATMMKS()
+      Patm = pamb / pphys_getP1atm_MKS()
 !      write(6,*)"Patm",Patm
 
-      call RHOfromPTY(lo,hi, &
+      call pphys_RHOfromPTY(lo,hi, &
           scal(ARG_L1(state),ARG_L2(state),Density),  DIMS(state), &
           scal(ARG_L1(state),ARG_L2(state),Temp),     DIMS(state), &
           scal(ARG_L1(state),ARG_L2(state),FirstSpec),DIMS(state), &
           Patm)
 
-      call HMIXfromTY(lo,hi, &
+      call pphys_HMIXfromTY(lo,hi, &
           scal(ARG_L1(state),ARG_L2(state),RhoH),     DIMS(state), &
           scal(ARG_L1(state),ARG_L2(state),Temp),     DIMS(state), &
           scal(ARG_L1(state),ARG_L2(state),FirstSpec),DIMS(state)) 
@@ -1915,7 +1915,10 @@ contains
                             xlo,time,bc)&
                             bind(C, name="all_chem_fill")
 
+      use network,  only: nspec
+
       implicit none
+
 #include <cdwrk.H>
 #include <bc.H>
 #include <probdata.H>
@@ -1927,7 +1930,7 @@ contains
 
       integer n
       
-      do n=1,Nspec
+      do n=1,nspec
          call chem_fill (rhoY(ARG_L1(rhoY),ARG_L2(rhoY),n), &
              DIMS(rhoY),domlo,domhi,delta,xlo,time,bc(1,1,n),n-1)
       enddo
