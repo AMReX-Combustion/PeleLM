@@ -1271,7 +1271,7 @@ contains
 
 !-------------------------------------------------
 
-  subroutine spec_temp_visc(lo,hi, &
+    subroutine spec_temp_visc(lo,hi, &
                             T, T_lo, T_hi, &
                             Y, Y_lo, Y_hi, &
                             rhoD, rhoD_lo, rhoD_hi, &
@@ -1287,6 +1287,7 @@ contains
 #include <visc.H>
 #include <htdata.H>
 
+
     integer         , intent(in   ) ::     lo(3),    hi(3)
     integer         , intent(in   ) ::   T_lo(3),  T_hi(3)
     integer         , intent(in   ) ::   Y_lo(3),  Y_hi(3)
@@ -1296,7 +1297,7 @@ contains
     REAL_T, intent(out  ) :: rhoD(rhoD_lo(1):rhoD_hi(1),rhoD_lo(2):rhoD_hi(2),rhoD_lo(3):rhoD_hi(3),nspec+2)
     integer ncompd, do_temp, do_VelVisc
     REAL_T  Pamb_in, P1ATM_MKS
-      
+ 
     integer i, j, k, n, nc, ncs
     REAL_T  Patm, Wavg
     REAL_T  Yt(nspec), invmwt(nspec)

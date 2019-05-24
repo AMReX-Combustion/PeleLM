@@ -7083,12 +7083,12 @@ PeleLM::calcDiffusivity (const Real time)
     const int nc_bcen = nspecies+2; 
     int       dotemp  = 1;
     bcen.resize(gbox,nc_bcen);
-        
-    spec_temp_visc(gbox.loVect(),gbox.hiVect(),
-                      ARLIM(Tfab.loVect()),ARLIM(Tfab.hiVect()),Tfab.dataPtr(),
-                      ARLIM(RYfab.loVect()),ARLIM(RYfab.hiVect()),RYfab.dataPtr(1),
-                      ARLIM(bcen.loVect()),ARLIM(bcen.hiVect()),bcen.dataPtr(),
-                      &nc_bcen, &P1atm_MKS, &dotemp, &vflag, &p_amb);
+    
+    spec_temp_visc(BL_TO_FORTRAN_BOX(gbox),
+                   BL_TO_FORTRAN_N_3D(Temp_mf[mfi],0),
+                   BL_TO_FORTRAN_N_3D(Rho_and_spec_mf[mfi],1),
+                   BL_TO_FORTRAN_N_3D(bcen,0),
+                   &nc_bcen, &P1atm_MKS, &dotemp, &vflag, &p_amb);    
         
     FArrayBox& Dfab = diff[mfi];
 
@@ -7333,12 +7333,10 @@ PeleLM::compute_vel_visc (Real      time,
     for (int n = 1; n < nspecies+1; ++n)
       rho_and_spec.mult(tmp,box,0,n,1);
 
-    vel_visc(box.loVect(),box.hiVect(),
-                 ARLIM(temp.loVect()),ARLIM(temp.hiVect()),temp.dataPtr(),
-                 ARLIM(rho_and_spec.loVect()),ARLIM(rho_and_spec.hiVect()),
-                 rho_and_spec.dataPtr(1),
-                 ARLIM(tmp.loVect()),ARLIM(tmp.hiVect()),tmp.dataPtr());
-
+    vel_visc(BL_TO_FORTRAN_BOX(box),
+             BL_TO_FORTRAN_N_3D(temp,0),
+             BL_TO_FORTRAN_N_3D(rho_and_spec,1),
+             BL_TO_FORTRAN_N_3D(tmp,0));
 
     (*beta)[mfi].copy(tmp,box,0,box,0,1);
   }

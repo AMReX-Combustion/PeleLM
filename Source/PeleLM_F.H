@@ -205,17 +205,17 @@ extern "C" {
                                const amrex::Real* Pr, const amrex::Real* Sc, const int* unityLe);
 
   void vel_visc(const int* lo, const int* hi,
-                    ARLIM_P(tlo), ARLIM_P(thi), const amrex::Real* tempdat,
-                    ARLIM_P(slo), ARLIM_P(shi), const amrex::Real* specdat,
-                    ARLIM_P(blo), ARLIM_P(bhi), amrex::Real* betadat);
+                const BL_FORT_FAB_ARG_3D(T),
+                const BL_FORT_FAB_ARG_3D(Y),
+                BL_FORT_FAB_ARG_3D(mu));
 
   void spec_temp_visc(const int* lo, const int* hi,
-                         ARLIM_P(tlo), ARLIM_P(thi), const amrex::Real* tempdat,
-                         ARLIM_P(slo), ARLIM_P(shi), const amrex::Real* specdat,
-                         ARLIM_P(blo), ARLIM_P(bhi), amrex::Real* betadat,
-                         const int* nCompD, const amrex::Real* P1ATM_MKS,
-                         const int* do_temp, const int* do_VelVisc, 
-                         const amrex::Real* Pamb_in);
+                      const BL_FORT_FAB_ARG_3D(T),
+                      const BL_FORT_FAB_ARG_3D(Y),
+                      BL_FORT_FAB_ARG_3D(beta),
+                      const int* nCompD, const amrex::Real* P1ATM_MKS,
+                      const int* do_temp, const int* do_VelVisc, 
+                      const amrex::Real* Pamb_in);
 
   void fab_minmax (const int* lo, const int* hi,
                       amrex::Real* fabdat, ARLIM_P(flo), ARLIM_P(fhi),
