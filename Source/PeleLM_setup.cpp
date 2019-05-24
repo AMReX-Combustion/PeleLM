@@ -454,10 +454,10 @@ PeleLM::variableSetUp ()
   // Set state variable Id's (Density and velocities set already).
   //
   int counter   = Density;
-  int RhoH      = -1;
+//  int RhoH      = -1;
 //  int FirstSpec = -1;
-  int Trac      = -1;
-  int RhoRT     = -1;
+//  int Trac      = -1;
+//  int RhoRT     = -1;
 
   first_spec = ++counter;
   pphys_get_num_spec(&nspecies);
