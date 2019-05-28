@@ -48,6 +48,7 @@ ifeq ($(Chemistry_Model), LIDRYER)
 endif
 ifeq ($(Chemistry_Model), AIR)
   CHEM_DIR = $(CHEM_HOME)/air
+endif
 ifeq ($(Chemistry_Model), FFCM1_Red)
   CHEM_DIR = $(CHEM_HOME)/FFCM1_Red
 endif
