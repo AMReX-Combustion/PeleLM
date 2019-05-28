@@ -60,7 +60,9 @@
       save /inflow1/, /inflow2/, /inflow3/
 
 !		Convected vortex data
-		REAL_T :: u_mean, T_mean, P_mean
-		REAL_T :: xvort, yvort, rvort, forcevort
-		common /covo/ u_mean, T_mean, P_mean, xvort, yvort, rvort, forcevort
+		INTEGER :: meanFlowDir
+		REAL_T  :: meanFlowMag
+		REAL_T  :: T_mean, P_mean
+		REAL_T  :: xvort, yvort, rvort, forcevort
+		common /covo/ meanFlowDir, meanFlowMag, T_mean, P_mean, xvort, yvort, rvort, forcevort
 		save /covo/

@@ -1,12 +1,11 @@
 #----------------------------TOP LEVEL INPUTS----------------------
 max_step  =  10000
-max_step  =  10000
-stop_time = 0.1
+max_step  =  5000
+stop_time = 0.04
 
 #--------------------------MISC/UNSORTED INPUTS-----------------------------
 ns.do_active_control = 0
 
-mg.smooth_on_cg_unstable=1
 
 ns.do_fillPatchUMAC=1
 ns.zeroBndryVisc=1
@@ -21,6 +20,7 @@ ht.plot_ydot=0
 ht.plot_auxDiags = 1
 
 # multigrid class
+mg.smooth_on_cg_unstable=1
 mg.usecg = 1
 cg.v = 0
 cg.isExpert=1
@@ -47,7 +47,7 @@ amr.n_cell    = 64 64 64
 amr.n_cell    = 128 128 128
 
 amr.v=1
-amr.max_level =  1            # maximum level number allowed
+amr.max_level =  0            # maximum level number allowed
 amr.ref_ratio       = 2 2 2 2 # refinement ratio
 amr.regrid_int      = 2       # how often to regrid
 amr.n_error_buf     = 1 1 1 2 # number of buffer cells in error est
@@ -59,7 +59,7 @@ amr.checkpoint_files_output = 0
 amr.check_file      = chk     # root name of checkpoint file
 amr.check_int       = 5       # number of timesteps between checkpoints
 
-amr.plot_file       = plt
+amr.plot_file       = plt128_
 amr.plot_int        = 200
 #amr.derive_plot_vars=rhoRT mag_vort particle_count mean_progress_curvature
 amr.derive_plot_vars=rhoRT mag_vort avg_pressure gradpx gradpy diveru
@@ -72,9 +72,9 @@ amr.probin_file = probin.3d.test # This will default to file "probin" if not set
 
 # ------------------  INPUTS TO PHYSICS CLASS -------------------
 ns.dt_cutoff       = 5.e-10   # level 0 timestep below which we halt
-ns.visc_tol        = 1.0e-14  # tolerence for viscous solves
-ns.visc_abs_tol    = 1.0e-14  # tolerence for viscous solves
-ns.cfl            = 0.7       # cfl number for hyperbolic system
+ns.visc_tol        = 1.0e-15  # tolerence for viscous solves
+ns.visc_abs_tol    = 1.0e-15  # tolerence for viscous solves
+ns.cfl            = 0.7     # cfl number for hyperbolic system
 ns.init_shrink    = 1.0       # scale back initial timestep
 ns.init_shrink    = 0.0001       # scale back initial timestep
 ns.change_max     = 1.1       # scale back initial timestep
@@ -91,6 +91,7 @@ ns.do_reflux      = 1        # 1 => do refluxing
 ns.do_mac_proj    = 1        # 1 => do MAC projection
 
 ns.constant_mu_val = 0.0
+#ns.constant_mu_val = 1.983e-3
 
 ns.do_sync_proj   = 1        # 1 => do Sync Project
 ns.do_MLsync_proj = 1
@@ -109,7 +110,7 @@ ns.divu_ceiling = 1
 ns.divu_dt_factor = .4
 ns.min_rho_divu_ceiling = .01
 
-ns.fuelName        = H2
+ns.fuelName        = N2
 ns.oxidizerName    = O2
 ns.unity_Le = 0
 
@@ -123,9 +124,9 @@ ns.dpdt_option = 0
 #ns.constant_rhoD_val = 0.0714286
 # ----------------  PROBLEM DEPENDENT INPUTS
 
-ns.lo_bc          = 0 3
-ns.hi_bc          = 0 3
-geometry.is_periodic = 1 0
+ns.lo_bc          = 0 0
+ns.hi_bc          = 0 0
+geometry.is_periodic = 1 1
 
 # >>>>>>>>>>>>>  BC FLAGS <<<<<<<<<<<<<<<<
 # 0 = Interior           3 = Symmetry
@@ -150,8 +151,8 @@ diffuse.Rhs_in_abs_tol = 1
 
 # ------------------  INPUTS TO PROJECTION CLASS -------------------
 proj.proj_tol       = 1.0e-1  # tolerence for projections
-proj.proj_tol       = 1.0e-11  # tolerence for projections
-proj.sync_tol       = 1.0e-8  # tolerence for projections
+proj.proj_tol       = 1.0e-12  # tolerence for projections
+proj.sync_tol       = 1.0e-10  # tolerence for projections
 proj.rho_wgt_vel_proj = 0      # 0 => const den proj, 1 => rho weighted
 proj.Pcode          = 0
 proj.filter_factor  = 0.0
@@ -160,8 +161,8 @@ proj.divu_minus_s_factor = .5
 proj.divu_minus_s_factor = 0.
 
 # ------------------  INPUTS TO MACPROJ CLASS -------------------
-mac.mac_tol        = 1.0e-9  # tolerence for mac projections
-mac.mac_sync_tol   = 1.0e-8   # tolerence for mac SYNC projection
+mac.mac_tol        = 1.0e-9 # tolerence for mac projections
+mac.mac_sync_tol   = 1.0e-8  # tolerence for mac SYNC projection
 mac.mac_abs_tol    = 1.0e-14
 mac.use_cg_solve   = 0
 mac.do_outflow_bcs = 0

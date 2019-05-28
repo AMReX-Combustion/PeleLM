@@ -63,7 +63,7 @@ contains
                        standoff, pertmag, nchemdiag, splitx, xfrontw, &
                        splity, yfrontw, blobx, bloby, blobz, blobr, &
                        blobT, Tfrontw, stTh, fuel_N2_vol_percent, &
-                       u_mean, T_mean, P_mean, &
+                       meanFlowDir, meanFlowMag, T_mean, P_mean, &
                        xvort, yvort, rvort, forcevort  
       namelist /heattransin/ pamb, dpdt_factor, closed_chamber
       namelist /control/ tau_control, sest, cfix, changeMax_control, h_control, &
@@ -124,7 +124,8 @@ contains
       dpdt_factor = 0.3d0
       closed_chamber = 0
 
-      u_mean = 1.0d0
+      meanFlowDir = 1.0
+      meanFlowMag = 1.0d0
       T_mean = 298.0d0
       P_mean = pamb
       xvort = 0.5
@@ -178,6 +179,18 @@ contains
  
       read(untin,control)
       close(unit=untin)
+
+!     Do some checks on COVO params     
+      IF (       meanFlowDir /= 1 .AND. meanFlowDir /= -1 &
+           .AND. meanFlowDir /= 2 .AND. meanFlowDir /= -2 &
+           .AND. meanFlowDir /= 3 .AND. meanFlowDir /= -3  ) THEN
+          WRITE(*,*) " meanFlowDir should be either: "
+          WRITE(*,*) " +/-1 for x direction" 
+          WRITE(*,*) " +/-2 for y direction" 
+          WRITE(*,*) " +/-3 for diagonal direction" 
+          WRITE(*,*) " Note: the mean flow direction(s) must be periodic "
+          CALL bl_abort('Correct meanFlowDir value !')
+      END IF
 
 !     Set up boundary functions
       call setupbc()
@@ -425,10 +438,27 @@ contains
             u_vort = -forcevort*dy/r_sq * exp(-d_sq/r_sq/two)
             v_vort = forcevort*dx/r_sq * exp(-d_sq/r_sq/two)
 
-            vel(i,j,1) = u_mean + u_vort
-            vel(i,j,2) = v_vort
+            SELECT CASE ( meanFlowDir )
+               CASE (1)
+                  vel(i,j,1) = meanFlowMag + u_vort
+                  vel(i,j,2) = v_vort
+               CASE (-1)
+                  vel(i,j,1) = -meanFlowMag + u_vort
+                  vel(i,j,2) = v_vort
+               CASE (2)
+                  vel(i,j,1) = u_vort
+                  vel(i,j,2) = meanFlowMag + v_vort
+               CASE (-2)
+                  vel(i,j,1) = u_vort
+                  vel(i,j,2) = -meanFlowMag + v_vort
+               CASE (3)
+                  vel(i,j,1) = meanFlowMag + u_vort
+                  vel(i,j,2) = meanFlowMag + v_vort
+               CASE (-3)
+                  vel(i,j,1) = -meanFlowMag + u_vort
+                  vel(i,j,2) = -meanFlowMag + v_vort
+            END SELECT
 
-            
          end do
       end do
 
