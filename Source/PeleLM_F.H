@@ -135,14 +135,6 @@ extern "C" {
 
   void enth_diff_terms(const int* lo, const int* hi, 
                             const int* dlo, const int* dhi, const amrex::Real* dx,
-                            const int* lo_x, const int* hi_x,
-                            const int* dlo_x, const int* dhi_x,
-                            const int* lo_y, const int* hi_y,
-                            const int* dlo_y, const int* dhi_y,
-#if BL_SPACEDIM == 3
-                            const int* lo_z, const int* hi_z,
-                            const int* dlo_z, const int* dhi_z,
-#endif
                             const amrex::Real* T, ARLIM_P(Tlo),  ARLIM_P(Thi),
                             const amrex::Real* RhoY, ARLIM_P(rYlo),  ARLIM_P(rYhi),
 
@@ -219,10 +211,6 @@ extern "C" {
                       const amrex::Real* r, ARLIM_P(rlo),  ARLIM_P(rhi),
                       const amrex::Real& thetaDt, const amrex::Real* fac, amrex::Real* maxRes, amrex::Real* maxCor,
                       const int& for_T0_H1, const int& res_only, const amrex::Real& mult);
-
-  void get_typical_vals(amrex::Real* vals, const int* nVals);
-
-  void set_typical_vals(const amrex::Real* vals, const int* nVals);
 
   int conservative_T_floor(const int* lo, const int* hi,
                                 amrex::Real* fabdat, ARLIM_P(flo), ARLIM_P(fhi),

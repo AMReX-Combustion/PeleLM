@@ -995,7 +995,14 @@ contains
 
 !      write(6,*)" made it to initdata"
       if (iN2.lt.1 .or. iN2.gt.Nspec) then
-         call bl_pd_abort()
+         do n = 1,Nspec
+            call get_spec_name(name,n)
+            if (name .eq. 'N2' ) iN2 = n
+         end do
+         if (iN2.eq.-1) then
+            write(6,*) '.....warning: no N2 in chemistry species list'           
+            call bl_pd_abort()
+         endif
       endif
 
       len = len_trim(probtype)
@@ -1169,25 +1176,6 @@ contains
           scal(ARG_L1(state),ARG_L2(state),RhoH),     DIMS(state), &
           scal(ARG_L1(state),ARG_L2(state),Temp),     DIMS(state), &
           scal(ARG_L1(state),ARG_L2(state),FirstSpec),DIMS(state)) 
-
-!     Update typical values
-      do j = lo(2), hi(2)
-         do i = lo(1), hi(1)
-            do n = 0,Nspec-1
-               typVal_Y(n+1) = MAX(typVal_Y(n+1),scal(i,j,firstSpec+n))
-            enddo
-            typVal_Density = MAX(scal(i,j,Density),typVal_Density)
-            typVal_Temp    = MAX(scal(i,j,Temp),   typVal_Temp)
-            typVal_Trac    = MAX(scal(i,j,Trac),   typVal_Trac)
-            typVal_RhoH = MAX(ABS(scal(i,j,RhoH)*scal(i,j,Density)),typVal_RhoH)
-            do n = 1,BL_SPACEDIM
-               typVal_Vel  = MAX(ABS(vel(i,j,n)),typVal_Vel)
-            enddo
-         enddo
-      enddo
-      do n = 1,Nspec
-         typVal_Y(n) = MIN(MAX(typVal_Y(n),typVal_YMIN),typVal_YMAX)
-      enddo
 
       do j = lo(2), hi(2)
          do i = lo(1), hi(1)

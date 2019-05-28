@@ -999,27 +999,6 @@ contains
           scal(ARG_L1(state),ARG_L2(state),ARG_L3(state),Temp),     DIMS(state), &
           scal(ARG_L1(state),ARG_L2(state),ARG_L3(state),FirstSpec),DIMS(state))
 
-!     Update typical values
-      do k = lo(3), hi(3)
-         do j = lo(2), hi(2)
-            do i = lo(1), hi(1)
-               do n = 0,Nspec-1
-                  typVal_Y(n+1) = MAX(typVal_Y(n+1),scal(i,j,k,firstSpec+n))
-               enddo
-               typVal_Density = MAX(scal(i,j,k,Density),typVal_Density)
-               typVal_Temp    = MAX(scal(i,j,k,Temp),   typVal_Temp)
-               typVal_Trac    = MAX(scal(i,j,k,Trac),   typVal_Trac)
-               typVal_RhoH = MAX(ABS(scal(i,j,k,RhoH)*scal(i,j,k,Density)),typVal_RhoH)
-               do n = 1,BL_SPACEDIM
-                  typVal_Vel  = MAX(ABS(vel(i,j,k,n)),typVal_Vel)
-               enddo
-            enddo
-         enddo
-      enddo
-      do n = 1,Nspec
-         typVal_Y(n) = MIN(MAX(typVal_Y(n),typVal_YMIN),typVal_YMAX)
-      enddo
-
       do k = lo(3), hi(3)
          do j = lo(2), hi(2)
             do i = lo(1), hi(1)
