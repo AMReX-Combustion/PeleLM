@@ -1213,6 +1213,8 @@ PeleLM::set_typical_values(bool is_restart)
 
       for (int i=0; i<NUM_STATE - BL_SPACEDIM; ++i) {
         typical_values[i + BL_SPACEDIM] = std::abs(scaleMax[i] - scaleMin[i]);
+		  if ( typical_values[i + BL_SPACEDIM] <= 0.0)
+			  typical_values[i + BL_SPACEDIM] = 0.5*std::abs(scaleMax[i] + scaleMin[i]);
       }
 
       for (int i=0; i<BL_SPACEDIM; ++i) {
