@@ -855,13 +855,13 @@ contains
 
     Patm = pamb / P1ATMMKS()
     
-    call RHOfromPTY(b,b,&
+    call RHOfromPTY(lo,hi,&
          scal(ARG_L1(state),ARG_L2(state),Density),  DIMS(state),&
          scal(ARG_L1(state),ARG_L2(state),Temp),     DIMS(state),&
          scal(ARG_L1(state),ARG_L2(state),firstSpec),DIMS(state),&
          Patm)
 
-    call HMIXfromTY(b,b,&
+    call HMIXfromTY(lo,hi,&
          scal(ARG_L1(state),ARG_L2(state),RhoH),     DIMS(state),&
          scal(ARG_L1(state),ARG_L2(state),Temp),     DIMS(state),&
          scal(ARG_L1(state),ARG_L2(state),firstSpec),DIMS(state))
