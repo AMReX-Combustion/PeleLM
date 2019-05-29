@@ -7786,29 +7786,17 @@ PeleLM::derive (const std::string& name,
     }
     BL_ASSERT(nGrowSRC);  // Need grow cells for this to work!
 
-    // FIXME: This is messed up...or at least unnecessary
-    // We should be able to use the mf inside the fpi as work data
-    MultiFab tmf(mf.boxArray(),mf.DistributionMap(),1,nGrowSRC);
-        
-    FillPatchIterator fpi(*this,tmf,nGrowSRC,time,State_Type,Temp,1);
-    MultiFab& fpmf = fpi.get_mf();
-  
-#ifdef _OPENMP
-#pragma omp parallel
-#endif  
-    for (MFIter mfi(mf,true); mfi.isValid();++mfi)
-    {
-      const Box& box = mfi.tilebox();
-      FArrayBox&       Fmf   = fpmf[mfi];
-      tmf[mfi].copy(Fmf,box,0,box,0,1);
-    }
+    FillPatchIterator fpi(*this,mf,nGrowSRC,time,State_Type,Temp,1);
+    MultiFab& tmf = fpi.get_mf();
 
     int num_smooth_pre = 3;
         
     for (int i=0; i<num_smooth_pre; ++i)
     {
       // Fix up fine-fine and periodic
-      tmf.FillBoundary(0,1,geom.periodicity());
+      if (i!=0) 
+        tmf.FillBoundary(0,1,geom.periodicity());
+
 #ifdef _OPENMP
 #pragma omp parallel
 #endif
@@ -7819,14 +7807,13 @@ PeleLM::derive (const std::string& name,
         // 
         const Box& box = mfi.tilebox();
         smooth(box.loVect(),box.hiVect(),
-                    tmf[mfi].dataPtr(),
-                    ARLIM(tmf[mfi].loVect()),ARLIM(tmf[mfi].hiVect()),
-                    mf[mfi].dataPtr(dcomp),
-                    ARLIM(mf[mfi].loVect()),ARLIM(mf[mfi].hiVect()));
-
-        // Set result back into slot for smoothed T, leave grow cells
-        tmf[mfi].copy(mf[mfi],box,dcomp,box,0,1);
+               tmf[mfi].dataPtr(),
+               ARLIM(tmf[mfi].loVect()),ARLIM(tmf[mfi].hiVect()),
+               mf[mfi].dataPtr(dcomp),
+               ARLIM(mf[mfi].loVect()),ARLIM(mf[mfi].hiVect()));
       }
+      
+      MultiFab::Copy(tmf,mf,0,0,1,0);
     }
 
     tmf.FillBoundary(0,1,geom.periodicity());
@@ -7846,10 +7833,10 @@ PeleLM::derive (const std::string& name,
       nWork.resize(nodebox,BL_SPACEDIM);
             
       mcurve(box.loVect(),box.hiVect(),
-                  Tg.dataPtr(),ARLIM(Tg.loVect()),ARLIM(Tg.hiVect()),
-                  MC.dataPtr(dcomp),ARLIM(MC.loVect()),ARLIM(MC.hiVect()),
-                  nWork.dataPtr(),ARLIM(nWork.loVect()),ARLIM(nWork.hiVect()),
-                  dx);
+             Tg.dataPtr(),ARLIM(Tg.loVect()),ARLIM(Tg.hiVect()),
+             MC.dataPtr(dcomp),ARLIM(MC.loVect()),ARLIM(MC.hiVect()),
+             nWork.dataPtr(),ARLIM(nWork.loVect()),ARLIM(nWork.hiVect()),
+             dx);
     }
   } 
   else
