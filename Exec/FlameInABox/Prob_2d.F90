@@ -38,6 +38,7 @@ contains
   
       
       use chem_driver, only: P1ATMMKS
+      use mod_Fvar_def, only : pamb, dpdt_factor, closed_chamber
       
       implicit none
       integer init, namlen
@@ -47,12 +48,10 @@ contains
 
 #include <probdata.H>
 #include <cdwrk.H>
-#include <htdata.H>
 #include <bc.H>
 #if defined(BL_DO_FLCT)
 #include <INFL_FORCE_F.H>
 #endif
-#include <visc.H>
 #include <conp.H>
 
 #ifdef DO_LMC_FORCE
@@ -609,6 +608,7 @@ contains
     use chem_driver, only: P1ATMMKS
     use chem_driver_2D, only: RHOfromPTY, HMIXfromTY
     use probspec_module, only: set_Y_from_Phi
+    use mod_Fvar_def, only : pamb
   
     implicit none
 
@@ -616,7 +616,6 @@ contains
 #include <conp.H>
 #include <bc.H>
 #include <probdata.H>
-#include <htdata.H>
       
     REAL_T Patm, pmf_vals(maxspec+3), a
     REAL_T Xt(maxspec), Yt(maxspec), loc
@@ -796,7 +795,6 @@ contains
       logical getuv
 
 #include <cdwrk.H>
-#include <htdata.H>
 #include <bc.H>
 #include <probdata.H>
 
@@ -881,6 +879,7 @@ contains
           
       use chem_driver, only: P1ATMMKS
       use chem_driver_2D, only: RHOfromPTY, HMIXfromTY
+      use mod_Fvar_def, only : Density, Temp, FirstSpec, RhoH, pamb, Trac
       
       implicit none
       integer  level, nscal
@@ -894,7 +893,6 @@ contains
       REAL_T   press(DIMV(press))
  
 #include <cdwrk.H>
-#include <htdata.H>
 #include <bc.H>
 #include <probdata.H>
  
@@ -965,6 +963,7 @@ contains
       use chem_driver, only: P1ATMMKS
       use chem_driver_2D, only: RHOfromPTY, HMIXfromTY
       use chem_driver, only: get_spec_name
+      use mod_Fvar_def, only : Density, Temp, FirstSpec, RhoH, pamb, Trac
       
       implicit none
       integer    level, nscal
@@ -980,7 +979,6 @@ contains
 
 #include <cdwrk.H>
 #include <conp.H>
-#include <htdata.H>
 #include <bc.H>
 #include <probdata.H>
 
@@ -1213,8 +1211,9 @@ contains
   subroutine zero_visc(diff,DIMS(diff),lo,hi,domlo,domhi, &
                            dx,problo,bc,idir,isrz,id,ncomp) &
                            bind(C, name="zero_visc")   
-                      
-                              
+
+      use mod_Fvar_def, only : Density, Temp, FirstSpec, RhoH, LastSpec
+      
       implicit none
       integer DIMDEC(diff)
       integer lo(SDIM), hi(SDIM)
@@ -1227,7 +1226,7 @@ contains
       
 #include <probdata.H>
 #include <cdwrk.H>
-#include <htdata.H>
+
       integer i, j, n, Tid, RHid, YSid, YEid, ys, ye
       integer len
       logical do_T, do_RH, do_Y

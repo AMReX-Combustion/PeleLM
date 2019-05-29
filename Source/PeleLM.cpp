@@ -797,7 +797,7 @@ PeleLM::PeleLM ()
   // p_amb_old and p_amb_new contain the old-time and new-time
   // pressure at level 0.  For closed chamber problems they change over time.
   // set p_amb_old and new if they haven't been set yet
-  // to the value in htdata.H set in PROB_F.F
+  // to the value in mod_Fvar_def.F90 set in PROB_F.F90
   // only the coarse level advance and the level 0-1 mac_sync 
   // can modify these later
   if (p_amb_old == -1.0)
@@ -846,7 +846,7 @@ PeleLM::PeleLM (Amr&            papa,
   // p_amb_old and p_amb_new contain the old-time and new-time
   // pressure at level 0.  For closed chamber problems they change over time.
   // set p_amb_old and new if they haven't been set yet
-  // to the value in htdata.H set in PROB_F.F
+  // to the value in mod_Fvar_def.F90 set in PROB_F.F90
   // only the coarse level advance and the level 0-1 mac_sync 
   // can modify these later
   if (p_amb_old == -1.0)

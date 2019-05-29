@@ -26,10 +26,11 @@ contains
                            FirstSpecIn, LastSpecIn) &
                            bind(C, name="set_scal_numb")
 
+    use mod_Fvar_def, only : Density, Temp, RhoH, Trac, FirstSpec, LastSpec
+    
     implicit none
 
 #include <cdwrk.H>
-#include <htdata.H>
 
     integer DensityIn, TempIn, TracIn, RhoHIn, FirstSpecIn, LastSpecIn
 
@@ -55,12 +56,15 @@ contains
                                 prandtl, schmidt, unityLe) &
                                 bind(C, name="set_ht_visc_common") 
 
+    use mod_Fvar_def, only : use_constant_mu, use_constant_lambda, use_constant_rhoD
+    use mod_Fvar_def, only : constant_mu_val, constant_lambda_val, constant_rhoD_val
+    use mod_Fvar_def, only : Pr, Sc, LeEQ1, thickFacTR
+    
+    
     implicit none
     integer muIsVar, lambdaIsVar, rhoDIsVar
     REAL_T muVal, lambdaVal, rhoDVal, prandtl, schmidt
     integer unityLe
-
-#include <visc.H>
 
     if (muIsVar .EQ. 1) then
       use_constant_mu = .false.
@@ -97,9 +101,9 @@ contains
 
   subroutine get_pamb(pambout)bind(C, name="get_pamb")
 
-    implicit none
+    use mod_Fvar_def, only : pamb
 
-#include <htdata.H>
+    implicit none
 
     REAL_T pambout
 
@@ -113,9 +117,9 @@ contains
 
   subroutine get_closed_chamber(closed_chamberout)bind(C, name="get_closed_chamber")
 
-    implicit none
+    use mod_Fvar_def, only : closed_chamber
 
-#include <htdata.H>
+    implicit none
 
     integer closed_chamberout
 
@@ -129,9 +133,9 @@ contains
 
   subroutine get_dpdt(dpdt_factorout)bind(C, name="get_dpdt")
 
-    implicit none
+    use mod_Fvar_def, only : dpdt_factor
 
-#include <htdata.H>
+    implicit none
 
     REAL_T dpdt_factorout
 
@@ -145,12 +149,12 @@ contains
 
   subroutine set_common(time1,iteration1)bind(C, name="set_common")
 
+    use mod_Fvar_def, only : time, iteration
+
     implicit none
 
     REAL_T time1
     integer iteration1
-
-#include <timedata.H>
 
     time = time1
     iteration = iteration1

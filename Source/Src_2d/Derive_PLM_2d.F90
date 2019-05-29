@@ -43,7 +43,6 @@ contains
 !
 
 #include <cdwrk.H>
-#include <htdata.H>
 
     integer    lo(2), hi(2)
     integer    DIMDEC(e)
@@ -104,7 +103,6 @@ contains
 !
 
 #include <cdwrk.H>
-#include <htdata.H>
 
     integer    lo(2), hi(2)
     integer    DIMDEC(e)
@@ -166,7 +164,6 @@ contains
 !
 
 #include <cdwrk.H>
-#include <htdata.H>
       
     integer    lo(2), hi(2)
     integer    DIMDEC(e)

@@ -45,8 +45,6 @@ contains
     implicit none
 
 #include <cdwrk.H>
-#include <visc.H>
-#include <htdata.H>
 
 ! Note that this routine has been renamed calc_divu_fortran
 ! to not override the calc_divu already declared in PeleLM.cpp
@@ -118,8 +116,6 @@ contains
     implicit none
 
 #include <cdwrk.H>
-#include <visc.H>
-#include <htdata.H>
 
     integer lo(SDIM),hi(SDIM)
     integer DIMDEC(theta)
@@ -163,8 +159,6 @@ contains
     implicit none
 
 #include <cdwrk.H>
-#include <visc.H>
-#include <htdata.H>
 
     integer lo(SDIM),hi(SDIM)
     integer DIMDEC(spec)
@@ -710,11 +704,11 @@ contains
                        DIMS(mu), mu) &
                        bind(C, name="vel_visc")
 
-    use chem_driver_2D, only: MIX_SHEAR_VISC
+    use chem_driver_2D, only : MIX_SHEAR_VISC
+    use mod_Fvar_def, only : use_constant_mu, constant_mu_val, LeEQ1
     
     implicit none
 
-#include <visc.H>
 #include <cdwrk.H>      
 
     integer lo(SDIM),hi(SDIM)
@@ -759,12 +753,12 @@ contains
                             bind(C, name="spec_temp_visc")
 
     use chem_driver_2D, only: MIXAVG_RHODIFF_TEMP, CPMIXfromTY
+    use mod_Fvar_def, only : use_constant_rhoD, constant_rhoD_val
+    use mod_Fvar_def, only : Pr, Sc, LeEQ1, thickFacTR
     
     implicit none
 
 #include <cdwrk.H>
-#include <visc.H>
-#include <htdata.H>
 
     integer lo(SDIM),hi(SDIM)
     integer DIMDEC(T)
