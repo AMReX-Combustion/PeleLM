@@ -105,6 +105,7 @@ static
 int
 rhoh_bc[] =
 {
+  //INT_DIR, EXT_DIR, FOEXTRAP, REFLECT_EVEN, REFLECT_EVEN, EXT_DIR
   INT_DIR, EXT_DIR, FOEXTRAP, REFLECT_EVEN, REFLECT_EVEN, FOEXTRAP
 };
 
@@ -420,12 +421,11 @@ std::string PeleLM::productName     = "CO2";
 Vector<std::string> PeleLM::consumptionName(1);
 static std::string oxidizerName     = "O2";
 
+
 void
 PeleLM::variableSetUp ()
 {
   BL_ASSERT(desc_lst.size() == 0);
-
-  int i;
 
   for (int dir = 0; dir < BL_SPACEDIM; dir++)
   {
@@ -439,12 +439,7 @@ PeleLM::variableSetUp ()
   // Set state variable Id's (Density and velocities set already).
   //
   int counter   = Density;
-  int RhoH      = -1;
-  int FirstSpec = -1;
-  int Trac      = -1;
-  int RhoRT     = -1;
-
-  FirstSpec = ++counter;
+  first_spec = ++counter;
   nspecies  = getChemSolve().numSpecies();
   counter  += nspecies - 1;
   RhoH = ++counter;
@@ -498,7 +493,7 @@ PeleLM::variableSetUp ()
   amrex::Print() << " fuel name " << fuelName << std::endl;
   amrex::Print() << " index for fueld and oxidizer " << fuelID << " " << oxidID << std::endl;
 
-  FORT_SET_PROB_SPEC(&fuelID, &oxidID, &prodID, &nspecies);
+  set_prob_spec(&fuelID, &oxidID, &prodID, &nspecies);
   //
   // Get a species to use as a flame tracker.
   //
@@ -540,7 +535,7 @@ PeleLM::variableSetUp ()
                           Xvel,
                           name,
                           bcs,
-                          BndryFunc(FORT_XVELFILL,FORT_VELFILL));
+                          BndryFunc(FORT_XVELFILL,vel_fill));
   }
   //
   // **************  DEFINE SCALAR VARIABLES  ********************
@@ -550,19 +545,19 @@ PeleLM::variableSetUp ()
   //int combinLimit_lo = static_cast<int>(Density);
   //int combinLimit_hi = std::max(combinLimit_lo, RhoH);
   set_scalar_bc(bc,phys_bc);
-  desc_lst.setComponent(State_Type,Density,"density",bc,BndryFunc(FORT_DENFILL),
+  desc_lst.setComponent(State_Type,Density,"density",bc,BndryFunc(den_fill),
                         &cell_cons_interp);
   //
   // **************  DEFINE RHO*H  ********************
   //
   set_rhoh_bc(bc,phys_bc);
-  desc_lst.setComponent(State_Type,RhoH,"rhoh",bc,BndryFunc(FORT_RHOHFILL),
+  desc_lst.setComponent(State_Type,RhoH,"rhoh",bc,BndryFunc(rhoh_fill),
                         &cell_cons_interp);
   //
   // **************  DEFINE TEMPERATURE  ********************
   //
   set_temp_bc(bc,phys_bc);
-  desc_lst.setComponent(State_Type,Temp,"temp",bc,BndryFunc(FORT_TEMPFILL));
+  desc_lst.setComponent(State_Type,Temp,"temp",bc,BndryFunc(temp_fill));
   //
   // ***************  DEFINE SPECIES **************************
   //
@@ -571,16 +566,16 @@ PeleLM::variableSetUp ()
 
   set_species_bc(bc,phys_bc);
 
-  for (i = 0; i < nspecies; i++)
+  for (int i = 0; i < nspecies; i++)
   {
     bcs[i]  = bc;
     name[i] = "rho.Y(" + names[i] + ")";
 
     desc_lst.setComponent(State_Type,
-                          FirstSpec+i,
+                          first_spec+i,
                           name[i].c_str(),
                           bc,
-                          ChemBndryFunc(FORT_CHEMFILL,names[i]),
+                          ChemBndryFunc(chem_fill,names[i]),
                           &cell_cons_interp);
   }
   //
@@ -592,10 +587,10 @@ PeleLM::variableSetUp ()
   if (false)
   {        
     desc_lst.setComponent(State_Type,
-                          FirstSpec,
+                          first_spec,
                           name,
                           bcs,
-                          ChemBndryFunc(FORT_CHEMFILL,names[0],FORT_ALLCHEMFILL),
+                          ChemBndryFunc(chem_fill,names[0],all_chem_fill),
                           &cell_cons_interp);
   }
   //
@@ -607,15 +602,15 @@ PeleLM::variableSetUp ()
   if (RhoRT >= 0)
   {
     set_scalar_bc(bc,phys_bc);
-    desc_lst.setComponent(State_Type,Trac,"tracer",bc,BndryFunc(FORT_ADVFILL));
+    desc_lst.setComponent(State_Type,Trac,"tracer",bc,BndryFunc(adv_fill));
 
     set_reflect_bc(bc,phys_bc);
-    desc_lst.setComponent(State_Type,RhoRT,"RhoRT",bc,BndryFunc(FORT_ADVFILL));
+    desc_lst.setComponent(State_Type,RhoRT,"RhoRT",bc,BndryFunc(adv_fill));
   }
   else
   {
     set_reflect_bc(bc,phys_bc);
-    desc_lst.setComponent(State_Type,Trac,"tracer",bc,BndryFunc(FORT_ADVFILL));
+    desc_lst.setComponent(State_Type,Trac,"tracer",bc,BndryFunc(adv_fill));
   }
 
   advectionType.resize(NUM_STATE);
@@ -625,7 +620,7 @@ PeleLM::variableSetUp ()
   //
   // Assume everything is diffusive and then change it if it is not.
   //
-  for (i = 0; i < NUM_STATE; i++)
+  for (int i = 0; i < NUM_STATE; i++)
   {
     advectionType[i] = NonConservative;
     diffusionType[i] = RhoInverse_Laplacian_S;
@@ -665,8 +660,8 @@ PeleLM::variableSetUp ()
 
   for (int i = 0; i < nspecies; ++i)
   {
-    advectionType[FirstSpec + i] = Conservative;
-    diffusionType[FirstSpec + i] = Laplacian_SoverRho;
+    advectionType[first_spec + i] = Conservative;
+    diffusionType[first_spec + i] = Laplacian_SoverRho;
   }
 
   if (is_diffusive[Density])
@@ -681,14 +676,14 @@ PeleLM::variableSetUp ()
                          &node_bilinear_interp);
 
   set_pressure_bc(bc,phys_bc);
-  desc_lst.setComponent(Press_Type,Pressure,"pressure",bc,BndryFunc(FORT_PRESFILL));
+  desc_lst.setComponent(Press_Type,Pressure,"pressure",bc,BndryFunc(press_fill));
 #else
   desc_lst.addDescriptor(Press_Type,IndexType::TheNodeType(),
                          StateDescriptor::Point,1,1,
                          &node_bilinear_interp,true);
 
   set_pressure_bc(bc,phys_bc);
-  desc_lst.setComponent(Press_Type,Pressure,"pressure",bc,BndryFunc(FORT_PRESFILL));
+  desc_lst.setComponent(Press_Type,Pressure,"pressure",bc,BndryFunc(press_fill));
 
   //
   // ---- time derivative of pressure
@@ -698,7 +693,7 @@ PeleLM::variableSetUp ()
                          StateDescriptor::Interval,1,1,
                          &node_bilinear_interp);
   set_pressure_bc(bc,phys_bc);
-  desc_lst.setComponent(Dpdt_Type,Dpdt,"dpdt",bc,BndryFunc(FORT_PRESFILL));
+  desc_lst.setComponent(Dpdt_Type,Dpdt,"dpdt",bc,BndryFunc(press_fill));
 #endif
   //
   // ---- right hand side of divergence constraint.
@@ -712,7 +707,7 @@ PeleLM::variableSetUp ()
   desc_lst.addDescriptor(Divu_Type,IndexType::TheCellType(),StateDescriptor::Point,ngrow,1,
                          &cell_cons_interp);
   set_divu_bc(bc,phys_bc);
-  desc_lst.setComponent(Divu_Type,Divu,"divu",bc,BndryFunc(FORT_DIVUFILL));
+  desc_lst.setComponent(Divu_Type,Divu,"divu",bc,BndryFunc(divu_fill));
   //
   // Stick Dsdt_Type on the end of the descriptor list.
   //
@@ -722,78 +717,78 @@ PeleLM::variableSetUp ()
   desc_lst.addDescriptor(Dsdt_Type,IndexType::TheCellType(),StateDescriptor::Point,ngrow,1,
                          &cell_cons_interp);
   set_dsdt_bc(bc,phys_bc);
-  desc_lst.setComponent(Dsdt_Type,Dsdt,"dsdt",bc,BndryFunc(FORT_DSDTFILL));
+  desc_lst.setComponent(Dsdt_Type,Dsdt,"dsdt",bc,BndryFunc(dsdt_fill));
   //
   // Add in the fcncall tracer type quantity.
   //
   FuncCount_Type = desc_lst.size();
   desc_lst.addDescriptor(FuncCount_Type, IndexType::TheCellType(),StateDescriptor::Point,0, 1, &cell_cons_interp);
-  desc_lst.setComponent(FuncCount_Type, 0, "FuncCount", bc, BndryFunc(FORT_DQRADFILL));
+  desc_lst.setComponent(FuncCount_Type, 0, "FuncCount", bc, BndryFunc(dqrad_fill));
   rhoydotSetUp();
   //
   // rho_temp
   //
-  derive_lst.add("rho_temp",IndexType::TheCellType(),1,FORT_DERMPRHO,the_same_box);
+  derive_lst.add("rho_temp",IndexType::TheCellType(),1,dermprho,the_same_box);
   derive_lst.addComponent("rho_temp",desc_lst,State_Type,Density,1);
   derive_lst.addComponent("rho_temp",desc_lst,State_Type,Temp,1);
   //
   // enthalpy
   //
-  derive_lst.add("enthalpy",IndexType::TheCellType(),1,FORT_DERDVRHO,the_same_box);
+  derive_lst.add("enthalpy",IndexType::TheCellType(),1,derdvrho,the_same_box);
   derive_lst.addComponent("enthalpy",desc_lst,State_Type,Density,1);
   derive_lst.addComponent("enthalpy",desc_lst,State_Type,RhoH,1);
   //
   // Species mass fractions.
   //
-  for (i = 0; i < nspecies; i++)
+  for (int i = 0; i < nspecies; i++)
   {
-    const std::string name = "Y("+names[i]+")";
-    derive_lst.add(name,IndexType::TheCellType(),1,FORT_DERDVRHO,the_same_box);
-    derive_lst.addComponent(name,desc_lst,State_Type,Density,1);
-    derive_lst.addComponent(name,desc_lst,State_Type,FirstSpec + i,1);
+    const std::string chname = "Y("+names[i]+")";
+    derive_lst.add(chname,IndexType::TheCellType(),1,derdvrho,the_same_box);
+    derive_lst.addComponent(chname,desc_lst,State_Type,Density,1);
+    derive_lst.addComponent(chname,desc_lst,State_Type,first_spec + i,1);
   }
   //
   // Species mole fractions
   //
   Vector<std::string> var_names_molefrac(nspecies);
-  for (i = 0; i < nspecies; i++)
+  for (int i = 0; i < nspecies; i++)
     var_names_molefrac[i] = "X("+names[i]+")";
   derive_lst.add("molefrac",IndexType::TheCellType(),nspecies,
-                 var_names_molefrac,FORT_DERMOLEFRAC,the_same_box);
+                 var_names_molefrac,dermolefrac,the_same_box);
   derive_lst.addComponent("molefrac",desc_lst,State_Type,Density,1);
-  derive_lst.addComponent("molefrac",desc_lst,State_Type,FirstSpec,nspecies);
+  derive_lst.addComponent("molefrac",desc_lst,State_Type,first_spec,nspecies);
 
   //
   // Species concentrations
   //
   Vector<std::string> var_names_conc(nspecies);
-  for (i = 0; i < nspecies; i++)
+  for (int i = 0; i < nspecies; i++)
     var_names_conc[i] = "C("+names[i]+")";
   derive_lst.add("concentration",IndexType::TheCellType(),nspecies,
-                 var_names_conc,FORT_DERCONCENTRATION,the_same_box);
+                 var_names_conc,derconcentration,the_same_box);
   derive_lst.addComponent("concentration",desc_lst,State_Type,Density,1);
   derive_lst.addComponent("concentration",desc_lst,State_Type,Temp,1);
   derive_lst.addComponent("concentration",desc_lst,State_Type,
-                          FirstSpec,nspecies);
+                          first_spec,nspecies);
 
   if (nspecies > 0)
   {
     //
     // rho-sum rhoY.
     //
-    derive_lst.add("rhominsumrhoY",IndexType::TheCellType(),1,FORT_DERRHOMINUSSUMRHOY,the_same_box);
+    derive_lst.add("rhominsumrhoY",IndexType::TheCellType(),1,drhomry,the_same_box);
     derive_lst.addComponent("rhominsumrhoY",desc_lst,State_Type,Density,1);
-    for (i = 0; i < nspecies; i++)
+    for (int i = 0; i < nspecies; i++)
     {
-      const int comp = FirstSpec + i;
+      const int comp = first_spec + i;
       derive_lst.addComponent("rhominsumrhoY",desc_lst,State_Type,comp,1);
     }
   }
   //
   // Sum rhoYdot
   //
-  derive_lst.add("sumRhoYdot",IndexType::TheCellType(),1,FORT_DERSUMRHOYDOT,the_same_box);
-  for (i = 0; i < nspecies; i++)
+  derive_lst.add("sumRhoYdot",IndexType::TheCellType(),1,dsrhoydot,the_same_box);
+  for (int i = 0; i < nspecies; i++)
   {
     derive_lst.addComponent("sumRhoYdot",desc_lst,RhoYdot_Type,i,1);
   }
@@ -802,36 +797,36 @@ PeleLM::variableSetUp ()
   //
   // Divergence of velocity field.
   //
-  derive_lst.add("diveru",IndexType::TheCellType(),1,FORT_DERMGDIVU,grow_box_by_one);
+  derive_lst.add("diveru",IndexType::TheCellType(),1,dermgdivu,grow_box_by_one);
   derive_lst.addComponent("diveru",desc_lst,State_Type,Xvel,BL_SPACEDIM);
   //
   // average pressure
   //
-  derive_lst.add("avg_pressure",IndexType::TheCellType(),1,FORT_DERAVGPRES,
+  derive_lst.add("avg_pressure",IndexType::TheCellType(),1,deravgpres,
                  the_nodes);
   derive_lst.addComponent("avg_pressure",desc_lst,Press_Type,Pressure,1);
   //
   // Pressure gradient in X direction.
   //
-  derive_lst.add("gradpx",IndexType::TheCellType(),1,FORT_DERGRDPX,the_nodes);
+  derive_lst.add("gradpx",IndexType::TheCellType(),1,dergrdpx,the_nodes);
   derive_lst.addComponent("gradpx",desc_lst,Press_Type,Pressure,1);
   //
   // Pressure gradient in Y direction.
   //
-  derive_lst.add("gradpy",IndexType::TheCellType(),1,FORT_DERGRDPY,the_nodes);
+  derive_lst.add("gradpy",IndexType::TheCellType(),1,dergrdpy,the_nodes);
   derive_lst.addComponent("gradpy",desc_lst,Press_Type,Pressure,1);
 
 #if (BL_SPACEDIM == 3)
   //
   // Pressure gradient in Z direction.
   //
-  derive_lst.add("gradpz",IndexType::TheCellType(),1,FORT_DERGRDPZ,the_nodes);
+  derive_lst.add("gradpz",IndexType::TheCellType(),1,dergrdpz,the_nodes);
   derive_lst.addComponent("gradpz",desc_lst,Press_Type,Pressure,1);
 #endif
   //
   // Magnitude of vorticity.
   //
-  derive_lst.add("mag_vort",IndexType::TheCellType(),1,FORT_DERMGVORT,grow_box_by_one);
+  derive_lst.add("mag_vort",IndexType::TheCellType(),1,dermgvort,grow_box_by_one);
   derive_lst.addComponent("mag_vort",desc_lst,State_Type,Xvel,BL_SPACEDIM);
 #ifdef DO_LMC_FORCE
   //
@@ -879,15 +874,15 @@ PeleLM::variableSetUp ()
   //
   // Force all particles to be tagged.
   //
-  //err_list.add("total_particle_count",1,ErrorRec::Special,FORT_PART_CNT_ERR);
+  //err_list.add("total_particle_count",1,ErrorRec::Special,part_cnt_err);
 #endif
   //
   // **************  DEFINE ERROR ESTIMATION QUANTITIES  *************
   //
   const int nGrowErr = 1;
-  err_list.add("temp", nGrowErr, ErrorRec::Special, BL_FORT_PROC_CALL(FORT_TEMPERROR,fort_temperror));
-  err_list.add("mag_vort", nGrowErr, ErrorRec::Special, BL_FORT_PROC_CALL(FORT_MVERROR,fort_mverror));
-  err_list.add("tracer", nGrowErr, ErrorRec::Special, BL_FORT_PROC_CALL(FORT_ADVERROR,fort_adverror));
+  err_list.add("temp", nGrowErr, ErrorRec::Special, temp_error);
+  err_list.add("mag_vort", nGrowErr, ErrorRec::Special, mv_error);
+  err_list.add("tracer", nGrowErr, ErrorRec::Special, adv_error);
   //
   // Tag region of interesting chemistry.
   //
@@ -895,8 +890,8 @@ PeleLM::variableSetUp ()
   if (idx >= 0)
   {
     amrex::Print() << "Flame tracer will be " << flameTracName << '\n';
-    const std::string name = "Y("+flameTracName+")";
-    err_list.add(name,nGrowErr,ErrorRec::Special,FORT_FLAMETRACERROR);
+    const std::string chname = "Y("+flameTracName+")";
+    err_list.add(chname,nGrowErr,ErrorRec::Special,flame_tracer_error);
   }
 }
 
@@ -996,7 +991,7 @@ PeleLM::rhoydotSetUp()
   {
     const std::string name = "I_R[rhoY("+names[i]+")]";
     desc_lst.setComponent(RhoYdot_Type, i, name.c_str(), bc,
-                          BndryFunc(FORT_RHOYDOTFILL), &lincc_interp, 0, nrhoydot-1);
+                          BndryFunc(rhoYdot_fill), &lincc_interp, 0, nrhoydot-1);
   }
 }
 
