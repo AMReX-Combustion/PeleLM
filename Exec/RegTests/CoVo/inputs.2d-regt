@@ -43,8 +43,8 @@ cg.cg_solver=1
 
 #-------------------------AMR INPUTS----------------------------
 amr.n_cell    = 32 32 32
-amr.n_cell    = 64 64 64
 amr.n_cell    = 128 128 128
+amr.n_cell    = 64 64 64
 
 amr.v=1
 amr.max_level =  0            # maximum level number allowed
@@ -59,7 +59,7 @@ amr.checkpoint_files_output = 0
 amr.check_file      = chk     # root name of checkpoint file
 amr.check_int       = 5       # number of timesteps between checkpoints
 
-amr.plot_file       = plt128_
+amr.plot_file       = plt64_
 amr.plot_int        = 200
 #amr.derive_plot_vars=rhoRT mag_vort particle_count mean_progress_curvature
 amr.derive_plot_vars=rhoRT mag_vort avg_pressure gradpx gradpy diveru
