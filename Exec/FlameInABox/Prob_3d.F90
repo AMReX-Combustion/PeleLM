@@ -60,10 +60,7 @@ contains
       integer i,istemp
       REAL_T FORT_P1ATMMKS, area
 
-      namelist /fortin/ vorterr, temperr, adverr, tempgrad, &
-                       flametracval, probtype, &
-     		        max_temp_lev, max_vort_lev, max_trac_lev, &
-                       traceSpecVal,phi_in,T_in,  &
+      namelist /fortin/ probtype, phi_in,T_in,  &
                        turb_scale, V_in, V_co, &
                        standoff, pertmag, nchemdiag, splitx, xfrontw, &
                        splity, yfrontw, blobx, bloby, blobz, blobr, &
@@ -143,16 +140,7 @@ contains
       open(untin,file=probin(1:namlen),form='formatted',status='old')
       
 !     Set defaults
-      vorterr = 1.e20
-      temperr = zero
-      adverr = 1.e20
-      tempgrad  = 50.0d0
-      flametracval = 0.0001d0
       probtype = BL_PROB_UNDEFINED
-      max_temp_lev = 0
-      max_vort_lev = 0
-      max_trac_lev = 100
-      traceSpecVal = 1.d-10
       pamb = P1ATMMKS()
       dpdt_factor = 0.3d0
       closed_chamber = 0
@@ -211,8 +199,6 @@ contains
       
 !     Initialize control variables that depend on fortin variables
       V_in_old = V_in
-
-      if (max_vort_lev.lt.0) max_vort_lev=max_temp_lev
       
       read(untin,heattransin)
  
