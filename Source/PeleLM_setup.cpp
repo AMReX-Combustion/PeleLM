@@ -875,23 +875,6 @@ PeleLM::variableSetUp ()
   //
   //err_list.add("total_particle_count",1,ErrorRec::Special,part_cnt_err);
 #endif
-  //
-  // **************  DEFINE ERROR ESTIMATION QUANTITIES  *************
-  //
-  const int nGrowErr = 1;
-  err_list.add("temp", nGrowErr, ErrorRec::Special, temp_error);
-  err_list.add("mag_vort", nGrowErr, ErrorRec::Special, mv_error);
-  err_list.add("tracer", nGrowErr, ErrorRec::Special, adv_error);
-  //
-  // Tag region of interesting chemistry.
-  //
-  const int idx = getChemSolve().index(flameTracName);
-  if (idx >= 0)
-  {
-    amrex::Print() << "Flame tracer will be " << flameTracName << '\n';
-    const std::string chname = "Y("+flameTracName+")";
-    err_list.add(chname,nGrowErr,ErrorRec::Special,flame_tracer_error);
-  }
 
   //
   // Dynamically generated error tagging functions
@@ -926,6 +909,9 @@ PeleLM::variableSetUp ()
       std::string field; ppr.get("field_name",field);
       err_list.add(field.c_str(),1,ErrorRec::Special,
                    LM_Error_Value(diffgt_error,value,min_time,max_time,max_level));
+    }
+    else if (ppr.countval("adjacent_difference_less")) {
+      Abort(std::string("adjacent_difference_less refinement indicator not yet implemented, please find a PostDoc do that"));
     }
     else {
       Abort(std::string("Unrecognized refinement indicator for " + refinement_indicators[i]).c_str());
