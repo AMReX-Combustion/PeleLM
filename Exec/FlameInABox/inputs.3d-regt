@@ -174,3 +174,9 @@ mac.do_outflow_bcs = 0
 #   8BIT   (eight-bit run-length-encoded)
 #
 fab.format = NATIVE
+amrex.regtest_reduction=1
+
+amr.refinement_indicators = flame_tracer
+amr.flame_tracer.max_level = 3
+amr.flame_tracer.value_greater = 1.e-6
+amr.flame_tracer.field_name = Y(H)

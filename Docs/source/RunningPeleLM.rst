@@ -189,7 +189,8 @@ Regridding
 
 The details of the regridding strategy are described elsewhere; here we 
 cover how the input parameters can control the gridding. The user defines functions which tag individual
-cells at a given level if they need refinement.  This list of tagged cells is
+cells at a given level if they need refinement (this is discussed in :ref:`sec:refcrit:pelelm`).
+This list of tagged cells is
 sent to a grid generation routine, which uses the Berger-Rigoutsos algorithm
 to create rectangular grids that contain the tagged cells. The relevant runtime parameters are:
 

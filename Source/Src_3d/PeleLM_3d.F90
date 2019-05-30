@@ -32,7 +32,8 @@ module PeleLM_3d
              est_divu_dt, check_divu_dt, dqrad_fill, divu_fill, &
              dsdt_fill, ydot_fill, rhoYdot_fill, fab_minmax, repair_flux, &
              incrwext_flx_div, flux_div, compute_ugradp, conservative_T_floor, &
-             htdd_relax, part_cnt_err, mcurve, smooth, grad_wbar, recomp_update
+             part_cnt_err, mcurve, smooth, grad_wbar, recomp_update, &
+             valgt_error, vallt_error, diffgt_error
 
 contains
              
@@ -2394,146 +2395,6 @@ contains
 
 !-----------------------------------------
 
-  subroutine htdd_relax(lo, hi, S, DIMS(S), yc, Tc, hc, rc, &
-          L, DIMS(L), a, DIMS(a), R, DIMS(R), thetaDt, fac, maxRes, maxCor, &
-          for_T0_H1, res_only, mult) &
-          bind(C, name="htdd_relax")
-                   
-      implicit none
-      
-#include <cdwrk.H>
-
-      integer lo(SDIM), hi(SDIM), yc, Tc, hc, rc
-      integer DIMDEC(S)
-      integer DIMDEC(L)
-      integer DIMDEC(a)
-      integer DIMDEC(R)
-      REAL_T S(DIMV(s),0:*)
-      REAL_T L(DIMV(L),0:*)
-      REAL_T a(DIMV(a),0:*)
-      REAL_T R(DIMV(R),0:*)
-      REAL_T thetaDt, fac(0:*), maxRes(0:*), maxCor(0:*)
-      integer for_T0_H1, res_only
-      REAL_T mult, cor
-      integer i, j, k, n
-
-#ifdef HT_SKIP_NITROGEN
-      REAL_T, allocatable :: tfab(:,:,:)
-#endif
-
-!
-!     Helper function to compute:
-!     (a) dR = Rhs + (rho.phi - theta.dt.Lphi)
-!     (b) Res = Rhs - A(S) = Rhs - (rho.phi - theta.dt.Lphi) for RhoH
-!         or  Res = Rhs - (phi - theta.dt.Lphi) for Temp
-!               and then relax: phi = phi + Res/alpha
-!     -- note that if for Temp both Lphi and alpha have been scaled by (1/rho.Cp)^nph
-!     
-!     NOTE: Assumes maxRes and maxCor have been initialized properly
-!
-
-      do n=0,Nspec-1
-         do k=lo(3),hi(3)
-            do j=lo(2),hi(2)
-               do i=lo(1),hi(1)
-                  L(i,j,k,n) = R(i,j,k,n) + mult*(S(i,j,k,rc)*S(i,j,k,yc+n) - thetaDt*L(i,j,k,n))
-                  maxRes(n) = MAX(maxRes(n),ABS(L(i,j,k,n)))
-               enddo
-            enddo
-         enddo
-      enddo
-
-#ifdef HT_SKIP_NITROGEN
-      do k=lo(3),hi(3)
-         do j=lo(2),hi(2)
-            do i=lo(1),hi(1)
-               L(i,j,k,Nspec-1) = 0.d0
-            enddo
-         enddo
-      enddo
-      maxRes(Nspec-1) = 0.d0
-#endif
-
-      if (for_T0_H1.eq.0) then
-         do k=lo(3),hi(3)
-            do j=lo(2),hi(2)
-               do i=lo(1),hi(1)
-                  L(i,j,k,Nspec) = R(i,j,k,Nspec) + mult*(S(i,j,k,Tc) - thetaDt*L(i,j,k,Nspec))
-                  maxRes(Nspec) = MAX(maxRes(Nspec),ABS(L(i,j,k,Nspec)))
-               enddo
-            enddo
-         enddo
-      else
-         do k=lo(3),hi(3)
-            do j=lo(2),hi(2)
-               do i=lo(1),hi(1)
-                  L(i,j,k,Nspec) = R(i,j,k,Nspec) + mult*(S(i,j,k,rc)*S(i,j,k,hc) - thetaDt*L(i,j,k,Nspec))
-                  maxRes(Nspec) = MAX(maxRes(Nspec),ABS(L(i,j,k,Nspec)))
-               enddo
-            enddo
-         enddo
-      endif
-
-      if (res_only.ne.1) then
-         do n=0,Nspec-1
-            do k=lo(3),hi(3)
-               do j=lo(2),hi(2)
-                  do i=lo(1),hi(1)
-                     cor = fac(n) * L(i,j,k,n) / (S(i,j,k,rc) - thetaDt*a(i,j,k,n))
-                     maxCor(n) = MAX(maxCor(n),ABS(cor))
-                     S(i,j,k,yc+n) = S(i,j,k,yc+n)  +  cor
-                  enddo
-               enddo
-            enddo
-         enddo
-#ifdef HT_SKIP_NITROGEN
-         allocate(tfab(lo(1):hi(1),lo(2):hi(2),lo(3):hi(3)))
-         tfab = zero
-         do n=0,Nspec-2
-            do k=lo(3),hi(3)
-               do j=lo(2),hi(2)
-                  do i=lo(1),hi(1)
-                     tfab(i,j,k) = tfab(i,j,k) + S(i,j,k,yc+n)
-                  enddo
-               enddo
-            enddo
-         end do
-         do k=lo(3),hi(3)
-            do j=lo(2),hi(2)
-               do i=lo(1),hi(1)
-                  S(i,j,k,Nspec-1) = 1.d0 - tfab(i,j,k)
-               enddo
-            enddo
-         enddo
-         maxCor(Nspec-1) = 0.d0
-         deallocate(tfab)
-#endif
-
-         if (for_T0_H1.eq.0) then
-            do k=lo(3),hi(3)
-               do j=lo(2),hi(2)
-                  do i=lo(1),hi(1)
-                     cor = fac(Nspec) * L(i,j,k,Nspec) / (1.d0 - thetaDt*a(i,j,k,Nspec))
-                     maxCor(Nspec) = MAX(maxCor(Nspec),ABS(cor))
-                     S(i,j,k,Tc) = S(i,j,k,Tc)  +  cor
-                  enddo
-               enddo
-            enddo
-         else
-            do k=lo(3),hi(3)
-               do j=lo(2),hi(2)
-                  do i=lo(1),hi(1)
-                     cor = fac(Nspec) * L(i,j,k,Nspec) / (S(i,j,k,rc) - thetaDt*a(i,j,k,Nspec))
-                     maxCor(Nspec) = MAX(maxCor(Nspec),ABS(cor))
-                     S(i,j,k,hc) = S(i,j,k,hc)  +  cor
-                  enddo
-               enddo
-            enddo
-         endif
-      endif
-      
-  end subroutine htdd_relax
-
 ! ::: -----------------------------------------------------------
 ! ::: This routine will tag high error cells based on whether or not
 ! ::: they contain any particles.
@@ -2829,5 +2690,114 @@ contains
       end do
 
   end subroutine recomp_update
+
+!-----------------------------------
+
+  subroutine valgt_error(tag,DIMS(tag),set,clear,&
+       adv,DIMS(adv),&
+       lo,hi,nvar,&
+       domlo,domhi,dx,xlo,&
+       problo,time,level,value) bind(C, name="valgt_error")
+
+    implicit none
+
+#include "probdata.H"
+      
+    integer   DIMDEC(tag)
+    integer   DIMDEC(adv)
+    integer   nvar, set, clear, level
+    integer   domlo(SDIM), domhi(SDIM)
+    integer   lo(SDIM), hi(SDIM)
+    integer   tag(DIMV(tag))
+    REAL_T    dx(SDIM), xlo(SDIM), problo(SDIM), time
+    REAL_T    adv(DIMV(adv),1)
+    REAL_T    value
+
+    integer   i, j, k
+
+    do k = lo(3), hi(3)
+       do j = lo(2), hi(2)
+          do i = lo(1), hi(1)
+             tag(i,j,k) = merge(set,tag(i,j,k),adv(i,j,k,1).gt.value)
+          end do
+       end do
+    end do
+
+  end subroutine valgt_error
+
+  subroutine vallt_error(tag,DIMS(tag),set,clear,&
+       adv,DIMS(adv),&
+       lo,hi,nvar,&
+       domlo,domhi,dx,xlo,&
+       problo,time,level,value) bind(C, name="vallt_error")
+
+    implicit none
+
+#include "probdata.H"
+      
+    integer   DIMDEC(tag)
+    integer   DIMDEC(adv)
+    integer   nvar, set, clear, level
+    integer   domlo(SDIM), domhi(SDIM)
+    integer   lo(SDIM), hi(SDIM)
+    integer   tag(DIMV(tag))
+    REAL_T    dx(SDIM), xlo(SDIM), problo(SDIM), time
+    REAL_T    adv(DIMV(adv),1)
+    REAL_T    value
+
+    integer   i, j, k
+
+    do k = lo(3), hi(3)
+       do j = lo(2), hi(2)
+          do i = lo(1), hi(1)
+             tag(i,j,k) = merge(set,tag(i,j,k),adv(i,j,k,1).lt.value)
+          end do
+       end do
+    end do
+
+  end subroutine vallt_error
+  
+
+  subroutine diffgt_error (tag,DIMS(tag),set,clear,&
+       adv,DIMS(adv),&
+       lo,hi,nvar,&
+       domlo,domhi,dx,xlo,&
+       problo,time,level,value) bind(C, name="diffgt_error")
+
+    implicit none
+
+#include "probdata.H"
+      
+    integer   DIMDEC(tag)
+    integer   DIMDEC(adv)
+    integer   nvar, set, clear, level
+    integer   domlo(SDIM), domhi(SDIM)
+    integer   lo(SDIM), hi(SDIM)
+    integer   tag(DIMV(tag))
+    REAL_T    dx(SDIM), xlo(SDIM), problo(SDIM), time
+    REAL_T    adv(DIMV(adv),1)
+    REAL_T    value
+    REAL_T    axp, axm, ayp, aym, azp, azm, aerr
+
+    integer   i, j, k
+
+    do k = lo(3), hi(3)
+       do j = lo(2), hi(2)
+          do i = lo(1), hi(1)
+             axp = ABS(adv(i+1,j,k,1) - adv(i,j,k,1))
+             axm = ABS(adv(i-1,j,k,1) - adv(i,j,k,1))
+             ayp = ABS(adv(i,j+1,k,1) - adv(i,j,k,1))
+             aym = ABS(adv(i,j-1,k,1) - adv(i,j,k,1))
+             azp = ABS(adv(i,j,k+1,1) - adv(i,j,k,1))
+             azm = ABS(adv(i,j,k-1,1) - adv(i,j,k,1))
+             aerr = MAX(azp,MAX(azm,MAX(axp,MAX(axm,MAX(ayp,aym)))))
+
+             if (aerr.gt.value) then
+                tag(i,j,k) = set
+             endif
+          end do
+       end do
+    end do
+  end subroutine diffgt_error
 
 end module PeleLM_3d

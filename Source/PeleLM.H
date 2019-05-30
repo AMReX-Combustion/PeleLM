@@ -25,6 +25,56 @@
 //       multigrid code.
 //
 
+extern "C"
+{
+  typedef void (*LMEF)(int* tag, ARLIM_P(tlo), ARLIM_P(thi),
+                       const int* tagval, const int* clearval,
+                       const amrex::Real* data, ARLIM_P(data_lo), ARLIM_P(data_hi),
+                       const int* lo, const int* hi, const int* nvar,
+                       const int* domain_lo, const int* domain_hi,
+                       const amrex::Real* dx, const amrex::Real* xlo,
+                       const amrex::Real* prob_lo, const amrex::Real* time,
+                       const int* level, const amrex::Real* value);
+}
+
+class LM_Error_Value
+  :
+  public amrex::ErrorRec::ErrorFunc
+{
+public:
+  LM_Error_Value()
+    :
+    lmef(0), value(), min_time(), max_time(), max_level() {}
+  
+  LM_Error_Value (amrex::Real min_time, amrex::Real max_time, int max_level);
+  
+  LM_Error_Value (LMEF lmef, amrex::Real value, amrex::Real min_time,
+                  amrex::Real max_time, int max_level);
+  
+  virtual ~LM_Error_Value () {}
+  
+  virtual amrex::ErrorRec::ErrorFunc* clone () const {
+    return new LM_Error_Value(lmef,value,min_time,max_time,max_level);
+  }
+  
+  void tagCells(int* tag, ARLIM_P(tlo), ARLIM_P(thi),
+                const int* tagval, const int* clearval,
+                const amrex::Real* data, ARLIM_P(data_lo), ARLIM_P(data_hi),
+                const int* lo, const int* hi, const int* nvar,
+                const int* domain_lo, const int* domain_hi,
+                const amrex::Real* dx, const amrex::Real* xlo,
+                const amrex::Real* prob_lo, const amrex::Real* time,
+                const int* level) const;
+  int MaxLevel() const {return max_level;}
+  amrex::Real MinTime() const {return min_time;}
+  amrex::Real MaxTime() const {return max_time;}
+  amrex::Real Value() const {return value;}
+  
+protected:
+  LMEF lmef;
+  amrex::Real value, min_time, max_time;
+  int max_level;
+};
 
 class PeleLM
   :
@@ -201,6 +251,12 @@ protected:
 
   virtual void velocity_diffusion_update (amrex::Real dt) override;
 
+  virtual void errorEst (amrex::TagBoxArray& tags,
+                         int                 clearval,
+                         int                 tagval,
+                         amrex::Real         time,
+                         int                 n_error_buf, 
+                         int                 ngrow) override;
 
   ////////////////////////////////////////////////////////////////////////////
   //    PeleLM protected static functions                             //
