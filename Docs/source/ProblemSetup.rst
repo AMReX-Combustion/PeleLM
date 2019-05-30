@@ -272,7 +272,7 @@ The third will be active only when the problem time is between 0.001 and 0.002 s
 
 Note that these additional user-created criteria operate in addition to those defined as defaults.  Also note that
 these can be modified between restarts of the code.  By default, the new criteria will take effect at the next
-schedule regrid operation.  Alternatively, the user may restart with ``amr.regrid_on_restart = 1`` in order to
+scheduled regrid operation.  Alternatively, the user may restart with ``amr.regrid_on_restart = 1`` in order to
 do a full (all-levels) regrid after reading the checkpoint data and before advancing any cells.
 
 
