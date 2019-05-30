@@ -892,6 +892,45 @@ PeleLM::variableSetUp ()
     const std::string chname = "Y("+flameTracName+")";
     err_list.add(chname,nGrowErr,ErrorRec::Special,flame_tracer_error);
   }
+
+  //
+  // Dynamically generated error tagging functions
+  //
+  std::string amr_prefix = "amr";
+  ParmParse ppamr(amr_prefix);
+  Vector<std::string> refinement_indicators;
+  ppamr.queryarr("refinement_indicators",refinement_indicators,0,ppamr.countval("refinement_indicators"));
+  for (int i=0; i<refinement_indicators.size(); ++i)
+  {
+    std::string ref_prefix = amr_prefix + "." + refinement_indicators[i];
+
+    ParmParse ppr(ref_prefix);
+    Real min_time = 0; ppr.query("start_time",min_time);
+    Real max_time = -1; ppr.query("end_time",max_time);
+    int max_level = -1;  ppr.query("max_level",max_level);
+    
+    if (ppr.countval("value_greater")) {
+      Real value; ppr.get("value_greater",value);
+      std::string field; ppr.get("field_name",field);
+      err_list.add(field.c_str(),0,ErrorRec::Special,
+                   LM_Error_Value(valgt_error,value,min_time,max_time,max_level));
+    }
+    else if (ppr.countval("value_less")) {
+      Real value; ppr.get("value_less",value);
+      std::string field; ppr.get("field_name",field);
+      err_list.add(field.c_str(),0,ErrorRec::Special,
+                   LM_Error_Value(vallt_error,value,min_time,max_time,max_level));
+    }
+    else if (ppr.countval("adjacent_difference_greater")) {
+      Real value; ppr.get("adjacent_difference_greater",value);
+      std::string field; ppr.get("field_name",field);
+      err_list.add(field.c_str(),1,ErrorRec::Special,
+                   LM_Error_Value(diffgt_error,value,min_time,max_time,max_level));
+    }
+    else {
+      Abort(std::string("Unrecognized refinement indicator for " + refinement_indicators[i]).c_str());
+    }
+  }
 }
 
 class PLMBld
