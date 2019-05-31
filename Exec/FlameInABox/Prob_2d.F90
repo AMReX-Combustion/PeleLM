@@ -1268,39 +1268,6 @@ contains
       
   end subroutine zero_visc
 
-
-! SAVE FOR LATER
-!   subroutine mv_error (tag,DIMS(tag),set,clear, &
-!                              vort,DIMS(vort),lo,hi,nvar,  &
-!                              domlo,domhi,dx,xlo, &
-!     			       problo,time,level)&
-!                 bind(C, name="mv_error")
-!                 
-!      implicit none
-!      integer   DIMDEC(tag)
-!      integer   DIMDEC(vort)
-!      integer   nvar, set, clear, level
-!      integer   lo(SDIM), hi(SDIM)
-!      integer   domlo(SDIM), domhi(SDIM)
-!      REAL_T    dx(SDIM), xlo(SDIM), problo(SDIM), time
-!      integer   tag(DIMV(tag))
-!      REAL_T    vort(DIMV(vort),nvar)
-!
-!      integer   i, j
-!
-!#include <probdata.H>
-!
-!      if (level .lt. max_vort_lev) then
-!         do j = lo(2), hi(2)
-!            do i = lo(1), hi(1)
-!               tag(i,j) = merge(set,tag(i,j), &
-!                   ABS(vort(i,j,1)).ge.vorterr*2.d0**level)
-!            enddo
-!         enddo
-!      end if
-!
-!  end subroutine mv_error 
-
 ! ::: -----------------------------------------------------------
 ! ::: This routine is called during a filpatch operation when
 ! ::: the patch to be filled falls outside the interior

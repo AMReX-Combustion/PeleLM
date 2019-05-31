@@ -33,7 +33,7 @@ module PeleLM_3d
              dsdt_fill, ydot_fill, rhoYdot_fill, fab_minmax, repair_flux, &
              incrwext_flx_div, flux_div, compute_ugradp, conservative_T_floor, &
              part_cnt_err, mcurve, smooth, grad_wbar, recomp_update, &
-             valgt_error, vallt_error, diffgt_error
+             valgt_error, vallt_error, magvort_error, diffgt_error
 
 contains
              
@@ -2756,7 +2756,41 @@ contains
     end do
 
   end subroutine vallt_error
-  
+
+    subroutine magvort_error(tag,DIMS(tag),set,clear,&
+       adv,DIMS(adv),&
+       lo,hi,nvar,&
+       domlo,domhi,dx,xlo,&
+       problo,time,level,value) bind(C, name="magvort_error")
+
+    implicit none
+
+#include "probdata.H"
+
+    integer   DIMDEC(tag)
+    integer   DIMDEC(adv)
+    integer   nvar, set, clear, level
+    integer   domlo(SDIM), domhi(SDIM)
+    integer   lo(SDIM), hi(SDIM)
+    integer   tag(DIMV(tag))
+    REAL_T    dx(SDIM), xlo(SDIM), problo(SDIM), time
+    REAL_T    adv(DIMV(adv),1)
+    REAL_T    value
+
+    integer   i, j, k
+
+    do k = lo(3), hi(3)
+       do j = lo(2), hi(2)
+          do i = lo(1), hi(1)
+
+              tag(i,j,k) = merge(set,tag(i,j,k), &
+                    ABS(adv(i,j,k,1)).ge.value*2.d0**level)
+
+          end do
+       end do
+    end do
+
+  end subroutine magvort_error  
 
   subroutine diffgt_error (tag,DIMS(tag),set,clear,&
        adv,DIMS(adv),&

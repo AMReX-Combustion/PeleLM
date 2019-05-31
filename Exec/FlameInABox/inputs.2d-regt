@@ -178,11 +178,13 @@ fab.format = NATIVE
 fabarray.mfiter_tile_size = 8 8 8 
 amrex.regtest_reduction=1
 
+# Refinement according to a species tracer
 amr.refinement_indicators = flame_tracer 
 amr.flame_tracer.max_level = 3
 amr.flame_tracer.value_greater = 1.e-6
 amr.flame_tracer.field_name = Y(H)
 
+# Refinement according to temperature and gradient of temperature
 #amr.refinement_indicators = lo_temp gradT
 #amr.lo_temp.max_level = 2
 #amr.lo_temp.value_less = 500
@@ -192,4 +194,7 @@ amr.flame_tracer.field_name = Y(H)
 #amr.gradT.adjacent_difference_greater = 300
 #amr.gradT.field_name = temp
 
-
+# Refinement according to the vorticity, no field_name needed
+#amr.refinement_indicators = magvort
+#amr.magvort.max_level = 3
+#amr.magvort.vorticity_greater = 300

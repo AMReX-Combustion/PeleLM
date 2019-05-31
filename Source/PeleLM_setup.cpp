@@ -904,6 +904,12 @@ PeleLM::variableSetUp ()
       err_list.add(field.c_str(),0,ErrorRec::Special,
                    LM_Error_Value(vallt_error,value,min_time,max_time,max_level));
     }
+    else if (ppr.countval("vorticity_greater")) {
+      Real value; ppr.get("vorticity_greater",value);
+      std::string field; field="mag_vort";
+      err_list.add(field.c_str(),0,ErrorRec::Special,
+                   LM_Error_Value(magvort_error,value,min_time,max_time,max_level));
+    }
     else if (ppr.countval("adjacent_difference_greater")) {
       Real value; ppr.get("adjacent_difference_greater",value);
       std::string field; ppr.get("field_name",field);
@@ -911,7 +917,7 @@ PeleLM::variableSetUp ()
                    LM_Error_Value(diffgt_error,value,min_time,max_time,max_level));
     }
     else if (ppr.countval("adjacent_difference_less")) {
-      Abort(std::string("adjacent_difference_less refinement indicator not yet implemented, please find a PostDoc do that"));
+      Abort(std::string("adjacent_difference_less refinement indicator not yet implemented, please find a PostDoc to do that"));
     }
     else {
       Abort(std::string("Unrecognized refinement indicator for " + refinement_indicators[i]).c_str());
