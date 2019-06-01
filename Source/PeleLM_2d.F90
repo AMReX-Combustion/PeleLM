@@ -862,6 +862,28 @@ contains
            end do
         end do
       end do
+      if (do_temp .ne. 0) then
+        if (.NOT. use_constant_lambda) THEN  
+          do j=lo(2), hi(2)
+            do i=lo(1), hi(1)
+              do n=1,Nspec
+                Yt(n) = Y(i,j,n)
+              end do
+              CALL CPMIXfromTY(lo_chem, hi_chem, & 
+                         cpmix,  ARLIM(lo_chem), ARLIM(hi_chem), &
+                         T(i,j), ARLIM(lo_chem), ARLIM(hi_chem), &
+                         Yt,     ARLIM(lo_chem), ARLIM(hi_chem))
+              rhoD(i,j,Nspec+1) = constant_rhoD_val*cpmix(1,1)
+            end do
+          end do
+        else
+          do j=lo(2), hi(2)
+            do i=lo(1), hi(1)
+              rhoD(i,j,Nspec+1) = constant_lambda_val
+            end do
+          end do
+        end if
+      end if
     end if
 
   end subroutine spec_temp_visc
