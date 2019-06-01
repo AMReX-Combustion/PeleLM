@@ -4,26 +4,22 @@
 !
 #define ACTIVE_CONTROL_IS_USABLE
       
-      REAL_T vorterr, temperr, adverr, tempgrad, flametracval, twall
+      REAL_T twall
       REAL_T splitx, splity, traceSpecVal, xfrontw, yfrontw
       REAL_T standoff
       REAL_T domnlo(3), domnhi(3)
       
-      integer max_vort_lev, max_temp_lev, max_trac_lev, max_nozzle_lev
       integer fuelID, oxidID, prodID, nspecies
       character*50 probtype
 
-      common /prob1/ vorterr, temperr, adverr, tempgrad, flametracval, twall, &
+      common /prob1/ twall, &
                     splitx, splity, traceSpecVal, xfrontw, yfrontw, standoff
       common /prob2/ domnlo, domnhi
-      common /prob3/ max_vort_lev, max_temp_lev, max_trac_lev, &
-                    max_nozzle_lev
       common /prob4/ fuelID, oxidID, prodID, nspecies
       common /prob5/ probtype
-      save /prob1/, /prob2/, /prob3/, /prob4/, /prob5/
+      save /prob1/, /prob2/, /prob4/, /prob5/
 
       integer refine_nozzle
-      REAL_T  jet_x, jet_y, adv_vel, infl_time_offset, omega
       REAL_T refine_nozzle_x, refine_nozzle_y, refine_nozzle_z, blobx, bloby, blobz, blobr, blobT, Tfrontw, xcen
       common /myprob1/ refine_nozzle
       common /myprob2/ refine_nozzle_x, refine_nozzle_y, refine_nozzle_z, blobx, bloby, blobz, &

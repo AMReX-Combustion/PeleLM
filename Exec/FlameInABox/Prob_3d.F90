@@ -8,8 +8,7 @@ module prob_3D_module
   private
   
   public :: amrex_probinit,setupbc, getZone, bcfunction, init_data_new_mech, init_data, &
-            zero_visc, FORT_DENERROR, flame_tracer_error, adv_error, &
-            temp_error, mv_error, den_fill, adv_fill, &
+            zero_visc, den_fill, adv_fill, &
             temp_fill, rhoh_fill, vel_fill, all_chem_fill, &
             FORT_XVELFILL, FORT_YVELFILL, FORT_ZVELFILL, chem_fill, press_fill, &
             FORT_MAKEFORCE 
@@ -38,6 +37,7 @@ contains
   
       
       use chem_driver, only: P1ATMMKS
+      use mod_Fvar_def, only : pamb, dpdt_factor, closed_chamber
       
       implicit none
       integer init, namlen
@@ -47,12 +47,10 @@ contains
 
 #include <probdata.H>
 #include <cdwrk.H>
-#include <htdata.H>
 #include <bc.H>
 #if defined(BL_DO_FLCT)
 #include <INFL_FORCE_F.H>
 #endif
-#include <visc.H>
 #include <conp.H>
 
 #ifdef DO_LMC_FORCE
@@ -62,10 +60,7 @@ contains
       integer i,istemp
       REAL_T FORT_P1ATMMKS, area
 
-      namelist /fortin/ vorterr, temperr, adverr, tempgrad, &
-                       flametracval, probtype, &
-     		        max_temp_lev, max_vort_lev, max_trac_lev, &
-                       traceSpecVal,phi_in,T_in,  &
+      namelist /fortin/ probtype, phi_in,T_in,  &
                        turb_scale, V_in, V_co, &
                        standoff, pertmag, nchemdiag, splitx, xfrontw, &
                        splity, yfrontw, blobx, bloby, blobz, blobr, &
@@ -145,16 +140,7 @@ contains
       open(untin,file=probin(1:namlen),form='formatted',status='old')
       
 !     Set defaults
-      vorterr = 1.e20
-      temperr = zero
-      adverr = 1.e20
-      tempgrad  = 50.0d0
-      flametracval = 0.0001d0
       probtype = BL_PROB_UNDEFINED
-      max_temp_lev = 0
-      max_vort_lev = 0
-      max_trac_lev = 100
-      traceSpecVal = 1.d-10
       pamb = P1ATMMKS()
       dpdt_factor = 0.3d0
       closed_chamber = 0
@@ -213,8 +199,6 @@ contains
       
 !     Initialize control variables that depend on fortin variables
       V_in_old = V_in
-
-      if (max_vort_lev.lt.0) max_vort_lev=max_temp_lev
       
       read(untin,heattransin)
  
@@ -609,13 +593,13 @@ contains
       use chem_driver, only: P1ATMMKS
       use chem_driver_3D, only: RHOfromPTY, HMIXfromTY
       use probspec_module, only: set_Y_from_Phi
+      use mod_Fvar_def, only : pamb
   
       implicit none
       
 #include <cdwrk.H>
 #include <bc.H>
 #include <probdata.H>
-#include <htdata.H>
 
       REAL_T Patm, pmf_vals(maxspec+3)
       REAL_T Xt(maxspec), Yt(maxspec), loc
@@ -746,7 +730,6 @@ contains
       logical getuvw
 
 #include <cdwrk.H>
-#include <htdata.H>
 #include <bc.H>
 #include <probdata.H>
 
@@ -805,6 +788,7 @@ contains
           
       use chem_driver, only: P1ATMMKS
       use chem_driver_3D, only: RHOfromPTY, HMIXfromTY
+      use mod_Fvar_def, only : Density, Temp, FirstSpec, RhoH, pamb, Trac
       
       implicit none
       integer  level, nscal
@@ -818,7 +802,6 @@ contains
       REAL_T   press(DIMV(press))
  
 #include <cdwrk.H>
-#include <htdata.H>
 #include <bc.H>
 #include <probdata.H>
  
@@ -894,6 +877,7 @@ contains
       use chem_driver, only: P1ATMMKS
       use chem_driver_3D, only: RHOfromPTY, HMIXfromTY
       use chem_driver, only: get_spec_name
+      use mod_Fvar_def, only : Density, Temp, FirstSpec, RhoH, pamb, Trac
       
       implicit none
       integer    level,nscal
@@ -908,7 +892,6 @@ contains
 
 #include <cdwrk.H>
 #include <conp.H>
-#include <htdata.H>
 #include <bc.H>
 #include <probdata.H>
 #if defined(BL_DO_FLCT)
@@ -1037,7 +1020,9 @@ contains
 subroutine zero_visc(diff,DIMS(diff),lo,hi,domlo,domhi, &
                      dx,problo,bc,idir,isrz,id,ncomp)  &
                      bind(C, name="zero_visc")   
-                                          
+
+      use mod_Fvar_def, only : Density, Temp, FirstSpec, RhoH, LastSpec
+                     
       implicit none
       integer DIMDEC(diff)
       integer lo(SDIM), hi(SDIM)
@@ -1050,7 +1035,7 @@ subroutine zero_visc(diff,DIMS(diff),lo,hi,domlo,domhi, &
       
 #include <probdata.H>
 #include <cdwrk.H>
-#include <htdata.H>
+
       integer i, j, k, n, Tid, RHid, YSid, YEid, ys, ye
       integer len
       logical do_T, do_RH, do_Y
@@ -1121,269 +1106,6 @@ subroutine zero_visc(diff,DIMS(diff),lo,hi,domlo,domhi, &
          endif
       end if
   end subroutine zero_visc
-
-!c ::: -----------------------------------------------------------
-!c ::: This routine will tag high error cells based on the 
-!c ::: density gradient
-!c ::: 
-!c ::: INPUTS/OUTPUTS:
-!c ::: 
-!c ::: tag      <=  integer tag array
-!c ::: DIMS(tag) => index extent of tag array
-!c ::: set       => integer value to tag cell for refinement
-!c ::: clear     => integer value to untag cell
-!c ::: rho       => density array
-!c ::: DIMS(rho) => index extent of rho array
-!c ::: lo,hi     => index extent of grid
-!c ::: nvar      => number of components in rho array (should be 1)
-!c ::: domlo,hi  => index extent of problem domain
-!c ::: dx        => cell spacing
-!c ::: xlo       => physical location of lower left hand
-!c :::	           corner of tag array
-!c ::: problo    => phys loc of lower left corner of prob domain
-!c ::: time      => problem evolution time
-!c ::: -----------------------------------------------------------
-
-  subroutine FORT_DENERROR (tag,DIMS(tag),set,clear, &
-                            rho,DIMS(rho),lo,hi,nvar, &
-                            domlo,domhi,dx,xlo, &
-                		        problo,time,level) &
-                             bind(C, name="FORT_DENERROR")
-                               
-      implicit none
-      integer   DIMDEC(rho)
-      integer   DIMDEC(tag)
-      integer   lo(SDIM), hi(SDIM)
-      integer   nvar, set, clear, level
-      integer   domlo(SDIM), domhi(SDIM)
-      REAL_T    dx(SDIM), xlo(SDIM), problo(SDIM), time
-      integer   tag(DIMV(tag))
-      REAL_T    rho(DIMV(rho), nvar)
-
-#include <probdata.H>
-
-      call bl_abort('DENERROR: should no be here')
-      
-  end subroutine FORT_DENERROR
-
-! ::: -----------------------------------------------------------
-
-  subroutine flame_tracer_error(tag,DIMS(tag),set,clear, &
-                                ftrac,DIMS(ftrac),lo,hi,nvar, &
-                                domlo,domhi,dx,xlo, &
-                 	              problo,time,level) &
-                                bind(C, name="flame_tracer_error")
-                                
-      implicit none
-      integer   DIMDEC(ftrac)
-      integer   DIMDEC(tag)
-      integer   lo(SDIM), hi(SDIM)
-      integer   nvar, set, clear, level
-      integer   domlo(SDIM), domhi(SDIM)
-      REAL_T    dx(SDIM), xlo(SDIM), problo(SDIM), time
-      integer   tag(DIMV(tag))
-      REAL_T    ftrac(DIMV(ftrac), nvar)
-
-      integer   i, j, k
-
-#include <probdata.H>
-
-      if (level.lt.max_trac_lev) then
-         do k = lo(3), hi(3)
-            do j = lo(2), hi(2)
-               do i = lo(1), hi(1)
-                  tag(i,j,k) = merge(set,tag(i,j,k), &
-                      ftrac(i,j,k,1).gt.flametracval)
-               enddo
-            enddo
-         enddo
-      endif
-
-  end subroutine flame_tracer_error
-
-!c ::: -----------------------------------------------------------
-!c ::: This routine will tag high error cells based on the 
-!c ::: density gradient
-!c ::: 
-!c ::: INPUTS/OUTPUTS:
-!c ::: 
-!c ::: tag      <=  integer tag array
-!c ::: DIMS(tag) => index extent of tag array
-!c ::: set       => integer value to tag cell for refinement
-!c ::: clear     => integer value to untag cell
-!c ::: adv       => scalar array
-!c ::: DIMS(adv) => index extent of scalar array
-!c ::: lo,hi     => index extent of grid
-!c ::: nvar      => number of components in rho array (should be 1)
-!c ::: domlo,hi  => index extent of problem domain
-!c ::: dx        => cell spacing
-!c ::: xlo       => physical location of lower left hand
-!c :::	           corner of tag array
-!c ::: problo    => phys loc of lower left corner of prob domain
-!c ::: time      => problem evolution time
-!c ::: -----------------------------------------------------------
-
-
-  subroutine adv_error (tag,DIMS(tag),set,clear, &
-                        adv,DIMS(adv),lo,hi,nvar, &
-                        domlo,domhi,delta,xlo, &
-          			        problo,time,level)&
-                        bind(C, name="adv_error")
-                  
-      implicit none
-      integer   DIMDEC(tag)
-      integer   DIMDEC(adv)
-      integer   nvar, set, clear, level
-      integer   domlo(SDIM), domhi(SDIM)
-      integer   lo(SDIM), hi(SDIM)
-      REAL_T    delta(SDIM), xlo(SDIM), problo(SDIM), time
-      integer   tag(DIMV(tag)), len
-      REAL_T    adv(DIMV(adv),nvar)
-
-#include <probdata.H>
-
-      len = len_trim(probtype)
-      
-      if ( (probtype(1:len).eq.BL_PROB_PREMIXED_FIXED_INFLOW) &
-          .or. (probtype(1:len).eq.BL_PROB_PREMIXED_CONTROLLED_INFLOW) &
-          .or. (probtype(1:len).eq.BL_PROB_PREMIXED_FIXED_INFLOW_FORCED) &
-          .or. (probtype(1:len).eq.BL_PROB_PREMIXED_CONTROLLED_INFLOW_FORCED) ) then
-
-         call mv_error(tag,DIMS(tag),set,clear, &
-                       adv,DIMS(adv),lo,hi,nvar, &
-                       domlo,domhi,delta,xlo, &
-                       problo,time,level)
-
-      endif
-      
-  end subroutine adv_error
-  
-!c ::: -----------------------------------------------------------
-!c ::: This routine will tag high error cells based on the
-!c ::: temperature gradient
-!c :::
-!c ::: INPUTS/OUTPUTS:
-!c :::
-!c ::: tag      <=  integer tag array
-!c ::: DIMS(tag) => index extent of tag array
-!c ::: set       => integer value to tag cell for refinement
-!c ::: clear     => integer value to untag cell
-!c ::: temp      => density array
-!c ::: DIMS(temp)=> index extent of temp array
-!c ::: lo,hi     => index extent of grid
-!c ::: nvar      => number of components in rho array (should be 1)
-!c ::: domlo,hi  => index extent of problem domain
-!c ::: dx        => cell spacing
-!c ::: xlo       => physical location of lower left hand
-!c :::              corner of tag array
-!c ::: problo    => phys loc of lower left corner of prob domain
-!c ::: time      => problem evolution time
-!c ::: -----------------------------------------------------------
-
-  subroutine temp_error(tag,DIMS(tag),set,clear, &
-                        temperature,DIMS(temp),lo,hi,nvar, &
-                        domlo,domhi,dx,xlo, &
-                        problo,time,level)&
-                        bind(C, name="temp_error")
-                               
-      implicit none
-      integer   DIMDEC(tag)
-      integer   DIMDEC(temp)
-      integer   nvar, set, clear, level
-      integer   domlo(SDIM), domhi(SDIM)
-      integer   lo(SDIM), hi(SDIM)
-      REAL_T    dx(SDIM), xlo(SDIM), problo(SDIM), time
-      integer   tag(DIMV(tag))
-      REAL_T    temperature(DIMV(temp),nvar)
-
-      integer   i, j, k, ng
-
-#include <probdata.H>
-
-      ng = min(ARG_H1(temp)-hi(1),ARG_H2(temp)-hi(2),ARG_H3(temp)-hi(3), &
-              lo(1)-ARG_L1(temp),lo(2)-ARG_L2(temp),lo(3)-ARG_L3(temp))
-
-      if (ng .lt. 1) then
-         write(6,*) "TEMPERR cannot compute gradient, ng = ",ng
-         call bl_abort(" ")
-      endif
-!
-!     ::::: refine where there is temperature gradient
-!
-      if (level .lt. max_temp_lev) then
-         do k = lo(3), hi(3)
-            do j = lo(2), hi(2)
-               do i = lo(1), hi(1)
-!c                 ax = abs(temperature(i+1,j,k,1) - temperature(i,j,k,1))
-!c                 ay = abs(temperature(i,j+1,k,1) - temperature(i,j,k,1))
-!c                 az = abs(temperature(i,j,k+1,1) - temperature(i,j,k,1))
-!c                 ax = MAX(ax,abs(temperature(i,j,k,1) - temperature(i-1,j,k,1)))
-!c                 ay = MAX(ay,abs(temperature(i,j,k,1) - temperature(i,j-1,k,1)))
-!c                 az = MAX(az,abs(temperature(i,j,k,1) - temperature(i,j,k-1,1)))
-!c                 aerr = max(ax,ay,az)
-!c                 tag(i,j,k) = merge(set,tag(i,j,k),aerr.ge.tempgrad)
-                  tag(i,j,k) = merge(set,tag(i,j,k),temperature(i,j,k,1).lt.temperr)
-               enddo
-            enddo
-         enddo
-      endif
-
-  end subroutine temp_error
-
-!c ::: -----------------------------------------------------------
-!c ::: This routine will tag high error cells based on the 
-!c ::: magnitude of vorticity
-!c ::: 
-!c ::: INPUTS/OUTPUTS:
-!c ::: 
-!c ::: tag      <=  integer tag array
-!c ::: DIMS(tag) => index extent of tag array
-!c ::: set       => integer value to tag cell for refinement
-!c ::: clear     => integer value to untag cell
-!c ::: vort      => array of vorticity values
-!c ::: DIMS(vor) => index extent of vort array
-!c ::: nvar      => number of components in vort array (should be 1)
-!c ::: lo,hi     => index extent of grid
-!c ::: domlo,hi  => index extent of problem domain
-!c ::: dx        => cell spacing
-!c ::: xlo       => physical location of lower left hand
-!c :::	           corner of tag array
-!c ::: problo    => phys loc of lower left corner of prob domain
-!c ::: time      => problem evolution time
-!c ::: -----------------------------------------------------------
-
-   subroutine mv_error (tag,DIMS(tag),set,clear, &
-                        vort,DIMS(vort),lo,hi,nvar,  &
-                        domlo,domhi,dx,xlo, &
-     			              problo,time,level)&
-                        bind(C, name="mv_error")
-                 
-      implicit none
-      integer   DIMDEC(tag)
-      integer   DIMDEC(vort)
-      integer   nvar, set, clear, level
-      integer   lo(SDIM), hi(SDIM)
-      integer   domlo(SDIM), domhi(SDIM)
-      REAL_T    dx(SDIM), xlo(SDIM), problo(SDIM), time
-      integer   tag(DIMV(tag))
-      REAL_T    vort(DIMV(vort),nvar)
-
-      integer   i, j, k
-
-#include <probdata.H>
-
-      if (level .lt. max_vort_lev) then
-         do k = lo(3), hi(3)
-            do j = lo(2), hi(2)
-               do i = lo(1), hi(1)
-                  tag(i,j,k) = merge(set,tag(i,j,k), &
-                              ABS(vort(i,j,k,1)).ge.vorterr*2.d0**level)
-               enddo
-            enddo
-         enddo
-      end if
-
-  end subroutine mv_error 
 
 !c ::: -----------------------------------------------------------
 !c ::: This routine is called during a filpatch operation when

@@ -3,7 +3,7 @@ EBASE = PeleLM
 
 include $(AMREX_HOME)/Tools/GNUMake/Make.defs 
 
-Bdirs += $(PELELM_HOME)/Source
+Bdirs += $(PELELM_HOME)/Source $(PELELM_HOME)/Source/Src_$(DIM)d
 
 # Chemistry
 Bdirs += $(PELELM_HOME)/Source/ChemDriver

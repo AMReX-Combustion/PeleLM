@@ -43,7 +43,6 @@ contains
 !
 
 #include <cdwrk.H>
-#include <htdata.H>
 
       integer    lo(SDIM), hi(SDIM)
       integer    DIMDEC(e)
@@ -103,7 +102,6 @@ contains
 !
 
 #include <cdwrk.H>
-#include <htdata.H>
 
       integer    lo(SDIM), hi(SDIM)
       integer    DIMDEC(e)
@@ -164,7 +162,6 @@ contains
 !
 
 #include <cdwrk.H>
-#include <htdata.H>
       
       integer    lo(SDIM), hi(SDIM)
       integer    DIMDEC(e)
@@ -338,7 +335,6 @@ contains
 !
 
 #include <cdwrk.H>
-#include <htdata.H>
 
       integer    lo(SDIM), hi(SDIM)
       integer    DIMDEC(e)
@@ -514,7 +510,6 @@ contains
 !
 
 #include <cdwrk.H>
-#include <htdata.H>
 
       integer    lo(SDIM), hi(SDIM)
       integer    DIMDEC(e)
@@ -666,7 +661,6 @@ contains
 !
 
 #include <cdwrk.H>
-#include <htdata.H>
 
       integer    lo(SDIM), hi(SDIM)
       integer    DIMDEC(e)
@@ -819,7 +813,6 @@ contains
 !
 
 #include <cdwrk.H>
-#include <htdata.H>
 
       integer    lo(SDIM), hi(SDIM)
       integer    DIMDEC(e)

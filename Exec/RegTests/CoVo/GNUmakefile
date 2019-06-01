@@ -1,4 +1,4 @@
-TOP = ../../..
+TOP = ../../../../
 AMREX_HOME ?= ${TOP}/amrex
 IAMR_HOME ?= ${TOP}/IAMR
 PELELM_HOME ?= ${TOP}/PeleLM

@@ -875,22 +875,53 @@ PeleLM::variableSetUp ()
   //
   //err_list.add("total_particle_count",1,ErrorRec::Special,part_cnt_err);
 #endif
+
   //
-  // **************  DEFINE ERROR ESTIMATION QUANTITIES  *************
+  // Dynamically generated error tagging functions
   //
-  const int nGrowErr = 1;
-  err_list.add("temp", nGrowErr, ErrorRec::Special, temp_error);
-  err_list.add("mag_vort", nGrowErr, ErrorRec::Special, mv_error);
-  err_list.add("tracer", nGrowErr, ErrorRec::Special, adv_error);
-  //
-  // Tag region of interesting chemistry.
-  //
-  const int idx = getChemSolve().index(flameTracName);
-  if (idx >= 0)
+  std::string amr_prefix = "amr";
+  ParmParse ppamr(amr_prefix);
+  Vector<std::string> refinement_indicators;
+  ppamr.queryarr("refinement_indicators",refinement_indicators,0,ppamr.countval("refinement_indicators"));
+  for (int i=0; i<refinement_indicators.size(); ++i)
   {
-    amrex::Print() << "Flame tracer will be " << flameTracName << '\n';
-    const std::string chname = "Y("+flameTracName+")";
-    err_list.add(chname,nGrowErr,ErrorRec::Special,flame_tracer_error);
+    std::string ref_prefix = amr_prefix + "." + refinement_indicators[i];
+
+    ParmParse ppr(ref_prefix);
+    Real min_time = 0; ppr.query("start_time",min_time);
+    Real max_time = -1; ppr.query("end_time",max_time);
+    int max_level = -1;  ppr.query("max_level",max_level);
+    
+    if (ppr.countval("value_greater")) {
+      Real value; ppr.get("value_greater",value);
+      std::string field; ppr.get("field_name",field);
+      err_list.add(field.c_str(),0,ErrorRec::Special,
+                   LM_Error_Value(valgt_error,value,min_time,max_time,max_level));
+    }
+    else if (ppr.countval("value_less")) {
+      Real value; ppr.get("value_less",value);
+      std::string field; ppr.get("field_name",field);
+      err_list.add(field.c_str(),0,ErrorRec::Special,
+                   LM_Error_Value(vallt_error,value,min_time,max_time,max_level));
+    }
+    else if (ppr.countval("vorticity_greater")) {
+      Real value; ppr.get("vorticity_greater",value);
+      std::string field; field="mag_vort";
+      err_list.add(field.c_str(),0,ErrorRec::Special,
+                   LM_Error_Value(magvort_error,value,min_time,max_time,max_level));
+    }
+    else if (ppr.countval("adjacent_difference_greater")) {
+      Real value; ppr.get("adjacent_difference_greater",value);
+      std::string field; ppr.get("field_name",field);
+      err_list.add(field.c_str(),1,ErrorRec::Special,
+                   LM_Error_Value(diffgt_error,value,min_time,max_time,max_level));
+    }
+    else if (ppr.countval("adjacent_difference_less")) {
+      Abort(std::string("adjacent_difference_less refinement indicator not yet implemented, please find a PostDoc to do that"));
+    }
+    else {
+      Abort(std::string("Unrecognized refinement indicator for " + refinement_indicators[i]).c_str());
+    }
   }
 }
 
