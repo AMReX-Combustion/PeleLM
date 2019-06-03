@@ -166,6 +166,7 @@ contains
     yfrontw = 0.05d0 * (domnhi(2) - domnlo(2))
     blobx = 0.5d0 * (domnhi(1) + domnlo(1))
     bloby = 0.5d0 * (domnhi(2) + domnlo(2))
+    blobz = 0.d0
     blobT = T_in
     Tfrontw = xfrontw
     stTh = -1.d0
@@ -210,9 +211,15 @@ contains
     nchemdiag = 1
     controlVelMax = 5.d0
 
-    write(6,*)"reading fortin"
+    if (isioproc .eq. 1) then
+       write(6,*)"reading fortin"
+    endif
+
     read(untin,fortin)
-    write(6,*)"done reading fortin"
+
+    if (isioproc .eq. 1) then
+       write(6,*)"done reading fortin"
+    endif
 
     !     Initialize control variables that depend on fortin variables
     V_in_old = V_in
@@ -225,10 +232,8 @@ contains
     read(untin,flctin)
 #endif
 
-    write(6,*)"reading control"
     read(untin,control)
     close(unit=untin)
-    write(6,*)"done reading control"
 
 #if defined(BL_DO_FLCT)
     if (forceInflow .eqv. .FALSE.) then
@@ -253,9 +258,7 @@ contains
     endif
 #endif
     !     Set up boundary functions
-    write(6,*)" setup bc"
     call setupbc()
-    write(6,*)" done setup bc"
 
     area = 1.d0
     do i=1,SDIM-1
@@ -266,8 +269,10 @@ contains
     else
        scale_control = 1.d0
     endif
-    write(6,*)" control setup", area, Y_bc(fuelID-1,BL_FUELPIPE), rho_bc(BL_FUELPIPE)
-    write(6,*)" fuelpipe",BL_FUELPIPE
+    if (isioproc .eq. 1) then
+       write(6,*)" control setup", area, Y_bc(fuelID-1,BL_FUELPIPE), rho_bc(BL_FUELPIPE)
+       write(6,*)" fuelpipe",BL_FUELPIPE
+    endif
 
     if (h_control .gt. zero) then
        cfix = scale_control * h_control
@@ -636,7 +641,8 @@ contains
     Patm = pamb / P1ATMMKS()
     num_zones_defined = 0
     len = len_trim(probtype)
-    if  (probtype(1:len).eq.BL_PROB_PREMIXED_FREE)  then
+    if ((probtype(1:len).eq.BL_PROB_PREMIXED_FREE) .or.  &
+        (probtype(1:len).eq.BL_PROB_CHAMBER))  then
 
        !     Take fuel mixture from prob data
 
@@ -766,9 +772,10 @@ contains
     getZone = BL_VOLUME
     len     = len_trim(probtype)
 
-    !     if ( (probtype(1:len).eq.BL_PROB_PREMIXED_FIXED_INFLOW) &
-    !         .or. (probtype(1:len).eq.BL_PROB_PREMIXED_CONTROLLED_INFLOW) ) then
-    if  (probtype(1:len).eq.BL_PROB_PREMIXED_FREE) then 
+         if ( (probtype(1:len).eq.BL_PROB_PREMIXED_FIXED_INFLOW) &
+             .or. (probtype(1:len).eq.BL_PROB_CHAMBER) &
+             .or. (probtype(1:len).eq.BL_PROB_PREMIXED_CONTROLLED_INFLOW) ) then
+    !if  (probtype(1:len).eq.BL_PROB_PREMIXED_FREE) then 
 
        getZone = BL_FUELPIPE
 
@@ -806,9 +813,10 @@ contains
 
     if ( (probtype(1:len).eq.BL_PROB_PREMIXED_FIXED_INFLOW) &
          .or. (probtype(1:len).eq.BL_PROB_PREMIXED_FREE) &
+         .or. (probtype(1:len).eq.BL_PROB_CHAMBER) &
          .or. (probtype(1:len).eq.BL_PROB_PREMIXED_CONTROLLED_INFLOW)) then
 
-       if (RegionID .eq. BL_ZLO) then
+     !  if (RegionID .eq. BL_ZLO) then
 
           zone = getZone(x,y,z)
           rho = rho_bc(zone)
@@ -825,15 +833,16 @@ contains
              if  ((probtype(1:len).eq.BL_PROB_PREMIXED_CONTROLLED_INFLOW)&
                   .or. (probtype(1:len).eq.BL_PROB_PREMIXED_FREE) ) then               
                 w =  V_in + (time-tbase_control)*dV_control
-             else if (probtype(1:len).eq.BL_PROB_PREMIXED_FIXED_INFLOW) then
-                w = v_bc(zone)
+             else if ((probtype(1:len).eq.BL_PROB_PREMIXED_FIXED_INFLOW) &
+                .or.  (probtype(1:len).eq.BL_PROB_CHAMBER)) then
+                w = w_bc(zone)
              endif
           endif
 
-       else
-          write(6,*) 'No bcfunction instruction for RegionID = ', RegionID
-          call bl_pd_abort(' ')
-       endif
+     ! else
+     !    write(6,*) 'No bcfunction instruction for RegionID = ', RegionID
+     !    call bl_pd_abort(' ')
+     ! endif
 
     elseif (probtype(1:len).eq.BL_PROB_DIFFUSION) then
 
@@ -1008,6 +1017,7 @@ contains
 
     if ( (probtype(1:len).eq.BL_PROB_PREMIXED_FREE) &
          .or. (probtype(1:len).eq.BL_PROB_PREMIXED_CONTROLLED_INFLOW)&
+         .or. (probtype(1:len).eq.BL_PROB_CHAMBER)&
          .or. (probtype(1:len).eq.BL_PROB_PREMIXED_FIXED_INFLOW) ) then
 
        if(probtype(1:len).eq.BL_PROB_PREMIXED_FREE)then
@@ -1043,8 +1053,8 @@ contains
 
                 endif
 
-                z1 = (z - standoff - 0.5d0*delta(2) + pert)*100.d0
-                z2 = (z - standoff + 0.5d0*delta(2) + pert)*100.d0
+                z1 = (z - blobz - standoff - 0.5d0*delta(2) + pert )*100.d0
+                z2 = (z - blobz - standoff + 0.5d0*delta(2) + pert )*100.d0 
 
                 call pmf(z1,z2,pmf_vals,nPMF)               
                 if (nPMF.ne.Nspec+3) then

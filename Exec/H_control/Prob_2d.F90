@@ -209,9 +209,13 @@ contains
     nchemdiag = 1
     controlVelMax = 5.d0
 
-    write(6,*)"reading fortin"
+    if (isioproc .eq. 1) then
+       write(6,*)"reading fortin"
+    endif
     read(untin,fortin)
-    write(6,*)"done reading fortin"
+    if (isioproc .eq. 1) then
+       write(6,*)"done reading fortin"
+    endif
 
     !     Initialize control variables that depend on fortin variables
     V_in_old = V_in
@@ -1023,6 +1027,7 @@ contains
     REAL_T x, y, r, Yl(maxspec), Xl(maxspec), Patm
     REAL_T pmf_vals(maxspec+3), y1, y2, dx, xmid, ymid
     REAL_T pert,Lx,eta,u,v,rho,T,h
+    REAL_T theta
 
     if (iN2.lt.1 .or. iN2.gt.Nspec) then
        call bl_pd_abort()
@@ -1144,8 +1149,14 @@ contains
           y = (float(j)+.5d0)*delta(2)+domnlo(2)
           do i = lo(1), hi(1)
              x = (float(i)+.5d0)*delta(1)+domnlo(1)
+                theta = atan2(x,y)
+                pert = pertmag*(sin(8.d0*theta)&
+                     + 1.023 * sin(4.d0*(theta-.004598))&
+                     + 0.945 * sin(6.d0*(theta-.00712435))&
+                     + 1.017 * sin(10.d0*(theta-.0033))&
+                     + .982 * sin(20.d0*(theta-.014234)) )
 
-             r = 0.0075d0 - sqrt( (x-xmid)**2 + (y-ymid)**2 )
+             r =(1.d0+pert)* 0.0075d0 - sqrt( (x-xmid)**2 + (y-ymid)**2 )
 
              y1 = (r - standoff - 0.5d0*delta(2))*100.d0
              y2 = (r - standoff + 0.5d0*delta(2))*100.d0

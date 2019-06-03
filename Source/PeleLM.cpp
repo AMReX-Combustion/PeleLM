@@ -1204,6 +1204,23 @@ PeleLM::restart (Amr&          papa,
 
   // Deal with typical values
   set_typical_values(true);
+
+  if (closed_chamber) {
+      std::string line;
+      std::string file=papa.theRestartFile();
+
+      std::string File(file + "/PAMB");
+      Vector<char> fileCharPtr;
+      ParallelDescriptor::ReadAndBcastFile(File, fileCharPtr);
+      std::string fileCharPtrString(fileCharPtr.dataPtr());
+      std::istringstream is(fileCharPtrString, std::istringstream::in);
+
+      // read in title line
+      std::getline(is, line);
+
+      is >> p_amb_old;
+      p_amb_new = p_amb_old;
+  }
 }
 
 void
@@ -2081,6 +2098,38 @@ PeleLM::checkPoint (const std::string& dir,
       }
       tvfab.writeOn(tvos);
     }
+  }
+
+  if (closed_chamber) {
+
+      VisMF::IO_Buffer io_buffer(VisMF::IO_Buffer_Size);
+
+      if (ParallelDescriptor::IOProcessor()) {
+
+          std::ofstream PAMBFile;
+          PAMBFile.rdbuf()->pubsetbuf(io_buffer.dataPtr(), io_buffer.size());
+          std::string PAMBFileName(dir + "/PAMB");
+          PAMBFile.open(PAMBFileName.c_str(), std::ofstream::out   |
+                        std::ofstream::trunc |
+                        std::ofstream::binary);
+
+          if( !PAMBFile.good()) {
+              amrex::FileOpenFailed(PAMBFileName);
+          }
+          
+          PAMBFile.precision(17);
+          
+          int step = parent->levelSteps(0);
+
+          // write out title line
+          PAMBFile << "Writing p_amb to checkpoint\n";
+          if (step == 0) {
+              PAMBFile << p_amb_old << "\n";
+          }
+          else {
+              PAMBFile << p_amb_new << "\n";
+          }
+      }
   }
 }
 
@@ -4551,7 +4600,7 @@ PeleLM::advance (Real time,
       f.plus(ddn,gbox,gbox,0,nspecies,1); // add DDn to RhoH forcing
       if (closed_chamber == 1)
       {
-        f.plus(dp0dt,nspecies,1); // add dp0/dt to enthalpy forcing
+        f.plus(dp0dt,gbox,nspecies,1); // add dp0/dt to enthalpy forcing
       }
       f.plus(r,gbox,gbox,0,0,nspecies); // add R to RhoY, no contribution for RhoH
     }
@@ -4621,7 +4670,7 @@ PeleLM::advance (Real time,
 #endif
       if (closed_chamber == 1)
       {
-        f.plus(dp0dt,nspecies,1); // add dp0/dt to enthalpy forcing
+        f.plus(dp0dt,box,nspecies,1); // add dp0/dt to enthalpy forcing
       }
       f.plus(a,box,box,first_spec,0,nspecies+1); // add A into RhoY and RhoH
       f.plus(r,box,box,0,0,nspecies); // no reactions for RhoH
@@ -4652,7 +4701,7 @@ PeleLM::advance (Real time,
 #pragma omp parallel
 #endif
   {
-    for (MFIter mfi(Forcing); mfi.isValid(); ++mfi) 
+    for (MFIter mfi(Forcing,true); mfi.isValid(); ++mfi) 
     {
       const Box& box = mfi.validbox();
       FArrayBox& f = Forcing[mfi];
@@ -4669,7 +4718,7 @@ PeleLM::advance (Real time,
       f.mult(0.5,box,0,nspecies+1);
       if (closed_chamber == 1)
       {
-        f.plus(dp0dt,nspecies,1); // add dp0/dt to enthalpy forcing
+        f.plus(dp0dt,box,nspecies,1); // add dp0/dt to enthalpy forcing
       }
       f.plus(dhat,box,box,0,0,nspecies+1);       // add Dhat to RhoY and RHoH
       f.plus(a,box,box,first_spec,0,nspecies+1); // add A to RhoY and RhoH

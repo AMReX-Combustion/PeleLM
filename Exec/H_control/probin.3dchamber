@@ -1,13 +1,14 @@
  &fortin
-  probtype = 'fuelblob'
+  probtype = 'chamber'
 
   V_in = 0.0
 
   standoff = -0.024
   standoff = -0.0058
   standoff = 0.001
+  standoff = -.0022
 
-  pertmag = 0.01
+  pertmag = 0.003
 
   max_trac_lev = 1
   flametracval = 1.e-6
@@ -24,6 +25,7 @@
 
  /
  &heattransin
+  pamb = 179704.8067
   pamb = 101325.
   dpdt_factor = 1.0
   closed_chamber = 1

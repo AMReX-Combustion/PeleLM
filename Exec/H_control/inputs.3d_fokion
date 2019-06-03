@@ -10,12 +10,12 @@ ns.zeroBndryVisc=1
 proj.proj_2 = 1
 ns.num_divu_iters = 2
 
-ht.plot_consumption=0
-ht.plot_heat_release=0
+ht.plot_consumption=1
+ht.plot_heat_release=1
 ht.plot_rhoY=0
 ht.plot_molefrac=1
 #ht.plot_massfrac=1
-ht.plot_ydot=1
+ht.plot_ydot=0
 amr.derive_plot_vars=rhoRT mag_vort
 
 geometry.coord_sys = 0  # 0 => cart, 1 => RZ
@@ -41,18 +41,20 @@ ns.do_group_bndry_fills = 1
 
 cg.cg_solver=1
 
-geometry.prob_lo    = 0.0 0.0
-geometry.prob_hi    = 0.012 0.012
-amr.n_cell          = 128 128
+geometry.prob_lo    = 0.0 0.0 0.0
+geometry.prob_hi    = 0.028 0.028 .042
+amr.n_cell          = 64 64 96
 amr.blocking_factor = 8
-max_step            = 100
-amr.check_file      = chk_2d_
-amr.plot_file       = plt_2d_
+max_step            = 5
+amr.check_file      = chk_3d_
+amr.plot_file       = plt_3d_
 amr.check_int       = 10
-amr.plot_int        = 10
+amr.plot_int        = 1
 ns.cfl              = 0.25
 
-amr.max_grid_size   = 64
+amr.max_grid_size   = 32
+#fabarray.mfiter_tile_size = 1024 1024 1024
+godunov.ppm_type = 0
 
 amr.v=1
 amr.max_level =  0            # maximum level number allowed
@@ -64,7 +66,7 @@ amr.grid_eff        = 0.7     # what constitutes an efficient grid
 amr.grid_log        = grdlog  # name of grid logging file
 #amr.derive_plot_vars=ALL
 
-amr.probin_file = probin.2dchamber
+amr.probin_file = probin.3dchamber_methane
 
 # ------------------  INPUTS TO PHYSICS CLASS -------------------
 ns.dt_cutoff       = 5.e-10   # level 0 timestep below which we halt
@@ -100,10 +102,10 @@ ns.divu_ceiling = 1
 ns.divu_dt_factor = .4
 ns.min_rho_divu_ceiling = .01
 
-ns.tranfile        = tran.asc.chem-H
-ns.fuelName        = H2
+#ns.tranfile        = tran.asc.chem-H
+ns.fuelName        = CH4
 ns.oxidizerName    = O2
-ns.flameTracName   = H
+ns.flameTracName   = CH
 ns.unity_Le = 0
 
 ns.sdc_iterMAX = 4
@@ -118,11 +120,12 @@ ns.dpdt_option = 0
 #ns.constant_rhoD_val = 0.0714286
 # ----------------  PROBLEM DEPENDENT INPUTS
 
-ns.lo_bc          = 4 4
-ns.hi_bc          = 4 4
+ns.lo_bc          = 0 0 4
+ns.hi_bc          = 0 0 4
 
+#fabarray.mfiter_tile_size = 1024 1024 1024
 
-geometry.is_periodic = 0 0
+geometry.is_periodic = 1 1 0
 
 # >>>>>>>>>>>>>  BC FLAGS <<<<<<<<<<<<<<<<
 # 0 = Interior           3 = Symmetry
@@ -169,10 +172,10 @@ mac.do_outflow_bcs = 0
 #
 fab.format = NATIVE
 
-#ns.hack_nochem=1
+ns.hack_nochem=1
 #ns.hack_nospecdiff=1
-#ns.init_iter=0
-#ns.do_init_proj=0
+ns.init_iter=0
+ns.do_init_proj=0
 #ShowMF_Sets = mac velVT dd estate
 #ShowMF_Sets = dddt dd divu 1D mac
 #ShowMF_Sets = sdc
