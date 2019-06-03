@@ -106,6 +106,7 @@ extern "C" {
   void set_ht_visc_common(const int* muIsVar,     const amrex::Real* muVal,
                                const int* lambdaIsVar, const amrex::Real* lambdaVal,
                                const int* rhoDIsVar,   const amrex::Real* rhoDVal,
+										 const amrex::Real* thickFacVal,
                                const amrex::Real* Pr, const amrex::Real* Sc, const int* unityLe);
 
   void init_typcals_common();

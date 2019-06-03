@@ -53,17 +53,20 @@ contains
   subroutine set_ht_visc_common(muIsVar,     muVal, &
                                 lambdaIsVar, lambdaVal, &
                                 rhoDIsVar,   rhoDVal, &
+                                thickeningfac, &
                                 prandtl, schmidt, unityLe) &
                                 bind(C, name="set_ht_visc_common") 
 
     use mod_Fvar_def, only : use_constant_mu, use_constant_lambda, use_constant_rhoD
     use mod_Fvar_def, only : constant_mu_val, constant_lambda_val, constant_rhoD_val
-    use mod_Fvar_def, only : Pr, Sc, LeEQ1, thickFacTR
-    
+    use mod_Fvar_def, only : Pr, Sc, LeEQ1, thickFac
     
     implicit none
+
+#include <cdwrk.H>
+
     integer muIsVar, lambdaIsVar, rhoDIsVar
-    REAL_T muVal, lambdaVal, rhoDVal, prandtl, schmidt
+    REAL_T muVal, lambdaVal, rhoDVal, thickeningfac, prandtl, schmidt
     integer unityLe
 
     if (muIsVar .EQ. 1) then
@@ -93,7 +96,8 @@ contains
     Pr = prandtl
     Sc = schmidt
     LeEQ1 = unityLe .ne. 0
-    thickFacTR = one
+    thickFac = MAX(one,thickeningfac)
+    thickFacCH = thickFac
 
   end subroutine set_ht_visc_common
 
