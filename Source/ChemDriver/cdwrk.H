@@ -20,7 +20,7 @@
       !
       integer, parameter :: eg_nodes=1, eg_IFLAG=3, eg_ITLS=1
       !
-      ! If you're using the DD* routines:
+      ! If you are using the DD* routines:
       !
       ! integer, parameter :: eg_nodes=1, eg_IFLAG=7, eg_ITLS=3
       !

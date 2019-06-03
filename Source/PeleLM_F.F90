@@ -17,8 +17,7 @@ module PeleLM_F
 
   private
 
-  public :: set_scal_numb, get_typical_vals, set_typical_vals, &
-            set_ht_visc_common, init_typcals_common, get_pamb, &
+  public :: set_scal_numb, set_ht_visc_common, get_pamb, &
             get_closed_chamber, get_dpdt, set_common, active_control 
 
 contains
@@ -46,78 +45,6 @@ contains
     LastSpec = LastSpecIn - BL_SPACEDIM + 1
 
   end subroutine set_scal_numb
-
-!------------------------------------------
-
-  subroutine get_typical_vals(typ_vals,nVals)bind(C, name="get_typical_vals")
-
-    implicit none
-
-#include <cdwrk.H>
-#include <conp.H>
-#include <htdata.H>
-
-    integer nVals,n,nVals1
-    REAL_T typ_vals(nVals)
-    nVals1 = nVals-BL_SPACEDIM
-!     Note: typical values are defaulted to zero, and may be left that way
-
-    if (Density.gt.nVals1 & 
-          .or. Temp.gt.nVals1 &
-          .or. RhoH.gt.nVals1 &
-          .or. LastSpec.gt.nVals) then
-
-      call bl_pd_abort('cannot write typical values')
-    endif
-
-    do n=1,BL_SPACEDIM
-      typ_vals(n) = typVal_Vel
-    enddo
-
-    typ_vals(Density+BL_SPACEDIM) = typVal_Density
-    typ_vals(Temp+BL_SPACEDIM)    = typVal_Temp
-    typ_vals(RhoH+BL_SPACEDIM)    = typVal_RhoH
-    do n=1,Nspec
-      typ_vals(FirstSpec+n-1+BL_SPACEDIM) = typVal_Y(n)
-    enddo
-
-  end subroutine get_typical_vals
-
-!-------------------------------------------------
-
-  subroutine set_typical_vals(typ_vals,nVals)bind(C, name="set_typical_vals")
-
-    implicit none
-
-#include <cdwrk.H>
-#include <conp.H>
-#include <htdata.H>
-
-    integer nVals,n,nVals1
-    REAL_T typ_vals(nVals)
-    nVals1 = nVals-BL_SPACEDIM
-!     Note: typical values are defaulted to zero, and may be left that way
-
-    if (Density.gt.nVals1 & 
-          .or. Temp.gt.nVals1 &
-          .or. RhoH.gt.nVals1 &
-          .or. LastSpec.gt.nVals) then
-      call bl_pd_abort('cannot write typical values')
-    endif
-
-    do n=1,BL_SPACEDIM
-      typVal_Vel = typ_vals(n)
-    enddo
-
-    typVal_Density = typ_vals(Density+BL_SPACEDIM)
-    typVal_Temp    = typ_vals(Temp+BL_SPACEDIM)
-    typVal_RhoH    = typ_vals(RhoH+BL_SPACEDIM)
-
-    do n=1,Nspec
-      typVal_Y(n) = typ_vals(FirstSpec+n-1+BL_SPACEDIM)
-    enddo
-
-  end subroutine set_typical_vals
 
 !------------------------------------------
 
@@ -166,25 +93,6 @@ contains
   end subroutine set_ht_visc_common
 
 !----------------------------------------
-
-  subroutine init_typcals_common()&
-             bind(C, name="init_typcals_common")
-
-    implicit none
-
-#include <cdwrk.H>
-#include <conp.H>
-
-    typVal_Density = zero
-    typVal_Temp    = zero
-    typVal_RhoH    = zero
-    typVal_Y       = zero
-    typVal_YMAX    = one
-    typVal_YMIN    = 1.d-6
-
-  end subroutine init_typcals_common
-      
-!-----------------------------------------------------------------------
 
   subroutine get_pamb(pambout)bind(C, name="get_pamb")
 

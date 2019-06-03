@@ -49,55 +49,25 @@ contains
 #include <cdwrk.H>
 #include <htdata.H>
 #include <bc.H>
-#if defined(BL_DO_FLCT)
-#include <INFL_FORCE_F.H>
-#endif
 #include <visc.H>
 #include <conp.H>
-
-#ifdef DO_LMC_FORCE
-#include <forcedata.H>
-#endif
 
       integer i,istemp
       REAL_T FORT_P1ATMMKS, area
 
       namelist /fortin/ vorterr, temperr, adverr, tempgrad, &
                        flametracval, probtype, &
-     		        max_temp_lev, max_vort_lev, max_trac_lev, &
+                       max_temp_lev, max_vort_lev, max_trac_lev, &
                        traceSpecVal,phi_in,T_in,  &
                        turb_scale, V_in, V_co, &
                        standoff, pertmag, nchemdiag, splitx, xfrontw, &
                        splity, yfrontw, blobx, bloby, blobz, blobr, &
-                       blobT, Tfrontw, stTh, fuel_N2_vol_percent
+                       blobT, Tfrontw, stTh, fuel_N2_vol_percent, &
+                       meanFlowDir, meanFlowMag, T_mean, P_mean, &
+                       xvort, yvort, rvort, forcevort  
       namelist /heattransin/ pamb, dpdt_factor, closed_chamber
-#if defined(BL_DO_FLCT)
-      integer nCompFile
-      namelist /flctin/ tstart_turb, forceInflow, numInflPlanesStore, forceLo, forceHi, &
-          strmwse_dir, nCompInflow, flct_file, convVelInit
-#endif
       namelist /control/ tau_control, sest, cfix, changeMax_control, h_control, &
           zbase_control, pseudo_gravity, istemp,corr,controlVelMax,navg_pnts
-#ifdef DO_LMC_FORCE
-      REAL_T  twicePi, kxd, kyd, kzd
-      REAL_T  thetaTmp, phiTmp
-      REAL_T  cosThetaTmp, cosPhiTmp
-      REAL_T  sinThetaTmp, sinPhiTmp
-      REAL_T  px, py, pz, mp2, Ekh
-      integer kx, ky, kz, mode_count, reduced_mode_count
-      integer xstep, ystep, zstep
-
-      REAL_T  Lx, Ly, Lz, Lmin, rn 
-      REAL_T  kappa, kappaMax, freqMin, freqMax, freqDiff
-
-      namelist /fortin/ nmodes, nxmodes, nymodes, nzmodes, mode_start, hack_lz, &
-                       forcing_type, spectrum_type, time_offset, forcing_twice_wavelength, &
-                       forcing_xlength, forcing_ylength, forcing_zlength, &
-                       forcing_time_scale_min, forcing_time_scale_max,  &
-                       force_scale, forcing_epsilon, blrandseed, &
-                       use_rho_in_forcing, do_mode_division, &
-                       div_free_force, moderate_zero_modes
-#endif
 
 !
 !      Build `probin' filename -- the name of file containing fortin namelist.
@@ -105,11 +75,6 @@ contains
       integer maxlen, isioproc
       parameter (maxlen=256)
       character probin*(maxlen)
-
-#if defined(BL_DO_FLCT)
-      integer ierr
-#endif
-
 
       call bl_pd_is_ioproc(isioproc)
 
@@ -159,6 +124,15 @@ contains
       dpdt_factor = 0.3d0
       closed_chamber = 0
 
+      meanFlowDir = 1.0
+      meanFlowMag = 1.0d0
+      T_mean = 298.0d0
+      P_mean = pamb
+      xvort = 0.5
+      yvort = 0.5
+      rvort = 0.01945
+      forcevort = 1.0
+
       splitx = 0.5d0 * (domnhi(1) + domnlo(1))
       xfrontw = 0.05d0 * (domnhi(1) - domnlo(1))
       splity = 0.5d0 * (domnhi(2) + domnlo(2))
@@ -169,21 +143,6 @@ contains
       Tfrontw = xfrontw
       stTh = -1.d0
       fuel_N2_vol_percent = 0.d0
-
-#if defined(BL_DO_FLCT)
-!     add_turb = .FALSE.
-      forceInflow = .FALSE.
-      numInflPlanesStore = -1
-      numInflPlanesStore = 30
-!
-!     Don't need to default 'nCompInflow' as it is block data'd to /3/
-!
-      forceLo = .TRUE.
-      forceHi = .FALSE.
-      strmwse_dir = FLCT_ZVEL
-      flct_file = ''
-      turb_scale = 1
-#endif
 
       zbase_control = 0.d0
 
@@ -218,35 +177,21 @@ contains
       
       read(untin,heattransin)
  
-#if defined(BL_DO_FLCT)
-      read(untin,flctin)
-#endif
- 
       read(untin,control)
       close(unit=untin)
 
-#if defined(BL_DO_FLCT)
-      if (forceInflow .eqv. .FALSE.) then
-         forceLo = .FALSE.
-         forceHi = .FALSE.
-      else
-         if (flct_file.ne.'') then
-#define FF_UNIT 20
-            ierr = 0
-            write(6,*) '...initializing turbulence, reading header info'
-            open(FF_UNIT, file=trim(flct_file)//'/HDR',form='formatted',status='old',iostat=ierr)
-            if (ierr .ne. 0) then
-               call bl_abort('Problem opening file: ' // trim(flct_file) // '/HDR')
-            end if
-            call RD_SCL_FLCTHD(FF_UNIT,nCompFile,dimFile,probSizeFile,dxFile)
-            close(FF_UNIT)
-         endif
-      endif
-      convVel = V_in
-      if (probtype.ge.BL_PROB_PREMIXED_CONTROLLED_INFLOW) then
-         convVel = one
-      endif
-#endif
+!     Do some checks on COVO params     
+      IF (       meanFlowDir /= 1 .AND. meanFlowDir /= -1 &
+           .AND. meanFlowDir /= 2 .AND. meanFlowDir /= -2 &
+           .AND. meanFlowDir /= 3 .AND. meanFlowDir /= -3  ) THEN
+          WRITE(*,*) " meanFlowDir should be either: "
+          WRITE(*,*) " +/-1 for x direction" 
+          WRITE(*,*) " +/-2 for y direction" 
+          WRITE(*,*) " +/-3 for diagonal direction" 
+          WRITE(*,*) " Note: the mean flow direction(s) must be periodic "
+          CALL bl_abort('Correct meanFlowDir value !')
+      END IF
+
 !     Set up boundary functions
       call setupbc()
       
@@ -260,343 +205,9 @@ contains
          cfix = scale_control * h_control
       endif
 
-#ifdef DO_LMC_FORCE
-      if ( (probtype.eq.BL_PROB_PREMIXED_FIXED_INFLOW) &
-          .or. (probtype.eq.BL_PROB_PREMIXED_CONTROLLED_INFLOW) ) then
-
-         if (isioproc .eq. 1) then
-            write (*,*) "Initialising random number generator..."
-         endif
-         
-         twicePi = two*Pi
-         
-         if (blrandseed.gt.0) then
-            call blutilinitrand(blrandseed)
-            call blutilrand(rn)
-            call blutilinitrand(blrandseed)
-            if (isioproc .eq. 1) then
-               write (*,*) "blrandseed = ",blrandseed
-               write (*,*) "first random number = ",rn
-            endif
-         else
-            call blutilinitrand(111397)
-         endif
-
-         Lx = domnhi(1)-domnlo(1)
-         Ly = domnhi(2)-domnlo(2)
-         Lz = domnhi(3)-domnlo(3)
-         
-         if (hack_lz.eq.1) then 
-            Lz = Lz/two
-         endif
-         
-         if (isioproc .eq. 1) then
-            write(*,*) "Lx = ",Lx
-            write(*,*) "Ly = ",Ly 
-            write(*,*) "Lz = ",Lz
-         endif
-         
-         Lmin = min(Lx,Ly,Lz)
-         kappaMax = dfloat(nmodes)/Lmin + 1.0d-8
-         nxmodes = nmodes*int(0.5+Lx/Lmin)
-         nymodes = nmodes*int(0.5+Ly/Lmin)
-         nzmodes = nmodes*int(0.5+Lz/Lmin)
-         if (isioproc .eq. 1) then
-            write(*,*) "Lmin = ",Lmin
-            write(*,*) "kappaMax = ",kappaMax
-            write(*,*) "nxmodes = ",nxmodes
-            write(*,*) "nymodes = ",nymodes
-            write(*,*) "nzmodes = ",nzmodes
-         endif
-         
-         if (forcing_time_scale_min.eq.zero) then
-            forcing_time_scale_min = half
-         endif
-         if (forcing_time_scale_max.eq.zero) then
-            forcing_time_scale_max = one
-         endif
-
-         freqMin = one/forcing_time_scale_max
-         freqMax = one/forcing_time_scale_min
-         freqDiff= freqMax-freqMin
-         
-         if (isioproc .eq. 1) then
-            write(*,*) "forcing_time_scale_min = ",forcing_time_scale_min
-            write(*,*) "forcing_time_scale_max = ",forcing_time_scale_max
-            write(*,*) "freqMin = ",freqMin
-            write(*,*) "freqMax = ",freqMax
-            write(*,*) "freqDiff = ",freqDiff
-         endif
-         
-         mode_count = 0
-
-         xstep = int(Lx/Lmin+0.5)
-         ystep = int(Ly/Lmin+0.5)
-         zstep = int(Lz/Lmin+0.5)
-         if (isioproc .eq. 1) then
-            write (*,*) "Mode step ",xstep, ystep, zstep
-         endif
-         
-         do kz = mode_start*zstep, nzmodes, zstep
-            kzd = dfloat(kz)
-            do ky = mode_start*ystep, nymodes, ystep
-               kyd = dfloat(ky)
-               do kx = mode_start*xstep, nxmodes, xstep
-                  kxd = dfloat(kx)
-                  
-                  kappa = sqrt( (kxd*kxd)/(Lx*Lx) + (kyd*kyd)/(Ly*Ly) + (kzd*kzd)/(Lz*Lz) )
-                  
-                  if (kappa.le.kappaMax) then
-                     call blutilrand(rn)
-                     FTX(kx,ky,kz) = (freqMin + freqDiff*rn)*twicePi
-                     call blutilrand(rn)
-                     FTY(kx,ky,kz) = (freqMin + freqDiff*rn)*twicePi
-                     call blutilrand(rn)
-                     FTZ(kx,ky,kz) = (freqMin + freqDiff*rn)*twicePi
-!     Translation angles, theta=0..2Pi and phi=0..Pi
-                     call blutilrand(rn)
-                     TAT(kx,ky,kz) = rn*twicePi
-                     call blutilrand(rn)
-                     TAP(kx,ky,kz) = rn*Pi
-!     Phases
-                     call blutilrand(rn)
-                     FPX(kx,ky,kz) = rn*twicePi
-                     call blutilrand(rn)
-                     FPY(kx,ky,kz) = rn*twicePi
-                     call blutilrand(rn)
-                     FPZ(kx,ky,kz) = rn*twicePi
-                     if (div_free_force.eq.1) then
-                        call blutilrand(rn)
-                        FPXX(kx,ky,kz) = rn*twicePi
-                        call blutilrand(rn)
-                        FPYX(kx,ky,kz) = rn*twicePi
-                        call blutilrand(rn)
-                        FPZX(kx,ky,kz) = rn*twicePi
-                        call blutilrand(rn)
-                        FPXY(kx,ky,kz) = rn*twicePi
-                        call blutilrand(rn)
-                        FPYY(kx,ky,kz) = rn*twicePi
-                        call blutilrand(rn)
-                        FPZY(kx,ky,kz) = rn*twicePi
-                        call blutilrand(rn)
-                        FPXZ(kx,ky,kz) = rn*twicePi
-                        call blutilrand(rn)
-                        FPYZ(kx,ky,kz) = rn*twicePi
-                        call blutilrand(rn)
-                        FPZZ(kx,ky,kz) = rn*twicePi
-                     endif
-!     Amplitudes (alpha)
-                     call blutilrand(rn)
-                     thetaTmp      = rn*twicePi
-                     cosThetaTmp   = cos(thetaTmp)
-                     sinThetaTmp   = sin(thetaTmp)
-                     call blutilrand(rn)
-                     phiTmp        = rn*Pi
-                     cosPhiTmp     = cos(phiTmp)
-                     sinPhiTmp     = sin(phiTmp)
-
-                     px = cosThetaTmp * sinPhiTmp
-                     py = sinThetaTmp * sinPhiTmp
-                     pz =               cosPhiTmp
-
-                     mp2           = px*px + py*py + pz*pz
-                     if (kappa .lt. 0.000001) then
-                        if (isioproc .eq. 1) then
-                           write(*,*) "ZERO AMPLITUDE MODE ",kx,ky,kz
-                        endif
-                        FAX(kx,ky,kz) = zero
-                        FAY(kx,ky,kz) = zero
-                        FAZ(kx,ky,kz) = zero
-                     else
-!     Count modes that contribute
-                        mode_count = mode_count + 1
-!     Set amplitudes
-                        if (spectrum_type.eq.1) then
-                           Ekh        = one / kappa
-                        else if (spectrum_type.eq.2) then
-                           Ekh        = one / (kappa*kappa)
-                        else
-                           Ekh        = one
-                        endif
-                        if (div_free_force.eq.1) then
-                           Ekh = Ekh / kappa
-                        endif
-                        if (moderate_zero_modes.eq.1) then
-                           if (kx.eq.0) Ekh = Ekh / two
-                           if (ky.eq.0) Ekh = Ekh / two
-                           if (kz.eq.0) Ekh = Ekh / two
-                        endif
-                        if (force_scale.gt.zero) then
-                           FAX(kx,ky,kz) = force_scale * px * Ekh / mp2
-                           FAY(kx,ky,kz) = force_scale * py * Ekh / mp2
-                           FAZ(kx,ky,kz) = force_scale * pz * Ekh / mp2 
-                        else
-                           FAX(kx,ky,kz) = px * Ekh / mp2
-                           FAY(kx,ky,kz) = py * Ekh / mp2
-                           FAZ(kx,ky,kz) = pz * Ekh / mp2
-                        endif
-
-                        if (isioproc.eq.1) then
-                           write (*,*) "Mode"
-                           write (*,*) "kappa = ",kx,ky,kz,kappa, sqrt(FAX(kx,ky,kz)**2+FAY(kx,ky,kz)**2+FAZ(kx,ky,kz)**2)
-                           write (*,*) "Amplitudes - A"
-                           write (*,*) FAX(kx,ky,kz), FAY(kx,ky,kz), FAZ(kx,ky,kz)
-                           write (*,*) "Frequencies"
-                           write (*,*) FTX(kx,ky,kz), FTY(kx,ky,kz), FTZ(kx,ky,kz)
-                           write (*,*) "TAT"
-                           write (*,*) TAT(kx,ky,kz), TAP(kx,ky,kz)
-                           write (*,*) "Amplitudes - AA"
-                           write (*,*) FPXX(kx,ky,kz), FPYX(kx,ky,kz), FPZX(kx,ky,kz)
-                           write (*,*) FPXY(kx,ky,kz), FPYY(kx,ky,kz), FPZY(kx,ky,kz)
-                           write (*,*) FPXZ(kx,ky,kz), FPYZ(kx,ky,kz), FPZZ(kx,ky,kz)
-                        endif
-                     endif
-                  endif   
-               enddo
-            enddo
-         enddo
-
-!     Now let's break symmetry, have to assume high aspect ratio in z for now
-         reduced_mode_count = 0
-         do kz = 1, zstep - 1
-            kzd = dfloat(kz)
-            do ky = mode_start, nymodes
-               kyd = dfloat(ky)
-               do kx = mode_start, nxmodes
-                  kxd = dfloat(kx)
-                  
-                  kappa = sqrt( (kxd*kxd)/(Lx*Lx) + (kyd*kyd)/(Ly*Ly) + (kzd*kzd)/(Lz*Lz) )
-
-                  if (kappa.le.kappaMax) then
-                     call blutilrand(rn)
-                     FTX(kx,ky,kz) = (freqMin + freqDiff*rn)*twicePi
-                     call blutilrand(rn)
-                     FTY(kx,ky,kz) = (freqMin + freqDiff*rn)*twicePi
-                     call blutilrand(rn)
-                     FTZ(kx,ky,kz) = (freqMin + freqDiff*rn)*twicePi
-!     Translation angles, theta=0..2Pi and phi=0..Pi
-                     call blutilrand(rn)
-                     TAT(kx,ky,kz) = rn*twicePi
-                     call blutilrand(rn)
-                     TAP(kx,ky,kz) = rn*Pi
-!     Phases
-                     call blutilrand(rn)
-                     FPX(kx,ky,kz) = rn*twicePi
-                     call blutilrand(rn)
-                     FPY(kx,ky,kz) = rn*twicePi
-                     call blutilrand(rn)
-                     FPZ(kx,ky,kz) = rn*twicePi
-                     if (div_free_force.eq.1) then
-                        call blutilrand(rn)
-                        FPXX(kx,ky,kz) = rn*twicePi
-                        call blutilrand(rn)
-                        FPYX(kx,ky,kz) = rn*twicePi
-                        call blutilrand(rn)
-                        FPZX(kx,ky,kz) = rn*twicePi
-                        call blutilrand(rn)
-                        FPXY(kx,ky,kz) = rn*twicePi
-                        call blutilrand(rn)
-                        FPYY(kx,ky,kz) = rn*twicePi
-                        call blutilrand(rn)
-                        FPZY(kx,ky,kz) = rn*twicePi
-                        call blutilrand(rn)
-                        FPXZ(kx,ky,kz) = rn*twicePi
-                        call blutilrand(rn)
-                        FPYZ(kx,ky,kz) = rn*twicePi
-                        call blutilrand(rn)
-                        FPZZ(kx,ky,kz) = rn*twicePi
-                     endif
-!     Amplitudes (alpha)
-                     call blutilrand(rn)
-                     thetaTmp      = rn*twicePi
-                     cosThetaTmp   = cos(thetaTmp)
-                     sinThetaTmp   = sin(thetaTmp)
-                     call blutilrand(rn)
-                     phiTmp        = rn*Pi
-                     cosPhiTmp     = cos(phiTmp)
-                     sinPhiTmp     = sin(phiTmp)
-
-                     px = cosThetaTmp * sinPhiTmp
-                     py = sinThetaTmp * sinPhiTmp
-                     pz =               cosPhiTmp
-
-                     mp2           = px*px + py*py + pz*pz
-                     if (kappa .lt. 0.000001) then
-                        if (isioproc .eq. 1) then
-                           write(*,*) "ZERO AMPLITUDE MODE ",kx,ky,kz
-                        endif
-                        FAX(kx,ky,kz) = zero
-                        FAY(kx,ky,kz) = zero
-                        FAZ(kx,ky,kz) = zero
-                     else
-!     Count modes that contribute
-                        reduced_mode_count = reduced_mode_count + 1
-!     Set amplitudes
-                        if (spectrum_type.eq.1) then
-                           Ekh        = one / kappa
-                        else if (spectrum_type.eq.2) then
-                           Ekh        = one / (kappa*kappa)
-                        else
-                           Ekh        = one
-                        endif
-                        if (div_free_force.eq.1) then
-                           Ekh = Ekh / kappa
-                        endif
-                        if (moderate_zero_modes.eq.1) then
-                           if (kx.eq.0) Ekh = Ekh / two
-                           if (ky.eq.0) Ekh = Ekh / two
-                           if (kz.eq.0) Ekh = Ekh / two
-                        endif
-                        if (force_scale.gt.zero) then
-                           FAX(kx,ky,kz) = forcing_epsilon * force_scale * px * Ekh / mp2
-                           FAY(kx,ky,kz) = forcing_epsilon * force_scale * py * Ekh / mp2
-                           FAZ(kx,ky,kz) = forcing_epsilon * force_scale * pz * Ekh / mp2
-                        else
-                           FAX(kx,ky,kz) = forcing_epsilon * px * Ekh / mp2
-                           FAY(kx,ky,kz) = forcing_epsilon * py * Ekh / mp2
-                           FAZ(kx,ky,kz) = forcing_epsilon * pz * Ekh / mp2
-                        endif
-
-                        if (isioproc.eq.1) then
-                           write (*,*) "Mode"
-                           write (*,*) "kappa = ",kx,ky,kz,kappa, sqrt(FAX(kx,ky,kz)**2+FAY(kx,ky,kz)**2+FAZ(kx,ky,kz)**2)
-                           write (*,*) "Amplitudes - B"
-                           write (*,*) FAX(kx,ky,kz), FAY(kx,ky,kz), FAZ(kx,ky,kz)
-                           write (*,*) "Frequencies"
-                           write (*,*) FTX(kx,ky,kz), FTY(kx,ky,kz), FTZ(kx,ky,kz)
-                           write (*,*) "TAT"
-                           write (*,*) TAT(kx,ky,kz), TAP(kx,ky,kz)
-                           write (*,*) "Amplitudes - BB"
-                           write (*,*) FPXX(kx,ky,kz), FPYX(kx,ky,kz), FPZX(kx,ky,kz)
-                           write (*,*) FPXY(kx,ky,kz), FPYY(kx,ky,kz), FPZY(kx,ky,kz)
-                           write (*,*) FPXZ(kx,ky,kz), FPYZ(kx,ky,kz), FPZZ(kx,ky,kz)
-                        endif
-                     endif
-                  endif   
-               enddo
-            enddo
-         enddo
-
-         if (isioproc .eq. 1) then
-            write(*,*) "mode_count = ",mode_count
-            write(*,*) "reduced_mode_count = ",reduced_mode_count
-            if (spectrum_type.eq.1) then
-               write (*,*) "Spectrum type 1"
-            else if (spectrum_type.eq.2) then
-               write (*,*) "Spectrum type 2"
-            else
-               write (*,*) "Spectrum type OTHER"
-            endif
-         endif
-      endif
-#endif
-
       if (isioproc.eq.1) then
          write(6,fortin)
          write(6,heattransin)
-#if defined(BL_DO_FLCT)
-         write(6,flctin)
-#endif
          write(6,control)
       end if
 
@@ -627,116 +238,6 @@ contains
       
     Patm = pamb / P1ATMMKS()
     num_zones_defined = 0
-    len = len_trim(probtype)
-    
-    
-    if ( (probtype(1:len).eq.BL_PROB_PREMIXED_FIXED_INFLOW) &
-          .or. (probtype(1:len).eq.BL_PROB_PREMIXED_CONTROLLED_INFLOW) ) then
-         
-!     Take fuel mixture from prob data
-
-      zone = getZone(domnlo(1), domnlo(2))
-      num_zones_defined = 1
-           
-      if (phi_in.gt.zero) then
-  
-        call set_Y_from_Phi(phi_in,Yt)
-        do n=1,Nspec
-          Y_bc(n-1,zone) = Yt(n)
-        end do
-        T_bc(zone) = T_in
-        u_bc(zone) = zero
-        v_bc(zone) = V_in
-  
-      else 
-  
-  !     Take fuel mixture from pmf file
-        loc = (domnlo(2)-standoff)*100.d0
-        call pmf(loc,loc,pmf_vals,n)
-        if (n.ne.Nspec+3) then
-          call bl_pd_abort('setupbc: n(pmf) .ne. Nspec+3')
-        endif
-              
-        do n = 1,Nspec
-          Xt(n) = pmf_vals(3+n)
-        end do 
-              
-        CALL CKXTY (Xt, Yt)
-  
-        do n=1,Nspec
-          Y_bc(n-1,zone) = Yt(n)
-        end do
-        
-        T_bc(zone) = pmf_vals(1)
-        u_bc(zone) = zero
-        if (V_in .lt. 0) then
-          v_bc(zone) = pmf_vals(2)*1.d-2
-        else
-          v_bc(zone) = V_in
-        endif
-              
-      endif
-
-    else if (probtype(1:len).eq.BL_PROB_DIFFUSION) then
-
-!     A diffusion flame
-      fuelZone = getZone(domnlo(1), domnlo(2))
-      airZone = getZone(domnhi(1), domnhi(2))
-      num_zones_defined = 2
-
-!     Fuel
-      do n = 1,Nspec
-        Xt(n) = 0.d0
-      end do 
-      Xt(iN2) = fuel_N2_vol_percent*1.d-2
-      Xt(fuelID) = 1.d0 - Xt(iN2)            
-      CALL CKXTY (Xt, Yt)
-
-      do n=1,Nspec
-        Y_bc(n-1,fuelZone) = Yt(n)
-      end do
-      T_bc(fuelZone) = T_in
-      u_bc(fuelZone) = 0.d0
-      v_bc(fuelZone) = V_in
-
-!     Air
-      do n=1,Nspec
-         Xt(n) = zero
-      enddo
-      Xt(oxidID) = 0.21d0
-      Xt(iN2)    = 1.d0 - Xt(oxidID)
-
-      CALL CKXTY (Xt, Yt)         
-      do n=1,Nspec
-         Y_bc(n-1,airZone) = Yt(n)
-      end do
-      
-      T_bc(airZone) = T_in
-      u_bc(airZone) = 0.d0
-      v_bc(airZone) = V_in
-
-    else if (probtype(1:len).eq.BL_PROB_IGNITION) then
-
-      num_zones_defined=0
-      
-    else
-         
-      call bl_pd_abort()
-
-    endif
-
-    do zone=1,num_zones_defined
-!     Set density and hmix consistent with data
-
-      call RHOfromPTY(b, b, &
-                           rho_bc(zone), DIMARG(b), DIMARG(b), &
-                           T_bc(zone),   DIMARG(b), DIMARG(b), &
-                           Y_bc(0,zone), DIMARG(b), DIMARG(b), Patm)
-      call HMIXfromTY(b, b, &
-                           h_bc(zone),   DIMARG(b), DIMARG(b), &
-                           T_bc(zone),   DIMARG(b), DIMARG(b), &
-                           Y_bc(0,zone), DIMARG(b), DIMARG(b))
-    enddo
     
     bcinit = .true.
 
@@ -753,7 +254,6 @@ contains
 #include <probdata.H>
 
     REAL_T x, y
-    integer len
 
 !#define BL_FUELPIPE 1
 !#define BL_COFLOW   2
@@ -764,24 +264,6 @@ contains
 !#define BL_PIPEEND  7
 
     getZone = BL_VOLUME
-    len     = len_trim(probtype)
-
-    if ( (probtype(1:len).eq.BL_PROB_PREMIXED_FIXED_INFLOW) &
-          .or. (probtype(1:len).eq.BL_PROB_PREMIXED_CONTROLLED_INFLOW) ) then
-
-      getZone = BL_FUELPIPE
-         
-    else if (probtype(1:len).eq.BL_PROB_DIFFUSION) then
-         
-      if (x .ge. splitx) then
-        getZone = BL_AMBIENT
-      else
-        getZone = BL_FUELPIPE
-      endif
-         
-      else
-         call bl_pd_abort()
-    endif
 
   end function getZone
       
@@ -806,69 +288,6 @@ contains
       if (.not. bcinit) then
          call bl_abort('Need to initialize boundary condition function')
       end if
-
-      len = len_trim(probtype)
-      
-      if ( (probtype(1:len).eq.BL_PROB_PREMIXED_FIXED_INFLOW) &
-          .or. (probtype(1:len).eq.BL_PROB_PREMIXED_CONTROLLED_INFLOW)) then
-
-         zone = getZone(x,y)
-         rho = rho_bc(zone)
-         do n = 0, Nspec-1
-            Yl(n) = Y_bc(n,zone)
-         end do
-         T = T_bc(zone)
-         h = h_bc(zone)
-         
-         if (getuv .eqv. .TRUE.) then
-            
-            u = zero
-            if (probtype(1:len).eq.BL_PROB_PREMIXED_CONTROLLED_INFLOW) then               
-               v =  V_in + (time-tbase_control)*dV_control
-            else if (probtype(1:len).eq.BL_PROB_PREMIXED_FIXED_INFLOW) then
-               v = v_bc(zone)
-            endif
-         endif
-         
-      elseif (probtype(1:len).eq.BL_PROB_DIFFUSION) then
-
-         zone = getZone(x,y)
-         rho = rho_bc(zone)
-         do n = 0, Nspec-1
-            Yl(n) = Y_bc(n,zone)
-         end do
-         T = T_bc(zone)
-         h = h_bc(zone)
-         
-         if (getuv .eqv. .TRUE.) then
-            u = zero
-            v = V_in
-            
-            if (stTh.ge.0) then
-               if (ABS(x - splitx).lt.0.5*stTh) then
-                  v = 0.d0
-               else
-                  if (x .lt. splitx) then
-                     etamax = splitx - 0.5*stTh
-                     eta = (x - domnlo(1)) / etamax
-                     v = V_in * (1.d0 - eta**2)
-                  else
-                     etamax = domnhi(1) - splitx - 0.5*stTh
-                     eta = (domnhi(1) - x) / etamax
-                     v = V_co * (1.d0 - eta**2)
-                  endif
-               endif
-            endif
-            
-         endif
-      else
-         write(6,*) 'No boundary condition for probtype = ', probtype(1:len)
-         write(6,*) 'Available: '
-         write(6,*) '            ',BL_PROB_PREMIXED_FIXED_INFLOW
-         write(6,*) '            ',BL_PROB_PREMIXED_CONTROLLED_INFLOW
-         write(6,*) '            ',BL_PROB_DIFFUSION
-         call bl_pd_abort(' ')
-      endif
       
   end subroutine bcfunction
 
@@ -900,6 +319,12 @@ contains
  
       integer i, j, n
       REAL_T Patm
+ 
+      do j = lo(2), hi(2)
+         do i = lo(1), hi(1)
+            scal(i,j,Trac) = zero
+         end do
+      end do
  
       Patm = pamb / P1ATMMKS()
       call RHOfromPTY(lo,hi, &
@@ -983,176 +408,61 @@ contains
       REAL_T pmf_vals(maxspec+3), y1, y2, dx
       REAL_T pert,Lx,eta,u,v,rho,T,h
       REAL_T sigma
+      REAL_T :: dy, d_sq, r_sq, u_vort, v_vort 
 
-      integer iO2,iCO2,iH2O,iCH3OCH3,len
-      character*(maxspnml) name
-
-!      write(6,*)" made it to initdata"
       if (iN2.lt.1 .or. iN2.gt.Nspec) then
-         do n = 1,Nspec
-            call get_spec_name(name,n)
-            if (name .eq. 'N2' ) iN2 = n
-         end do
-         if (iN2.eq.-1) then
-            write(6,*) '.....warning: no N2 in chemistry species list'           
-            call bl_pd_abort()
-         endif
+         call bl_pd_abort()
       endif
 
-      len = len_trim(probtype)
            
-      if ( (probtype(1:len).eq.BL_PROB_PREMIXED_FIXED_INFLOW) &
-          .or. (probtype(1:len).eq.BL_PROB_PREMIXED_CONTROLLED_INFLOW) ) then
-
-         do j = lo(2), hi(2)
-            y = (float(j)+.5d0)*delta(2)+domnlo(2)
-            do i = lo(1), hi(1)
-               x = (float(i)+.5d0)*delta(1)+domnlo(1)
-               
-               pert = 0.d0
-               if (pertmag .gt. 0.d0) then
-                  Lx = domnhi(1) - domnlo(1)
-                  pert = pertmag*(1.000 * sin(2*Pi*4*x/Lx) &
-                      + 1.023 * sin(2*Pi*2*(x-.004598)/Lx) &
-                         + 0.945 * sin(2*Pi*3*(x-.00712435)/Lx)  &
-                             + 1.017 * sin(2*Pi*5*(x-.0033)/Lx)  &
-                                  + .982 * sin(2*Pi*5*(x-.014234)/Lx) )
-               endif
-                  
-               y1 = (y - standoff - 0.5d0*delta(2) + pert)*100.d0
-               y2 = (y - standoff + 0.5d0*delta(2) + pert)*100.d0
-
-               call pmf(y1,y2,pmf_vals,nPMF)               
-               if (nPMF.ne.Nspec+3) then
-                  call bl_abort('INITDATA: n .ne. Nspec+3')
-               endif
-               
-               scal(i,j,Temp) = pmf_vals(1)
-               do n = 1,Nspec
-                  Xl(n) = pmf_vals(3+n)
-               end do 
-               
-               CALL CKXTY (Xl,Yl)
-               
-               do n = 1,Nspec
-                  scal(i,j,FirstSpec+n-1) = Yl(n)
-               end do
-
-               vel(i,j,1) = 0.d0
-               vel(i,j,2) = pmf_vals(2)*1.d-2
-
+      do j = lo(2), hi(2)
+         y = (float(j)+.5d0)*delta(2)+domnlo(2)
+         do i = lo(1), hi(1)
+            x = (float(i)+.5d0)*delta(1)+domnlo(1)
+            
+            scal(i,j,Temp) = T_mean
+            Yl(1) = 0.233
+            Yl(2) = 0.767
+            
+            do n = 1,Nspec
+               scal(i,j,FirstSpec+n-1) = Yl(n)
             end do
+
+            scal(i,j,Trac) = 0.d0
+
+            dx = x - xvort
+            dy = y - yvort
+            d_sq = dx*dx + dy*dy
+            r_sq = rvort*rvort
+
+            u_vort = -forcevort*dy/r_sq * exp(-d_sq/r_sq/two)
+            v_vort = forcevort*dx/r_sq * exp(-d_sq/r_sq/two)
+
+            SELECT CASE ( meanFlowDir )
+               CASE (1)
+                  vel(i,j,1) = meanFlowMag + u_vort
+                  vel(i,j,2) = v_vort
+               CASE (-1)
+                  vel(i,j,1) = -meanFlowMag + u_vort
+                  vel(i,j,2) = v_vort
+               CASE (2)
+                  vel(i,j,1) = u_vort
+                  vel(i,j,2) = meanFlowMag + v_vort
+               CASE (-2)
+                  vel(i,j,1) = u_vort
+                  vel(i,j,2) = -meanFlowMag + v_vort
+               CASE (3)
+                  vel(i,j,1) = meanFlowMag + u_vort
+                  vel(i,j,2) = meanFlowMag + v_vort
+               CASE (-3)
+                  vel(i,j,1) = -meanFlowMag + u_vort
+                  vel(i,j,2) = -meanFlowMag + v_vort
+            END SELECT
+
          end do
+      end do
 
-      else if ((probtype(1:len).eq.BL_PROB_IGNITION)) then
-
-!                write(6,*)" found probtype"
-
-               do n=1,Nspec
-
-                  call get_spec_name(name,n)
-                  if (name .eq. 'O2' ) iO2 = n
-                  if (name .eq. 'CO2' ) iCO2 = n
-                  if (name .eq. 'H2O' ) iH2O = n
-                  if (name .eq. 'CH3OCH3' ) iCH3OCH3 = n
-
-               enddo
-
-!               write(6,*)" species are",iN2,iO2,iCO2,iH2O,iCH3OCH3
-
-               sigma = .000451d0
-               
-               do n = 1,Nspec
-                  Xl(n) = 0.d0
-               end do 
-               Xl(iN2) = .7192d0
-               Xl(iO2) = 0.1128d0
-               Xl(iCO2) = 0.0522d0
-               Xl(iH2O) = 0.0784d0
-               Xl(iCH3OCH3) = 0.0374d0
-               
-               CALL CKXTY (Xl,Yl)
-               
-
-         do j = lo(2), hi(2)
-            y = (float(j)+.5)*delta(2)+domnlo(2)
-            do i = lo(1), hi(1)
-               x = (float(i)+.5)*delta(1)+domnlo(1)
-
-               vel(i,j,1) = 0.d0
-               vel(i,j,2) = 0.d0
-               
-               scal(i,j,Temp) = 500.d0 + 1000.d0*exp(-(y-0.005d0)**2/(2.d0*sigma**2))
-               do n = 1,Nspec
-                  scal(i,j,FirstSpec+n-1) = Yl(n)
-               end do
-
-            enddo
-         enddo
-         
-      else if ((probtype(1:len).eq.BL_PROB_DIFFUSION)) then
-
-         fuelZone = getZone(domnlo(1), domnlo(2))
-         airZone = getZone(domnhi(1), domnhi(2))
-
-         do j = lo(2), hi(2)
-            y = (float(j)+.5)*delta(2)+domnlo(2)
-            do i = lo(1), hi(1)
-               x = (float(i)+.5)*delta(1)+domnlo(1)
-
-               if (blobr.lt.0) then
-
-                  eta = 0.5d0*(1.d0 - TANH(2.d0*(x-splitx)/xfrontw))
-                  
-                  do n=1,Nspec
-                     scal(i,j,FirstSpec-1+n) = Y_bc(n-1,airZone)*(1.d0-eta) + eta*Y_bc(n-1,fuelZone)
-                  enddo
-                  scal(i,j,Temp) = T_bc(airZone)*(1.d0-eta) + eta*T_bc(fuelZone)
-                  
-                  eta = 0.5d0*(1.d0 - TANH(-2.d0*(y-bloby)/Tfrontw))
-                  do n=1,Nspec
-                     scal(i,j,FirstSpec-1+n) = Y_bc(n-1,airZone)*eta &
-                         + (1.d0-eta)*scal(i,j,FirstSpec-1+n)
-                  enddo
-                  scal(i,j,Temp) = blobT*eta + (1.d0-eta)*scal(i,j,Temp)
-                  
-                  vel(i,j,1) = u_bc(airZone)*eta + (1.d0-eta)*u_bc(fuelZone)
-                  vel(i,j,2) = v_bc(airZone)*eta + (1.d0-eta)*v_bc(fuelZone)
-
-               else
-               
-                  eta = 0.5d0*(1.d0 - TANH(2.d0*(x-splitx)/xfrontw))
-                  
-                  do n=1,Nspec
-                     scal(i,j,FirstSpec-1+n) = Y_bc(n-1,airZone)*(1.d0-eta) + eta*Y_bc(n-1,fuelZone)
-                  enddo
-                  scal(i,j,Temp) = T_bc(airZone)*(1.d0-eta) + eta*T_bc(fuelZone)
-                  
-!     Superimpose blob of hot air
-                  r = SQRT((x-blobx)**2 + (y-bloby)**2)
-                  eta = 0.5d0*(1.d0 - TANH(2.d0*(r-blobr)/Tfrontw))
-                  do n=1,Nspec
-                     scal(i,j,FirstSpec-1+n) = Y_bc(n-1,airZone)*eta &
-                         + (1.d0-eta)*scal(i,j,FirstSpec-1+n)
-                  enddo
-                  scal(i,j,Temp) = blobT*eta + (1.d0-eta)*scal(i,j,Temp)
-                  
-                  vel(i,j,1) = u_bc(airZone)*eta + (1.d0-eta)*u_bc(fuelZone)
-                  vel(i,j,2) = v_bc(airZone)*eta + (1.d0-eta)*v_bc(fuelZone)
-                  
-                  if (stTh.gt. 0.d0) then
-                     call bcfunction(x,y,time,u,v,rho,Yl,T,h,delta,.true.)
-                     vel(i,j,1) = u
-                     vel(i,j,2) = v
-                  endif
-               endif
-
-            enddo
-         enddo
-      endif
-
-      Patm = pamb / P1ATMMKS()
-!      write(6,*)"Patm",Patm
+      Patm = P_mean / P1ATMMKS()
 
       call RHOfromPTY(lo,hi, &
           scal(ARG_L1(state),ARG_L2(state),Density),  DIMS(state), &
@@ -1374,7 +684,7 @@ contains
   subroutine adv_error (tag,DIMS(tag),set,clear, &
                                adv,DIMS(adv),lo,hi,nvar, &
                                domlo,domhi,delta,xlo, &
-     			        problo,time,level)&
+                               problo,time,level)&
                   bind(C, name="adv_error")
                   
       implicit none
@@ -1873,9 +1183,9 @@ contains
 
   end subroutine rhoh_fill
   
-! 
+!
 ! Fill x & y velocity at once.
-! 
+!
 
   subroutine vel_fill (vel,DIMS(vel),domlo,domhi,delta, &
                               xlo,time,bc)&
@@ -1895,9 +1205,9 @@ contains
 
   end subroutine vel_fill
 
-! 
+!
 ! Fill all chem species at once
-! 
+!
 
   subroutine all_chem_fill (rhoY,DIMS(rhoY),domlo,domhi,delta, &
                             xlo,time,bc)&
@@ -2310,9 +1620,9 @@ contains
       ihi = min(ARG_H1(p),domhi(1))
       jlo = max(ARG_L2(p),domlo(2))
       jhi = min(ARG_H2(p),domhi(2))
-! 
+!
 !     ::::: left side
-! 
+!
 
       if (fix_xlo) then
          do i = ARG_L1(p), domlo(1)-1
@@ -2348,9 +1658,9 @@ contains
          end if
       end if
       
-! 
+!
 !     ::::: right side
-! 
+!
 
       if (fix_xhi) then
          do i = domhi(1)+1, ARG_H1(p)
@@ -2467,7 +1777,7 @@ contains
       REAL_T  hx, hy
       REAL_T  sga, cga
       integer isioproc
-      integer nXvel, nYvel, nRho
+      integer nXvel, nYvel, nRho, nTrac
 
       call bl_pd_is_ioproc(isioproc)
 
@@ -2487,6 +1797,7 @@ contains
       nXvel = 1
       nYvel = 2
       nRho  = 3
+      nTrac = 4
 
       if (scomp.eq.0) then
          if (abs(gravity).gt.0.0001) then
@@ -2521,6 +1832,13 @@ contains
          do n = max(scomp+1,nRho), scomp+ncomp
             if (n.eq.nRho) then
 !     Density
+               do j = jlo, jhi
+                  do i = ilo, ihi
+                     force(i,j,n) = zero
+                  enddo
+               enddo
+            else if (n.eq.nTrac) then
+!     Tracer
                do j = jlo, jhi
                   do i = ilo, ihi
                      force(i,j,n) = zero

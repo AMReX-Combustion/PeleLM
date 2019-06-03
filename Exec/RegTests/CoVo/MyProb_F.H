@@ -8,9 +8,8 @@
 #include <AMReX_REAL.H>
 #include <AMReX_CONSTANTS.H>
 #include <AMReX_BC_TYPES.H>
-#include <AMReX_ArrayLim.H>
-#include <PROB_F.H>
 #include <Prob_F.H>
+#include <AMReX_ArrayLim.H>
 #include <ChemDriver_F.H>
 #include <PeleLM_F.H>
 #if defined(BL_DO_FLCT)
@@ -19,10 +18,11 @@
 
 #define BL_PROB_PREMIXED_FIXED_INFLOW 'premixed_fixed_inlet'
 #define BL_PROB_PREMIXED_CONTROLLED_INFLOW 'premixed_controlled_inlet'
-#define BL_PROB_PREMIXED_FREE 'premixed_free'
+#define BL_PROB_PREMIXED_FIXED_INFLOW_FORCED 'premixed_fixed_inlet_forced'
+#define BL_PROB_PREMIXED_CONTROLLED_INFLOW_FORCED 'premixed_controlled_inlet_forced'
 #define BL_PROB_DIFFUSION 'diffusion_two-stream'
+#define BL_PROB_IGNITION 'dme_ignition'
 #define BL_PROB_UNDEFINED 'undefined_problem'
-#define BL_PROB_FUELBLOB 'fuelblob'
 
 
 #define BL_XLO 0

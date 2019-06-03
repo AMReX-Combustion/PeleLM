@@ -20,7 +20,7 @@ fEXE_sources += pmf_BurkeMOD_040_10atm.f
 Blocs   := .
 
 CEXE_sources +=
-FEXE_sources += Prob_$(DIM)d.F
+F90EXE_sources += Prob_$(DIM)d.F90 Prob_F.F90
 CEXE_headers += 
 FEXE_headers += probdata.H
 

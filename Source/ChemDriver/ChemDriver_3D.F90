@@ -548,10 +548,12 @@ contains
       endif
 
       if (ITOL.eq.2 .or. ITOL.eq.4) then
-         ATOL(Nspec+1) = typVal_RhoH*ATOLEPS
-         do m=1,Nspec
-            ATOL(m) = ATOLEPS*typVal_Y(m)*typVal_Density
-         end do
+         print *,'ITOL=2,4 no longer supported for now'
+         call bl_pd_abort()
+         !ATOL(Nspec+1) = typVal_RhoH*ATOLEPS
+         !do m=1,Nspec
+         !   ATOL(m) = ATOLEPS*typVal_Y(m)*typVal_Density
+         !end do
       else
          ATOL(1) = ATOLEPS
       end if

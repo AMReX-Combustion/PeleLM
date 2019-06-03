@@ -199,10 +199,6 @@ extern "C" {
 #endif
                            const int* lo, const int* hi, const amrex::Real* dx);
 
-  void get_typical_vals(amrex::Real* vals, const int* nVals);
-
-  void set_typical_vals(const amrex::Real* vals, const int* nVals);
-
   int conservative_T_floor(const int* lo, const int* hi,
                                 amrex::Real* fabdat, ARLIM_P(flo), ARLIM_P(fhi),
                                 const amrex::Real* min_T_fine, const int* Tcomp, const int* Rcomp,
