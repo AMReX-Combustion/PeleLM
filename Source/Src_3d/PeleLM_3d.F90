@@ -834,7 +834,8 @@ contains
           bind(C, name="spec_temp_visc")
        
       use chem_driver_3D, only: MIXAVG_RHODIFF_TEMP, CPMIXfromTY 
-      use mod_Fvar_def, only : use_constant_rhoD, constant_rhoD_val
+      use mod_Fvar_def, only : use_constant_rhoD, constant_rhoD_val, &
+                               use_constant_lambda, constant_lambda_val
       use mod_Fvar_def, only : Pr, Sc, LeEQ1, thickFac
            
       implicit none
