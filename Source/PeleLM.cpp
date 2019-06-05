@@ -3047,7 +3047,7 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
   int nComp = eComp - sComp + 1;
 
   // Set new data to old on valid, but FillPatch old and new to get Dirichlet boundary data for each
-  MultiFab::Copy(get_new_data(State_Type),get_old_data(State_Type),sComp,sComp,nComp,0);
+  MultiFab::Copy(get_new_data(State_Type),get_old_data(State_Type),first_spec,first_spec,nspecies,0);
 
   FillPatch(*this,get_old_data(State_Type),ng,prev_time,State_Type,sComp,nComp,sComp);
   FillPatch(*this,get_new_data(State_Type),ng,curr_time,State_Type,sComp,nComp,sComp);
@@ -4957,10 +4957,6 @@ PeleLM::advance (Real time,
   calc_divu(time+dt, dt, get_new_data(Divu_Type));
   BL_PROFILE_VAR_STOP(HTPROJ);
 
-//  VisMF::Write(get_new_data(Divu_Type), "Divu");
-
-//  amrex::Abort();
-
   BL_PROFILE_VAR_START(HTPROJ);
   if (!NavierStokesBase::initial_step && level != parent->finestLevel())
   {
@@ -5074,12 +5070,6 @@ PeleLM::advance (Real time,
     theNSPC()->AdvectWithUmac(u_mac, level, dt);
   }
 #endif
-
-// print something useful
-//  VisMF::Write(get_new_data(Press_Type), "Pressure");
-//  VisMF::Write(get_new_data(State_Type), "State");
-
-//  amrex::Abort();
 
   BL_PROFILE_VAR("HT::advance::cleanup", HTCLEANUP);
   advance_cleanup(iteration,ncycle);
