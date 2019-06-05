@@ -835,7 +835,7 @@ contains
        
       use chem_driver_3D, only: MIXAVG_RHODIFF_TEMP, CPMIXfromTY 
       use mod_Fvar_def, only : use_constant_rhoD, constant_rhoD_val
-      use mod_Fvar_def, only : Pr, Sc, LeEQ1, thickFacTR
+      use mod_Fvar_def, only : Pr, Sc, LeEQ1, thickFac
            
       implicit none
       
@@ -879,20 +879,20 @@ contains
 
 !     Warning, FORT_VELVISC is called separately from this routine, so if there's
 !     any hacking to be done on viscosity, be sure to catch it there as well.
-      Tfac = thickFacTR / Pr
-      Yfac = thickFacTR / Sc
+      Tfac = thickFac / Pr
+      Yfac = thickFac / Sc
 
       if (.not.use_constant_rhoD) then
          if (.not. LeEQ1) then
             Patm = Pamb_in / P1ATM_MKS
             call MIXAVG_RHODIFF_TEMP(lo, hi, rhoD, DIMS(rhoD), &
                 T, DIMS(T), Y, DIMS(Y), Patm, do_temp, do_VelVisc)
-            if (thickFacTR.ne.1.d0) then
+            if (thickFac.ne.1.d0) then
                do n=1,ncs
                   do k=lo(3), hi(3)
                      do j=lo(2), hi(2)
                         do i=lo(1), hi(1)
-                           rhoD(i,j,k,n) = rhoD(i,j,k,n)*thickFacTR
+                           rhoD(i,j,k,n) = rhoD(i,j,k,n)*thickFac
                         end do
                      end do
                   end do
@@ -949,6 +949,32 @@ contains
                end do
             end do
          end do
+         if (do_temp .ne. 0) then
+           if (.NOT. use_constant_lambda) THEN  
+             do k=lo(3), hi(3)
+                do j=lo(2), hi(2)
+                   do i=lo(1), hi(1)
+                     do n=1,Nspec
+                        Yt(n) = Y(i,j,k,n)
+                     end do
+                     CALL CPMIXfromTY(lo_chem, hi_chem, &
+                         cpmix,  ARLIM(lo_chem), ARLIM(hi_chem), &
+                         T(i,j,k), ARLIM(lo_chem), ARLIM(hi_chem), &
+                         Yt,     ARLIM(lo_chem), ARLIM(hi_chem))
+                     rhoD(i,j,k,Nspec+1) = constant_rhoD_val*cpmix(1,1)
+                   end do
+                end do
+             end do
+           else
+             do k=lo(3), hi(3)
+                do j=lo(2), hi(2)
+                   do i=lo(1), hi(1)
+                      rhoD(i,j,k,Nspec+1) = constant_lambda_val
+                   end do
+                end do
+             end do
+           end if
+         end if
       end if
       
   end subroutine spec_temp_visc

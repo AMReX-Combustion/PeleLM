@@ -44,6 +44,9 @@ contains
 
     len = len_trim(probtype)
 
+    write(6,*)" should not be here"
+    stop
+
     if (probtype(1:len).eq.BL_PROB_PREMIXED_FREE) then
 
        iO2 = -1; iH2 = -1; iCH4 = -1

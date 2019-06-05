@@ -7,23 +7,23 @@ module mod_Fvar_def
   
   ! From visc.H
   
-  logical, save :: use_constant_mu, use_constant_lambda, use_constant_rhoD
-  logical, save :: LeEQ1
+  logical :: use_constant_mu, use_constant_lambda, use_constant_rhoD
+  logical :: LeEQ1
 
-  REAL_T,  save :: constant_mu_val, constant_lambda_val, constant_rhoD_val
-  REAL_T,  save :: Pr, Sc
-  REAL_T,  save :: thickFacTR
+  REAL_T  :: constant_mu_val, constant_lambda_val, constant_rhoD_val
+  REAL_T  :: Pr, Sc
+  REAL_T  :: thickFac
   
   ! From htdata.H
   
-  REAL_T,  save :: pamb, dpdt_factor
-  integer, save :: closed_chamber
+  REAL_T  :: pamb, dpdt_factor
+  integer :: closed_chamber
   
-  integer, save :: Density, Temp, RhoH, Trac, FirstSpec, LastSpec
+  integer :: Density, Temp, RhoH, Trac, FirstSpec, LastSpec
   
   ! From timedata.H
   
-  integer, save :: iteration
-  REAL_T,  save :: time
+  integer :: iteration
+  REAL_T  :: time
   
 end module mod_Fvar_def

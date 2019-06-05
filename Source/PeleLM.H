@@ -517,6 +517,7 @@ private:
   static amrex::Real constant_mu_val;
   static amrex::Real constant_rhoD_val;
   static amrex::Real constant_lambda_val;
+  static amrex::Real constant_thick_val;
   static int         do_diffuse_sync;
   static int         do_reflux_visc;
   static int         dpdt_option;
