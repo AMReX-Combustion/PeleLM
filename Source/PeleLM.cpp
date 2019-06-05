@@ -104,7 +104,8 @@ namespace
   Real                  temp_control;
   Real                  crse_dt;
   int                   chem_box_chop_threshold;
-  int                   num_deltaT_iters;
+  int                   num_deltaT_iters_MAX;
+  Real                  deltaT_norm_max;
   int                   num_forkjoin_tasks;
   bool                  forkjoin_verbose;
 }
@@ -293,7 +294,8 @@ PeleLM::Initialize ()
   temp_control            = -1;
   crse_dt                 = -1;
   chem_box_chop_threshold = -1;
-  num_deltaT_iters        = 5;
+  num_deltaT_iters_MAX    = 10;
+  deltaT_norm_max         = 1.e-10;
   num_forkjoin_tasks      = 1;
   forkjoin_verbose        = false;
 
@@ -468,7 +470,8 @@ PeleLM::Initialize ()
   ParmParse pplm("pelelm");
   pplm.query("num_forkjoin_tasks",num_forkjoin_tasks);
   pplm.query("forkjoin_verbose",forkjoin_verbose);
-  pplm.query("num_deltaT_iters",num_deltaT_iters);
+  pplm.query("num_deltaT_iters_MAX",num_deltaT_iters_MAX);
+  pplm.query("deltaT_norm_max",deltaT_norm_max);
   pplm.query("deltaT_verbose",deltaT_verbose);
   verbose = pplm.contains("v");
 
@@ -3178,7 +3181,8 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
   MultiFab RhoCp(grids,dmap,1,0);
   MultiFab RhT(get_new_data(State_Type), amrex::make_alias, Density, 1);
 
-  for (int L=0; L<num_deltaT_iters; ++L)
+  Real deltaT_iter_norm;
+  for (int L=0; L<num_deltaT_iters_MAX && (L==0 || deltaT_iter_norm >= deltaT_norm_max); ++L)
   {
 
 #ifdef _OPENMP
@@ -3224,8 +3228,9 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
                               volume,a,crse_ratio,theBCs[Temp],geom,
                               add_hoop_stress,solve_mode,add_old_time_divFlux,diffuse_this_comp);
     
+    deltaT_iter_norm = Snp1[0]->norm0(Temp);
     if (deltaT_verbose) {
-      Print() << "   DeltaT solve, norm = " << Snp1[0]->norm0(Temp) << std::endl;
+      Print() << "   DeltaT solve norm = " << deltaT_iter_norm << std::endl;
     }
 
     // T <= T + deltaT
@@ -3256,6 +3261,10 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
         getChemSolve().getHmixGivenTY((*Snp1[0])[mfi],(*Snp1[0])[mfi],Y,tbox,Temp,0,RhoH);   // Update RhoH
         (*Snp1[0])[mfi].mult((*Snp1[0])[mfi],tbox,tbox,Density,RhoH,1);		// mult by rho, get rho*H
       }
+    }
+
+    if (L==num_deltaT_iters_MAX && deltaT_iter_norm >= deltaT_norm_max) {
+      Warning("deltaT_iters not converged");
     }
   } // end deltaT iters
 
@@ -6035,7 +6044,8 @@ PeleLM::mac_sync ()
       
       Print() << "Starting deltaT iters in mac_sync... " << std::endl;
 
-      for (int L=0; L<num_deltaT_iters; ++L)
+      Real deltaT_iter_norm;
+      for (int L=0; L<num_deltaT_iters_MAX && (L==0 || deltaT_iter_norm >= deltaT_norm_max); ++L)
       {
 
 #ifdef _OPENMP
@@ -6089,8 +6099,11 @@ PeleLM::mac_sync ()
                                   volume,a,crse_ratio,theBCs[Temp],geom,
                                   add_hoop_stress,solve_mode,add_old_time_divFlux,diffuse_this_comp);
 
-        Print() << "DeltaTsync solve, norm = " << Snp1[0]->norm0(Temp) << std::endl;
-
+        deltaT_iter_norm = Snp1[0]->norm0(Temp);
+        if (deltaT_verbose) {
+          Print() << "DeltaTsync solve norm = " << deltaT_iter_norm << std::endl;
+        }
+        
         MultiFab::Add(get_new_data(State_Type),Told,0,Temp,1,0);
         compute_enthalpy_fluxes(SpecDiffusionFluxnp1,betanp1,curr_time); // Compute F[N+1], F[N=2]
         flux_divergence(DT_post,0,SpecDiffusionFluxnp1,nspecies+2,1,-1);
@@ -6117,7 +6130,11 @@ PeleLM::mac_sync ()
             get_new_data(State_Type)[mfi].mult(get_new_data(State_Type)[mfi],tbox,tbox,Density,RhoH,1);
           }
         }
-      }
+
+        if (L==num_deltaT_iters_MAX && deltaT_iter_norm >= deltaT_norm_max) {
+          Warning("deltaT_iters not converged in mac_sync");
+        }
+      } // deltaT_iters
 
       BL_PROFILE_VAR_STOP(HTSSYNC);
     }
