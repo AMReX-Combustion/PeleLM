@@ -38,10 +38,10 @@
                                  const amrex::Real* dx,
                                  const amrex::Real* xlo, const amrex::Real* xhi);
                                  
-      void set_prob_spec (const int* fuelID,
-			                    const int* oxidID,
-			                    const int* prodID,
-			                    const int* numspec);
+      void set_prob_spec (const int* bathID,  const int* fuelID,
+			                      const int* oxidID,
+			                      const int* prodID,
+			                      const int* numspec);
 
      void drhomry
                           (amrex::Real* data, ARLIM_P(dat_lo), ARLIM_P(dat_hi),

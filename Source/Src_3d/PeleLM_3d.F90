@@ -8,7 +8,6 @@
 #include <AMReX_CONSTANTS.H>
 #include <AMReX_BC_TYPES.H>
 #include <PeleLM_F.H>
-#include <ChemDriver_F.H>
 #include <AMReX_ArrayLim.H>
 
 #   if   BL_SPACEDIM==1
@@ -23,6 +22,8 @@
 
 module PeleLM_3d
 
+  use fuego_chemistry
+
   implicit none
 
   private
@@ -33,7 +34,9 @@ module PeleLM_3d
              dsdt_fill, ydot_fill, rhoYdot_fill, fab_minmax, repair_flux, &
              incrwext_flx_div, flux_div, compute_ugradp, conservative_T_floor, &
              part_cnt_err, mcurve, smooth, grad_wbar, recomp_update, &
-             valgt_error, vallt_error, magvort_error, diffgt_error
+             valgt_error, vallt_error, magvort_error, diffgt_error, &
+             pphys_PfromRTY, pphys_mass_to_mole, pphys_massr_to_conc, pphys_HfromT, &
+             pphys_HMIXfromTY, pphys_RHOfromPTY 
 
 contains
              
@@ -43,9 +46,9 @@ contains
                               rhoY, DIMS(rhoY),     T, DIMS(T)) &
                               bind(C, name="calc_divu_fortran")
 
-      implicit none
+      use network,        only : nspec
 
-#include <cdwrk.H>
+      implicit none
 
       integer lo(SDIM),hi(SDIM)
       integer DIMDEC(divu)
@@ -62,7 +65,7 @@ contains
       REAL_T  T(DIMV(T))
       
       integer i, j, k, n
-      REAL_T Y(maxspec), H(maxspec), cpmix, rhoInv, tmp, mmw, invmtw(maxspec)
+      REAL_T Y(nspec), H(nspec), cpmix, rhoInv, tmp, mmw, invmtw(nspec)
 
       call CKWT(invmtw)
       do n=1,Nspec
@@ -111,9 +114,9 @@ contains
                              Pamb_in)&
                              bind(C, name="calc_gamma_pinv")
                                                         
+      use network,        only : nspec
+
       implicit none
-      
-#include <cdwrk.H>
       
       integer lo(SDIM),hi(SDIM)
       integer DIMDEC(theta)
@@ -125,7 +128,7 @@ contains
       REAL_T  Pamb_in
       
       integer i, j, k, n
-      REAL_T Y(maxspec), cpmix, cvmix, rhoInv
+      REAL_T Y(nspec), cpmix, cvmix, rhoInv
 
       do k=lo(3),hi(3)
          do j=lo(2),hi(2)
@@ -154,9 +157,9 @@ contains
   
   subroutine floor_spec(lo, hi,spec,  DIMS(spec))bind(C, name="floor_spec")
 
-      implicit none
-      
-#include <cdwrk.H>
+    use network,        only : nspec
+
+    implicit none
       
       integer lo(SDIM),hi(SDIM)
       integer DIMDEC(spec)
@@ -186,10 +189,9 @@ contains
                               FiGHi, DIMS(FiGHi), Tbc ) &
                               bind(C, name="enth_diff_terms")
 
-      use chem_driver_3D, only: HfromT
-      implicit none
+      use network,        only : nspec
 
-#include <cdwrk.H>      
+      implicit none
 
       integer lo(SDIM), hi(SDIM), dlo(SDIM), dhi(SDIM), Tbc(SDIM,2)
       REAL_T  dx(SDIM)
@@ -253,7 +255,7 @@ contains
 
       allocate( H(DIMV(T),1:Nspec) )
 
-      call HfromT(lob, hib, H, DIMS(T), T, DIMS(T))
+      call pphys_HfromT(lob, hib, H, DIMS(T), T, DIMS(T))
 
 !     On entry, Fx(1:Nspec) = spec flux
 !     On exit:
@@ -717,6 +719,427 @@ contains
 
 !-------------------------------------
 
+  subroutine pphys_RRATERHOY(lo,hi,RhoY,DIMS(RhoY),RhoH,DIMS(RhoH),T,DIMS(T), &
+                       RhoYdot,DIMS(RhoYdot))&
+                       bind(C, name="pphys_RRATERHOY")
+      
+      use network,        only : nspec
+      use PeleLM_F,       only : pphys_calc_src_sdc
+
+      implicit none
+
+      integer lo(SDIM)
+      integer hi(SDIM)
+      integer DIMDEC(RhoY)
+      integer DIMDEC(RhoH)
+      integer DIMDEC(T)
+      integer DIMDEC(RhoYdot)
+      REAL_T RhoY(DIMV(RhoY),nspec)
+      REAL_T RhoH(DIMV(RhoH))
+      REAL_T T(DIMV(T))
+      REAL_T RhoYdot(DIMV(RhoYdot),nspec)
+
+      REAL_T Zt(nspec+1),Zdott(nspec+1)
+      REAL_T Temperature, TIME
+      integer i,j,k,n
+
+      TIME = 0.
+
+      do k=lo(3),hi(3)
+         do j=lo(2),hi(2)
+            do i=lo(1),hi(1)
+ 
+               Zt(Nspec+1) = RhoH(i,j,k)
+               do n=1,Nspec
+                  Zt(n) = RhoY(i,j,k,n)
+               end do
+               Temperature = T(i,j,k)
+
+               call pphys_calc_src_sdc(nspec,TIME,Temperature,Zt,Zdott)
+
+               do n=1,Nspec
+                  RhoYdot(i,j,k,n) = Zdott(n)
+               end do
+            end do
+         end do
+      end do
+      
+  end subroutine pphys_RRATERHOY
+
+!-------------------------------------
+
+  subroutine pphys_PfromRTY(lo, hi, P, DIMS(P), RHO, DIMS(RHO), &
+                      T, DIMS(T), Y, DIMS(Y))&
+                      bind(C, name="pphys_PfromRTY")
+
+      use network,        only : nspec
+
+      implicit none
+
+      integer lo(SDIM), hi(SDIM)
+      integer DIMDEC(P)
+      integer DIMDEC(RHO)
+      integer DIMDEC(T)
+      integer DIMDEC(Y)
+      REAL_T P(DIMV(P))
+      REAL_T RHO(DIMV(RHO))
+      REAL_T T(DIMV(T))
+      REAL_T Y(DIMV(Y),*)
+      
+      integer i, j, k, n
+      REAL_T Yt(nspec), RHOt, SCAL, SCAL1
+      
+!     NOTE: SCAL converts result from assumed cgs to MKS (1 dyne/cm^2 = .1 Pa)
+!           SCAL1 converts density (1 kg/m^3 = 1.e-3 g/cm^3)
+      SCAL = 1.d-1
+      SCAL1 = SCAL**3
+
+      do k=lo(3),hi(3)
+         do j=lo(2),hi(2)
+            do i=lo(1),hi(1)
+
+                do n=1,nspec
+                   Yt(n) = Y(i,j,k,n)
+                end do
+
+                RHOt = RHO(i,j,k) * SCAL1
+                CALL CKPY(RHOt,T(i,j,k),Yt,P(i,j,k))
+
+                P(i,j,k) = P(i,j,k) * SCAL
+
+            end do
+         end do
+      end do
+
+  end subroutine pphys_PfromRTY
+
+!-------------------------------------
+
+  subroutine pphys_mass_to_mole(lo, hi, Y, DIMS(Y), X, DIMS(X)) &
+                          bind(C, name="pphys_mass_to_mole")
+
+      use network,        only : nspec
+
+      implicit none
+
+      integer lo(SDIM)
+      integer hi(SDIM)
+      integer DIMDEC(Y)
+      integer DIMDEC(X)
+      REAL_T Y(DIMV(Y),*)
+      REAL_T X(DIMV(X),*)
+
+      REAL_T Xt(nspec), Yt(nspec)
+      integer i,j,k,n
+
+      do k=lo(3),hi(3)
+         do j=lo(2),hi(2)
+            do i=lo(1),hi(1)
+               do n = 1,Nspec
+                  Yt(n) = Y(i,j,k,n)
+               end do
+               CALL CKYTX(Yt,Xt)
+               do n = 1,Nspec
+                  X(i,j,k,n) = Xt(n)
+               end do
+            end do
+         end do
+      end do
+      
+  end subroutine pphys_mass_to_mole
+
+!-------------------------------------
+
+  subroutine pphys_massr_to_conc(lo, hi, Y, DIMS(Y), &
+                           T, DIMS(T), RHO, DIMS(RHO), C, DIMS(C))&
+                           bind(C, name="pphys_massr_to_conc")
+                                   
+      use network,        only : nspec
+
+      implicit none
+
+      integer lo(SDIM)
+      integer hi(SDIM)
+      integer DIMDEC(Y)
+      integer DIMDEC(T)
+      integer DIMDEC(C)
+      integer DIMDEC(RHO)
+      REAL_T Y(DIMV(Y),*)
+      REAL_T T(DIMV(T))
+      REAL_T C(DIMV(C),*)
+      REAL_T RHO(DIMV(RHO))
+
+      REAL_T Yt(nspec), Ct(nspec), rhoScl
+      integer i,j,k,n
+
+      do k=lo(3),hi(3)
+         do j=lo(2),hi(2)
+            do i=lo(1),hi(1)
+               do n = 1,Nspec
+                  Yt(n) = Y(i,j,k,n)
+               end do
+               rhoScl = RHO(i,j,k)*1.e-3
+               CALL CKYTCR(rhoScl,T(i,j,k),Yt,Ct)
+               do n = 1,Nspec
+                  C(i,j,k,n) = Ct(n)*1.e6
+               end do
+            end do
+         end do
+      end do
+
+  end subroutine pphys_massr_to_conc
+
+!-------------------------------------
+
+
+  subroutine pphys_HMIXfromTY(lo, hi, HMIX, DIMS(HMIX), T, DIMS(T), &
+                        Y, DIMS(Y))&
+                        bind(C, name="pphys_HMIXfromTY")
+
+      use network,        only : nspec
+
+      implicit none
+
+      integer lo(SDIM), hi(SDIM)
+      integer DIMDEC(HMIX)
+      integer DIMDEC(T)
+      integer DIMDEC(Y)
+      REAL_T HMIX(DIMV(HMIX))
+      REAL_T T(DIMV(T))
+      REAL_T Y(DIMV(Y),*)
+      
+      integer i, j, k, n
+      REAL_T Yt(nspec), SCAL
+      
+!     NOTE: SCAL converts result from assumed cgs to MKS (1 erg/g = 1.e-4 J/kg)
+      SCAL = 1.0d-4
+
+      do k=lo(3),hi(3)
+         do j=lo(2),hi(2)
+            do i=lo(1),hi(1)
+
+                do n=1,Nspec
+                   Yt(n) = Y(i,j,k,n)
+                end do
+
+                CALL CKHBMS(T(i,j,k),Yt,HMIX(i,j,k))
+
+                HMIX(i,j,k) = HMIX(i,j,k) * SCAL
+
+            end do
+         end do
+      end do
+
+  end subroutine pphys_HMIXfromTY
+
+!-------------------------------------
+
+  subroutine pphys_RHOfromPTY(lo, hi, RHO, DIMS(RHO), T, DIMS(T), &
+                        Y, DIMS(Y), Patm) &
+                        bind(C, name="pphys_RHOfromPTY")
+
+      use network,        only : nspec
+
+      implicit none
+
+      integer lo(SDIM), hi(SDIM)
+      integer DIMDEC(RHO)
+      integer DIMDEC(T)
+      integer DIMDEC(Y)
+      REAL_T RHO(DIMV(RHO))
+      REAL_T T(DIMV(T))
+      REAL_T Y(DIMV(Y),*)
+      REAL_T Patm
+      
+      integer i, j, k, n
+      REAL_T RU, RUC, P1ATM, Ptmp, Yt(nspec), SCAL
+      
+!     NOTE: SCAL converts result from assumed cgs to MKS (1 g/cm^3 = 1.e3 kg/m^3)
+      SCAL = one * 1000
+      CALL CKRP(RU,RUC,P1ATM)
+      Ptmp = Patm * P1ATM
+      do k=lo(3),hi(3)
+         do j=lo(2),hi(2)
+            do i=lo(1),hi(1)
+                do n=1,Nspec
+                   Yt(n) = Y(i,j,k,n)
+                end do
+                CALL CKRHOY(Ptmp,T(i,j,k),Yt,RHO(i,j,k))
+                RHO(i,j,k) = RHO(i,j,k) * SCAL
+            end do
+         end do
+      end do
+  end subroutine pphys_RHOfromPTY
+
+!-------------------------------------
+
+  subroutine pphys_HfromT(lo, hi, H, DIMS(H), T, DIMS(T))&
+                    bind(C, name="pphys_HfromT")
+
+      use network,        only : nspec
+
+      implicit none
+
+      integer lo(SDIM), hi(SDIM)
+      integer DIMDEC(H)
+      integer DIMDEC(T)
+      REAL_T H(DIMV(H),*)
+      REAL_T T(DIMV(T))
+      
+      integer i, j, k, n
+      REAL_T SCAL, Ht(nspec)
+      
+!     NOTE: SCAL converts result from assumed cgs to MKS (1 erg/g = 1.e-4 J/kg)
+      SCAL = 1.0d-4
+
+      do k=lo(3),hi(3)
+         do j=lo(2),hi(2)
+            do i=lo(1),hi(1)
+               CALL CKHMS(T(i,j,k),Ht)
+               do n=1,Nspec
+                  H(i,j,k,n) = Ht(n) * SCAL
+               end do
+            end do
+         end do
+      end do
+
+  end subroutine pphys_HfromT
+
+!-------------------------------------
+
+  subroutine pphys_MWMIXfromY(lo, hi, MWMIX, DIMS(MWMIX), Y, DIMS(Y))&
+                        bind(C, name="pphys_MWMIXfromY")
+
+      use network,        only : nspec
+
+      implicit none
+
+      integer lo(SDIM), hi(SDIM)
+      integer DIMDEC(MWMIX)
+      integer DIMDEC(Y)
+      REAL_T MWMIX(DIMV(MWMIX))
+      REAL_T Y(DIMV(Y),*)
+      
+      integer i, j, k, n
+      REAL_T Yt(nspec)
+
+!     Returns mean molecular weight in kg/kmole
+
+      do k=lo(3),hi(3)
+         do j=lo(2),hi(2)
+            do i=lo(1),hi(1)
+
+               do n=1,nspec
+                  Yt(n) = Y(i,j,k,n)
+               end do
+
+               CALL CKMMWY(Yt,MWMIX(i,j,k))
+
+            end do
+         end do
+      end do
+
+  end subroutine pphys_MWMIXfromY
+
+!-------------------------------------
+
+  subroutine pphys_CPMIXfromTY(lo, hi, &
+                               CPMIX, cmix_lo, cmix_hi, &
+                               T, T_lo, T_hi, &
+                               Y, Y_lo, Y_hi )&
+                         bind(C,name="pphys_CPMIXfromTY")
+
+      use network,        only : nspec
+                         
+      implicit none
+
+      integer         , intent(in   ) ::     lo(3),      hi(3)
+      integer         , intent(in   ) ::   T_lo(3),    T_hi(3)
+      integer         , intent(in   ) ::   Y_lo(3),    Y_hi(3)
+      integer         , intent(in   ) ::cmix_lo(3),cmix_hi(3)
+      REAL_T, intent(in   ) :: T(T_lo(1):T_hi(1),T_lo(2):T_hi(2),T_lo(3):T_hi(3))
+      REAL_T, intent(in   ) :: Y(Y_lo(1):Y_hi(1),Y_lo(2):Y_hi(2),Y_lo(3):Y_hi(3),nspec)
+      REAL_T, intent(out  ) :: CPMIX(cmix_lo(1):cmix_hi(1),cmix_lo(2):cmix_hi(2),cmix_lo(3):cmix_hi(3))
+      
+      integer i, j, k, n
+      REAL_T Yt(nspec), SCAL
+      
+!     NOTE: SCAL converts result from assumed cgs to MKS (1 erg/g.K = 1.e-4 J/kg.K)
+      SCAL = 1.0d-4
+
+      do k=lo(3),hi(3)
+        do j=lo(2),hi(2)
+          do i=lo(1),hi(1)
+            do n=1,nspec
+               Yt(n) = Y(i,j,k,n)
+            end do
+            CALL CKCPBS(T(i,j,k),Yt,CPMIX(i,j,k))
+            CPMIX(i,j,k) = CPMIX(i,j,k) * SCAL
+          end do
+        end do
+      end do
+
+  end subroutine pphys_CPMIXfromTY
+
+!-------------------------------------
+
+  integer function pphys_TfromHY(lo, hi, T, DIMS(T), &
+                           HMIX, DIMS(HMIX), Y, DIMS(Y), &
+                           errMax, NiterMAX, res) &
+                           bind(C, name="pphys_TfromHY")
+                           
+      use network,        only : nspec
+      use PeleLM_F,       only : pphys_TfromHYpt
+      
+      implicit none
+
+      integer lo(SDIM), hi(SDIM)
+      integer NiterMAX
+      integer DIMDEC(T)
+      integer DIMDEC(HMIX)
+      integer DIMDEC(Y)
+      REAL_T T(DIMV(T))
+      REAL_T HMIX(DIMV(HMIX))
+      REAL_T Y(DIMV(Y),*)
+      REAL_T errMAX
+      REAL_T res(0:NiterMAX-1)
+
+      REAL_T Yt(nspec), lres(0:NiterMAX-1)
+      integer i, j, k, n, lierr, Niter,MAXiters
+      REAL_T HMIX_CGS, Tguess
+
+      MAXiters = 0
+      do k=lo(3),hi(3)
+         do j=lo(2),hi(2)
+            do i=lo(1),hi(1)
+
+               do n=1,nspec
+                  Yt(n) = Y(i,j,k,n)
+               end do
+
+               call pphys_TfromHYpt(T(i,j,k),HMIX(i,j,k),Yt,errMax,NiterMAX,lres,Niter)
+
+               if (Niter .lt. 0) then
+                       call bl_abort(" Something went wrong in pphys_TfromHYpt ")
+               end if
+
+               if (Niter .gt. MAXiters) then
+                       MAXiters = Niter
+               end if
+
+            end do
+         end do
+      end do
+
+!     Set max iters taken during this solve, and exit
+      pphys_TfromHY = MAXiters 
+
+      return
+
+  end function pphys_TfromHY
+
+!-------------------------------------
+
   subroutine compute_rho_dgrad_hdot_grad_Y(dx, &
               lo, hi, DIMS(species), species, &
               DIMS(h), h, DIMS(betax), betax, &
@@ -778,38 +1201,48 @@ contains
 !--------------------------------------------------------------
 
   subroutine vel_visc (lo,hi, &
-                       DIMS(T), T, &
-                       DIMS(Y), Y,&
-                       DIMS(mu), mu) &
+                       T, T_lo, T_hi, &
+                       Y, Y_lo, Y_hi, &
+                       mu, mu_lo, mu_hi) &
                        bind(C, name="vel_visc")
                                  
-      use chem_driver_3D, only : MIX_SHEAR_VISC
+      use network,          only : nspec
+      use transport_module, only: get_visco_coeffs
       use mod_Fvar_def, only : use_constant_mu, constant_mu_val, LeEQ1
-      
+
       implicit none
-      
-#include <cdwrk.H>
-      integer lo(SDIM),hi(SDIM)
-      integer DIMDEC(T)
-      integer DIMDEC(Y)
-      REAL_T  T(DIMV(T))      
-      REAL_T  Y(DIMV(Y),*)      
-      integer DIMDEC(mu)
-      REAL_T  mu(DIMV(mu))
-      
+
+
+      integer         , intent(in   ) ::     lo(3),    hi(3)
+      integer         , intent(in   ) ::   T_lo(3),  T_hi(3)
+      integer         , intent(in   ) ::   Y_lo(3),  Y_hi(3)
+      integer         , intent(in   ) ::  mu_lo(3), mu_hi(3)
+      REAL_T, intent(in   ) :: T(T_lo(1):T_hi(1),T_lo(2):T_hi(2),T_lo(3):T_hi(3))
+      REAL_T, intent(in   ) :: Y(Y_lo(1):Y_hi(1),Y_lo(2):Y_hi(2),Y_lo(3):Y_hi(3),nspec)
+      REAL_T, intent(out  ) :: mu(mu_lo(1):mu_hi(1),mu_lo(2):mu_hi(2),mu_lo(3):mu_hi(3))
+
       integer i, j, k
 
       if (.not.use_constant_mu) then
          if (.not. LeEQ1) then
-            call MIX_SHEAR_VISC(lo, hi, mu, DIMS(mu), &
-                                T, DIMS(T), Y, DIMS(Y))       
-         else
+            call get_visco_coeffs(lo, hi, &
+                              Y,  Y_lo,  Y_hi, &
+                              T,  T_lo,  T_hi, &
+                              mu, mu_lo, mu_hi)
             do k=lo(3), hi(3)
                do j=lo(2), hi(2)
                   do i=lo(1), hi(1)
-                     mu(i,j,k) = 1.85D-5*(T(i,j,k)/298.D0)**0.7D0
+                     mu(i,j,k) = mu(i,j,k) * 1.0d-1
                   end do
                end do
+            end do
+         else 
+            do k=lo(3), hi(3)
+              do j=lo(2), hi(2)
+                do i=lo(1), hi(1)
+                  mu(i,j,k) = 1.85e-5*(T(i,j,k)/298.0)**.7
+                end do
+              end do
             end do
          end if
       else
@@ -826,37 +1259,42 @@ contains
 !-------------------------------------------------
 
   subroutine spec_temp_visc(lo,hi, &
-          DIMS(T), T, &
-          DIMS(Y), Y, &
-          DIMS(rhoD), rhoD, &
-          ncompd, P1ATM_MKS, do_temp, do_VelVisc, &
-          Pamb_in)&
-          bind(C, name="spec_temp_visc")
+                            T, T_lo, T_hi, &
+                            Y, Y_lo, Y_hi, &
+                            rhoD, rhoD_lo, rhoD_hi, &
+                            ncompd, P1ATM_MKS, do_temp, do_VelVisc, &
+                            Pamb_in) &
+                            bind(C, name="spec_temp_visc")
        
-      use chem_driver_3D, only: MIXAVG_RHODIFF_TEMP, CPMIXfromTY 
+      use network,          only : nspec
+      use transport_module, only : get_transport_coeffs
       use mod_Fvar_def, only : use_constant_rhoD, constant_rhoD_val, &
                                use_constant_lambda, constant_lambda_val
       use mod_Fvar_def, only : Pr, Sc, LeEQ1, thickFac
-           
+    
       implicit none
-      
-#include <cdwrk.H>
 
-      integer lo(SDIM),hi(SDIM)
-      integer DIMDEC(T)
-      integer DIMDEC(Y)
-      integer DIMDEC(rhoD)
+      integer         , intent(in   ) ::     lo(3),    hi(3)
+      integer         , intent(in   ) ::   T_lo(3),  T_hi(3)
+      integer         , intent(in   ) ::   Y_lo(3),  Y_hi(3)
+      integer         , intent(in   ) ::rhoD_lo(3),  rhoD_hi(3)
+      REAL_T, intent(in   ) :: T(T_lo(1):T_hi(1),T_lo(2):T_hi(2),T_lo(3):T_hi(3))
+      REAL_T, intent(in   ) :: Y(Y_lo(1):Y_hi(1),Y_lo(2):Y_hi(2),Y_lo(3):Y_hi(3),nspec)
+      REAL_T, intent(out  ) :: rhoD(rhoD_lo(1):rhoD_hi(1),rhoD_lo(2):rhoD_hi(2),rhoD_lo(3):rhoD_hi(3),nspec+2)
       integer ncompd, do_temp, do_VelVisc
-      REAL_T  T(DIMV(T))
-      REAL_T  Y(DIMV(Y),*)
-      REAL_T  rhoD(DIMV(rhoD),ncompd)
-      REAL_T  Pamb_in
-      
+      REAL_T  Pamb_in, P1ATM_MKS
+
       integer i, j, k, n, nc, ncs
-      REAL_T P1ATM_MKS, Patm
-      REAL_T Yt(maxspec)
-      REAL_T cpmix(1,1), Tfac, Yfac
-      integer lo_chem(SDIM),hi_chem(SDIM)
+      REAL_T Patm, Wavg
+      REAL_T Yt(nspec), invmwt(nspec)
+      REAL_T cpmix(1,1,1), Tfac, Yfac
+      REAL_T  Y_real(Y_lo(1):Y_hi(1),Y_lo(2):Y_hi(2),Y_lo(3):Y_hi(3),nspec)
+      REAL_T  RHO(T_lo(1):T_hi(1),T_lo(2):T_hi(2),T_lo(3):T_hi(3))
+      REAL_T  D(T_lo(1):T_hi(1),T_lo(2):T_hi(2),T_lo(3):T_hi(3),nspec)
+      REAL_T  MU(T_lo(1):T_hi(1),T_lo(2):T_hi(2),T_lo(3):T_hi(3))
+      REAL_T  XI(T_lo(1):T_hi(1),T_lo(2):T_hi(2),T_lo(3):T_hi(3))
+      REAL_T  LAM(T_lo(1):T_hi(1),T_lo(2):T_hi(2),T_lo(3):T_hi(3))
+      integer lo_chem(3),hi_chem(3)
       data lo_chem /1,1,1/
       data hi_chem /1,1,1/
 
@@ -883,25 +1321,62 @@ contains
       Tfac = thickFac / Pr
       Yfac = thickFac / Sc
 
+      call CKWT(invmwt)
+      do n=1,Nspec
+          invmwt(n) = one / invmwt(n)
+      end do
+
       if (.not.use_constant_rhoD) then
-         if (.not. LeEQ1) then
+          do k=lo(3),hi(3) 
+            do j=lo(2),hi(2)
+              do i=lo(1),hi(1)
+                RHO(i,j,k) = 0.d0
+                do n=1,nspec
+                    RHO(i,j,k) = RHO(i,j,k) + Y(i,j,k,n)
+                end do
+                do n=1,nspec
+                    Y_real(i,j,k,n) = Y(i,j,k,n) / RHO(i,j,k)
+                end do
+                RHO(i,j,k) = RHO(i,j,k) * 1.d-3
+              end do
+            end do
+          end do
+          if (.not. LeEQ1) then
             Patm = Pamb_in / P1ATM_MKS
-            call MIXAVG_RHODIFF_TEMP(lo, hi, rhoD, DIMS(rhoD), &
-                T, DIMS(T), Y, DIMS(Y), Patm, do_temp, do_VelVisc)
-            if (thickFac.ne.1.d0) then
-               do n=1,ncs
-                  do k=lo(3), hi(3)
-                     do j=lo(2), hi(2)
-                        do i=lo(1), hi(1)
-                           rhoD(i,j,k,n) = rhoD(i,j,k,n)*thickFac
-                        end do
-                     end do
+            call get_transport_coeffs(lo,   hi, &
+                                  Y_real, Y_lo,  Y_hi,  &
+                                  T,      T_lo,  T_hi,  &
+                                  RHO,    T_lo,  T_hi,  &
+                                  D,      T_lo,  T_hi,  &
+                                  MU,     T_lo,  T_hi,  &
+                                  XI,     T_lo,  T_hi,  &
+                                  LAM,    T_lo,  T_hi)
+            do k=lo(3),hi(3) 
+              do j=lo(2), hi(2)
+                do i=lo(1), hi(1)
+                  CALL CKMMWY(Y_real(i,j,k,:),Wavg)
+                  do n=1,nspec
+                    rhoD(i,j,k,n) = Wavg * invmwt(n) * D(i,j,k,n)  * 1.0d-1
                   end do
-               end do
-            endif
-         else
-            call vel_visc(lo,hi,DIMS(T),T,DIMS(Y),Y, &
-                DIMS(rhoD),rhoD)
+                  if (do_temp .ne. 0) then 
+                    rhoD(i,j,k,nspec+1) = LAM(i,j,k) * (one / 100000.0D0)
+                  end if
+                   if (thickFac.ne.1.d0) then
+                     do n=1,nspec+1
+                       rhoD(i,j,k,n) = rhoD(i,j,k,n)*thickFac
+                      enddo
+                    endif
+                  if (do_VelVisc .ne. 0) then 
+                    rhoD(i,j,k,nspec+2) = MU(i,j,k) * 1.0d-1
+                  end if
+                end do
+              end do
+            end do
+          else
+            call vel_visc(lo,      hi,&
+                      T,       T_lo,    T_hi, &
+                      Y_real,  Y_lo,    Y_hi, &
+                      rhoD,    rhoD_lo, rhoD_hi)
             do k=lo(3), hi(3)
                do j=lo(2), hi(2)
                   do i=lo(1), hi(1)
@@ -912,7 +1387,6 @@ contains
                   end do
                end do
             end do
-
             do n=2,Nspec
                do k=lo(3), hi(3)
                   do j=lo(2), hi(2)
@@ -928,20 +1402,20 @@ contains
                   do j=lo(2), hi(2)
                      do i=lo(1), hi(1)
                         do n=1,Nspec
-                           Yt(n) = Y(i,j,k,n)
+                           Yt(n) = Y_real(i,j,k,n)
                         end do
-                        CALL CPMIXfromTY(lo_chem, hi_chem, &
-                            cpmix,  ARLIM(lo_chem), ARLIM(hi_chem), &
-                            T(i,j,k), ARLIM(lo_chem), ARLIM(hi_chem), &
-                            Yt,     ARLIM(lo_chem), ARLIM(hi_chem))
-                        rhoD(i,j,k,Nspec+1) = rhoD(i,j,k,Nspec+1)*cpmix(1,1)*Tfac
+                        CALL pphys_CPMIXfromTY(lo,       hi, & 
+                                       cpmix,    lo_chem, hi_chem, &
+                                       T(i,j,k), lo_chem, hi_chem, &
+                                       Yt,       lo_chem, hi_chem)
+                        rhoD(i,j,k,Nspec+1) = rhoD(i,j,k,Nspec+1)*cpmix(1,1,1)*Tfac
                      end do
                   end do
                end do
             end if
-         end if
+          end if
       else
-         do n=1,Nspec
+         do n=1,Nspec 
             do k=lo(3), hi(3)
                do j=lo(2), hi(2)
                   do i=lo(1), hi(1)
@@ -956,13 +1430,13 @@ contains
                 do j=lo(2), hi(2)
                    do i=lo(1), hi(1)
                      do n=1,Nspec
-                        Yt(n) = Y(i,j,k,n)
+                        Yt(n) = Y_real(i,j,k,n)
                      end do
-                     CALL CPMIXfromTY(lo_chem, hi_chem, &
-                         cpmix,  ARLIM(lo_chem), ARLIM(hi_chem), &
-                         T(i,j,k), ARLIM(lo_chem), ARLIM(hi_chem), &
-                         Yt,     ARLIM(lo_chem), ARLIM(hi_chem))
-                     rhoD(i,j,k,Nspec+1) = constant_rhoD_val*cpmix(1,1)
+                     CALL pphys_CPMIXfromTY(lo,       hi, & 
+                                       cpmix,    lo_chem, hi_chem, &
+                                       T(i,j,k), lo_chem, hi_chem, &
+                                       Yt,       lo_chem, hi_chem)
+                     rhoD(i,j,k,Nspec+1) = rhoD(i,j,k,Nspec+1)*cpmix(1,1,1)*Tfac
                    end do
                 end do
              end do
@@ -1352,9 +1826,9 @@ contains
                           RhoY, DIMS(RhoY), dir, Ybc)&
                           bind(C, name="repair_flux")
                           
-      implicit none
+      use network,        only : nspec
 
-#include <cdwrk.H>
+      implicit none
 
       integer lo(SDIM), hi(SDIM), dlo(SDIM), dhi(SDIM), dir, Ybc(SDIM,2)
       integer DIMDEC(flux)
@@ -2420,8 +2894,6 @@ contains
       
   end function conservative_T_floor
 
-!-----------------------------------------
-
 ! ::: -----------------------------------------------------------
 ! ::: This routine will tag high error cells based on whether or not
 ! ::: they contain any particles.
@@ -2572,8 +3044,6 @@ contains
                        
       implicit none
       
-#include <cdwrk.H>
-
       integer lo(SDIM), hi(SDIM)
       integer dir
       integer DIMDEC(Wbar)
