@@ -10,7 +10,6 @@
 #include <AMReX_BC_TYPES.H>
 #include <Prob_F.H>
 #include <AMReX_ArrayLim.H>
-#include <ChemDriver_F.H>
 #include <PeleLM_F.H>
 #if defined(BL_DO_FLCT)
 #include <infl_frc.H>

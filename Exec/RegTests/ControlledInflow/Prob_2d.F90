@@ -3,6 +3,8 @@
 
 module prob_2D_module
 
+  use fuego_chemistry
+
   implicit none
 
   private
@@ -36,7 +38,8 @@ contains
   subroutine amrex_probinit (init,name,namlen,problo,probhi) bind(c)
   
       
-      use chem_driver, only: P1ATMMKS
+      use network,   only: nspec
+      use PeleLM_F,  only: pphys_getP1atm_MKS
       use mod_Fvar_def, only : pamb, dpdt_factor, closed_chamber
       
       implicit none
@@ -141,7 +144,7 @@ contains
       
 !     Set defaults
       probtype = BL_PROB_UNDEFINED
-      pamb = P1ATMMKS()
+      pamb = pphys_getP1atm_MKS()
       dpdt_factor = 0.3d0
       closed_chamber = 0
 
@@ -261,9 +264,9 @@ contains
   
   subroutine setupbc()bind(C, name="setupbc")
 
-    use chem_driver, only: P1ATMMKS
-    use chem_driver_2D, only: RHOfromPTY, HMIXfromTY
-    use probspec_module, only: set_Y_from_Phi
+    use network,   only: nspec
+    use PeleLM_F, only: pphys_getP1atm_MKS
+    use PeleLM_2D, only: pphys_RHOfromPTY, pphys_HMIXfromTY
     use mod_Fvar_def, only : pamb
   
     implicit none
@@ -280,7 +283,7 @@ contains
     integer num_zones_defined, len
     data  b / 1, 1 /
       
-    Patm = pamb / P1ATMMKS()
+    Patm = pamb / pphys_getP1atm_MKS()
     num_zones_defined = 0
     len = len_trim(probtype)
     
@@ -292,67 +295,44 @@ contains
 
       zone = getZone(domnlo(1), domnlo(2))
       num_zones_defined = 1
-           
-      if (phi_in.gt.zero) then
-  
-        call set_Y_from_Phi(phi_in,Yt)
-        do n=1,Nspec
-          Y_bc(n-1,zone) = Yt(n)
-        end do
-        T_bc(zone) = T_in
-        
-        if (flame_dir == 1) then
-          u_bc(zone) = V_in
-          v_bc(zone) = zero
-        else if (flame_dir == 2) then
-          u_bc(zone) = zero
-          v_bc(zone) = V_in
-        else
-          write(6,*) 'Flame in Z dir not yet implemented'
-          call bl_pd_abort(' ')
-        end if
-  
-      else 
-  
-  !     Take fuel mixture from pmf file
-        loc = (domnlo(2)-standoff)*100.d0
-        call pmf(loc,loc,pmf_vals,n)
-        if (n.ne.Nspec+3) then
-          call bl_pd_abort('setupbc: n(pmf) .ne. Nspec+3')
-        endif
-              
-        do n = 1,Nspec
-          Xt(n) = pmf_vals(3+n)
-        end do 
-              
-        CALL CKXTY (Xt, Yt)
-  
-        do n=1,Nspec
-          Y_bc(n-1,zone) = Yt(n)
-        end do
-        
-        T_bc(zone) = pmf_vals(1)
-        
-        if (flame_dir == 1) then
-          v_bc(zone) = zero
-          if (V_in .lt. 0) then
-            u_bc(zone) = pmf_vals(2)*1.d-2
-          else
-            u_bc(zone) = V_in
-          endif
-        else if (flame_dir == 2) then
-          u_bc(zone) = zero
-          if (V_in .lt. 0) then
-            v_bc(zone) = pmf_vals(2)*1.d-2
-          else
-            v_bc(zone) = V_in
-          endif
-        else
-          write(6,*) 'Flame in Z dir not yet implemented'
-          call bl_pd_abort(' ')
-        end if
-        
+            
+!     Take fuel mixture from pmf file
+      loc = (domnlo(2)-standoff)*100.d0
+      call pmf(loc,loc,pmf_vals,n)
+      if (n.ne.Nspec+3) then
+        call bl_pd_abort('setupbc: n(pmf) .ne. Nspec+3')
       endif
+            
+      do n = 1,Nspec
+        Xt(n) = pmf_vals(3+n)
+      end do 
+            
+      CALL CKXTY (Xt, Yt)
+
+      do n=1,Nspec
+        Y_bc(n-1,zone) = Yt(n)
+      end do
+      
+      T_bc(zone) = pmf_vals(1)
+      
+      if (flame_dir == 1) then
+        v_bc(zone) = zero
+        if (V_in .lt. 0) then
+          u_bc(zone) = pmf_vals(2)*1.d-2
+        else
+          u_bc(zone) = V_in
+        endif
+      else if (flame_dir == 2) then
+        u_bc(zone) = zero
+        if (V_in .lt. 0) then
+          v_bc(zone) = pmf_vals(2)*1.d-2
+        else
+          v_bc(zone) = V_in
+        endif
+      else
+        write(6,*) 'Flame in Z dir not yet implemented'
+        call bl_pd_abort(' ')
+      end if    
       
     else
          
@@ -363,11 +343,11 @@ contains
     do zone=1,num_zones_defined
 !     Set density and hmix consistent with data
 
-      call RHOfromPTY(b, b, &
+      call pphys_RHOfromPTY(b, b, &
                            rho_bc(zone), DIMARG(b), DIMARG(b), &
                            T_bc(zone),   DIMARG(b), DIMARG(b), &
                            Y_bc(0,zone), DIMARG(b), DIMARG(b), Patm)
-      call HMIXfromTY(b, b, &
+      call pphys_HMIXfromTY(b, b, &
                            h_bc(zone),   DIMARG(b), DIMARG(b), &
                            T_bc(zone),   DIMARG(b), DIMARG(b), &
                            Y_bc(0,zone), DIMARG(b), DIMARG(b))
@@ -425,6 +405,8 @@ contains
   subroutine bcfunction(x,y,time,u,v,rho,Yl,T,h,dx,getuv) &
                         bind(C, name="bcfunction")
 
+      use network,   only: nspec
+      
       implicit none
 
       REAL_T x, y, time, u, v, rho, Yl(0:*), T, h, dx(SDIM)
@@ -495,8 +477,9 @@ contains
           delta,xlo,xhi)&
           bind(C, name="init_data_new_mech")
           
-      use chem_driver, only: P1ATMMKS
-      use chem_driver_2D, only: RHOfromPTY, HMIXfromTY
+      use network,   only: nspec
+      use PeleLM_F,  only: pphys_getP1atm_MKS
+      use PeleLM_2D, only: pphys_RHOfromPTY, pphys_HMIXfromTY
       use mod_Fvar_def, only : Density, Temp, FirstSpec, RhoH, pamb, Trac
       
       implicit none
@@ -523,16 +506,16 @@ contains
          end do
       end do
  
-      Patm = pamb / P1ATMMKS()
-      call RHOfromPTY(lo,hi, &
+      Patm = pamb / pphys_getP1atm_MKS()
+      call pphys_RHOfromPTY(lo,hi, &
           scal(ARG_L1(state),ARG_L2(state),Density),  DIMS(state), &
           scal(ARG_L1(state),ARG_L2(state),Temp),     DIMS(state), &
           scal(ARG_L1(state),ARG_L2(state),FirstSpec),DIMS(state), &
           Patm)
-      call HMIXfromTY(lo,hi, &
+      call pphys_HMIXfromTY(lo,hi, &
           scal(ARG_L1(state),ARG_L2(state),RhoH),     DIMS(state), &
           scal(ARG_L1(state),ARG_L2(state),Temp),     DIMS(state), &
-          scal(ARG_L1(state),ARG_L2(state),FirstSpec),DIMS(state)) 
+          scal(ARG_L1(state),ARG_L2(state),FirstSpec),DIMS(state))
  
       do j = lo(2), hi(2)
          do i = lo(1), hi(1)
@@ -578,9 +561,9 @@ contains
                            delta,xlo,xhi) &
                            bind(C, name="init_data")
                               
-      use chem_driver, only: P1ATMMKS
-      use chem_driver_2D, only: RHOfromPTY, HMIXfromTY
-      use chem_driver, only: get_spec_name
+      use network,   only: nspec
+      use PeleLM_F,  only: pphys_getP1atm_MKS, pphys_get_spec_name2
+      use PeleLM_2D, only: pphys_RHOfromPTY, pphys_HMIXfromTY
       use mod_Fvar_def, only : Density, Temp, FirstSpec, RhoH, pamb, Trac
       
       implicit none
@@ -610,15 +593,8 @@ contains
       character*(maxspnml) name
 
 !      write(6,*)" made it to initdata"
-      if (iN2.lt.1 .or. iN2.gt.Nspec) then
-         do n = 1,Nspec
-            call get_spec_name(name,n)
-            if (name .eq. 'N2' ) iN2 = n
-         end do
-         if (iN2.eq.-1) then
-            write(6,*) '.....warning: no N2 in chemistry species list'           
-            call bl_pd_abort()
-         endif
+      if (bathID.lt.1 .or. bathID.gt.Nspec) then
+         call bl_pd_abort()
       endif
 
       len = len_trim(probtype)
@@ -679,19 +655,19 @@ contains
 
       endif
 
-      Patm = pamb / P1ATMMKS()
+      Patm = pamb / pphys_getP1atm_MKS()
 !      write(6,*)"Patm",Patm
 
-      call RHOfromPTY(lo,hi, &
+      call pphys_RHOfromPTY(lo,hi, &
           scal(ARG_L1(state),ARG_L2(state),Density),  DIMS(state), &
           scal(ARG_L1(state),ARG_L2(state),Temp),     DIMS(state), &
           scal(ARG_L1(state),ARG_L2(state),FirstSpec),DIMS(state), &
           Patm)
 
-      call HMIXfromTY(lo,hi, &
+      call pphys_HMIXfromTY(lo,hi, &
           scal(ARG_L1(state),ARG_L2(state),RhoH),     DIMS(state), &
           scal(ARG_L1(state),ARG_L2(state),Temp),     DIMS(state), &
-          scal(ARG_L1(state),ARG_L2(state),FirstSpec),DIMS(state)) 
+          scal(ARG_L1(state),ARG_L2(state),FirstSpec),DIMS(state))  
 
       do j = lo(2), hi(2)
          do i = lo(1), hi(1)
@@ -1179,6 +1155,8 @@ contains
                             xlo,time,bc)&
                             bind(C, name="all_chem_fill")
 
+      use network,  only: nspec
+      
       implicit none
 #include <cdwrk.H>
 #include <bc.H>
@@ -1191,7 +1169,7 @@ contains
 
       integer n
       
-      do n=1,Nspec
+      do n=1,nspec
          call chem_fill (rhoY(ARG_L1(rhoY),ARG_L2(rhoY),n), &
              DIMS(rhoY),domlo,domhi,delta,xlo,time,bc(1,1,n),n-1)
       enddo

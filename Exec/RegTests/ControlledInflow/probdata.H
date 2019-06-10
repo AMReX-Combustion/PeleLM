@@ -10,13 +10,13 @@
       REAL_T standoff
       REAL_T domnlo(3), domnhi(3)
       
-      integer fuelID, oxidID, prodID, nspecies
+      integer bathID, fuelID, oxidID, prodID, nspecies
       character*50 probtype
 
       common /prob1/ twall, &
                     splitx, splity, traceSpecVal, xfrontw, yfrontw, standoff
       common /prob2/ domnlo, domnhi
-      common /prob4/ fuelID, oxidID, prodID, nspecies
+      common /prob4/ bathID, fuelID, oxidID, prodID, nspecies
       common /prob5/ probtype
       common /prob6/ flame_dir
       save /prob1/, /prob2/, /prob4/, /prob5/, /prob6/
