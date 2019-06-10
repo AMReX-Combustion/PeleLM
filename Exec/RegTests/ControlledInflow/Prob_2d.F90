@@ -235,8 +235,10 @@ contains
       call setupbc()
       
       area = 1.d0
-      do i=1,SDIM-1
+      do i=1,SDIM
+        if (flame_dir /= i) then
          area = area*(domnhi(i)-domnlo(i))
+        endif
       enddo
       scale_control = Y_bc(fuelID-1,BL_FUELPIPE) * rho_bc(BL_FUELPIPE) * area
 
