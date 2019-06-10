@@ -1,5 +1,5 @@
 #----------------------------TOP LEVEL INPUTS----------------------
-max_step  =  15000
+max_step  =  10000
 stop_time = 4.00
 
 #--------------------------MISC/UNSORTED INPUTS-----------------------------
@@ -130,7 +130,7 @@ geometry.is_periodic = 0 1
 geometry.coord_sys = 0  # 0 => cart, 1 => RZ
 
 geometry.prob_lo   =  0. 0.
-geometry.prob_hi   = 5e-4 .016 
+geometry.prob_hi   = .016 5e-4 
 
 # ------------------  INPUTS TO GODUNOV CLASS ----------------------
 godunov.slope_order = 4
