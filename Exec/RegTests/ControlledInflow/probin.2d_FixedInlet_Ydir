@@ -8,6 +8,9 @@
 
   phi_in = -0.4
   T_in = 298.
+
+  flame_dir = 2
+
  /
  &heattransin
   pamb = 101325.

@@ -9,7 +9,7 @@
   phi_in = -0.4
   T_in = 298.
 
-  flame_dir = 2
+  flame_dir = 1
 
  /
  &heattransin

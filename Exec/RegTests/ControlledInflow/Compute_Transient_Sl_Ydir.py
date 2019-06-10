@@ -50,4 +50,6 @@ for filename in listing:
 
 
 plt.plot(plot_time,plot_Sl) 
-plt.show()   
+plt.savefig("Flame_speed.png")
+plt.show()
+

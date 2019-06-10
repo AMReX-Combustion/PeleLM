@@ -61,7 +61,7 @@ contains
       REAL_T FORT_P1ATMMKS, area
 
       namelist /fortin/ probtype, phi_in,T_in,  &
-                       turb_scale, V_in, V_co, &
+                       turb_scale, V_in, flame_dir, V_co, &
                        standoff, pertmag, nchemdiag, splitx, xfrontw, &
                        splity, yfrontw, blobx, bloby, blobz, blobr, &
                        blobT, Tfrontw, stTh, fuel_N2_vol_percent
@@ -298,8 +298,17 @@ contains
           Y_bc(n-1,zone) = Yt(n)
         end do
         T_bc(zone) = T_in
-        u_bc(zone) = zero
-        v_bc(zone) = V_in
+        
+        if (flame_dir == 1) then
+          u_bc(zone) = V_in
+          v_bc(zone) = zero
+        else if (flame_dir == 2) then
+          u_bc(zone) = zero
+          v_bc(zone) = V_in
+        else
+          write(6,*) 'Flame in Z dir not yet implemented'
+          call bl_pd_abort(' ')
+        end if
   
       else 
   
@@ -321,15 +330,27 @@ contains
         end do
         
         T_bc(zone) = pmf_vals(1)
-        u_bc(zone) = zero
-        if (V_in .lt. 0) then
-          v_bc(zone) = pmf_vals(2)*1.d-2
+        
+        if (flame_dir == 1) then
+          v_bc(zone) = zero
+          if (V_in .lt. 0) then
+            u_bc(zone) = pmf_vals(2)*1.d-2
+          else
+            u_bc(zone) = V_in
+          endif
+        else if (flame_dir == 2) then
+          u_bc(zone) = zero
+          if (V_in .lt. 0) then
+            v_bc(zone) = pmf_vals(2)*1.d-2
+          else
+            v_bc(zone) = V_in
+          endif
         else
-          v_bc(zone) = V_in
-        endif
-              
+          write(6,*) 'Flame in Z dir not yet implemented'
+          call bl_pd_abort(' ')
+        end if
+        
       endif
-
       
     else
          
@@ -433,12 +454,25 @@ contains
          
          if (getuv .eqv. .TRUE.) then
             
-            u = zero
-            if (probtype(1:len).eq.BL_PROB_PREMIXED_CONTROLLED_INFLOW) then               
-               v =  V_in + (time-tbase_control)*dV_control
-            else if (probtype(1:len).eq.BL_PROB_PREMIXED_FIXED_INFLOW) then
-               v = v_bc(zone)
-            endif
+            if (flame_dir == 1) then
+              v = zero
+              if (probtype(1:len).eq.BL_PROB_PREMIXED_CONTROLLED_INFLOW) then               
+                 u =  V_in + (time-tbase_control)*dV_control
+              else if (probtype(1:len).eq.BL_PROB_PREMIXED_FIXED_INFLOW) then
+                 u = u_bc(zone)
+              endif
+            else if (flame_dir == 2) then
+              u = zero
+              if (probtype(1:len).eq.BL_PROB_PREMIXED_CONTROLLED_INFLOW) then               
+                 v =  V_in + (time-tbase_control)*dV_control
+              else if (probtype(1:len).eq.BL_PROB_PREMIXED_FIXED_INFLOW) then
+                 v = v_bc(zone)
+              endif
+            else
+              write(6,*) 'Flame in Z dir not yet implemented'
+              call bl_pd_abort(' ')
+            end if
+              
          endif
          
       else
@@ -566,7 +600,7 @@ contains
 
       integer i, j, n, airZone, fuelZone, zone
       REAL_T x, y, r, Yl(maxspec), Xl(maxspec), Patm
-      REAL_T pmf_vals(maxspec+3), y1, y2, dx
+      REAL_T pmf_vals(maxspec+3), pos1, pos2, dx
       REAL_T pert,Lx,eta,u,v,rho,T,h
       REAL_T sigma
 
@@ -596,19 +630,20 @@ contains
                x = (float(i)+.5d0)*delta(1)+domnlo(1)
                
                pert = 0.d0
-               if (pertmag .gt. 0.d0) then
-                  Lx = domnhi(1) - domnlo(1)
-                  pert = pertmag*(1.000 * sin(2*Pi*4*x/Lx) &
-                      + 1.023 * sin(2*Pi*2*(x-.004598)/Lx) &
-                         + 0.945 * sin(2*Pi*3*(x-.00712435)/Lx)  &
-                             + 1.017 * sin(2*Pi*5*(x-.0033)/Lx)  &
-                                  + .982 * sin(2*Pi*5*(x-.014234)/Lx) )
-               endif
                   
-               y1 = (y - standoff - 0.5d0*delta(2) + pert)*100.d0
-               y2 = (y - standoff + 0.5d0*delta(2) + pert)*100.d0
-
-               call pmf(y1,y2,pmf_vals,nPMF)               
+               if (flame_dir == 1) then
+                 pos1 = (x - standoff - 0.5d0*delta(1) + pert)*100.d0
+                 pos2 = (x - standoff + 0.5d0*delta(1) + pert)*100.d0
+               elseif (flame_dir == 2) then
+                 pos1 = (y - standoff - 0.5d0*delta(2) + pert)*100.d0
+                 pos2 = (y - standoff + 0.5d0*delta(2) + pert)*100.d0
+               else
+                 write(6,*) 'Flame in Z dir not yet implemented'
+                 call bl_pd_abort(' ')
+               end if
+               
+               call pmf(pos1,pos2,pmf_vals,nPMF)   
+               
                if (nPMF.ne.Nspec+3) then
                   call bl_abort('INITDATA: n .ne. Nspec+3')
                endif
@@ -626,8 +661,16 @@ contains
 
                scal(i,j,Trac) = 0.d0
 
-               vel(i,j,1) = 0.d0
-               vel(i,j,2) = pmf_vals(2)*1.d-2
+               if (flame_dir == 1) then
+                 vel(i,j,1) = pmf_vals(2)*1.d-2
+                 vel(i,j,2) = 0.d0
+               elseif (flame_dir == 2) then
+                 vel(i,j,1) = 0.d0
+                 vel(i,j,2) = pmf_vals(2)*1.d-2
+               else
+                 write(6,*) 'Flame in Z dir not yet implemented'
+                 call bl_pd_abort(' ')
+               end if
 
             end do
          end do

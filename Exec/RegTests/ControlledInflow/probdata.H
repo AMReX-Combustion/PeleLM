@@ -3,7 +3,8 @@
 !     Otherwise FORT_ACTIVECONTROL will abort if it is called.
 !
 #define ACTIVE_CONTROL_IS_USABLE
-      
+     
+      integer flame_dir 
       REAL_T twall
       REAL_T splitx, splity, traceSpecVal, xfrontw, yfrontw
       REAL_T standoff
@@ -17,7 +18,8 @@
       common /prob2/ domnlo, domnhi
       common /prob4/ fuelID, oxidID, prodID, nspecies
       common /prob5/ probtype
-      save /prob1/, /prob2/, /prob4/, /prob5/
+      common /prob6/ flame_dir
+      save /prob1/, /prob2/, /prob4/, /prob5/, /prob6/
 
       integer refine_nozzle
       REAL_T refine_nozzle_x, refine_nozzle_y, refine_nozzle_z, blobx, bloby, blobz, blobr, blobT, Tfrontw, xcen
