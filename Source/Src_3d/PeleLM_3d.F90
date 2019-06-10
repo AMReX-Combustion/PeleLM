@@ -1361,11 +1361,11 @@ contains
                   if (do_temp .ne. 0) then 
                     rhoD(i,j,k,nspec+1) = LAM(i,j,k) * (one / 100000.0D0)
                   end if
-                   if (thickFac.ne.1.d0) then
-                     do n=1,nspec+1
-                       rhoD(i,j,k,n) = rhoD(i,j,k,n)*thickFac
-                      enddo
-                    endif
+                  if (thickFac.ne.1.d0) then
+                    do n=1,nspec+1
+                      rhoD(i,j,k,n) = rhoD(i,j,k,n)*thickFac
+                    enddo
+                  endif
                   if (do_VelVisc .ne. 0) then 
                     rhoD(i,j,k,nspec+2) = MU(i,j,k) * 1.0d-1
                   end if

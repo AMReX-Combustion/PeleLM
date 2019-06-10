@@ -1346,7 +1346,6 @@ contains
       end do
       if (.not. LeEQ1) then
         Patm = Pamb_in / P1ATM_MKS
-! WARNING THIS PART IS CERTAINLY BROKEN
         call get_transport_coeffs(lo,   hi, &
                                   Y_real, Y_lo,  Y_hi,  &
                                   T,      T_lo,  T_hi,  &
@@ -1359,19 +1358,19 @@ contains
           do j=lo(2), hi(2)
             do i=lo(1), hi(1)
               CALL CKMMWY(Y_real(i,j,k,:),Wavg)
-              !print *, " IJK ? ", i, j, k
               do n=1,nspec
                 rhoD(i,j,k,n) = Wavg * invmwt(n) * D(i,j,k,n)  * 1.0d-1 
-                !print *, "--> Dt, RD ", D(i,j,k,n)/ RHO(i,j,k), rhoD(i,j,k,n)
-                !rhoD(i,j,k,n) = rhoD(i,j,k,n) * thickFac
               end do
               if (do_temp .ne. 0) then 
                 rhoD(i,j,k,nspec+1) = LAM(i,j,k) * (one / 100000.0D0)
-                !print *, "--> RD temp ", rhoD(i,j,k,nspec+1)
               end if
+              if (thickFac.ne.1.d0) then
+                do n=1,nspec+1
+                  rhoD(i,j,k,n) = rhoD(i,j,k,n)*thickFac
+                enddo
+              endif
               if (do_VelVisc .ne. 0) then 
                 rhoD(i,j,k,nspec+2) = MU(i,j,k) * 1.0d-1
-                !print *, "--> RD vel ", rhoD(i,j,k,nspec+2) 
               end if
             end do
           end do
@@ -1420,38 +1419,42 @@ contains
         end if
       end if
     else
-      do n=1,ncs
-        do k=lo(3),hi(3) 
-          do j=lo(2), hi(2)
-            do i=lo(1), hi(1)
-              rhoD(i,j,k,n) = constant_rhoD_val
+         do n=1,Nspec 
+            do k=lo(3), hi(3)
+               do j=lo(2), hi(2)
+                  do i=lo(1), hi(1)
+                     rhoD(i,j,k,n) = constant_rhoD_val
+                  end do
+               end do
             end do
-          end do
-        end do
-      end do
-      if (do_temp .ne. 0) then
-        if (.NOT. use_constant_lambda) THEN  
-          do j=lo(2), hi(2)
-            do i=lo(1), hi(1)
-              do n=1,Nspec
-                Yt(n) = Y(i,j,n)
-              end do
-              CALL CPMIXfromTY(lo_chem, hi_chem, & 
-                         cpmix,  ARLIM(lo_chem), ARLIM(hi_chem), &
-                         T(i,j), ARLIM(lo_chem), ARLIM(hi_chem), &
-                         Yt,     ARLIM(lo_chem), ARLIM(hi_chem))
-              rhoD(i,j,Nspec+1) = constant_rhoD_val*cpmix(1,1)
-            end do
-          end do
-        else
-          do j=lo(2), hi(2)
-            do i=lo(1), hi(1)
-              rhoD(i,j,Nspec+1) = constant_lambda_val
-            end do
-          end do
-        end if
+         end do
+         if (do_temp .ne. 0) then
+           if (.NOT. use_constant_lambda) THEN  
+             do k=lo(3), hi(3)
+                do j=lo(2), hi(2)
+                   do i=lo(1), hi(1)
+                     do n=1,Nspec
+                        Yt(n) = Y_real(i,j,k,n)
+                     end do
+                     CALL pphys_CPMIXfromTY(lo,       hi, & 
+                                       cpmix,    lo_chem, hi_chem, &
+                                       T(i,j,k), lo_chem, hi_chem, &
+                                       Yt,       lo_chem, hi_chem)
+                     rhoD(i,j,k,Nspec+1) = rhoD(i,j,k,Nspec+1)*cpmix(1,1,1)*Tfac
+                   end do
+                end do
+             end do
+           else
+             do k=lo(3), hi(3)
+                do j=lo(2), hi(2)
+                   do i=lo(1), hi(1)
+                      rhoD(i,j,k,Nspec+1) = constant_lambda_val
+                   end do
+                end do
+             end do
+           end if
+         end if
       end if
-    end if
 
   end subroutine spec_temp_visc
 

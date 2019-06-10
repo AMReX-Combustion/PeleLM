@@ -330,7 +330,6 @@ end subroutine plm_extern_init
     Sc = schmidt
     LeEQ1 = unityLe .ne. 0
     thickFac = MAX(one,thickeningfac)
-    thickFacCH = thickFac
 
   end subroutine set_ht_visc_common
 
