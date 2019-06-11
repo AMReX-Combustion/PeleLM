@@ -37,7 +37,7 @@ DEFINES+=-DALWAYS_NEW_J
 #USE_TDEPFORCING = TRUE
 
 # Choose model (from list below), and pmf file
-#Chemistry_Model = DRM19
+#Chemistry_Model = drm19
 #fEXE_sources += drm19Soln_seed_0.50.f
 
 Chemistry_Model = LiDryer

@@ -519,7 +519,10 @@ PeleLM::variableSetUp ()
   amrex::Print() << " index for fuel and oxidizer " << fuelID << " " << oxidID << std::endl;
   amrex::Print() << " index for bath " << bathID << std::endl;
 
-  set_prob_spec(&bathID, &fuelID, &oxidID, &prodID, &nspecies);
+  int dm = BL_SPACEDIM;
+  
+  set_prob_spec(dm,DefaultGeometry().ProbLo(),DefaultGeometry().ProbHi(),
+                &bathID, &fuelID, &oxidID, &prodID, &nspecies);
   //
   // Get a species to use as a flame tracker.
   //

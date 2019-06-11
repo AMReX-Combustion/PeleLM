@@ -2741,8 +2741,6 @@ contains
        problo,time,level,value) bind(C, name="valgt_error")
 
     implicit none
-
-#include "probdata.H"
       
     integer   DIMDEC(tag)
     integer   DIMDEC(adv)
@@ -2771,8 +2769,6 @@ contains
        problo,time,level,value) bind(C, name="vallt_error")
 
     implicit none
-
-#include "probdata.H"
       
     integer   DIMDEC(tag)
     integer   DIMDEC(adv)
@@ -2802,8 +2798,6 @@ contains
        problo,time,level,value) bind(C, name="magvort_error")
 
     implicit none
-
-#include "probdata.H"
 
     integer   DIMDEC(tag)
     integer   DIMDEC(adv)
@@ -2837,8 +2831,6 @@ contains
        problo,time,level,value) bind(C, name="diffgt_error")
 
     implicit none
-
-#include "probdata.H"
       
     integer   DIMDEC(tag)
     integer   DIMDEC(adv)

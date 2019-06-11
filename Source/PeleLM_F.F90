@@ -124,9 +124,9 @@ end subroutine plm_extern_init
 
   subroutine pphys_get_spec_name2(name, j)
   
+    use mod_Fvar_def, only: maxspec, maxspnml
+    
     implicit none
-
-#include "cdwrk.H"
 
     integer i, j
     integer coded(maxspnml), len
@@ -143,13 +143,13 @@ end subroutine plm_extern_init
     end do
     
   end subroutine pphys_get_spec_name2
-
+  
   integer function pphys_getckspecname(i, coded)
   
+    use mod_Fvar_def, only: maxspec, maxspnml
+    
     implicit none
       
-#include "cdwrk.H"
-
     integer i
     integer coded(*)
     integer names(maxspec*maxspnml)
@@ -168,7 +168,7 @@ end subroutine plm_extern_init
     pphys_getckspecname = str_len - 1
  
   end function pphys_getckspecname
-
+  
   function pphys_getRuniversal() bind(C, name="pphys_getRuniversal") result(RUNIV)
 
     implicit none
@@ -403,11 +403,14 @@ end subroutine plm_extern_init
 
   subroutine active_control(coft,time,dt,myproc,step,restart,usetemp)bind(C, name="active_control")
 
+    use mod_Fvar_def, only : time_points, vel_points, cntl_points, &
+                             ac_hist_file, cfix, changemax_control, coft_old, &
+                             controlvelmax, corr, dv_control, navg_pnts, &
+                             scale_control, sest, tau_control, tbase_control, &
+                             v_in_old, zbase_control
+    use probdata_module, only : V_in
+  
     implicit none
-
-#include <cdwrk.H>
-#include <probdata.H>
-#include <bc.H>
 
 !
 ! Just stuff in the calling sequence.
@@ -417,17 +420,10 @@ end subroutine plm_extern_init
     integer myproc,step,restart,usetemp
 
 !
-! ACTIVE_CONTROL_IS_USABLE should be defined in your probdata.H
-! if you want to call FORT_ACTIVECONTROL.  This is how we enforce
-! that all the necessary variables get defined and included in
-! the proper problem-specific common blocks.
+! ACTIVE_CONTROL_IS_USABLE should be remove.
+! lets compile everything and put variables in mod_Fvar_def.F90
 !
 
-#if !defined(ACTIVE_CONTROL_IS_USABLE)
-
-    call bl_abort('FORT_ACTIVECONTROL is NOT enabled')
-
-#else
 
     REAL_T slocal,V_new,dVmax,dVmin
     !REAL_T vslope,
@@ -658,7 +654,6 @@ end subroutine plm_extern_init
 
 1000 format(i7,7g26.18)
 
-#endif /*ACTIVE_CONTROL_IS_USABLE*/
 
   end subroutine active_control
 
@@ -787,17 +782,28 @@ end subroutine plm_extern_init
 
 !-------------------------------------
 
-  subroutine set_prob_spec(bath, fuel, oxid, prod, numspec) &
+  subroutine set_prob_spec(dm,problo_in, probhi_in,&
+                           bath, fuel, oxid, prod, numspec) &
                                 bind(C, name="set_prob_spec")
  
       use network,  only: nspec
+      use mod_Fvar_def, only: dim, domnlo, domnhi
+      use mod_Fvar_def, only: bathID, fuelID, oxidID, prodID
 
       implicit none
 
-#include <probdata.H>
+      integer, intent(in) :: dm
+      double precision, intent(in) :: problo_in(dm), probhi_in(dm)
 
       integer bath, fuel, oxid, prod, numspec
 
+      ! Passing dimensions of problem from Cpp to Fortran
+      dim = dm
+      domnlo(1:dm) = problo_in(1:dm)
+      domnhi(1:dm) = probhi_in(1:dm)
+
+      
+      ! Passing Cpp to Fortran for chemistry
       fuelID = fuel + 1
       oxidID = oxid + 1
       prodID = prod + 1
@@ -806,7 +812,7 @@ end subroutine plm_extern_init
       endif
       bathID = bath + 1
 
-      if (numspec .ne. Nspec) then
+      if (numspec .ne. nspec) then
          call bl_pd_abort('number of species not consistent')
       endif
       
