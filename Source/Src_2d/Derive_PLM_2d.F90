@@ -17,10 +17,10 @@
 #       define  ARLIM(x)  x(1),x(2),x(3)
 #   endif
 
-#define SDIM 2
-
 module derive_PLM_2D
 
+  use mod_Fvar_def, only : dim
+  
   implicit none
 
   private
@@ -173,7 +173,7 @@ contains
     integer    i, j, n, rho, T, fS
     integer    nlft, nrgt, nbot, ntop
     REAL_T     Yt(nspec)
-    integer lo_chem(SDIM),hi_chem(SDIM)
+    integer lo_chem(2),hi_chem(2)
     data lo_chem /1,1/
     data hi_chem /1,1/
       
@@ -220,13 +220,13 @@ contains
 
     implicit none
     
-    integer    lo(SDIM), hi(SDIM)
+    integer    lo(dim), hi(dim)
     integer    DIMDEC(x)
     integer    DIMDEC(dat)
-    integer    domlo(SDIM), domhi(SDIM)
+    integer    domlo(dim), domhi(dim)
     integer    nv, ncomp
-    integer    bc(SDIM,2,ncomp)
-    REAL_T     delta(SDIM), xlo(SDIM), time, dt
+    integer    bc(dim,2,ncomp)
+    REAL_T     delta(dim), xlo(dim), time, dt
     REAL_T     x(DIMV(x),nv)
     REAL_T     dat(DIMV(dat),ncomp)
     integer    level, grid_no
@@ -234,7 +234,7 @@ contains
     integer i,j,n
     REAL_T Yt(nspec),Xt(nspec)
     integer fS,rho
-    integer lo_chem(SDIM),hi_chem(SDIM)
+    integer lo_chem(2),hi_chem(2)
     data lo_chem /1,1/
     data hi_chem /1,1/
 
@@ -270,13 +270,13 @@ contains
                                
     implicit none
 
-    integer    lo(SDIM), hi(SDIM)
+    integer    lo(dim), hi(dim)
     integer    DIMDEC(C)
     integer    DIMDEC(dat)
-    integer    domlo(SDIM), domhi(SDIM)
+    integer    domlo(dim), domhi(dim)
     integer    nv, ncomp
-    integer    bc(SDIM,2,ncomp)
-    REAL_T     delta(SDIM), xlo(SDIM), time, dt
+    integer    bc(dim,2,ncomp)
+    REAL_T     delta(dim), xlo(dim), time, dt
     REAL_T     C(DIMV(C),nv)
     REAL_T     dat(DIMV(dat),ncomp)
     integer    level, grid_no
@@ -284,7 +284,7 @@ contains
     integer i,j,n
     REAL_T Yt(nspec),Ct(nspec)
     integer fS,rho,T
-    integer lo_chem(SDIM),hi_chem(SDIM)
+    integer lo_chem(2),hi_chem(2)
     data lo_chem /1,1/
     data hi_chem /1,1/
 
