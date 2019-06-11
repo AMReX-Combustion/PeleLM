@@ -25,3 +25,7 @@ grdlog
 
 # OSX files
 .DS_Store
+
+tempAscii.txt
+Transient_Sl.txt
+*.png
