@@ -5,7 +5,7 @@
   standoff = -.022
   pertmag = 0.0004
 
-  phi_in = 0.4
+  phi_in = -0.4
   T_in = 298.
  /
  &heattransin
