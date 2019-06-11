@@ -3,8 +3,6 @@
 #define BL_LANG_FORT
 #endif
 
-#define SDIM BL_SPACEDIM
-
 #include <AMReX_REAL.H>
 #include <AMReX_CONSTANTS.H>
 #include <AMReX_BC_TYPES.H>

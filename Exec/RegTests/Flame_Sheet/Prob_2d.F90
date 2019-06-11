@@ -41,7 +41,7 @@ contains
       use network,   only: nspec
       use PeleLM_F,  only: pphys_getP1atm_MKS
       use mod_Fvar_def, only : pamb, dpdt_factor, closed_chamber
-      use mod_Fvar_def, only : probtype, fuelID, domnhi, domnlo
+      use mod_Fvar_def, only : probtype, fuelID, domnhi, domnlo, dim
       use mod_Fvar_def, only : ac_hist_file, cfix, changemax_control, &
                                coft_old, controlvelmax, corr, dv_control, &
                                h_control, navg_pnts, scale_control, sest, &
@@ -55,7 +55,7 @@ contains
       integer init, namlen
       integer name(namlen)
       integer untin
-      REAL_T problo(SDIM), probhi(SDIM)
+      REAL_T problo(dim), probhi(dim)
 
       integer i,istemp
       REAL_T FORT_P1ATMMKS, area
@@ -139,7 +139,7 @@ contains
       call setupbc()
       
       area = 1.d0
-      do i=1,SDIM
+      do i=1,dim
         if (flame_dir /= i) then
          area = area*(domnhi(i)-domnlo(i))
         endif
@@ -166,7 +166,7 @@ contains
     use network,   only: nspec
     use PeleLM_F, only: pphys_getP1atm_MKS
     use PeleLM_2D, only: pphys_RHOfromPTY, pphys_HMIXfromTY
-    use mod_Fvar_def, only : pamb, probtype, domnhi, domnlo, maxspec, maxspnml
+    use mod_Fvar_def, only : pamb, probtype, domnhi, domnlo, maxspec, maxspnml, dim
     use probdata_module, only : standoff, V_in, Y_bc, T_bc, u_bc, v_bc, rho_bc, h_bc
     use probdata_module, only : bcinit
   
@@ -175,7 +175,7 @@ contains
     REAL_T Patm, pmf_vals(maxspec+3), a
     REAL_T Xt(maxspec), Yt(maxspec), loc
     integer zone, n, fuelZone, airZone, region
-    integer b(SDIM)
+    integer b(2)
     integer num_zones_defined, len
     data  b / 1, 1 /
       
@@ -281,13 +281,13 @@ contains
                         bind(C, name="bcfunction")
 
       use network,   only: nspec
-      use mod_Fvar_def, only : probtype
+      use mod_Fvar_def, only : probtype, dim
       use mod_Fvar_def, only : dv_control, tbase_control
       use probdata_module, only : V_in, bcinit, rho_bc, Y_bc, T_bc, h_bc, u_bc, v_bc
 
       implicit none
 
-      REAL_T x, y, time, u, v, rho, Yl(0:*), T, h, dx(SDIM)
+      REAL_T x, y, time, u, v, rho, Yl(0:*), T, h, dx(dim)
       logical getuv
 
       integer n, zone, len
@@ -341,18 +341,18 @@ contains
       use network,   only: nspec
       use PeleLM_F,  only: pphys_getP1atm_MKS
       use PeleLM_2D, only: pphys_RHOfromPTY, pphys_HMIXfromTY
-      use mod_Fvar_def, only : Density, Temp, FirstSpec, RhoH, pamb, Trac
+      use mod_Fvar_def, only : Density, Temp, FirstSpec, RhoH, pamb, Trac, dim
       use probdata_module, only : bcinit
 
       
       implicit none
       integer  level, nscal
-      integer  lo(SDIM), hi(SDIM)
+      integer  lo(dim), hi(dim)
       integer  DIMDEC(state)
       integer  DIMDEC(press)
-      REAL_T   xlo(SDIM), xhi(SDIM)
-      REAL_T   time, delta(SDIM)
-      REAL_T   vel(DIMV(state),SDIM)
+      REAL_T   xlo(dim), xhi(dim)
+      REAL_T   time, delta(dim)
+      REAL_T   vel(DIMV(state),dim)
       REAL_T   scal(DIMV(state),nscal)
       REAL_T   press(DIMV(press))
   
@@ -424,18 +424,18 @@ contains
       use network,   only: nspec
       use PeleLM_F,  only: pphys_getP1atm_MKS, pphys_get_spec_name2
       use PeleLM_2D, only: pphys_RHOfromPTY, pphys_HMIXfromTY
-      use mod_Fvar_def, only : Density, Temp, FirstSpec, RhoH, pamb, Trac
+      use mod_Fvar_def, only : Density, Temp, FirstSpec, RhoH, pamb, Trac, dim
       use mod_Fvar_def, only : probtype, bathID, domnhi, domnlo, maxspec, maxspnml 
       use probdata_module, only : standoff, pertmag
 
       implicit none
       integer    level, nscal
-      integer    lo(SDIM), hi(SDIM)
+      integer    lo(dim), hi(dim)
       integer    DIMDEC(state)
       integer    DIMDEC(press)
-      REAL_T     xlo(SDIM), xhi(SDIM)
-      REAL_T     time, delta(SDIM)
-      REAL_T     vel(DIMV(state),SDIM)
+      REAL_T     xlo(dim), xhi(dim)
+      REAL_T     time, delta(dim)
+      REAL_T     vel(DIMV(state),dim)
       REAL_T    scal(DIMV(state),nscal)
       REAL_T   press(DIMV(press))
       integer tmpi, nPMF
@@ -557,17 +557,17 @@ contains
                            bind(C, name="zero_visc")   
 
       use mod_Fvar_def, only : Density, Temp, FirstSpec, RhoH, LastSpec
-      use mod_Fvar_def, only : probtype, domnhi, domnlo
+      use mod_Fvar_def, only : probtype, domnhi, domnlo, dim
       
       implicit none
       integer DIMDEC(diff)
-      integer lo(SDIM), hi(SDIM)
-      integer domlo(SDIM), domhi(SDIM)
-      integer bc(2*SDIM)
+      integer lo(dim), hi(dim)
+      integer domlo(dim), domhi(dim)
+      integer bc(2*dim)
       integer idir, isrz, id, ncomp
       REAL_T  diff(DIMV(diff),*)
-      REAL_T  dx(SDIM)
-      REAL_T  problo(SDIM)
+      REAL_T  dx(dim)
+      REAL_T  problo(dim)
       
       integer i, j, n, Tid, RHid, YSid, YEid, ys, ye
       integer len
@@ -578,10 +578,10 @@ contains
 
       if ( (probtype(1:len).eq.BL_PROB_PREMIXED_FIXED_INFLOW) &
           .or. (probtype(1:len).eq.BL_PROB_PREMIXED_CONTROLLED_INFLOW) ) then
-         Tid  = Temp      - id + SDIM
-         RHid = RhoH      - id + SDIM
-         YSid = FirstSpec - id + SDIM
-         YEid = LastSpec  - id + SDIM
+         Tid  = Temp      - id + dim
+         RHid = RhoH      - id + dim
+         YSid = FirstSpec - id + dim
+         YEid = LastSpec  - id + dim
          
          do_T  = (Tid  .GE. 1) .AND. (Tid  .LE. ncomp)
          do_RH = (RHid .GE. 1) .AND. (RHid .LE. ncomp)
@@ -653,20 +653,20 @@ contains
                               xlo,time,bc) &
                               bind(C, name="den_fill")
                       
-      use mod_Fvar_def, only : domnhi, domnlo, maxspec
+      use mod_Fvar_def, only : domnhi, domnlo, maxspec, dim
               
       implicit none
 
-      integer DIMDEC(den), bc(SDIM,2)
-      integer domlo(SDIM), domhi(SDIM)
-      REAL_T  delta(SDIM), xlo(SDIM), time
+      integer DIMDEC(den), bc(dim,2)
+      integer domlo(dim), domhi(dim)
+      REAL_T  delta(dim), xlo(dim), time
       REAL_T  den(DIMV(den))
 
       integer i, j
       REAL_T  y, x
       REAL_T  u, v, rho, Yl(0:maxspec-1), T, h
 
-      integer lo(SDIM), hi(SDIM)
+      integer lo(dim), hi(dim)
 
       lo(1) = ARG_L1(den)
       lo(2) = ARG_L2(den)
@@ -748,16 +748,18 @@ contains
   subroutine adv_fill (adv,DIMS(adv),domlo,domhi,delta,xlo,time,bc)&
                            bind(C, name="adv_fill")
 
+      use mod_Fvar_def, only : dim
+      
       implicit none
 
       integer    DIMDEC(adv)
-      integer    domlo(SDIM), domhi(SDIM)
-      REAL_T     delta(SDIM), xlo(SDIM), time
+      integer    domlo(dim), domhi(dim)
+      REAL_T     delta(dim), xlo(dim), time
       REAL_T     adv(DIMV(adv))
-      integer    bc(SDIM,2)
+      integer    bc(dim,2)
 
       integer    i,j
-      integer lo(SDIM), hi(SDIM)
+      integer lo(dim), hi(dim)
 
       lo(1) = ARG_L1(adv)
       lo(2) = ARG_L2(adv)
@@ -804,20 +806,20 @@ contains
                               xlo,time,bc)&
                               bind(C, name="temp_fill")
 
-      use mod_Fvar_def, only : probtype, domnhi, domnlo, maxspec
+      use mod_Fvar_def, only : probtype, domnhi, domnlo, maxspec, dim
       
       implicit none
 
-      integer DIMDEC(temp), bc(SDIM,2)
-      integer domlo(SDIM), domhi(SDIM)
-      REAL_T  delta(SDIM), xlo(SDIM), time
+      integer DIMDEC(temp), bc(dim,2)
+      integer domlo(dim), domhi(dim)
+      REAL_T  delta(dim), xlo(dim), time
       REAL_T  temp(DIMV(temp))
       
       integer i, j
       REAL_T  y, x
       REAL_T  u, v, rho, Yl(0:maxspec-1), T, h
 
-      integer lo(SDIM), hi(SDIM)
+      integer lo(dim), hi(dim)
 
       lo(1) = ARG_L1(temp)
       lo(2) = ARG_L2(temp)
@@ -899,20 +901,20 @@ contains
                               xlo,time,bc)&
                               bind(C, name="rhoh_fill")
 
-      use mod_Fvar_def, only : probtype, domnhi, domnlo, maxspec
+      use mod_Fvar_def, only : probtype, domnhi, domnlo, maxspec, dim
       
       implicit none
 
-      integer DIMDEC(rhoh), bc(SDIM,2)
-      integer domlo(SDIM), domhi(SDIM)
-      REAL_T  delta(SDIM), xlo(SDIM), time
+      integer DIMDEC(rhoh), bc(dim,2)
+      integer domlo(dim), domhi(dim)
+      REAL_T  delta(dim), xlo(dim), time
       REAL_T  rhoh(DIMV(rhoh))
       
       integer i, j
       REAL_T  y, x
       REAL_T  u, v, rho, Yl(0:maxspec-1), T, h
 
-      integer lo(SDIM), hi(SDIM)
+      integer lo(dim), hi(dim)
 
       lo(1) = ARG_L1(rhoh)
       lo(2) = ARG_L2(rhoh)
@@ -975,11 +977,14 @@ contains
                               xlo,time,bc)&
                               bind(C, name="vel_fill")
 
+      use mod_Fvar_def, only : dim
+      
       implicit none
-      integer DIMDEC(vel), bc(SDIM,2,SDIM)
-      integer domlo(SDIM), domhi(SDIM)
-      REAL_T  delta(SDIM), xlo(SDIM), time
-      REAL_T  vel(DIMV(vel),SDIM)
+      
+      integer DIMDEC(vel), bc(dim,2,dim)
+      integer domlo(dim), domhi(dim)
+      REAL_T  delta(dim), xlo(dim), time
+      REAL_T  vel(DIMV(vel),dim)
 
       call FORT_XVELFILL (vel(ARG_L1(vel),ARG_L2(vel),1), &
       DIMS(vel),domlo,domhi,delta,xlo,time,bc(1,1,1))
@@ -998,12 +1003,13 @@ contains
                             bind(C, name="all_chem_fill")
 
       use network,  only: nspec
-
+      use mod_Fvar_def, only : dim
+      
       implicit none
 
-      integer DIMDEC(rhoY), bc(SDIM,2,Nspec)
-      integer domlo(SDIM), domhi(SDIM)
-      REAL_T  delta(SDIM), xlo(SDIM), time
+      integer DIMDEC(rhoY), bc(dim,2,Nspec)
+      integer domlo(dim), domhi(dim)
+      REAL_T  delta(dim), xlo(dim), time
       REAL_T  rhoY(DIMV(rhoY),Nspec)
 
       integer n
@@ -1042,21 +1048,21 @@ contains
                             xlo,time,bc)&
                             bind(C, name="FORT_XVELFILL")
                                
-      use mod_Fvar_def, only : probtype, domnhi, domnlo, maxspec
+      use mod_Fvar_def, only : probtype, domnhi, domnlo, maxspec, dim
       
       implicit none
       
-      integer DIMDEC(xvel), bc(SDIM,2)
-      integer domlo(SDIM), domhi(SDIM)
-      REAL_T  delta(SDIM), xlo(SDIM), time
+      integer DIMDEC(xvel), bc(dim,2)
+      integer domlo(dim), domhi(dim)
+      REAL_T  delta(dim), xlo(dim), time
       REAL_T  xvel(DIMV(xvel))
 
       integer i, j
       integer ilo, ihi, jlo, jhi
-      REAL_T  y, x, hx, xhi(SDIM)
+      REAL_T  y, x, hx, xhi(dim)
       REAL_T  u, v, rho, Yl(0:maxspec-1), T, h
 
-      integer lo(SDIM), hi(SDIM)
+      integer lo(dim), hi(dim)
 
       lo(1) = ARG_L1(xvel)
       hi(1) = ARG_H1(xvel)
@@ -1153,21 +1159,21 @@ contains
                             xlo,time,bc)&
                             bind(C, name="FORT_YVELFILL")
                                
-      use mod_Fvar_def, only : probtype, domnhi, domnlo, maxspec
+      use mod_Fvar_def, only : probtype, domnhi, domnlo, maxspec, dim
       
       implicit none
       
-      integer DIMDEC(yvel), bc(SDIM,2)
-      integer domlo(SDIM), domhi(SDIM)
-      REAL_T  delta(SDIM), xlo(SDIM), time
+      integer DIMDEC(yvel), bc(dim,2)
+      integer domlo(dim), domhi(dim)
+      REAL_T  delta(dim), xlo(dim), time
       REAL_T  yvel(DIMV(yvel))
       
       integer i, j
       integer ilo, ihi, jlo, jhi
-      REAL_T  y, x, hx, xhi(SDIM)
+      REAL_T  y, x, hx, xhi(dim)
       REAL_T  u, v, rho, Yl(0:maxspec-1), T, h
 
-      integer lo(SDIM), hi(SDIM)
+      integer lo(dim), hi(dim)
 
       lo(1) = ARG_L1(yvel)
       hi(1) = ARG_H1(yvel)
@@ -1265,21 +1271,21 @@ contains
                             xlo,time,bc,id ) &
                             bind(C, name="chem_fill")
                                
-      use mod_Fvar_def, only : probtype, domnhi, domnlo, maxspec
+      use mod_Fvar_def, only : probtype, domnhi, domnlo, maxspec, dim
       
       implicit none
       
-      integer DIMDEC(rhoY), bc(SDIM,2)
-      integer domlo(SDIM), domhi(SDIM), id
-      REAL_T  delta(SDIM), xlo(SDIM), time
+      integer DIMDEC(rhoY), bc(dim,2)
+      integer domlo(dim), domhi(dim), id
+      REAL_T  delta(dim), xlo(dim), time
       REAL_T  rhoY(DIMV(rhoY))
       
       integer i, j
       integer ilo, ihi, jlo, jhi
-      REAL_T  y, x, hx, xhi(SDIM)
+      REAL_T  y, x, hx, xhi(dim)
       REAL_T  u, v, rho, Yl(0:maxspec-1), T, h
 
-      integer lo(SDIM), hi(SDIM)
+      integer lo(dim), hi(dim)
 
       lo(1) = ARG_L1(rhoY)
       hi(1) = ARG_H1(rhoY)
@@ -1375,12 +1381,15 @@ contains
   subroutine press_fill (p,DIMS(p),domlo,domhi,dx,xlo,time,bc)&
                             bind(C, name="press_fill")
   
+      use mod_Fvar_def, only : dim
+      
       implicit none
+      
       integer    DIMDEC(p)
-      integer    domlo(SDIM), domhi(SDIM)
-      REAL_T     dx(SDIM), xlo(SDIM), time
+      integer    domlo(dim), domhi(dim)
+      REAL_T     dx(dim), xlo(dim), time
       REAL_T     p(DIMV(p))
-      integer    bc(SDIM,2)
+      integer    bc(dim,2)
 
       integer    i, j
       integer    ilo, ihi, jlo, jhi
@@ -1534,15 +1543,15 @@ contains
                                dx,xlo,xhi,gravity,scomp,ncomp)&
                                bind(C,name="FORT_MAKEFORCE")
 
-      use mod_Fvar_def, only : dv_control, pseudo_gravity
+      use mod_Fvar_def, only : dv_control, pseudo_gravity, dim
       
       implicit none
 
       integer    DIMDEC(state)
       integer    DIMDEC(istate)
       integer    scomp, ncomp
-      REAL_T     time, dx(SDIM)
-      REAL_T     xlo(SDIM), xhi(SDIM)
+      REAL_T     time, dx(dim)
+      REAL_T     xlo(dim), xhi(dim)
       REAL_T     force  (DIMV(istate),scomp+1:scomp+ncomp)
       REAL_T     rho    (DIMV(state))
       REAL_T     gravity
