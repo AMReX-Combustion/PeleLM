@@ -1,8 +1,8 @@
 TOP = ../../..
 AMREX_HOME ?= ${TOP}/amrex
 IAMR_HOME ?= ${TOP}/IAMR
-PELELM_HOME ?= ${TOP}/PeleLM
-
+PELELM_HOME ?= ${TOP}/PeleLM_cleaning
+PELE_PHYSICS_HOME = /home/emotheau/GitCodes/PelePhysics_dev
 #
 # Build configuration
 #
@@ -65,7 +65,7 @@ Transport_dir := EGLib
 Blocs   := .
 
 CEXE_sources +=
-F90EXE_sources += Prob_$(DIM)d.F90 Prob_F.F90
+F90EXE_sources += Prob_$(DIM)d.F90
 CEXE_headers += 
 FEXE_headers += probdata.H Prob_F.H
 

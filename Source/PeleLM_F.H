@@ -375,6 +375,12 @@ extern "C" {
                     const amrex::Real* dx, const amrex::Real* xlo,
                     const amrex::Real* prob_lo, const amrex::Real* time,
                     const int* level, const amrex::Real* value);
+  
+  void set_prob_spec (const int* bathID,  const int* fuelID,
+	                    const int* oxidID,
+	                    const int* prodID,
+	                    const int* numspec);
+
 
 #ifdef __cplusplus
 }

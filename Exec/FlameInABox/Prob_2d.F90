@@ -596,7 +596,6 @@ contains
     use network,   only: nspec
     use PeleLM_F, only: pphys_getP1atm_MKS
     use PeleLM_2D, only: pphys_RHOfromPTY, pphys_HMIXfromTY
-    use probspec_module, only: set_Y_from_Phi
     use mod_Fvar_def, only : pamb
   
     implicit none
@@ -1176,6 +1175,58 @@ contains
       enddo
       
   end subroutine init_data
+  
+! ::: -----------------------------------------------------------
+  
+  subroutine set_Y_from_Phi(phi,Yt)bind(C, name="set_Y_from_Phi")
+  
+      use PeleLM_F, only: pphys_get_spec_name2
+      use network,  only: nspec
+  
+      implicit none
+
+#include <probdata.H>
+#include <cdwrk.H>
+#include <conp.H>
+
+      REAL_T a, phi
+      REAL_T Xt(nspec), Yt(nspec)
+      integer n
+      character*(maxspnml) name
+      do n=1,nspec
+         Xt(n) = zero
+      enddo
+      
+!     Set "a" for computing X from phi
+!     hc + a.O2 -> b.CO2 + c.H2O
+      
+      print * , "In 'set_Y_from_Phi' before pphys_get_spec_name2 ?", nspec, fuelID
+      call pphys_get_spec_name2(name,fuelID)
+      print *, "In 'set_Y_from_Phi' after pphys_get_spec_name2 ?", name
+
+      a = 0.d0
+      if (name .eq. 'CH4') then
+         a = 2.0d0
+      else if (name .eq. 'H2') then
+         print *, " I've found my fuel ", name
+         a = .5d0
+      else if (name .eq. 'C3H8') then
+         a = 5.0d0
+      else if (name .eq. 'CH3OCH3') then
+         a = 3.0d0
+      else
+         call bl_abort('setupbc: Unknown fuel type')
+      end if
+
+      print *, "In 'set_Y_from_Phi' bef call to CKXTY", oxidID, fuelID, bathID
+      Xt(oxidID) = 1.d0/(1.d0 + phi/a  + 0.79d0/0.21d0)
+      Xt(fuelID) = phi * Xt(oxidID) / a
+      Xt(bathID)    = 1.d0 - Xt(fuelID) - Xt(oxidID)
+      
+      CALL CKXTY (Xt, Yt)
+      
+  end subroutine set_Y_from_Phi  
+  
       
 ! ::: -----------------------------------------------------------
 ! ::: This routine will zero out diffusivity on portions of the
