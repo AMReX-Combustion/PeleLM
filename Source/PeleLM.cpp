@@ -7897,7 +7897,6 @@ PeleLM::writePlotFile (const std::string& dir,
     os << (int) Geom().Coord() << '\n';
     os << "0\n"; // Write bndry data.
 
-
     // job_info file with details about the run
     std::ofstream jobInfoFile;
     std::string FullPathJobInfoFile = dir;
