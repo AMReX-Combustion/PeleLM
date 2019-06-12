@@ -302,6 +302,7 @@ contains
       end do
  
       Patm = pamb / pphys_getP1atm_MKS()
+      
       call pphys_RHOfromPTY(lo,hi, &
           scal(ARG_L1(state),ARG_L2(state),Density),  DIMS(state), &
           scal(ARG_L1(state),ARG_L2(state),Temp),     DIMS(state), &

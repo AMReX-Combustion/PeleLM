@@ -2,7 +2,7 @@
 #undef BL_LANG_CC
 #ifndef BL_LANG_FORT
 #define BL_LANG_FORT
-#endif
+#endif 
 
 #include <AMReX_REAL.H>
 #include <AMReX_CONSTANTS.H>
@@ -18,11 +18,10 @@
 #       define  ARLIM(x)  x(1),x(2),x(3)
 #   endif
 
-#define SDIM 3
-
 module PeleLM_3d
 
   use fuego_chemistry
+  use mod_Fvar_def, only : dim
 
   implicit none
 
@@ -50,7 +49,7 @@ contains
 
       implicit none
 
-      integer lo(SDIM),hi(SDIM)
+      integer lo(dim),hi(dim)
       integer DIMDEC(divu)
       integer DIMDEC(rYdot)
       integer DIMDEC(vtY)
@@ -118,7 +117,7 @@ contains
 
       implicit none
       
-      integer lo(SDIM),hi(SDIM)
+      integer lo(dim),hi(dim)
       integer DIMDEC(theta)
       integer DIMDEC(rhoY)
       integer DIMDEC(T)
@@ -161,7 +160,7 @@ contains
 
     implicit none
       
-      integer lo(SDIM),hi(SDIM)
+      integer lo(dim),hi(dim)
       integer DIMDEC(spec)
       REAL_T  spec(DIMV(spec),1:Nspec)
       
@@ -193,8 +192,8 @@ contains
 
       implicit none
 
-      integer lo(SDIM), hi(SDIM), dlo(SDIM), dhi(SDIM), Tbc(SDIM,2)
-      REAL_T  dx(SDIM)
+      integer lo(dim), hi(dim), dlo(dim), dhi(dim), Tbc(dim,2)
+      REAL_T  dx(dim)
       integer DIMDEC(T)
       REAL_T  T(DIMV(T))
       integer DIMDEC(RhoY)
@@ -227,7 +226,7 @@ contains
       REAL_T, allocatable :: H(:,:,:,:), AD(:,:,:,:)
 
       integer i, j, k, d, n
-      integer lob(SDIM), hib(SDIM)
+      integer lob(dim), hib(dim)
       REAL_T AxDxInv_lo, AxDxInv_hi, dxInv
       REAL_T AyDyInv_lo, AyDyInv_hi, dyInv
       REAL_T AzDzInv_lo, AzDzInv_hi, dzInv
@@ -244,7 +243,7 @@ contains
       fix_zhi = .false.
 
 !     Compute species enthalpies on box grown by one
-      do d=1,SDIM
+      do d=1,dim
          lob(d) = lo(d)-1
          hib(d) = hi(d)+1
       enddo
@@ -728,8 +727,8 @@ contains
 
       implicit none
 
-      integer lo(SDIM)
-      integer hi(SDIM)
+      integer lo(dim)
+      integer hi(dim)
       integer DIMDEC(RhoY)
       integer DIMDEC(RhoH)
       integer DIMDEC(T)
@@ -776,7 +775,7 @@ contains
 
       implicit none
 
-      integer lo(SDIM), hi(SDIM)
+      integer lo(dim), hi(dim)
       integer DIMDEC(P)
       integer DIMDEC(RHO)
       integer DIMDEC(T)
@@ -822,8 +821,8 @@ contains
 
       implicit none
 
-      integer lo(SDIM)
-      integer hi(SDIM)
+      integer lo(dim)
+      integer hi(dim)
       integer DIMDEC(Y)
       integer DIMDEC(X)
       REAL_T Y(DIMV(Y),*)
@@ -858,8 +857,8 @@ contains
 
       implicit none
 
-      integer lo(SDIM)
-      integer hi(SDIM)
+      integer lo(dim)
+      integer hi(dim)
       integer DIMDEC(Y)
       integer DIMDEC(T)
       integer DIMDEC(C)
@@ -900,7 +899,7 @@ contains
 
       implicit none
 
-      integer lo(SDIM), hi(SDIM)
+      integer lo(dim), hi(dim)
       integer DIMDEC(HMIX)
       integer DIMDEC(T)
       integer DIMDEC(Y)
@@ -942,7 +941,7 @@ contains
 
       implicit none
 
-      integer lo(SDIM), hi(SDIM)
+      integer lo(dim), hi(dim)
       integer DIMDEC(RHO)
       integer DIMDEC(T)
       integer DIMDEC(Y)
@@ -980,7 +979,7 @@ contains
 
       implicit none
 
-      integer lo(SDIM), hi(SDIM)
+      integer lo(dim), hi(dim)
       integer DIMDEC(H)
       integer DIMDEC(T)
       REAL_T H(DIMV(H),*)
@@ -1014,7 +1013,7 @@ contains
 
       implicit none
 
-      integer lo(SDIM), hi(SDIM)
+      integer lo(dim), hi(dim)
       integer DIMDEC(MWMIX)
       integer DIMDEC(Y)
       REAL_T MWMIX(DIMV(MWMIX))
@@ -1093,7 +1092,7 @@ contains
       
       implicit none
 
-      integer lo(SDIM), hi(SDIM)
+      integer lo(dim), hi(dim)
       integer NiterMAX
       integer DIMDEC(T)
       integer DIMDEC(HMIX)
@@ -1105,8 +1104,7 @@ contains
       REAL_T res(0:NiterMAX-1)
 
       REAL_T Yt(nspec), lres(0:NiterMAX-1)
-      integer i, j, k, n, lierr, Niter,MAXiters
-      REAL_T HMIX_CGS, Tguess
+      integer i, j, k, n, Niter,MAXiters
 
       MAXiters = 0
       do k=lo(3),hi(3)
@@ -1149,8 +1147,8 @@ contains
 
       implicit none
 
-      integer lo(SDIM), hi(SDIM)
-      REAL_T  dx(SDIM)
+      integer lo(dim), hi(dim)
+      REAL_T  dx(dim)
       integer DIMDEC(species)
       integer DIMDEC(h)
       REAL_T  species(DIMV(species))
@@ -1469,8 +1467,8 @@ contains
       implicit none
 
       integer flag
-      integer lo(SDIM), hi(SDIM)
-      REAL_T  delta(SDIM)
+      integer lo(dim), hi(dim)
+      REAL_T  delta(dim)
       integer DIMDEC(divu)
       integer DIMDEC(rho)
       integer DIMDEC(u)
@@ -1597,11 +1595,11 @@ contains
       implicit none
 
       integer flag
-      integer lo(SDIM), hi(SDIM)
+      integer lo(dim), hi(dim)
       integer DIMDEC(divu)
       integer DIMDEC(rho)
       integer DIMDEC(u)
-      REAL_T  delta(SDIM)
+      REAL_T  delta(dim)
       REAL_T  rho(DIMV(rho))      
       REAL_T  u(DIMV(u),BL_SPACEDIM)      
       REAL_T  rhomin
@@ -1716,9 +1714,9 @@ contains
                           xlo,time,bc )bind(C, name="dqrad_fill")
 
       integer    DIMDEC(dqrad)
-      integer    bc(SDIM,2)
-      integer    domlo(SDIM), domhi(SDIM)
-      REAL_T     delta(SDIM), xlo(SDIM), time
+      integer    bc(dim,2)
+      integer    domlo(dim), domhi(dim)
+      REAL_T     delta(dim), xlo(dim), time
       REAL_T     dqrad(DIMV(dqrad))
 
       call filcc (dqrad,DIMS(dqrad),domlo,domhi,delta,xlo,bc)
@@ -1732,9 +1730,9 @@ contains
                          xlo,time,bc )bind(C, name="divu_fill")
 
       integer    DIMDEC(divu)
-      integer    bc(SDIM,2)
-      integer    domlo(SDIM), domhi(SDIM)
-      REAL_T     delta(SDIM), xlo(SDIM), time
+      integer    bc(dim,2)
+      integer    domlo(dim), domhi(dim)
+      REAL_T     delta(dim), xlo(dim), time
       REAL_T     divu(DIMV(divu))
 
       call filcc (divu,DIMS(divu),domlo,domhi,delta,xlo,bc)
@@ -1749,9 +1747,9 @@ contains
                         xlo,time,bc )bind(C, name="dsdt_fill")
 
       integer    DIMDEC(dsdt)
-      integer    bc(SDIM,2)
-      integer    domlo(SDIM), domhi(SDIM)
-      REAL_T     delta(SDIM), xlo(SDIM), time
+      integer    bc(dim,2)
+      integer    domlo(dim), domhi(dim)
+      REAL_T     delta(dim), xlo(dim), time
       REAL_T     dsdt(DIMV(dsdt))
 
       call filcc (dsdt,DIMS(dsdt),domlo,domhi,delta,xlo,bc)
@@ -1765,9 +1763,9 @@ contains
   subroutine ydot_fill (ydot,DIMS(ydot),domlo,domhi,delta, &
                         xlo,time,bc)bind(C, name="ydot_fill")
 
-      integer    DIMDEC(ydot), bc(SDIM,2)
-      integer    domlo(SDIM), domhi(SDIM)
-      REAL_T     delta(SDIM), xlo(SDIM), time
+      integer    DIMDEC(ydot), bc(dim,2)
+      integer    domlo(dim), domhi(dim)
+      REAL_T     delta(dim), xlo(dim), time
       REAL_T     ydot(DIMV(ydot))
 
       call filcc (ydot,DIMS(ydot),domlo,domhi,delta,xlo,bc)
@@ -1781,9 +1779,9 @@ contains
   subroutine rhoYdot_fill (rhoydot,DIMS(rhoydot),domlo,domhi,delta, &
                            xlo,time,bc)bind(C, name="rhoYdot_fill")
 
-      integer    DIMDEC(rhoydot), bc(SDIM,2)
-      integer    domlo(SDIM), domhi(SDIM)
-      REAL_T     delta(SDIM), xlo(SDIM), time
+      integer    DIMDEC(rhoydot), bc(dim,2)
+      integer    domlo(dim), domhi(dim)
+      REAL_T     delta(dim), xlo(dim), time
       REAL_T     rhoydot(DIMV(rhoydot))
 
       call filcc (rhoydot,DIMS(rhoydot),domlo,domhi,delta,xlo,bc)
@@ -1799,7 +1797,7 @@ contains
                         fmin, fmax, nc) &
                         bind(C, name="fab_minmax")
                         
-      integer lo(SDIM), hi(SDIM), nc
+      integer lo(dim), hi(dim), nc
       integer DIMDEC(fab)
       REAL_T  fab(DIMV(fab),nc)
       REAL_T  fmin, fmax
@@ -1830,7 +1828,7 @@ contains
 
       implicit none
 
-      integer lo(SDIM), hi(SDIM), dlo(SDIM), dhi(SDIM), dir, Ybc(SDIM,2)
+      integer lo(dim), hi(dim), dlo(dim), dhi(dim), dir, Ybc(dim,2)
       integer DIMDEC(flux)
       integer DIMDEC(RhoY)
       REAL_T flux(DIMV(flux),Nspec)
@@ -2035,7 +2033,7 @@ contains
                               bind(C, name="incrwext_flx_div")
                               
       implicit none
-      integer lo(SDIM), hi(SDIM), nc
+      integer lo(dim), hi(dim), nc
       integer DIMDEC(xflux)
       integer DIMDEC(yflux)
       integer DIMDEC(zflux)
@@ -2082,7 +2080,7 @@ contains
      
      
       implicit none
-      integer lo(SDIM), hi(SDIM), nc
+      integer lo(dim), hi(dim), nc
       integer DIMDEC(update)
       integer DIMDEC(xflux)
       integer DIMDEC(yflux)
@@ -2130,11 +2128,11 @@ contains
 !  This routine fills ghost cells with the value from the nearest
 !  interior cell.  
       integer    DIMDEC(dat)
-      integer    bc(SDIM,2)
-      integer    domlo(SDIM), domhi(SDIM)
+      integer    bc(dim,2)
+      integer    domlo(dim), domhi(dim)
       REAL_T     dat(DIMV(dat))
 
-      integer    lo(SDIM), hi(SDIM)
+      integer    lo(dim), hi(dim)
       integer    i, j, k
       integer    ilo, ihi, jlo, jhi, klo, khi
       logical    do_xlo,do_xhi,do_ylo,do_yhi,do_zlo,do_zhi
@@ -2661,11 +2659,11 @@ contains
                            bind(C, name="fillWithZeros")
 
       integer    DIMDEC(dat)
-      integer    bc(SDIM,2)
-      integer    domlo(SDIM), domhi(SDIM)
+      integer    bc(dim,2)
+      integer    domlo(dim), domhi(dim)
       REAL_T     dat(DIMV(dat))
 
-      integer    lo(SDIM), hi(SDIM)
+      integer    lo(dim), hi(dim)
       integer    i, j, k
 
       lo(1) = ARG_L1(dat)
@@ -2747,7 +2745,7 @@ contains
                             bind(C, name="compute_ugradp")
 
       implicit none
-      integer lo(SDIM), hi(SDIM)
+      integer lo(dim), hi(dim)
       integer DIMDEC(p)
       integer DIMDEC(ugp)
       integer DIMDEC(umac)
@@ -2758,7 +2756,7 @@ contains
       REAL_T  wmac(DIMV(wmac))
       REAL_T      p(DIMV(p))
       REAL_T ugradp(DIMV(ugp))
-      REAL_T dx(SDIM)
+      REAL_T dx(dim)
 
       integer i, j, k
       REAL_T uadv, vadv, wadv
@@ -2797,12 +2795,12 @@ contains
               
       implicit none
 
-      integer loF(SDIM), hiF(SDIM)
+      integer loF(dim), hiF(dim)
       integer DIMDEC(state)
       REAL_T  state(DIMV(state),0:*)      
-      integer Tcomp, Rcomp, first_spec, last_spec, RhoH, ratio(SDIM), nt
+      integer Tcomp, Rcomp, first_spec, last_spec, RhoH, ratio(dim), nt
       REAL_T  min_T, tmp(0:nt-1)
-      integer n,i,j,k, loC(SDIM),hiC(SDIM),ii,jj,kk,iii,jjj,kkk,ncells
+      integer n,i,j,k, loC(dim),hiC(dim),ii,jj,kk,iii,jjj,kkk,ncells
       Real ncellsInv
       logical bad_T
 
@@ -2810,7 +2808,7 @@ contains
       conservative_T_floor = 0
 
       ncells = 1
-      do n=1,SDIM
+      do n=1,dim
          loC(n) = loF(n)/ratio(n)
          hiC(n) = (hiF(n)+1)/ratio(n) - 1
          ncells = ncells*ratio(n)
@@ -2951,14 +2949,14 @@ contains
 
       implicit none
 
-      integer lo(SDIM), hi(SDIM)
+      integer lo(dim), hi(dim)
       integer DIMDEC(T)
       integer DIMDEC(curv)
       integer DIMDEC(wrk)
       REAL_T    T(DIMV(T))
       REAL_T curv(DIMV(curv))
-      REAL_T wrk(DIMV(wrk),SDIM)
-      REAL_T delta(SDIM)
+      REAL_T wrk(DIMV(wrk),dim)
+      REAL_T delta(dim)
 
       integer i,j,k
       REAL_T mag
@@ -3005,7 +3003,7 @@ contains
   subroutine smooth(lo, hi, Tin, DIMS(Tin), Tout, DIMS(Tout))bind(C, name="smooth")
   
       implicit none
-      integer lo(SDIM), hi(SDIM)
+      integer lo(dim), hi(dim)
       integer DIMDEC(Tin)
       integer DIMDEC(Tout)
       REAL_T   Tin(DIMV(Tin))
@@ -3044,7 +3042,7 @@ contains
                        
       implicit none
       
-      integer lo(SDIM), hi(SDIM)
+      integer lo(dim), hi(dim)
       integer dir
       integer DIMDEC(Wbar)
       integer DIMDEC(rDe)
@@ -3159,7 +3157,7 @@ contains
                            
       implicit none
       
-      integer lo(SDIM), hi(SDIM), nc
+      integer lo(dim), hi(dim), nc
       integer DIMDEC(update)
       integer DIMDEC(xflux)
       integer DIMDEC(yflux)
@@ -3197,16 +3195,14 @@ contains
        problo,time,level,value) bind(C, name="valgt_error")
 
     implicit none
-
-#include "probdata.H"
       
     integer   DIMDEC(tag)
     integer   DIMDEC(adv)
     integer   nvar, set, clear, level
-    integer   domlo(SDIM), domhi(SDIM)
-    integer   lo(SDIM), hi(SDIM)
+    integer   domlo(dim), domhi(dim)
+    integer   lo(dim), hi(dim)
     integer   tag(DIMV(tag))
-    REAL_T    dx(SDIM), xlo(SDIM), problo(SDIM), time
+    REAL_T    dx(dim), xlo(dim), problo(dim), time
     REAL_T    adv(DIMV(adv),1)
     REAL_T    value
 
@@ -3229,16 +3225,14 @@ contains
        problo,time,level,value) bind(C, name="vallt_error")
 
     implicit none
-
-#include "probdata.H"
       
     integer   DIMDEC(tag)
     integer   DIMDEC(adv)
     integer   nvar, set, clear, level
-    integer   domlo(SDIM), domhi(SDIM)
-    integer   lo(SDIM), hi(SDIM)
+    integer   domlo(dim), domhi(dim)
+    integer   lo(dim), hi(dim)
     integer   tag(DIMV(tag))
-    REAL_T    dx(SDIM), xlo(SDIM), problo(SDIM), time
+    REAL_T    dx(dim), xlo(dim), problo(dim), time
     REAL_T    adv(DIMV(adv),1)
     REAL_T    value
 
@@ -3262,15 +3256,13 @@ contains
 
     implicit none
 
-#include "probdata.H"
-
     integer   DIMDEC(tag)
     integer   DIMDEC(adv)
     integer   nvar, set, clear, level
-    integer   domlo(SDIM), domhi(SDIM)
-    integer   lo(SDIM), hi(SDIM)
+    integer   domlo(dim), domhi(dim)
+    integer   lo(dim), hi(dim)
     integer   tag(DIMV(tag))
-    REAL_T    dx(SDIM), xlo(SDIM), problo(SDIM), time
+    REAL_T    dx(dim), xlo(dim), problo(dim), time
     REAL_T    adv(DIMV(adv),1)
     REAL_T    value
 
@@ -3296,16 +3288,14 @@ contains
        problo,time,level,value) bind(C, name="diffgt_error")
 
     implicit none
-
-#include "probdata.H"
       
     integer   DIMDEC(tag)
     integer   DIMDEC(adv)
     integer   nvar, set, clear, level
-    integer   domlo(SDIM), domhi(SDIM)
-    integer   lo(SDIM), hi(SDIM)
+    integer   domlo(dim), domhi(dim)
+    integer   lo(dim), hi(dim)
     integer   tag(DIMV(tag))
-    REAL_T    dx(SDIM), xlo(SDIM), problo(SDIM), time
+    REAL_T    dx(dim), xlo(dim), problo(dim), time
     REAL_T    adv(DIMV(adv),1)
     REAL_T    value
     REAL_T    axp, axm, ayp, aym, azp, azm, aerr
