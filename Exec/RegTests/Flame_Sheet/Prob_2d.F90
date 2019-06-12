@@ -1,5 +1,12 @@
 
-#include <MyProb_F.H>
+#include <AMReX_REAL.H>
+#include <AMReX_CONSTANTS.H>
+#include <AMReX_BC_TYPES.H>
+#include <AMReX_ArrayLim.H>
+
+#include <Prob_F.H>
+#include <PeleLM_F.H>
+
 
 module prob_2D_module
 
@@ -9,8 +16,8 @@ module prob_2D_module
 
   private
   
-  public :: amrex_probinit,setupbc, getZone, bcfunction, init_data_new_mech, init_data, &
-            zero_visc, den_fill, adv_fill, &
+  public :: amrex_probinit,setupbc, bcfunction, init_data_new_mech, init_data, &
+            den_fill, adv_fill, &
             temp_fill, rhoh_fill, vel_fill, all_chem_fill, &
             FORT_XVELFILL, FORT_YVELFILL, chem_fill, press_fill, &
             FORT_MAKEFORCE 
@@ -37,11 +44,9 @@ contains
 
   subroutine amrex_probinit (init,name,namlen,problo,probhi) bind(c)
   
-      
-      use network,   only: nspec
       use PeleLM_F,  only: pphys_getP1atm_MKS
       use mod_Fvar_def, only : pamb, dpdt_factor, closed_chamber
-      use mod_Fvar_def, only : probtype, fuelID, domnhi, domnlo, dim
+      use mod_Fvar_def, only : fuelID, domnhi, domnlo, dim
       use mod_Fvar_def, only : ac_hist_file, cfix, changemax_control, &
                                coft_old, controlvelmax, corr, dv_control, &
                                h_control, navg_pnts, scale_control, sest, &
@@ -52,18 +57,18 @@ contains
       
       
       implicit none
+      
       integer init, namlen
       integer name(namlen)
       integer untin
       REAL_T problo(dim), probhi(dim)
 
       integer i,istemp
-      REAL_T FORT_P1ATMMKS, area
+      REAL_T area
 
-      namelist /fortin/ probtype,  &
-                       V_in, &
-                       standoff, pertmag
-      namelist /heattransin/ pamb, dpdt_factor, closed_chamber
+      namelist /fortin/ V_in, &
+                        standoff, pertmag
+      namelist /heattransin/ pamb, dpdt_factor
 
       namelist /control/ tau_control, sest, cfix, changeMax_control, h_control, &
           zbase_control, pseudo_gravity, istemp,corr,controlVelMax,navg_pnts
@@ -98,7 +103,6 @@ contains
       open(untin,file=probin(1:namlen),form='formatted',status='old')
       
 !     Set defaults
-      probtype = BL_PROB_UNDEFINED
       pamb = pphys_getP1atm_MKS()
       dpdt_factor = 0.3d0
       closed_chamber = 0
@@ -144,7 +148,7 @@ contains
          area = area*(domnhi(i)-domnlo(i))
         endif
       enddo
-      scale_control = Y_bc(fuelID-1,BL_FUELPIPE) * rho_bc(BL_FUELPIPE) * area
+      scale_control = Y_bc(fuelID-1) * rho_bc(1) * area
 
       if (h_control .gt. zero) then
          cfix = scale_control * h_control
@@ -166,31 +170,20 @@ contains
     use network,   only: nspec
     use PeleLM_F, only: pphys_getP1atm_MKS
     use PeleLM_2D, only: pphys_RHOfromPTY, pphys_HMIXfromTY
-    use mod_Fvar_def, only : pamb, probtype, domnhi, domnlo, maxspec, maxspnml, dim
+    use mod_Fvar_def, only : pamb, domnlo, maxspec, maxspnml
     use probdata_module, only : standoff, V_in, Y_bc, T_bc, u_bc, v_bc, rho_bc, h_bc
     use probdata_module, only : bcinit
   
     implicit none
 
-    REAL_T Patm, pmf_vals(maxspec+3), a
+    REAL_T Patm, pmf_vals(maxspec+3)
     REAL_T Xt(maxspec), Yt(maxspec), loc
-    integer zone, n, fuelZone, airZone, region
+    
+    integer n
     integer b(2)
-    integer num_zones_defined, len
     data  b / 1, 1 /
       
     Patm = pamb / pphys_getP1atm_MKS()
-    num_zones_defined = 0
-    len = len_trim(probtype)
-    
-    
-    if ( (probtype(1:len).eq.BL_PROB_PREMIXED_FIXED_INFLOW) &
-          .or. (probtype(1:len).eq.BL_PROB_PREMIXED_CONTROLLED_INFLOW) ) then
-         
-!     Take fuel mixture from prob data
-
-      zone = getZone(domnlo(1), domnlo(2))
-      num_zones_defined = 1
              
   !     Take fuel mixture from pmf file
         loc = (domnlo(2)-standoff)*100.d0
@@ -206,74 +199,33 @@ contains
         CALL CKXTY (Xt, Yt)
   
         do n=1,Nspec
-          Y_bc(n-1,zone) = Yt(n)
+          Y_bc(n-1) = Yt(n)
         end do
         
-        T_bc(zone) = pmf_vals(1)
-        u_bc(zone) = zero
+        T_bc = pmf_vals(1)
+        u_bc = zero
         if (V_in .lt. 0) then
-          v_bc(zone) = pmf_vals(2)*1.d-2
+          v_bc = pmf_vals(2)*1.d-2
         else
-          v_bc(zone) = V_in
+          v_bc = V_in
         endif
               
-    else
-         
-      call bl_pd_abort()
 
-    endif
-
-    do zone=1,num_zones_defined
 !     Set density and hmix consistent with data
 
       call pphys_RHOfromPTY(b, b, &
-                           rho_bc(zone), DIMARG(b), DIMARG(b), &
-                           T_bc(zone),   DIMARG(b), DIMARG(b), &
-                           Y_bc(0,zone), DIMARG(b), DIMARG(b), Patm)
+                           rho_bc(1), DIMARG(b), DIMARG(b), &
+                           T_bc(1),   DIMARG(b), DIMARG(b), &
+                           Y_bc(0), DIMARG(b), DIMARG(b), Patm)
       call pphys_HMIXfromTY(b, b, &
-                           h_bc(zone),   DIMARG(b), DIMARG(b), &
-                           T_bc(zone),   DIMARG(b), DIMARG(b), &
-                           Y_bc(0,zone), DIMARG(b), DIMARG(b))
-    enddo
-    
+                           h_bc(1),   DIMARG(b), DIMARG(b), &
+                           T_bc(1),   DIMARG(b), DIMARG(b), &
+                           Y_bc(0), DIMARG(b), DIMARG(b))
+
     bcinit = .true.
 
   end subroutine setupbc
 
-! ::: -----------------------------------------------------------
-      
-  integer function getZone(x, y)bind(C, name="getZone")
-
-    
-    use mod_Fvar_def, only : probtype
-
-    
-    implicit none
-
-    REAL_T x, y
-    integer len
-
-!#define BL_FUELPIPE 1
-!#define BL_COFLOW   2
-!#define BL_STICK    3
-!#define BL_WALL     4
-!#define BL_AMBIENT  5
-!#define BL_VOLUME   6
-!#define BL_PIPEEND  7
-
-    getZone = BL_VOLUME
-    len     = len_trim(probtype)
-
-    if ( (probtype(1:len).eq.BL_PROB_PREMIXED_FIXED_INFLOW) &
-          .or. (probtype(1:len).eq.BL_PROB_PREMIXED_CONTROLLED_INFLOW) ) then
-
-      getZone = BL_FUELPIPE
-         
-    else
-         call bl_pd_abort()
-    endif
-
-  end function getZone
       
 !-----------------------
 
@@ -281,53 +233,39 @@ contains
                         bind(C, name="bcfunction")
 
       use network,   only: nspec
-      use mod_Fvar_def, only : probtype, dim
-      use mod_Fvar_def, only : dv_control, tbase_control
-      use probdata_module, only : V_in, bcinit, rho_bc, Y_bc, T_bc, h_bc, u_bc, v_bc
-
+      use mod_Fvar_def, only : dim
+      use mod_Fvar_def, only : dv_control, tbase_control, f_flag_active_control
+      use probdata_module, only : V_in, bcinit, rho_bc, Y_bc, T_bc, h_bc, v_bc
+      
       implicit none
 
       REAL_T x, y, time, u, v, rho, Yl(0:*), T, h, dx(dim)
       logical getuv
 
-      integer n, zone, len
-      REAL_T eta, xmid, etamax
+      integer n
 
       if (.not. bcinit) then
          call bl_abort('Need to initialize boundary condition function')
       end if
 
-      len = len_trim(probtype)
-      
-      if ( (probtype(1:len).eq.BL_PROB_PREMIXED_FIXED_INFLOW) &
-          .or. (probtype(1:len).eq.BL_PROB_PREMIXED_CONTROLLED_INFLOW)) then
-
-         zone = getZone(x,y)
-         rho = rho_bc(zone)
-         do n = 0, Nspec-1
-            Yl(n) = Y_bc(n,zone)
-         end do
-         T = T_bc(zone)
-         h = h_bc(zone)
+      rho = rho_bc(1)
+      do n = 0, Nspec-1
+        Yl(n) = Y_bc(n)
+      end do
+      T = T_bc(1)
+      h = h_bc(1)
          
-         if (getuv .eqv. .TRUE.) then
+      if (getuv .eqv. .TRUE.) then
             
-            u = zero
-            if (probtype(1:len).eq.BL_PROB_PREMIXED_CONTROLLED_INFLOW) then               
-               v =  V_in + (time-tbase_control)*dV_control
-            else if (probtype(1:len).eq.BL_PROB_PREMIXED_FIXED_INFLOW) then
-               v = v_bc(zone)
-            endif
-         endif
-         
-      else
-         write(6,*) 'No boundary condition for probtype = ', probtype(1:len)
-         write(6,*) 'Available: '
-         write(6,*) '            ',BL_PROB_PREMIXED_FIXED_INFLOW
-         write(6,*) '            ',BL_PROB_PREMIXED_CONTROLLED_INFLOW
-         call bl_pd_abort(' ')
+        u = zero
+        if (f_flag_active_control == 1) then               
+          v =  V_in + (time-tbase_control)*dV_control
+        else 
+          v = v_bc
+        endif
       endif
-      
+         
+
   end subroutine bcfunction
 
 ! ::: -----------------------------------------------------------
@@ -342,8 +280,6 @@ contains
       use PeleLM_F,  only: pphys_getP1atm_MKS
       use PeleLM_2D, only: pphys_RHOfromPTY, pphys_HMIXfromTY
       use mod_Fvar_def, only : Density, Temp, FirstSpec, RhoH, pamb, Trac, dim
-      use probdata_module, only : bcinit
-
       
       implicit none
       integer  level, nscal
@@ -425,7 +361,7 @@ contains
       use PeleLM_F,  only: pphys_getP1atm_MKS, pphys_get_spec_name2
       use PeleLM_2D, only: pphys_RHOfromPTY, pphys_HMIXfromTY
       use mod_Fvar_def, only : Density, Temp, FirstSpec, RhoH, pamb, Trac, dim
-      use mod_Fvar_def, only : probtype, bathID, domnhi, domnlo, maxspec, maxspnml 
+      use mod_Fvar_def, only : bathID, domnhi, domnlo, maxspec, maxspnml 
       use probdata_module, only : standoff, pertmag
 
       implicit none
@@ -438,72 +374,59 @@ contains
       REAL_T     vel(DIMV(state),dim)
       REAL_T    scal(DIMV(state),nscal)
       REAL_T   press(DIMV(press))
-      integer tmpi, nPMF
+      integer nPMF
 
-      integer i, j, n, airZone, fuelZone, zone
-      REAL_T x, y, r, Yl(maxspec), Xl(maxspec), Patm
-      REAL_T pmf_vals(maxspec+3), y1, y2, dx
-      REAL_T pert,Lx,eta,u,v,rho,T,h
-      REAL_T sigma
-
-      integer iO2,iCO2,iH2O,iCH3OCH3,len
-      character*(maxspnml) name
+      integer i, j, n
+      REAL_T x, y, Yl(maxspec), Xl(maxspec), Patm
+      REAL_T pmf_vals(maxspec+3), y1, y2
+      REAL_T pert,Lx
 
 !      write(6,*)" made it to initdata"
       if (bathID.lt.1 .or. bathID.gt.Nspec) then
          call bl_pd_abort()
       endif
 
-      len = len_trim(probtype)
-           
-      if ( (probtype(1:len).eq.BL_PROB_PREMIXED_FIXED_INFLOW) &
-          .or. (probtype(1:len).eq.BL_PROB_PREMIXED_CONTROLLED_INFLOW) ) then
-
-         do j = lo(2), hi(2)
-            y = (float(j)+.5d0)*delta(2)+domnlo(2)
-            do i = lo(1), hi(1)
-               x = (float(i)+.5d0)*delta(1)+domnlo(1)
+      do j = lo(2), hi(2)
+        y = (float(j)+.5d0)*delta(2)+domnlo(2)
+        do i = lo(1), hi(1)
+          x = (float(i)+.5d0)*delta(1)+domnlo(1)
                
-               pert = 0.d0
-               if (pertmag .gt. 0.d0) then
-                  Lx = domnhi(1) - domnlo(1)
-                  pert = pertmag*(1.000 * sin(2*Pi*4*x/Lx) &
+          pert = 0.d0
+          if (pertmag .gt. 0.d0) then
+            Lx = domnhi(1) - domnlo(1)
+            pert = pertmag*(1.000 * sin(2*Pi*4*x/Lx) &
                       + 1.023 * sin(2*Pi*2*(x-.004598)/Lx) &
                          + 0.945 * sin(2*Pi*3*(x-.00712435)/Lx)  &
                              + 1.017 * sin(2*Pi*5*(x-.0033)/Lx)  &
                                   + .982 * sin(2*Pi*5*(x-.014234)/Lx) )
-               endif
+          endif
                   
-               y1 = (y - standoff - 0.5d0*delta(2) + pert)*100.d0
-               y2 = (y - standoff + 0.5d0*delta(2) + pert)*100.d0
+          y1 = (y - standoff - 0.5d0*delta(2) + pert)*100.d0
+          y2 = (y - standoff + 0.5d0*delta(2) + pert)*100.d0
 
-               call pmf(y1,y2,pmf_vals,nPMF)               
-               if (nPMF.ne.Nspec+3) then
-                  call bl_abort('INITDATA: n .ne. Nspec+3')
-               endif
+          call pmf(y1,y2,pmf_vals,nPMF)               
+          if (nPMF.ne.Nspec+3) then
+            call bl_abort('INITDATA: n .ne. Nspec+3')
+          endif
                
-               scal(i,j,Temp) = pmf_vals(1)
-               do n = 1,Nspec
-                  Xl(n) = pmf_vals(3+n)
-               end do 
+          scal(i,j,Temp) = pmf_vals(1)
+          do n = 1,Nspec
+            Xl(n) = pmf_vals(3+n)
+          end do 
                
-               CALL CKXTY (Xl, Yl)
+          CALL CKXTY (Xl, Yl)
                
-               do n = 1,Nspec
-                  scal(i,j,FirstSpec+n-1) = Yl(n)
-               end do
+          do n = 1,Nspec
+            scal(i,j,FirstSpec+n-1) = Yl(n)
+          end do
 
-               scal(i,j,Trac) = 0.d0
+          scal(i,j,Trac) = 0.d0
 
-               vel(i,j,1) = 0.d0
-               vel(i,j,2) = pmf_vals(2)*1.d-2
+          vel(i,j,1) = 0.d0
+          vel(i,j,2) = pmf_vals(2)*1.d-2
 
-            end do
-         end do
-
-      else
-        call bl_abort('Problem probtype in initdata')
-      endif
+        end do
+      end do
 
       Patm = pamb / pphys_getP1atm_MKS()
 !      write(6,*)"Patm",Patm
@@ -522,7 +445,7 @@ contains
       do j = lo(2), hi(2)
          do i = lo(1), hi(1)
             do n = 0,Nspec-1
-               scal(i,j,FirstSpec+n) = scal(i,j,FirstSpec+n)*scal(i,j,Density)
+              scal(i,j,FirstSpec+n) = scal(i,j,FirstSpec+n)*scal(i,j,Density)
             enddo
             scal(i,j,RhoH) = scal(i,j,RhoH)*scal(i,j,Density)
          enddo
@@ -530,100 +453,6 @@ contains
       
   end subroutine init_data
       
-! ::: -----------------------------------------------------------
-! ::: This routine will zero out diffusivity on portions of the
-! ::: boundary that are inflow, allowing that a "wall" block
-! ::: the complement aperture
-! ::: 
-! ::: INPUTS/OUTPUTS:
-! ::: 
-! ::: diff      <=> diffusivity on edges
-! ::: DIMS(diff) => index extent of diff array
-! ::: lo,hi      => region of interest, edge-based
-! ::: domlo,hi   => index extent of problem domain, edge-based
-! ::: dx         => cell spacing
-! ::: problo     => phys loc of lower left corner of prob domain
-! ::: bc         => boundary condition flag (on orient)
-! :::                   in BC_TYPES::physicalBndryTypes
-! ::: idir       => which face, 0=x, 1=y
-! ::: isrz       => 1 if problem is r-z
-! ::: id         => index of state, 0=u
-! ::: ncomp      => components to modify
-! ::: 
-! ::: -----------------------------------------------------------
-
-  subroutine zero_visc(diff,DIMS(diff),lo,hi,domlo,domhi, &
-                           dx,problo,bc,idir,isrz,id,ncomp) &
-                           bind(C, name="zero_visc")   
-
-      use mod_Fvar_def, only : Density, Temp, FirstSpec, RhoH, LastSpec
-      use mod_Fvar_def, only : probtype, domnhi, domnlo, dim
-      
-      implicit none
-      integer DIMDEC(diff)
-      integer lo(dim), hi(dim)
-      integer domlo(dim), domhi(dim)
-      integer bc(2*dim)
-      integer idir, isrz, id, ncomp
-      REAL_T  diff(DIMV(diff),*)
-      REAL_T  dx(dim)
-      REAL_T  problo(dim)
-      
-      integer i, j, n, Tid, RHid, YSid, YEid, ys, ye
-      integer len
-      logical do_T, do_RH, do_Y
-      REAL_T xl, xr, xh, yb, yt, yh, y
-
-      len = len_trim(probtype)
-
-      if ( (probtype(1:len).eq.BL_PROB_PREMIXED_FIXED_INFLOW) &
-          .or. (probtype(1:len).eq.BL_PROB_PREMIXED_CONTROLLED_INFLOW) ) then
-         Tid  = Temp      - id + dim
-         RHid = RhoH      - id + dim
-         YSid = FirstSpec - id + dim
-         YEid = LastSpec  - id + dim
-         
-         do_T  = (Tid  .GE. 1) .AND. (Tid  .LE. ncomp)
-         do_RH = (RHid .GE. 1) .AND. (RHid .LE. ncomp)
-         ys = MAX(YSid,1)
-         ye = MIN(YEid,ncomp)
-         do_Y = (ye - ys + 1) .GE. 1
-!     
-!     Do species, Temp, rhoH
-!
-
-         if ((idir.EQ.1) .AND. (lo(2) .LE. domlo(2)) &
-                .AND. (do_T .OR. do_RH .OR. do_Y) ) then
-               
-            j = lo(2)
-            y = float(j)*dx(2)+domnlo(2)
-            do i = lo(1), hi(1)
-               
-               xl = float(i)*dx(1)+domnlo(1) 
-               xr = (float(i)+1.d0)*dx(1)+domnlo(1) 
-               xh = 0.5d0*(xl+xr)
-                  
-               if ( (getZone(xl,y).eq.BL_STICK) .OR. &
-                   (getZone(xh,y).eq.BL_STICK) .OR. &
-                   (getZone(xr,y).eq.BL_STICK) .OR. &
-                   (getZone(xl,y).eq.BL_PIPEEND) .OR. &
-                   (getZone(xh,y).eq.BL_PIPEEND) .OR. &
-                   (getZone(xr,y).eq.BL_PIPEEND)  ) then
-                  
-!                 if (do_T)  diff(i,j,Tid ) = 0.d0
-!                 if (do_RH) diff(i,j,RHid) = 0.d0
-                  if (do_Y) then
-                     do n=ys,ye
-                        diff(i,j,n) = 0.d0
-                     enddo
-                  endif
-                     
-               endif
-            end do
-         endif
-      end if
-      
-  end subroutine zero_visc
 
 ! ::: -----------------------------------------------------------
 ! ::: This routine is called during a filpatch operation when
@@ -653,7 +482,7 @@ contains
                               xlo,time,bc) &
                               bind(C, name="den_fill")
                       
-      use mod_Fvar_def, only : domnhi, domnlo, maxspec, dim
+      use mod_Fvar_def, only : domnlo, maxspec, dim
               
       implicit none
 
@@ -806,7 +635,7 @@ contains
                               xlo,time,bc)&
                               bind(C, name="temp_fill")
 
-      use mod_Fvar_def, only : probtype, domnhi, domnlo, maxspec, dim
+      use mod_Fvar_def, only : domnlo, maxspec, dim
       
       implicit none
 
@@ -901,7 +730,7 @@ contains
                               xlo,time,bc)&
                               bind(C, name="rhoh_fill")
 
-      use mod_Fvar_def, only : probtype, domnhi, domnlo, maxspec, dim
+      use mod_Fvar_def, only : domnlo, maxspec, dim
       
       implicit none
 
@@ -1048,7 +877,7 @@ contains
                             xlo,time,bc)&
                             bind(C, name="FORT_XVELFILL")
                                
-      use mod_Fvar_def, only : probtype, domnhi, domnlo, maxspec, dim
+      use mod_Fvar_def, only : domnlo, maxspec, dim
       
       implicit none
       
@@ -1059,7 +888,7 @@ contains
 
       integer i, j
       integer ilo, ihi, jlo, jhi
-      REAL_T  y, x, hx, xhi(dim)
+      REAL_T  y, x, hx
       REAL_T  u, v, rho, Yl(0:maxspec-1), T, h
 
       integer lo(dim), hi(dim)
@@ -1159,7 +988,7 @@ contains
                             xlo,time,bc)&
                             bind(C, name="FORT_YVELFILL")
                                
-      use mod_Fvar_def, only : probtype, domnhi, domnlo, maxspec, dim
+      use mod_Fvar_def, only : domnlo, maxspec, dim
       
       implicit none
       
@@ -1170,7 +999,7 @@ contains
       
       integer i, j
       integer ilo, ihi, jlo, jhi
-      REAL_T  y, x, hx, xhi(dim)
+      REAL_T  y, x, hx
       REAL_T  u, v, rho, Yl(0:maxspec-1), T, h
 
       integer lo(dim), hi(dim)
@@ -1271,7 +1100,7 @@ contains
                             xlo,time,bc,id ) &
                             bind(C, name="chem_fill")
                                
-      use mod_Fvar_def, only : probtype, domnhi, domnlo, maxspec, dim
+      use mod_Fvar_def, only : domnlo, maxspec, dim
       
       implicit none
       
@@ -1282,7 +1111,7 @@ contains
       
       integer i, j
       integer ilo, ihi, jlo, jhi
-      REAL_T  y, x, hx, xhi(dim)
+      REAL_T  y, x, hx
       REAL_T  u, v, rho, Yl(0:maxspec-1), T, h
 
       integer lo(dim), hi(dim)
@@ -1559,10 +1388,7 @@ contains
       integer i, j, n
       integer ilo, jlo
       integer ihi, jhi
-      integer a2, a3, a4, a5
-      REAL_T  x, y
       REAL_T  hx, hy
-      REAL_T  sga, cga
       integer isioproc
       integer nXvel, nYvel, nRho, nTrac
 

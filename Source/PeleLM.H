@@ -641,6 +641,8 @@ private:
   static int         iter_debug;
   static int         mHtoTiterMAX;
   static amrex::Vector<amrex::Real> mTmpData;
+  
+  static bool         flag_active_control;
 
   static int  cvode_iE;
 

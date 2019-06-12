@@ -1,5 +1,4 @@
  &fortin
-  probtype = 'premixed_fixed_inlet'
 
   V_in = .2280410684149
   standoff = -.022

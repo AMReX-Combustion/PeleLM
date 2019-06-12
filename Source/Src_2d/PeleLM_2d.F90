@@ -694,7 +694,7 @@ contains
       double precision  Z(nspec+1), Ysrc(nspec)
       REAL_T  Yt(nspec)
       double precision energy, energy_src
-      REAL_T  rho, rhoInv, HMIX_CGS
+      REAL_T  rho, HMIX_CGS
       double precision  pressure
 
       !print *, "IN CONPsolv_SDC "
@@ -1117,8 +1117,7 @@ contains
       REAL_T res(0:NiterMAX-1)
 
       REAL_T Yt(nspec)
-      integer i, j, n, lierr, Niter,MAXiters
-      REAL_T HMIX_CGS, Tguess
+      integer i, j, n, Niter,MAXiters
 
       MAXiters = 0
       do j=lo(2),hi(2)

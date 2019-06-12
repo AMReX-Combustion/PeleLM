@@ -108,22 +108,15 @@ ns.divu_dt_factor = .4
 ns.min_rho_divu_ceiling = .01
 
 ns.fuelName        = H2
-ns.oxidizerName    = O2
-ns.flameTracName   = H
+
 ns.unity_Le = 0
-
 ns.dpdt_option = 0
-#macop.max_order = 3
 
-#ns.prandtl = .70
-#ns.schmidt = .70
-#ns.constant_mu_val = 0.05
-#ns.constant_lambda_val = 0.0714286
-#ns.constant_rhoD_val = 0.0714286
 # ----------------  PROBLEM DEPENDENT INPUTS
 
-ns.lo_bc          = 0 5
+ns.lo_bc          = 0 1
 ns.hi_bc          = 0 2
+
 geometry.is_periodic = 1 0
 
 # >>>>>>>>>>>>>  BC FLAGS <<<<<<<<<<<<<<<<

@@ -381,7 +381,8 @@ extern "C" {
                       const int* bathID,  const int* fuelID,
 	                    const int* oxidID,
 	                    const int* prodID,
-	                    const int* numspec);
+	                    const int* numspec,
+                      const int& flag_active_control);
 
 
 #ifdef __cplusplus

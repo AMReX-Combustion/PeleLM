@@ -783,24 +783,27 @@ end subroutine plm_extern_init
 !-------------------------------------
 
   subroutine set_prob_spec(dm,problo_in, probhi_in,&
-                           bath, fuel, oxid, prod, numspec) &
-                                bind(C, name="set_prob_spec")
+                           bath, fuel, oxid, prod, numspec, &
+                           flag_active_control)  bind(C, name="set_prob_spec")
  
       use network,  only: nspec
       use mod_Fvar_def, only: dim, domnlo, domnhi
       use mod_Fvar_def, only: bathID, fuelID, oxidID, prodID
+      use mod_Fvar_def, only: f_flag_active_control
 
       implicit none
 
-      integer, intent(in) :: dm
+      integer, intent(in) :: dm, flag_active_control
       double precision, intent(in) :: problo_in(dm), probhi_in(dm)
 
       integer bath, fuel, oxid, prod, numspec
 
+        
       ! Passing dimensions of problem from Cpp to Fortran
       dim = dm
       domnlo(1:dm) = problo_in(1:dm)
       domnhi(1:dm) = probhi_in(1:dm)
+      f_flag_active_control = flag_active_control
 
       
       ! Passing Cpp to Fortran for chemistry
@@ -818,6 +821,54 @@ end subroutine plm_extern_init
       
   end subroutine set_prob_spec
 
-!-------------------------------------
+! ::: -----------------------------------------------------------
+! ::: This routine will zero out diffusivity on portions of the
+! ::: boundary that are inflow, allowing that a "wall" block
+! ::: the complement aperture
+! ::: 
+! ::: INPUTS/OUTPUTS:
+! ::: 
+! ::: diff      <=> diffusivity on edges
+! ::: DIMS(diff) => index extent of diff array
+! ::: lo,hi      => region of interest, edge-based
+! ::: domlo,hi   => index extent of problem domain, edge-based
+! ::: dx         => cell spacing
+! ::: problo     => phys loc of lower left corner of prob domain
+! ::: bc         => boundary condition flag (on orient)
+! :::                   in BC_TYPES::physicalBndryTypes
+! ::: idir       => which face, 0=x, 1=y
+! ::: isrz       => 1 if problem is r-z
+! ::: id         => index of state, 0=u
+! ::: ncomp      => components to modify
+! ::: 
+! ::: -----------------------------------------------------------
+
+  subroutine zero_visc(diff,DIMS(diff),lo,hi,domlo,domhi, &
+                           dx,problo,bc,idir,isrz,id,ncomp) &
+                           bind(C, name="zero_visc")   
+
+      use mod_Fvar_def, only : Density, Temp, FirstSpec, RhoH, LastSpec
+      use mod_Fvar_def, only : domnhi, domnlo, dim
+      
+      implicit none
+      integer DIMDEC(diff)
+      integer lo(dim), hi(dim)
+      integer domlo(dim), domhi(dim)
+      integer bc(2*dim)
+      integer idir, isrz, id, ncomp
+      REAL_T  diff(DIMV(diff),*)
+      REAL_T  dx(dim)
+      REAL_T  problo(dim)
+      
+
+
+! Routine compiled but should be set by the user
+! if there is a mix of inflox/wall at a boundary
+
+
+      
+  end subroutine zero_visc
+
+
   
 end module PeleLM_F

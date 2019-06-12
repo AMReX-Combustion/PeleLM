@@ -122,7 +122,7 @@ ns.dpdt_option = 0
 #ns.constant_rhoD_val = 0.0714286
 # ----------------  PROBLEM DEPENDENT INPUTS
 
-ns.lo_bc          = 0 5
+ns.lo_bc          = 0 1
 ns.hi_bc          = 0 2
 geometry.is_periodic = 1 0
 

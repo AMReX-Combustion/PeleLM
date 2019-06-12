@@ -28,8 +28,8 @@ module mod_Fvar_def
   
   ! From probdata.H
   integer :: bathID, fuelID, oxidID, prodID
-  character(50) :: probtype
   
+  integer         , save :: f_flag_active_control
   ! dimension information
   integer         , save :: dim
   ! geometry information
