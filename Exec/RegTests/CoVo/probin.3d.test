@@ -1,12 +1,4 @@
  &fortin
-  probtype = 'convected_vortex'
-
-  V_in = .2280410684149
-  standoff = -.022
-  pertmag = 0.0004
-
-  phi_in = 0.4
-  T_in = 298.
   meanFlowMag = 50.0 
   meanFlowDir = 3
   T_mean = 298.0
@@ -20,16 +12,4 @@
   pamb = 101325.
   dpdt_factor = .3
   closed_chamber = 1
- /
-  &flctin
-  flct_file = "Turb_n0575_strong.bin"
-  flct_file = ""
-  forceInflow = .FALSE.
-  nCompInflow = 3
- /
-  &control
-  tau_control = 3.e-4
-  sest = .2
-  h_control = .0035
-  changeMax_control = .2
  /

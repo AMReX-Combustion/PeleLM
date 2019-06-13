@@ -1,14 +1,22 @@
 
-#include <MyProb_F.H>
+#include <AMReX_REAL.H>
+#include <AMReX_CONSTANTS.H>
+#include <AMReX_BC_TYPES.H>
+#include <AMReX_ArrayLim.H>
+
+#include <Prob_F.H>
+#include <PeleLM_F.H>
 
 module prob_2D_module
+
+  use fuego_chemistry
 
   implicit none
 
   private
   
-  public :: amrex_probinit,setupbc, getZone, bcfunction, init_data_new_mech, init_data, &
-            zero_visc, den_fill, adv_fill, &
+  public :: amrex_probinit, init_data_new_mech, init_data, &
+            den_fill, adv_fill, &
             temp_fill, rhoh_fill, vel_fill, all_chem_fill, &
             FORT_XVELFILL, FORT_YVELFILL, chem_fill, press_fill, &
             FORT_MAKEFORCE 
@@ -36,33 +44,26 @@ contains
   subroutine amrex_probinit (init,name,namlen,problo,probhi) bind(c)
   
       
-      use chem_driver, only: P1ATMMKS
+      use PeleLM_F,  only: pphys_getP1atm_MKS
       use mod_Fvar_def, only : pamb, dpdt_factor, closed_chamber
+      use mod_Fvar_def, only : fuelID, domnhi, domnlo, dim
+      use probdata_module, only: meanFlowDir, meanFlowMag, &
+                                 T_mean, P_mean, &
+                                 xvort, yvort, rvort, forcevort
       
       implicit none
       integer init, namlen
       integer name(namlen)
       integer untin
-      REAL_T problo(SDIM), probhi(SDIM)
-
-#include <probdata.H>
-#include <cdwrk.H>
-#include <bc.H>
-#include <conp.H>
+      REAL_T problo(dim), probhi(dim)
 
       integer i,istemp
       REAL_T FORT_P1ATMMKS, area
 
-      namelist /fortin/ probtype, phi_in,T_in,  &
-                       turb_scale, V_in, V_co, &
-                       standoff, pertmag, nchemdiag, splitx, xfrontw, &
-                       splity, yfrontw, blobx, bloby, blobz, blobr, &
-                       blobT, Tfrontw, stTh, fuel_N2_vol_percent, &
-                       meanFlowDir, meanFlowMag, T_mean, P_mean, &
+      namelist /fortin/ meanFlowMag, meanFlowDir, T_mean, P_mean, &
                        xvort, yvort, rvort, forcevort  
       namelist /heattransin/ pamb, dpdt_factor, closed_chamber
-      namelist /control/ tau_control, sest, cfix, changeMax_control, h_control, &
-          zbase_control, pseudo_gravity, istemp,corr,controlVelMax,navg_pnts
+
 
 !
 !      Build `probin' filename -- the name of file containing fortin namelist.
@@ -90,23 +91,11 @@ contains
          end do
       endif
 
-!     Load domain dimensions into common (put something computable there for SDIM<3)
-      do i=1,3
-         domnlo(i) = 0.d0
-         domnhi(i) = 0.d0
-      enddo
-
-      do i=1,SDIM
-         domnlo(i) = problo(i)
-         domnhi(i) = probhi(i)
-      enddo
-
       untin = 9
       open(untin,file=probin(1:namlen),form='formatted',status='old')
       
 !     Set defaults
-      probtype = BL_PROB_UNDEFINED
-      pamb = P1ATMMKS()
+      pamb = pphys_getP1atm_MKS()
       dpdt_factor = 0.3d0
       closed_chamber = 0
 
@@ -119,49 +108,10 @@ contains
       rvort = 0.01945
       forcevort = 1.0
 
-      splitx = 0.5d0 * (domnhi(1) + domnlo(1))
-      xfrontw = 0.05d0 * (domnhi(1) - domnlo(1))
-      splity = 0.5d0 * (domnhi(2) + domnlo(2))
-      yfrontw = 0.05d0 * (domnhi(2) - domnlo(2))
-      blobx = 0.5d0 * (domnhi(1) + domnlo(1))
-      bloby = 0.5d0 * (domnhi(2) + domnlo(2))
-      blobT = T_in
-      Tfrontw = xfrontw
-      stTh = -1.d0
-      fuel_N2_vol_percent = 0.d0
-
-      zbase_control = 0.d0
-
-!     Note: for setup with no coflow, set Ro=Rf+wallth
-      standoff = zero
-      pertmag = 0.d0
-
-!     Initialize control variables
-      tau_control = one
-      sest = zero
-      corr = one
-      changeMax_control = .05
-      coft_old = -one
-      cfix = zero
-      ac_hist_file = 'AC_History'
-      h_control = -one
-      nchemdiag = 1
-      dV_control = zero
-      tbase_control = zero
-      h_control = -one
-      pseudo_gravity = 0
-      nchemdiag = 1
-      istemp = 0
-      navg_pnts = 10
-
       read(untin,fortin)
       
-!     Initialize control variables that depend on fortin variables
-      V_in_old = V_in
-
       read(untin,heattransin)
  
-      read(untin,control)
       close(unit=untin)
 
 !     Do some checks on COVO params     
@@ -175,105 +125,14 @@ contains
           WRITE(*,*) " Note: the mean flow direction(s) must be periodic "
           CALL bl_abort('Correct meanFlowDir value !')
       END IF
-
-!     Set up boundary functions
-      call setupbc()
       
-      area = 1.d0
-      do i=1,SDIM-1
-         area = area*(domnhi(i)-domnlo(i))
-      enddo
-      scale_control = Y_bc(fuelID-1,BL_FUELPIPE) * rho_bc(BL_FUELPIPE) * area
-
-      if (h_control .gt. zero) then
-         cfix = scale_control * h_control
-      endif
-
       if (isioproc.eq.1) then
          write(6,fortin)
          write(6,heattransin)
-         write(6,control)
       end if
 
   end subroutine amrex_probinit
-  
-!------------------------------------
-  
-  subroutine setupbc()bind(C, name="setupbc")
-
-    use chem_driver, only: P1ATMMKS
-    use chem_driver_2D, only: RHOfromPTY, HMIXfromTY
-    use probspec_module, only: set_Y_from_Phi
-    use mod_Fvar_def, only : pamb
-  
-    implicit none
-
-#include <cdwrk.H>
-#include <conp.H>
-#include <bc.H>
-#include <probdata.H>
-      
-    REAL_T Patm, pmf_vals(maxspec+3), a
-    REAL_T Xt(maxspec), Yt(maxspec), loc
-    integer zone, n, fuelZone, airZone, region
-    integer b(SDIM)
-    integer num_zones_defined, len
-    data  b / 1, 1 /
-      
-    Patm = pamb / P1ATMMKS()
-    num_zones_defined = 0
-    
-    bcinit = .true.
-
-  end subroutine setupbc
-
-! ::: -----------------------------------------------------------
-      
-  integer function getZone(x, y)bind(C, name="getZone")
-
-    implicit none
-
-#include <cdwrk.H>
-#include <bc.H>
-#include <probdata.H>
-
-    REAL_T x, y
-
-!#define BL_FUELPIPE 1
-!#define BL_COFLOW   2
-!#define BL_STICK    3
-!#define BL_WALL     4
-!#define BL_AMBIENT  5
-!#define BL_VOLUME   6
-!#define BL_PIPEEND  7
-
-    getZone = BL_VOLUME
-
-  end function getZone
-      
-!-----------------------
-
-  subroutine bcfunction(x,y,time,u,v,rho,Yl,T,h,dx,getuv) &
-                        bind(C, name="bcfunction")
-
-      implicit none
-
-      REAL_T x, y, time, u, v, rho, Yl(0:*), T, h, dx(SDIM)
-      logical getuv
-
-#include <cdwrk.H>
-#include <bc.H>
-#include <probdata.H>
-
-      integer n, zone, len
-      REAL_T eta, xmid, etamax
-
-      if (.not. bcinit) then
-         call bl_abort('Need to initialize boundary condition function')
-      end if
-      
-  end subroutine bcfunction
-
+        
 ! ::: -----------------------------------------------------------
       
   subroutine init_data_new_mech (level,time,lo,hi,nscal, &
@@ -281,25 +140,23 @@ contains
           delta,xlo,xhi)&
           bind(C, name="init_data_new_mech")
           
-      use chem_driver, only: P1ATMMKS
-      use chem_driver_2D, only: RHOfromPTY, HMIXfromTY
-      use mod_Fvar_def, only : Density, Temp, FirstSpec, RhoH, pamb, Trac
+
+      use network,   only: nspec
+      use PeleLM_F,  only: pphys_getP1atm_MKS
+      use PeleLM_2D, only: pphys_RHOfromPTY, pphys_HMIXfromTY
+      use mod_Fvar_def, only : Density, Temp, FirstSpec, RhoH, pamb, Trac, dim
       
       implicit none
       integer  level, nscal
-      integer  lo(SDIM), hi(SDIM)
+      integer  lo(dim), hi(dim)
       integer  DIMDEC(state)
       integer  DIMDEC(press)
-      REAL_T   xlo(SDIM), xhi(SDIM)
-      REAL_T   time, delta(SDIM)
-      REAL_T   vel(DIMV(state),SDIM)
+      REAL_T   xlo(dim), xhi(dim)
+      REAL_T   time, delta(dim)
+      REAL_T   vel(DIMV(state),dim)
       REAL_T   scal(DIMV(state),nscal)
       REAL_T   press(DIMV(press))
- 
-#include <cdwrk.H>
-#include <bc.H>
-#include <probdata.H>
- 
+  
       integer i, j, n
       REAL_T Patm
  
@@ -309,13 +166,14 @@ contains
          end do
       end do
  
-      Patm = pamb / P1ATMMKS()
-      call RHOfromPTY(lo,hi, &
+      Patm = pamb / pphys_getP1atm_MKS()
+      
+      call pphys_RHOfromPTY(lo,hi, &
           scal(ARG_L1(state),ARG_L2(state),Density),  DIMS(state), &
           scal(ARG_L1(state),ARG_L2(state),Temp),     DIMS(state), &
           scal(ARG_L1(state),ARG_L2(state),FirstSpec),DIMS(state), &
           Patm)
-      call HMIXfromTY(lo,hi, &
+      call pphys_HMIXfromTY(lo,hi, &
           scal(ARG_L1(state),ARG_L2(state),RhoH),     DIMS(state), &
           scal(ARG_L1(state),ARG_L2(state),Temp),     DIMS(state), &
           scal(ARG_L1(state),ARG_L2(state),FirstSpec),DIMS(state)) 
@@ -364,27 +222,27 @@ contains
                            delta,xlo,xhi) &
                            bind(C, name="init_data")
                               
-      use chem_driver, only: P1ATMMKS
-      use chem_driver_2D, only: RHOfromPTY, HMIXfromTY
-      use chem_driver, only: get_spec_name
-      use mod_Fvar_def, only : Density, Temp, FirstSpec, RhoH, pamb, Trac
+      use network,   only: nspec
+      use PeleLM_F,  only: pphys_getP1atm_MKS, pphys_get_spec_name2
+      use PeleLM_2D, only: pphys_RHOfromPTY, pphys_HMIXfromTY
+      use mod_Fvar_def, only : Density, Temp, FirstSpec, RhoH, pamb, Trac, dim
+      use mod_Fvar_def, only : bathID, domnhi, domnlo, maxspec
+      use probdata_module, only: meanFlowDir, meanFlowMag, &
+                                 T_mean, P_mean, &
+                                 xvort, yvort, rvort, forcevort
       
       implicit none
       integer    level, nscal
-      integer    lo(SDIM), hi(SDIM)
+      integer    lo(dim), hi(dim)
       integer    DIMDEC(state)
       integer    DIMDEC(press)
-      REAL_T     xlo(SDIM), xhi(SDIM)
-      REAL_T     time, delta(SDIM)
-      REAL_T     vel(DIMV(state),SDIM)
+      REAL_T     xlo(dim), xhi(dim)
+      REAL_T     time, delta(dim)
+      REAL_T     vel(DIMV(state),dim)
       REAL_T    scal(DIMV(state),nscal)
       REAL_T   press(DIMV(press))
       integer tmpi, nPMF
 
-#include <cdwrk.H>
-#include <conp.H>
-#include <bc.H>
-#include <probdata.H>
 
       integer i, j, n, airZone, fuelZone, zone
       REAL_T x, y, r, Yl(maxspec), Xl(maxspec), Patm
@@ -393,11 +251,6 @@ contains
       REAL_T sigma
       REAL_T :: dy, d_sq, r_sq, u_vort, v_vort 
 
-      if (iN2.lt.1 .or. iN2.gt.Nspec) then
-         call bl_pd_abort()
-      endif
-
-           
       do j = lo(2), hi(2)
          y = (float(j)+.5d0)*delta(2)+domnlo(2)
          do i = lo(1), hi(1)
@@ -445,15 +298,15 @@ contains
          end do
       end do
 
-      Patm = P_mean / P1ATMMKS()
+      Patm = P_mean / pphys_getP1atm_MKS()
 
-      call RHOfromPTY(lo,hi, &
+      call pphys_RHOfromPTY(lo,hi, &
           scal(ARG_L1(state),ARG_L2(state),Density),  DIMS(state), &
           scal(ARG_L1(state),ARG_L2(state),Temp),     DIMS(state), &
           scal(ARG_L1(state),ARG_L2(state),FirstSpec),DIMS(state), &
           Patm)
 
-      call HMIXfromTY(lo,hi, &
+      call pphys_HMIXfromTY(lo,hi, &
           scal(ARG_L1(state),ARG_L2(state),RhoH),     DIMS(state), &
           scal(ARG_L1(state),ARG_L2(state),Temp),     DIMS(state), &
           scal(ARG_L1(state),ARG_L2(state),FirstSpec),DIMS(state)) 
@@ -469,102 +322,7 @@ contains
       
   end subroutine init_data
       
-! ::: -----------------------------------------------------------
-! ::: This routine will zero out diffusivity on portions of the
-! ::: boundary that are inflow, allowing that a "wall" block
-! ::: the complement aperture
-! ::: 
-! ::: INPUTS/OUTPUTS:
-! ::: 
-! ::: diff      <=> diffusivity on edges
-! ::: DIMS(diff) => index extent of diff array
-! ::: lo,hi      => region of interest, edge-based
-! ::: domlo,hi   => index extent of problem domain, edge-based
-! ::: dx         => cell spacing
-! ::: problo     => phys loc of lower left corner of prob domain
-! ::: bc         => boundary condition flag (on orient)
-! :::                   in BC_TYPES::physicalBndryTypes
-! ::: idir       => which face, 0=x, 1=y
-! ::: isrz       => 1 if problem is r-z
-! ::: id         => index of state, 0=u
-! ::: ncomp      => components to modify
-! ::: 
-! ::: -----------------------------------------------------------
 
-  subroutine zero_visc(diff,DIMS(diff),lo,hi,domlo,domhi, &
-                           dx,problo,bc,idir,isrz,id,ncomp) &
-                           bind(C, name="zero_visc")   
-                      
-      use mod_Fvar_def, only : Density, Temp, FirstSpec, RhoH, LastSpec
-                              
-      implicit none
-      integer DIMDEC(diff)
-      integer lo(SDIM), hi(SDIM)
-      integer domlo(SDIM), domhi(SDIM)
-      integer bc(2*SDIM)
-      integer idir, isrz, id, ncomp
-      REAL_T  diff(DIMV(diff),*)
-      REAL_T  dx(SDIM)
-      REAL_T  problo(SDIM)
-      
-#include <probdata.H>
-#include <cdwrk.H>
-
-      integer i, j, n, Tid, RHid, YSid, YEid, ys, ye
-      integer len
-      logical do_T, do_RH, do_Y
-      REAL_T xl, xr, xh, yb, yt, yh, y
-
-      len = len_trim(probtype)
-
-      if ( (probtype(1:len).eq.BL_PROB_PREMIXED_FIXED_INFLOW) &
-          .or. (probtype(1:len).eq.BL_PROB_PREMIXED_CONTROLLED_INFLOW) ) then
-         Tid  = Temp      - id + SDIM
-         RHid = RhoH      - id + SDIM
-         YSid = FirstSpec - id + SDIM
-         YEid = LastSpec  - id + SDIM
-         
-         do_T  = (Tid  .GE. 1) .AND. (Tid  .LE. ncomp)
-         do_RH = (RHid .GE. 1) .AND. (RHid .LE. ncomp)
-         ys = MAX(YSid,1)
-         ye = MIN(YEid,ncomp)
-         do_Y = (ye - ys + 1) .GE. 1
-!     
-!     Do species, Temp, rhoH
-!
-
-         if ((idir.EQ.1) .AND. (lo(2) .LE. domlo(2)) &
-                .AND. (do_T .OR. do_RH .OR. do_Y) ) then
-               
-            j = lo(2)
-            y = float(j)*dx(2)+domnlo(2)
-            do i = lo(1), hi(1)
-               
-               xl = float(i)*dx(1)+domnlo(1) 
-               xr = (float(i)+1.d0)*dx(1)+domnlo(1) 
-               xh = 0.5d0*(xl+xr)
-                  
-               if ( (getZone(xl,y).eq.BL_STICK) .OR. &
-                   (getZone(xh,y).eq.BL_STICK) .OR. &
-                   (getZone(xr,y).eq.BL_STICK) .OR. &
-                   (getZone(xl,y).eq.BL_PIPEEND) .OR. &
-                   (getZone(xh,y).eq.BL_PIPEEND) .OR. &
-                   (getZone(xr,y).eq.BL_PIPEEND)  ) then
-                  
-!                 if (do_T)  diff(i,j,Tid ) = 0.d0
-!                 if (do_RH) diff(i,j,RHid) = 0.d0
-                  if (do_Y) then
-                     do n=ys,ye
-                        diff(i,j,n) = 0.d0
-                     enddo
-                  endif
-                     
-               endif
-            end do
-         endif
-      end if
-      
-  end subroutine zero_visc
 
 ! ::: -----------------------------------------------------------
 ! ::: This routine is called during a filpatch operation when
@@ -594,22 +352,20 @@ contains
                               xlo,time,bc) &
                               bind(C, name="den_fill")
                               
+      use mod_Fvar_def, only : maxspec, dim
+      
       implicit none
 
-      integer DIMDEC(den), bc(SDIM,2)
-      integer domlo(SDIM), domhi(SDIM)
-      REAL_T  delta(SDIM), xlo(SDIM), time
+      integer DIMDEC(den), bc(dim,2)
+      integer domlo(dim), domhi(dim)
+      REAL_T  delta(dim), xlo(dim), time
       REAL_T  den(DIMV(den))
-
-#include <cdwrk.H>
-#include <bc.H>
-#include <probdata.H>
-      
+     
       integer i, j
       REAL_T  y, x
       REAL_T  u, v, rho, Yl(0:maxspec-1), T, h
 
-      integer lo(SDIM), hi(SDIM)
+      integer lo(dim), hi(dim)
 
       lo(1) = ARG_L1(den)
       lo(2) = ARG_L2(den)
@@ -618,49 +374,6 @@ contains
 
       call filcc (den,DIMS(den),domlo,domhi,delta,xlo,bc)
 
-      if (bc(1,1).eq.EXT_DIR.and.lo(1).lt.domlo(1)) then
-         do i = lo(1), domlo(1)-1
-            x = (float(i)+.5)*delta(1)+domnlo(1)
-            do j = lo(2), hi(2)
-               y = (float(j)+.5)*delta(2)+domnlo(2)
-               call bcfunction(x,y,time,u,v,rho,Yl,T,h,delta,.false.)
-               den(i,j) = rho
-            enddo
-         enddo
-      endif
-      
-      if (bc(1,2).eq.EXT_DIR.and.hi(1).gt.domhi(1)) then
-         do i = domhi(1)+1, hi(1)
-            x = (float(i)+.5)*delta(1)+domnlo(1)
-            do j = lo(2), hi(2)
-               y = (float(j)+.5)*delta(2)+domnlo(2)
-               call bcfunction(x,y,time,u,v,rho,Yl,T,h,delta,.false.)
-               den(i,j) = rho
-            enddo
-         enddo
-      endif    
-
-      if (bc(2,1).eq.EXT_DIR.and.lo(2).lt.domlo(2)) then
-         do j = lo(2), domlo(2)-1
-            y = (float(j)+.5)*delta(2)+domnlo(2)
-            do i = lo(1), hi(1)
-               x = (float(i)+.5)*delta(1)+domnlo(1)
-               call bcfunction(x,y,time,u,v,rho,Yl,T,h,delta,.false.)
-               den(i,j) = rho
-            enddo
-         enddo
-      endif    
-      
-      if (bc(2,2).eq.EXT_DIR.and.hi(2).gt.domhi(2)) then
-         do j = domhi(2)+1, hi(2)
-            y = (float(j)+.5)*delta(2)+domnlo(2)
-            do i = lo(1), hi(1)
-               x = (float(i)+.5)*delta(1)+domnlo(1)
-               call bcfunction(x,y,time,u,v,rho,Yl,T,h,delta,.false.)
-               den(i,j) = rho
-            enddo
-         enddo
-      endif
 
   end subroutine den_fill
 
@@ -691,16 +404,18 @@ contains
   subroutine adv_fill (adv,DIMS(adv),domlo,domhi,delta,xlo,time,bc)&
                            bind(C, name="adv_fill")
 
+      use mod_Fvar_def, only : maxspec, dim
+      
       implicit none
 
       integer    DIMDEC(adv)
-      integer    domlo(SDIM), domhi(SDIM)
-      REAL_T     delta(SDIM), xlo(SDIM), time
+      integer    domlo(dim), domhi(dim)
+      REAL_T     delta(dim), xlo(dim), time
       REAL_T     adv(DIMV(adv))
-      integer    bc(SDIM,2)
+      integer    bc(dim,2)
 
       integer    i,j
-      integer lo(SDIM), hi(SDIM)
+      integer lo(dim), hi(dim)
 
       lo(1) = ARG_L1(adv)
       lo(2) = ARG_L2(adv)
@@ -709,13 +424,6 @@ contains
 
       call filcc (adv,DIMS(adv),domlo,domhi,delta,xlo,bc)
 
-      if (bc(2,1).eq.EXT_DIR.and.lo(2).lt.domlo(2)) then
-         do j = lo(2), domlo(2)-1
-            do i = lo(1), hi(1)
-               adv(i,j) = 0.0d0
-            enddo
-         enddo
-      endif
 
   end subroutine adv_fill
 
@@ -747,22 +455,20 @@ contains
                               xlo,time,bc)&
                               bind(C, name="temp_fill")
 
+      use mod_Fvar_def, only : maxspec, dim
+      
       implicit none
 
-      integer DIMDEC(temp), bc(SDIM,2)
-      integer domlo(SDIM), domhi(SDIM)
-      REAL_T  delta(SDIM), xlo(SDIM), time
+      integer DIMDEC(temp), bc(dim,2)
+      integer domlo(dim), domhi(dim)
+      REAL_T  delta(dim), xlo(dim), time
       REAL_T  temp(DIMV(temp))
-
-#include <cdwrk.H>
-#include <bc.H>
-#include <probdata.H>
       
       integer i, j
       REAL_T  y, x
       REAL_T  u, v, rho, Yl(0:maxspec-1), T, h
 
-      integer lo(SDIM), hi(SDIM)
+      integer lo(dim), hi(dim)
 
       lo(1) = ARG_L1(temp)
       lo(2) = ARG_L2(temp)
@@ -770,50 +476,6 @@ contains
       hi(2) = ARG_H2(temp)
 
       call filcc (temp,DIMS(temp),domlo,domhi,delta,xlo,bc)
-
-      if (bc(1,1).eq.EXT_DIR.and.lo(1).lt.domlo(1)) then
-         do i = lo(1), domlo(1)-1
-            x = (float(i)+.5)*delta(1)+domnlo(1)
-            do j = lo(2), hi(2)
-               y = (float(j)+.5)*delta(2)+domnlo(2)
-               call bcfunction(x,y,time,u,v,rho,Yl,T,h,delta,.false.)
-               temp(i,j) = T
-            enddo
-         enddo
-      endif
-      
-      if (bc(1,2).eq.EXT_DIR.and.hi(1).gt.domhi(1)) then
-         do i = domhi(1)+1, hi(1)
-            x = (float(i)+.5)*delta(1)+domnlo(1)
-            do j = lo(2), hi(2)
-               y = (float(j)+.5)*delta(2)+domnlo(2)
-               call bcfunction(x,y,time,u,v,rho,Yl,T,h,delta,.false.)
-               temp(i,j) = T
-            enddo
-         enddo
-      endif    
-
-      if (bc(2,1).eq.EXT_DIR.and.lo(2).lt.domlo(2)) then
-         do j = lo(2), domlo(2)-1
-            y = (float(j)+.5)*delta(2)+domnlo(2)
-            do i = lo(1), hi(1)
-               x = (float(i)+.5)*delta(1)+domnlo(1)
-               call bcfunction(x,y,time,u,v,rho,Yl,T,h,delta,.false.)
-               temp(i,j) = T
-            enddo
-         enddo
-      endif    
-      
-      if (bc(2,2).eq.EXT_DIR.and.hi(2).gt.domhi(2)) then
-         do j = domhi(2)+1, hi(2)
-            y = (float(j)+.5)*delta(2)+domnlo(2)
-            do i = lo(1), hi(1)
-               x = (float(i)+.5)*delta(1)+domnlo(1)
-               call bcfunction(x,y,time,u,v,rho,Yl,T,h,delta,.false.)
-               temp(i,j) = T
-            enddo
-         enddo
-      endif
       
   end subroutine temp_fill
 
@@ -844,22 +506,20 @@ contains
                               xlo,time,bc)&
                               bind(C, name="rhoh_fill")
 
+      use mod_Fvar_def, only : maxspec, dim
+      
       implicit none
 
-      integer DIMDEC(rhoh), bc(SDIM,2)
-      integer domlo(SDIM), domhi(SDIM)
-      REAL_T  delta(SDIM), xlo(SDIM), time
+      integer DIMDEC(rhoh), bc(dim,2)
+      integer domlo(dim), domhi(dim)
+      REAL_T  delta(dim), xlo(dim), time
       REAL_T  rhoh(DIMV(rhoh))
-
-#include <cdwrk.H>
-#include <bc.H>
-#include <probdata.H>
       
       integer i, j
       REAL_T  y, x
       REAL_T  u, v, rho, Yl(0:maxspec-1), T, h
 
-      integer lo(SDIM), hi(SDIM)
+      integer lo(dim), hi(dim)
 
       lo(1) = ARG_L1(rhoh)
       lo(2) = ARG_L2(rhoh)
@@ -867,50 +527,6 @@ contains
       hi(2) = ARG_H2(rhoh)
 
       call filcc (rhoh,DIMS(rhoh),domlo,domhi,delta,xlo,bc)
-
-      if (bc(1,1).eq.EXT_DIR.and.lo(1).lt.domlo(1)) then
-         do i = lo(1), domlo(1)-1
-            x = (float(i)+.5)*delta(1)+domnlo(1)
-            do j = lo(2), hi(2)
-               y = (float(j)+.5)*delta(2)+domnlo(2)
-               call bcfunction(x,y,time,u,v,rho,Yl,T,h,delta,.false.)
-               rhoh(i,j) = rho*h
-            enddo
-         enddo
-      endif
-      
-      if (bc(1,2).eq.EXT_DIR.and.hi(1).gt.domhi(1)) then
-         do i = domhi(1)+1, hi(1)
-            x = (float(i)+.5)*delta(1)+domnlo(1)
-            do j = lo(2), hi(2)
-               y = (float(j)+.5)*delta(2)+domnlo(2)
-               call bcfunction(x,y,time,u,v,rho,Yl,T,h,delta,.false.)
-               rhoh(i,j) = rho*h
-            enddo
-         enddo
-      endif    
-
-      if (bc(2,1).eq.EXT_DIR.and.lo(2).lt.domlo(2)) then
-         do j = lo(2), domlo(2)-1
-            y = (float(j)+.5)*delta(2)+domnlo(2)
-            do i = lo(1), hi(1)
-               x = (float(i)+.5)*delta(1)+domnlo(1)
-               call bcfunction(x,y,time,u,v,rho,Yl,T,h,delta,.false.)
-               rhoh(i,j) = rho*h
-            enddo
-         enddo
-      endif    
-      
-      if (bc(2,2).eq.EXT_DIR.and.hi(2).gt.domhi(2)) then
-         do j = domhi(2)+1, hi(2)
-            y = (float(j)+.5)*delta(2)+domnlo(2)
-            do i = lo(1), hi(1)
-               x = (float(i)+.5)*delta(1)+domnlo(1)
-               call bcfunction(x,y,time,u,v,rho,Yl,T,h,delta,.false.)
-               rhoh(i,j) = rho*h
-            enddo
-         enddo
-      endif
 
   end subroutine rhoh_fill
   
@@ -922,11 +538,14 @@ contains
                               xlo,time,bc)&
                               bind(C, name="vel_fill")
 
+      use mod_Fvar_def, only : dim
+      
       implicit none
-      integer DIMDEC(vel), bc(SDIM,2,SDIM)
-      integer domlo(SDIM), domhi(SDIM)
-      REAL_T  delta(SDIM), xlo(SDIM), time
-      REAL_T  vel(DIMV(vel),SDIM)
+      
+      integer DIMDEC(vel), bc(dim,2,dim)
+      integer domlo(dim), domhi(dim)
+      REAL_T  delta(dim), xlo(dim), time
+      REAL_T  vel(DIMV(vel),dim)
 
       call FORT_XVELFILL (vel(ARG_L1(vel),ARG_L2(vel),1), &
       DIMS(vel),domlo,domhi,delta,xlo,time,bc(1,1,1))
@@ -944,14 +563,14 @@ contains
                             xlo,time,bc)&
                             bind(C, name="all_chem_fill")
 
+      use network,  only: nspec
+      use mod_Fvar_def, only : dim
+      
       implicit none
-#include <cdwrk.H>
-#include <bc.H>
-#include <probdata.H>
 
-      integer DIMDEC(rhoY), bc(SDIM,2,Nspec)
-      integer domlo(SDIM), domhi(SDIM)
-      REAL_T  delta(SDIM), xlo(SDIM), time
+      integer DIMDEC(rhoY), bc(dim,2,Nspec)
+      integer domlo(dim), domhi(dim)
+      REAL_T  delta(dim), xlo(dim), time
       REAL_T  rhoY(DIMV(rhoY),Nspec)
 
       integer n
@@ -990,22 +609,21 @@ contains
                             xlo,time,bc)&
                             bind(C, name="FORT_XVELFILL")
                                
+      use mod_Fvar_def, only : maxspec, dim
+      
       implicit none
-      integer DIMDEC(xvel), bc(SDIM,2)
-      integer domlo(SDIM), domhi(SDIM)
-      REAL_T  delta(SDIM), xlo(SDIM), time
+      
+      integer DIMDEC(xvel), bc(dim,2)
+      integer domlo(dim), domhi(dim)
+      REAL_T  delta(dim), xlo(dim), time
       REAL_T  xvel(DIMV(xvel))
-
-#include <cdwrk.H>
-#include <bc.H>
-#include <probdata.H>
 
       integer i, j
       integer ilo, ihi, jlo, jhi
-      REAL_T  y, x, hx, xhi(SDIM)
+      REAL_T  y, x, hx, xhi(dim)
       REAL_T  u, v, rho, Yl(0:maxspec-1), T, h
 
-      integer lo(SDIM), hi(SDIM)
+      integer lo(dim), hi(dim)
 
       lo(1) = ARG_L1(xvel)
       hi(1) = ARG_H1(xvel)
@@ -1020,58 +638,6 @@ contains
       
       call filcc (xvel,DIMS(xvel),domlo,domhi,delta,xlo,bc)
       
-!     NOTE:
-!     In order to set Dirichlet boundary conditions in a mulitspecies
-!     problem, we have to know all the state values, in a sense.  For
-!     example, the total density rho = sum_l(rho.Yl).  So to compute any
-!     rho.Yl, we need all Yl's...also need to evaluate EOS since we
-!     really are specifying T and Yl's.  so, all this is centralized
-!     here.  Finally, a layer of flexibilty is added to for the usual case
-!     that the bc values may often be set up ahead of time.
-
-      if (bc(1,1).eq.EXT_DIR.and.lo(1).lt.domlo(1)) then
-         do i = lo(1), domlo(1)-1
-            x = (float(i)+.5)*delta(1)+domnlo(1)
-            do j = lo(2), hi(2)
-               y = (float(j)+.5)*delta(2)+domnlo(2)
-               call bcfunction(x, y, time, u, v, rho, Yl, T, h, delta,.true.)
-               xvel(i,j) = u
-            enddo
-         enddo
-      endif
-      
-      if (bc(1,2).eq.EXT_DIR.and.hi(1).gt.domhi(1)) then
-         do i = domhi(1)+1, hi(1)
-            x = (float(i)+.5)*delta(1)+domnlo(1)
-            do j = lo(2), hi(2)
-               y = (float(j)+.5)*delta(2)+domnlo(2)
-               call bcfunction(x, y, time, u, v, rho, Yl, T, h, delta,.true.)
-               xvel(i,j) = u
-            enddo
-         enddo
-      endif    
-
-      if (bc(2,1).eq.EXT_DIR.and.lo(2).lt.domlo(2)) then
-         do j = lo(2), domlo(2)-1
-            y = (float(j)+.5)*delta(2)+domnlo(2)
-            do i = lo(1), hi(1)
-               x = (float(i)+.5)*delta(1)+domnlo(1)
-               call bcfunction(x, y, time, u, v, rho, Yl, T, h, delta,.true.)
-               xvel(i,j) = u
-            enddo
-         enddo
-      endif    
-      
-      if (bc(2,2).eq.EXT_DIR.and.hi(2).gt.domhi(2)) then
-         do j = domhi(2)+1, hi(2)
-            y = (float(j)+.5)*delta(2)+domnlo(2)
-            do i = lo(1), hi(1)
-               x = (float(i)+.5)*delta(1)+domnlo(1)
-               call bcfunction(x, y, time, u, v, rho, Yl, T, h, delta,.true.)
-               xvel(i,j) = u
-            enddo
-         enddo
-      endif
       
   end subroutine FORT_XVELFILL
 
@@ -1102,22 +668,21 @@ contains
                             xlo,time,bc)&
                             bind(C, name="FORT_YVELFILL")
                                
+      use mod_Fvar_def, only : maxspec, dim
+      
       implicit none
-      integer DIMDEC(yvel), bc(SDIM,2)
-      integer domlo(SDIM), domhi(SDIM)
-      REAL_T  delta(SDIM), xlo(SDIM), time
+      
+      integer DIMDEC(yvel), bc(dim,2)
+      integer domlo(dim), domhi(dim)
+      REAL_T  delta(dim), xlo(dim), time
       REAL_T  yvel(DIMV(yvel))
-
-#include <cdwrk.H>
-#include <bc.H>
-#include <probdata.H>
       
       integer i, j
       integer ilo, ihi, jlo, jhi
-      REAL_T  y, x, hx, xhi(SDIM)
+      REAL_T  y, x, hx, xhi(dim)
       REAL_T  u, v, rho, Yl(0:maxspec-1), T, h
 
-      integer lo(SDIM), hi(SDIM)
+      integer lo(dim), hi(dim)
 
       lo(1) = ARG_L1(yvel)
       hi(1) = ARG_H1(yvel)
@@ -1131,59 +696,6 @@ contains
       jhi = min(hi(2),domhi(2))
       
       call filcc (yvel,DIMS(yvel),domlo,domhi,delta,xlo,bc)
-
-!     NOTE:
-!     In order to set Dirichlet boundary conditions in a mulitspecies
-!     problem, we have to know all the state values, in a sense.  For
-!     example, the total density rho = sum_l(rho.Yl).  So to compute any
-!     rho.Yl, we need all Yl's...also need to evaluate EOS since we
-!     really are specifying T and Yl's.  so, all this is centralized
-!     here.  Finally, a layer of flexibilty is added to for the usual case
-!     that the bc values may often be set up ahead of time.
-
-      if (bc(1,1).eq.EXT_DIR.and.lo(1).lt.domlo(1)) then
-         do i = lo(1), domlo(1)-1
-            x = (float(i)+.5)*delta(1)+domnlo(1)
-            do j = lo(2), hi(2)
-               y = (float(j)+.5)*delta(2)+domnlo(2)
-               call bcfunction(x, y, time, u, v, rho, Yl, T, h, delta,.true.)
-               yvel(i,j) = v
-            enddo
-         enddo
-      endif
-      
-      if (bc(1,2).eq.EXT_DIR.and.hi(1).gt.domhi(1)) then
-         do i = domhi(1)+1, hi(1)
-            x = (float(i)+.5)*delta(1)+domnlo(1)
-            do j = lo(2), hi(2)
-               y = (float(j)+.5)*delta(2)+domnlo(2)
-               call bcfunction(x, y, time, u, v, rho, Yl, T, h, delta,.true.)
-               yvel(i,j) = v
-            enddo
-         enddo
-      endif    
-
-      if (bc(2,1).eq.EXT_DIR.and.lo(2).lt.domlo(2)) then
-         do j = lo(2), domlo(2)-1
-            y = (float(j)+.5)*delta(2)+domnlo(2)
-            do i = lo(1), hi(1)
-               x = (float(i)+.5)*delta(1)+domnlo(1)
-               call bcfunction(x, y, time, u, v, rho, Yl, T, h, delta,.true.)
-               yvel(i,j) = v
-            enddo
-         enddo
-      endif    
-      
-      if (bc(2,2).eq.EXT_DIR.and.hi(2).gt.domhi(2)) then
-         do j = domhi(2)+1, hi(2)
-            y = (float(j)+.5)*delta(2)+domnlo(2)
-            do i = lo(1), hi(1)
-               x = (float(i)+.5)*delta(1)+domnlo(1)
-               call bcfunction(x, y, time, u, v, rho, Yl, T, h, delta,.true.)
-               yvel(i,j) = v
-            enddo
-         enddo
-      endif
       
   end subroutine FORT_YVELFILL
       
@@ -1215,22 +727,21 @@ contains
                             xlo,time,bc,id ) &
                             bind(C, name="chem_fill")
                                
+      use mod_Fvar_def, only : domnlo, maxspec, dim
+      
       implicit none
-      integer DIMDEC(rhoY), bc(SDIM,2)
-      integer domlo(SDIM), domhi(SDIM), id
-      REAL_T  delta(SDIM), xlo(SDIM), time
+      
+      integer DIMDEC(rhoY), bc(dim,2)
+      integer domlo(dim), domhi(dim), id
+      REAL_T  delta(dim), xlo(dim), time
       REAL_T  rhoY(DIMV(rhoY))
-
-#include <cdwrk.H>
-#include <bc.H>
-#include <probdata.H>
       
       integer i, j
       integer ilo, ihi, jlo, jhi
-      REAL_T  y, x, hx, xhi(SDIM)
+      REAL_T  y, x, hx, xhi(dim)
       REAL_T  u, v, rho, Yl(0:maxspec-1), T, h
 
-      integer lo(SDIM), hi(SDIM)
+      integer lo(dim), hi(dim)
 
       lo(1) = ARG_L1(rhoY)
       hi(1) = ARG_H1(rhoY)
@@ -1244,60 +755,7 @@ contains
       jhi = min(hi(2),domhi(2))
       
       call filcc (rhoY,DIMS(rhoY),domlo,domhi,delta,xlo,bc)
-      
-!     NOTE:
-!     In order to set Dirichlet boundary conditions in a mulitspecies
-!     problem, we have to know all the state values, in a sense.  For
-!     example, the total density rho = sum_l(rho.Yl).  So to compute any
-!     rho.Yl, we need all Yl's...also need to evaluate EOS since we
-!     really are specifying T and Yl's.  so, all this is centralized
-!     here.  Finally, a layer of flexibilty is added to for the usual case
-!     that the bc values may often be set up ahead of time.
-
-      if (bc(1,1).eq.EXT_DIR.and.lo(1).lt.domlo(1)) then
-         do i = lo(1), domlo(1)-1
-            x = (float(i)+.5)*delta(1)+domnlo(1)
-            do j = lo(2), hi(2)
-               y = (float(j)+.5)*delta(2)+domnlo(2)
-               call bcfunction(x, y, time, u, v, rho, Yl, T, h, delta,.false.)
-               rhoY(i,j) = rho*Yl(id)
-            enddo
-         enddo
-      endif
-      
-      if (bc(1,2).eq.EXT_DIR.and.hi(1).gt.domhi(1)) then
-         do i = domhi(1)+1, hi(1)
-            x = (float(i)+.5)*delta(1)+domnlo(1)
-            do j = lo(2), hi(2)
-               y = (float(j)+.5)*delta(2)+domnlo(2)
-               call bcfunction(x, y, time, u, v, rho, Yl, T, h, delta,.false.)
-               rhoY(i,j) = rho*Yl(id)
-            enddo
-         enddo
-      endif    
-
-      if (bc(2,1).eq.EXT_DIR.and.lo(2).lt.domlo(2)) then
-         do j = lo(2), domlo(2)-1
-            y = (float(j)+.5)*delta(2)+domnlo(2)
-            do i = lo(1), hi(1)
-               x = (float(i)+.5)*delta(1)+domnlo(1)
-               call bcfunction(x, y, time, u, v, rho, Yl, T, h, delta,.false.)
-               rhoY(i,j) = rho*Yl(id)
-            enddo
-         enddo
-      endif    
-      
-      if (bc(2,2).eq.EXT_DIR.and.hi(2).gt.domhi(2)) then
-         do j = domhi(2)+1, hi(2)
-            y = (float(j)+.5)*delta(2)+domnlo(2)
-            do i = lo(1), hi(1)
-               x = (float(i)+.5)*delta(1)+domnlo(1)
-               call bcfunction(x, y, time, u, v, rho, Yl, T, h, delta,.false.)
-               rhoY(i,j) = rho*Yl(id)
-            enddo
-         enddo
-      endif
-      
+            
   end subroutine chem_fill
 
 ! ::: -----------------------------------------------------------
@@ -1326,12 +784,15 @@ contains
   subroutine press_fill (p,DIMS(p),domlo,domhi,dx,xlo,time,bc)&
                             bind(C, name="press_fill")
   
+      use mod_Fvar_def, only : dim
+      
       implicit none
+      
       integer    DIMDEC(p)
-      integer    domlo(SDIM), domhi(SDIM)
-      REAL_T     dx(SDIM), xlo(SDIM), time
+      integer    domlo(dim), domhi(dim)
+      REAL_T     dx(dim), xlo(dim), time
       REAL_T     p(DIMV(p))
-      integer    bc(SDIM,2)
+      integer    bc(dim,2)
 
       integer    i, j
       integer    ilo, ihi, jlo, jhi
@@ -1485,20 +946,18 @@ contains
                                dx,xlo,xhi,gravity,scomp,ncomp)&
                                bind(C,name="FORT_MAKEFORCE")
 
+      use mod_Fvar_def, only : dv_control, pseudo_gravity, dim
+      
       implicit none
 
       integer    DIMDEC(state)
       integer    DIMDEC(istate)
       integer    scomp, ncomp
-      REAL_T     time, dx(SDIM)
-      REAL_T     xlo(SDIM), xhi(SDIM)
+      REAL_T     time, dx(dim)
+      REAL_T     xlo(dim), xhi(dim)
       REAL_T     force  (DIMV(istate),scomp+1:scomp+ncomp)
       REAL_T     rho    (DIMV(state))
       REAL_T     gravity
-
-#include <probdata.H>
-#include <cdwrk.H>
-#include <bc.H>
 
       integer i, j, n
       integer ilo, jlo

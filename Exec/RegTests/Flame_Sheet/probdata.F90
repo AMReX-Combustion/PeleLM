@@ -9,8 +9,6 @@ module probdata_module
 
   ! from probdata.H
     REAL_T :: standoff
-    REAL_T :: V_in
-    
     REAL_T :: pertmag
     
     ! from bc.H

@@ -44,9 +44,10 @@ module mod_Fvar_def
   REAL_T :: time_points(0:MAXPNTS),vel_points(0:MAXPNTS),cntl_points(0:MAXPNTS)
       
   character(50) :: ac_hist_file
-  REAL_T :: tau_control, cfix, coft_old, sest, V_in_old, corr, &
+  REAL_T :: tau_control, cfix, coft_old, sest, V_in, V_in_old, corr, &
           changeMax_control, tbase_control, dV_control, scale_control, &
           zbase_control, h_control, controlVelMax
   integer :: navg_pnts, flame_dir, pseudo_gravity
+  
   
 end module mod_Fvar_def

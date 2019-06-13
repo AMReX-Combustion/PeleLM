@@ -108,8 +108,6 @@ ns.divu_dt_factor = .4
 ns.min_rho_divu_ceiling = .01
 
 ns.fuelName        = H2
-ns.oxidizerName    = O2
-ns.flameTracName   = H
 ns.unity_Le = 0
 
 ns.dpdt_option = 0
@@ -174,3 +172,12 @@ mac.do_outflow_bcs = 0
 #   8BIT   (eight-bit run-length-encoded)
 #
 fab.format = NATIVE
+
+fabarray.mfiter_tile_size = 8 8 8
+amrex.regtest_reduction=1
+
+# Refinement according to a species tracer
+amr.refinement_indicators = flame_tracer
+amr.flame_tracer.max_level = 3
+amr.flame_tracer.value_greater = 1.e-6
+amr.flame_tracer.field_name = Y(H)

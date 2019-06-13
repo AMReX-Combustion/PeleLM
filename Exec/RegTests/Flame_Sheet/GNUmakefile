@@ -1,15 +1,15 @@
 TOP = ../../../..
 AMREX_HOME ?= ${TOP}/amrex
 IAMR_HOME ?= ${TOP}/IAMR
-PELELM_HOME ?= ${TOP}/PeleLM
-#PELELM_HOME ?= ${TOP}/PeleLM_cleaning
-#PELE_PHYSICS_HOME = /home/emotheau/GitCodes/PelePhysics_dev
+#PELELM_HOME ?= ${TOP}/PeleLM
+PELELM_HOME ?= ${TOP}/PeleLM_cleaning
+PELE_PHYSICS_HOME = /home/emotheau/GitCodes/PelePhysics_dev
 
 #
 # Build configuration
 #
 
-DIM             = 2
+DIM             = 3
 COMP            = gnu
 DEBUG           = FALSE
 USE_MPI         = TRUE
@@ -61,7 +61,7 @@ Blocs   := .
 CEXE_sources +=
 F90EXE_sources += Prob_$(DIM)d.F90 probdata.F90
 CEXE_headers += 
-FEXE_headers += Prob_F.H
+FEXE_headers += 
 
 include $(PELELM_HOME)/Tools/Make/Make.PeleLM
 # Available chemistry models:

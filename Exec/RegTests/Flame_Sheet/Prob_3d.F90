@@ -50,9 +50,9 @@ contains
       use mod_Fvar_def, only : ac_hist_file, cfix, changemax_control, &
                                coft_old, controlvelmax, corr, dv_control, &
                                h_control, navg_pnts, scale_control, sest, &
-                               tau_control, tbase_control, v_in_old, zbase_control, &
+                               tau_control, tbase_control, V_in, v_in_old, zbase_control, &
                                pseudo_gravity
-      use probdata_module, only : standoff, V_in, pertmag, rho_bc, Y_bc
+      use probdata_module, only : standoff, pertmag, rho_bc, Y_bc
       use probdata_module, only : flame_dir
       
       
@@ -170,8 +170,8 @@ contains
     use network,   only: nspec
     use PeleLM_F, only: pphys_getP1atm_MKS
     use PeleLM_3D, only: pphys_RHOfromPTY, pphys_HMIXfromTY
-    use mod_Fvar_def, only : pamb, domnlo, maxspec, maxspnml
-    use probdata_module, only : standoff, V_in, Y_bc, T_bc, u_bc, v_bc, w_bc, rho_bc, h_bc
+    use mod_Fvar_def, only : pamb, domnlo, maxspec, maxspnml, V_in
+    use probdata_module, only : standoff, Y_bc, T_bc, u_bc, v_bc, w_bc, rho_bc, h_bc
     use probdata_module, only : bcinit
   
     implicit none
@@ -231,8 +231,8 @@ contains
 
       use network,   only: nspec
       use mod_Fvar_def, only : dim
-      use mod_Fvar_def, only : dv_control, tbase_control, f_flag_active_control
-      use probdata_module, only : V_in, bcinit, rho_bc, Y_bc, T_bc, h_bc, w_bc
+      use mod_Fvar_def, only : dv_control, tbase_control, V_in, f_flag_active_control
+      use probdata_module, only : bcinit, rho_bc, Y_bc, T_bc, h_bc, w_bc
       
       implicit none
 

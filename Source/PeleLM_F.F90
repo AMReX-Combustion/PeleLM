@@ -407,8 +407,7 @@ end subroutine plm_extern_init
                              ac_hist_file, cfix, changemax_control, coft_old, &
                              controlvelmax, corr, dv_control, navg_pnts, &
                              scale_control, sest, tau_control, tbase_control, &
-                             v_in_old, zbase_control
-    use probdata_module, only : V_in
+                             V_in, v_in_old, zbase_control
   
     implicit none
 
