@@ -19,7 +19,7 @@ module prob_2D_module
             den_fill, adv_fill, &
             temp_fill, rhoh_fill, vel_fill, all_chem_fill, &
             FORT_XVELFILL, FORT_YVELFILL, chem_fill, press_fill, &
-            FORT_MAKEFORCE 
+            FORT_MAKEFORCE, zero_visc 
 
 contains
 
@@ -944,5 +944,54 @@ contains
       endif
 
   end subroutine FORT_MAKEFORCE
+
+! ::: -----------------------------------------------------------
+! ::: This routine will zero out diffusivity on portions of the
+! ::: boundary that are inflow, allowing that a "wall" block
+! ::: the complement aperture
+! ::: 
+! ::: INPUTS/OUTPUTS:
+! ::: 
+! ::: diff      <=> diffusivity on edges
+! ::: DIMS(diff) => index extent of diff array
+! ::: lo,hi      => region of interest, edge-based
+! ::: domlo,hi   => index extent of problem domain, edge-based
+! ::: dx         => cell spacing
+! ::: problo     => phys loc of lower left corner of prob domain
+! ::: bc         => boundary condition flag (on orient)
+! :::                   in BC_TYPES::physicalBndryTypes
+! ::: idir       => which face, 0=x, 1=y
+! ::: isrz       => 1 if problem is r-z
+! ::: id         => index of state, 0=u
+! ::: ncomp      => components to modify
+! ::: 
+! ::: -----------------------------------------------------------
+
+  subroutine zero_visc(diff,DIMS(diff),lo,hi,domlo,domhi, &
+                           dx,problo,bc,idir,isrz,id,ncomp) &
+                           bind(C, name="zero_visc")   
+
+      use mod_Fvar_def, only : Density, Temp, FirstSpec, RhoH, LastSpec
+      use mod_Fvar_def, only : domnhi, domnlo, dim
+      
+      implicit none
+      integer DIMDEC(diff)
+      integer lo(dim), hi(dim)
+      integer domlo(dim), domhi(dim)
+      integer bc(2*dim)
+      integer idir, isrz, id, ncomp
+      REAL_T  diff(DIMV(diff),*)
+      REAL_T  dx(dim)
+      REAL_T  problo(dim)
+
+
+
+! Routine compiled but should be set by the user
+! if there is a mix of inflox/wall at a boundary
+
+
+
+  end subroutine zero_visc
+
 
 end module prob_2D_module

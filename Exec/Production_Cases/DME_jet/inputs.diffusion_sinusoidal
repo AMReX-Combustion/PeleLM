@@ -124,8 +124,6 @@ ns.divu_dt_factor = .4
 ns.min_rho_divu_ceiling = .01
 
 ns.fuelName        = CH3OCH3
-ns.oxidizerName    = O2
-ns.flameTracName   = H
 ns.unity_Le = 0
 
 ns.sdc_iterMAX = 2
@@ -219,3 +217,14 @@ ns.do_init_proj=0
 
 #amr.subcycling_mode = Manual
 #amr.subcycling_iterations = 1 2 2
+
+
+# Refinement according to a species tracer
+#amr.refinement_indicators = flame_tracer  magvort
+#amr.flame_tracer.max_level = 4
+#amr.flame_tracer.value_greater = 1.e-8
+#amr.flame_tracer.field_name = Y(H)
+
+# Refinement according to the vorticity, no field_name needed
+#amr.magvort.max_level = 4
+#amr.magvort.vorticity_greater = 5e4
