@@ -1,0 +1,151 @@
+ht.plot_auxDiags = 1
+
+max_step  = 10
+stop_time =  0.2
+
+geometry.coord_sys = 0  # 0 => cart, 1 => RZ
+geometry.prob_lo   = -.015 -.015 -.03 # m
+geometry.prob_hi   =  .015  .015  .03
+
+ns.tranfile        = ../tran.asc.LiDryer
+ns.fuelName        = H2
+ns.productName     = H2O
+ns.oxidizerName    = O2
+ns.flameTracName   = H
+ns.consumptionName = H2
+ns.plot_consumption = 1
+ns.plot_heat_release = 1
+
+ns.num_mac_sync_iter = 2
+
+ns.sdc_iterMAX = 2
+godunov.ppm_type = 0
+
+ns.do_active_control = false
+
+amr.n_cell = 128 128
+
+proj.proj_2 = 1
+ns.do_init_vort_proj = 0
+proj.add_vort_proj = 0
+
+mg.usecg = 2
+cg.v = 0
+mg.v = 0
+cg.maxiter = 1000
+mg.maxiter = 1000
+mg.nu_0 = 1
+mg.nu_1 = 4
+mg.nu_2 = 4
+mg.nu_f = 40
+
+ns.v   = 1
+amr.v  = 1
+mac.v  = 1
+proj.v = 1
+
+amr.refine_grid_layout = 0
+amr.max_level       = 1
+amr.ref_ratio       = 2 2 2 2   # refinement ratio
+amr.regrid_int      = 2       # how often to regrid
+amr.n_error_buf     = 4 4 2 2 # number of buffer cells in error est
+amr.grid_eff        = 0.7     # what constitutes an efficient grid
+amr.blocking_factor = 8      # block factor in grid generation
+amr.check_file      = chk
+amr.check_int       = -1       # number of timesteps between checkpoints
+amr.plot_file       = plt
+amr.plot_int        = 1
+amr.grid_log        = grdlog  # name of grid logging file
+amr.max_grid_size   = 64
+ht.plot_massfrac=1
+ht.plot_molefrac=1
+ht.plot_ydot=1
+amr.derive_plot_vars=rhoRT mag_vort
+
+amr.probin_file = probin.2d_amr # This will default to file "probin" if not set
+
+# ------------------  INPUTS TO PHYSICS CLASS -------------------
+ns.dt_cutoff       = 5.e-10   # level 0 timestep below which we halt
+ns.visc_tol        = 1.0e-12  # tolerence for viscous solves
+ns.visc_abs_tol    = 1.0e-12  # tolerence for viscous solves
+ns.cfl            = 0.2      # cfl number for hyperbolic system
+ns.init_shrink    = 0.1       # scale down initial timestep
+ns.change_max     = 1.1       # scale back initial timestep
+ns.vel_visc_coef   = 1.983e-5
+ns.temp_cond_coef  = 2.6091e-5
+ns.scal_diff_coefs = -0.01
+ns.variable_vel_visc  = 1
+ns.variable_scal_diff = 1
+
+ns.init_iter      = 2        # number of init iters to def pressure
+ns.num_divu_iters = 3
+
+ns.gravity        = 0        # body force  (gravity in MKS units)
+ns.sum_interval   = 1        # timesteps between computing mass
+ns.do_reflux      = 1        # 1 => do refluxing
+ns.do_mac_proj    = 1        # 1 => do MAC projection
+ns.do_sync_proj   = 1        # 1 => do Sync Project
+ns.do_MLsync_proj = 1
+ns.divu_relax_factor   = 0.0
+ns.be_cn_theta = 0.5
+ns.S_in_vel_diffusion = 1
+ns.do_temp = 1
+ns.do_diffuse_sync = 1
+ns.do_reflux_visc  = 1
+ns.divu_ceiling = 1
+ns.divu_dt_factor = .4
+ns.min_rho_divu_ceiling = .01
+ns.unity_Le = 0
+
+# ----------------  PROBLEM DEPENDENT INPUTS
+
+ns.lo_bc          = 0 0 0
+ns.hi_bc          = 0 0 0
+geometry.is_periodic = 1 1 1
+
+# >>>>>>>>>>>>>  BC FLAGS <<<<<<<<<<<<<<<<
+# 0 = Interior           3 = Symmetry
+# 1 = Inflow             4 = SlipWall
+# 2 = Outflow            5 = NoSlipWall
+
+
+# ------------------  INPUTS TO GODUNOV CLASS ----------------------
+godunov.slope_order = 4
+
+# ------------------  INPUTS TO DIFFUSION CLASS --------------------
+diffuse.use_cg_solve = 0
+diffuse.max_order = 4
+diffuse.tensor_max_order = 4
+diffuse.use_tensor_cg_solve = 0
+diffuse.v = 1
+diffuse.Rhs_in_abs_tol = 1
+diffuse.use_fboxlib_mg = 1
+
+# ------------------  INPUTS TO PROJECTION CLASS -------------------
+proj.proj_tol       = 1.0e-10  # tolerence for projections
+proj.sync_tol       = 1.0e-11 # tolerence for projections
+proj.rho_wgt_vel_proj = 0      # 0 => const den proj, 1 => rho weighted
+proj.Pcode          = 1
+proj.filter_factor  = 0.0
+proj.do_outflow_bcs = 1
+proj.divu_minus_s_factor = 0.
+proj.use_mlmg_solver = 1
+
+# ------------------  INPUTS TO MACPROJ CLASS -------------------
+mac.mac_tol        = 1.0e-12  # tolerence for mac projections
+mac.mac_sync_tol   = 1.0e-9   # tolerence for mac SYNC projection
+mac.mac_abs_tol    = 1.0e-14
+mac.use_cg_solve   = 0
+mac.use_fboxlib_mg = 1
+mac.do_outflow_bcs = 1
+#
+# Select form of FAB output: default is NATIVE
+#
+#   ASCII  (this is very slow)
+#   NATIVE (native binary form on machine -- the default)
+#   IEEE32 (useful if you want 32bit files when running in double precision)
+#   8BIT   (eight-bit run-length-encoded)
+#
+fab.format = NATIVE
+
+ns.do_not_use_funccount = 1

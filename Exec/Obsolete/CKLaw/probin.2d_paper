@@ -1,0 +1,33 @@
+ &fortin
+  blobr = .001
+  blobx = 0.
+  bloby = 0.
+  y_offset = .006
+  reflect = 0.
+  probtype = 1
+  flametracval = .00001
+  max_vort_lev = 3
+  vorterr = 100
+  flametracval = 1.e-8
+  V_in = 0
+  phi_in = 0.4
+  nchemdiag = 1
+  pertmag = .02
+  turb_scale = 1.0	  
+ /
+ &heattransin
+  pamb = 1013250.0
+  dpdt_factor = 1.0
+  closed_chamber = 1
+ /
+ &flctin
+  flct_file = ""
+  forceInflow = .FALSE.
+ /
+ &control
+  tau_control = 1.5e-3
+  sest = .3
+  h_control = .03
+  changeMax_control = .05
+  zbase_control = 0.0
+ /
