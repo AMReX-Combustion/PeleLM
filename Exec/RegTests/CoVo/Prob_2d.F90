@@ -46,7 +46,7 @@ contains
       
       use PeleLM_F,  only: pphys_getP1atm_MKS
       use mod_Fvar_def, only : pamb, dpdt_factor, closed_chamber
-      use mod_Fvar_def, only : fuelID, domnhi, domnlo, dim
+      use mod_Fvar_def, only : dim
       use probdata_module, only: meanFlowDir, meanFlowMag, &
                                  T_mean, P_mean, &
                                  xvort, yvort, rvort, forcevort
@@ -57,9 +57,8 @@ contains
       integer untin
       REAL_T problo(dim), probhi(dim)
 
-      integer i,istemp
-      REAL_T FORT_P1ATMMKS, area
-
+      integer i
+ 
       namelist /fortin/ meanFlowMag, meanFlowDir, T_mean, P_mean, &
                        xvort, yvort, rvort, forcevort  
       namelist /heattransin/ pamb, dpdt_factor, closed_chamber
@@ -225,8 +224,8 @@ contains
       use network,   only: nspec
       use PeleLM_F,  only: pphys_getP1atm_MKS, pphys_get_spec_name2
       use PeleLM_2D, only: pphys_RHOfromPTY, pphys_HMIXfromTY
-      use mod_Fvar_def, only : Density, Temp, FirstSpec, RhoH, pamb, Trac, dim
-      use mod_Fvar_def, only : bathID, domnhi, domnlo, maxspec
+      use mod_Fvar_def, only : Density, Temp, FirstSpec, RhoH, Trac, dim
+      use mod_Fvar_def, only : domnlo, maxspec
       use probdata_module, only: meanFlowDir, meanFlowMag, &
                                  T_mean, P_mean, &
                                  xvort, yvort, rvort, forcevort
@@ -241,14 +240,11 @@ contains
       REAL_T     vel(DIMV(state),dim)
       REAL_T    scal(DIMV(state),nscal)
       REAL_T   press(DIMV(press))
-      integer tmpi, nPMF
 
 
-      integer i, j, n, airZone, fuelZone, zone
-      REAL_T x, y, r, Yl(maxspec), Xl(maxspec), Patm
-      REAL_T pmf_vals(maxspec+3), y1, y2, dx
-      REAL_T pert,Lx,eta,u,v,rho,T,h
-      REAL_T sigma
+      integer i, j, n
+      REAL_T x, y, Yl(maxspec), Patm
+      REAL_T dx
       REAL_T :: dy, d_sq, r_sq, u_vort, v_vort 
 
       do j = lo(2), hi(2)
@@ -361,17 +357,6 @@ contains
       REAL_T  delta(dim), xlo(dim), time
       REAL_T  den(DIMV(den))
      
-      integer i, j
-      REAL_T  y, x
-      REAL_T  u, v, rho, Yl(0:maxspec-1), T, h
-
-      integer lo(dim), hi(dim)
-
-      lo(1) = ARG_L1(den)
-      lo(2) = ARG_L2(den)
-      hi(1) = ARG_H1(den)
-      hi(2) = ARG_H2(den)
-
       call filcc (den,DIMS(den),domlo,domhi,delta,xlo,bc)
 
 
@@ -413,14 +398,6 @@ contains
       REAL_T     delta(dim), xlo(dim), time
       REAL_T     adv(DIMV(adv))
       integer    bc(dim,2)
-
-      integer    i,j
-      integer lo(dim), hi(dim)
-
-      lo(1) = ARG_L1(adv)
-      lo(2) = ARG_L2(adv)
-      hi(1) = ARG_H1(adv)
-      hi(2) = ARG_H2(adv)
 
       call filcc (adv,DIMS(adv),domlo,domhi,delta,xlo,bc)
 
@@ -464,17 +441,6 @@ contains
       REAL_T  delta(dim), xlo(dim), time
       REAL_T  temp(DIMV(temp))
       
-      integer i, j
-      REAL_T  y, x
-      REAL_T  u, v, rho, Yl(0:maxspec-1), T, h
-
-      integer lo(dim), hi(dim)
-
-      lo(1) = ARG_L1(temp)
-      lo(2) = ARG_L2(temp)
-      hi(1) = ARG_H1(temp)
-      hi(2) = ARG_H2(temp)
-
       call filcc (temp,DIMS(temp),domlo,domhi,delta,xlo,bc)
       
   end subroutine temp_fill
@@ -515,17 +481,6 @@ contains
       REAL_T  delta(dim), xlo(dim), time
       REAL_T  rhoh(DIMV(rhoh))
       
-      integer i, j
-      REAL_T  y, x
-      REAL_T  u, v, rho, Yl(0:maxspec-1), T, h
-
-      integer lo(dim), hi(dim)
-
-      lo(1) = ARG_L1(rhoh)
-      lo(2) = ARG_L2(rhoh)
-      hi(1) = ARG_H1(rhoh)
-      hi(2) = ARG_H2(rhoh)
-
       call filcc (rhoh,DIMS(rhoh),domlo,domhi,delta,xlo,bc)
 
   end subroutine rhoh_fill
@@ -618,24 +573,6 @@ contains
       REAL_T  delta(dim), xlo(dim), time
       REAL_T  xvel(DIMV(xvel))
 
-      integer i, j
-      integer ilo, ihi, jlo, jhi
-      REAL_T  y, x, hx, xhi(dim)
-      REAL_T  u, v, rho, Yl(0:maxspec-1), T, h
-
-      integer lo(dim), hi(dim)
-
-      lo(1) = ARG_L1(xvel)
-      hi(1) = ARG_H1(xvel)
-      lo(2) = ARG_L2(xvel)
-      hi(2) = ARG_H2(xvel)
-
-      hx  = delta(1)
-      ilo = max(lo(1),domlo(1))
-      ihi = min(hi(1),domhi(1))
-      jlo = max(lo(2),domlo(2))
-      jhi = min(hi(2),domhi(2))
-      
       call filcc (xvel,DIMS(xvel),domlo,domhi,delta,xlo,bc)
       
       
@@ -677,24 +614,6 @@ contains
       REAL_T  delta(dim), xlo(dim), time
       REAL_T  yvel(DIMV(yvel))
       
-      integer i, j
-      integer ilo, ihi, jlo, jhi
-      REAL_T  y, x, hx, xhi(dim)
-      REAL_T  u, v, rho, Yl(0:maxspec-1), T, h
-
-      integer lo(dim), hi(dim)
-
-      lo(1) = ARG_L1(yvel)
-      hi(1) = ARG_H1(yvel)
-      lo(2) = ARG_L2(yvel)
-      hi(2) = ARG_H2(yvel)
-
-      hx  = delta(1)
-      ilo = max(lo(1),domlo(1))
-      ihi = min(hi(1),domhi(1))
-      jlo = max(lo(2),domlo(2))
-      jhi = min(hi(2),domhi(2))
-      
       call filcc (yvel,DIMS(yvel),domlo,domhi,delta,xlo,bc)
       
   end subroutine FORT_YVELFILL
@@ -727,7 +646,7 @@ contains
                             xlo,time,bc,id ) &
                             bind(C, name="chem_fill")
                                
-      use mod_Fvar_def, only : domnlo, maxspec, dim
+      use mod_Fvar_def, only :  maxspec, dim
       
       implicit none
       
@@ -735,24 +654,6 @@ contains
       integer domlo(dim), domhi(dim), id
       REAL_T  delta(dim), xlo(dim), time
       REAL_T  rhoY(DIMV(rhoY))
-      
-      integer i, j
-      integer ilo, ihi, jlo, jhi
-      REAL_T  y, x, hx, xhi(dim)
-      REAL_T  u, v, rho, Yl(0:maxspec-1), T, h
-
-      integer lo(dim), hi(dim)
-
-      lo(1) = ARG_L1(rhoY)
-      hi(1) = ARG_H1(rhoY)
-      lo(2) = ARG_L2(rhoY)
-      hi(2) = ARG_H2(rhoY)
-
-      hx  = delta(1)
-      ilo = max(lo(1),domlo(1))
-      ihi = min(hi(1),domhi(1))
-      jlo = max(lo(2),domlo(2))
-      jhi = min(hi(2),domhi(2))
       
       call filcc (rhoY,DIMS(rhoY),domlo,domhi,delta,xlo,bc)
             
@@ -962,10 +863,7 @@ contains
       integer i, j, n
       integer ilo, jlo
       integer ihi, jhi
-      integer a2, a3, a4, a5
-      REAL_T  x, y
       REAL_T  hx, hy
-      REAL_T  sga, cga
       integer isioproc
       integer nXvel, nYvel, nRho, nTrac
 

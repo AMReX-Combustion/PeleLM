@@ -21,20 +21,13 @@ TINY_PROFILE = FALSE
 
 DEFINES+=-DALWAYS_NEW_J
 
-# Enable flctin namelist
-#USE_FLCTS       = TRUE
-
-#USE_PARTICLES   = TRUE
-
 # Enable ht.velocity_plotfile option
-#USE_VELOCITY    = TRUE
+#USE_VELOCITY    = FALSE
 
 # Enable the restart-from-plotfile option (ht.pltfile)
 #  ... default this off because when on, code expects it to be used
-# USE_NEWMECH    = TRUE
+# USE_NEWMECH    = FALSE
 
-# Enable time-dependent forcing term
-#USE_TDEPFORCING = TRUE
 
 # Choose model (from list below), and pmf file
 #Chemistry_Model = drm19
@@ -61,9 +54,9 @@ Transport_dir := EGLib
 Blocs   := .
 
 CEXE_sources +=
-F90EXE_sources += Prob_$(DIM)d.F90 Prob_F.F90
+F90EXE_sources += Prob_$(DIM)d.F90 probdata.F90
 CEXE_headers += 
-FEXE_headers += probdata.H Prob_F.H
+FEXE_headers += 
 
 include $(PELELM_HOME)/Tools/Make/Make.PeleLM
 # Available chemistry models:

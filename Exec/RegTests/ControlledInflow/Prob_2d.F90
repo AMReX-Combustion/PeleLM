@@ -1,5 +1,12 @@
 
-#include <MyProb_F.H>
+#include <AMReX_REAL.H>
+#include <AMReX_CONSTANTS.H>
+#include <AMReX_BC_TYPES.H>
+#include <AMReX_ArrayLim.H>
+
+#include <Prob_F.H>
+#include <PeleLM_F.H>
+
 
 module prob_2D_module
 
@@ -9,8 +16,8 @@ module prob_2D_module
 
   private
   
-  public :: amrex_probinit,setupbc, getZone, bcfunction, init_data_new_mech, init_data, &
-            zero_visc, den_fill, adv_fill, &
+  public :: amrex_probinit,setupbc, bcfunction, init_data_new_mech, init_data, &
+            den_fill, adv_fill, &
             temp_fill, rhoh_fill, vel_fill, all_chem_fill, &
             FORT_XVELFILL, FORT_YVELFILL, chem_fill, press_fill, &
             FORT_MAKEFORCE 
@@ -37,65 +44,34 @@ contains
 
   subroutine amrex_probinit (init,name,namlen,problo,probhi) bind(c)
   
-      
-      use network,   only: nspec
       use PeleLM_F,  only: pphys_getP1atm_MKS
       use mod_Fvar_def, only : pamb, dpdt_factor, closed_chamber
+      use mod_Fvar_def, only : fuelID, domnhi, domnlo, dim
+      use mod_Fvar_def, only : ac_hist_file, cfix, changemax_control, &
+                               coft_old, controlvelmax, corr, dv_control, &
+                               h_control, navg_pnts, scale_control, sest, &
+                               tau_control, tbase_control, V_in, v_in_old, zbase_control, &
+                               pseudo_gravity
+      use probdata_module, only : standoff, pertmag, rho_bc, Y_bc
+      use probdata_module, only : flame_dir
+      
       
       implicit none
+      
       integer init, namlen
       integer name(namlen)
       integer untin
-      REAL_T problo(SDIM), probhi(SDIM)
-
-#include <probdata.H>
-#include <cdwrk.H>
-#include <bc.H>
-#if defined(BL_DO_FLCT)
-#include <INFL_FORCE_F.H>
-#endif
-#include <conp.H>
-
-#ifdef DO_LMC_FORCE
-#include <forcedata.H>
-#endif
+      REAL_T problo(dim), probhi(dim)
 
       integer i,istemp
-      REAL_T FORT_P1ATMMKS, area
+      REAL_T area
 
-      namelist /fortin/ probtype, phi_in,T_in,  &
-                       turb_scale, V_in, flame_dir, V_co, &
-                       standoff, pertmag, nchemdiag, splitx, xfrontw, &
-                       splity, yfrontw, blobx, bloby, blobz, blobr, &
-                       blobT, Tfrontw, stTh, fuel_N2_vol_percent
-      namelist /heattransin/ pamb, dpdt_factor, closed_chamber
-#if defined(BL_DO_FLCT)
-      integer nCompFile
-      namelist /flctin/ tstart_turb, forceInflow, numInflPlanesStore, forceLo, forceHi, &
-          strmwse_dir, nCompInflow, flct_file, convVelInit
-#endif
+      namelist /fortin/ V_in, flame_dir, &
+                        standoff, pertmag
+      namelist /heattransin/ pamb, dpdt_factor
+
       namelist /control/ tau_control, sest, cfix, changeMax_control, h_control, &
           zbase_control, pseudo_gravity, istemp,corr,controlVelMax,navg_pnts
-#ifdef DO_LMC_FORCE
-      REAL_T  twicePi, kxd, kyd, kzd
-      REAL_T  thetaTmp, phiTmp
-      REAL_T  cosThetaTmp, cosPhiTmp
-      REAL_T  sinThetaTmp, sinPhiTmp
-      REAL_T  px, py, pz, mp2, Ekh
-      integer kx, ky, kz, mode_count, reduced_mode_count
-      integer xstep, ystep, zstep
-
-      REAL_T  Lx, Ly, Lz, Lmin, rn 
-      REAL_T  kappa, kappaMax, freqMin, freqMax, freqDiff
-
-      namelist /fortin/ nmodes, nxmodes, nymodes, nzmodes, mode_start, hack_lz, &
-                       forcing_type, spectrum_type, time_offset, forcing_twice_wavelength, &
-                       forcing_xlength, forcing_ylength, forcing_zlength, &
-                       forcing_time_scale_min, forcing_time_scale_max,  &
-                       force_scale, forcing_epsilon, blrandseed, &
-                       use_rho_in_forcing, do_mode_division, &
-                       div_free_force, moderate_zero_modes
-#endif
 
 !
 !      Build `probin' filename -- the name of file containing fortin namelist.
@@ -103,11 +79,6 @@ contains
       integer maxlen, isioproc
       parameter (maxlen=256)
       character probin*(maxlen)
-
-#if defined(BL_DO_FLCT)
-      integer ierr
-#endif
-
 
       call bl_pd_is_ioproc(isioproc)
 
@@ -128,51 +99,13 @@ contains
          end do
       endif
 
-!     Load domain dimensions into common (put something computable there for SDIM<3)
-      do i=1,3
-         domnlo(i) = 0.d0
-         domnhi(i) = 0.d0
-      enddo
-
-      do i=1,SDIM
-         domnlo(i) = problo(i)
-         domnhi(i) = probhi(i)
-      enddo
-
       untin = 9
       open(untin,file=probin(1:namlen),form='formatted',status='old')
       
 !     Set defaults
-      probtype = BL_PROB_UNDEFINED
       pamb = pphys_getP1atm_MKS()
       dpdt_factor = 0.3d0
       closed_chamber = 0
-
-      splitx = 0.5d0 * (domnhi(1) + domnlo(1))
-      xfrontw = 0.05d0 * (domnhi(1) - domnlo(1))
-      splity = 0.5d0 * (domnhi(2) + domnlo(2))
-      yfrontw = 0.05d0 * (domnhi(2) - domnlo(2))
-      blobx = 0.5d0 * (domnhi(1) + domnlo(1))
-      bloby = 0.5d0 * (domnhi(2) + domnlo(2))
-      blobT = T_in
-      Tfrontw = xfrontw
-      stTh = -1.d0
-      fuel_N2_vol_percent = 0.d0
-
-#if defined(BL_DO_FLCT)
-!     add_turb = .FALSE.
-      forceInflow = .FALSE.
-      numInflPlanesStore = -1
-      numInflPlanesStore = 30
-!
-!     Don't need to default 'nCompInflow' as it is block data'd to /3/
-!
-      forceLo = .TRUE.
-      forceHi = .FALSE.
-      strmwse_dir = FLCT_ZVEL
-      flct_file = ''
-      turb_scale = 1
-#endif
 
       zbase_control = 0.d0
 
@@ -189,12 +122,10 @@ contains
       cfix = zero
       ac_hist_file = 'AC_History'
       h_control = -one
-      nchemdiag = 1
       dV_control = zero
       tbase_control = zero
       h_control = -one
       pseudo_gravity = 0
-      nchemdiag = 1
       istemp = 0
       navg_pnts = 10
 
@@ -205,56 +136,28 @@ contains
       
       read(untin,heattransin)
  
-#if defined(BL_DO_FLCT)
-      read(untin,flctin)
-#endif
- 
       read(untin,control)
       close(unit=untin)
 
-#if defined(BL_DO_FLCT)
-      if (forceInflow .eqv. .FALSE.) then
-         forceLo = .FALSE.
-         forceHi = .FALSE.
-      else
-         if (flct_file.ne.'') then
-#define FF_UNIT 20
-            ierr = 0
-            write(6,*) '...initializing turbulence, reading header info'
-            open(FF_UNIT, file=trim(flct_file)//'/HDR',form='formatted',status='old',iostat=ierr)
-            if (ierr .ne. 0) then
-               call bl_abort('Problem opening file: ' // trim(flct_file) // '/HDR')
-            end if
-            call RD_SCL_FLCTHD(FF_UNIT,nCompFile,dimFile,probSizeFile,dxFile)
-            close(FF_UNIT)
-         endif
-      endif
-      convVel = V_in
-      if (probtype.ge.BL_PROB_PREMIXED_CONTROLLED_INFLOW) then
-         convVel = one
-      endif
-#endif
 !     Set up boundary functions
       call setupbc()
       
       area = 1.d0
-      do i=1,SDIM
+      do i=1,dim
         if (flame_dir /= i) then
          area = area*(domnhi(i)-domnlo(i))
         endif
       enddo
-      scale_control = Y_bc(fuelID-1,BL_FUELPIPE) * rho_bc(BL_FUELPIPE) * area
+      scale_control = Y_bc(fuelID-1) * rho_bc(1) * area
 
       if (h_control .gt. zero) then
          cfix = scale_control * h_control
       endif
 
+
       if (isioproc.eq.1) then
          write(6,fortin)
          write(6,heattransin)
-#if defined(BL_DO_FLCT)
-         write(6,flctin)
-#endif
          write(6,control)
       end if
 
@@ -267,138 +170,73 @@ contains
     use network,   only: nspec
     use PeleLM_F, only: pphys_getP1atm_MKS
     use PeleLM_2D, only: pphys_RHOfromPTY, pphys_HMIXfromTY
-    use mod_Fvar_def, only : pamb
+    use mod_Fvar_def, only : pamb, domnlo, maxspec, maxspnml, V_in
+    use probdata_module, only : standoff, Y_bc, T_bc, u_bc, v_bc, rho_bc, h_bc
+    use probdata_module, only : bcinit, flame_dir
   
     implicit none
 
-#include <cdwrk.H>
-#include <conp.H>
-#include <bc.H>
-#include <probdata.H>
-      
-    REAL_T Patm, pmf_vals(maxspec+3), a
+    REAL_T Patm, pmf_vals(maxspec+3)
     REAL_T Xt(maxspec), Yt(maxspec), loc
-    integer zone, n, fuelZone, airZone, region
-    integer b(SDIM)
-    integer num_zones_defined, len
+    
+    integer n
+    integer b(2)
     data  b / 1, 1 /
       
     Patm = pamb / pphys_getP1atm_MKS()
-    num_zones_defined = 0
-    len = len_trim(probtype)
-    
-    
-    if ( (probtype(1:len).eq.BL_PROB_PREMIXED_FIXED_INFLOW) &
-          .or. (probtype(1:len).eq.BL_PROB_PREMIXED_CONTROLLED_INFLOW) ) then
-         
-!     Take fuel mixture from prob data
-
-      zone = getZone(domnlo(1), domnlo(2))
-      num_zones_defined = 1
-            
-!     Take fuel mixture from pmf file
-      loc = (domnlo(2)-standoff)*100.d0
-      call pmf(loc,loc,pmf_vals,n)
-      if (n.ne.Nspec+3) then
-        call bl_pd_abort('setupbc: n(pmf) .ne. Nspec+3')
-      endif
-            
-      do n = 1,Nspec
-        Xt(n) = pmf_vals(3+n)
-      end do 
-            
-      CALL CKXTY (Xt, Yt)
-
-      do n=1,Nspec
-        Y_bc(n-1,zone) = Yt(n)
-      end do
-      
-      T_bc(zone) = pmf_vals(1)
-      
-      if (flame_dir == 1) then
-        v_bc(zone) = zero
-        if (V_in .lt. 0) then
-          u_bc(zone) = pmf_vals(2)*1.d-2
-        else
-          u_bc(zone) = V_in
+             
+  !     Take fuel mixture from pmf file
+        loc = (domnlo(2)-standoff)*100.d0
+        call pmf(loc,loc,pmf_vals,n)
+        if (n.ne.Nspec+3) then
+          call bl_pd_abort('setupbc: n(pmf) .ne. Nspec+3')
         endif
-      else if (flame_dir == 2) then
-        u_bc(zone) = zero
-        if (V_in .lt. 0) then
-          v_bc(zone) = pmf_vals(2)*1.d-2
+              
+        do n = 1,Nspec
+          Xt(n) = pmf_vals(3+n)
+        end do 
+              
+        CALL CKXTY (Xt, Yt)
+  
+        do n=1,Nspec
+          Y_bc(n-1) = Yt(n)
+        end do
+        
+        T_bc = pmf_vals(1)
+        if (flame_dir == 1) then
+          v_bc = zero
+          if (V_in .lt. 0) then
+            u_bc = pmf_vals(2)*1.d-2
+          else
+            u_bc = V_in
+          endif
+        else if (flame_dir == 2) then
+          u_bc = zero
+          if (V_in .lt. 0) then
+            v_bc = pmf_vals(2)*1.d-2
+          else
+            v_bc = V_in
+          endif
         else
-          v_bc(zone) = V_in
-        endif
-      else
-        write(6,*) 'Flame in Z dir not yet implemented'
-        call bl_pd_abort(' ')
-      end if    
-      
-    else
-         
-      call bl_pd_abort()
+          write(6,*) 'Flame in Z dir not yet implemented'
+          call bl_pd_abort(' ')
+        end if 
 
-    endif
-
-    do zone=1,num_zones_defined
 !     Set density and hmix consistent with data
 
       call pphys_RHOfromPTY(b, b, &
-                           rho_bc(zone), DIMARG(b), DIMARG(b), &
-                           T_bc(zone),   DIMARG(b), DIMARG(b), &
-                           Y_bc(0,zone), DIMARG(b), DIMARG(b), Patm)
+                           rho_bc(1), DIMARG(b), DIMARG(b), &
+                           T_bc(1),   DIMARG(b), DIMARG(b), &
+                           Y_bc(0), DIMARG(b), DIMARG(b), Patm)
       call pphys_HMIXfromTY(b, b, &
-                           h_bc(zone),   DIMARG(b), DIMARG(b), &
-                           T_bc(zone),   DIMARG(b), DIMARG(b), &
-                           Y_bc(0,zone), DIMARG(b), DIMARG(b))
-    enddo
-    
+                           h_bc(1),   DIMARG(b), DIMARG(b), &
+                           T_bc(1),   DIMARG(b), DIMARG(b), &
+                           Y_bc(0), DIMARG(b), DIMARG(b))
+
     bcinit = .true.
 
   end subroutine setupbc
 
-! ::: -----------------------------------------------------------
-      
-  integer function getZone(x, y)bind(C, name="getZone")
-
-    implicit none
-
-#include <cdwrk.H>
-#include <bc.H>
-#include <probdata.H>
-
-    REAL_T x, y
-    integer len
-
-!#define BL_FUELPIPE 1
-!#define BL_COFLOW   2
-!#define BL_STICK    3
-!#define BL_WALL     4
-!#define BL_AMBIENT  5
-!#define BL_VOLUME   6
-!#define BL_PIPEEND  7
-
-    getZone = BL_VOLUME
-    len     = len_trim(probtype)
-
-    if ( (probtype(1:len).eq.BL_PROB_PREMIXED_FIXED_INFLOW) &
-          .or. (probtype(1:len).eq.BL_PROB_PREMIXED_CONTROLLED_INFLOW) ) then
-
-      getZone = BL_FUELPIPE
-         
-    else if (probtype(1:len).eq.BL_PROB_DIFFUSION) then
-         
-      if (x .ge. splitx) then
-        getZone = BL_AMBIENT
-      else
-        getZone = BL_FUELPIPE
-      endif
-         
-      else
-         call bl_pd_abort()
-    endif
-
-  end function getZone
       
 !-----------------------
 
@@ -406,68 +244,52 @@ contains
                         bind(C, name="bcfunction")
 
       use network,   only: nspec
+      use mod_Fvar_def, only : dim
+      use mod_Fvar_def, only : dv_control, tbase_control, V_in, f_flag_active_control
+      use probdata_module, only : bcinit, rho_bc, Y_bc, T_bc, h_bc, u_bc, v_bc, flame_dir
       
       implicit none
 
-      REAL_T x, y, time, u, v, rho, Yl(0:*), T, h, dx(SDIM)
+      REAL_T x, y, time, u, v, rho, Yl(0:*), T, h, dx(dim)
       logical getuv
 
-#include <cdwrk.H>
-#include <bc.H>
-#include <probdata.H>
-
-      integer n, zone, len
-      REAL_T eta, xmid, etamax
+      integer n
 
       if (.not. bcinit) then
          call bl_abort('Need to initialize boundary condition function')
       end if
 
-      len = len_trim(probtype)
+      rho = rho_bc(1)
+      do n = 0, Nspec-1
+        Yl(n) = Y_bc(n)
+      end do
+      T = T_bc(1)
+      h = h_bc(1)
+         
+      if (getuv .eqv. .TRUE.) then
       
-      if ( (probtype(1:len).eq.BL_PROB_PREMIXED_FIXED_INFLOW) &
-          .or. (probtype(1:len).eq.BL_PROB_PREMIXED_CONTROLLED_INFLOW)) then
-
-         zone = getZone(x,y)
-         rho = rho_bc(zone)
-         do n = 0, Nspec-1
-            Yl(n) = Y_bc(n,zone)
-         end do
-         T = T_bc(zone)
-         h = h_bc(zone)
-         
-         if (getuv .eqv. .TRUE.) then
-            
-            if (flame_dir == 1) then
-              v = zero
-              if (probtype(1:len).eq.BL_PROB_PREMIXED_CONTROLLED_INFLOW) then               
-                 u =  V_in + (time-tbase_control)*dV_control
-              else if (probtype(1:len).eq.BL_PROB_PREMIXED_FIXED_INFLOW) then
-                 u = u_bc(zone)
-              endif
-            else if (flame_dir == 2) then
-              u = zero
-              if (probtype(1:len).eq.BL_PROB_PREMIXED_CONTROLLED_INFLOW) then               
-                 v =  V_in + (time-tbase_control)*dV_control
-              else if (probtype(1:len).eq.BL_PROB_PREMIXED_FIXED_INFLOW) then
-                 v = v_bc(zone)
-              endif
-            else
-              write(6,*) 'Flame in Z dir not yet implemented'
-              call bl_pd_abort(' ')
-            end if
-              
-         endif
-         
-      else
-
-         write(6,*) 'No boundary condition for probtype = ', probtype(1:len)
-         write(6,*) 'Available: '
-         write(6,*) '            ',BL_PROB_PREMIXED_FIXED_INFLOW
-         write(6,*) '            ',BL_PROB_PREMIXED_CONTROLLED_INFLOW
-         call bl_pd_abort(' ')
+        if (flame_dir == 1) then
+          v = zero
+          if (f_flag_active_control == 1) then
+            u =  V_in + (time-tbase_control)*dV_control
+          else
+            u = u_bc
+          endif
+        else if (flame_dir == 2) then
+          u = zero
+          if (f_flag_active_control == 1) then 
+            v =  V_in + (time-tbase_control)*dV_control
+          else
+            v = v_bc
+          endif
+        else
+          write(6,*) 'Flame in Z dir not yet implemented'
+          call bl_pd_abort(' ')
+        end if
+      
       endif
-      
+         
+
   end subroutine bcfunction
 
 ! ::: -----------------------------------------------------------
@@ -477,26 +299,23 @@ contains
           delta,xlo,xhi)&
           bind(C, name="init_data_new_mech")
           
+
       use network,   only: nspec
       use PeleLM_F,  only: pphys_getP1atm_MKS
       use PeleLM_2D, only: pphys_RHOfromPTY, pphys_HMIXfromTY
-      use mod_Fvar_def, only : Density, Temp, FirstSpec, RhoH, pamb, Trac
+      use mod_Fvar_def, only : Density, Temp, FirstSpec, RhoH, pamb, Trac, dim
       
       implicit none
       integer  level, nscal
-      integer  lo(SDIM), hi(SDIM)
+      integer  lo(dim), hi(dim)
       integer  DIMDEC(state)
       integer  DIMDEC(press)
-      REAL_T   xlo(SDIM), xhi(SDIM)
-      REAL_T   time, delta(SDIM)
-      REAL_T   vel(DIMV(state),SDIM)
+      REAL_T   xlo(dim), xhi(dim)
+      REAL_T   time, delta(dim)
+      REAL_T   vel(DIMV(state),dim)
       REAL_T   scal(DIMV(state),nscal)
       REAL_T   press(DIMV(press))
- 
-#include <cdwrk.H>
-#include <bc.H>
-#include <probdata.H>
- 
+  
       integer i, j, n
       REAL_T Patm
  
@@ -507,6 +326,7 @@ contains
       end do
  
       Patm = pamb / pphys_getP1atm_MKS()
+      
       call pphys_RHOfromPTY(lo,hi, &
           scal(ARG_L1(state),ARG_L2(state),Density),  DIMS(state), &
           scal(ARG_L1(state),ARG_L2(state),Temp),     DIMS(state), &
@@ -515,7 +335,7 @@ contains
       call pphys_HMIXfromTY(lo,hi, &
           scal(ARG_L1(state),ARG_L2(state),RhoH),     DIMS(state), &
           scal(ARG_L1(state),ARG_L2(state),Temp),     DIMS(state), &
-          scal(ARG_L1(state),ARG_L2(state),FirstSpec),DIMS(state))
+          scal(ARG_L1(state),ARG_L2(state),FirstSpec),DIMS(state)) 
  
       do j = lo(2), hi(2)
          do i = lo(1), hi(1)
@@ -557,103 +377,90 @@ contains
 ! ::: -----------------------------------------------------------
 
   subroutine init_data(level,time,lo,hi,nscal, &
-     	 	                   vel,scal,DIMS(state),press,DIMS(press), &
-                           delta,xlo,xhi) &
-                           bind(C, name="init_data")
+                       vel,scal,DIMS(state),press,DIMS(press), &
+                       delta,xlo,xhi) &
+                       bind(C, name="init_data")
                               
+
       use network,   only: nspec
       use PeleLM_F,  only: pphys_getP1atm_MKS, pphys_get_spec_name2
       use PeleLM_2D, only: pphys_RHOfromPTY, pphys_HMIXfromTY
-      use mod_Fvar_def, only : Density, Temp, FirstSpec, RhoH, pamb, Trac
-      
+      use mod_Fvar_def, only : Density, Temp, FirstSpec, RhoH, pamb, Trac, dim
+      use mod_Fvar_def, only : bathID, domnhi, domnlo, maxspec, maxspnml 
+      use probdata_module, only : standoff, flame_dir
+
       implicit none
       integer    level, nscal
-      integer    lo(SDIM), hi(SDIM)
+      integer    lo(dim), hi(dim)
       integer    DIMDEC(state)
       integer    DIMDEC(press)
-      REAL_T     xlo(SDIM), xhi(SDIM)
-      REAL_T     time, delta(SDIM)
-      REAL_T     vel(DIMV(state),SDIM)
+      REAL_T     xlo(dim), xhi(dim)
+      REAL_T     time, delta(dim)
+      REAL_T     vel(DIMV(state),dim)
       REAL_T    scal(DIMV(state),nscal)
       REAL_T   press(DIMV(press))
-      integer tmpi, nPMF
+      integer nPMF
 
-#include <cdwrk.H>
-#include <conp.H>
-#include <bc.H>
-#include <probdata.H>
-
-      integer i, j, n, airZone, fuelZone, zone
-      REAL_T x, y, r, Yl(maxspec), Xl(maxspec), Patm
-      REAL_T pmf_vals(maxspec+3), pos1, pos2, dx
-      REAL_T pert,Lx,eta,u,v,rho,T,h
-      REAL_T sigma
-
-      integer iO2,iCO2,iH2O,iCH3OCH3,len
-      character*(maxspnml) name
+      integer i, j, n
+      REAL_T x, y, Yl(maxspec), Xl(maxspec), Patm
+      REAL_T pmf_vals(maxspec+3)
+      REAL_T pert,Lx, pos1, pos2
 
 !      write(6,*)" made it to initdata"
       if (bathID.lt.1 .or. bathID.gt.Nspec) then
          call bl_pd_abort()
       endif
 
-      len = len_trim(probtype)
-           
-      if ( (probtype(1:len).eq.BL_PROB_PREMIXED_FIXED_INFLOW) &
-          .or. (probtype(1:len).eq.BL_PROB_PREMIXED_CONTROLLED_INFLOW) ) then
+      do j = lo(2), hi(2)
+        y = (float(j)+.5d0)*delta(2)+domnlo(2)
+        do i = lo(1), hi(1)
+          x = (float(i)+.5d0)*delta(1)+domnlo(1)
+               
+          pert = 0.d0
+          
+          if (flame_dir == 1) then
+             pos1 = (x - standoff - 0.5d0*delta(1) + pert)*100.d0
+             pos2 = (x - standoff + 0.5d0*delta(1) + pert)*100.d0
+          elseif (flame_dir == 2) then
+             pos1 = (y - standoff - 0.5d0*delta(2) + pert)*100.d0
+             pos2 = (y - standoff + 0.5d0*delta(2) + pert)*100.d0
+          else
+             write(6,*) 'Flame in Z dir not yet implemented'
+             call bl_pd_abort(' ')
+          end if
+       
+          call pmf(pos1,pos2,pmf_vals,nPMF) 
 
-         do j = lo(2), hi(2)
-            y = (float(j)+.5d0)*delta(2)+domnlo(2)
-            do i = lo(1), hi(1)
-               x = (float(i)+.5d0)*delta(1)+domnlo(1)
+          if (nPMF.ne.Nspec+3) then
+            call bl_abort('INITDATA: n .ne. Nspec+3')
+          endif
                
-               pert = 0.d0
-                  
-               if (flame_dir == 1) then
-                 pos1 = (x - standoff - 0.5d0*delta(1) + pert)*100.d0
-                 pos2 = (x - standoff + 0.5d0*delta(1) + pert)*100.d0
-               elseif (flame_dir == 2) then
-                 pos1 = (y - standoff - 0.5d0*delta(2) + pert)*100.d0
-                 pos2 = (y - standoff + 0.5d0*delta(2) + pert)*100.d0
-               else
-                 write(6,*) 'Flame in Z dir not yet implemented'
-                 call bl_pd_abort(' ')
-               end if
+          scal(i,j,Temp) = pmf_vals(1)
+          do n = 1,Nspec
+            Xl(n) = pmf_vals(3+n)
+          end do 
                
-               call pmf(pos1,pos2,pmf_vals,nPMF)   
+          CALL CKXTY (Xl, Yl)
                
-               if (nPMF.ne.Nspec+3) then
-                  call bl_abort('INITDATA: n .ne. Nspec+3')
-               endif
-               
-               scal(i,j,Temp) = pmf_vals(1)
-               do n = 1,Nspec
-                  Xl(n) = pmf_vals(3+n)
-               end do 
-               
-               CALL CKXTY (Xl,Yl)
-               
-               do n = 1,Nspec
-                  scal(i,j,FirstSpec+n-1) = Yl(n)
-               end do
+          do n = 1,Nspec
+            scal(i,j,FirstSpec+n-1) = Yl(n)
+          end do
 
-               scal(i,j,Trac) = 0.d0
+          scal(i,j,Trac) = 0.d0
 
-               if (flame_dir == 1) then
-                 vel(i,j,1) = pmf_vals(2)*1.d-2
-                 vel(i,j,2) = 0.d0
-               elseif (flame_dir == 2) then
-                 vel(i,j,1) = 0.d0
-                 vel(i,j,2) = pmf_vals(2)*1.d-2
-               else
-                 write(6,*) 'Flame in Z dir not yet implemented'
-                 call bl_pd_abort(' ')
-               end if
+          if (flame_dir == 1) then
+             vel(i,j,1) = pmf_vals(2)*1.d-2
+             vel(i,j,2) = 0.d0
+          elseif (flame_dir == 2) then
+             vel(i,j,1) = 0.d0
+             vel(i,j,2) = pmf_vals(2)*1.d-2
+          else
+             write(6,*) 'Flame in Z dir not yet implemented'
+             call bl_pd_abort(' ')
+           end if
 
-            end do
-         end do
-
-      endif
+        end do
+      end do
 
       Patm = pamb / pphys_getP1atm_MKS()
 !      write(6,*)"Patm",Patm
@@ -667,12 +474,12 @@ contains
       call pphys_HMIXfromTY(lo,hi, &
           scal(ARG_L1(state),ARG_L2(state),RhoH),     DIMS(state), &
           scal(ARG_L1(state),ARG_L2(state),Temp),     DIMS(state), &
-          scal(ARG_L1(state),ARG_L2(state),FirstSpec),DIMS(state))  
+          scal(ARG_L1(state),ARG_L2(state),FirstSpec),DIMS(state)) 
 
       do j = lo(2), hi(2)
          do i = lo(1), hi(1)
             do n = 0,Nspec-1
-               scal(i,j,FirstSpec+n) = scal(i,j,FirstSpec+n)*scal(i,j,Density)
+              scal(i,j,FirstSpec+n) = scal(i,j,FirstSpec+n)*scal(i,j,Density)
             enddo
             scal(i,j,RhoH) = scal(i,j,RhoH)*scal(i,j,Density)
          enddo
@@ -680,102 +487,6 @@ contains
       
   end subroutine init_data
       
-! ::: -----------------------------------------------------------
-! ::: This routine will zero out diffusivity on portions of the
-! ::: boundary that are inflow, allowing that a "wall" block
-! ::: the complement aperture
-! ::: 
-! ::: INPUTS/OUTPUTS:
-! ::: 
-! ::: diff      <=> diffusivity on edges
-! ::: DIMS(diff) => index extent of diff array
-! ::: lo,hi      => region of interest, edge-based
-! ::: domlo,hi   => index extent of problem domain, edge-based
-! ::: dx         => cell spacing
-! ::: problo     => phys loc of lower left corner of prob domain
-! ::: bc         => boundary condition flag (on orient)
-! :::                   in BC_TYPES::physicalBndryTypes
-! ::: idir       => which face, 0=x, 1=y
-! ::: isrz       => 1 if problem is r-z
-! ::: id         => index of state, 0=u
-! ::: ncomp      => components to modify
-! ::: 
-! ::: -----------------------------------------------------------
-
-  subroutine zero_visc(diff,DIMS(diff),lo,hi,domlo,domhi, &
-                           dx,problo,bc,idir,isrz,id,ncomp) &
-                           bind(C, name="zero_visc")   
-
-      use mod_Fvar_def, only : Density, Temp, FirstSpec, RhoH, LastSpec
-      
-      implicit none
-      integer DIMDEC(diff)
-      integer lo(SDIM), hi(SDIM)
-      integer domlo(SDIM), domhi(SDIM)
-      integer bc(2*SDIM)
-      integer idir, isrz, id, ncomp
-      REAL_T  diff(DIMV(diff),*)
-      REAL_T  dx(SDIM)
-      REAL_T  problo(SDIM)
-      
-#include <probdata.H>
-#include <cdwrk.H>
-
-      integer i, j, n, Tid, RHid, YSid, YEid, ys, ye
-      integer len
-      logical do_T, do_RH, do_Y
-      REAL_T xl, xr, xh, yb, yt, yh, y
-
-      len = len_trim(probtype)
-
-      if ( (probtype(1:len).eq.BL_PROB_PREMIXED_FIXED_INFLOW) &
-          .or. (probtype(1:len).eq.BL_PROB_PREMIXED_CONTROLLED_INFLOW) ) then
-         Tid  = Temp      - id + SDIM
-         RHid = RhoH      - id + SDIM
-         YSid = FirstSpec - id + SDIM
-         YEid = LastSpec  - id + SDIM
-         
-         do_T  = (Tid  .GE. 1) .AND. (Tid  .LE. ncomp)
-         do_RH = (RHid .GE. 1) .AND. (RHid .LE. ncomp)
-         ys = MAX(YSid,1)
-         ye = MIN(YEid,ncomp)
-         do_Y = (ye - ys + 1) .GE. 1
-!     
-!     Do species, Temp, rhoH
-!
-
-         if ((idir.EQ.1) .AND. (lo(2) .LE. domlo(2)) &
-                .AND. (do_T .OR. do_RH .OR. do_Y) ) then
-               
-            j = lo(2)
-            y = float(j)*dx(2)+domnlo(2)
-            do i = lo(1), hi(1)
-               
-               xl = float(i)*dx(1)+domnlo(1) 
-               xr = (float(i)+1.d0)*dx(1)+domnlo(1) 
-               xh = 0.5d0*(xl+xr)
-                  
-               if ( (getZone(xl,y).eq.BL_STICK) .OR. &
-                   (getZone(xh,y).eq.BL_STICK) .OR. &
-                   (getZone(xr,y).eq.BL_STICK) .OR. &
-                   (getZone(xl,y).eq.BL_PIPEEND) .OR. &
-                   (getZone(xh,y).eq.BL_PIPEEND) .OR. &
-                   (getZone(xr,y).eq.BL_PIPEEND)  ) then
-                  
-!                 if (do_T)  diff(i,j,Tid ) = 0.d0
-!                 if (do_RH) diff(i,j,RHid) = 0.d0
-                  if (do_Y) then
-                     do n=ys,ye
-                        diff(i,j,n) = 0.d0
-                     enddo
-                  endif
-                     
-               endif
-            end do
-         endif
-      end if
-      
-  end subroutine zero_visc
 
 ! ::: -----------------------------------------------------------
 ! ::: This routine is called during a filpatch operation when
@@ -804,23 +515,21 @@ contains
   subroutine den_fill (den,DIMS(den),domlo,domhi,delta, &
                               xlo,time,bc) &
                               bind(C, name="den_fill")
-                              
+                      
+      use mod_Fvar_def, only : domnlo, maxspec, dim
+              
       implicit none
 
-      integer DIMDEC(den), bc(SDIM,2)
-      integer domlo(SDIM), domhi(SDIM)
-      REAL_T  delta(SDIM), xlo(SDIM), time
+      integer DIMDEC(den), bc(dim,2)
+      integer domlo(dim), domhi(dim)
+      REAL_T  delta(dim), xlo(dim), time
       REAL_T  den(DIMV(den))
 
-#include <cdwrk.H>
-#include <bc.H>
-#include <probdata.H>
-      
       integer i, j
       REAL_T  y, x
       REAL_T  u, v, rho, Yl(0:maxspec-1), T, h
 
-      integer lo(SDIM), hi(SDIM)
+      integer lo(dim), hi(dim)
 
       lo(1) = ARG_L1(den)
       lo(2) = ARG_L2(den)
@@ -902,16 +611,18 @@ contains
   subroutine adv_fill (adv,DIMS(adv),domlo,domhi,delta,xlo,time,bc)&
                            bind(C, name="adv_fill")
 
+      use mod_Fvar_def, only : dim
+      
       implicit none
 
       integer    DIMDEC(adv)
-      integer    domlo(SDIM), domhi(SDIM)
-      REAL_T     delta(SDIM), xlo(SDIM), time
+      integer    domlo(dim), domhi(dim)
+      REAL_T     delta(dim), xlo(dim), time
       REAL_T     adv(DIMV(adv))
-      integer    bc(SDIM,2)
+      integer    bc(dim,2)
 
       integer    i,j
-      integer lo(SDIM), hi(SDIM)
+      integer lo(dim), hi(dim)
 
       lo(1) = ARG_L1(adv)
       lo(2) = ARG_L2(adv)
@@ -958,22 +669,20 @@ contains
                               xlo,time,bc)&
                               bind(C, name="temp_fill")
 
+      use mod_Fvar_def, only : domnlo, maxspec, dim
+      
       implicit none
 
-      integer DIMDEC(temp), bc(SDIM,2)
-      integer domlo(SDIM), domhi(SDIM)
-      REAL_T  delta(SDIM), xlo(SDIM), time
+      integer DIMDEC(temp), bc(dim,2)
+      integer domlo(dim), domhi(dim)
+      REAL_T  delta(dim), xlo(dim), time
       REAL_T  temp(DIMV(temp))
-
-#include <cdwrk.H>
-#include <bc.H>
-#include <probdata.H>
       
       integer i, j
       REAL_T  y, x
       REAL_T  u, v, rho, Yl(0:maxspec-1), T, h
 
-      integer lo(SDIM), hi(SDIM)
+      integer lo(dim), hi(dim)
 
       lo(1) = ARG_L1(temp)
       lo(2) = ARG_L2(temp)
@@ -1055,22 +764,20 @@ contains
                               xlo,time,bc)&
                               bind(C, name="rhoh_fill")
 
+      use mod_Fvar_def, only : domnlo, maxspec, dim
+      
       implicit none
 
-      integer DIMDEC(rhoh), bc(SDIM,2)
-      integer domlo(SDIM), domhi(SDIM)
-      REAL_T  delta(SDIM), xlo(SDIM), time
+      integer DIMDEC(rhoh), bc(dim,2)
+      integer domlo(dim), domhi(dim)
+      REAL_T  delta(dim), xlo(dim), time
       REAL_T  rhoh(DIMV(rhoh))
-
-#include <cdwrk.H>
-#include <bc.H>
-#include <probdata.H>
       
       integer i, j
       REAL_T  y, x
       REAL_T  u, v, rho, Yl(0:maxspec-1), T, h
 
-      integer lo(SDIM), hi(SDIM)
+      integer lo(dim), hi(dim)
 
       lo(1) = ARG_L1(rhoh)
       lo(2) = ARG_L2(rhoh)
@@ -1133,11 +840,14 @@ contains
                               xlo,time,bc)&
                               bind(C, name="vel_fill")
 
+      use mod_Fvar_def, only : dim
+      
       implicit none
-      integer DIMDEC(vel), bc(SDIM,2,SDIM)
-      integer domlo(SDIM), domhi(SDIM)
-      REAL_T  delta(SDIM), xlo(SDIM), time
-      REAL_T  vel(DIMV(vel),SDIM)
+      
+      integer DIMDEC(vel), bc(dim,2,dim)
+      integer domlo(dim), domhi(dim)
+      REAL_T  delta(dim), xlo(dim), time
+      REAL_T  vel(DIMV(vel),dim)
 
       call FORT_XVELFILL (vel(ARG_L1(vel),ARG_L2(vel),1), &
       DIMS(vel),domlo,domhi,delta,xlo,time,bc(1,1,1))
@@ -1156,15 +866,13 @@ contains
                             bind(C, name="all_chem_fill")
 
       use network,  only: nspec
+      use mod_Fvar_def, only : dim
       
       implicit none
-#include <cdwrk.H>
-#include <bc.H>
-#include <probdata.H>
 
-      integer DIMDEC(rhoY), bc(SDIM,2,Nspec)
-      integer domlo(SDIM), domhi(SDIM)
-      REAL_T  delta(SDIM), xlo(SDIM), time
+      integer DIMDEC(rhoY), bc(dim,2,Nspec)
+      integer domlo(dim), domhi(dim)
+      REAL_T  delta(dim), xlo(dim), time
       REAL_T  rhoY(DIMV(rhoY),Nspec)
 
       integer n
@@ -1203,22 +911,21 @@ contains
                             xlo,time,bc)&
                             bind(C, name="FORT_XVELFILL")
                                
+      use mod_Fvar_def, only : domnlo, maxspec, dim
+      
       implicit none
-      integer DIMDEC(xvel), bc(SDIM,2)
-      integer domlo(SDIM), domhi(SDIM)
-      REAL_T  delta(SDIM), xlo(SDIM), time
+      
+      integer DIMDEC(xvel), bc(dim,2)
+      integer domlo(dim), domhi(dim)
+      REAL_T  delta(dim), xlo(dim), time
       REAL_T  xvel(DIMV(xvel))
-
-#include <cdwrk.H>
-#include <bc.H>
-#include <probdata.H>
 
       integer i, j
       integer ilo, ihi, jlo, jhi
-      REAL_T  y, x, hx, xhi(SDIM)
+      REAL_T  y, x, hx
       REAL_T  u, v, rho, Yl(0:maxspec-1), T, h
 
-      integer lo(SDIM), hi(SDIM)
+      integer lo(dim), hi(dim)
 
       lo(1) = ARG_L1(xvel)
       hi(1) = ARG_H1(xvel)
@@ -1315,22 +1022,21 @@ contains
                             xlo,time,bc)&
                             bind(C, name="FORT_YVELFILL")
                                
+      use mod_Fvar_def, only : domnlo, maxspec, dim
+      
       implicit none
-      integer DIMDEC(yvel), bc(SDIM,2)
-      integer domlo(SDIM), domhi(SDIM)
-      REAL_T  delta(SDIM), xlo(SDIM), time
+      
+      integer DIMDEC(yvel), bc(dim,2)
+      integer domlo(dim), domhi(dim)
+      REAL_T  delta(dim), xlo(dim), time
       REAL_T  yvel(DIMV(yvel))
-
-#include <cdwrk.H>
-#include <bc.H>
-#include <probdata.H>
       
       integer i, j
       integer ilo, ihi, jlo, jhi
-      REAL_T  y, x, hx, xhi(SDIM)
+      REAL_T  y, x, hx
       REAL_T  u, v, rho, Yl(0:maxspec-1), T, h
 
-      integer lo(SDIM), hi(SDIM)
+      integer lo(dim), hi(dim)
 
       lo(1) = ARG_L1(yvel)
       hi(1) = ARG_H1(yvel)
@@ -1428,22 +1134,21 @@ contains
                             xlo,time,bc,id ) &
                             bind(C, name="chem_fill")
                                
+      use mod_Fvar_def, only : domnlo, maxspec, dim
+      
       implicit none
-      integer DIMDEC(rhoY), bc(SDIM,2)
-      integer domlo(SDIM), domhi(SDIM), id
-      REAL_T  delta(SDIM), xlo(SDIM), time
+      
+      integer DIMDEC(rhoY), bc(dim,2)
+      integer domlo(dim), domhi(dim), id
+      REAL_T  delta(dim), xlo(dim), time
       REAL_T  rhoY(DIMV(rhoY))
-
-#include <cdwrk.H>
-#include <bc.H>
-#include <probdata.H>
       
       integer i, j
       integer ilo, ihi, jlo, jhi
-      REAL_T  y, x, hx, xhi(SDIM)
+      REAL_T  y, x, hx
       REAL_T  u, v, rho, Yl(0:maxspec-1), T, h
 
-      integer lo(SDIM), hi(SDIM)
+      integer lo(dim), hi(dim)
 
       lo(1) = ARG_L1(rhoY)
       hi(1) = ARG_H1(rhoY)
@@ -1539,12 +1244,15 @@ contains
   subroutine press_fill (p,DIMS(p),domlo,domhi,dx,xlo,time,bc)&
                             bind(C, name="press_fill")
   
+      use mod_Fvar_def, only : dim
+      
       implicit none
+      
       integer    DIMDEC(p)
-      integer    domlo(SDIM), domhi(SDIM)
-      REAL_T     dx(SDIM), xlo(SDIM), time
+      integer    domlo(dim), domhi(dim)
+      REAL_T     dx(dim), xlo(dim), time
       REAL_T     p(DIMV(p))
-      integer    bc(SDIM,2)
+      integer    bc(dim,2)
 
       integer    i, j
       integer    ilo, ihi, jlo, jhi
@@ -1698,28 +1406,23 @@ contains
                                dx,xlo,xhi,gravity,scomp,ncomp)&
                                bind(C,name="FORT_MAKEFORCE")
 
+      use mod_Fvar_def, only : dv_control, pseudo_gravity, dim
+      
       implicit none
 
       integer    DIMDEC(state)
       integer    DIMDEC(istate)
       integer    scomp, ncomp
-      REAL_T     time, dx(SDIM)
-      REAL_T     xlo(SDIM), xhi(SDIM)
+      REAL_T     time, dx(dim)
+      REAL_T     xlo(dim), xhi(dim)
       REAL_T     force  (DIMV(istate),scomp+1:scomp+ncomp)
       REAL_T     rho    (DIMV(state))
       REAL_T     gravity
 
-#include <probdata.H>
-#include <cdwrk.H>
-#include <bc.H>
-
       integer i, j, n
       integer ilo, jlo
       integer ihi, jhi
-      integer a2, a3, a4, a5
-      REAL_T  x, y
       REAL_T  hx, hy
-      REAL_T  sga, cga
       integer isioproc
       integer nXvel, nYvel, nRho, nTrac
 

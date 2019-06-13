@@ -1,13 +1,7 @@
  &fortin
-  probtype = 'premixed_controlled_inlet'
-
   V_in = .2280410684149
 
   standoff = -.022
-  pertmag = 0.000
-
-  phi_in = -0.4
-  T_in = 298.
 
   flame_dir = 1
 
@@ -15,12 +9,6 @@
  &heattransin
   pamb = 101325.
   dpdt_factor = .3
- /
-  &flctin
-  flct_file = "Turb_n0575_strong.bin"
-  flct_file = ""
-  forceInflow = .FALSE.
-  nCompInflow = 3
  /
   &control
   tau_control = 6.e-5
