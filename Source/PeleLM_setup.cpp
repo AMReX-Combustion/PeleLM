@@ -545,18 +545,18 @@ PeleLM::variableSetUp ()
   set_x_vel_bc(bc,phys_bc);
   bcs[0]  = bc;
   name[0] = "x_velocity";
-  desc_lst.setComponent(State_Type,Xvel,"x_velocity",bc,BndryFunc(FORT_XVELFILL));
+  desc_lst.setComponent(State_Type,Xvel,"x_velocity",bc,BndryFunc(xvel_fill));
 
   set_y_vel_bc(bc,phys_bc);
   bcs[1]  = bc;
   name[1] = "y_velocity";
-  desc_lst.setComponent(State_Type,Yvel,"y_velocity",bc,BndryFunc(FORT_YVELFILL));
+  desc_lst.setComponent(State_Type,Yvel,"y_velocity",bc,BndryFunc(yvel_fill));
 
 #if(BL_SPACEDIM==3)
   set_z_vel_bc(bc,phys_bc);
   bcs[2]  = bc;
   name[2] = "z_velocity";
-  desc_lst.setComponent(State_Type,Zvel,"z_velocity",bc,BndryFunc(FORT_ZVELFILL));
+  desc_lst.setComponent(State_Type,Zvel,"z_velocity",bc,BndryFunc(zvel_fill));
 #endif
   //
   // To enable "group" operations on filling velocities, we need to
@@ -569,7 +569,7 @@ PeleLM::variableSetUp ()
                           Xvel,
                           name,
                           bcs,
-                          BndryFunc(FORT_XVELFILL,vel_fill));
+                          BndryFunc(xvel_fill,vel_fill));
   }
   //
   // **************  DEFINE SCALAR VARIABLES  ********************

@@ -4,7 +4,7 @@
 #include <PeleLM_F.H>
 #include <AMReX_ArrayLim.H>
 
-module user_defined_fcts_2d_module
+module user_defined_fcts_3d_module
 
 implicit none
   
@@ -14,22 +14,20 @@ implicit none
 
 contains
   
-
-
 !-----------------------
 
-  subroutine bcfunction(x,y,time,u,v,rho,Yl,T,h,dx,getuv) &
+  subroutine bcfunction(x,y,z,time,u,v,w,rho,Yl,T,h,dx,getuvw) &
                         bind(C, name="bcfunction")
 
       use network,   only: nspec
       use mod_Fvar_def, only : dim
       use mod_Fvar_def, only : dv_control, tbase_control, V_in, f_flag_active_control
-      use probdata_module, only : bcinit, rho_bc, Y_bc, T_bc, h_bc, v_bc
+      use probdata_module, only : bcinit, rho_bc, Y_bc, T_bc, h_bc, w_bc
       
       implicit none
 
-      REAL_T x, y, time, u, v, rho, Yl(0:*), T, h, dx(dim)
-      logical getuv
+      REAL_T x, y, z, time, u, v, w, rho, Yl(0:*), T, h, dx(dim)
+      logical getuvw
 
       integer n
 
@@ -44,20 +42,22 @@ contains
       T = T_bc(1)
       h = h_bc(1)
          
-      if (getuv .eqv. .TRUE.) then
+      if (getuvw .eqv. .TRUE.) then
             
         u = zero
-        if (f_flag_active_control == 1) then               
-          v =  V_in + (time-tbase_control)*dV_control
+        v = zero
+        if (f_flag_active_control == 1) then                
+          w =  V_in + (time-tbase_control)*dV_control
         else 
-          v = v_bc
+          w = w_bc
         endif
       endif
-         
 
   end subroutine bcfunction
-
-! ::: -----------------------------------------------------------
+  
+  
+  
+  ! ::: -----------------------------------------------------------
 ! ::: This routine will zero out diffusivity on portions of the
 ! ::: boundary that are inflow, allowing that a "wall" block
 ! ::: the complement aperture
@@ -105,5 +105,5 @@ contains
 
   end subroutine zero_visc
 
-end module user_defined_fcts_2d_module
+end module user_defined_fcts_3d_module
 

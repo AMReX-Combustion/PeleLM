@@ -249,7 +249,7 @@ contains
                                 lo,hi,domlo,domhi,delta,xlo,time,dt,&
                                 bc,level,grid_no) bind(C,name="dermgdivu")
       
-      use bc_fill_2d_module, only : FORT_XVELFILL, FORT_YVELFILL
+      use bc_fill_2d_module, only : xvel_fill, yvel_fill
       
       implicit none
 
@@ -290,9 +290,9 @@ contains
       vylo(i,j) = (eight*V(i,j)-six*V(i,j+1)+V(i,j+2))/(three*dy)
       vyhi(i,j) = (eight*V(i,j)-six*V(i,j-1)+V(i,j-2))/(three*dy)
 
-      call FORT_XVELFILL(dat(ARG_L1(dat),ARG_L2(dat),1),DIMS(dat),&
+      call xvel_fill(dat(ARG_L1(dat),ARG_L2(dat),1),DIMS(dat),&
                         domlo,domhi,delta,xlo,time,bc(1,1,1))
-      call FORT_YVELFILL(dat(ARG_L1(dat),ARG_L2(dat),2),DIMS(dat),&
+      call yvel_fill(dat(ARG_L1(dat),ARG_L2(dat),2),DIMS(dat),&
                         domlo,domhi,delta,xlo,time,bc(1,1,2))
 
       dx = delta(1)
@@ -364,9 +364,9 @@ contains
 !
 ! we overwrote the ghost cells above, so set them back below
 !
-      call FORT_XVELFILL(dat(ARG_L1(dat),ARG_L2(dat),1),DIMS(dat),&
+      call xvel_fill(dat(ARG_L1(dat),ARG_L2(dat),1),DIMS(dat),&
                         domlo,domhi,delta,xlo,time,bc(1,1,1))
-      call FORT_YVELFILL(dat(ARG_L1(dat),ARG_L2(dat),2),DIMS(dat),&
+      call yvel_fill(dat(ARG_L1(dat),ARG_L2(dat),2),DIMS(dat),&
                         domlo,domhi,delta,xlo,time,bc(1,1,2))
 
 #     undef U

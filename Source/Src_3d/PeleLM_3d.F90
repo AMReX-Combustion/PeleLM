@@ -33,7 +33,7 @@ module PeleLM_3d
              dsdt_fill, ydot_fill, rhoYdot_fill, fab_minmax, repair_flux, &
              incrwext_flx_div, flux_div, compute_ugradp, conservative_T_floor, &
              part_cnt_err, mcurve, smooth, grad_wbar, recomp_update, &
-             valgt_error, vallt_error, magvort_error, diffgt_error, &
+             valgt_error, vallt_error, magvort_error, diffgt_error, init_data_new_mech, &
              pphys_PfromRTY, pphys_mass_to_mole, pphys_massr_to_conc, pphys_HfromT, &
              pphys_HMIXfromTY, pphys_RHOfromPTY 
 
@@ -1195,6 +1195,64 @@ contains
       enddo
 
   end subroutine compute_rho_dgrad_hdot_grad_y
+  
+! ::: -----------------------------------------------------------
+      
+  subroutine init_data_new_mech (level,time,lo,hi,nscal, &
+                                 vel,scal,DIMS(state),press,DIMS(press), &
+                                 delta,xlo,xhi)&
+                                 bind(C, name="init_data_new_mech")
+          
+      use network,   only: nspec
+      use PeleLM_F,  only: pphys_getP1atm_MKS
+      use mod_Fvar_def, only : Density, Temp, FirstSpec, RhoH, pamb, Trac, dim
+      
+      implicit none
+      integer  level, nscal
+      integer  lo(dim), hi(dim)
+      integer  DIMDEC(state)
+      integer  DIMDEC(press)
+      REAL_T   xlo(dim), xhi(dim)
+      REAL_T   time, delta(dim)
+      REAL_T   vel(DIMV(state),dim)
+      REAL_T   scal(DIMV(state),nscal)
+      REAL_T   press(DIMV(press))
+
+      integer i, j, k, n
+      REAL_T Patm
+ 
+      do k = lo(3), hi(3)
+         do j = lo(2), hi(2)
+            do i = lo(1), hi(1)
+               scal(i,j,k,Trac) = zero
+            end do
+         end do
+      end do
+ 
+      Patm = pamb / pphys_getP1atm_MKS()
+ 
+      call pphys_RHOfromPTY(lo,hi, &
+          scal(ARG_L1(state),ARG_L2(state),ARG_L3(state),Density),  DIMS(state), &
+          scal(ARG_L1(state),ARG_L2(state),ARG_L3(state),Temp),     DIMS(state), &
+          scal(ARG_L1(state),ARG_L2(state),ARG_L3(state),FirstSpec),DIMS(state), &
+          Patm)
+      call pphys_HMIXfromTY(lo,hi, &
+          scal(ARG_L1(state),ARG_L2(state),ARG_L3(state),RhoH),     DIMS(state), &
+          scal(ARG_L1(state),ARG_L2(state),ARG_L3(state),Temp),     DIMS(state), &
+          scal(ARG_L1(state),ARG_L2(state),ARG_L3(state),FirstSpec),DIMS(state))
+ 
+      do k = lo(3), hi(3)
+         do j = lo(2), hi(2)
+            do i = lo(1), hi(1)
+               do n = 0,Nspec-1
+                  scal(i,j,k,FirstSpec+n) = scal(i,j,k,FirstSpec+n)*scal(i,j,k,Density)
+               enddo
+               scal(i,j,k,RhoH) = scal(i,j,k,RhoH)*scal(i,j,k,Density)
+            enddo
+         enddo
+      enddo
+ 
+  end subroutine init_data_new_mech
 
 !--------------------------------------------------------------
 

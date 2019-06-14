@@ -12,7 +12,7 @@ module bc_fill_2d_module
   
   public :: den_fill, adv_fill, &
             temp_fill, rhoh_fill, vel_fill, all_chem_fill, &
-            FORT_XVELFILL, FORT_YVELFILL, chem_fill, press_fill, &
+            xvel_fill, yvel_fill, chem_fill, press_fill, &
             FORT_MAKEFORCE 
 
 contains
@@ -46,7 +46,7 @@ contains
                               bind(C, name="den_fill")
                       
       use mod_Fvar_def, only : domnlo, maxspec, dim
-      use user_defined_fcts_module, only : bcfunction
+      use user_defined_fcts_2d_module, only : bcfunction
               
       implicit none
 
@@ -142,7 +142,7 @@ contains
                            bind(C, name="adv_fill")
 
       use mod_Fvar_def, only : dim
-      use user_defined_fcts_module, only : bcfunction
+      use user_defined_fcts_2d_module, only : bcfunction
       
       implicit none
 
@@ -201,7 +201,7 @@ contains
                               bind(C, name="temp_fill")
 
       use mod_Fvar_def, only : domnlo, maxspec, dim
-      use user_defined_fcts_module, only : bcfunction
+      use user_defined_fcts_2d_module, only : bcfunction
       
       implicit none
 
@@ -297,7 +297,7 @@ contains
                               bind(C, name="rhoh_fill")
 
       use mod_Fvar_def, only : domnlo, maxspec, dim
-      use user_defined_fcts_module, only : bcfunction
+      use user_defined_fcts_2d_module, only : bcfunction
       
       implicit none
 
@@ -382,10 +382,10 @@ contains
       REAL_T  delta(dim), xlo(dim), time
       REAL_T  vel(DIMV(vel),dim)
 
-      call FORT_XVELFILL (vel(ARG_L1(vel),ARG_L2(vel),1), &
+      call xvel_fill (vel(ARG_L1(vel),ARG_L2(vel),1), &
       DIMS(vel),domlo,domhi,delta,xlo,time,bc(1,1,1))
 
-      call FORT_YVELFILL (vel(ARG_L1(vel),ARG_L2(vel),2), &
+      call yvel_fill (vel(ARG_L1(vel),ARG_L2(vel),2), &
       DIMS(vel),domlo,domhi,delta,xlo,time,bc(1,1,2))
 
   end subroutine vel_fill
@@ -440,12 +440,12 @@ contains
 ! ::: bc	=> array of boundary flags bc(BL_SPACEDIM,lo:hi)
 ! ::: -----------------------------------------------------------
 
-  subroutine FORT_XVELFILL (xvel,DIMS(xvel),domlo,domhi,delta, &
+  subroutine xvel_fill (xvel,DIMS(xvel),domlo,domhi,delta, &
                             xlo,time,bc)&
-                            bind(C, name="FORT_XVELFILL")
+                            bind(C, name="xvel_fill")
                                
       use mod_Fvar_def, only : domnlo, maxspec, dim
-      use user_defined_fcts_module, only : bcfunction
+      use user_defined_fcts_2d_module, only : bcfunction
       
       implicit none
       
@@ -527,7 +527,7 @@ contains
          enddo
       endif
       
-  end subroutine FORT_XVELFILL
+  end subroutine xvel_fill
 
 ! ::: -----------------------------------------------------------
 ! ::: This routine is called during a filpatch operation when
@@ -552,12 +552,12 @@ contains
 ! ::: bc	=> array of boundary flags bc(BL_SPACEDIM,lo:hi)
 ! ::: -----------------------------------------------------------
 
-  subroutine FORT_YVELFILL (yvel,DIMS(yvel),domlo,domhi,delta, &
+  subroutine yvel_fill (yvel,DIMS(yvel),domlo,domhi,delta, &
                             xlo,time,bc)&
-                            bind(C, name="FORT_YVELFILL")
+                            bind(C, name="yvel_fill")
                                
       use mod_Fvar_def, only : domnlo, maxspec, dim
-      use user_defined_fcts_module, only : bcfunction
+      use user_defined_fcts_2d_module, only : bcfunction
       
       implicit none
       
@@ -639,7 +639,7 @@ contains
          enddo
       endif
       
-  end subroutine FORT_YVELFILL
+  end subroutine yvel_fill
       
 ! ::: -----------------------------------------------------------
 ! ::: This routine is called during a filpatch operation when
@@ -670,7 +670,7 @@ contains
                             bind(C, name="chem_fill")
                                
       use mod_Fvar_def, only : domnlo, maxspec, dim
-      use user_defined_fcts_module, only : bcfunction
+      use user_defined_fcts_2d_module, only : bcfunction
       
       implicit none
       

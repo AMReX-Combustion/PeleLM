@@ -24,7 +24,7 @@ contains
       use network,   only: nspec
       use mod_Fvar_def, only : dim
       use mod_Fvar_def, only : dv_control, tbase_control, V_in, f_flag_active_control
-      use probdata_module, only : bcinit, rho_bc, Y_bc, T_bc, h_bc, v_bc
+      use probdata_module, only : bcinit, rho_bc, Y_bc, T_bc, h_bc, u_bc, v_bc, flame_dir
       
       implicit none
 
@@ -45,17 +45,31 @@ contains
       h = h_bc(1)
          
       if (getuv .eqv. .TRUE.) then
-            
-        u = zero
-        if (f_flag_active_control == 1) then               
-          v =  V_in + (time-tbase_control)*dV_control
-        else 
-          v = v_bc
-        endif
+      
+        if (flame_dir == 1) then
+          v = zero
+          if (f_flag_active_control == 1) then
+            u =  V_in + (time-tbase_control)*dV_control
+          else
+            u = u_bc
+          endif
+        else if (flame_dir == 2) then
+          u = zero
+          if (f_flag_active_control == 1) then 
+            v =  V_in + (time-tbase_control)*dV_control
+          else
+            v = v_bc
+          endif
+        else
+          write(6,*) 'Flame in Z dir not yet implemented'
+          call bl_pd_abort(' ')
+        end if
+      
       endif
          
 
   end subroutine bcfunction
+
 
 ! ::: -----------------------------------------------------------
 ! ::: This routine will zero out diffusivity on portions of the

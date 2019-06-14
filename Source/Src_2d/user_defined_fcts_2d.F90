@@ -21,39 +21,18 @@ contains
   subroutine bcfunction(x,y,time,u,v,rho,Yl,T,h,dx,getuv) &
                         bind(C, name="bcfunction")
 
-      use network,   only: nspec
       use mod_Fvar_def, only : dim
-      use mod_Fvar_def, only : dv_control, tbase_control, V_in, f_flag_active_control
-      use probdata_module, only : bcinit, rho_bc, Y_bc, T_bc, h_bc, v_bc
-      
+
       implicit none
 
       REAL_T x, y, time, u, v, rho, Yl(0:*), T, h, dx(dim)
       logical getuv
-
-      integer n
-
-      if (.not. bcinit) then
-         call bl_abort('Need to initialize boundary condition function')
-      end if
-
-      rho = rho_bc(1)
-      do n = 0, Nspec-1
-        Yl(n) = Y_bc(n)
-      end do
-      T = T_bc(1)
-      h = h_bc(1)
-         
-      if (getuv .eqv. .TRUE.) then
-            
-        u = zero
-        if (f_flag_active_control == 1) then               
-          v =  V_in + (time-tbase_control)*dV_control
-        else 
-          v = v_bc
-        endif
-      endif
-         
+   
+      print *,'You are imposing Dirichlet conditions'
+      print *,'you need to initialize boundary condition function'
+      print *,'in user_defined_ftts_2d.F90'
+      call bl_abort('')
+               
 
   end subroutine bcfunction
 

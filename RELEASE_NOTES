@@ -1,0 +1,23 @@
+6/xx/2019
+Release version 0.1 (June, 2019)
+* Major cleaning of PeleLM:
+  * Old style F77 .H files have been removed and all variables are defined in F90 modules.
+  * Prob_$(dim)d.F90 now only requires amrex_probinit and init_data.
+  * All error functions have been deleted and replaced by a more generic procedure.
+  * All _fill functions have been made generic and are in the routines bc_fill_$(dim).F90
+  * PeleLM no longer compiles DERIVE function from IAMR. Called functions have been duplicated.
+    This helps to get rid of the annoying dependency of user defined routines such as FORT_XVELFILL.
+  * User specific routines (bcfunction and zero_visc) are now in user_defined_fcts_$(dim).F90
+    These routines may not be needed but are nonetheless compiled, so an empty version is present in Src_$(dim) folder
+  * The Exec folder has been reorganized. All previous cases have been moved to Obsolete and no londer compile.
+    The FIAB case has been cleaned and renamed as Flame_sheet in RegTests.
+
+* New regression test cases in RegTests dir:
+    1D PMF in X and Y directions, with and without control,
+    as well as a Convected Vortex (CoVo) case.
+
+* Regression test cases and convergence tests are automatized via a python script chain. 
+
+* PeleLM is now fully using PelePhysics, the ChemDriver has been removed.
+
+* Several bug fix in tiling.
