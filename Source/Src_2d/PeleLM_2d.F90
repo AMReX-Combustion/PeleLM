@@ -34,7 +34,7 @@ module PeleLM_2d
              est_divu_dt, check_divu_dt, dqrad_fill, divu_fill, &
              dsdt_fill, ydot_fill, rhoYdot_fill, fab_minmax, repair_flux, &
              incrwext_flx_div, flux_div, compute_ugradp, conservative_T_floor, &
-             part_cnt_err, mcurve, smooth, grad_wbar, recomp_update, &
+             part_cnt_err, mcurve, smooth, grad_wbar, recomp_update, init_data_new_mech, &
              valgt_error, vallt_error, magvort_error, diffgt_error, &
              pphys_PfromRTY, pphys_mass_to_mole, pphys_massr_to_conc, pphys_HfromT, &
              pphys_HMIXfromTY, pphys_RHOfromPTY
@@ -2732,6 +2732,61 @@ contains
 
   end subroutine recomp_update
 
+! ::: -----------------------------------------------------------
+      
+  subroutine init_data_new_mech (level,time,lo,hi,nscal, &
+          vel,scal,DIMS(state),press,DIMS(press), &
+          delta,xlo,xhi)&
+          bind(C, name="init_data_new_mech")
+          
+
+      use network,   only: nspec
+      use PeleLM_F,  only: pphys_getP1atm_MKS
+      use mod_Fvar_def, only : Density, Temp, FirstSpec, RhoH, pamb, Trac, dim
+      
+      implicit none
+      integer  level, nscal
+      integer  lo(dim), hi(dim)
+      integer  DIMDEC(state)
+      integer  DIMDEC(press)
+      REAL_T   xlo(dim), xhi(dim)
+      REAL_T   time, delta(dim)
+      REAL_T   vel(DIMV(state),dim)
+      REAL_T   scal(DIMV(state),nscal)
+      REAL_T   press(DIMV(press))
+  
+      integer i, j, n
+      REAL_T Patm
+ 
+      do j = lo(2), hi(2)
+         do i = lo(1), hi(1)
+            scal(i,j,Trac) = zero
+         end do
+      end do
+ 
+      Patm = pamb / pphys_getP1atm_MKS()
+      
+      call pphys_RHOfromPTY(lo,hi, &
+          scal(ARG_L1(state),ARG_L2(state),Density),  DIMS(state), &
+          scal(ARG_L1(state),ARG_L2(state),Temp),     DIMS(state), &
+          scal(ARG_L1(state),ARG_L2(state),FirstSpec),DIMS(state), &
+          Patm)
+      call pphys_HMIXfromTY(lo,hi, &
+          scal(ARG_L1(state),ARG_L2(state),RhoH),     DIMS(state), &
+          scal(ARG_L1(state),ARG_L2(state),Temp),     DIMS(state), &
+          scal(ARG_L1(state),ARG_L2(state),FirstSpec),DIMS(state)) 
+ 
+      do j = lo(2), hi(2)
+         do i = lo(1), hi(1)
+            do n = 0,Nspec-1
+               scal(i,j,FirstSpec+n) = scal(i,j,FirstSpec+n)*scal(i,j,Density)
+            enddo
+            scal(i,j,RhoH) = scal(i,j,RhoH)*scal(i,j,Density)
+         enddo
+      enddo
+ 
+  end subroutine init_data_new_mech  
+  
 !-----------------------------------
 
   subroutine valgt_error(tag,DIMS(tag),set,clear,&

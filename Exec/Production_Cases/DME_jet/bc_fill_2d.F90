@@ -1,0 +1,692 @@
+#include <AMReX_REAL.H>
+#include <PeleLM_F.H>
+#include <AMReX_ArrayLim.H>
+
+module bc_fill_2d_module
+
+  implicit none
+  
+  private
+  
+  public :: den_fill, adv_fill, &
+            temp_fill, rhoh_fill, vel_fill, all_chem_fill, &
+            FORT_XVELFILL, FORT_YVELFILL, chem_fill, press_fill, &
+            FORT_MAKEFORCE, zero_visc 
+
+contains
+
+
+! ::: -----------------------------------------------------------
+! ::: This routine is called during a filpatch operation when
+! ::: the patch to be filled falls outside the interior
+! ::: of the problem domain.  You are requested to supply the
+! ::: data outside the problem interior in such a way that the
+! ::: data is consistant with the types of the boundary conditions
+! ::: you specified in the C++ code.  
+! ::: 
+! ::: NOTE:  you can assume all interior cells have been filled
+! :::        with valid data and that all non-interior cells have
+! ::         have been filled with a large real number.
+! ::: 
+! ::: INPUTS/OUTPUTS:
+! ::: 
+! ::: den      <=  density array
+! ::: DIMS(den) => index extent of den array
+! ::: domlo,hi  => index extent of problem domain
+! ::: dx        => cell spacing
+! ::: xlo       => physical location of lower left hand
+! :::	           corner of den array
+! ::: time      => problem evolution time
+! ::: bc	=> array of boundary flags bc(BL_SPACEDIM,lo:hi)
+! ::: -----------------------------------------------------------
+
+  subroutine den_fill (den,DIMS(den),domlo,domhi,delta, &
+                              xlo,time,bc) &
+                              bind(C, name="den_fill")
+                              
+      use mod_Fvar_def, only : maxspec, dim
+      
+      implicit none
+
+      integer DIMDEC(den), bc(dim,2)
+      integer domlo(dim), domhi(dim)
+      REAL_T  delta(dim), xlo(dim), time
+      REAL_T  den(DIMV(den))
+     
+      call filcc (den,DIMS(den),domlo,domhi,delta,xlo,bc)
+
+
+  end subroutine den_fill
+
+! ::: -----------------------------------------------------------
+! ::: This routine is called during a filpatch operation when
+! ::: the patch to be filled falls outside the interior
+! ::: of the problem domain.  You are requested to supply the
+! ::: data outside the problem interior in such a way that the
+! ::: data is consistant with the types of the boundary conditions
+! ::: you specified in the C++ code.  
+! ::: 
+! ::: NOTE:  you can assume all interior cells have been filled
+! :::        with valid data and that all non-interior cells have
+! ::         have been filled with a large real number.
+! ::: 
+! ::: INPUTS/OUTPUTS:
+! ::: 
+! ::: adv      <=  advected quantity array
+! ::: DIMS(adv) => index extent of adv array
+! ::: domlo,hi  => index extent of problem domain
+! ::: dx        => cell spacing
+! ::: xlo       => physical location of lower left hand
+! :::	           corner of adv array
+! ::: time      => problem evolution time
+! ::: bc	=> array of boundary flags bc(BL_SPACEDIM,lo:hi)
+! ::: -----------------------------------------------------------
+
+  subroutine adv_fill (adv,DIMS(adv),domlo,domhi,delta,xlo,time,bc)&
+                           bind(C, name="adv_fill")
+
+      use mod_Fvar_def, only : maxspec, dim
+      
+      implicit none
+
+      integer    DIMDEC(adv)
+      integer    domlo(dim), domhi(dim)
+      REAL_T     delta(dim), xlo(dim), time
+      REAL_T     adv(DIMV(adv))
+      integer    bc(dim,2)
+
+      call filcc (adv,DIMS(adv),domlo,domhi,delta,xlo,bc)
+
+
+  end subroutine adv_fill
+
+
+! ::: -----------------------------------------------------------
+! ::: This routine is called during a filpatch operation when
+! ::: the patch to be filled falls outside the interior
+! ::: of the problem domain.  You are requested to supply the
+! ::: data outside the problem interior in such a way that the
+! ::: data is consistant with the types of the boundary conditions
+! ::: you specified in the C++ code.
+! :::
+! ::: NOTE:  you can assume all interior cells have been filled
+! :::        with valid data.
+! :::
+! ::: INPUTS/OUTPUTS:
+! :::
+! ::: temp     <=  temperature array
+! ::: lo,hi     => index extent of adv array
+! ::: domlo,hi  => index extent of problem domain
+! ::: delta     => cell spacing
+! ::: xlo       => physical location of lower left hand
+! :::              corner of temperature array
+! ::: time      => problem evolution time
+! ::: bc        => array of boundary flags bc(BL_SPACEDIM,lo:hi)
+! ::: -----------------------------------------------------------
+
+      subroutine temp_fill (temp,DIMS(temp),domlo,domhi,delta, &
+                              xlo,time,bc)&
+                              bind(C, name="temp_fill")
+
+      use mod_Fvar_def, only : maxspec, dim
+      
+      implicit none
+
+      integer DIMDEC(temp), bc(dim,2)
+      integer domlo(dim), domhi(dim)
+      REAL_T  delta(dim), xlo(dim), time
+      REAL_T  temp(DIMV(temp))
+      
+      call filcc (temp,DIMS(temp),domlo,domhi,delta,xlo,bc)
+      
+  end subroutine temp_fill
+
+! ::: -----------------------------------------------------------
+! ::: This routine is called during a filpatch operation when
+! ::: the patch to be filled falls outside the interior
+! ::: of the problem domain.  You are requested to supply the
+! ::: data outside the problem interior in such a way that the
+! ::: data is consistant with the types of the boundary conditions
+! ::: you specified in the C++ code.
+! :::
+! ::: NOTE:  you can assume all interior cells have been filled
+! :::        with valid data.
+! :::
+! ::: INPUTS/OUTPUTS:
+! :::
+! ::: rhoh      <=  rho*h array
+! ::: lo,hi     => index extent of adv array
+! ::: domlo,hi  => index extent of problem domain
+! ::: delta     => cell spacing
+! ::: xlo       => physical location of lower left hand
+! :::              corner of temperature array
+! ::: time      => problem evolution time
+! ::: bc        => array of boundary flags bc(BL_SPACEDIM,lo:hi)
+! ::: -----------------------------------------------------------
+
+  subroutine rhoh_fill (rhoh,DIMS(rhoh),domlo,domhi,delta, &
+                              xlo,time,bc)&
+                              bind(C, name="rhoh_fill")
+
+      use mod_Fvar_def, only : maxspec, dim
+      
+      implicit none
+
+      integer DIMDEC(rhoh), bc(dim,2)
+      integer domlo(dim), domhi(dim)
+      REAL_T  delta(dim), xlo(dim), time
+      REAL_T  rhoh(DIMV(rhoh))
+      
+      call filcc (rhoh,DIMS(rhoh),domlo,domhi,delta,xlo,bc)
+
+  end subroutine rhoh_fill
+  
+!
+! Fill x & y velocity at once.
+!
+
+  subroutine vel_fill (vel,DIMS(vel),domlo,domhi,delta, &
+                              xlo,time,bc)&
+                              bind(C, name="vel_fill")
+
+      use mod_Fvar_def, only : dim
+      
+      implicit none
+      
+      integer DIMDEC(vel), bc(dim,2,dim)
+      integer domlo(dim), domhi(dim)
+      REAL_T  delta(dim), xlo(dim), time
+      REAL_T  vel(DIMV(vel),dim)
+
+      call FORT_XVELFILL (vel(ARG_L1(vel),ARG_L2(vel),1), &
+      DIMS(vel),domlo,domhi,delta,xlo,time,bc(1,1,1))
+
+      call FORT_YVELFILL (vel(ARG_L1(vel),ARG_L2(vel),2), &
+      DIMS(vel),domlo,domhi,delta,xlo,time,bc(1,1,2))
+
+  end subroutine vel_fill
+
+!
+! Fill all chem species at once
+!
+
+  subroutine all_chem_fill (rhoY,DIMS(rhoY),domlo,domhi,delta, &
+                            xlo,time,bc)&
+                            bind(C, name="all_chem_fill")
+
+      use network,  only: nspec
+      use mod_Fvar_def, only : dim
+      
+      implicit none
+
+      integer DIMDEC(rhoY), bc(dim,2,Nspec)
+      integer domlo(dim), domhi(dim)
+      REAL_T  delta(dim), xlo(dim), time
+      REAL_T  rhoY(DIMV(rhoY),Nspec)
+
+      integer n
+      
+      do n=1,Nspec
+         call chem_fill (rhoY(ARG_L1(rhoY),ARG_L2(rhoY),n), &
+             DIMS(rhoY),domlo,domhi,delta,xlo,time,bc(1,1,n),n-1)
+      enddo
+      
+  end subroutine all_chem_fill
+
+! ::: -----------------------------------------------------------
+! ::: This routine is called during a filpatch operation when
+! ::: the patch to be filled falls outside the interior
+! ::: of the problem domain.  You are requested to supply the
+! ::: data outside the problem interior in such a way that the
+! ::: data is consistant with the types of the boundary conditions
+! ::: you specified in the C++ code.  
+! ::: 
+! ::: NOTE:  you can assume all interior cells have been filled
+! :::        with valid data.
+! ::: 
+! ::: INPUTS/OUTPUTS:
+! ::: 
+! ::: xvel     <=  x velocity array
+! ::: lo,hi     => index extent of xvel array
+! ::: domlo,hi  => index extent of problem domain
+! ::: delta     => cell spacing
+! ::: xlo       => physical location of lower left hand
+! :::	           corner of rho array
+! ::: time      => problem evolution time
+! ::: bc	=> array of boundary flags bc(BL_SPACEDIM,lo:hi)
+! ::: -----------------------------------------------------------
+
+  subroutine FORT_XVELFILL (xvel,DIMS(xvel),domlo,domhi,delta, &
+                            xlo,time,bc)&
+                            bind(C, name="FORT_XVELFILL")
+                               
+      use mod_Fvar_def, only : maxspec, dim
+      
+      implicit none
+      
+      integer DIMDEC(xvel), bc(dim,2)
+      integer domlo(dim), domhi(dim)
+      REAL_T  delta(dim), xlo(dim), time
+      REAL_T  xvel(DIMV(xvel))
+
+      call filcc (xvel,DIMS(xvel),domlo,domhi,delta,xlo,bc)
+      
+      
+  end subroutine FORT_XVELFILL
+
+! ::: -----------------------------------------------------------
+! ::: This routine is called during a filpatch operation when
+! ::: the patch to be filled falls outside the interior
+! ::: of the problem domain.  You are requested to supply the
+! ::: data outside the problem interior in such a way that the
+! ::: data is consistant with the types of the boundary conditions
+! ::: you specified in the C++ code.  
+! ::: 
+! ::: NOTE:  you can assume all interior cells have been filled
+! :::        with valid data.
+! ::: 
+! ::: INPUTS/OUTPUTS:
+! ::: 
+! ::: yvel     <=  y velocity array
+! ::: lo,hi     => index extent of yvel array
+! ::: domlo,hi  => index extent of problem domain
+! ::: delta     => cell spacing
+! ::: xlo       => physical location of lower left hand
+! :::	           corner of rho array
+! ::: time      => problem evolution time
+! ::: bc	=> array of boundary flags bc(BL_SPACEDIM,lo:hi)
+! ::: -----------------------------------------------------------
+
+  subroutine FORT_YVELFILL (yvel,DIMS(yvel),domlo,domhi,delta, &
+                            xlo,time,bc)&
+                            bind(C, name="FORT_YVELFILL")
+                               
+      use mod_Fvar_def, only : maxspec, dim
+      
+      implicit none
+      
+      integer DIMDEC(yvel), bc(dim,2)
+      integer domlo(dim), domhi(dim)
+      REAL_T  delta(dim), xlo(dim), time
+      REAL_T  yvel(DIMV(yvel))
+      
+      call filcc (yvel,DIMS(yvel),domlo,domhi,delta,xlo,bc)
+      
+  end subroutine FORT_YVELFILL
+      
+! ::: -----------------------------------------------------------
+! ::: This routine is called during a filpatch operation when
+! ::: the patch to be filled falls outside the interior
+! ::: of the problem domain.  You are requested to supply the
+! ::: data outside the problem interior in such a way that the
+! ::: data is consistant with the types of the boundary conditions
+! ::: you specified in the C++ code.
+! :::
+! ::: NOTE:  you can assume all interior cells have been filled
+! :::        with valid data.
+! :::
+! ::: INPUTS/OUTPUTS:
+! :::
+! ::: rhoY      <= rho*Y (Y=mass fraction) array
+! ::: lo,hi     => index extent of adv array
+! ::: domlo,hi  => index extent of problem domain
+! ::: delta     => cell spacing
+! ::: xlo       => physical location of lower left hand
+! :::              corner of temperature array
+! ::: time      => problem evolution time
+! ::: bc        => array of boundary flags bc(BL_SPACEDIM,lo:hi)
+! ::: stateID   => id index of state being filled
+! ::: -----------------------------------------------------------
+      
+  subroutine chem_fill (rhoY,DIMS(rhoY),domlo,domhi,delta, &
+                            xlo,time,bc,id ) &
+                            bind(C, name="chem_fill")
+                               
+      use mod_Fvar_def, only :  maxspec, dim
+      
+      implicit none
+      
+      integer DIMDEC(rhoY), bc(dim,2)
+      integer domlo(dim), domhi(dim), id
+      REAL_T  delta(dim), xlo(dim), time
+      REAL_T  rhoY(DIMV(rhoY))
+      
+      call filcc (rhoY,DIMS(rhoY),domlo,domhi,delta,xlo,bc)
+            
+  end subroutine chem_fill
+
+! ::: -----------------------------------------------------------
+! ::: This routine is called during a filpatch operation when
+! ::: the patch to be filled falls outside the interior
+! ::: of the problem domain.  You are requested to supply the
+! ::: data outside the problem interior in such a way that the
+! ::: data is consistant with the types of the boundary conditions
+! ::: you specified in the C++ code.  
+! ::: 
+! ::: NOTE:  you can assume all interior cells have been filled
+! :::        with valid data.
+! ::: 
+! ::: INPUTS/OUTPUTS:
+! ::: 
+! ::: p        <=  pressure array
+! ::: DIMS(p)   => index extent of p array
+! ::: domlo,hi  => index extent of problem domain
+! ::: dx        => cell spacing
+! ::: xlo       => physical location of lower left hand
+! :::	           corner of rho array
+! ::: time      => problem evolution time
+! ::: bc	=> array of boundary flags bc(BL_SPACEDIM,lo:hi) 
+! ::: -----------------------------------------------------------
+
+  subroutine press_fill (p,DIMS(p),domlo,domhi,dx,xlo,time,bc)&
+                            bind(C, name="press_fill")
+  
+      use mod_Fvar_def, only : dim
+      
+      implicit none
+      
+      integer    DIMDEC(p)
+      integer    domlo(dim), domhi(dim)
+      REAL_T     dx(dim), xlo(dim), time
+      REAL_T     p(DIMV(p))
+      integer    bc(dim,2)
+
+      integer    i, j
+      integer    ilo, ihi, jlo, jhi
+      logical    fix_xlo, fix_xhi, fix_ylo, fix_yhi
+      logical    per_xlo, per_xhi, per_ylo, per_yhi
+
+      fix_xlo = (ARG_L1(p) .lt. domlo(1)) .and. (bc(1,1) .ne. INT_DIR)
+      per_xlo = (ARG_L1(p) .lt. domlo(1)) .and. (bc(1,1) .eq. INT_DIR)
+      fix_xhi = (ARG_H1(p) .gt. domhi(1)) .and. (bc(1,2) .ne. INT_DIR)
+      per_xhi = (ARG_H1(p) .gt. domhi(1)) .and. (bc(1,2) .eq. INT_DIR)
+      fix_ylo = (ARG_L2(p) .lt. domlo(2)) .and. (bc(2,1) .ne. INT_DIR)
+      per_ylo = (ARG_L2(p) .lt. domlo(2)) .and. (bc(2,1) .eq. INT_DIR)
+      fix_yhi = (ARG_H2(p) .gt. domhi(2)) .and. (bc(2,2) .ne. INT_DIR)
+      per_yhi = (ARG_H2(p) .gt. domhi(2)) .and. (bc(2,2) .eq. INT_DIR)
+
+      ilo = max(ARG_L1(p),domlo(1))
+      ihi = min(ARG_H1(p),domhi(1))
+      jlo = max(ARG_L2(p),domlo(2))
+      jhi = min(ARG_H2(p),domhi(2))
+!
+!     ::::: left side
+!
+
+      if (fix_xlo) then
+         do i = ARG_L1(p), domlo(1)-1
+            do j = jlo,jhi
+               p(i,j) = p(ilo,j)
+            end do
+         end do
+         if (fix_ylo) then
+            do i = ARG_L1(p), domlo(1)-1
+               do j = ARG_L2(p), domlo(2)-1
+                  p(i,j) = p(ilo,jlo)
+               end do
+            end do
+         else if (per_ylo) then
+            do i = ARG_L1(p), domlo(1)-1
+               do j = ARG_L2(p), domlo(2)-1
+                  p(i,j) = p(ilo,j)
+               end do
+            end do
+         end if
+         if (fix_yhi) then
+            do i = ARG_L1(p), domlo(1)-1
+               do j = domhi(2)+1, ARG_H2(p)
+                  p(i,j) = p(ilo,jhi)
+               end do
+            end do
+         else if (per_yhi) then
+            do i = ARG_L1(p), domlo(1)-1
+               do j = domhi(2)+1, ARG_H2(p)
+                  p(i,j) = p(ilo,j)
+               end do
+            end do
+         end if
+      end if
+      
+!
+!     ::::: right side
+!
+
+      if (fix_xhi) then
+         do i = domhi(1)+1, ARG_H1(p)
+            do j = jlo,jhi
+               p(i,j) = p(ihi,j)
+            end do
+	 end do
+	 if (fix_ylo) then
+	    do i = domhi(1)+1, ARG_H1(p)
+               do j = ARG_L2(p), domlo(2)-1
+                  p(i,j) = p(ihi,jlo)
+               end do
+	    end do
+	 else if (per_ylo) then
+	    do i = domhi(1)+1, ARG_H1(p)
+               do j = ARG_L2(p), domlo(2)-1
+                  p(i,j) = p(ihi,j)
+               end do
+	    end do
+         end if
+	 if (fix_yhi) then
+	    do i = domhi(1)+1, ARG_H1(p)
+               do j = domhi(2)+1, ARG_H2(p)
+                  p(i,j) = p(ihi,jhi)
+               end do
+	    end do
+	 else if (per_yhi) then
+	    do i = domhi(1)+1, ARG_H1(p)
+               do j = domhi(2)+1, ARG_H2(p)
+                  p(i,j) = p(ihi,j)
+               end do
+	    end do
+         end if
+      end if
+      
+      if (fix_ylo) then
+         do j = ARG_L2(p), domlo(2)-1
+            do i = ilo, ihi
+               p(i,j) = p(i,jlo)
+            end do
+	 end do
+	 if (per_xlo) then
+          do j = ARG_L2(p), domlo(2)-1
+               do i = ARG_L1(p), domlo(1)-1
+                  p(i,j) = p(i,jlo)
+               end do
+	    end do
+         end if
+	 if (per_xhi) then
+           do j = ARG_L2(p), domlo(2)-1
+               do i = domhi(1)+1, ARG_H1(p)
+                  p(i,j) = p(i,jlo)
+               end do
+	    end do
+         end if
+      end if
+
+      if (fix_yhi) then
+         do j = domhi(2)+1, ARG_H2(p)
+            do i = ilo, ihi
+               p(i,j) = p(i,jhi)
+            end do
+	 end do
+	 if (per_xlo) then
+	    do j = domhi(2)+1, ARG_H2(p)
+               do i = ARG_L1(p), domlo(1)-1
+                  p(i,j) = p(i,jhi)
+               end do
+	    end do
+         end if
+	 if (per_xhi) then
+	    do j = domhi(2)+1, ARG_H2(p)
+               do i = domhi(1)+1, ARG_H1(p)
+                  p(i,j) = p(i,jhi)
+               end do
+	    end do
+         end if
+      end if
+
+  end subroutine press_fill
+
+!
+!
+! ::: -----------------------------------------------------------
+!
+!     This routine add the forcing terms to the momentum equation
+!
+
+  subroutine FORT_MAKEFORCE(time,force,rho, &
+                               DIMS(istate),DIMS(state), &
+                               dx,xlo,xhi,gravity,scomp,ncomp)&
+                               bind(C,name="FORT_MAKEFORCE")
+
+      use mod_Fvar_def, only : dv_control, pseudo_gravity, dim
+      
+      implicit none
+
+      integer    DIMDEC(state)
+      integer    DIMDEC(istate)
+      integer    scomp, ncomp
+      REAL_T     time, dx(dim)
+      REAL_T     xlo(dim), xhi(dim)
+      REAL_T     force  (DIMV(istate),scomp+1:scomp+ncomp)
+      REAL_T     rho    (DIMV(state))
+      REAL_T     gravity
+
+      integer i, j, n
+      integer ilo, jlo
+      integer ihi, jhi
+      REAL_T  hx, hy
+      integer isioproc
+      integer nXvel, nYvel, nRho, nTrac
+
+      call bl_pd_is_ioproc(isioproc)
+
+      if (isioproc.eq.1 .and. pseudo_gravity.eq.1) then
+         write(*,*) "pseudo_gravity::dV_control = ",dV_control
+      endif
+
+      hx = dx(1)
+      hy = dx(2)
+
+      ilo = istate_l1
+      jlo = istate_l2
+      ihi = istate_h1
+      jhi = istate_h2
+
+!     Assumes components are in the following order
+      nXvel = 1
+      nYvel = 2
+      nRho  = 3
+      nTrac = 4
+
+      if (scomp.eq.0) then
+         if (abs(gravity).gt.0.0001) then
+            do j = jlo, jhi
+               do i = ilo, ihi
+                  force(i,j,nXvel) = zero
+                  force(i,j,nYvel) = gravity*rho(i,j)
+               enddo
+            enddo
+!     else to zero
+         else
+            do j = jlo, jhi
+               do i = ilo, ihi
+                  force(i,j,nXvel) = zero
+                  force(i,j,nYvel) = zero
+               enddo
+            enddo
+         endif
+!     Add the pseudo gravity afterwards...
+         if (pseudo_gravity.eq.1) then
+            do j = jlo, jhi
+               do i = ilo, ihi
+                  force(i,j,nYvel) = force(i,j,nYvel) + dV_control*rho(i,j)
+               enddo
+            enddo
+         endif
+!     End of velocity forcing
+      endif
+      
+      if ((scomp+ncomp).gt.BL_SPACEDIM) then
+!     Scalar forcing
+         do n = max(scomp+1,nRho), scomp+ncomp
+            if (n.eq.nRho) then
+!     Density
+               do j = jlo, jhi
+                  do i = ilo, ihi
+                     force(i,j,n) = zero
+                  enddo
+               enddo
+            else if (n.eq.nTrac) then
+!     Tracer
+               do j = jlo, jhi
+                  do i = ilo, ihi
+                     force(i,j,n) = zero
+                  enddo
+               enddo
+            else
+!     Other scalar
+               do j = jlo, jhi
+                  do i = ilo, ihi
+                     force(i,j,n) = zero
+                  enddo
+               enddo
+            endif
+         enddo
+      endif
+
+  end subroutine FORT_MAKEFORCE
+
+! ::: -----------------------------------------------------------
+! ::: This routine will zero out diffusivity on portions of the
+! ::: boundary that are inflow, allowing that a "wall" block
+! ::: the complement aperture
+! ::: 
+! ::: INPUTS/OUTPUTS:
+! ::: 
+! ::: diff      <=> diffusivity on edges
+! ::: DIMS(diff) => index extent of diff array
+! ::: lo,hi      => region of interest, edge-based
+! ::: domlo,hi   => index extent of problem domain, edge-based
+! ::: dx         => cell spacing
+! ::: problo     => phys loc of lower left corner of prob domain
+! ::: bc         => boundary condition flag (on orient)
+! :::                   in BC_TYPES::physicalBndryTypes
+! ::: idir       => which face, 0=x, 1=y
+! ::: isrz       => 1 if problem is r-z
+! ::: id         => index of state, 0=u
+! ::: ncomp      => components to modify
+! ::: 
+! ::: -----------------------------------------------------------
+
+  subroutine zero_visc(diff,DIMS(diff),lo,hi,domlo,domhi, &
+                           dx,problo,bc,idir,isrz,id,ncomp) &
+                           bind(C, name="zero_visc")   
+
+      use mod_Fvar_def, only : Density, Temp, FirstSpec, RhoH, LastSpec
+      use mod_Fvar_def, only : domnhi, domnlo, dim
+      
+      implicit none
+      integer DIMDEC(diff)
+      integer lo(dim), hi(dim)
+      integer domlo(dim), domhi(dim)
+      integer bc(2*dim)
+      integer idir, isrz, id, ncomp
+      REAL_T  diff(DIMV(diff),*)
+      REAL_T  dx(dim)
+      REAL_T  problo(dim)
+
+
+
+! Routine compiled but should be set by the user
+! if there is a mix of inflox/wall at a boundary
+
+
+
+  end subroutine zero_visc
+
+end module bc_fill_2d_module

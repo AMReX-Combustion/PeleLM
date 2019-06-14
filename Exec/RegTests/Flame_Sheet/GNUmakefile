@@ -9,7 +9,7 @@ PELE_PHYSICS_HOME = /home/emotheau/GitCodes/PelePhysics_dev
 # Build configuration
 #
 
-DIM             = 3
+DIM             = 2
 COMP            = gnu
 DEBUG           = FALSE
 USE_MPI         = TRUE
