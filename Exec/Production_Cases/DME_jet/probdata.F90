@@ -12,6 +12,11 @@ module probdata_module
     REAL_T :: splitx, xfrontw
     REAL_T :: blobr, bloby, blobx, Tfrontw, blobT
  
+    integer, parameter :: IDX_FUELPIPE = 1
+    integer, parameter :: IDX_AMBIENT = 2
+    integer, parameter :: IDX_VOLUME = 3
+    
+ 
     ! from bc.H
     
     logical :: bcinit

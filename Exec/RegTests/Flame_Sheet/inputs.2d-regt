@@ -108,7 +108,6 @@ ns.divu_dt_factor = .4
 ns.min_rho_divu_ceiling = .01
 
 ns.fuelName        = H2
-
 ns.unity_Le = 0
 ns.dpdt_option = 0
 
