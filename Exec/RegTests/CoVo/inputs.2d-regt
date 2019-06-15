@@ -111,7 +111,6 @@ ns.divu_dt_factor = .4
 ns.min_rho_divu_ceiling = .01
 
 ns.fuelName        = N2
-ns.oxidizerName    = O2
 ns.unity_Le = 0
 
 ns.dpdt_option = 0

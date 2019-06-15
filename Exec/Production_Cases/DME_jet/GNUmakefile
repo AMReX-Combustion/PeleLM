@@ -1,15 +1,12 @@
 TOP = ../../../..
 AMREX_HOME ?= ${TOP}/amrex
 IAMR_HOME ?= ${TOP}/IAMR
-#PELELM_HOME ?= ${TOP}/PeleLM
-PELELM_HOME ?= ${TOP}/PeleLM_cleaning
-PELE_PHYSICS_HOME = /home/emotheau/GitCodes/PelePhysics_dev
-
+PELELM_HOME ?= ${TOP}/PeleLM
 
 #
 # Build configuration
 #
-DIM             = 2
+DIM             = 3
 COMP            = gnu
 DEBUG           = FALSE
 USE_MPI         = TRUE

@@ -11,6 +11,14 @@ module probdata_module
     REAL_T :: T_in, V_co, phi_in, T_co
     REAL_T :: splitx, xfrontw
     REAL_T :: blobr, bloby, blobx, Tfrontw, blobT
+    
+    REAL_T :: fuel_N2_vol_percent
+ 
+    integer, parameter :: IDX_FUELPIPE = 1
+    integer, parameter :: IDX_AMBIENT = 2
+    integer, parameter :: IDX_VOLUME = 3
+    integer, parameter :: IDX_COFLOW = 4
+    
  
     ! from bc.H
     
