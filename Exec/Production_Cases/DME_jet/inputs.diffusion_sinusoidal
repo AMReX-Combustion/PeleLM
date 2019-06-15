@@ -22,6 +22,7 @@ proj.proj_2 = 1
 ns.num_divu_iters = 1
 
 ns.consumptionName = CH3OCH3
+
 ht.plot_heat_release=1
 ht.plot_rhoY=0
 ht.plot_molefrac=0
@@ -220,11 +221,11 @@ ns.do_init_proj=0
 
 
 # Refinement according to a species tracer
-#amr.refinement_indicators = flame_tracer  magvort
-#amr.flame_tracer.max_level = 4
-#amr.flame_tracer.value_greater = 1.e-8
-#amr.flame_tracer.field_name = Y(H)
+amr.refinement_indicators = flame_tracer  magvort
+amr.flame_tracer.max_level = 4
+amr.flame_tracer.value_greater = 1.e-8
+amr.flame_tracer.field_name = Y(H)
 
 # Refinement according to the vorticity, no field_name needed
-#amr.magvort.max_level = 4
-#amr.magvort.vorticity_greater = 5e4
+amr.magvort.max_level = 4
+amr.magvort.vorticity_greater = 5e4
