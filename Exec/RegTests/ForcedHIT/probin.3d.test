@@ -7,13 +7,14 @@
   closed_chamber = 1
  /
  &forcing
-  div_free_force = 0
+  use_rho_in_forcing = 0
+  div_free_force = 1 
   spectrum_type          = 1
   mode_start             = 1
   nmodes                 = 4
-  force_scale            = 6.80d7  ! to get M=0.6
-  forcing_time_scale_min = 0.08
-  forcing_time_scale_max = 0.3
+  force_scale            = 1.d5 
+  forcing_time_scale_min = 0.01
+  forcing_time_scale_max = 0.1
 
   time_offset = 0.0d0
  /

@@ -20,6 +20,11 @@ TINY_PROFILE = FALSE
 
 DEFINES+=-DALWAYS_NEW_J
 
+# This allows GetForce to call a Fortran routine
+DEFINES += -DGENGETFORCE
+#DEFINES += -DMOREGENGETFORCE
+
+
 #######################
 USE_SUNDIALS_3x4x = FALSE
 

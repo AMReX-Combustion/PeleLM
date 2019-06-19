@@ -48,7 +48,8 @@ contains
                                   FPZY, FPYZ, FPZX, FPXZ, FPZZ, &
                                   blrandseed, div_free_force, force_scale, &
                                   forcing_epsilon, forcing_time_scale_max, forcing_time_scale_min, &
-                                  mode_start, moderate_zero_modes, nmodes, spectrum_type, time_offset
+                                  mode_start, moderate_zero_modes, nmodes, spectrum_type, &
+                                  time_offset, use_rho_in_forcing
       
       implicit none
       
@@ -57,17 +58,17 @@ contains
       integer untin
       REAL_T problo(dim), probhi(dim)
       REAL_T     Lx, Ly, Lz
-     double precision :: twicePi, kxd, kyd, kzd, rn
-    double precision :: thetaTmp, phiTmp
-    double precision :: cosThetaTmp, cosPhiTmp
-    double precision :: sinThetaTmp, sinPhiTmp
-    double precision :: px, py, pz, mp2, Ekh
-    integer :: kx, ky, kz, mode_count, reduced_mode_count
-    integer :: xstep, ystep, zstep
-    integer :: nxmodes, nymodes, nzmodes
+      double precision :: twicePi, kxd, kyd, kzd, rn
+      double precision :: thetaTmp, phiTmp
+      double precision :: cosThetaTmp, cosPhiTmp
+      double precision :: sinThetaTmp, sinPhiTmp
+      double precision :: px, py, pz, mp2, Ekh
+      integer :: kx, ky, kz, mode_count, reduced_mode_count
+      integer :: xstep, ystep, zstep
+      integer :: nxmodes, nymodes, nzmodes
 
-    double precision :: Lmin
-    double precision :: kappa, kappaMax, freqMin, freqMax, freqDiff
+      double precision :: Lmin
+      double precision :: kappa, kappaMax, freqMin, freqMax, freqDiff
       integer i
 
       namelist /fortin/ T_in
@@ -75,7 +76,7 @@ contains
       namelist /forcing/ spectrum_type, mode_start, nmodes, &
                       force_scale, forcing_time_scale_min, forcing_time_scale_max, &
                       forcing_time_scale_min, forcing_time_scale_max, &
-                      time_offset, div_free_force
+                      time_offset, div_free_force, use_rho_in_forcing
 
 !
 !      Build `probin' filename -- the name of file containing fortin namelist.
@@ -110,6 +111,8 @@ contains
       force_scale            = 1.0d10
       forcing_time_scale_min = 0.0
       forcing_time_scale_max = 0.0
+      use_rho_in_forcing = 0
+      time_offset = 0.0d0
 
 
       untin = 9
@@ -135,6 +138,10 @@ contains
          write(6,forcing)
       end if
 
+    if (isioproc .eq. 1) then
+       write (*,*) " "
+       write (*,*) "Initialising turbulence forcing parameters..."
+    end if 
 
     twicePi = two*Pi
 
@@ -464,7 +471,10 @@ contains
        enddo
     enddo
 
-
+    if (isioproc .eq. 1) then
+       write (*,*) "...Forced HIT initialized"
+       write (*,*) " "
+    end if
 
   end subroutine amrex_probinit
   

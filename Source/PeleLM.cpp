@@ -4460,6 +4460,7 @@ PeleLM::predict_velocity (Real  dt)
         Uface[d].resize(surroundingNodes(bx,d),1);
       }
 
+
 #ifdef GENGETFORCE
       getForce(tforces,bx,1,Xvel,BL_SPACEDIM,prev_time,rho_ptime[U_mfi]);
 #elif MOREGENGETFORCE
@@ -4468,7 +4469,9 @@ PeleLM::predict_velocity (Real  dt)
       getForce(tforces,bx,1,Xvel,BL_SPACEDIM,prev_time,Ufab,Smf[U_mfi],0);
 #else
       getForce(tforces,bx,1,Xvel,BL_SPACEDIM,rho_ptime[U_mfi]);
-#endif 
+#endif
+
+
       //
       // Compute the total forcing.
       //
