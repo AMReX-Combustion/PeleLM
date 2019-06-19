@@ -1,43 +1,22 @@
+# ----------------  PROBLEM DEPENDENT INPUTS
+
+ns.lo_bc          = 0 0 0
+ns.hi_bc          = 0 0 0
+geometry.is_periodic = 1 1 1
+
+# >>>>>>>>>>>>>  BC FLAGS <<<<<<<<<<<<<<<<
+# 0 = Interior           3 = Symmetry
+# 1 = Inflow             4 = SlipWall
+# 2 = Outflow            5 = NoSlipWall
+
+geometry.coord_sys = 0  # 0 => cart, 1 => RZ
+
+geometry.prob_lo   =  0. 0. 0.
+geometry.prob_hi   =  6.283185307179586232  6.283185307179586232  6.283185307179586232
+
 #----------------------------TOP LEVEL INPUTS----------------------
 max_step  =  10000
 stop_time = 4.00
-
-#--------------------------MISC/UNSORTED INPUTS-----------------------------
-ns.do_active_control = 0
-
-ns.do_fillPatchUMAC=1
-ns.zeroBndryVisc=1
-
-proj.proj_2 = 1
-ns.num_divu_iters =3
-
-ht.plot_rhoY=0
-ht.plot_molefrac=0
-ht.plot_massfrac=1
-ht.plot_ydot=0
-ht.plot_auxDiags = 1
-
-# multigrid class
-mg.smooth_on_cg_unstable=1
-mg.usecg = 1
-cg.v = 0
-cg.isExpert=1
-mg.v = 0
-cg.maxiter = 1000
-mg.maxiter = 1000
-mg.nu_0 = 1
-mg.nu_1 = 4
-mg.nu_2 = 4
-mg.nu_f = 40
-cg.unstable_criterion = 100
-ns.htt_tempmin=1.0
-ns.htt_tempmax=2.5
-ns.v = 1
-mac.v = 2
-proj.v = 1
-ns.do_group_bndry_fills = 1
-
-cg.cg_solver=1
 
 #-------------------------AMR INPUTS----------------------------
 amr.n_cell    = 32  32  32
@@ -114,21 +93,6 @@ ns.dpdt_option = 0
 #ns.constant_mu_val = 0.05
 #ns.constant_lambda_val = 0.0714286
 #ns.constant_rhoD_val = 0.0714286
-# ----------------  PROBLEM DEPENDENT INPUTS
-
-ns.lo_bc          = 0 0 0
-ns.hi_bc          = 0 0 0
-geometry.is_periodic = 1 1 1
-
-# >>>>>>>>>>>>>  BC FLAGS <<<<<<<<<<<<<<<<
-# 0 = Interior           3 = Symmetry
-# 1 = Inflow             4 = SlipWall
-# 2 = Outflow            5 = NoSlipWall
-
-geometry.coord_sys = 0  # 0 => cart, 1 => RZ
-
-geometry.prob_lo   =  0. 0. 0.
-geometry.prob_hi   =  6.283185307179586232  6.283185307179586232  6.283185307179586232
 
 
 # ------------------  INPUTS TO GODUNOV CLASS ----------------------
@@ -159,6 +123,44 @@ mac.mac_sync_tol   = 1.0e-8   # tolerence for mac SYNC projection
 mac.mac_abs_tol    = 1.0e-14
 mac.use_cg_solve   = 0
 mac.do_outflow_bcs = 0
+
+#--------------------------MISC/UNSORTED INPUTS-----------------------------
+ns.do_active_control = 0
+
+ns.do_fillPatchUMAC=1
+ns.zeroBndryVisc=1
+
+proj.proj_2 = 1
+ns.num_divu_iters =3
+
+ht.plot_rhoY=0
+ht.plot_molefrac=0
+ht.plot_massfrac=1
+ht.plot_ydot=0
+ht.plot_auxDiags = 1
+
+# multigrid class
+mg.smooth_on_cg_unstable=1
+mg.usecg = 1
+cg.v = 0
+cg.isExpert=1
+mg.v = 0
+cg.maxiter = 1000
+mg.maxiter = 1000
+mg.nu_0 = 1
+mg.nu_1 = 4
+mg.nu_2 = 4
+mg.nu_f = 40
+cg.unstable_criterion = 100
+ns.htt_tempmin=1.0
+ns.htt_tempmax=2.5
+ns.v = 1
+mac.v = 2
+proj.v = 1
+ns.do_group_bndry_fills = 1
+
+cg.cg_solver=1
+
 #
 # Select form of FAB output: default is NATIVE
 #
