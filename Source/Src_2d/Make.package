@@ -1,2 +1,3 @@
 F90EXE_sources += Derive_PLM_$(DIM)d.F90 PeleLM_$(DIM)d.F90 bc_fill_$(DIM)d.F90
 F90EXE_sources += user_defined_fcts_$(DIM)d.F90
+F90EXE_sources += MakeForce_$(DIM)d.F90

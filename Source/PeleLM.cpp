@@ -3980,6 +3980,7 @@ PeleLM::scalar_advection_update (Real dt,
   //
   MultiFab&       S_new = get_new_data(State_Type);
   const MultiFab& S_old = get_old_data(State_Type);
+
 #ifdef _OPENMP
 #pragma omp parallel
 #endif  

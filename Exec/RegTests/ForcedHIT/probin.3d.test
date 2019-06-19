@@ -1,0 +1,19 @@
+ &fortin
+  T_in = 300.0d0
+ /
+ &heattransin
+  pamb = 101325.
+  dpdt_factor = .3
+  closed_chamber = 1
+ /
+ &forcing
+  div_free_force = 0
+  spectrum_type          = 1
+  mode_start             = 1
+  nmodes                 = 4
+  force_scale            = 6.80d7  ! to get M=0.6
+  forcing_time_scale_min = 0.08
+  forcing_time_scale_max = 0.3
+
+  time_offset = 0.0d0
+ /
