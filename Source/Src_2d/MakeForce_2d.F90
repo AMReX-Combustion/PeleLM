@@ -22,23 +22,31 @@ contains
 !     This routine add the forcing terms to the momentum equation
 !
 
-  subroutine FORT_MAKEFORCE(time,force,rho, &
-                               DIMS(istate),DIMS(state), &
-                               dx,xlo,xhi,gravity,scomp,ncomp)&
-                               bind(C,name="FORT_MAKEFORCE")
+      subroutine FORT_MAKEFORCE(time,force, &
+                               vel, &
+                               scal, &
+                               DIMS(force), &
+                               DIMS(vel), &
+                               DIMS(scal), &
+                               dx,xlo,xhi,gravity,scomp,ncomp, &
+                               nscal,getForceVerbose &
+      )bind(C, name="FORT_MAKEFORCE")
 
       use mod_Fvar_def, only : dv_control, pseudo_gravity, dim
 
       implicit none
 
-      integer    DIMDEC(state)
-      integer    DIMDEC(istate)
+      integer    DIMDEC(force)
+      integer    DIMDEC(scal)
       integer    scomp, ncomp
       REAL_T     time, dx(dim)
       REAL_T     xlo(dim), xhi(dim)
-      REAL_T     force  (DIMV(istate),scomp+1:scomp+ncomp)
-      REAL_T     rho    (DIMV(state))
+      REAL_T     force  (DIMV(force),scomp:scomp+ncomp-1)
       REAL_T     gravity
+      integer    DIMDEC(vel)
+      integer    getForceVerbose, nscal
+      REAL_T     vel    (DIMV(vel),0:dim-1)
+      REAL_T     scal   (DIMV(scal),0:nscal-1)
 
       integer i, j, n
       integer ilo, jlo
@@ -46,6 +54,10 @@ contains
       REAL_T  hx, hy
       integer isioproc
       integer nXvel, nYvel, nRho, nTrac
+      integer nRhoScal
+
+      REAL_T  forcemin(scomp:scomp+ncomp-1)
+      REAL_T  forcemax(scomp:scomp+ncomp-1)
 
       call bl_pd_is_ioproc(isioproc)
 
@@ -56,23 +68,25 @@ contains
       hx = dx(1)
       hy = dx(2)
 
-      ilo = istate_l1
-      jlo = istate_l2
-      ihi = istate_h1
-      jhi = istate_h2
-
+      ilo = force_l1
+      jlo = force_l2
+      ihi = force_h1
+      jhi = force_h2
+ 
 !     Assumes components are in the following order
-      nXvel = 1
-      nYvel = 2
-      nRho  = 3
-      nTrac = 4
+      nXvel = 0
+      nYvel = 1
+      nRho  = 2
+      nTrac = 3
+
+      nRhoScal   = nRho-dim
 
       if (scomp.eq.0) then
          if (abs(gravity).gt.0.0001) then
             do j = jlo, jhi
                do i = ilo, ihi
                   force(i,j,nXvel) = zero
-                  force(i,j,nYvel) = gravity*rho(i,j)
+                  force(i,j,nYvel) = gravity*scal(i,j,nRhoScal)
                enddo
             enddo
 !     else to zero
@@ -88,7 +102,7 @@ contains
          if (pseudo_gravity.eq.1) then
             do j = jlo, jhi
                do i = ilo, ihi
-                  force(i,j,nYvel) = force(i,j,nYvel) + dV_control*rho(i,j)
+                  force(i,j,nYvel) = force(i,j,nYvel) + dV_control*scal(i,j,nRhoScal)
                enddo
             enddo
          endif
@@ -97,7 +111,7 @@ contains
 
       if ((scomp+ncomp).gt.BL_SPACEDIM) then
 !     Scalar forcing
-         do n = max(scomp+1,nRho), scomp+ncomp
+         do n = max(scomp,nRho), scomp+ncomp-1
             if (n.eq.nRho) then
 !     Density
                do j = jlo, jhi
@@ -120,6 +134,25 @@ contains
                   enddo
                enddo
             endif
+         enddo
+      endif
+
+      if (getForceVerbose.gt.0 .and. isioproc .eq. 1) then
+         do n = scomp,scomp+ncomp-1
+            forcemin(n) = 1.d234
+            forcemax(n) = -1.d234
+         enddo
+         do j = jlo, jhi
+            do i = ilo, ihi
+               do n = scomp,ncomp+scomp-1
+                  forcemin(n) = min(forcemin(n),force(i,j,n))
+                  forcemax(n) = max(forcemax(n),force(i,j,n))
+               enddo
+            enddo
+         enddo
+         do n = scomp,ncomp+scomp-1
+            write (6,*) "forcemin (",n,") = ",forcemin(n)
+            write (6,*) "forcemax (",n,") = ",forcemax(n)
          enddo
       endif
 

@@ -35,7 +35,7 @@ module PeleLM_3d
              part_cnt_err, mcurve, smooth, grad_wbar, recomp_update, &
              valgt_error, vallt_error, magvort_error, diffgt_error, init_data_new_mech, &
              pphys_PfromRTY, pphys_mass_to_mole, pphys_massr_to_conc, pphys_HfromT, &
-             pphys_HMIXfromTY, pphys_RHOfromPTY 
+             pphys_HMIXfromTY, pphys_RHOfromPTY, FORT_AVERAGE_EDGE_STATES 
 
 contains
              
@@ -3378,5 +3378,76 @@ contains
        end do
     end do
   end subroutine diffgt_error
+
+!c     
+!c     
+!c     ::: -----------------------------------------------------------
+!c     
+!c     This routine averages the mac face velocities for makeforce at half time
+!c
+      subroutine FORT_AVERAGE_EDGE_STATES(vel,umacx,umacy,umacz, &
+                                         DIMS(vel),DIMS(umacx),DIMS(umacy),DIMS(umacz),&
+                                         getForceVerbose)&
+                                         bind(C, name="FORT_AVERAGE_EDGE_STATES")
+
+      implicit none
+
+      integer    DIMDEC(vel)
+      integer    DIMDEC(umacx)
+      integer    DIMDEC(umacy)
+      integer    DIMDEC(umacz)
+      integer    getForceVerbose
+      REAL_T     vel  (DIMV(vel),dim)
+      REAL_T     umacx(DIMV(umacx))
+      REAL_T     umacy(DIMV(umacy))
+      REAL_T     umacz(DIMV(umacz))
+
+      integer i,j,k,n
+      integer ilo,jlo,klo
+      integer ihi,jhi,khi
+
+      integer isioproc
+
+      REAL_T  velmin(3)
+      REAL_T  velmax(3)
+
+      do n = 1, 3
+         velmin(n) = 1.d234
+         velmax(n) = -1.d234
+      enddo
+
+      ilo = vel_l1
+      jlo = vel_l2
+      klo = vel_l3
+      ihi = vel_h1
+      jhi = vel_h2
+      khi = vel_h3
+
+      do k = klo, khi
+         do j = jlo, jhi
+            do i = ilo, ihi
+               vel(i,j,k,1) = half*(umacx(i,j,k)+umacx(i+1,j,k))
+               vel(i,j,k,2) = half*(umacy(i,j,k)+umacy(i,j+1,k))
+               vel(i,j,k,3) = half*(umacz(i,j,k)+umacz(i,j,k+1))
+               do n=1, 3
+                  velmin(n)=min(velmin(n),vel(i,j,k,n))
+                  velmax(n)=max(velmax(n),vel(i,j,k,n))
+               enddo
+            enddo
+         enddo
+      enddo
+
+      if (getForceVerbose.gt.0) then
+         call bl_pd_is_ioproc(isioproc)
+         if (isioproc.eq.1) then
+            do n = 1, 3
+               write (6,*) "mac velmin (",n,") = ",velmin(n)
+               write (6,*) "mac velmax (",n,") = ",velmax(n)
+            enddo
+         endif
+      endif
+
+      end subroutine FORT_AVERAGE_EDGE_STATES
+
 
 end module PeleLM_3d

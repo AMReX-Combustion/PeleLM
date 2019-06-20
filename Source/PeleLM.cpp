@@ -4431,10 +4431,8 @@ PeleLM::predict_velocity (Real  dt)
     });
   }
 
-#ifdef MOREGENGETFORCE
   FillPatchIterator S_fpi(*this,visc_terms,1,prev_time,State_Type,Density,NUM_SCALARS);
   MultiFab& Smf=S_fpi.get_mf();
-#endif
 
   //
   // Compute "grid cfl number" based on cell-centered time-n velocities
@@ -4456,20 +4454,14 @@ PeleLM::predict_velocity (Real  dt)
     for (MFIter U_mfi(Umf,true); U_mfi.isValid(); ++U_mfi)
     {
       Box bx=U_mfi.tilebox();
+      FArrayBox& Ufab = Umf[U_mfi];
       for (int d=0; d<BL_SPACEDIM; ++d) {
         Uface[d].resize(surroundingNodes(bx,d),1);
       }
 
-
-#ifdef GENGETFORCE
-      getForce(tforces,bx,1,Xvel,BL_SPACEDIM,prev_time,rho_ptime[U_mfi]);
-#elif MOREGENGETFORCE
       if (getForceVerbose)
         amrex::Print() << "---\nA - Predict velocity:\n Calling getForce..." << '\n';
       getForce(tforces,bx,1,Xvel,BL_SPACEDIM,prev_time,Ufab,Smf[U_mfi],0);
-#else
-      getForce(tforces,bx,1,Xvel,BL_SPACEDIM,rho_ptime[U_mfi]);
-#endif
 
 
       //
