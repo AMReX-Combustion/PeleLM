@@ -21,10 +21,15 @@ contains
 !     This routine add the forcing terms to the momentum equation
 !
 
-  subroutine FORT_MAKEFORCE(time,force,rho, &
-                            DIMS(istate),DIMS(state), &
-                            dx,xlo,xhi,gravity,scomp,ncomp) &
-                            bind(C,name="FORT_MAKEFORCE")
+      subroutine FORT_MAKEFORCE(time,force, &
+                                vel, &
+                                scal, &
+                                DIMS(force), &
+                                DIMS(vel), &
+                                DIMS(scal), &
+                                dx,xlo,xhi,gravity,scomp,ncomp, &
+                                nscal,getForceVerbose &
+                                )bind(C, name="FORT_MAKEFORCE")
 
       use mod_Fvar_def, only : dv_control, pseudo_gravity, dim, domnlo, domnhi
       use probdata_module, only : FTX, TAT, FPX, FPY, FPZ, &
@@ -36,14 +41,17 @@ contains
 
       implicit none
 
-      integer  ::  DIMDEC(state)
-      integer  ::  DIMDEC(istate)
-      integer  ::  scomp, ncomp
-      double precision ::      time, dx(dim)
-      double precision ::      xlo(dim), xhi(dim)
-      double precision ::      force  (DIMV(istate),scomp+1:scomp+ncomp)
-      double precision ::      rho    (DIMV(state))
-      double precision ::      gravity
+      integer    DIMDEC(force)
+      integer    DIMDEC(scal)
+      integer    scomp, ncomp
+      REAL_T     time, dx(dim)
+      REAL_T     xlo(dim), xhi(dim)
+      REAL_T     force  (DIMV(force),scomp:scomp+ncomp-1)
+      REAL_T     gravity
+      integer    DIMDEC(vel)
+      integer    nscal, getForceVerbose
+      REAL_T     vel    (DIMV(vel),0:dim-1)
+      REAL_T     scal   (DIMV(scal),0:nscal-1)
 
 !
 !     ::::: local variables
@@ -56,13 +64,22 @@ contains
       integer :: xstep, ystep, zstep
       integer :: nxmodes, nymodes, nzmodes
       integer :: kx, ky, kz
-      
+      integer :: count, nRhoScal   
+ 
       double precision :: f1, f2, f3
       double precision :: kappa, kappaMax
       double precision :: kxd, kyd, kzd
       double precision :: Lx, Ly, Lz, Lmin, HLx, HLy, HLz
       double precision :: force_time
       double precision :: twicepi, xT, x, y, z
+  
+      double precision ::   velmin(0:dim-1)
+      double precision ::   velmax(0:dim-1)
+      double precision ::   scalmin(0:nscal-1)
+      double precision ::   scalmax(0:nscal-1)
+      double precision ::   forcemin(scomp:scomp+ncomp-1)
+      double precision ::   forcemax(scomp:scomp+ncomp-1)
+
 
       call bl_pd_is_ioproc(isioproc)
 
@@ -70,19 +87,91 @@ contains
          write(*,*) "pseudo_gravity::dV_control = ",dV_control
       endif
 
-      ilo = istate_l1
-      jlo = istate_l2
-      klo = istate_l3
-      ihi = istate_h1
-      jhi = istate_h2
-      khi = istate_h3
+      ilo = force_l1
+      jlo = force_l2
+      klo = force_l3
+      ihi = force_h1
+      jhi = force_h2
+      khi = force_h3
 
 !     Assumes components are in the following order
-      nXvel = 1
-      nYvel = 2
-      nZvel = 3
-      nRho  = 4
-      nTrac = 5
+      nXvel  = 0
+      nYvel  = 1
+      nZvel  = 2
+      nRho   = 3
+      nTrac  = 4
+
+      nRhoScal   = nRho-dim
+
+      if (getForceVerbose.gt.0) then
+         call bl_pd_is_ioproc(isioproc)
+         if (isioproc.eq.1) then
+
+            write (6,*) "In MAKEFORCE"
+
+            write (6,*) "gravity = ",gravity
+            write (6,*) "scomp = ",scomp
+            write (6,*) "ncomp = ",ncomp
+            write (6,*) "nscal = ",nscal
+
+            do n = 0, dim-1
+               velmin(n) = 1.d234
+               velmax(n) = -1.d234
+            enddo
+            do n = 0, nscal-1
+               scalmin(n) = 1.d234
+               scalmax(n) = -1.d234
+            enddo
+
+            count = 0
+!     Get min/max
+            do k = klo, khi
+               do j = jlo, jhi
+                  do i = ilo, ihi
+!     Velocities
+                     do n = 0, dim-1
+                        if (vel(i,j,k,n).gt.velmax(n)) then
+                           velmax(n)=vel(i,j,k,n)
+                        endif
+                        if (vel(i,j,k,n).lt.velmin(n)) then
+                           velmin(n)=vel(i,j,k,n)
+                        endif
+                     enddo
+!     Scalars
+                     if (scal(i,j,k,0).lt.0.001) then
+                        count=count+1
+!                        write (*,*) i,j,k,scal(i,j,k,n)
+                     endif
+                     do n = 0, nscal-1
+                        if (scal(i,j,k,n).gt.scalmax(n)) then
+                           scalmax(n)=scal(i,j,k,n)
+                        endif
+                        if (scal(i,j,k,n).lt.scalmin(n)) then
+                           scalmin(n)=scal(i,j,k,n)
+                        endif
+                     enddo
+
+                  enddo
+               enddo
+            enddo
+
+            write(*,*) "DODGY DENSITY COUNT = ",count
+
+            do n = 0, dim-1
+               write (6,*) "velmin (",n,") = ",velmin(n)
+               write (6,*) "velmax (",n,") = ",velmax(n)
+            enddo
+            do n = 0, nscal-1
+               write (6,*) "scalmin(",n,") = ",scalmin(n)
+               write (6,*) "scalmax(",n,") = ",scalmax(n)
+            enddo
+         endif
+      endif
+
+!
+!     Here's where the forcing actually gets done
+!
+
 
      if (scomp.eq.0) then
 !     Homogeneous Isotropic Turbulence
@@ -231,155 +320,16 @@ contains
                              f3 = f3 + xT*FAZ(kx,ky,kz)* sin(twicePi*kxd*x/Lx+FPX(kx,ky,kz)) &
                                                        * sin(twicePi*kyd*y/Ly+FPY(kx,ky,kz)) &
                                                        * cos(twicePi*kzd*z/Lz+FPZ(kx,ky,kz))
-!write(*,*) 'DEBUG F1, F2, F3',kx,ky,kz,kappa,xT,f1,f2,f3
                           endif
                       endif
                    enddo
                 enddo
              enddo      
-             
-             
-             
-             
-             
-             
-             
-             
-             
-             
-             
-             
-             
-       !      f1 = zero
-       !      f2 = zero
-       !      f3 = zero
-       !      do kz = mode_start*zstep, nzmodes, zstep
-       !        kzd = dfloat(kz)
-       !        do ky = mode_start*ystep, nymodes, ystep
-       !          kyd = dfloat(ky)
-       !          do kx = mode_start*xstep, nxmodes, xstep
-       !            kxd = dfloat(kx)
-       !            kappa = sqrt( (kxd*kxd)/(Lx*Lx) + (kyd*kyd)/(Ly*Ly) + (kzd*kzd)/(Lz*Lz) )
-       !            if (kappa.le.kappaMax) then
-       !              xT = cos(FTX(kx,ky,kz)*force_time+TAT(kx,ky,kz))
-       !
-       !              if (div_free_force.eq.1) then
-       !
-       !                f1 = f1 + xT *   &
-       !                     ( FAZ(kx,ky,kz)*twicePi*(kyd/HLy) &
-       !                     *   sin(twicePi*kxd*x/HLx+FPZX(kx,ky,kz)) &
-       !                     *   cos(twicePi*kyd*y/HLy+FPZY(kx,ky,kz)) &
-       !                     *   sin(twicePi*kzd*z/HLz+FPZZ(kx,ky,kz)) &
-       !                     - FAY(kx,ky,kz)*twicePi*(kzd/HLz)         &
-       !                     *   sin(twicePi*kxd*x/HLx+FPYX(kx,ky,kz)) &
-       !                     *   sin(twicePi*kyd*y/HLy+FPYY(kx,ky,kz)) &
-       !                     *   cos(twicePi*kzd*z/HLz+FPYZ(kx,ky,kz)) )
-       !
-       !                f2 = f2 + xT * &
-       !                     ( FAX(kx,ky,kz)*twicePi*(kzd/HLz) &
-       !                     *   sin(twicePi*kxd*x/HLx+FPXX(kx,ky,kz)) &
-       !                     *   sin(twicePi*kyd*y/HLy+FPXY(kx,ky,kz)) &
-       !                     *   cos(twicePi*kzd*z/HLz+FPXZ(kx,ky,kz)) &
-       !                     - FAZ(kx,ky,kz)*twicePi*(kxd/HLx) &
-       !                     *   cos(twicePi*kxd*x/HLx+FPZX(kx,ky,kz)) &
-       !                     *   sin(twicePi*kyd*y/HLy+FPZY(kx,ky,kz)) &
-       !                     *   sin(twicePi*kzd*z/HLz+FPZZ(kx,ky,kz)) )
-       !
-       !                f3 = f3 + xT *  &
-       !                     ( FAY(kx,ky,kz)*twicePi*(kxd/HLx) &
-       !                     *   cos(twicePi*kxd*x/HLx+FPYX(kx,ky,kz)) &
-       !                     *   sin(twicePi*kyd*y/HLy+FPYY(kx,ky,kz)) &
-       !                     *   sin(twicePi*kzd*z/HLz+FPYZ(kx,ky,kz)) &
-       !                     - FAX(kx,ky,kz)*twicePi*(kyd/HLy)  &
-       !                     *   sin(twicePi*kxd*x/HLx+FPXX(kx,ky,kz)) &
-       !                     *   cos(twicePi*kyd*y/HLy+FPXY(kx,ky,kz)) &
-       !                     *   sin(twicePi*kzd*z/HLz+FPXZ(kx,ky,kz)) )
-       !
-       !              else
-       !
-       !                f1 = f1 + xT*FAX(kx,ky,kz)*cos(twicePi*kxd*x/HLx+FPX(kx,ky,kz)) &
-       !                        *                     sin(twicePi*kyd*y/HLy+FPY(kx,ky,kz)) &
-       !                        *                     sin(twicePi*kzd*z/HLz+FPZ(kx,ky,kz))
-       !
-       !                f2 = f2 + xT*FAY(kx,ky,kz)*sin(twicePi*kxd*x/HLx+FPX(kx,ky,kz)) &
-       !                        *                     cos(twicePi*kyd*y/HLy+FPY(kx,ky,kz)) &
-       !                        *                     sin(twicePi*kzd*z/HLz+FPZ(kx,ky,kz))
-       !
-       !                f3 = f3 + xT*FAZ(kx,ky,kz)*sin(twicePi*kxd*x/HLx+FPX(kx,ky,kz)) &
-       !                        *                     sin(twicePi*kyd*y/HLy+FPY(kx,ky,kz)) &
-       !                        *                     cos(twicePi*kzd*z/HLz+FPZ(kx,ky,kz))
-       !
-       !              endif
-       !            endif
-       !
-       !          enddo
-       !        enddo
-       !      enddo
-       !
-       !      do kz = 1, zstep - 1
-       !        kzd = dfloat(kz)
-       !        do ky = mode_start, nymodes
-       !          kyd = dfloat(ky)
-       !          do kx = mode_start, nxmodes
-       !             kxd = dfloat(kx)
-       !             kappa = sqrt( (kxd*kxd)/(Lx*Lx) + (kyd*kyd)/(Ly*Ly) + (kzd*kzd)/(Lz*Lz) )
-       !             if (kappa.le.kappaMax) then
-       !               xT = cos(FTX(kx,ky,kz)*force_time+TAT(kx,ky,kz))
-       !               if (div_free_force.eq.1) then
-       !                 f1 = f1 + xT * &
-       !                      ( FAZ(kx,ky,kz)*twicePi*(kyd/HLy) &
-       !                      *   sin(twicePi*kxd*x/HLx+FPZX(kx,ky,kz)) &
-       !                      *   cos(twicePi*kyd*y/HLy+FPZY(kx,ky,kz)) &
-       !                      *   sin(twicePi*kzd*z/HLz+FPZZ(kx,ky,kz)) & 
-       !                      - FAY(kx,ky,kz)*twicePi*(kzd/HLz) &
-       !                      *   sin(twicePi*kxd*x/HLx+FPYX(kx,ky,kz)) &
-       !                      *   sin(twicePi*kyd*y/HLy+FPYY(kx,ky,kz)) &
-       !                      *   cos(twicePi*kzd*z/HLz+FPYZ(kx,ky,kz)) )
-       !
-       !                 f2 = f2 + xT * &
-       !                      ( FAX(kx,ky,kz)*twicePi*(kzd/HLz) &
-       !                      *   sin(twicePi*kxd*x/HLx+FPXX(kx,ky,kz)) &
-       !                      *   sin(twicePi*kyd*y/HLy+FPXY(kx,ky,kz)) &
-       !                      *   cos(twicePi*kzd*z/HLz+FPXZ(kx,ky,kz)) &
-       !                      - FAZ(kx,ky,kz)*twicePi*(kxd/HLx) &
-       !                      *   cos(twicePi*kxd*x/HLx+FPZX(kx,ky,kz)) &
-       !                      *   sin(twicePi*kyd*y/HLy+FPZY(kx,ky,kz)) &
-       !                      *   sin(twicePi*kzd*z/HLz+FPZZ(kx,ky,kz)) )
-       !
-       !                 f3 = f3 + xT * &
-       !                      ( FAY(kx,ky,kz)*twicePi*(kxd/HLx) &
-       !                      *   cos(twicePi*kxd*x/HLx+FPYX(kx,ky,kz)) &
-       !                      *   sin(twicePi*kyd*y/HLy+FPYY(kx,ky,kz)) &
-       !                      *   sin(twicePi*kzd*z/HLz+FPYZ(kx,ky,kz)) & 
-       !                      - FAX(kx,ky,kz)*twicePi*(kyd/HLy) &
-       !                      *   sin(twicePi*kxd*x/HLx+FPXX(kx,ky,kz)) &
-       !                      *   cos(twicePi*kyd*y/HLy+FPXY(kx,ky,kz)) &
-       !                      *   sin(twicePi*kzd*z/HLz+FPXZ(kx,ky,kz)) )
-       !               else
-       !
-       !                 f1 = f1 + xT*FAX(kx,ky,kz)*cos(twicePi*kxd*x/HLx+FPX(kx,ky,kz)) &
-       !                      *                     sin(twicePi*kyd*y/HLy+FPY(kx,ky,kz)) &
-       !                      *                     sin(twicePi*kzd*z/HLz+FPZ(kx,ky,kz)) &
-       !
-       !                 f2 = f2 + xT*FAY(kx,ky,kz)*sin(twicePi*kxd*x/HLx+FPX(kx,ky,kz)) &
-       !                      *                     cos(twicePi*kyd*y/HLy+FPY(kx,ky,kz)) &
-       !                      *                     sin(twicePi*kzd*z/HLz+FPZ(kx,ky,kz)) &
-       !
-       !                 f3 = f3 + xT*FAZ(kx,ky,kz)*sin(twicePi*kxd*x/HLx+FPX(kx,ky,kz)) &
-       !                      *                     sin(twicePi*kyd*y/HLy+FPY(kx,ky,kz)) &
-       !                      *                     cos(twicePi*kzd*z/HLz+FPZ(kx,ky,kz)) &
-       !
-       !               endif
-       !             endif
-       !          enddo
-       !        enddo
-       !      enddo
-       !
        
              if (use_rho_in_forcing.eq.1) then
-                  force(i,j,k,nXvel) = f1*rho(i,j,k)
-                  force(i,j,k,nYvel) = f2*rho(i,j,k)
-                  force(i,j,k,nZvel) = f3*rho(i,j,k)
+                  force(i,j,k,nXvel) = f1*scal(i,j,k,nRhoScal)
+                  force(i,j,k,nYvel) = f2*scal(i,j,k,nRhoScal)
+                  force(i,j,k,nZvel) = f3*scal(i,j,k,nRhoScal)
              else
                   force(i,j,k,nXvel) = f1
                   force(i,j,k,nYvel) = f2
@@ -395,7 +345,7 @@ contains
          do k = klo, khi
            do j = jlo, jhi
              do i = ilo, ihi
-               force(i,j,k,nZvel) = force(i,j,k,nZvel)  + dV_control*rho(i,j,k)
+               force(i,j,k,nZvel) = force(i,j,k,nZvel)  + dV_control*scal(i,j,k,nRhoScal)
              enddo
            enddo
          enddo
@@ -405,7 +355,7 @@ contains
       
       if ((scomp+ncomp).gt.BL_SPACEDIM) then
 !     Scalar forcing
-         do n = max(scomp+1,nRho), scomp+ncomp
+         do n = max(scomp,nRho), scomp+ncomp-1
             if (n.eq.nRho) then
 !     Density
                do k = klo, khi
@@ -436,6 +386,28 @@ contains
             endif
          enddo
       endif
+
+      if (getForceVerbose.gt.0 .and. isioproc.eq.1) then
+         do n = scomp,scomp+ncomp-1
+            forcemin(n) = 1.d234
+            forcemax(n) = -1.d234
+         enddo
+         do k = klo, khi
+            do j = jlo, jhi
+               do i = ilo, ihi
+                  do n = scomp,ncomp+scomp-1
+                     forcemin(n) = min(forcemin(n),force(i,j,k,n))
+                     forcemax(n) = max(forcemax(n),force(i,j,k,n))
+                  enddo
+               enddo
+            enddo
+         enddo
+         do n = scomp,ncomp+scomp-1
+            write (6,*) "forcemin (",n,") = ",forcemin(n)
+            write (6,*) "forcemax (",n,") = ",forcemax(n)
+         enddo
+      endif
+
 
   end subroutine FORT_MAKEFORCE
 

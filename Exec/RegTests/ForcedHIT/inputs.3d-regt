@@ -12,11 +12,11 @@ geometry.is_periodic = 1 1 1
 geometry.coord_sys = 0  # 0 => cart, 1 => RZ
 
 geometry.prob_lo   =  0. 0. 0.
-geometry.prob_hi   =  6.283185307179586232  6.283185307179586232  6.283185307179586232
+geometry.prob_hi   =  .0018 .0018 .0018
 
 #----------------------------TOP LEVEL INPUTS----------------------
-max_step  =  10000
-stop_time = 4.00
+max_step  =  200
+stop_time = 6.00
 
 #-------------------------AMR INPUTS----------------------------
 amr.n_cell    = 32  32  32

@@ -111,7 +111,7 @@ contains
       force_scale            = 1.0d10
       forcing_time_scale_min = 0.0
       forcing_time_scale_max = 0.0
-      use_rho_in_forcing = 0
+      use_rho_in_forcing = 1
       time_offset = 0.0d0
 
 

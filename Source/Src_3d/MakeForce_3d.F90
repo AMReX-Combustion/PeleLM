@@ -82,12 +82,14 @@ contains
       jhi = force_h2
       khi = force_h3
 
-!c     Assumes components are in the following order
+!     Assumes components are in the following order
       nXvel  = 0
       nYvel  = 1
       nZvel  = 2
       nRho   = 3
       nTrac  = 4
+
+      nRhoScal   = nRho-dim
 
       if (getForceVerbose.gt.0) then
          call bl_pd_is_ioproc(isioproc)
