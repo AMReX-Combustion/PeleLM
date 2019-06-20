@@ -305,8 +305,9 @@ contains
                   
           y1 = (y - standoff - 0.5d0*delta(2) + pert)*100.d0
           y2 = (y - standoff + 0.5d0*delta(2) + pert)*100.d0
+          y2 = (y1+y2)*0.5d0
 
-          call pmf(y1,y2,pmf_vals,nPMF)               
+          call pmf(y2,y2,pmf_vals,nPMF)               
           if (nPMF.ne.Nspec+3) then
             call bl_abort('INITDATA: n .ne. Nspec+3')
           endif
