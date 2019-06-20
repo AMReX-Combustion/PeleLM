@@ -67,7 +67,7 @@ amr.grid_log        = grdlog  # name of grid logging file
 amr.max_grid_size   = 16
 #amr.derive_plot_vars=ALL
 
-amr.probin_file = probin.3d.test # This will default to file "probin" if not set
+amr.probin_file = probin.2d.regt # This will default to file "probin" if not set
 
 # ------------------  INPUTS TO PHYSICS CLASS -------------------
 ns.dt_cutoff       = 5.e-10   # level 0 timestep below which we halt
