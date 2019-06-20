@@ -37,7 +37,7 @@ module PeleLM_2d
              part_cnt_err, mcurve, smooth, grad_wbar, recomp_update, init_data_new_mech, &
              valgt_error, vallt_error, magvort_error, diffgt_error, &
              pphys_PfromRTY, pphys_mass_to_mole, pphys_massr_to_conc, pphys_HfromT, &
-             pphys_HMIXfromTY, pphys_RHOfromPTY
+             pphys_HMIXfromTY, pphys_RHOfromPTY, FORT_AVERAGE_EDGE_STATES
 
 contains
 
@@ -2915,5 +2915,66 @@ contains
        end do
     end do
   end subroutine diffgt_error
+
+!c ::: -----------------------------------------------------------
+!c
+!c     This routine averages the mac face velocities for makeforce at half time
+!c
+      subroutine FORT_AVERAGE_EDGE_STATES(vel,umacx,umacy, &
+                                         DIMS(vel),DIMS(umacx),DIMS(umacy), &
+                                         getForceVerbose) &
+                                         bind(C, name="FORT_AVERAGE_EDGE_STATES")
+
+      implicit none
+
+      integer    DIMDEC(vel)
+      integer    DIMDEC(umacx)
+      integer    DIMDEC(umacy)
+      integer    getForceVerbose
+      REAL_T     vel  (DIMV(vel),dim)
+      REAL_T     umacx(DIMV(umacx))
+      REAL_T     umacy(DIMV(umacy))
+
+      integer i,j,n
+      integer ilo,jlo
+      integer ihi,jhi
+
+      integer isioproc
+
+      REAL_T  velmin(dim)
+      REAL_T  velmax(dim)
+
+      do n = 1, dim
+         velmin(n) = 1.d234
+         velmax(n) = -1.d234
+      enddo
+
+      ilo = vel_l1
+      jlo = vel_l2
+      ihi = vel_h1
+      jhi = vel_h2
+
+      do j = jlo, jhi
+         do i = ilo, ihi
+            vel(i,j,1) = half*(umacx(i,j)+umacx(i+1,j))
+            vel(i,j,2) = half*(umacy(i,j)+umacy(i,j+1))
+            do n=1, dim
+               velmin(n)=min(velmin(n),vel(i,j,n))
+               velmax(n)=max(velmax(n),vel(i,j,n))
+            enddo
+         enddo
+      enddo
+
+      if (getForceVerbose.gt.0) then
+         call bl_pd_is_ioproc(isioproc)
+         if (isioproc .eq. 1) then
+            do n = 1, dim
+               write (6,*) "mac velmin (",n,") = ",velmin(n)
+               write (6,*) "mac velmax (",n,") = ",velmax(n)
+            enddo
+         endif
+      endif
+
+      end subroutine FORT_AVERAGE_EDGE_STATES
 
 end module PeleLM_2d

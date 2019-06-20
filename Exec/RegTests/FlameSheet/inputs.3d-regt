@@ -1,59 +1,37 @@
+# ----------------  PROBLEM DEPENDENT INPUTS
+ns.lo_bc          = 0 0 1
+ns.hi_bc          = 0 0 2
+
+geometry.is_periodic = 1 1 0
+
+# >>>>>>>>>>>>>  BC FLAGS <<<<<<<<<<<<<<<<
+# 0 = Interior           3 = Symmetry
+# 1 = Inflow             4 = SlipWall
+# 2 = Outflow            5 = NoSlipWall
+
+geometry.coord_sys = 0  # 0 => cart, 1 => RZ
+
+geometry.prob_lo   =  0. 0. 0.
+geometry.prob_hi   = .016 .016 .016
+
 #----------------------------TOP LEVEL INPUTS----------------------
 max_step  =  10000
-max_step  =  20
+max_step  =  5
 stop_time = 4.00
-
-#--------------------------MISC/UNSORTED INPUTS-----------------------------
-ns.do_active_control = 0
-
-mg.smooth_on_cg_unstable=1
-
-ns.do_fillPatchUMAC=1
-ns.zeroBndryVisc=1
-
-proj.proj_2 = 1
-ns.num_divu_iters =3
-
-ht.plot_rhoY=0
-ht.plot_molefrac=0
-ht.plot_massfrac=1
-ht.plot_ydot=0
-ht.plot_auxDiags = 1
-
-# multigrid class
-mg.usecg = 1
-cg.v = 0
-cg.isExpert=1
-mg.v = 0
-cg.maxiter = 1000
-mg.maxiter = 1000
-mg.nu_0 = 1
-mg.nu_1 = 4
-mg.nu_2 = 4
-mg.nu_f = 40
-cg.unstable_criterion = 100
-ns.htt_tempmin=1.0
-ns.htt_tempmax=2.5
-ns.v = 1
-mac.v = 2
-proj.v = 1
-ns.do_group_bndry_fills = 1
-
-cg.cg_solver=1
 
 #-------------------------AMR INPUTS----------------------------
 amr.n_cell    = 64 64 64
 amr.n_cell    = 128 128 128
-amr.n_cell    = 32 32 32
+amr.n_cell    = 16 16 16 
 
 amr.v=1
-amr.max_level =  1            # maximum level number allowed
+amr.max_level =  2            # maximum level number allowed
 amr.ref_ratio       = 2 2 2 2 # refinement ratio
 amr.regrid_int      = 2       # how often to regrid
 amr.n_error_buf     = 1 1 1 2 # number of buffer cells in error est
 amr.grid_eff        = 0.9     # what constitutes an efficient grid
 amr.grid_eff        = 0.7     # what constitutes an efficient grid
-amr.blocking_factor = 16      # block factor in grid generation
+amr.blocking_factor = 8       # block factor in grid generation
 
 amr.checkpoint_files_output = 0
 amr.check_file      = chk     # root name of checkpoint file
@@ -62,13 +40,35 @@ amr.check_int       = 5       # number of timesteps between checkpoints
 amr.plot_file       = plt
 amr.plot_int        = 500
 #amr.derive_plot_vars=rhoRT mag_vort particle_count mean_progress_curvature
-amr.derive_plot_vars=rhoRT mag_vort avg_pressure gradpx gradpy diveru
+amr.derive_plot_vars=rhoRT mag_vort avg_pressure gradpx gradpy gradpz diveru
 
 amr.grid_log        = grdlog  # name of grid logging file
 amr.max_grid_size   = 64
 #amr.derive_plot_vars=ALL
 
 amr.probin_file = probin.3d.test # This will default to file "probin" if not set
+
+# Refinement according to a species tracer
+amr.refinement_indicators = flame_tracer 
+amr.flame_tracer.max_level = 3
+amr.flame_tracer.value_greater = 1.e-6
+amr.flame_tracer.field_name = Y(H)
+
+# Refinement according to temperature and gradient of temperature
+#amr.refinement_indicators = lo_temp gradT
+#amr.lo_temp.max_level = 2
+#amr.lo_temp.value_less = 500
+#amr.lo_temp.field_name = temp
+
+#amr.gradT.max_level = 2
+#amr.gradT.adjacent_difference_greater = 300
+#amr.gradT.field_name = temp
+
+# Refinement according to the vorticity, no field_name needed
+#amr.refinement_indicators = magvort
+#amr.magvort.max_level = 3
+#amr.magvort.vorticity_greater = 1000
+
 
 # ------------------  INPUTS TO PHYSICS CLASS -------------------
 ns.dt_cutoff       = 5.e-10   # level 0 timestep below which we halt
@@ -111,29 +111,11 @@ ns.fuelName        = H2
 ns.unity_Le = 0
 
 ns.dpdt_option = 0
-#macop.max_order = 3
+ns.do_active_control = 0
 
-#ns.prandtl = .70
-#ns.schmidt = .70
-#ns.constant_mu_val = 0.05
-#ns.constant_lambda_val = 0.0714286
-#ns.constant_rhoD_val = 0.0714286
-# ----------------  PROBLEM DEPENDENT INPUTS
-
-ns.lo_bc          = 0 1
-ns.hi_bc          = 0 2
-geometry.is_periodic = 1 0
-
-# >>>>>>>>>>>>>  BC FLAGS <<<<<<<<<<<<<<<<
-# 0 = Interior           3 = Symmetry
-# 1 = Inflow             4 = SlipWall
-# 2 = Outflow            5 = NoSlipWall
-
-geometry.coord_sys = 0  # 0 => cart, 1 => RZ
-
-geometry.prob_lo   =  0. 0. 0.
-geometry.prob_hi   = .016 .016 .016
-
+ns.do_fillPatchUMAC=1
+ns.zeroBndryVisc=1
+ns.num_divu_iters =3
 
 # ------------------  INPUTS TO GODUNOV CLASS ----------------------
 godunov.slope_order = 4
@@ -156,6 +138,7 @@ proj.filter_factor  = 0.0
 proj.do_outflow_bcs = 0
 proj.divu_minus_s_factor = .5
 proj.divu_minus_s_factor = 0.
+proj.proj_2 = 1
 
 # ------------------  INPUTS TO MACPROJ CLASS -------------------
 mac.mac_tol        = 1.0e-9  # tolerence for mac projections
@@ -163,6 +146,37 @@ mac.mac_sync_tol   = 1.0e-8   # tolerence for mac SYNC projection
 mac.mac_abs_tol    = 1.0e-14
 mac.use_cg_solve   = 0
 mac.do_outflow_bcs = 0
+
+#--------------------------MISC/UNSORTED INPUTS-----------------------------
+mg.smooth_on_cg_unstable=1
+
+ht.plot_rhoY=0
+ht.plot_molefrac=0
+ht.plot_massfrac=1
+ht.plot_ydot=0
+ht.plot_auxDiags = 1
+
+# multigrid class
+mg.usecg = 1
+cg.v = 0
+cg.isExpert=1
+mg.v = 0
+cg.maxiter = 1000
+mg.maxiter = 1000
+mg.nu_0 = 1
+mg.nu_1 = 4
+mg.nu_2 = 4
+mg.nu_f = 40
+cg.unstable_criterion = 100
+ns.htt_tempmin=1.0
+ns.htt_tempmax=2.5
+ns.v = 1
+mac.v = 2
+proj.v = 1
+ns.do_group_bndry_fills = 1
+
+cg.cg_solver=1
+
 #
 # Select form of FAB output: default is NATIVE
 #
@@ -172,12 +186,7 @@ mac.do_outflow_bcs = 0
 #   8BIT   (eight-bit run-length-encoded)
 #
 fab.format = NATIVE
-
 fabarray.mfiter_tile_size = 8 8 8
 amrex.regtest_reduction=1
 
-# Refinement according to a species tracer
-amr.refinement_indicators = flame_tracer
-amr.flame_tracer.max_level = 3
-amr.flame_tracer.value_greater = 1.e-6
-amr.flame_tracer.field_name = Y(H)
+
