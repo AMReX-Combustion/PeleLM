@@ -37,6 +37,7 @@ def multiRun(test_name,inputFile):
     # Loop on /= resolutions, run 
     for case in resolution:
         outfile = "{}_{}.run.out".format(test_name,case)
+        print(" Running {}x{} case".format(case,case))
         runtime_params = "amr.n_cell={} {} {} ".format(case,case,case)
         runtime_params += "amr.plot_file={}_plt_{}_".format(test_name,case)
         os.system("mpiexec -n 1 ./{} {} {} > {}".format(executable, inputFile,runtime_params, outfile))
