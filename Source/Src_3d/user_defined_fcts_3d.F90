@@ -18,7 +18,7 @@ contains
 
 !!-----------------------
 
-  subroutine bcfunction(x,y,z,time,u,v,w,rho,Yl,T,h,dx,getuvw) &
+  subroutine bcfunction(x,y,z,dir,norm,time,u,v,w,rho,Yl,T,h,dx,getuvw) &
                         bind(C, name="bcfunction")
 
       use mod_Fvar_def, only : dim
@@ -26,6 +26,7 @@ contains
       implicit none
 
       REAL_T x, y, z, time, u, v, w, rho, Yl(0:*), T, h, dx(dim)
+      integer dir, norm  ! This specify the direction and orientation of the face
       logical getuvw
 
       print *,'You are imposing Dirichlet conditions'

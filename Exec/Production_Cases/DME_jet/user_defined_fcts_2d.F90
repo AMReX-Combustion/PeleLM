@@ -37,7 +37,7 @@ contains
 
 ! ::: -----------------------------------------------------------
       
-  subroutine bcfunction(x,y,time,u,v,rho,Yl,T,h,dx,getuv) &
+  subroutine bcfunction(x,y,dir,norm,time,u,v,rho,Yl,T,h,dx,getuv) &
                         bind(C, name="bcfunction")
 
       use network,   only: nspec
@@ -53,6 +53,7 @@ contains
       REAL_T  Patm
       logical getuv
       integer dimloc(2)
+      integer dir, norm  ! This specify the direction and orientation of the face
 
       integer n, airZone,fuelZone
       REAL_T eta, sigma, pi

@@ -58,23 +58,22 @@ static Box the_nodes (const Box& b) { return amrex::surroundingNodes(b); }
 static bool do_group_bndry_fills = false;
 
 //
-// Components are  Interior, Inflow, Outflow, Symmetry, SlipWall, NoSlipWall.
+// Components are  Interior, Inflow, Outflow, Symmetry, SlipWallAdiab, NoSlipWallAdiab.
 //
 
 static
 int
 norm_vel_bc[] =
 {
-//  INT_DIR, EXT_DIR, HOEXTRAP, REFLECT_ODD, EXT_DIR, EXT_DIR
-  INT_DIR, EXT_DIR, FOEXTRAP, REFLECT_ODD, EXT_DIR, EXT_DIR
+  // 
+INT_DIR, EXT_DIR, FOEXTRAP, REFLECT_EVEN, REFLECT_ODD, REFLECT_ODD
 };
 
 static
 int
 tang_vel_bc[] =
 {
-//  INT_DIR, EXT_DIR, HOEXTRAP, REFLECT_EVEN, HOEXTRAP, EXT_DIR
-  INT_DIR, EXT_DIR, FOEXTRAP, REFLECT_EVEN, HOEXTRAP, EXT_DIR
+  INT_DIR, EXT_DIR, FOEXTRAP, REFLECT_EVEN, REFLECT_EVEN, REFLECT_ODD
 };
 
 static
@@ -98,14 +97,15 @@ static
 int
 press_bc[] =
 {
-  INT_DIR, FOEXTRAP, FOEXTRAP, REFLECT_EVEN, FOEXTRAP, FOEXTRAP
+  //INT_DIR, FOEXTRAP, FOEXTRAP, REFLECT_EVEN, FOEXTRAP, FOEXTRAP
+  INT_DIR, FOEXTRAP, FOEXTRAP, REFLECT_EVEN, REFLECT_EVEN, REFLECT_EVEN
 };
 
 static
 int
 rhoh_bc[] =
 {
-  INT_DIR, EXT_DIR, FOEXTRAP, REFLECT_EVEN, REFLECT_EVEN, EXT_DIR
+  INT_DIR, EXT_DIR, FOEXTRAP, REFLECT_EVEN, REFLECT_EVEN, REFLECT_EVEN
 };
 
 static

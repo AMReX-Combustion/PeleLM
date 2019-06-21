@@ -85,7 +85,7 @@ contains
                z = (float(k)+.5)*delta(3)+domnlo(3)
                do j = lo(2), hi(2)
                   y = (float(j)+.5)*delta(2)+domnlo(2)
-                  call bcfunction(x,y,z,time,u,v,w,rho,Yl,T,h,delta,.false.)
+                  call bcfunction(x,y,z,1,1,time,u,v,w,rho,Yl,T,h,delta,.false.)
                   den(i,j,k) = rho
                enddo
             enddo
@@ -99,7 +99,7 @@ contains
                z = (float(k)+.5)*delta(3)+domnlo(3)
                do j = lo(2), hi(2)
                   y = (float(j)+.5)*delta(2)+domnlo(2)
-                  call bcfunction(x,y,z,time,u,v,w,rho,Yl,T,h,delta,.false.)
+                  call bcfunction(x,y,z,1,-1,time,u,v,w,rho,Yl,T,h,delta,.false.)
                   den(i,j,k) = rho
                enddo
             enddo
@@ -113,7 +113,7 @@ contains
                z = (float(k)+.5)*delta(3)+domnlo(3)
                do i = lo(1), hi(1)
                   x = (float(i)+.5)*delta(1)+domnlo(1)
-                  call bcfunction(x,y,z,time,u,v,w,rho,Yl,T,h,delta,.false.)
+                  call bcfunction(x,y,z,2,1,time,u,v,w,rho,Yl,T,h,delta,.false.)
                   den(i,j,k) = rho
                enddo
             enddo
@@ -127,7 +127,7 @@ contains
                z = (float(k)+.5)*delta(3)+domnlo(3)
                do i = lo(1), hi(1)
                   x = (float(i)+.5)*delta(1)+domnlo(1)
-                  call bcfunction(x,y,z,time,u,v,w,rho,Yl,T,h,delta,.false.)
+                  call bcfunction(x,y,z,2,-1,time,u,v,w,rho,Yl,T,h,delta,.false.)
                   den(i,j,k) = rho
                enddo
             enddo
@@ -141,7 +141,7 @@ contains
                y = (float(j)+.5)*delta(2)+domnlo(2)
                do i = lo(1), hi(1)
                   x = (float(i)+.5)*delta(1)+domnlo(1)
-                  call bcfunction(x,y,z,time,u,v,w,rho,Yl,T,h,delta,.false.)
+                  call bcfunction(x,y,z,3,1,time,u,v,w,rho,Yl,T,h,delta,.false.)
                   den(i,j,k) = rho
                enddo
             enddo
@@ -155,7 +155,7 @@ contains
                y = (float(j)+.5)*delta(2)+domnlo(2)
                do i = lo(1), hi(1)
                   x = (float(i)+.5)*delta(1)+domnlo(1)
-                  call bcfunction(x,y,z,time,u,v,w,rho,Yl,T,h,delta,.false.)
+                  call bcfunction(x,y,z,3,-1,time,u,v,w,rho,Yl,T,h,delta,.false.)
                   den(i,j,k) = rho
                enddo
             enddo
@@ -292,7 +292,7 @@ contains
                z = (float(k)+.5)*delta(3)+domnlo(3)
                do j = lo(2), hi(2)
                   y = (float(j)+.5)*delta(2)+domnlo(2)
-                  call bcfunction(x,y,z,time,u,v,w,rho,Yl,T,h,delta,.false.)
+                  call bcfunction(x,y,z,1,1,time,u,v,w,rho,Yl,T,h,delta,.false.)
                   temp(i,j,k) = T
                enddo
             enddo
@@ -306,7 +306,7 @@ contains
                z = (float(k)+.5)*delta(3)+domnlo(3)
                do j = lo(2), hi(2)
                   y = (float(j)+.5)*delta(2)+domnlo(2)
-                  call bcfunction(x,y,z,time,u,v,w,rho,Yl,T,h,delta,.false.)
+                  call bcfunction(x,y,z,1,-1,time,u,v,w,rho,Yl,T,h,delta,.false.)
                   temp(i,j,k) = T
                enddo
             enddo
@@ -320,7 +320,7 @@ contains
                z = (float(k)+.5)*delta(3)+domnlo(3)
                do i = lo(1), hi(1)
                   x = (float(i)+.5)*delta(1)+domnlo(1)
-                  call bcfunction(x,y,z,time,u,v,w,rho,Yl,T,h,delta,.false.)
+                  call bcfunction(x,y,z,2,1,time,u,v,w,rho,Yl,T,h,delta,.false.)
                   temp(i,j,k) = T
                enddo
             enddo
@@ -334,7 +334,7 @@ contains
                z = (float(k)+.5)*delta(3)+domnlo(3)
                do i = lo(1), hi(1)
                   x = (float(i)+.5)*delta(1)+domnlo(1)
-                  call bcfunction(x,y,z,time,u,v,w,rho,Yl,T,h,delta,.false.)
+                  call bcfunction(x,y,z,2,-1,time,u,v,w,rho,Yl,T,h,delta,.false.)
                   temp(i,j,k) = T
                enddo
             enddo
@@ -348,7 +348,7 @@ contains
                y = (float(j)+.5)*delta(2)+domnlo(2)
                do i = lo(1), hi(1)
                   x = (float(i)+.5)*delta(1)+domnlo(1)
-                  call bcfunction(x,y,z,time,u,v,w,rho,Yl,T,h,delta,.false.)
+                  call bcfunction(x,y,z,3,1,time,u,v,w,rho,Yl,T,h,delta,.false.)
                   temp(i,j,k) = T
                enddo
             enddo
@@ -362,7 +362,7 @@ contains
                y = (float(j)+.5)*delta(2)+domnlo(2)
                do i = lo(1), hi(1)
                   x = (float(i)+.5)*delta(1)+domnlo(1)
-                  call bcfunction(x,y,z,time,u,v,w,rho,Yl,T,h,delta,.false.)
+                  call bcfunction(x,y,z,3,-1,time,u,v,w,rho,Yl,T,h,delta,.false.)
                   temp(i,j,k) = T
                enddo
             enddo
@@ -438,7 +438,7 @@ contains
                z = (float(k)+.5)*delta(3)+domnlo(3)
                do j = lo(2), hi(2)
                   y = (float(j)+.5)*delta(2)+domnlo(2)
-                  call bcfunction(x,y,z,time,u,v,w,rho,Yl,T,h,delta,.false.)
+                  call bcfunction(x,y,z,1,1,time,u,v,w,rho,Yl,T,h,delta,.false.)
                   rhoh(i,j,k) = rho*h
                enddo
             enddo
@@ -452,7 +452,7 @@ contains
                z = (float(k)+.5)*delta(3)+domnlo(3)
                do j = lo(2), hi(2)
                   y = (float(j)+.5)*delta(2)+domnlo(2)
-                  call bcfunction(x,y,z,time,u,v,w,rho,Yl,T,h,delta,.false.)
+                  call bcfunction(x,y,z,1,-1,time,u,v,w,rho,Yl,T,h,delta,.false.)
                   rhoh(i,j,k) = rho*h
                enddo
             enddo
@@ -466,7 +466,7 @@ contains
                z = (float(k)+.5)*delta(3)+domnlo(3)
                do i = lo(1), hi(1)
                   x = (float(i)+.5)*delta(1)+domnlo(1)
-                  call bcfunction(x,y,z,time,u,v,w,rho,Yl,T,h,delta,.false.)
+                  call bcfunction(x,y,z,2,1,time,u,v,w,rho,Yl,T,h,delta,.false.)
                   rhoh(i,j,k) = rho*h
                enddo
             enddo
@@ -480,7 +480,7 @@ contains
                z = (float(k)+.5)*delta(3)+domnlo(3)
                do i = lo(1), hi(1)
                   x = (float(i)+.5)*delta(1)+domnlo(1)
-                  call bcfunction(x,y,z,time,u,v,w,rho,Yl,T,h,delta,.false.)
+                  call bcfunction(x,y,z,2,-1,time,u,v,w,rho,Yl,T,h,delta,.false.)
                   rhoh(i,j,k) = rho*h
                enddo
             enddo
@@ -494,7 +494,7 @@ contains
                y = (float(j)+.5)*delta(2)+domnlo(2)
                do i = lo(1), hi(1)
                   x = (float(i)+.5)*delta(1)+domnlo(1)
-                  call bcfunction(x,y,z,time,u,v,w,rho,Yl,T,h,delta,.false.)
+                  call bcfunction(x,y,z,3,1,time,u,v,w,rho,Yl,T,h,delta,.false.)
                   rhoh(i,j,k) = rho*h
                enddo
             enddo
@@ -508,7 +508,7 @@ contains
                y = (float(j)+.5)*delta(2)+domnlo(2)
                do i = lo(1), hi(1)
                   x = (float(i)+.5)*delta(1)+domnlo(1)
-                  call bcfunction(x,y,z,time,u,v,w,rho,Yl,T,h,delta,.false.)
+                  call bcfunction(x,y,z,3,-1,time,u,v,w,rho,Yl,T,h,delta,.false.)
                   rhoh(i,j,k) = rho*h
                enddo
             enddo
@@ -572,7 +572,7 @@ contains
                   if ((bc(1,1,1).eq.EXT_DIR) &
                       .or. (bc(1,1,2).eq.EXT_DIR) &
                       .or. (bc(1,1,3).eq.EXT_DIR)) then 
-                     call bcfunction(x,y,z,time,u,v,w,rho,Yl,T,h,delta,.true.)
+                     call bcfunction(x,y,z,1,1,time,u,v,w,rho,Yl,T,h,delta,.true.)
                   endif
 
                   if (bc(1,1,1).eq.EXT_DIR) then
@@ -602,7 +602,7 @@ contains
                   if ((bc(1,2,1).eq.EXT_DIR) &
                       .or. (bc(1,2,2).eq.EXT_DIR) &
                       .or. (bc(1,2,3).eq.EXT_DIR)) then 
-                     call bcfunction(x,y,z,time,u,v,w,rho,Yl,T,h,delta,.true.)
+                     call bcfunction(x,y,z,1,-1,time,u,v,w,rho,Yl,T,h,delta,.true.)
                   endif
 
                   if (bc(1,2,1).eq.EXT_DIR) then
@@ -632,7 +632,7 @@ contains
                   if ((bc(2,1,1).eq.EXT_DIR) &
                       .or. (bc(2,1,2).eq.EXT_DIR) &
                       .or. (bc(2,1,3).eq.EXT_DIR)) then 
-                     call bcfunction(x,y,z,time,u,v,w,rho,Yl,T,h,delta,.true.)
+                     call bcfunction(x,y,z,2,1,time,u,v,w,rho,Yl,T,h,delta,.true.)
                   endif
 
                   if (bc(2,1,1).eq.EXT_DIR) then
@@ -662,7 +662,7 @@ contains
                   if ((bc(2,2,1).eq.EXT_DIR) &
                       .or. (bc(2,2,2).eq.EXT_DIR) &
                       .or. (bc(2,2,3).eq.EXT_DIR)) then 
-                     call bcfunction(x,y,z,time,u,v,w,rho,Yl,T,h,delta,.true.)
+                     call bcfunction(x,y,z,2,-1,time,u,v,w,rho,Yl,T,h,delta,.true.)
                   endif
 
                   if (bc(2,2,1).eq.EXT_DIR) then
@@ -692,7 +692,7 @@ contains
                   if ((bc(3,1,1).eq.EXT_DIR) &
                       .or. (bc(3,1,2).eq.EXT_DIR) &
                       .or. (bc(3,1,3).eq.EXT_DIR)) then 
-                     call bcfunction(x,y,z,time,u,v,w,rho,Yl,T,h,delta,.true.)
+                     call bcfunction(x,y,z,3,1,time,u,v,w,rho,Yl,T,h,delta,.true.)
                   endif
 
                   if (bc(3,1,1).eq.EXT_DIR) then
@@ -722,7 +722,7 @@ contains
                   if ((bc(3,2,1).eq.EXT_DIR) &
                       .or. (bc(3,2,2).eq.EXT_DIR) &
                       .or. (bc(3,2,3).eq.EXT_DIR)) then 
-                     call bcfunction(x,y,z,time,u,v,w,rho,Yl,T,h,delta,.true.)
+                     call bcfunction(x,y,z,3,-1,time,u,v,w,rho,Yl,T,h,delta,.true.)
                   endif
 
                   if (bc(3,2,1).eq.EXT_DIR) then
@@ -810,7 +810,7 @@ contains
                z = (float(k)+.5)*delta(3)+domnlo(3)
                do j = lo(2), hi(2)
                   y = (float(j)+.5)*delta(2)+domnlo(2)
-                  call bcfunction(x,y,z,time,u,v,w,rho,Yl,T,h,delta,.true.)
+                  call bcfunction(x,y,z,1,1,time,u,v,w,rho,Yl,T,h,delta,.true.)
                   xvel(i,j,k) = u
                enddo
             enddo
@@ -824,7 +824,7 @@ contains
                z = (float(k)+.5)*delta(3)+domnlo(3)
                do j = lo(2), hi(2)
                   y = (float(j)+.5)*delta(2)+domnlo(2)
-                  call bcfunction(x,y,z,time,u,v,w,rho,Yl,T,h,delta,.true.)
+                  call bcfunction(x,y,z,1,-1,time,u,v,w,rho,Yl,T,h,delta,.true.)
                   xvel(i,j,k) = u
                enddo
             enddo
@@ -838,7 +838,7 @@ contains
                z = (float(k)+.5)*delta(3)+domnlo(3)
                do i = lo(1), hi(1)
                   x = (float(i)+.5)*delta(1)+domnlo(1)
-                  call bcfunction(x,y,z,time,u,v,w,rho,Yl,T,h,delta,.true.)
+                  call bcfunction(x,y,z,2,1,time,u,v,w,rho,Yl,T,h,delta,.true.)
                   xvel(i,j,k) = u
                enddo
             enddo
@@ -852,7 +852,7 @@ contains
                z = (float(k)+.5)*delta(3)+domnlo(3)
                do i = lo(1), hi(1)
                   x = (float(i)+.5)*delta(1)+domnlo(1)
-                  call bcfunction(x,y,z,time,u,v,w,rho,Yl,T,h,delta,.true.)
+                  call bcfunction(x,y,z,2,-1,time,u,v,w,rho,Yl,T,h,delta,.true.)
                   xvel(i,j,k) = u
                enddo
             enddo
@@ -866,7 +866,7 @@ contains
                y = (float(j)+.5)*delta(2)+domnlo(2)
                do i = lo(1), hi(1)
                   x = (float(i)+.5)*delta(1)+domnlo(1)
-                  call bcfunction(x,y,z,time,u,v,w,rho,Yl,T,h,delta,.true.)
+                  call bcfunction(x,y,z,3,1,time,u,v,w,rho,Yl,T,h,delta,.true.)
                   xvel(i,j,k) = u
                enddo
             enddo
@@ -880,7 +880,7 @@ contains
                y = (float(j)+.5)*delta(2)+domnlo(2)
                do i = lo(1), hi(1)
                   x = (float(i)+.5)*delta(1)+domnlo(1)
-                  call bcfunction(x,y,z,time,u,v,w,rho,Yl,T,h,delta,.true.)
+                  call bcfunction(x,y,z,3,-1,time,u,v,w,rho,Yl,T,h,delta,.true.)
                   xvel(i,j,k) = u
                enddo
             enddo
@@ -956,7 +956,7 @@ contains
                z = (float(k)+.5)*delta(3)+domnlo(3)
                do j = lo(2), hi(2)
                   y = (float(j)+.5)*delta(2)+domnlo(2)
-                  call bcfunction(x,y,z,time,u,v,w,rho,Yl,T,h,delta,.true.)
+                  call bcfunction(x,y,z,1,1,time,u,v,w,rho,Yl,T,h,delta,.true.)
                   yvel(i,j,k) = v
                enddo
             enddo
@@ -970,7 +970,7 @@ contains
                z = (float(k)+.5)*delta(3)+domnlo(3)
                do j = lo(2), hi(2)
                   y = (float(j)+.5)*delta(2)+domnlo(2)
-                  call bcfunction(x,y,z,time,u,v,w,rho,Yl,T,h,delta,.true.)
+                  call bcfunction(x,y,z,1,-1,time,u,v,w,rho,Yl,T,h,delta,.true.)
                   yvel(i,j,k) = v
                enddo
             enddo
@@ -984,7 +984,7 @@ contains
                z = (float(k)+.5)*delta(3)+domnlo(3)
                do i = lo(1), hi(1)
                   x = (float(i)+.5)*delta(1)+domnlo(1)
-                  call bcfunction(x,y,z,time,u,v,w,rho,Yl,T,h,delta,.true.)
+                  call bcfunction(x,y,z,2,1,time,u,v,w,rho,Yl,T,h,delta,.true.)
                   yvel(i,j,k) = v
                enddo
             enddo
@@ -998,7 +998,7 @@ contains
                z = (float(k)+.5)*delta(3)+domnlo(3)
                do i = lo(1), hi(1)
                   x = (float(i)+.5)*delta(1)+domnlo(1)
-                  call bcfunction(x,y,z,time,u,v,w,rho,Yl,T,h,delta,.true.)
+                  call bcfunction(x,y,z,2,-1,time,u,v,w,rho,Yl,T,h,delta,.true.)
                   yvel(i,j,k) = v
                enddo
             enddo
@@ -1012,7 +1012,7 @@ contains
                y = (float(j)+.5)*delta(2)+domnlo(2)
                do i = lo(1), hi(1)
                   x = (float(i)+.5)*delta(1)+domnlo(1)
-                  call bcfunction(x,y,z,time,u,v,w,rho,Yl,T,h,delta,.true.)
+                  call bcfunction(x,y,z,3,1,time,u,v,w,rho,Yl,T,h,delta,.true.)
                   yvel(i,j,k) = v
                enddo
             enddo
@@ -1026,7 +1026,7 @@ contains
                y = (float(j)+.5)*delta(2)+domnlo(2)
                do i = lo(1), hi(1)
                   x = (float(i)+.5)*delta(1)+domnlo(1)
-                  call bcfunction(x,y,z,time,u,v,w,rho,Yl,T,h,delta,.true.)
+                  call bcfunction(x,y,z,3,-1,time,u,v,w,rho,Yl,T,h,delta,.true.)
                   yvel(i,j,k) = v
                enddo
             enddo
@@ -1102,7 +1102,7 @@ contains
                z = (float(k)+.5)*delta(3)+domnlo(3)
                do j = lo(2), hi(2)
                   y = (float(j)+.5)*delta(2)+domnlo(2)
-                  call bcfunction(x,y,z,time,u,v,w,rho,Yl,T,h,delta,.true.)
+                  call bcfunction(x,y,z,1,1,time,u,v,w,rho,Yl,T,h,delta,.true.)
                   zvel(i,j,k) = w
                enddo
             enddo
@@ -1116,7 +1116,7 @@ contains
                z = (float(k)+.5)*delta(3)+domnlo(3)
                do j = lo(2), hi(2)
                   y = (float(j)+.5)*delta(2)+domnlo(2)
-                  call bcfunction(x,y,z,time,u,v,w,rho,Yl,T,h,delta,.true.)
+                  call bcfunction(x,y,z,1,-1,time,u,v,w,rho,Yl,T,h,delta,.true.)
                   zvel(i,j,k) = w
                enddo
             enddo
@@ -1130,7 +1130,7 @@ contains
                z = (float(k)+.5)*delta(3)+domnlo(3)
                do i = lo(1), hi(1)
                   x = (float(i)+.5)*delta(1)+domnlo(1)
-                  call bcfunction(x,y,z,time,u,v,w,rho,Yl,T,h,delta,.true.)
+                  call bcfunction(x,y,z,2,1,time,u,v,w,rho,Yl,T,h,delta,.true.)
                   zvel(i,j,k) = w
                enddo
             enddo
@@ -1144,7 +1144,7 @@ contains
                z = (float(k)+.5)*delta(3)+domnlo(3)
                do i = lo(1), hi(1)
                   x = (float(i)+.5)*delta(1)+domnlo(1)
-                  call bcfunction(x,y,z,time,u,v,w,rho,Yl,T,h,delta,.true.)
+                  call bcfunction(x,y,z,2,-1,time,u,v,w,rho,Yl,T,h,delta,.true.)
                   zvel(i,j,k) = w
                enddo
             enddo
@@ -1158,7 +1158,7 @@ contains
                y = (float(j)+.5)*delta(2)+domnlo(2)
                do i = lo(1), hi(1)
                   x = (float(i)+.5)*delta(1)+domnlo(1)
-                  call bcfunction(x,y,z,time,u,v,w,rho,Yl,T,h,delta,.true.)
+                  call bcfunction(x,y,z,3,1,time,u,v,w,rho,Yl,T,h,delta,.true.)
                   zvel(i,j,k) = w
                enddo
             enddo
@@ -1172,7 +1172,7 @@ contains
                y = (float(j)+.5)*delta(2)+domnlo(2)
                do i = lo(1), hi(1)
                   x = (float(i)+.5)*delta(1)+domnlo(1)
-                  call bcfunction(x,y,z,time,u,v,w,rho,Yl,T,h,delta,.true.)
+                  call bcfunction(x,y,z,3,-1,time,u,v,w,rho,Yl,T,h,delta,.true.)
                   zvel(i,j,k) = w
                enddo
             enddo
@@ -1231,7 +1231,7 @@ contains
                z = (float(k)+.5)*delta(3)+domnlo(3)
                do j = lo(2), hi(2)
                   y = (float(j)+.5)*delta(2)+domnlo(2)
-                  call bcfunction(x,y,z,time,u,v,w,rho,Yl,T,h,delta,.false.)
+                  call bcfunction(x,y,z,1,1,time,u,v,w,rho,Yl,T,h,delta,.false.)
                   do n = 1,Nspec
                      rhoY(i,j,k,n) = rho*Yl(n)
                   end do
@@ -1247,7 +1247,7 @@ contains
                z = (float(k)+.5)*delta(3)+domnlo(3)
                do j = lo(2), hi(2)
                   y = (float(j)+.5)*delta(2)+domnlo(2)
-                  call bcfunction(x,y,z,time,u,v,w,rho,Yl,T,h,delta,.false.)
+                  call bcfunction(x,y,z,1,-1,time,u,v,w,rho,Yl,T,h,delta,.false.)
                   do n = 1,Nspec
                      rhoY(i,j,k,n) = rho*Yl(n)
                   end do
@@ -1263,7 +1263,7 @@ contains
                z = (float(k)+.5)*delta(3)+domnlo(3)
                do i = lo(1), hi(1)
                   x = (float(i)+.5)*delta(1)+domnlo(1)
-                  call bcfunction(x,y,z,time,u,v,w,rho,Yl,T,h,delta,.false.)
+                  call bcfunction(x,y,z,2,1,time,u,v,w,rho,Yl,T,h,delta,.false.)
                   do n = 1,Nspec
                      rhoY(i,j,k,n) = rho*Yl(n)
                   end do
@@ -1279,7 +1279,7 @@ contains
                z = (float(k)+.5)*delta(3)+domnlo(3)
                do i = lo(1), hi(1)
                   x = (float(i)+.5)*delta(1)+domnlo(1)
-                  call bcfunction(x,y,z,time,u,v,w,rho,Yl,T,h,delta,.false.)
+                  call bcfunction(x,y,z,2,-1,time,u,v,w,rho,Yl,T,h,delta,.false.)
                   do n = 1,Nspec
                      rhoY(i,j,k,n) = rho*Yl(n)
                   end do
@@ -1295,7 +1295,7 @@ contains
                y = (float(j)+.5)*delta(2)+domnlo(2)
                do i = lo(1), hi(1)
                   x = (float(i)+.5)*delta(1)+domnlo(1)
-                  call bcfunction(x,y,z,time,u,v,w,rho,Yl,T,h,delta,.false.)
+                  call bcfunction(x,y,z,3,1,time,u,v,w,rho,Yl,T,h,delta,.false.)
                   do n = 1,Nspec
                      rhoY(i,j,k,n) = rho*Yl(n)
                   end do
@@ -1311,7 +1311,7 @@ contains
                y = (float(j)+.5)*delta(2)+domnlo(2)
                do i = lo(1), hi(1)
                   x = (float(i)+.5)*delta(1)+domnlo(1)
-                  call bcfunction(x,y,z,time,u,v,w,rho,Yl,T,h,delta,.false.)
+                  call bcfunction(x,y,z,3,-1,time,u,v,w,rho,Yl,T,h,delta,.false.)
                   do n = 1,Nspec
                      rhoY(i,j,k,n) = rho*Yl(n)
                   end do
@@ -1392,7 +1392,7 @@ contains
                z = (float(k)+.5)*delta(3)+domnlo(3)
                do j = lo(2), hi(2)
                   y = (float(j)+.5)*delta(2)+domnlo(2)
-                  call bcfunction(x,y,z,time,u,v,w,rho,Yl,T,h,delta,.false.)
+                  call bcfunction(x,y,z,1,1,time,u,v,w,rho,Yl,T,h,delta,.false.)
                   rhoY(i,j,k) = rho*Yl(id)
                enddo
             enddo
@@ -1406,7 +1406,7 @@ contains
                z = (float(k)+.5)*delta(3)+domnlo(3)
                do j = lo(2), hi(2)
                   y = (float(j)+.5)*delta(2)+domnlo(2)
-                  call bcfunction(x,y,z,time,u,v,w,rho,Yl,T,h,delta,.false.)
+                  call bcfunction(x,y,z,1,-1,time,u,v,w,rho,Yl,T,h,delta,.false.)
                   rhoY(i,j,k) = rho*Yl(id)
                enddo
             enddo
@@ -1420,7 +1420,7 @@ contains
                z = (float(k)+.5)*delta(3)+domnlo(3)
                do i = lo(1), hi(1)
                   x = (float(i)+.5)*delta(1)+domnlo(1)
-                  call bcfunction(x,y,z,time,u,v,w,rho,Yl,T,h,delta,.false.)
+                  call bcfunction(x,y,z,2,1,time,u,v,w,rho,Yl,T,h,delta,.false.)
                   rhoY(i,j,k) = rho*Yl(id)
                enddo
             enddo
@@ -1434,7 +1434,7 @@ contains
                z = (float(k)+.5)*delta(3)+domnlo(3)
                do i = lo(1), hi(1)
                   x = (float(i)+.5)*delta(1)+domnlo(1)
-                  call bcfunction(x,y,z,time,u,v,w,rho,Yl,T,h,delta,.false.)
+                  call bcfunction(x,y,z,2,-1,time,u,v,w,rho,Yl,T,h,delta,.false.)
                   rhoY(i,j,k) = rho*Yl(id)
                enddo
             enddo
@@ -1448,7 +1448,7 @@ contains
                y = (float(j)+.5)*delta(2)+domnlo(2)
                do i = lo(1), hi(1)
                   x = (float(i)+.5)*delta(1)+domnlo(1)
-                  call bcfunction(x,y,z,time,u,v,w,rho,Yl,T,h,delta,.false.)
+                  call bcfunction(x,y,z,3,1,time,u,v,w,rho,Yl,T,h,delta,.false.)
                   rhoY(i,j,k) = rho*Yl(id)
                enddo
             enddo
@@ -1462,7 +1462,7 @@ contains
                y = (float(j)+.5)*delta(2)+domnlo(2)
                do i = lo(1), hi(1)
                   x = (float(i)+.5)*delta(1)+domnlo(1)
-                  call bcfunction(x,y,z,time,u,v,w,rho,Yl,T,h,delta,.false.)
+                  call bcfunction(x,y,z,3,-1,time,u,v,w,rho,Yl,T,h,delta,.false.)
                   rhoY(i,j,k) = rho*Yl(id)
                enddo
             enddo

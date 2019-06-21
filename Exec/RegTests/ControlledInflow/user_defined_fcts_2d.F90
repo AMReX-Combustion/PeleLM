@@ -18,7 +18,7 @@ contains
 
 !-----------------------
 
-  subroutine bcfunction(x,y,time,u,v,rho,Yl,T,h,dx,getuv) &
+  subroutine bcfunction(x,y,dir,norm,time,u,v,rho,Yl,T,h,dx,getuv) &
                         bind(C, name="bcfunction")
 
       use network,   only: nspec
@@ -29,6 +29,7 @@ contains
       implicit none
 
       REAL_T x, y, time, u, v, rho, Yl(0:*), T, h, dx(dim)
+      integer dir, norm  ! This specify the direction and orientation of the face
       logical getuv
 
       integer n
