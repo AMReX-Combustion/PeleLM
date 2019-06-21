@@ -2,7 +2,7 @@
 
 # A template script to lunch several times PeleLM at different resolution
 # in order to evaluate the convergence order
-# Used in the marex regression_testing framework
+# Used in the amrex regression_testing framework
 
 # Usage:
 #   ./multiRuns.py testName PeleLMInputFile
