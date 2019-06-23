@@ -5,10 +5,11 @@
 # Input are limited by the regression framework.
 
 # Usage:
-#   ./pprocConvOrder.py pproc_exec
+#   ./pprocConvOrder.py --pproc_exec prog.exe --test_name DummyTest
 
 # Input:
-#   * pproc_exec the processing executable path
+#   * --pproc_exec: the processing executable path
+#   * --test_name: a TESTNAME that will looked for during the postprocessing
 
 # "Internal" user input 
 #   * pproc_type:
@@ -31,12 +32,17 @@ import sys
 import os
 import fnmatch
 import shutil
+import argparse
 import numpy as np
 
 import matplotlib
 import matplotlib.pyplot as plt
 
-def pproc(pproc_exe):
+USAGE = """
+    Template post-processing script for PeleLM convergence analysis
+"""
+
+def pproc(args):
 
     # User data
     vars=["y_velocity", "x_velocity" ]
@@ -45,9 +51,12 @@ def pproc(pproc_exe):
 
     # Get a local copy of post-processing executable
     run_dir = os.getcwd()
-    if ( not os.path.isfile(os.path.basename(pproc_exe)) ):
-        shutil.copy(pproc_exe, run_dir)
-    test_name = run_dir.split("/")[-1]
+    if ( not os.path.isfile(os.path.basename(args.pproc_exe)) ):
+        shutil.copy(args.pproc_exe, run_dir)
+
+    # Check the test name: current folder name is default
+    if ( args.test_name == "None" ):
+        args.test_name = run_dir.split("/")[-1]
 
     # Run the postprocessing
     if ( pproc_type == "fcompare" ):     # running fcompare since analytical solution is known
@@ -61,11 +70,11 @@ def pproc(pproc_exe):
             # TODO: the analytical solution might not be plt****_00000 ...
             for f in os.listdir(run_dir):
                 if ( not fnmatch.fnmatch(f, '*old*')):
-                    if (f.startswith("{}_plt_{}_".format(test_name,case))):
+                    if (f.startswith("{}_plt_{}_".format(args.test_name,case))):
                         pltfile.append(f)
             pltfile.sort()
             outfile = "error_{}.analysis.out".format(case)
-            os.system("./{} -n 2 {} {} > {}".format(os.path.basename(pproc_exe), pltfile[0], pltfile[-1], outfile))
+            os.system("./{} -n 2 {} {} > {}".format(os.path.basename(args.pproc_exe), pltfile[0], pltfile[-1], outfile))
             pltfile.clear()
         
             # Extract errors on each variable
@@ -90,14 +99,14 @@ def pproc(pproc_exe):
             # and next finer cases. These run should have been runned to the same final time
             for f in os.listdir(run_dir):
                 if ( not fnmatch.fnmatch(f, '*old*')):
-                    if (f.startswith("{}_plt_{}_".format(test_name,case))):
+                    if (f.startswith("{}_plt_{}_".format(args.test_name,case))):
                         pltfile.append(f)
-                    if (f.startswith("{}_plt_{}_".format(test_name,nextcase))):
+                    if (f.startswith("{}_plt_{}_".format(args.test_name,nextcase))):
                         pltfilenext.append(f)
             pltfile.sort()
             pltfilenext.sort()
             outfile = "error_{}.analysis.out".format(case)
-            os.system("./{} infile1={} reffile={} > {}".format(os.path.basename(pproc_exe), pltfile[-1], pltfilenext[-1], outfile))
+            os.system("./{} infile1={} reffile={} > {}".format(os.path.basename(args.pproc_exe), pltfile[-1], pltfilenext[-1], outfile))
             pltfile.clear()
             pltfilenext.clear()
 
@@ -117,9 +126,9 @@ def pproc(pproc_exe):
 
     print(errors)
     # Plot data
-    plotdata(errors, test_name, vars)
-    writetex(errors, test_name, vars)
-    writeRegTestFile(errors, test_name, vars)
+    plotdata(errors, args.test_name, vars)
+    writetex(errors, args.test_name, vars)
+    writeRegTestFile(errors, args.test_name, vars)
 
 def plotdata(data, test_name, vars):
     # Evaluate 2nd order slope
@@ -184,6 +193,22 @@ def writeRegTestFile(data, test_name, vars):
         fout.write("\n")
     fout.close()
 
+def parse_args(arg_string=None):
+    parser = argparse.ArgumentParser(description=USAGE)
+
+    parser.add_argument("--test_name", type=str, default="None", metavar="test-name",
+                        help="name of the test. Default = current folder name")
+
+    parser.add_argument("--pproc_exe", type=str, default="None", metavar="pproc.exe",
+                        help="path to the executable required for the analysis.")
+
+    if not arg_string is None:
+        args = parser.parse_args(arg_string)
+    else:
+        args = parser.parse_args()
+
+    return args   
+
 if __name__ == "__main__":
-    pproc_exe = str(sys.argv[1])
-    pproc(pproc_exe)
+    args = parse_args(arg_string=sys.argv[1:])
+    pproc(args)
