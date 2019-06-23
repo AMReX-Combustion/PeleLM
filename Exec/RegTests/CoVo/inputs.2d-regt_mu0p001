@@ -46,7 +46,7 @@ amr.grid_log        = grdlog  # name of grid logging file
 amr.max_grid_size   = 64
 #amr.derive_plot_vars=ALL
 
-amr.probin_file = probin.2d.test # This will default to file "probin" if not set
+amr.probin_file = probin.2d.regt # This will default to file "probin" if not set
 
 
 # ------------------  INPUTS TO PHYSICS CLASS -------------------
