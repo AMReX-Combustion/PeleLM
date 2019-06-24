@@ -5,12 +5,14 @@ multirun.py
 -----------
 
 A template version of a python script that can be used in AMReX regression testing framework in place of the application executable. It launch several times PeleLM at different resolution in order to evaluate convergence order.
+
 Usage:
-  ./multiRuns.py testName PeleLMInputFile
+  ./multiRuns.py --test_name DummyTest --input_file PeleLMInputFile
+  ./multiRuns.py -h to get some info.	
 
 Input:
-  * testName: a TESTNAME that will be prependded to the plt files names
-  * PeleLMInputFile: the PeleLM input file
+  * --test_name: a TESTNAME that will be prependded to the plt files names. Default is the current folder name.
+  * --input_file: the PeleLM input file. Default is the first inputs.* in the current folder.
 
 "Internal" user input
   * resolution : a list of the resolutions to run
@@ -24,10 +26,12 @@ pprocConvOrder.py
 A template version of a python script that can be used in AMReX regression testing framework to compute convergence orders. Should be used after multirun.py script.
 
 Usage:
-  ./pprocConvOrder.py pproc_exec
+  ./pprocConvOrder.py --pproc_exec prog.exe --test_name DummyTest
+  ./pprocConvOrder.py -h to get some info.
 
 Input:
-  * pproc_exec the processing executable path
+  * --pproc_exec: the processing executable path
+  * --test_name: a TESTNAME that will be used to find plt files of the test. Default is the current folder name.
 
 "Internal" user input 
   * pproc_type:
