@@ -1,0 +1,190 @@
+# ----------------  PROBLEM DEPENDENT INPUTS
+ns.lo_bc          = 0 2 1
+ns.hi_bc          = 0 2 2
+
+geometry.is_periodic = 1 0 0
+
+# >>>>>>>>>>>>>  BC FLAGS <<<<<<<<<<<<<<<<
+# 0 = Interior           3 = Symmetry
+# 1 = Inflow             4 = SlipWall
+# 2 = Outflow            5 = NoSlipWall
+
+geometry.coord_sys = 0  # 0 => cart, 1 => RZ
+
+geometry.prob_lo    = -.0009 -.0015 0.0
+geometry.prob_hi    =  .0009  .0015 0.003
+
+#----------------------------TOP LEVEL INPUTS----------------------
+max_step            = 1000
+stop_time = 4.0
+
+#-------------------------AMR INPUTS----------------------------
+amr.n_cell          = 24 40 40
+
+amr.v=1
+amr.max_level        = 0
+amr.ref_ratio       = 2 2 2 2 # refinement ratio
+amr.regrid_int      = 2       # how often to regrid
+amr.n_error_buf     = 4 4 4 4 # number of buffer cells in error est
+amr.grid_eff        = 0.7     # what constitutes an efficient grid
+amr.grid_log        = grdlog  # name of grid logging file
+amr.blocking_factor = 8
+amr.max_grid_size   = 32
+
+amr.plot_files_output = 1
+amr.plot_file       = plt
+amr.plot_int        = 5
+
+amr.checkpoint_files_output = 1
+amr.check_file      = chk
+amr.check_int       = 10
+
+amr.derive_plot_vars=rhoRT mag_vort
+
+amr.probin_file = probin.diffusion.3d
+
+# Refinement according to a species tracer
+amr.refinement_indicators = flame_tracer  magvort gradT
+amr.flame_tracer.max_level = 4
+amr.flame_tracer.value_greater = 1.e-8
+amr.flame_tracer.field_name = Y(H)
+
+# Refinement according to the vorticity, no field_name needed
+amr.magvort.max_level = 4
+amr.magvort.vorticity_greater = 5e4
+
+amr.gradT.max_level = 2
+amr.gradT.adjacent_difference_greater = 80
+amr.gradT.field_name = temp
+
+
+# ------------------  INPUTS TO PHYSICS CLASS -------------------
+ns.v = 1
+ns.dt_cutoff       = 5.e-10   # level 0 timestep below which we halt
+ns.visc_tol        = 1.0e-14  # tolerence for viscous solves
+ns.visc_abs_tol    = 1.0e-14  # tolerence for viscous solves
+ns.cfl             = 0.7      # cfl number for hyperbolic system
+ns.init_shrink    = 0.1       # scale back initial timestep
+ns.change_max     = 1.1       # scale back initial timestep
+ns.vel_visc_coef   = 1.983e-5
+ns.temp_cond_coef  = 2.6091e-5
+ns.scal_diff_coefs = -0.01
+ns.variable_vel_visc  = 1
+ns.variable_scal_diff = 1
+ns.init_iter      = 3        # number of init iters to def pressure
+ns.gravity        = -9.81    # body force  (gravity in MKS units)
+ns.gravity        = 0        # body force  (gravity in MKS units)
+ns.sum_interval   = 1        # timesteps between computing mass
+ns.do_reflux      = 1        # 1 => do refluxing
+ns.do_mac_proj    = 1        # 1 => do MAC projection
+
+ns.do_sync_proj   = 1        # 1 => do Sync Project
+ns.do_MLsync_proj = 1
+ns.do_divu_sync = 0
+ns.divu_relax_factor   = 0.0
+
+ns.be_cn_theta = 0.5
+ns.S_in_vel_diffusion = 1
+
+ns.do_temp = 1
+
+ns.do_diffuse_sync = 1
+
+ns.divu_ceiling = 1
+ns.divu_dt_factor = .4
+ns.min_rho_divu_ceiling = .01
+
+ns.fuelName        = CH3OCH3
+ns.unity_Le = 0
+
+ns.sdc_iterMAX = 2
+
+ns.dpdt_option = 0
+
+ns.htt_tempmin=1.0
+ns.htt_tempmax=2.5
+
+FILE = typVals_DME.pp
+ns.reset_typical_vals_int = 5
+
+ns.do_active_control = 0
+
+ns.do_fillPatchUMAC=1
+ns.zeroBndryVisc=1
+ns.num_divu_iters = 3
+ns.do_group_bndry_fills = 1
+
+ns.hack_nochem=1
+
+# ------------------  INPUTS TO GODUNOV CLASS ----------------------
+godunov.slope_order = 4
+
+# ------------------  INPUTS TO DIFFUSION CLASS --------------------
+diffuse.use_cg_solve = 0
+diffuse.max_order = 4
+diffuse.tensor_max_order = 4
+diffuse.use_tensor_cg_solve = 0
+diffuse.v = 0
+diffuse.Rhs_in_abs_tol = 1
+
+# ------------------  INPUTS TO PROJECTION CLASS -------------------
+proj.v = 0
+proj.proj_tol       = 1.0e-1  # tolerence for projections
+proj.proj_tol       = 1.0e-11  # tolerence for projections
+proj.sync_tol       = 1.0e-8  # tolerence for projections
+proj.rho_wgt_vel_proj = 0      # 0 => const den proj, 1 => rho weighted
+#proj.rho_wgt_vel_proj = 1      # 0 => const den proj, 1 => rho weighted
+proj.proj_2 = 1
+proj.Pcode          = 0
+proj.Pcode          = 4
+proj.filter_factor  = 0.0
+proj.do_outflow_bcs = 0
+proj.divu_minus_s_factor = .5
+proj.divu_minus_s_factor = 0.
+
+# ------------------  INPUTS TO MACPROJ CLASS -------------------
+mac.v = 0
+mac.mac_tol        = 1.0e-9  # tolerence for mac projections
+mac.mac_sync_tol   = 1.0e-8   # tolerence for mac SYNC projection
+mac.mac_abs_tol    = 1.0e-14
+mac.use_cg_solve   = 0
+mac.do_outflow_bcs = 0
+
+
+#--------------------------MISC/UNSORTED INPUTS-----------------------------
+
+ht.plot_heat_release=1
+ht.plot_rhoY=0
+ht.plot_molefrac=0
+ht.plot_massfrac=1
+ht.plot_ydot=0
+
+# multigrid class
+mg.smooth_on_cg_unstable=1
+mg.usecg = 1
+cg.cg_solver=1
+cg.v = 0
+cg.isExpert=1
+mg.v = 0
+cg.maxiter = 1000
+mg.maxiter = 1000
+mg.nu_0 = 1
+mg.nu_1 = 4
+mg.nu_2 = 4
+mg.nu_f = 40
+cg.unstable_criterion = 100
+
+
+#
+# Select form of FAB output: default is NATIVE
+#
+#   ASCII  (this is very slow)
+#   NATIVE (native binary form on machine -- the default)
+#   IEEE32 (useful if you want 32bit files when running in double precision)
+#   8BIT   (eight-bit run-length-encoded)
+#
+fab.format = NATIVE
+
+
+
+
