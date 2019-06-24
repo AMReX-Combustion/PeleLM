@@ -203,9 +203,9 @@ def parse_args(arg_string=None):
                         help="path to the executable required for the analysis.")
 
     if not arg_string is None:
-        args = parser.parse_args(arg_string)
+        args, unknown = parser.parse_known_args(arg_string)
     else:
-        args = parser.parse_args()
+        args, unknown = parser.parse_known_args()
 
     return args   
 

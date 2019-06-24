@@ -69,9 +69,9 @@ def parse_args(arg_string=None):
                         help="input file name. Default = first inputs.* in current directory")
 
     if not arg_string is None:
-        args = parser.parse_args(arg_string)
+        args, unknown = parser.parse_known_args(arg_string)
     else:
-        args = parser.parse_args()
+        args, unknown = parser.parse_known_args()
 
     return args   
 
