@@ -4463,7 +4463,6 @@ PeleLM::predict_velocity (Real  dt)
         amrex::Print() << "---\nA - Predict velocity:\n Calling getForce..." << '\n';
       getForce(tforces,bx,1,Xvel,BL_SPACEDIM,prev_time,Ufab,Smf[U_mfi],0);
 
-
       //
       // Compute the total forcing.
       //

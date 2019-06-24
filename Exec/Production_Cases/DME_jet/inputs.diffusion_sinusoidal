@@ -5,9 +5,10 @@ ns.hi_bc          = 2 2
 geometry.is_periodic = 0 0
 
 # >>>>>>>>>>>>>  BC FLAGS <<<<<<<<<<<<<<<<
-# 0 = Interior           3 = Symmetry
-# 1 = Inflow             4 = SlipWall
-# 2 = Outflow            5 = NoSlipWall
+# 0 = Interior           4 = SlipWallAdiab
+# 1 = Inflow             5 = NoSlipWallAdiab
+# 2 = Outflow            6 = SlipWallIsotherm
+# 3 = Symmetry           7 = NoSlipWallIsotherm
 
 geometry.coord_sys = 0  # 0 => cart, 1 => RZ
 
@@ -17,74 +18,6 @@ geometry.prob_hi    =  0.00114 0.00228
 #----------------------------TOP LEVEL INPUTS----------------------
 max_step            = 5000
 stop_time = 6.e-5
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-FILE = typVals_DME.pp
-ns.reset_typical_vals_int = 5
-ht.vode_itol = 2
-#ht.vode_rtol = 1.e-6
-#ht.vode_atol = 1.e-6
-#ht.vode_max_subcycles = 5000
-#ns.avg_down_chem = 1
-
-#ht.vode_itol = 1
-#ht.vode_rtol = 1.e-13
-#ht.vode_atol = 1.e-13
-
-ns.do_active_control = 0
-mg.smooth_on_cg_unstable=1
-
-
-
-ns.do_fillPatchUMAC=1
-ns.zeroBndryVisc=1
-
-proj.proj_2 = 1
-ns.num_divu_iters = 1
-
-ns.consumptionName = CH3OCH3
-
-ht.plot_heat_release=1
-ht.plot_rhoY=0
-ht.plot_molefrac=0
-ht.plot_massfrac=1
-ht.plot_ydot=0
-amr.derive_plot_vars=rhoRT mag_vort
-
-
-
-# multigrid class
-mg.usecg = 1
-cg.v = 0
-cg.isExpert=1
-mg.v = 0
-cg.maxiter = 1000
-mg.maxiter = 1000
-mg.nu_0 = 1
-mg.nu_1 = 4
-mg.nu_2 = 4
-mg.nu_f = 40
-cg.unstable_criterion = 100
-ns.htt_tempmin=1.0
-ns.htt_tempmax=2.5
-ns.v = 1
-mac.v = 0
-proj.v = 0
-ns.do_group_bndry_fills = 1
-
-cg.cg_solver=1
 
 #-------------------------AMR INPUTS----------------------------
 
@@ -122,7 +55,6 @@ amr.flame_tracer.field_name = Y(H)
 # Refinement according to the vorticity, no field_name needed
 amr.magvort.max_level = 4
 amr.magvort.vorticity_greater = 5e4
-
 
 
 # ------------------  INPUTS TO PHYSICS CLASS -------------------
@@ -213,5 +145,58 @@ mac.do_outflow_bcs = 0
 fab.format = NATIVE
 
 
+FILE = typVals_DME.pp
+ns.reset_typical_vals_int = 5
+ht.vode_itol = 2
+#ht.vode_rtol = 1.e-6
+#ht.vode_atol = 1.e-6
+#ht.vode_max_subcycles = 5000
+#ns.avg_down_chem = 1
 
+#ht.vode_itol = 1
+#ht.vode_rtol = 1.e-13
+#ht.vode_atol = 1.e-13
+
+ns.do_active_control = 0
+mg.smooth_on_cg_unstable=1
+
+
+
+ns.do_fillPatchUMAC=1
+ns.zeroBndryVisc=1
+
+proj.proj_2 = 1
+ns.num_divu_iters = 1
+
+ns.consumptionName = CH3OCH3
+
+ht.plot_heat_release=1
+ht.plot_rhoY=0
+ht.plot_molefrac=0
+ht.plot_massfrac=1
+ht.plot_ydot=0
+amr.derive_plot_vars=rhoRT mag_vort
+
+
+
+# multigrid class
+mg.usecg = 1
+cg.v = 0
+cg.isExpert=1
+mg.v = 0
+cg.maxiter = 1000
+mg.maxiter = 1000
+mg.nu_0 = 1
+mg.nu_1 = 4
+mg.nu_2 = 4
+mg.nu_f = 40
+cg.unstable_criterion = 100
+ns.htt_tempmin=1.0
+ns.htt_tempmax=2.5
+ns.v = 1
+mac.v = 0
+proj.v = 0
+ns.do_group_bndry_fills = 1
+
+cg.cg_solver=1
 

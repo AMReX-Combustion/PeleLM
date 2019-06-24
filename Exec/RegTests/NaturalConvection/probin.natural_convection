@@ -1,0 +1,11 @@
+ &fortin
+  T_mean = 600.0
+  P_mean = 101325.
+  Tc = 300.0d0
+  Th = 1200.0d0
+ /
+ &heattransin
+  pamb = 101325.
+  dpdt_factor = 1.
+  closed_chamber = 1
+ /

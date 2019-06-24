@@ -1,4 +1,4 @@
-TOP = ../../../..
+TOP = ../../../../
 AMREX_HOME ?= ${TOP}/amrex
 IAMR_HOME ?= ${TOP}/IAMR
 PELELM_HOME ?= ${TOP}/PeleLM
@@ -7,7 +7,7 @@ PELELM_HOME ?= ${TOP}/PeleLM
 # Build configuration
 #
 
-DIM             = 3
+DIM             = 2
 COMP            = gnu
 DEBUG           = FALSE
 USE_MPI         = TRUE
@@ -23,8 +23,6 @@ DEFINES+=-DALWAYS_NEW_J
 #######################
 USE_SUNDIALS_3x4x = FALSE
 
-#######################
-
 # Enable ht.velocity_plotfile option
 #USE_VELOCITY    = FALSE
 
@@ -33,17 +31,7 @@ USE_SUNDIALS_3x4x = FALSE
 # USE_NEWMECH    = FALSE
 
 # Choose model (from list below), and pmf file
-Chemistry_Model = drm19
-fEXE_sources += drm19Soln_seed_0.50.f
-
-#Chemistry_Model = LIDRYER
-#fEXE_sources += LiDryer_040_01ATM.f
-
-#Chemistry_Model = LUDME
-#fEXE_sources += LuDME_0700.f
-
-#Chemistry_Model = GRI30
-#fEXE_sources += gri30_070.f
+Chemistry_Model = air
 
 # This sets the EOS directory in $(PELE_PHYSICS_HOME)/Eos
 Eos_dir     := Fuego
@@ -53,6 +41,7 @@ Reactions_dir := Fuego
 
 # This sets the transport directory in $(PELE_PHYSICS_HOME)/Transport
 Transport_dir := EGLib
+
 
 Blocs   := .
 

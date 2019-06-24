@@ -16,7 +16,7 @@ contains
   
 !-----------------------
 
-  subroutine bcfunction(x,y,z,time,u,v,w,rho,Yl,T,h,dx,getuvw) &
+  subroutine bcfunction(x,y,z,dir,norm,time,u,v,w,rho,Yl,T,h,dx,getuvw) &
                         bind(C, name="bcfunction")
 
       use network,   only: nspec
@@ -27,6 +27,7 @@ contains
       implicit none
 
       REAL_T x, y, z, time, u, v, w, rho, Yl(0:*), T, h, dx(dim)
+      integer dir, norm  ! This specify the direction and orientation of the face
       logical getuvw
 
       integer n
@@ -35,21 +36,23 @@ contains
          call bl_abort('Need to initialize boundary condition function')
       end if
 
-      rho = rho_bc(1)
-      do n = 0, Nspec-1
-        Yl(n) = Y_bc(n)
-      end do
-      T = T_bc(1)
-      h = h_bc(1)
+      if ((dir == 3).and.(norm == 1)) then
+        rho = rho_bc(1)
+        do n = 0, Nspec-1
+          Yl(n) = Y_bc(n)
+        end do
+        T = T_bc(1)
+        h = h_bc(1)
          
-      if (getuvw .eqv. .TRUE.) then
+        if (getuvw .eqv. .TRUE.) then
             
-        u = zero
-        v = zero
-        if (f_flag_active_control == 1) then                
-          w =  V_in + (time-tbase_control)*dV_control
-        else 
-          w = w_bc
+          u = zero
+          v = zero
+          if (f_flag_active_control == 1) then                
+            w =  V_in + (time-tbase_control)*dV_control
+          else 
+            w = w_bc
+          endif
         endif
       endif
 
