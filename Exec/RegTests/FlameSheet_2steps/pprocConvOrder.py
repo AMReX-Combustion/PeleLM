@@ -46,7 +46,7 @@ def pproc(args):
 
     # User data
     vars=["y_velocity", "density", "temp", "Y(O2)", "Y(CH4)", "Y(CO2)", "Y(CO)", "Y(H2O)" ]
-    resolution = [64,128,256,512,1024]        
+    resolution = [64,128,256,512]        
     pproc_type = "diffsamedomain"
 
     # Get a local copy of post-processing executable

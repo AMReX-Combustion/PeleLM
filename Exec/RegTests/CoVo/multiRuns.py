@@ -31,7 +31,7 @@ def multiRun(args):
     
     print(" Scripted multiple runs for convergence study ")
     # User data
-    resolution = [32,64,128,256]        
+    resolution = [32,64,128]        
 
     # Get the PeleLM exec
     run_dir = os.getcwd()
