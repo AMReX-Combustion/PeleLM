@@ -78,6 +78,17 @@ ifeq ($(Transport_dir), EGLib)
              $(PELE_PHYSICS_HOME)/Support/Fuego/Evaluation
 endif
 
+ifeq ($(Transport_dir), Sutherland)
+  USE_FUEGO = TRUE
+  DEFINES += -DSUTHERLAND_TRANSPORT
+  Bpack   += $(PELE_PHYSICS_HOME)/Support/Fuego/Mechanism/Make.package \
+             $(PELE_PHYSICS_HOME)/Support/Fuego/Evaluation/Make.package
+
+  Blocs   += $(PELE_PHYSICS_HOME)/Support/Fuego/Mechanism \
+             $(PELE_PHYSICS_HOME)/Support/Fuego/Evaluation
+endif
+
+
 ifeq ($(Transport_dir), Simple)
   DEFINES += -DSIMPLE_TRANSPORT
   Bpack   += $(PELE_PHYSICS_HOME)/Support/Fuego/Mechanism/Make.package \

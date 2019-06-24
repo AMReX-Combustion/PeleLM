@@ -43,7 +43,9 @@ contains
       use PeleLM_F,  only: pphys_getP1atm_MKS
       use mod_Fvar_def, only : pamb, dpdt_factor, closed_chamber
       use mod_Fvar_def, only : dim
-      use probdata_module, only: T_mean, P_mean, Tc, Th
+      use probdata_module, only: T_mean, Tc, Th, epsilon
+      use extern_probin_module, only: Prandtl_number, viscosity_mu_ref, viscosity_T_ref, viscosity_S,&
+         const_bulk_viscosity, const_diffusivity
       
       implicit none
       integer init, namlen
@@ -53,7 +55,9 @@ contains
 
       integer i
  
-      namelist /fortin/ T_mean, P_mean, Tc, Th
+      namelist /fortin/ T_mean, Tc, epsilon, Prandtl_number, viscosity_mu_ref, viscosity_T_ref, viscosity_S,&
+         const_bulk_viscosity, const_diffusivity
+
       namelist /heattransin/ pamb, dpdt_factor, closed_chamber
 
 
@@ -91,10 +95,17 @@ contains
       dpdt_factor = 0.3d0
       closed_chamber = 0
 
+      Prandtl_number = 0.71d0
+      viscosity_mu_ref = 1.68d-5
+      viscosity_T_ref = 273.0d0
+      viscosity_S = 110.5d0
+      const_bulk_viscosity = 0.0d0
+      const_diffusivity = 0.0d0
+
+
       T_mean = 600.0d0
       Tc = 300.0d0
-      Th = 1200.0d0
-      P_mean = pamb
+      epsilon = 0.6d0
 
       read(untin,fortin)
       
@@ -106,6 +117,9 @@ contains
          write(6,fortin)
          write(6,heattransin)
       end if
+
+      Th = Tc * ((1+epsilon)/(1-epsilon))
+
 
   end subroutine amrex_probinit
 
@@ -145,9 +159,9 @@ contains
       use network,   only: nspec
       use PeleLM_F,  only: pphys_getP1atm_MKS, pphys_get_spec_name2
       use PeleLM_2D, only: pphys_RHOfromPTY, pphys_HMIXfromTY
-      use mod_Fvar_def, only : Density, Temp, FirstSpec, RhoH, Trac, dim
+      use mod_Fvar_def, only : Density, Temp, FirstSpec, RhoH, Trac, dim, pamb
       use mod_Fvar_def, only : domnlo, maxspec
-      use probdata_module, only: T_mean, P_mean
+      use probdata_module, only: T_mean
       
       implicit none
       integer    level, nscal
@@ -191,7 +205,7 @@ contains
          end do
       end do
 
-      Patm = P_mean / pphys_getP1atm_MKS()
+      Patm = Pamb / pphys_getP1atm_MKS()
 
       call pphys_RHOfromPTY(lo,hi, &
           scal(ARG_L1(state),ARG_L2(state),Density),  DIMS(state), &

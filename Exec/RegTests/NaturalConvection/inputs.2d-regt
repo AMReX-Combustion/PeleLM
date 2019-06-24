@@ -17,7 +17,7 @@ geometry.prob_hi   = 0.042731 0.042731
 
 #----------------------------TOP LEVEL INPUTS----------------------
 max_step  =  5000
-stop_time = 5.0
+stop_time = 20.0
 
 #-------------------------AMR INPUTS----------------------------
 amr.n_cell    = 32 32
@@ -41,9 +41,7 @@ amr.plot_int        = 100
 #amr.derive_plot_vars=rhoRT mag_vort particle_count mean_progress_curvature
 amr.derive_plot_vars=rhoRT mag_vort avg_pressure gradpx gradpy diveru
 
-amr.grid_log        = grdlog  # name of grid logging file
 amr.max_grid_size   = 64
-#amr.derive_plot_vars=ALL
 
 amr.probin_file = probin.natural_convection # This will default to file "probin" if not set
 

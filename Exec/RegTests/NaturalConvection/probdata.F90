@@ -8,8 +8,8 @@ module probdata_module
   ! from probdata.H
   INTEGER :: meanFlowDir
   REAL_T  :: meanFlowMag
-  REAL_T  :: T_mean, P_mean
-  REAL_T :: Tc, Th 
+  REAL_T  :: T_mean
+  REAL_T :: Tc, Th, epsilon 
   
 contains
 
