@@ -16,8 +16,8 @@ geometry.prob_hi   = 1.0 1.0 1.0
 
 #----------------------------TOP LEVEL INPUTS----------------------
 max_step  =  10000
-max_step  =  5000
-stop_time = 0.04
+max_step  =  50
+stop_time = 0.02
 
 #-------------------------AMR INPUTS----------------------------
 amr.n_cell    = 32 32 32
