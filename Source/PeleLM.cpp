@@ -36,7 +36,7 @@
 #include <AMReX_AmrData.H>
 #endif
 
-#include <PROB_F.H>
+#include <Prob_F.H>
 #include <NAVIERSTOKES_F.H>
 #include <DERIVE_F.H>
 
