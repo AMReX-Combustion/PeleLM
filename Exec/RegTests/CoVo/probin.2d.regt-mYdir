@@ -1,6 +1,6 @@
  &fortin
   meanFlowMag = 50.0 
-  meanFlowDir = 3
+  meanFlowDir = -2
   T_mean = 298.0
   P_mean = 101325.
   rvort  = 0.07
