@@ -46,7 +46,7 @@ def pproc(args):
 
     # User data
     vars=["y_velocity", "x_velocity" ]
-    resolution = [32,64,128,256]        
+    resolution = [32,64,128]        
     pproc_type = "fcompare"
 
     # Get a local copy of post-processing executable
@@ -200,7 +200,7 @@ def parse_args(arg_string=None):
                         help="name of the test. Default = current folder name")
 
     parser.add_argument("--pproc_exe", type=str, default="None", metavar="pproc.exe",
-                        required=True,help="path to the executable required for the analysis.")
+                        help="path to the executable required for the analysis.")
 
     if not arg_string is None:
         args, unknown = parser.parse_known_args(arg_string)
@@ -210,5 +210,6 @@ def parse_args(arg_string=None):
     return args   
 
 if __name__ == "__main__":
-    args = parse_args(arg_string=sys.argv[1:])
+    arg_string_prepend = ["--pproc_exe"]+sys.argv[1:]
+    args = parse_args(arg_string=arg_string_prepend)
     pproc(args)

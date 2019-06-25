@@ -235,3 +235,4 @@ include $(AMREX_HOME)/Tools/GNUMake/Make.rules
 clean::
 	$(SILENT) $(RM) extern.f90
 	$(SILENT) $(RM) AMReX_buildInfo.cpp
+

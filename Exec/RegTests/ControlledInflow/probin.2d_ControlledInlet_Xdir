@@ -8,12 +8,12 @@
  /
  &heattransin
   pamb = 101325.
-  dpdt_factor = .3
+  dpdt_factor = 1.0
  /
   &control
   tau_control = 6.e-5
   sest = .2
-  h_control = 5e-3
+  h_control = 7.7e-3
   changeMax_control = .2
   controlVelMax = .5 
 /
