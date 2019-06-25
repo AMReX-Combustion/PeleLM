@@ -116,5 +116,6 @@ def parse_args(arg_string=None):
     return args   
 
 if __name__ == "__main__":
-    args = parse_args(arg_string=sys.argv[1:])
+    arg_string_prepend = ["--fextract_exe"]+sys.argv[1:]
+    args = parse_args(arg_string=arg_string_prepend)
     calc_sl(args)
