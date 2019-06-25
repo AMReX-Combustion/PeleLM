@@ -131,8 +131,6 @@ end subroutine plm_extern_init
     integer coded(maxspnml), len
     character*(maxspnml) name
 
-    print *, "In 'pphys_get_spec_name2' bef call to pphys_getckspecname",maxspnml, len
-
     len = pphys_getckspecname(j, coded)
     do i = 1, maxspnml
       name(i:i) = ' '
