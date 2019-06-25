@@ -15,7 +15,7 @@ geometry.prob_lo   =  0. 0.
 geometry.prob_hi   = .016 5e-4 
 
 #----------------------------TOP LEVEL INPUTS----------------------
-max_step  =  10000
+max_step  =  2000
 stop_time = 4.00
 
 #-------------------------AMR INPUTS----------------------------
@@ -72,7 +72,7 @@ amr.flame_tracer.field_name = Y(H2O2)
 ns.dt_cutoff       = 5.e-10   # level 0 timestep below which we halt
 ns.visc_tol        = 1.0e-14  # tolerence for viscous solves
 ns.visc_abs_tol    = 1.0e-14  # tolerence for viscous solves
-ns.cfl            = 0.1       # cfl number for hyperbolic system
+ns.cfl            = 0.3       # cfl number for hyperbolic system
 ns.init_shrink    = 1.0       # scale back initial timestep
 ns.init_shrink    = 0.01       # scale back initial timestep
 ns.change_max     = 1.1       # scale back initial timestep
@@ -92,7 +92,7 @@ ns.do_MLsync_proj = 1
 ns.do_divu_sync = 0
 ns.divu_relax_factor   = 0.0
 
-ns.sdc_iterMAX = 2
+ns.sdc_iterMAX = 4
 ns.num_mac_sync_iter = 2
 
 ns.be_cn_theta = 0.5
