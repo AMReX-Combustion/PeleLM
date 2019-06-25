@@ -200,7 +200,7 @@ def parse_args(arg_string=None):
                         help="name of the test. Default = current folder name")
 
     parser.add_argument("--pproc_exe", type=str, default="None", metavar="pproc.exe",
-                        help="path to the executable required for the analysis.")
+                        required=True,help="path to the executable required for the analysis.")
 
     if not arg_string is None:
         args, unknown = parser.parse_known_args(arg_string)
