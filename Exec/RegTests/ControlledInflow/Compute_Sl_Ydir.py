@@ -91,9 +91,15 @@ def calc_sl(args):
         os.system("echo {} {} {} >> FlameSpeedsCompa_Y.dat".format(Sl_ref, Sl_AC, Sl))
         os.system("echo 1.0 {} {} >> FlameSpeedsCompa_Y.dat".format(diffSlAC,diffSl))
         plotCompa_Sl = [Sl_ref,Sl_AC,Sl]
-        plotCompaAbs_Sl = [1,2,3]
-        plt.plot(plotCompaAbs_Sl,plotCompa_Sl)
-        plt.savefig("FlameSpeedCompa_Y.png")
+        fig, ax = plt.subplots()
+        ind = np.arange(3)
+        rects1 = ax.bar(ind-0.15, plotCompa_Sl)
+        ax.set_ylabel("Flame speeds [m/s]")
+        ax.set_ylim(0.98*Sl_ref,1.02*Sl_ref)
+        ax.set_xticks(ind)
+        ax.set_xticklabels(("Reference","Vin_AC","Sl_cons"))
+        ax.legend()
+        plt.savefig("FlameSpeedCompa_X.png")
 
 def parse_args(arg_string=None):
     parser = argparse.ArgumentParser(description=USAGE)
