@@ -87,9 +87,13 @@ def calc_sl(args):
             Sl_AC = float(last.split()[2])
         diffSl = abs(Sl-Sl_ref) 
         diffSlAC = abs(Sl_AC-Sl_ref) 
-        os.system("echo Ref. AC Consumption > Flame_speeds.dat")
-        os.system("echo {} {} {} >> Flame_speeds.dat".format(Sl_ref, Sl_AC, Sl))
-        os.system("echo 1.0 {} {} >> Flame_speeds.dat".format(diffSlAC,diffSl))
+        os.system("echo Ref. AC Consumption > FlameSpeedsCompa_Y.dat")
+        os.system("echo {} {} {} >> FlameSpeedsCompa_Y.dat".format(Sl_ref, Sl_AC, Sl))
+        os.system("echo 1.0 {} {} >> FlameSpeedsCompa_Y.dat".format(diffSlAC,diffSl))
+        plotCompa_Sl = [Sl_ref,Sl_AC,Sl]
+        plotCompaAbs_Sl = [1,2,3]
+        plt.plot(plotCompaAbs_Sl,plotCompa_Sl)
+        plt.savefig("FlameSpeedCompa_Y.png")
 
 def parse_args(arg_string=None):
     parser = argparse.ArgumentParser(description=USAGE)
