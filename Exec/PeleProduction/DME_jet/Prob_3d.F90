@@ -273,7 +273,7 @@ contains
             x = (float(i)+.5)*delta(1)+domnlo(1)
 
             ztemp = domnlo(3)
-            call bcfunction(x,y,ztemp,time,u,v,w,rho,Yl,T,h,delta,.true.)
+            call bcfunction(x,y,ztemp,1,1,time,u,v,w,rho,Yl,T,h,delta,.true.)
             do n = 1,Nspec
               scal(i,j,k,FirstSpec+n-1) = Yl(n)* eta + (1.d0-eta) *Y_bc(n-1,IDX_COFLOW)
             end do
