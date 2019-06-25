@@ -1,0 +1,61 @@
+ &fortin
+  probtype = 'forcedHIT'
+
+  iname = 'hit_ic_4_32.dat'
+  inres = 32
+
+  urms0 = 1.0
+  uin_norm = 1.0
+
+  V_in = .2280410684149
+  standoff = -.022
+  pertmag = 0.0004
+
+  blobr = 3.0
+  Tfrontw = 0.0001
+
+  fuel_N2_vol_percent = 0.01
+
+  max_trac_lev = 3
+  flametracval = 1.e-6
+  max_temp_lev = 0
+  temperr = 500
+  tempgrad = 300.0
+  max_vort_lev = 0
+  vorterr = 600.
+  vorterr = 1000.
+  phi_in = 0.4
+  T_in = 298.
+
+  !div_free_force = 1
+  !nmodes = 4
+  !spectrum_type = 1
+  !forcing_twice_wavelength = 0
+  !force_scale = 1.d0
+  !forcing_epsilon = 1
+  !use_rho_in_forcing = 1
+  !moderate_zero_modes = 1
+  !mode_start             = 1
+  !forcing_time_scale_min = 0
+  !forcing_time_scale_max = 0
+  !time_offset = 0.0d0
+ /
+&heattransin
+  pamb = 101325.
+  dpdt_factor = .3
+ /
+&flctin
+  flct_file = "Turb_n0575_strong.bin"
+  flct_file = ""
+  forceInflow = .FALSE.
+  nCompInflow = 3
+ /
+&control
+  tau_control = 3.e-4
+  sest = .2
+  h_control = .0035
+  changeMax_control = .2
+ /
+&extern
+  new_Jacobian_each_cell = 1
+ /

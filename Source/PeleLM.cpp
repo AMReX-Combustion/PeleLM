@@ -4417,6 +4417,24 @@ PeleLM::predict_velocity (Real  dt)
 #ifdef MOREGENGETFORCE
   FillPatchIterator S_fpi(*this,visc_terms,1,prev_time,State_Type,Density,NUM_SCALARS);
   MultiFab& Smf=S_fpi.get_mf();
+#elif LINEARFORCING
+  FillPatchIterator S_fpi(*this,visc_terms,1,prev_time,State_Type,Density,NUM_SCALARS);
+  MultiFab& Smf=S_fpi.get_mf();
+  // NTW: Compute Ubar and TKEmean and pass that into getForce, which will be passed along to FORT_MAKEFORCE
+  MultiFab Utmp(grids,dmap,BL_SPACEDIM,1);
+  MultiFab::Copy(Utmp,Umf,Xvel,0,3,0);
+  Real Ubar[BL_SPACEDIM];
+  Real TKEmean;
+  Ubar[Xvel] = Umf.sum(Xvel) / grids.numPts();
+  Ubar[Yvel] = Umf.sum(Yvel) / grids.numPts();
+  Ubar[Zvel] = Umf.sum(Zvel) / grids.numPts();
+  Utmp.plus(-Ubar[Xvel],0,1,0);
+  Utmp.plus(-Ubar[Yvel],1,1,0);
+  Utmp.plus(-Ubar[Zvel],2,1,0);
+  MultiFab::Multiply(Utmp,Utmp,Xvel,Xvel,3,0);
+  TKEmean = 0.5*(Utmp.sum(Xvel) + Utmp.sum(Yvel) + Utmp.sum(Zvel)) / grids.numPts();
+  Utmp.clear();
+  amrex::Print() << "NTW::TKEmean = " << TKEmean << std::endl;
 #endif
 
   //
@@ -4448,7 +4466,9 @@ PeleLM::predict_velocity (Real  dt)
 #elif MOREGENGETFORCE
       if (getForceVerbose)
         amrex::Print() << "---\nA - Predict velocity:\n Calling getForce..." << '\n';
-      getForce(tforces,bx,1,Xvel,BL_SPACEDIM,prev_time,Ufab,Smf[U_mfi],0);
+      getForce(tforces,bx,1,Xvel,BL_SPACEDIM,prev_time,Umf[U_mfi],Smf[U_mfi],0);
+#elif LINEARFORCING
+      getForce(tforces,bx,1,Xvel,BL_SPACEDIM,prev_time,Umf[U_mfi],Smf[U_mfi],0,Ubar,TKEmean);
 #else
       getForce(tforces,bx,1,Xvel,BL_SPACEDIM,rho_ptime[U_mfi]);
 #endif 
@@ -4464,7 +4484,6 @@ PeleLM::predict_velocity (Real  dt)
       godunov->ExtrapVelToFaces(bx, dx, dt,
                                 D_DECL(Uface[0], Uface[1], Uface[2]),
                                 D_DECL(bndry[0], bndry[1], bndry[2]),
-                                //Ufab, tforces);
                                 Umf[U_mfi], tforces);
 
       for (int d=0; d<BL_SPACEDIM; ++d) {

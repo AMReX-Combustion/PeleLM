@@ -125,6 +125,20 @@ ifeq ($(USE_TDEPFORCING), TRUE)
   endif
 endif
 
+# Enable time-dependent turbulence forcing based on velocity field
+ifeq ($(USE_MORETDEPFORCING), TRUE)
+  ifeq ($(DIM), 3)
+    DEFINES += -DMOREGENGETFORCE
+  endif
+endif
+
+# Enable linear forcing scheme
+ifeq ($(USE_LINEARFORCING), TRUE)
+  ifeq ($(DIM), 3)
+    DEFINES += -DLINEARFORCING
+  endif
+endif
+
 DEFINES += -DCG_USE_OLD_CONVERGENCE_CRITERIA
 
 ifeq ($(USE_BGL),TRUE)

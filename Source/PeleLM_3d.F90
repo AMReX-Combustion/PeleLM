@@ -183,7 +183,7 @@ contains
 !-----------------------------------  
   
   subroutine enth_diff_terms (lo, hi, dlo, dhi, dx, &
-                              T, DIMS(T),
+                              T, DIMS(T), &
                               rhoDx, DIMS(rhoDx), Fx, DIMS(Fx), Ax, DIMS(Ax), &
                               rhoDy, DIMS(rhoDy), Fy, DIMS(Fy), Ay, DIMS(Ay), &
                               rhoDz, DIMS(rhoDz), Fz, DIMS(Fz), Az, DIMS(Az), &
