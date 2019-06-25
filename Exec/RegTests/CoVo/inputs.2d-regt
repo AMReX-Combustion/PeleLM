@@ -5,9 +5,10 @@ ns.hi_bc          = 0 0
 geometry.is_periodic = 1 1
 
 # >>>>>>>>>>>>>  BC FLAGS <<<<<<<<<<<<<<<<
-# 0 = Interior           3 = Symmetry
-# 1 = Inflow             4 = SlipWall
-# 2 = Outflow            5 = NoSlipWall
+# 0 = Interior           4 = SlipWallAdiab
+# 1 = Inflow             5 = NoSlipWallAdiab
+# 2 = Outflow            6 = SlipWallIsotherm
+# 3 = Symmetry           7 = NoSlipWallIsotherm
 
 geometry.coord_sys = 0  # 0 => cart, 1 => RZ
 

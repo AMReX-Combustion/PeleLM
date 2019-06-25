@@ -36,7 +36,7 @@
 #include <AMReX_AmrData.H>
 #endif
 
-#include <PROB_F.H>
+#include <Prob_F.H>
 #include <NAVIERSTOKES_F.H>
 #include <DERIVE_F.H>
 
@@ -4462,7 +4462,6 @@ PeleLM::predict_velocity (Real  dt)
       if (getForceVerbose)
         amrex::Print() << "---\nA - Predict velocity:\n Calling getForce..." << '\n';
       getForce(tforces,bx,1,Xvel,BL_SPACEDIM,prev_time,Ufab,Smf[U_mfi],0);
-
 
       //
       // Compute the total forcing.

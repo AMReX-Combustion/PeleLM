@@ -22,39 +22,54 @@ contains
                         bind(C, name="bcfunction")
 
       use network,   only: nspec
-      use mod_Fvar_def, only : dim
-      use mod_Fvar_def, only : dv_control, tbase_control, V_in, f_flag_active_control
-      use probdata_module, only : bcinit, rho_bc, Y_bc, T_bc, h_bc, v_bc
+      use PeleLM_F,  only: pphys_getP1atm_MKS
+      use PeleLM_2D, only: pphys_RHOfromPTY, pphys_HMIXfromTY
+      use mod_Fvar_def, only : pamb, dim
+      use probdata_module, only : Tc, Th 
       
       implicit none
 
       REAL_T x, y, time, u, v, rho, Yl(0:*), T, h, dx(dim)
+      REAL_T rho_temp(1), h_temp(1), T_temp(1), Patm
       integer dir, norm  ! This specify the direction and orientation of the face
       logical getuv
+      integer dimloc(2)
+      data dimloc / 1,  1 /
 
       integer n
 
-      if (.not. bcinit) then
-         call bl_abort('Need to initialize boundary condition function')
-      end if
+      if (dir == 1) then
+        if (norm == 1) then
+          T_temp(1) = Th
+        elseif (norm == -1) then
+          T_temp(1) = Tc
+        else
+          call bl_abort('Wring norm in bcfunction')
+        endif
+        Yl(0) = 0.233d0
+        Yl(1) = 0.767d0
 
-      if ((dir == 2).and.(norm == 1)) then
-        rho = rho_bc(1)
-        do n = 0, Nspec-1
-          Yl(n) = Y_bc(n)
-        end do
-        T = T_bc(1)
-        h = h_bc(1)
+        Patm = pamb / pphys_getP1atm_MKS()
+
+        call pphys_RHOfromPTY(dimloc, dimloc, &
+                              rho_temp(1), DIMARG(dimloc), DIMARG(dimloc), &
+                              T_temp(1),   DIMARG(dimloc), DIMARG(dimloc), &
+                              Yl, DIMARG(dimloc), DIMARG(dimloc), Patm)
+        call pphys_HMIXfromTY(dimloc, dimloc, &
+                              h_temp(1),   DIMARG(dimloc), DIMARG(dimloc), &
+                              T_temp(1),   DIMARG(dimloc), DIMARG(dimloc), &
+                              Yl, DIMARG(dimloc), DIMARG(dimloc))
+        rho = rho_temp(1)
+        h = h_temp(1)
+        T = T_temp(1)
+
          
         if (getuv .eqv. .TRUE.) then
             
           u = zero
-          if (f_flag_active_control == 1) then               
-            v =  V_in + (time-tbase_control)*dV_control
-          else 
-            v = v_bc
-          endif
+          v = zero
         endif
+
       endif  
 
   end subroutine bcfunction
