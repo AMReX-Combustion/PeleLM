@@ -780,5 +780,69 @@ contains
     enddo
 
   end subroutine derconcentration
+  
+!=========================================================
+  
+  subroutine der_transport_coeff (C,DIMS(C),nv,dat,DIMS(dat),ncomp, &
+                               lo,hi,domlo,domhi,delta,xlo,time,dt,bc, &
+                               level,grid_no) &
+                               bind(C, name="derconcentration")
+
+    use network,        only : nspec
+    use PeleLM_2D, only: pphys_massr_to_conc
+                               
+    implicit none
+
+    integer    lo(dim), hi(dim)
+    integer    DIMDEC(C)
+    integer    DIMDEC(dat)
+    integer    domlo(dim), domhi(dim)
+    integer    nv, ncomp
+    integer    bc(dim,2,ncomp)
+    REAL_T     delta(dim), xlo(dim), time, dt
+    REAL_T     C(DIMV(C),nv)
+    REAL_T     dat(DIMV(dat),ncomp)
+    integer    level, grid_no
+
+    integer i,j,n
+    REAL_T Yt(nspec),Ct(nspec), D(Nspec), MU(1), XI(1), LAM(1)
+    integer fS,rho,T
+    integer lo_chem(2),hi_chem(2)
+    data lo_chem /1,1/
+    data hi_chem /1,1/
+
+    rho = 1 
+    T   = 2
+    fS  = 3
+
+    do j=lo(2),hi(2)
+      do i=lo(1),hi(1)
+        do n = 1,Nspec
+          Yt(n) = dat(i,j,fS+n-1)/dat(i,j,rho) 
+        enddo
+        
+        
+        call get_transport_coeffs(lo_chem,hi_chem, &
+                                  Yt,    ARLIM(lo_chem),ARLIM(hi_chem),  &
+                                  dat(i,j,T),  ARLIM(lo_chem),ARLIM(hi_chem),  &
+                                  dat(i,j,rho), ARLIM(lo_chem),ARLIM(hi_chem),  &
+                                  D,      ARLIM(lo_chem),ARLIM(hi_chem),  &
+                                  MU(1),     ARLIM(lo_chem),ARLIM(hi_chem),  &
+                                  XI(1),     ARLIM(lo_chem),ARLIM(hi_chem),  &
+                                  LAM(1),    ARLIM(lo_chem),ARLIM(hi_chem))
+
+        C(i,j) = LAM(1)
+        !call pphys_massr_to_conc(lo_chem,hi_chem, &
+        !          Yt,           ARLIM(lo_chem),ARLIM(hi_chem), &
+        !          dat(i,j,T),   ARLIM(lo_chem),ARLIM(hi_chem), &
+        !          dat(i,j,rho), ARLIM(lo_chem),ARLIM(hi_chem), &
+        !          Ct,           ARLIM(lo_chem),ARLIM(hi_chem))
+        !do n = 1,Nspec
+        !  C(i,j,n) = Ct(n)
+        !enddo
+      enddo
+    enddo
+
+  end subroutine der_transport_coeff
 
 end module derive_PLM_2D
