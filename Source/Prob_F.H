@@ -38,10 +38,6 @@
                                  const amrex::Real* dx,
                                  const amrex::Real* xlo, const amrex::Real* xhi);
                                  
-      void set_prob_spec (const int* fuelID,
-			                    const int* oxidID,
-			                    const int* prodID,
-			                    const int* numspec);
 
      void drhomry
                           (amrex::Real* data, ARLIM_P(dat_lo), ARLIM_P(dat_hi),
@@ -103,17 +99,17 @@
                         const amrex::Real* dx, const amrex::Real* grd_lo,
                         const amrex::Real* time, const int* bc);
      
-     void FORT_XVELFILL (amrex::Real* data, ARLIM_P(data_lo), ARLIM_P(data_hi),
+     void xvel_fill (amrex::Real* data, ARLIM_P(data_lo), ARLIM_P(data_hi),
                         const int* dom_lo, const int* dom_hi,
                         const amrex::Real* dx, const amrex::Real* grd_lo,
                         const amrex::Real* time, const int* bc);
 
-     void FORT_YVELFILL (amrex::Real* data, ARLIM_P(data_lo), ARLIM_P(data_hi),
+     void yvel_fill (amrex::Real* data, ARLIM_P(data_lo), ARLIM_P(data_hi),
                         const int* dom_lo, const int* dom_hi,
                         const amrex::Real* dx, const amrex::Real* grd_lo,
                         const amrex::Real* time, const int* bc);
      
-     void FORT_ZVELFILL (amrex::Real* data, ARLIM_P(data_lo), ARLIM_P(data_hi),
+     void zvel_fill (amrex::Real* data, ARLIM_P(data_lo), ARLIM_P(data_hi),
                         const int* dom_lo, const int* dom_hi,
                         const amrex::Real* dx, const amrex::Real* grd_lo,
                         const amrex::Real* time, const int* bc);

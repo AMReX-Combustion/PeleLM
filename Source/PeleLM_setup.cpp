@@ -58,82 +58,80 @@ static Box the_nodes (const Box& b) { return amrex::surroundingNodes(b); }
 static bool do_group_bndry_fills = false;
 
 //
-// Components are  Interior, Inflow, Outflow, Symmetry, SlipWall, NoSlipWall.
+// Components are  Interior, Inflow, Outflow, Symmetry, &
+// SlipWallAdiab, NoSlipWallAdiab, SlipWallIsoTherm, NoSlipWallIsoTherm.
 //
 
 static
 int
 norm_vel_bc[] =
 {
-//  INT_DIR, EXT_DIR, HOEXTRAP, REFLECT_ODD, EXT_DIR, EXT_DIR
-  INT_DIR, EXT_DIR, FOEXTRAP, REFLECT_ODD, EXT_DIR, EXT_DIR
+  // 
+INT_DIR, EXT_DIR, FOEXTRAP, REFLECT_ODD, REFLECT_ODD, REFLECT_ODD, REFLECT_ODD, REFLECT_ODD
 };
 
 static
 int
 tang_vel_bc[] =
 {
-//  INT_DIR, EXT_DIR, HOEXTRAP, REFLECT_EVEN, HOEXTRAP, EXT_DIR
-  INT_DIR, EXT_DIR, FOEXTRAP, REFLECT_EVEN, HOEXTRAP, EXT_DIR
+  INT_DIR, EXT_DIR, FOEXTRAP, REFLECT_EVEN, REFLECT_EVEN, REFLECT_ODD, REFLECT_EVEN, REFLECT_ODD
 };
 
 static
 int
 scalar_bc[] =
 {
-  INT_DIR, EXT_DIR, FOEXTRAP, REFLECT_EVEN, REFLECT_EVEN, REFLECT_EVEN
+  INT_DIR, EXT_DIR, FOEXTRAP, REFLECT_EVEN, REFLECT_EVEN, REFLECT_EVEN, REFLECT_EVEN, REFLECT_EVEN
 };
 
-//
-// Here we use slipwall to impose neumann condition, not to represent a real wall
-//
 static
 int
 temp_bc[] =
 {
-  INT_DIR, EXT_DIR, FOEXTRAP, REFLECT_EVEN, REFLECT_EVEN, REFLECT_EVEN
+  INT_DIR, EXT_DIR, FOEXTRAP, REFLECT_EVEN, REFLECT_EVEN, REFLECT_EVEN, EXT_DIR, EXT_DIR
 };
 
 static
 int
 press_bc[] =
 {
-  INT_DIR, FOEXTRAP, FOEXTRAP, REFLECT_EVEN, FOEXTRAP, FOEXTRAP
+  //INT_DIR, FOEXTRAP, FOEXTRAP, REFLECT_EVEN, FOEXTRAP, FOEXTRAP
+  INT_DIR, FOEXTRAP, FOEXTRAP, REFLECT_EVEN, REFLECT_EVEN, REFLECT_EVEN, REFLECT_EVEN, REFLECT_EVEN
 };
 
 static
 int
 rhoh_bc[] =
 {
-  INT_DIR, EXT_DIR, FOEXTRAP, REFLECT_EVEN, REFLECT_EVEN, EXT_DIR
+  INT_DIR, EXT_DIR, FOEXTRAP, REFLECT_EVEN, REFLECT_EVEN, REFLECT_EVEN, EXT_DIR, EXT_DIR
 };
 
 static
 int
 divu_bc[] =
 {
-  INT_DIR, REFLECT_EVEN, REFLECT_EVEN, REFLECT_EVEN, REFLECT_EVEN, REFLECT_EVEN
+  INT_DIR, REFLECT_EVEN, REFLECT_EVEN, REFLECT_EVEN, REFLECT_EVEN, REFLECT_EVEN, REFLECT_EVEN, REFLECT_EVEN
 };
 
 static
 int
 dsdt_bc[] =
 {
-  INT_DIR, EXT_DIR, EXT_DIR, REFLECT_EVEN, REFLECT_EVEN, REFLECT_EVEN
+  INT_DIR, EXT_DIR, EXT_DIR, REFLECT_EVEN, REFLECT_EVEN, REFLECT_EVEN, EXT_DIR, EXT_DIR 
 };
 
 static
 int
 reflect_bc[] =
 {
-  INT_DIR,REFLECT_EVEN,REFLECT_EVEN,REFLECT_EVEN,REFLECT_EVEN,REFLECT_EVEN
+  INT_DIR, REFLECT_EVEN, REFLECT_EVEN, REFLECT_EVEN, REFLECT_EVEN, REFLECT_EVEN, REFLECT_EVEN, REFLECT_EVEN
 };
 
 static
 int
 species_bc[] =
 {
-  INT_DIR, EXT_DIR, FOEXTRAP, REFLECT_EVEN, REFLECT_EVEN, REFLECT_EVEN
+  INT_DIR, EXT_DIR, FOEXTRAP, REFLECT_EVEN, REFLECT_EVEN, REFLECT_EVEN, EXT_DIR, EXT_DIR
 };
 
 static
@@ -398,7 +396,8 @@ protected:
 
   static int getStateID (const std::string& stateName)
     {
-      const Vector<std::string>& names = PeleLM::getChemSolve().speciesNames();
+      Vector<std::string> names;
+      PeleLM::getSpeciesNames(names);
       for (int i=0; i<names.size(); i++)
         if (names[i] == stateName)
           return i;
@@ -433,13 +432,34 @@ PeleLM::variableSetUp ()
   }
 
   Initialize();
+
+  // Initialize the runtime parameters for any of the external code
+  init_extern();
+
+  /* PelePhysics */
+  amrex::Print() << " Initialization of network, reactor and transport \n";
+  init_network();
+
+#ifdef _OPENMP
+#pragma omp parallel
+#endif  
+  reactor_init(&cvode_iE);
+
+  init_transport(use_tranlib);
+
   BCRec bc;
   //
   // Set state variable Id's (Density and velocities set already).
   //
   int counter   = Density;
+//  int RhoH      = -1;
+//  int FirstSpec = -1;
+//  int Trac      = -1;
+//  int RhoRT     = -1;
+
   first_spec = ++counter;
-  nspecies  = getChemSolve().numSpecies();
+  pphys_get_num_spec(&nspecies);
+  nreactions = pphys_numReactions();
   counter  += nspecies - 1;
   RhoH = ++counter;
   Trac = ++counter;
@@ -450,11 +470,12 @@ PeleLM::variableSetUp ()
   NUM_STATE = ++counter;
   NUM_SCALARS = NUM_STATE - Density;
 
-  const Vector<std::string>& names = getChemSolve().speciesNames();
+  getSpeciesNames(spec_names); 
 
+  amrex::Print() << nreactions << " Reactions in mechanism \n";
   amrex::Print() << nspecies << " Chemical species interpreted:\n { ";
   for (int i = 0; i < nspecies; i++)
-    amrex::Print() << names[i] << ' ' << ' ';
+    amrex::Print() << spec_names[i] << ' ' << ' ';
   amrex::Print() << '}' << '\n' << '\n';
 
   //
@@ -476,23 +497,35 @@ PeleLM::variableSetUp ()
   // Set scale of chemical components, used in ODE solves
   //
   std::string speciesScaleFile; pp.query("speciesScaleFile",speciesScaleFile);
-  if (! speciesScaleFile.empty())
-  {
-    amrex::Print() << "  Setting scale values for chemical species\n\n";
-    getChemSolve().set_species_Yscales(speciesScaleFile);
-  }
+
+  // Fill spec_scalY that is not used anywhere anymore: FIXME 
+  //if (! speciesScaleFile.empty())
+  //{
+  //  amrex::Print() << "  Setting scale values for chemical species\n\n";
+  //  getChemSolve().set_species_Yscales(speciesScaleFile);
+  //}
   int verbose_vode=0; pp.query("verbose_vode",verbose_vode);
   if (verbose_vode!=0)
-    getChemSolve().set_verbose_vode();
+    pphys_set_verbose_vode();
 
-  int fuelID = getChemSolve().index(fuelName);
-  int oxidID = getChemSolve().index(oxidizerName);
-  int prodID = getChemSolve().index(productName);
+  int fuelID = getSpeciesIdx(fuelName);
+  int oxidID = getSpeciesIdx(oxidizerName);
+  int prodID = getSpeciesIdx(productName);
+  int bathID = getSpeciesIdx("N2");
 
   amrex::Print() << " fuel name " << fuelName << std::endl;
-  amrex::Print() << " index for fueld and oxidizer " << fuelID << " " << oxidID << std::endl;
+  amrex::Print() << " index for fuel and oxidizer " << fuelID << " " << oxidID << std::endl;
+  amrex::Print() << " index for bath " << bathID << std::endl;
 
-  set_prob_spec(&fuelID, &oxidID, &prodID, &nspecies);
+  int dm = BL_SPACEDIM;
+  int flag_active_control = 0;
+  
+  if (PeleLM::flag_active_control){
+    flag_active_control = 1;}
+  else {flag_active_control = 0;}
+  
+  set_prob_spec(dm,DefaultGeometry().ProbLo(),DefaultGeometry().ProbHi(),
+                &bathID, &fuelID, &oxidID, &prodID, &nspecies,flag_active_control);
   //
   // Get a species to use as a flame tracker.
   //
@@ -510,18 +543,18 @@ PeleLM::variableSetUp ()
   set_x_vel_bc(bc,phys_bc);
   bcs[0]  = bc;
   name[0] = "x_velocity";
-  desc_lst.setComponent(State_Type,Xvel,"x_velocity",bc,BndryFunc(FORT_XVELFILL));
+  desc_lst.setComponent(State_Type,Xvel,"x_velocity",bc,BndryFunc(xvel_fill));
 
   set_y_vel_bc(bc,phys_bc);
   bcs[1]  = bc;
   name[1] = "y_velocity";
-  desc_lst.setComponent(State_Type,Yvel,"y_velocity",bc,BndryFunc(FORT_YVELFILL));
+  desc_lst.setComponent(State_Type,Yvel,"y_velocity",bc,BndryFunc(yvel_fill));
 
 #if(BL_SPACEDIM==3)
   set_z_vel_bc(bc,phys_bc);
   bcs[2]  = bc;
   name[2] = "z_velocity";
-  desc_lst.setComponent(State_Type,Zvel,"z_velocity",bc,BndryFunc(FORT_ZVELFILL));
+  desc_lst.setComponent(State_Type,Zvel,"z_velocity",bc,BndryFunc(zvel_fill));
 #endif
   //
   // To enable "group" operations on filling velocities, we need to
@@ -534,7 +567,7 @@ PeleLM::variableSetUp ()
                           Xvel,
                           name,
                           bcs,
-                          BndryFunc(FORT_XVELFILL,vel_fill));
+                          BndryFunc(xvel_fill,vel_fill));
   }
   //
   // **************  DEFINE SCALAR VARIABLES  ********************
@@ -568,14 +601,15 @@ PeleLM::variableSetUp ()
   for (int i = 0; i < nspecies; i++)
   {
     bcs[i]  = bc;
-    name[i] = "rho.Y(" + names[i] + ")";
+    name[i] = "rho.Y(" + spec_names[i] + ")";
 
     desc_lst.setComponent(State_Type,
                           first_spec+i,
                           name[i].c_str(),
                           bc,
-                          ChemBndryFunc(chem_fill,names[i]),
+                          ChemBndryFunc(chem_fill,spec_names[i]),
                           &cell_cons_interp);
+
   }
   //
   // To enable "group" operations on filling species, we need to
@@ -589,7 +623,7 @@ PeleLM::variableSetUp ()
                           first_spec,
                           name,
                           bcs,
-                          ChemBndryFunc(chem_fill,names[0],all_chem_fill),
+                          ChemBndryFunc(chem_fill,spec_names[0],all_chem_fill),
                           &cell_cons_interp);
   }
   //
@@ -741,7 +775,7 @@ PeleLM::variableSetUp ()
   //
   for (int i = 0; i < nspecies; i++)
   {
-    const std::string chname = "Y("+names[i]+")";
+    const std::string chname = "Y("+spec_names[i]+")";
     derive_lst.add(chname,IndexType::TheCellType(),1,derdvrho,the_same_box);
     derive_lst.addComponent(chname,desc_lst,State_Type,Density,1);
     derive_lst.addComponent(chname,desc_lst,State_Type,first_spec + i,1);
@@ -751,7 +785,7 @@ PeleLM::variableSetUp ()
   //
   Vector<std::string> var_names_molefrac(nspecies);
   for (int i = 0; i < nspecies; i++)
-    var_names_molefrac[i] = "X("+names[i]+")";
+    var_names_molefrac[i] = "X("+spec_names[i]+")";
   derive_lst.add("molefrac",IndexType::TheCellType(),nspecies,
                  var_names_molefrac,dermolefrac,the_same_box);
   derive_lst.addComponent("molefrac",desc_lst,State_Type,Density,1);
@@ -762,7 +796,7 @@ PeleLM::variableSetUp ()
   //
   Vector<std::string> var_names_conc(nspecies);
   for (int i = 0; i < nspecies; i++)
-    var_names_conc[i] = "C("+names[i]+")";
+    var_names_conc[i] = "C("+spec_names[i]+")";
   derive_lst.add("concentration",IndexType::TheCellType(),nspecies,
                  var_names_conc,derconcentration,the_same_box);
   derive_lst.addComponent("concentration",desc_lst,State_Type,Density,1);
@@ -1004,7 +1038,8 @@ PeleLM::rhoydotSetUp()
 {
   RhoYdot_Type       = desc_lst.size();
   const int ngrow = 1;
-  const int nrhoydot = getChemSolve().numSpecies();
+  int nrhoydot;
+  pphys_get_num_spec(&nrhoydot);
 
   amrex::Print() << "RhoYdot_Type, nrhoydot = " << RhoYdot_Type << ' ' << nrhoydot << '\n';
 
@@ -1013,13 +1048,12 @@ PeleLM::rhoydotSetUp()
                          &lincc_interp);
 	
   //const StateDescriptor& d_cell = desc_lst[State_Type];
-  const Vector<std::string>& names   = getChemSolve().speciesNames();
 
   BCRec bc;	
   set_rhoydot_bc(bc,phys_bc);
   for (int i = 0; i < nrhoydot; i++)
   {
-    const std::string name = "I_R[rhoY("+names[i]+")]";
+    const std::string name = "I_R[rhoY("+spec_names[i]+")]";
     desc_lst.setComponent(RhoYdot_Type, i, name.c_str(), bc,
                           BndryFunc(rhoYdot_fill), &lincc_interp, 0, nrhoydot-1);
   }
