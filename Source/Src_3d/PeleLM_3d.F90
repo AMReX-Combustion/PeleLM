@@ -3406,7 +3406,7 @@ contains
                 do i = lo(1), hi(1)
                    x = (float(i)+.5)*dx(1)+problo(1)
                    if (x.ge.boxlo(1) .and. x.le.boxhi(1)) then
-                      tag(i,j) = set
+                      tag(i,j,k) = set
                    endif
                 end do
              endif
