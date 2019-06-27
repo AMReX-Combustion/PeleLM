@@ -376,6 +376,15 @@ extern "C" {
                     const amrex::Real* prob_lo, const amrex::Real* time,
                     const int* level, const amrex::Real* value);
   
+  void box_error(int* tag, ARLIM_P(tlo), ARLIM_P(thi),
+                 const int* tagval, const int* clearval,
+                 const amrex::Real* blo, const amrex::Real* bhi,
+                 const int* lo, const int* hi,
+                 const int* domain_lo, const int* domain_hi,
+                 const amrex::Real* dx, const amrex::Real* xlo,
+                 const amrex::Real* prob_lo, const amrex::Real* time,
+                 const int* level);
+  
   void set_prob_spec (const int& dm,
                       const amrex::Real* problo, const amrex::Real* probhi,
                       const int* bathID,  const int* fuelID,

@@ -34,6 +34,15 @@ extern "C"
                        const amrex::Real* dx, const amrex::Real* xlo,
                        const amrex::Real* prob_lo, const amrex::Real* time,
                        const int* level, const amrex::Real* value);
+
+  typedef void (*LMEF_BOX) (int* tag, ARLIM_P(tlo), ARLIM_P(thi),
+                            const int* tagval, const int* clearval,
+                            const amrex::Real* blo, const amrex::Real* bhi,
+                            const int* lo, const int* hi,
+                            const int* domain_lo, const int* domain_hi,
+                            const amrex::Real* dx, const amrex::Real* xlo,
+                            const amrex::Real* prob_lo, const amrex::Real* time,
+                            const int* level);
 }
 
 class LM_Error_Value
@@ -43,16 +52,22 @@ class LM_Error_Value
 public:
   LM_Error_Value()
     :
-    lmef(0), value(), min_time(), max_time(), max_level() {}
+    lmef(0), lmef_box(0), value(), min_time(), max_time(), max_level() {}
   
   LM_Error_Value (amrex::Real min_time, amrex::Real max_time, int max_level);
   
   LM_Error_Value (LMEF lmef, amrex::Real value, amrex::Real min_time,
                   amrex::Real max_time, int max_level);
   
+  LM_Error_Value (LMEF_BOX lmef_box, const amrex::RealBox& box, amrex::Real min_time,
+                  amrex::Real max_time, int max_level);
+  
   virtual ~LM_Error_Value () {}
   
   virtual amrex::ErrorRec::ErrorFunc* clone () const {
+    if (BoxTag()) {
+      return new LM_Error_Value(lmef_box,box,min_time,max_time,max_level);
+    }
     return new LM_Error_Value(lmef,value,min_time,max_time,max_level);
   }
   
@@ -64,14 +79,26 @@ public:
                 const amrex::Real* dx, const amrex::Real* xlo,
                 const amrex::Real* prob_lo, const amrex::Real* time,
                 const int* level) const;
+
+  void tagCells1(int* tag, ARLIM_P(tlo), ARLIM_P(thi),
+                 const int* tagval, const int* clearval,
+                 const int* lo, const int* hi,
+                 const int* domain_lo, const int* domain_hi,
+                 const amrex::Real* dx, const amrex::Real* xlo,
+                 const amrex::Real* prob_lo, const amrex::Real* time,
+                 const int* level) const;
+  
   int MaxLevel() const {return max_level;}
   amrex::Real MinTime() const {return min_time;}
   amrex::Real MaxTime() const {return max_time;}
   amrex::Real Value() const {return value;}
+  bool BoxTag() const {return lmef==0 && lmef_box!=0;}
   
 protected:
   LMEF lmef;
+  LMEF_BOX lmef_box;
   amrex::Real value, min_time, max_time;
+  amrex::RealBox box;
   int max_level;
 };
 

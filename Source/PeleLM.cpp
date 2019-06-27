@@ -937,7 +937,13 @@ LM_Error_Value::LM_Error_Value (Real _min_time, Real _max_time, int _max_level)
 LM_Error_Value::LM_Error_Value (LMEF _lmef,
                                 Real _value, Real _min_time,
                                 Real _max_time, int _max_level)
-    : lmef(_lmef), value(_value), min_time(_min_time), max_time(_max_time), max_level(_max_level)
+    : lmef(_lmef), lmef_box(0), value(_value), min_time(_min_time), max_time(_max_time), max_level(_max_level)
+{
+}
+
+LM_Error_Value::LM_Error_Value (LMEF_BOX _lmef_box, const amrex::RealBox& _box, amrex::Real _min_time,
+                                amrex::Real _max_time, int _max_level)
+    : lmef(0), lmef_box(_lmef_box), box(_box), min_time(_min_time), max_time(_max_time), max_level(_max_level)
 {
 }
 
@@ -956,10 +962,42 @@ LM_Error_Value::tagCells(int* tag, D_DECL(const int& tlo0,const int& tlo1,const 
 {
     BL_ASSERT(lmef);
 
-    lmef(tag,D_DECL(tlo0,tlo1,tlo2),D_DECL(thi0,thi1,thi2),tagval,clearval,
-         data,D_DECL(dlo0,dlo1,dlo2),D_DECL(dhi0,dhi1,dhi2),
-         lo, hi, nvar,domain_lo,domain_hi,dx,xlo,prob_lo,time,
-         level,&value);
+    /*
+      Will call tagging if:
+
+               min_level < 0 or if level < max_level
+                          AND
+               min_time > max_time or if min_time <= time <= max_time
+     */
+
+    if ((max_level < 0 || *level < max_level)
+        && ((min_time > max_time) || (*time >= min_time && *time <= max_time)))
+    {
+      lmef(tag,D_DECL(tlo0,tlo1,tlo2),D_DECL(thi0,thi1,thi2),tagval,clearval,
+           data,D_DECL(dlo0,dlo1,dlo2),D_DECL(dhi0,dhi1,dhi2), lo, hi, nvar,
+           domain_lo,domain_hi,dx,xlo,prob_lo,time,level,&value);
+    }
+}
+
+void
+LM_Error_Value::tagCells1(int* tag,
+                          D_DECL(const int& tlo0,const int& tlo1,const int& tlo2),
+                          D_DECL(const int& thi0,const int& thi1,const int& thi2),
+                          const int* tagval, const int* clearval,
+                          const int* lo, const int* hi,
+                          const int* domain_lo, const int* domain_hi,
+                          const Real* dx, const Real* xlo,
+                          const Real* prob_lo, const Real* time,
+                          const int* level) const
+{
+    BL_ASSERT(lmef_box);
+
+    if ((max_level < 0 || *level < max_level)
+        && ((min_time > max_time) || (*time >= min_time && *time <= max_time)))
+    {
+      lmef_box(tag,D_DECL(tlo0,tlo1,tlo2),D_DECL(thi0,thi1,thi2),tagval,clearval,
+               box.lo(), box.hi(), lo, hi, domain_lo,domain_hi,dx,xlo,prob_lo,time, level);
+    }
 }
 
 void
@@ -8232,7 +8270,7 @@ PeleLM::errorEst (TagBoxArray& tags,
                   int         n_error_buf, 
                   int         ngrow)
 {
-  BL_PROFILE("PorousMedia::errorEst()");
+  BL_PROFILE("HT::errorEst()");
   const int*  domain_lo = geom.Domain().loVect();
   const int*  domain_hi = geom.Domain().hiVect();
   const Real* dx        = geom.CellSize();
@@ -8242,12 +8280,14 @@ PeleLM::errorEst (TagBoxArray& tags,
   {
     const ErrorRec::ErrorFunc& efunc = err_list[j].errFunc();
     const LM_Error_Value* lmfunc = dynamic_cast<const LM_Error_Value*>(&efunc);
-    auto mf = derive(err_list[j].name(), time, err_list[j].nGrow());
+    bool box_tag = lmfunc && lmfunc->BoxTag();
+
+    auto mf = box_tag ? 0 : derive(err_list[j].name(), time, err_list[j].nGrow());
 
 #ifdef _OPENMP
 #pragma omp parallel
 #endif
-    for (MFIter mfi(*mf,true); mfi.isValid(); ++mfi)
+    for (MFIter mfi(grids,dmap,true); mfi.isValid(); ++mfi)
     {
       const Box&  vbx     = mfi.tilebox();
       RealBox     gridloc = RealBox(vbx,geom.CellSize(),geom.ProbLo());
@@ -8258,25 +8298,36 @@ PeleLM::errorEst (TagBoxArray& tags,
       const int*  lo      = vbx.loVect();
       const int*  hi      = vbx.hiVect();
       const Real* xlo     = gridloc.lo();
-      FArrayBox&  fab     = (*mf)[mfi];
-      Real*       dat     = fab.dataPtr();
-      const int*  dlo     = fab.box().loVect();
-      const int*  dhi     = fab.box().hiVect();
-      const int   ncomp   = fab.nComp();
-      
-      if (lmfunc==0) 
+
+      if (box_tag)
       {
-        err_list[j].errFunc()(tptr, ARLIM(tlo), ARLIM(thi), &tagval,
-                              &clearval, dat, ARLIM(dlo), ARLIM(dhi),
-                              lo,hi, &ncomp, domain_lo, domain_hi,
-                              dx, xlo, prob_lo, &time, &level);
+        lmfunc->tagCells1(tptr,ARLIM(tlo),ARLIM(thi),
+                          &tagval, &clearval,
+                          lo,hi, domain_lo, domain_hi,
+                          dx, xlo, prob_lo, &time, &level);
       }
       else
       {
-        lmfunc->tagCells(tptr,ARLIM(tlo),ARLIM(thi),
-                         &tagval, &clearval, dat, ARLIM(dlo), ARLIM(dhi),
-                         lo,hi, &ncomp, domain_lo, domain_hi,
-                         dx, xlo, prob_lo, &time, &level);
+        FArrayBox&  fab     = (*mf)[mfi];
+        Real*       dat     = fab.dataPtr();
+        const int*  dlo     = fab.box().loVect();
+        const int*  dhi     = fab.box().hiVect();
+        const int   ncomp   = fab.nComp();
+        
+        if (lmfunc==0) 
+        {
+          err_list[j].errFunc()(tptr, ARLIM(tlo), ARLIM(thi), &tagval,
+                                &clearval, dat, ARLIM(dlo), ARLIM(dhi),
+                                lo,hi, &ncomp, domain_lo, domain_hi,
+                                dx, xlo, prob_lo, &time, &level);
+        }
+        else
+        {
+          lmfunc->tagCells(tptr,ARLIM(tlo),ARLIM(thi),
+                           &tagval, &clearval, dat, ARLIM(dlo), ARLIM(dhi),
+                           lo,hi, &ncomp, domain_lo, domain_hi,
+                           dx, xlo, prob_lo, &time, &level);
+        }
       }
                       
       tags[mfi].tags(itags);
