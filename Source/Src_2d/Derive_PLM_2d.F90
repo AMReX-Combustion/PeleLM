@@ -26,7 +26,7 @@ module derive_PLM_2D
   private
  
   public :: derdvrho, dermprho, dermgvort, dermgdivu, deravgpres, dergrdpx, dergrdpy, &
-            drhomry, dsrhoydot, drhort, dermolefrac, derconcentration
+            drhomry, dsrhoydot, drhort, dermolefrac, derconcentration, dertransportcoeff
 
 contains
  
@@ -780,5 +780,67 @@ contains
     enddo
 
   end subroutine derconcentration
+  
+!=========================================================
+  
+  subroutine dertransportcoeff (C,DIMS(C),nv,dat,DIMS(dat),ncomp, &
+                               lo,hi,domlo,domhi,delta,xlo,time,dt,bc, &
+                               level,grid_no) &
+                               bind(C, name="dertransportcoeff")
+
+    use network,        only : nspec
+    use transport_module, only : get_transport_coeffs
+                               
+    implicit none
+
+    integer    lo(dim), hi(dim)
+    integer    DIMDEC(C)
+    integer    DIMDEC(dat)
+    integer    domlo(dim), domhi(dim)
+    integer    nv, ncomp
+    integer    bc(dim,2,ncomp)
+    REAL_T     delta(dim), xlo(dim), time, dt
+    REAL_T     C(DIMV(C),nv)
+    REAL_T     dat(DIMV(dat),ncomp)
+    integer    level, grid_no
+
+    integer i,j,n
+    REAL_T Yt(nspec), rho_dummy(1), D(Nspec), MU(1), XI(1), LAM(1)
+    integer fS,rho,T
+    integer lo_chem(3),hi_chem(3)
+    data lo_chem /1,1,1/
+    data hi_chem /1,1,1/
+
+    rho = 1 
+    T   = 2
+    fS  = 3
+
+    do j=lo(2),hi(2)
+      do i=lo(1),hi(1)
+        do n = 1,Nspec
+          Yt(n) = dat(i,j,fS+n-1)/dat(i,j,rho) 
+        enddo
+        rho_dummy(1) = dat(i,j,rho) * 1.d-3
+        
+        call get_transport_coeffs(lo_chem,hi_chem, &
+                                  Yt,    lo_chem,hi_chem,  &
+                                  dat(i,j,T),  lo_chem,hi_chem,  &
+                                  rho_dummy(1), lo_chem,hi_chem,  &
+                                  D,      lo_chem,hi_chem,  &
+                                  MU(1),     lo_chem,hi_chem,  &
+                                  XI(1),     lo_chem,hi_chem,  &
+                                  LAM(1),    lo_chem,hi_chem)
+
+        do n = 1,Nspec
+          C(i,j,n) = D(n)
+        enddo
+
+       C(i,j,Nspec+1) = LAM(1)
+       C(i,j,Nspec+2) = MU(1)
+
+      enddo
+    enddo
+
+  end subroutine dertransportcoeff
 
 end module derive_PLM_2D
