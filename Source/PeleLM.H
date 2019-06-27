@@ -154,7 +154,7 @@ public:
   //
   // Set the variables that are put in the plotfile....
   //
-  virtual void setPlotVariables () override;
+//  virtual void setPlotVariables () override;
   //
   // Set time levels of state data.
   //

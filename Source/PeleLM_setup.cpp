@@ -771,7 +771,7 @@ PeleLM::variableSetUp ()
   derive_lst.addComponent("enthalpy",desc_lst,State_Type,Density,1);
   derive_lst.addComponent("enthalpy",desc_lst,State_Type,RhoH,1);
   //
-  // Species mass fractions.
+  // Individual Species mass fractions (for error tag with tracer)
   //
   for (int i = 0; i < nspecies; i++)
   {
@@ -780,6 +780,17 @@ PeleLM::variableSetUp ()
     derive_lst.addComponent(chname,desc_lst,State_Type,Density,1);
     derive_lst.addComponent(chname,desc_lst,State_Type,first_spec + i,1);
   }
+  //
+  // Group Species mass fractions (for ploting in plot file)
+  //
+  Vector<std::string> var_names_massfrac(nspecies);
+  for (int i = 0; i < nspecies; i++)
+    var_names_massfrac[i] = "Y("+spec_names[i]+")";
+  derive_lst.add("mass_fractions",IndexType::TheCellType(),nspecies,
+                 var_names_massfrac,dermassfrac,the_same_box);
+  derive_lst.addComponent("mass_fractions",desc_lst,State_Type,Density,1);
+  derive_lst.addComponent("mass_fractions",desc_lst,State_Type,first_spec,nspecies);
+
   //
   // Species mole fractions
   //

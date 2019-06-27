@@ -27,8 +27,8 @@ module derive_PLM_3D
  
   public :: derdvrho, dermprho, dermgvort, dermgdivu, &
             deravgpres, dergrdpx, dergrdpy, dergrdpz, &
-            drhomry, dsrhoydot, drhort, dermolefrac,  &
-            derconcentration, dertransportcoeff
+            drhomry, dsrhoydot, drhort, dermassfrac, & 
+            dermolefrac, derconcentration, dertransportcoeff
 
 contains
 
@@ -1176,6 +1176,51 @@ contains
 
 !=========================================================
 
+  subroutine dermassfrac (x,DIMS(x),nv,dat,DIMS(dat),ncomp, &
+                          lo,hi,domlo,domhi,delta,xlo,time,dt,bc, &
+                          level,grid_no) &
+                          bind(C, name="dermassfrac")
+
+    use network,        only : nspec
+
+    implicit none
+
+      integer    lo(dim), hi(dim)
+      integer    DIMDEC(x)
+      integer    DIMDEC(dat)
+      integer    domlo(dim), domhi(dim)
+      integer    nv, ncomp
+      integer    bc(dim,2,ncomp)
+      REAL_T     delta(dim), xlo(dim), time, dt
+      REAL_T     x(DIMV(x),nv)
+      REAL_T     dat(DIMV(dat),ncomp)
+      integer    level, grid_no
+
+      integer i,j,k,n
+      integer fS,rho
+      integer lo_chem(3),hi_chem(3)
+      data lo_chem /1,1,1/
+      data hi_chem /1,1,1/
+
+      rho = 1
+      fS  = 2
+
+      do k=lo(3),hi(3)
+         do j=lo(2),hi(2)
+            do i=lo(1),hi(1)
+               do n = 1,Nspec
+                  x(i,j,k,n) = dat(i,j,k,fS+n-1)/dat(i,j,k,rho)
+               enddo
+            enddo
+         enddo
+      enddo
+
+  end subroutine dermassfrac
+
+!=========================================================
+
+!=========================================================
+
   subroutine dermolefrac (x,DIMS(x),nv,dat,DIMS(dat),ncomp, &
                           lo,hi,domlo,domhi,delta,xlo,time,dt,bc, &
                           level,grid_no) &
@@ -1330,11 +1375,11 @@ contains
                                         LAM(1),      lo_chem,hi_chem)
 
               do n = 1,Nspec
-                C(i,j,k,n) = D(n)
+                C(i,j,k,n) = D(n) 
               enddo
 
-              C(i,j,k,Nspec+1) = LAM(1)
-              C(i,j,k,Nspec+2) = MU(1)
+              C(i,j,k,Nspec+1) = LAM(1) * 1.0d-04
+              C(i,j,k,Nspec+2) = MU(1)  
 
             enddo
          enddo

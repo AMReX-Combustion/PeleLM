@@ -7662,97 +7662,6 @@ PeleLM::RhoH_to_Temp (FArrayBox& S,
 }
 
 void
-PeleLM::setPlotVariables ()
-{
-  AmrLevel::setPlotVariables();
-
-  Vector<std::string> names;
-  PeleLM::getSpeciesNames(names);
-
-  ParmParse pp("ht");
-
-  bool plot_rhoY,plot_massFrac,plot_moleFrac,plot_conc;
-  plot_rhoY=plot_massFrac=plot_moleFrac=plot_conc = false;
-
-  if (pp.query("plot_massfrac",plot_massFrac))
-  {
-    if (plot_massFrac)
-    {
-      for (int i = 0; i < names.size(); i++)
-      {
-        const std::string name = "Y("+names[i]+")";
-        parent->addDerivePlotVar(name);
-      }
-    }
-    else
-    {
-      for (int i = 0; i < names.size(); i++)
-      {
-        const std::string name = "Y("+names[i]+")";
-        parent->deleteDerivePlotVar(name);
-      }
-    }
-  }
-
-  if (pp.query("plot_molefrac",plot_moleFrac))
-  {
-    if (plot_moleFrac)
-      parent->addDerivePlotVar("molefrac");
-    else
-      parent->deleteDerivePlotVar("molefrac");
-  }
-
-  if (pp.query("plot_concentration",plot_conc))
-  {
-    if (plot_conc)
-      parent->addDerivePlotVar("concentration");
-    else
-      parent->deleteDerivePlotVar("concentration");
-  }
-
-  if (pp.query("plot_rhoY",plot_rhoY))
-  {
-    if (plot_rhoY)
-    {
-      for (int i = 0; i < names.size(); i++)
-      {
-        const std::string name = "rho.Y("+names[i]+")";
-        parent->addStatePlotVar(name);
-      }
-    }
-    else
-    {
-      for (int i = 0; i < names.size(); i++)
-      {
-        const std::string name = "rho.Y("+names[i]+")";
-        parent->deleteStatePlotVar(name);
-      }
-    }
-  }
-
-  if (verbose)
-  {
-    amrex::Print() << "\nState Plot Vars: ";
-
-    std::list<std::string>::const_iterator li = 
-      parent->statePlotVars().begin(), end = parent->statePlotVars().end();
-
-    for ( ; li != end; ++li)
-      amrex::Print() << *li << ' ';
-    amrex::Print() << '\n';
-
-    amrex::Print() << "\nDerive Plot Vars: ";
-
-    li  = parent->derivePlotVars().begin();
-    end = parent->derivePlotVars().end();
-
-    for ( ; li != end; ++li)
-      amrex::Print() << *li << ' ';
-    amrex::Print() << '\n';
-  }
-}
-
-void
 PeleLM::writePlotFile (const std::string& dir,
                        std::ostream&  os,
                        VisMF::How     how)
@@ -7959,7 +7868,7 @@ PeleLM::writePlotFile (const std::string& dir,
     const char* githash2 = buildInfoGetGitHash(2);
     const char* githash3 = buildInfoGetGitHash(3);
     if (strlen(githash1) > 0) {
-      jobInfoFile << "LMC    git hash: " << githash1 << "\n";
+      jobInfoFile << "PeleLM git hash: " << githash1 << "\n";
     }
     if (strlen(githash2) > 0) {
       jobInfoFile << "BoxLib git hash: " << githash2 << "\n";
