@@ -786,10 +786,10 @@ PeleLM::variableSetUp ()
   Vector<std::string> var_names_molefrac(nspecies);
   for (int i = 0; i < nspecies; i++)
     var_names_molefrac[i] = "X("+spec_names[i]+")";
-  derive_lst.add("molefrac",IndexType::TheCellType(),nspecies,
+  derive_lst.add("mole_fractions",IndexType::TheCellType(),nspecies,
                  var_names_molefrac,dermolefrac,the_same_box);
-  derive_lst.addComponent("molefrac",desc_lst,State_Type,Density,1);
-  derive_lst.addComponent("molefrac",desc_lst,State_Type,first_spec,nspecies);
+  derive_lst.addComponent("mole_fractions",desc_lst,State_Type,Density,1);
+  derive_lst.addComponent("mole_fractions",desc_lst,State_Type,first_spec,nspecies);
 
   //
   // Species concentrations
@@ -803,6 +803,24 @@ PeleLM::variableSetUp ()
   derive_lst.addComponent("concentration",desc_lst,State_Type,Temp,1);
   derive_lst.addComponent("concentration",desc_lst,State_Type,
                           first_spec,nspecies);
+
+  //
+  // Derive transport coefficients
+  //
+  Vector<std::string> var_names_transp_coeff(nspecies+2);
+  for (int i = 0; i < nspecies; i++)
+    var_names_transp_coeff[i] = "D_Y("+spec_names[i]+")";
+  var_names_transp_coeff[nspecies] = "Lambda";
+  var_names_transp_coeff[nspecies+1] = "Mu";
+  derive_lst.add("cc_transport_coeffs",IndexType::TheCellType(),nspecies+2,
+                 var_names_transp_coeff,dertransportcoeff,the_same_box);
+  derive_lst.addComponent("cc_transport_coeffs",desc_lst,State_Type,Density,1);
+  derive_lst.addComponent("cc_transport_coeffs",desc_lst,State_Type,Temp,1);
+  derive_lst.addComponent("cc_transport_coeffs",desc_lst,State_Type,
+                          first_spec,nspecies);
+
+
+
 
   if (nspecies > 0)
   {
@@ -861,6 +879,7 @@ PeleLM::variableSetUp ()
   //
   derive_lst.add("mag_vort",IndexType::TheCellType(),1,dermgvort,grow_box_by_one);
   derive_lst.addComponent("mag_vort",desc_lst,State_Type,Xvel,BL_SPACEDIM);
+
 #ifdef DO_LMC_FORCE
   //
   // forcing - used to calculate the rate of injection of energy
