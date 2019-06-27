@@ -1346,6 +1346,7 @@ contains
       end do
       if (.not. LeEQ1) then
         Patm = Pamb_in / P1ATM_MKS
+
         call get_transport_coeffs(lo,   hi, &
                                   Y_real, Y_lo,  Y_hi,  &
                                   T,      T_lo,  T_hi,  &

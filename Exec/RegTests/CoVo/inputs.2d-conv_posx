@@ -39,12 +39,10 @@ amr.check_int       = 5       # number of timesteps between checkpoints
 
 amr.plot_file       = plt_
 amr.plot_int        = 200000
-#amr.derive_plot_vars=rhoRT mag_vort particle_count mean_progress_curvature
 amr.derive_plot_vars=rhoRT mag_vort avg_pressure gradpx gradpy diveru
 
 amr.grid_log        = grdlog  # name of grid logging file
 amr.max_grid_size   = 64
-#amr.derive_plot_vars=ALL
 
 amr.probin_file = probin.2d.conv_posx # This will default to file "probin" if not set
 

@@ -26,7 +26,7 @@ module derive_PLM_2D
   private
  
   public :: derdvrho, dermprho, dermgvort, dermgdivu, deravgpres, dergrdpx, dergrdpy, &
-            drhomry, dsrhoydot, drhort, dermolefrac, derconcentration
+            drhomry, dsrhoydot, drhort, dermolefrac, derconcentration, dertransportcoeff
 
 contains
  
@@ -783,13 +783,13 @@ contains
   
 !=========================================================
   
-  subroutine der_transport_coeff (C,DIMS(C),nv,dat,DIMS(dat),ncomp, &
+  subroutine dertransportcoeff (C,DIMS(C),nv,dat,DIMS(dat),ncomp, &
                                lo,hi,domlo,domhi,delta,xlo,time,dt,bc, &
                                level,grid_no) &
-                               bind(C, name="derconcentration")
+                               bind(C, name="dertransportcoeff")
 
     use network,        only : nspec
-    use PeleLM_2D, only: pphys_massr_to_conc
+    use transport_module, only : get_transport_coeffs
                                
     implicit none
 
@@ -805,11 +805,11 @@ contains
     integer    level, grid_no
 
     integer i,j,n
-    REAL_T Yt(nspec),Ct(nspec), D(Nspec), MU(1), XI(1), LAM(1)
+    REAL_T Yt(nspec), rho_dummy(1), D(Nspec), MU(1), XI(1), LAM(1)
     integer fS,rho,T
-    integer lo_chem(2),hi_chem(2)
-    data lo_chem /1,1/
-    data hi_chem /1,1/
+    integer lo_chem(3),hi_chem(3)
+    data lo_chem /1,1,1/
+    data hi_chem /1,1,1/
 
     rho = 1 
     T   = 2
@@ -820,29 +820,27 @@ contains
         do n = 1,Nspec
           Yt(n) = dat(i,j,fS+n-1)/dat(i,j,rho) 
         enddo
-        
+        rho_dummy(1) = dat(i,j,rho) * 1.d-3
         
         call get_transport_coeffs(lo_chem,hi_chem, &
-                                  Yt,    ARLIM(lo_chem),ARLIM(hi_chem),  &
-                                  dat(i,j,T),  ARLIM(lo_chem),ARLIM(hi_chem),  &
-                                  dat(i,j,rho), ARLIM(lo_chem),ARLIM(hi_chem),  &
-                                  D,      ARLIM(lo_chem),ARLIM(hi_chem),  &
-                                  MU(1),     ARLIM(lo_chem),ARLIM(hi_chem),  &
-                                  XI(1),     ARLIM(lo_chem),ARLIM(hi_chem),  &
-                                  LAM(1),    ARLIM(lo_chem),ARLIM(hi_chem))
+                                  Yt,    lo_chem,hi_chem,  &
+                                  dat(i,j,T),  lo_chem,hi_chem,  &
+                                  rho_dummy(1), lo_chem,hi_chem,  &
+                                  D,      lo_chem,hi_chem,  &
+                                  MU(1),     lo_chem,hi_chem,  &
+                                  XI(1),     lo_chem,hi_chem,  &
+                                  LAM(1),    lo_chem,hi_chem)
 
-        C(i,j) = LAM(1)
-        !call pphys_massr_to_conc(lo_chem,hi_chem, &
-        !          Yt,           ARLIM(lo_chem),ARLIM(hi_chem), &
-        !          dat(i,j,T),   ARLIM(lo_chem),ARLIM(hi_chem), &
-        !          dat(i,j,rho), ARLIM(lo_chem),ARLIM(hi_chem), &
-        !          Ct,           ARLIM(lo_chem),ARLIM(hi_chem))
-        !do n = 1,Nspec
-        !  C(i,j,n) = Ct(n)
-        !enddo
+        do n = 1,Nspec
+          C(i,j,n) = D(n)
+        enddo
+
+       C(i,j,Nspec+1) = LAM(1)
+       C(i,j,Nspec+2) = MU(1)
+
       enddo
     enddo
 
-  end subroutine der_transport_coeff
+  end subroutine dertransportcoeff
 
 end module derive_PLM_2D
