@@ -127,13 +127,6 @@ mac.use_cg_solve   = 0
 mac.do_outflow_bcs = 0
 
 #--------------------------MISC/UNSORTED INPUTS-----------------------------
-
-ht.plot_rhoY=0
-ht.plot_molefrac=0
-ht.plot_massfrac=1
-ht.plot_ydot=0
-ht.plot_auxDiags = 1
-
 # multigrid class
 mg.smooth_on_cg_unstable=1
 mg.usecg = 1
