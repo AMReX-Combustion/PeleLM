@@ -3379,6 +3379,42 @@ contains
     end do
   end subroutine diffgt_error
 
+  subroutine box_error (tag,DIMS(tag),set,clear,&
+       boxlo,boxhi,lo,hi,&
+       domlo,domhi,dx,xlo,&
+       problo,time,level) bind(C, name="box_error")
+
+    implicit none
+      
+    integer   DIMDEC(tag)
+    integer   set, clear, level
+    integer   domlo(dim), domhi(dim)
+    integer   lo(dim), hi(dim)
+    integer   tag(DIMV(tag))
+    REAL_T    boxlo(dim),boxhi(dim),dx(dim), xlo(dim), problo(dim), time
+
+    integer   i, j, k
+    REAL_T    x, y, z
+
+
+    do k = lo(3), hi(3)
+       z = (float(k)+.5)*dx(3)+problo(3)
+       if (z.ge.boxlo(3) .and. z.le.boxhi(3)) then
+          do j = lo(2), hi(2)
+             y = (float(j)+.5)*dx(2)+problo(2)
+             if (y.ge.boxlo(2) .and. y.le.boxhi(2)) then
+                do i = lo(1), hi(1)
+                   x = (float(i)+.5)*dx(1)+problo(1)
+                   if (x.ge.boxlo(1) .and. x.le.boxhi(1)) then
+                      tag(i,j,k) = set
+                   endif
+                end do
+             endif
+          end do
+       endif
+    end do
+  end subroutine box_error
+
 !c     
 !c     
 !c     ::: -----------------------------------------------------------

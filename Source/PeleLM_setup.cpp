@@ -950,7 +950,7 @@ PeleLM::variableSetUp ()
     std::string ref_prefix = amr_prefix + "." + refinement_indicators[i];
 
     ParmParse ppr(ref_prefix);
-    Real min_time = 0; ppr.query("start_time",min_time);
+    Real min_time =  0; ppr.query("start_time",min_time);
     Real max_time = -1; ppr.query("end_time",max_time);
     int max_level = -1;  ppr.query("max_level",max_level);
     
@@ -978,8 +978,13 @@ PeleLM::variableSetUp ()
       err_list.add(field.c_str(),1,ErrorRec::Special,
                    LM_Error_Value(diffgt_error,value,min_time,max_time,max_level));
     }
-    else if (ppr.countval("adjacent_difference_less")) {
-      Abort(std::string("adjacent_difference_less refinement indicator not yet implemented, please find a PostDoc to do that"));
+    else if (ppr.countval("in_box_lo")) {
+      std::vector<Real> box_lo(BL_SPACEDIM), box_hi(BL_SPACEDIM);
+      ppr.getarr("in_box_lo",box_lo,0,box_lo.size());
+      ppr.getarr("in_box_hi",box_hi,0,box_hi.size());
+      RealBox realbox(&(box_lo[0]),&(box_hi[0]));
+      err_list.add("dummy",1,ErrorRec::Special,
+                   LM_Error_Value(box_error,realbox,min_time,max_time,max_level));
     }
     else {
       Abort(std::string("Unrecognized refinement indicator for " + refinement_indicators[i]).c_str());

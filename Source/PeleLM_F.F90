@@ -794,7 +794,6 @@ end subroutine plm_extern_init
 
       integer bath, fuel, oxid, prod, numspec
 
-        
       ! Passing dimensions of problem from Cpp to Fortran
       dim = dm
       domnlo(1:dm) = problo_in(1:dm)
@@ -806,7 +805,7 @@ end subroutine plm_extern_init
       fuelID = fuel + 1
       oxidID = oxid + 1
       prodID = prod + 1
-      if (bath .le. 0) then
+      if (bath .lt. 0 .or. bath .ge. nspec) then
          call bl_pd_abort('no N2 species present in mechanism')
       endif
       bathID = bath + 1
