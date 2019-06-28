@@ -609,23 +609,10 @@ PeleLM::variableSetUp ()
                           bc,
                           ChemBndryFunc(chem_fill,spec_names[i]),
                           &cell_cons_interp);
+          
 
   }
-  //
-  // To enable "group" operations on filling species, we need to
-  // overwrite the first component specifing how to do "regular"
-  // and "group" fill operations.
-  //
-//    if (do_group_bndry_fills)
-  if (false)
-  {        
-    desc_lst.setComponent(State_Type,
-                          first_spec,
-                          name,
-                          bcs,
-                          ChemBndryFunc(chem_fill,spec_names[0],all_chem_fill),
-                          &cell_cons_interp);
-  }
+
   //
   // ***************  DEFINE TRACER and RhoRT **************************
   //
@@ -770,6 +757,17 @@ PeleLM::variableSetUp ()
   derive_lst.add("enthalpy",IndexType::TheCellType(),1,derdvrho,the_same_box);
   derive_lst.addComponent("enthalpy",desc_lst,State_Type,Density,1);
   derive_lst.addComponent("enthalpy",desc_lst,State_Type,RhoH,1);
+
+  //
+  // Group Species Rho.Y (for ploting in plot file)
+  //
+  Vector<std::string> var_names_rhoY(nspecies);
+  for (int i = 0; i < nspecies; i++)
+    var_names_rhoY[i] = "rho.Y("+spec_names[i]+")";
+  derive_lst.add("rhoY",IndexType::TheCellType(),nspecies,
+                 var_names_rhoY,derRhoY,the_same_box);
+  derive_lst.addComponent("rhoY",desc_lst,State_Type,first_spec,nspecies);
+  
   //
   // Individual Species mass fractions (for error tag with tracer)
   //

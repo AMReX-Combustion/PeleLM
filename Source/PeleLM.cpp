@@ -7662,6 +7662,47 @@ PeleLM::RhoH_to_Temp (FArrayBox& S,
 }
 
 void
+PeleLM::setPlotVariables ()
+{
+  AmrLevel::setPlotVariables();
+
+  Vector<std::string> names;
+  PeleLM::getSpeciesNames(names);
+
+  
+// Here we specify to not plot all the rho.Y from the state variables
+// because it takes a lot of space in memory and disk usage
+// To plot rho.Y, we pass into a derive function (see PeleLM_setup.cpp)
+// and it can be activated with "amr.derive_plot_vars=rhoY" in the input file
+  for (int i = 0; i < names.size(); i++)
+  {
+    const std::string name = "rho.Y("+names[i]+")";
+    parent->deleteStatePlotVar(name);
+  }
+
+  if (verbose)
+  {
+    amrex::Print() << "\nState Plot Vars: ";
+
+    std::list<std::string>::const_iterator li = 
+      parent->statePlotVars().begin(), end = parent->statePlotVars().end();
+
+    for ( ; li != end; ++li)
+      amrex::Print() << *li << ' ';
+    amrex::Print() << '\n';
+
+    amrex::Print() << "\nDerive Plot Vars: ";
+
+    li  = parent->derivePlotVars().begin();
+    end = parent->derivePlotVars().end();
+
+    for ( ; li != end; ++li)
+      amrex::Print() << *li << ' ';
+    amrex::Print() << '\n';
+  }
+}
+
+void
 PeleLM::writePlotFile (const std::string& dir,
                        std::ostream&  os,
                        VisMF::How     how)
