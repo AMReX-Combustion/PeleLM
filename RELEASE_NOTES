@@ -24,7 +24,8 @@ Release version 1.0 (June, 2019)
 
 * Regression test cases and convergence tests are managed with case-specific python scripts (in Exec folders)
 
-* PeleLM now makes full use of PelePhysics for EOS, transport properties and chemistry.  ChemDriver has been removed. PeleLM now works with Sutherland and Constant modules from PelePhysics.
+* PeleLM now makes full use of PelePhysics for EOS, transport properties and chemistry.  ChemDriver has been removed.
+  PeleLM now works with Sutherland and Constant modules from PelePhysics, however note that reference values have to be put in CGS format, not MKS.
 
 * Several bugs where fixed in the MPI/OpenMP tiling implementation
 
