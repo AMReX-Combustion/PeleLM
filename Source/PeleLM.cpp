@@ -1411,11 +1411,10 @@ PeleLM::init_once ()
 
   set_scal_numb(&density, &Temp, &Trac, &RhoH, &first_spec, &last_spec);
   //
-  // Load constants into Fortran common to compute viscosities, etc.
+  // Load constants from Fortran module to thickenig factor, etc.
   //
-
     
-  set_ht_visc_common( &constant_thick_val,
+  set_ht_adim_common( &constant_thick_val,
                       &prandtl,  &schmidt, &unity_Le);
 
   //

@@ -23,7 +23,7 @@ module PeleLM_F
   private
 
   public :: set_scal_numb, &
-            set_ht_visc_common, get_pamb, &
+            set_ht_adim_common, get_pamb, &
             get_closed_chamber, get_dpdt, set_common, active_control, &
             pphys_calc_src_sdc, pphys_getP1atm_MKS, &
             pphys_get_spec_name2, pphys_TfromHYpt, set_prob_spec
@@ -282,16 +282,15 @@ end subroutine plm_extern_init
 
 !------------------------------------------
 
-  subroutine set_ht_visc_common(thickeningfac, &
+  subroutine set_ht_adim_common(thickeningfac, &
                                 prandtl, schmidt, unityLe) &
-                                bind(C, name="set_ht_visc_common") 
+                                bind(C, name="set_ht_adim_common") 
 
     use mod_Fvar_def, only : Pr, Sc, LeEQ1, thickFac
     
     implicit none
 
-    integer muIsVar, lambdaIsVar, rhoDIsVar
-    REAL_T muVal, lambdaVal, rhoDVal, thickeningfac, prandtl, schmidt
+    REAL_T thickeningfac, prandtl, schmidt
     integer unityLe
 
 
@@ -300,7 +299,7 @@ end subroutine plm_extern_init
     LeEQ1 = unityLe .ne. 0
     thickFac = MAX(one,thickeningfac)
 
-  end subroutine set_ht_visc_common
+  end subroutine set_ht_adim_common
 
 !----------------------------------------
 
