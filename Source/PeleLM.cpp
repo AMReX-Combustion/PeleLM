@@ -527,6 +527,8 @@ PeleLM::Initialize ()
   if (initialized) return;
 
   NavierStokesBase::Initialize();
+  
+  NavierStokesBase::Initialize_specific();
   //
   // Set all default values here!!!
   //
@@ -778,6 +780,79 @@ PeleLM::Initialize ()
   amrex::ExecOnFinalize(PeleLM::Finalize);
 
   initialized = true;
+}
+
+void
+PeleLM::Initialize_specific ()
+{
+    ParmParse pp("ns");
+    
+    Vector<int> lo_bc(BL_SPACEDIM), hi_bc(BL_SPACEDIM);
+    pp.getarr("lo_bc",lo_bc,0,BL_SPACEDIM);
+    pp.getarr("hi_bc",hi_bc,0,BL_SPACEDIM);
+    for (int i = 0; i < BL_SPACEDIM; i++)
+    {
+        phys_bc.setLo(i,lo_bc[i]);
+        phys_bc.setHi(i,hi_bc[i]);
+    }
+  
+    read_geometry();
+    //
+    // Check phys_bc against possible periodic geometry
+    // if periodic, must have internal BC marked.
+    //
+    if (DefaultGeometry().isAnyPeriodic())
+    {
+        //
+        // Do idiot check.  Periodic means interior in those directions.
+        //
+        for (int dir = 0; dir < BL_SPACEDIM; dir++)
+        {
+            if (DefaultGeometry().isPeriodic(dir))
+            {
+                if (lo_bc[dir] != Interior)
+                {
+                    std::cerr << "NavierStokesBase::variableSetUp:periodic in direction "
+                              << dir
+                              << " but low BC is not Interior\n";
+                    amrex::Abort("NavierStokesBase::Initialize()");
+                }
+                if (hi_bc[dir] != Interior)
+                {
+                    std::cerr << "NavierStokesBase::variableSetUp:periodic in direction "
+                              << dir
+                              << " but high BC is not Interior\n";
+                    amrex::Abort("NavierStokesBase::Initialize()");
+                }
+            } 
+        }
+    }
+
+    {
+        //
+        // Do idiot check.  If not periodic, should be no interior.
+        //
+        for (int dir = 0; dir < BL_SPACEDIM; dir++)
+        {
+            if (!DefaultGeometry().isPeriodic(dir))
+            {
+              if (lo_bc[dir] == Interior)
+              {
+                  std::cerr << "NavierStokesBase::variableSetUp:Interior bc in direction "
+                            << dir
+                            << " but not defined as periodic\n";
+                  amrex::Abort("NavierStokesBase::Initialize()");
+              }
+              if (hi_bc[dir] == Interior)
+              {
+                  std::cerr << "NavierStokesBase::variableSetUp:Interior bc in direction "
+                            << dir
+                            << " but not defined as periodic\n";
+                  amrex::Abort("NavierStokesBase::Initialize()");
+              }
+            }
+        }
+    }  
 }
 
 void

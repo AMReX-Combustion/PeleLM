@@ -292,6 +292,7 @@ protected:
   ////////////////////////////////////////////////////////////////////////////
 
   static void Initialize ();
+  static void Initialize_specific ();
   static void Finalize ();
     
 #ifdef AMREX_PARTICLES
