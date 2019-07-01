@@ -60,8 +60,6 @@ ns.sum_interval   = 1        # timesteps between computing mass
 ns.do_reflux      = 1        # 1 => do refluxing
 ns.do_mac_proj    = 1        # 1 => do MAC projection
 
-ns.constant_mu_val = 0.0
-
 ns.do_sync_proj   = 1        # 1 => do Sync Project
 ns.do_MLsync_proj = 1
 ns.do_divu_sync = 0
