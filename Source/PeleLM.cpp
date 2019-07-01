@@ -136,9 +136,6 @@ int  PeleLM::do_set_rho_to_species_sum;
 Real PeleLM::rgas;
 Real PeleLM::prandtl;
 Real PeleLM::schmidt;
-Real PeleLM::constant_mu_val;
-Real PeleLM::constant_rhoD_val;
-Real PeleLM::constant_lambda_val;
 Real PeleLM::constant_thick_val;
 int  PeleLM::unity_Le;
 Real PeleLM::htt_tempmin;
@@ -582,9 +579,6 @@ PeleLM::Initialize ()
   PeleLM::rgas                      = -1.0;
   PeleLM::prandtl                   = .7;
   PeleLM::schmidt                   = .7;
-  PeleLM::constant_mu_val           = -1;
-  PeleLM::constant_rhoD_val         = -1;
-  PeleLM::constant_lambda_val       = -1;
   PeleLM::constant_thick_val        = -1;
   PeleLM::unity_Le                  = 1;
   PeleLM::htt_tempmin               = 298.0;
@@ -666,28 +660,7 @@ PeleLM::Initialize ()
   pp.query("sdc_iterMAX",sdc_iterMAX);
   pp.query("num_mac_sync_iter",num_mac_sync_iter);
 
-  pp.query("constant_mu_val",constant_mu_val);
-  pp.query("constant_rhoD_val",constant_rhoD_val);
-  pp.query("constant_lambda_val",constant_lambda_val);
   pp.query("thickening_factor",constant_thick_val);
-  if (constant_mu_val != -1)
-  {
-    if (verbose)
-      amrex::Print() << "PeleLM::read_params: using constant_mu_val = " 
-		     << constant_mu_val << '\n';
-  }
-  if (constant_rhoD_val != -1)
-  {
-    if (verbose)
-      amrex::Print() << "PeleLM::read_params: using constant_rhoD_val = " 
-		     << constant_rhoD_val << '\n';
-  }
-  if (constant_lambda_val != -1)
-  {
-    if (verbose)
-      amrex::Print() << "PeleLM::read_params: using constant_lambda_val = " 
-		     << constant_lambda_val << '\n';
-  }
   if (constant_thick_val != -1)
   {
     if (verbose)
@@ -1440,15 +1413,10 @@ PeleLM::init_once ()
   //
   // Load constants into Fortran common to compute viscosities, etc.
   //
-  const int var_visc = (constant_mu_val     == -1 ? 1 : 0);
-  const int var_cond = (constant_lambda_val == -1 ? 1 : 0);
-  const int var_diff = (constant_rhoD_val   == -1 ? 1 : 0);
+
     
-  set_ht_visc_common(&var_visc, &constant_mu_val,
-                          &var_cond, &constant_lambda_val,
-                          &var_diff, &constant_rhoD_val,
-								  &constant_thick_val,
-                          &prandtl,  &schmidt, &unity_Le);
+  set_ht_visc_common( &constant_thick_val,
+                      &prandtl,  &schmidt, &unity_Le);
 
   //
   // make space for typical values

@@ -4,6 +4,7 @@ Release version 1.0 (June, 2019)
   * F77 code and .H include files have been removed and all data are defined in F90 modules.
   * Prob_$(dim)d.F90 now only requires amrex_probinit and init_data.
     (See note 1 below, and in documention)
+  * Boundary Conditions are now imposed via keywords, rather than integer.
   * All error tagging functions have been removed and replaced by a more generic procedure.
     (See note 2 below, and in documention)
   * PeleLM no longer depends on the DERIVE functions from IAMR. Common functions have been duplicated within PeleLM
@@ -23,7 +24,7 @@ Release version 1.0 (June, 2019)
 
 * Regression test cases and convergence tests are managed with case-specific python scripts (in Exec folders)
 
-* PeleLM now makes full use of PelePhysics for EOS, transport properties and chemistry.  ChemDriver has been removed.
+* PeleLM now makes full use of PelePhysics for EOS, transport properties and chemistry.  ChemDriver has been removed. PeleLM now works with Sutherland and Constant modules from PelePhysics.
 
 * Several bugs where fixed in the MPI/OpenMP tiling implementation
 

@@ -282,15 +282,10 @@ end subroutine plm_extern_init
 
 !------------------------------------------
 
-  subroutine set_ht_visc_common(muIsVar,     muVal, &
-                                lambdaIsVar, lambdaVal, &
-                                rhoDIsVar,   rhoDVal, &
-                                thickeningfac, &
+  subroutine set_ht_visc_common(thickeningfac, &
                                 prandtl, schmidt, unityLe) &
                                 bind(C, name="set_ht_visc_common") 
 
-    use mod_Fvar_def, only : use_constant_mu, use_constant_lambda, use_constant_rhoD
-    use mod_Fvar_def, only : constant_mu_val, constant_lambda_val, constant_rhoD_val
     use mod_Fvar_def, only : Pr, Sc, LeEQ1, thickFac
     
     implicit none
@@ -299,29 +294,6 @@ end subroutine plm_extern_init
     REAL_T muVal, lambdaVal, rhoDVal, thickeningfac, prandtl, schmidt
     integer unityLe
 
-    if (muIsVar .EQ. 1) then
-      use_constant_mu = .false.
-      constant_mu_val = - one
-    else
-      use_constant_mu = .true.
-      constant_mu_val = muVal
-    end if
-
-    if (lambdaIsVar .EQ. 1) then
-      use_constant_lambda = .false.
-      constant_lambda_val = - one
-    else
-      use_constant_lambda = .true.
-      constant_lambda_val = lambdaVal
-    end if
-
-    if (rhoDIsVar .EQ. 1) then
-      use_constant_rhoD = .false.
-      constant_rhoD_val = - one
-    else
-      use_constant_rhoD = .true.
-      constant_rhoD_val = rhoDVal
-    end if
 
     Pr = prandtl
     Sc = schmidt

@@ -1209,7 +1209,7 @@ contains
 
     use network,          only : nspec
     use transport_module, only: get_visco_coeffs
-    use mod_Fvar_def, only : use_constant_mu, constant_mu_val, LeEQ1
+    use mod_Fvar_def, only : LeEQ1
 
     implicit none
 
@@ -1223,13 +1223,12 @@ contains
 
     integer i, j, k
 
-    if (.not.use_constant_mu) then
-      if (.not. LeEQ1) then
-        ! use_eg 
-        call get_visco_coeffs(lo, hi, &
-                              Y,  Y_lo,  Y_hi, &
-                              T,  T_lo,  T_hi, &
-                              mu, mu_lo, mu_hi)
+    if (.not. LeEQ1) then
+      ! use_eg 
+      call get_visco_coeffs(lo, hi, &
+                            Y,  Y_lo,  Y_hi, &
+                            T,  T_lo,  T_hi, &
+                            mu, mu_lo, mu_hi)
       do k=lo(3), hi(3)
         do j=lo(2), hi(2)
           do i=lo(1), hi(1)
@@ -1238,20 +1237,11 @@ contains
         end do
       end do
 
-      else 
-        do k=lo(3), hi(3)
-          do j=lo(2), hi(2)
-            do i=lo(1), hi(1)
-              mu(i,j,k) = 1.85e-5*(T(i,j,k)/298.0)**.7
-            end do
-          end do
-        end do
-      end if
-    else
+    else 
       do k=lo(3), hi(3)
         do j=lo(2), hi(2)
           do i=lo(1), hi(1)
-            mu(i,j,k) = constant_mu_val
+            mu(i,j,k) = 1.85e-5*(T(i,j,k)/298.0)**.7
           end do
         end do
       end do
@@ -1271,8 +1261,6 @@ contains
 
     use network,          only : nspec
     use transport_module, only : get_transport_coeffs
-    use mod_Fvar_def, only : use_constant_rhoD, constant_rhoD_val, use_constant_lambda,  &
-                             constant_lambda_val
     use mod_Fvar_def, only : Pr, Sc, LeEQ1, thickFac
     
     implicit none
@@ -1329,133 +1317,99 @@ contains
        invmwt(n) = one / invmwt(n)
     end do
 
-    if (.not.use_constant_rhoD) then
+    do k=lo(3),hi(3) 
+      do j=lo(2),hi(2)
+        do i=lo(1),hi(1)
+          RHO(i,j,k) = 0.d0
+          do n=1,nspec
+            RHO(i,j,k) = RHO(i,j,k) + Y(i,j,k,n)
+          end do
+          do n=1,nspec
+            Y_real(i,j,k,n) = Y(i,j,k,n) / RHO(i,j,k)
+          end do
+          RHO(i,j,k) = RHO(i,j,k) * 1.d-3
+        end do
+      end do
+    end do
+    
+    if (.not. LeEQ1) then
+      Patm = Pamb_in / P1ATM_MKS
+
+      call get_transport_coeffs(lo,   hi, &
+                                Y_real, Y_lo,  Y_hi,  &
+                                T,      T_lo,  T_hi,  &
+                                RHO,    T_lo,  T_hi,  &
+                                D,      T_lo,  T_hi,  &
+                                MU,     T_lo,  T_hi,  &
+                                XI,     T_lo,  T_hi,  &
+                                LAM,    T_lo,  T_hi)
       do k=lo(3),hi(3) 
-        do j=lo(2),hi(2)
-          do i=lo(1),hi(1)
-            RHO(i,j,k) = 0.d0
+        do j=lo(2), hi(2)
+          do i=lo(1), hi(1)
+            CALL CKMMWY(Y_real(i,j,k,:),Wavg)
             do n=1,nspec
-                RHO(i,j,k) = RHO(i,j,k) + Y(i,j,k,n)
+              rhoD(i,j,k,n) = Wavg * invmwt(n) * D(i,j,k,n)  * 1.0d-1 
             end do
-            do n=1,nspec
-                Y_real(i,j,k,n) = Y(i,j,k,n) / RHO(i,j,k)
-            end do
-            RHO(i,j,k) = RHO(i,j,k) * 1.d-3
+            if (do_temp .ne. 0) then 
+              rhoD(i,j,k,nspec+1) = LAM(i,j,k) * (one / 100000.0D0)
+            end if
+            if (thickFac.ne.1.d0) then
+              do n=1,nspec+1
+                rhoD(i,j,k,n) = rhoD(i,j,k,n)*thickFac
+              enddo
+            endif
+            if (do_VelVisc .ne. 0) then 
+              rhoD(i,j,k,nspec+2) = MU(i,j,k) * 1.0d-1
+            end if
           end do
         end do
       end do
-      if (.not. LeEQ1) then
-        Patm = Pamb_in / P1ATM_MKS
-
-        call get_transport_coeffs(lo,   hi, &
-                                  Y_real, Y_lo,  Y_hi,  &
-                                  T,      T_lo,  T_hi,  &
-                                  RHO,    T_lo,  T_hi,  &
-                                  D,      T_lo,  T_hi,  &
-                                  MU,     T_lo,  T_hi,  &
-                                  XI,     T_lo,  T_hi,  &
-                                  LAM,    T_lo,  T_hi)
-        do k=lo(3),hi(3) 
-          do j=lo(2), hi(2)
-            do i=lo(1), hi(1)
-              CALL CKMMWY(Y_real(i,j,k,:),Wavg)
-              do n=1,nspec
-                rhoD(i,j,k,n) = Wavg * invmwt(n) * D(i,j,k,n)  * 1.0d-1 
-              end do
-              if (do_temp .ne. 0) then 
-                rhoD(i,j,k,nspec+1) = LAM(i,j,k) * (one / 100000.0D0)
-              end if
-              if (thickFac.ne.1.d0) then
-                do n=1,nspec+1
-                  rhoD(i,j,k,n) = rhoD(i,j,k,n)*thickFac
-                enddo
-              endif
-              if (do_VelVisc .ne. 0) then 
-                rhoD(i,j,k,nspec+2) = MU(i,j,k) * 1.0d-1
-              end if
-            end do
-          end do
-        end do
-      else
-        call vel_visc(lo,      hi,&
-                      T,       T_lo,    T_hi, &
-                      Y_real,  Y_lo,    Y_hi, &
-                      rhoD,    rhoD_lo, rhoD_hi)
-
-        do k=lo(3),hi(3) 
-          do j=lo(2), hi(2)
-            do i=lo(1), hi(1)
-              do n=Nspec+1,nc
-                rhoD(i,j,k,n) = rhoD(i,j,k,1)
-              end do
-              rhoD(i,j,k,1) = rhoD(i,j,k,1) * Yfac
-            end do
-          end do
-        end do
-        do n=2,Nspec
-          do k=lo(3),hi(3) 
-            do j=lo(2), hi(2)
-              do i=lo(1), hi(1)
-                rhoD(i,j,k,n) = rhoD(i,j,k,1)
-              end do
-            end do
-          end do
-        end do
-
-        if (do_temp .ne. 0) then
-          do k=lo(3),hi(3) 
-            do j=lo(2), hi(2)
-              do i=lo(1), hi(1)
-                do n=1,nspec
-                  Yt(n) = Y_real(i,j,k,n)
-                end do
-                CALL pphys_CPMIXfromTY(lo,       hi, & 
-                                       cpmix,    lo_chem, hi_chem, &
-                                       T(i,j,k), lo_chem, hi_chem, &
-                                       Yt,       lo_chem, hi_chem)
-               rhoD(i,j,k,nspec+1) = rhoD(i,j,k,nspec+1)*cpmix(1,1,1)*Tfac
-              end do
-            end do
-          end do
-        end if
-      end if
+      
     else
-         do n=1,Nspec 
-            do k=lo(3), hi(3)
-               do j=lo(2), hi(2)
-                  do i=lo(1), hi(1)
-                     rhoD(i,j,k,n) = constant_rhoD_val
-                  end do
-               end do
+    
+      call vel_visc(lo,      hi,&
+                    T,       T_lo,    T_hi, &
+                    Y_real,  Y_lo,    Y_hi, &
+                    rhoD,    rhoD_lo, rhoD_hi)
+
+      do k=lo(3),hi(3) 
+        do j=lo(2), hi(2)
+          do i=lo(1), hi(1)
+            do n=Nspec+1,nc
+              rhoD(i,j,k,n) = rhoD(i,j,k,1)
             end do
-         end do
-         if (do_temp .ne. 0) then
-           if (.NOT. use_constant_lambda) THEN  
-             do k=lo(3), hi(3)
-                do j=lo(2), hi(2)
-                   do i=lo(1), hi(1)
-                     do n=1,Nspec
-                        Yt(n) = Y_real(i,j,k,n)
-                     end do
-                     CALL pphys_CPMIXfromTY(lo,       hi, & 
-                                       cpmix,    lo_chem, hi_chem, &
-                                       T(i,j,k), lo_chem, hi_chem, &
-                                       Yt,       lo_chem, hi_chem)
-                     rhoD(i,j,k,Nspec+1) = rhoD(i,j,k,Nspec+1)*cpmix(1,1,1)*Tfac
-                   end do
-                end do
-             end do
-           else
-             do k=lo(3), hi(3)
-                do j=lo(2), hi(2)
-                   do i=lo(1), hi(1)
-                      rhoD(i,j,k,Nspec+1) = constant_lambda_val
-                   end do
-                end do
-             end do
-           end if
-         end if
+            rhoD(i,j,k,1) = rhoD(i,j,k,1) * Yfac
+          end do
+        end do
+      end do
+      do n=2,Nspec
+        do k=lo(3),hi(3) 
+          do j=lo(2), hi(2)
+            do i=lo(1), hi(1)
+              rhoD(i,j,k,n) = rhoD(i,j,k,1)
+            end do
+          end do
+        end do
+      end do
+
+      if (do_temp .ne. 0) then
+        do k=lo(3),hi(3) 
+          do j=lo(2), hi(2)
+            do i=lo(1), hi(1)
+              do n=1,nspec
+                Yt(n) = Y_real(i,j,k,n)
+              end do
+              CALL pphys_CPMIXfromTY(lo,       hi, & 
+                                     cpmix,    lo_chem, hi_chem, &
+                                     T(i,j,k), lo_chem, hi_chem, &
+                                     Yt,       lo_chem, hi_chem)
+              rhoD(i,j,k,nspec+1) = rhoD(i,j,k,nspec+1)*cpmix(1,1,1)*Tfac
+            end do
+          end do
+        end do
       end if
+    end if
+
 
   end subroutine spec_temp_visc
 

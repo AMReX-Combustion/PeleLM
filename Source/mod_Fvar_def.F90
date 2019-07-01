@@ -7,10 +7,8 @@ module mod_Fvar_def
   
   ! From visc.H
   
-  logical :: use_constant_mu, use_constant_lambda, use_constant_rhoD
   logical :: LeEQ1
 
-  REAL_T  :: constant_mu_val, constant_lambda_val, constant_rhoD_val
   REAL_T  :: Pr, Sc
   REAL_T  :: thickFac
   
