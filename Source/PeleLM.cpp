@@ -526,9 +526,10 @@ PeleLM::Initialize ()
 {
   if (initialized) return;
 
-  NavierStokesBase::Initialize();
+  PeleLM::Initialize_specific();
   
-  NavierStokesBase::Initialize_specific();
+  NavierStokesBase::Initialize();
+
   //
   // Set all default values here!!!
   //
@@ -546,6 +547,12 @@ PeleLM::Initialize ()
   temp_control            = -1;
   crse_dt                 = -1;
   chem_box_chop_threshold = -1;
+  
+  // These two flags below belong to the NavierStokesBase class in IAMR,
+  // we set them to 1 by default even if later we do a constant mu and/or lambda
+  // Note that constant mu and lambda will be imposed from Constant module in PelePhysics
+  variable_vel_visc = 1;
+  variable_scal_diff = 1;
 
   PeleLM::p_amb_old                 = -1.0;
   PeleLM::p_amb_new                 = -1.0;
@@ -713,12 +720,12 @@ PeleLM::Initialize ()
 
   pp.query("zeroBndryVisc",zeroBndryVisc);
   //
-  // Set variability/visc for velocities.
+  // Check that we are setting correctly default variability/visc for velocities.
   //
   if (variable_vel_visc != 1)
     amrex::Error("PeleLM::read_params() -- must use variable viscosity");
   //
-  // Set variability/visc for tracer
+  // Check that we are setting correctly default variability/visc for diffusivity
   //
   if (variable_scal_diff != 1)
     amrex::Error("PeleLM::read_params() -- must use variable scalar diffusivity");
@@ -785,11 +792,58 @@ PeleLM::Initialize ()
 void
 PeleLM::Initialize_specific ()
 {
-    ParmParse pp("ns");
+    ParmParse pp("peleLM");
     
+    // Get boundary conditions
+    Vector<std::string> lo_bc_char(BL_SPACEDIM);
+    Vector<std::string> hi_bc_char(BL_SPACEDIM);
+    pp.getarr("lo_bc",lo_bc_char,0,BL_SPACEDIM);
+    pp.getarr("hi_bc",hi_bc_char,0,BL_SPACEDIM);
+
     Vector<int> lo_bc(BL_SPACEDIM), hi_bc(BL_SPACEDIM);
-    pp.getarr("lo_bc",lo_bc,0,BL_SPACEDIM);
-    pp.getarr("hi_bc",hi_bc,0,BL_SPACEDIM);
+    for (int dir = 0; dir<BL_SPACEDIM; dir++){
+      if (!lo_bc_char[dir].compare("Interior")){
+        lo_bc[dir] = 0;
+      } else if (!lo_bc_char[dir].compare("Inflow")){
+        lo_bc[dir] = 1;
+      } else if (!lo_bc_char[dir].compare("Outflow")){
+        lo_bc[dir] = 2;
+      } else if (!lo_bc_char[dir].compare("Symmetry")){
+        lo_bc[dir] = 3;
+      } else if (!lo_bc_char[dir].compare("SlipWallAdiab")){
+        lo_bc[dir] = 4;
+      } else if (!lo_bc_char[dir].compare("NoSlipWallAdiab")){
+        lo_bc[dir] = 5;
+      } else if (!lo_bc_char[dir].compare("SlipWallIsotherm")){
+        lo_bc[dir] = 6;
+      } else if (!lo_bc_char[dir].compare("NoSlipWallIsotherm")){
+        lo_bc[dir] = 7;
+      } else {
+        amrex::Abort("Wrong boundary condition word in lo_bc, please use: Interior, Inflow, Outflow, "
+                     "Symmetry, SlipWallAdiab, NoSlipWallAdiab, SlipWallIsotherm, NoSlipWallIsotherm");
+      }
+
+      if (!hi_bc_char[dir].compare("Interior")){
+        hi_bc[dir] = 0;
+      } else if (!hi_bc_char[dir].compare("Inflow")){
+        hi_bc[dir] = 1;
+      } else if (!hi_bc_char[dir].compare("Outflow")){
+        hi_bc[dir] = 2;
+      } else if (!hi_bc_char[dir].compare("Symmetry")){
+        hi_bc[dir] = 3;
+      } else if (!hi_bc_char[dir].compare("SlipWallAdiab")){
+        hi_bc[dir] = 4;
+      } else if (!hi_bc_char[dir].compare("NoSlipWallAdiab")){
+        hi_bc[dir] = 5;
+      } else if (!hi_bc_char[dir].compare("SlipWallIsotherm")){
+        hi_bc[dir] = 6;
+      } else if (!hi_bc_char[dir].compare("NoSlipWallIsotherm")){
+        hi_bc[dir] = 7;
+      } else {
+        amrex::Abort("Wrong boundary condition word in hi_bc, please use: Interior, UserBC, Symmetry, SlipWall, NoSlipWall");
+      }
+    }
+
     for (int i = 0; i < BL_SPACEDIM; i++)
     {
         phys_bc.setLo(i,lo_bc[i]);

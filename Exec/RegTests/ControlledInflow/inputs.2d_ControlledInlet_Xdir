@@ -1,19 +1,16 @@
 # ----------------  PROBLEM DEPENDENT INPUTS
-ns.lo_bc          = 1 0
-ns.hi_bc          = 2 0
-
 geometry.is_periodic = 0 1
-
-# >>>>>>>>>>>>>  BC FLAGS <<<<<<<<<<<<<<<<
-# 0 = Interior           4 = SlipWallAdiab
-# 1 = Inflow             5 = NoSlipWallAdiab
-# 2 = Outflow            6 = SlipWallIsotherm
-# 3 = Symmetry           7 = NoSlipWallIsotherm
 
 geometry.coord_sys = 0  # 0 => cart, 1 => RZ
 
 geometry.prob_lo   =  0. 0.
 geometry.prob_hi   = .016 5e-4 
+
+# >>>>>>>>>>>>>  BC FLAGS <<<<<<<<<<<<<<<<
+# Interior, Inflow, Outflow, Symmetry,
+# SlipWallAdiab, NoSlipWallAdiab, SlipWallIsotherm, NoSlipWallIsotherm
+peleLM.lo_bc =  "Inflow"    "Interior" 
+peleLM.hi_bc =  "Outflow"   "Interior" 
 
 #----------------------------TOP LEVEL INPUTS----------------------
 max_step  =  2000
@@ -75,11 +72,6 @@ ns.cfl            = 0.3       # cfl number for hyperbolic system
 ns.init_shrink    = 1.0       # scale back initial timestep
 ns.init_shrink    = 0.01       # scale back initial timestep
 ns.change_max     = 1.1       # scale back initial timestep
-ns.vel_visc_coef   = 1.983e-5
-ns.temp_cond_coef  = 2.6091e-5
-ns.scal_diff_coefs = -0.01
-ns.variable_vel_visc  = 1
-ns.variable_scal_diff = 1
 ns.init_iter      = 3        # number of init iters to def pressure
 ns.gravity        = 0        # body force  (gravity in MKS units)
 ns.sum_interval   = 1        # timesteps between computing mass
