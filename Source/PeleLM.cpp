@@ -7512,6 +7512,7 @@ PeleLM::compute_vel_visc (Real      time,
     (*beta)[mfi].copy(tmp,box,0,box,0,1);
   }
 }
+
 }
 
 void

@@ -914,11 +914,11 @@ contains
                                   LAM(1),    lo_chem,hi_chem)
 
         do n = 1,Nspec
-          C(i,j,n) = D(n)
+          C(i,j,n) = D(n) * 0.1d0
         enddo
 
-       C(i,j,Nspec+1) = LAM(1) * 1.0d-04
-       C(i,j,Nspec+2) = MU(1) 
+       C(i,j,Nspec+1) = LAM(1) * 1.0d-05
+       C(i,j,Nspec+2) = MU(1) * 0.1d0
 
       enddo
     enddo
