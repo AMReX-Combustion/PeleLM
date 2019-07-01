@@ -5268,7 +5268,6 @@ PeleLM::adjust_p_and_divu_for_closed_chamber(MultiFab& mac_divu)
     th_nph.mult(Sbar/thetabar,box,0,1);
     m_du.minus(th_nph,box,box,0,0,1);
   }
-  BL_PROFILE_VAR_STOP(HTMAC);
 
   amrex::Print() << "level 0: prev_time, p_amb_old, p_amb_new, delta = " 
                  << prev_time << " " << p_amb_old << " " << p_amb_new << " "
@@ -5830,6 +5829,8 @@ PeleLM::mac_sync ()
   // save pressure
   Real p_amb_new_temp = p_amb_new;
 
+  BL_PROFILE_VAR_NS("HT::mac_sync::Ssync", HTSSYNC);
+
   for (int mac_sync_iter=0; mac_sync_iter < num_mac_sync_iter; mac_sync_iter++)
   {
     bool last_mac_sync_iter = (mac_sync_iter == num_mac_sync_iter-1);
@@ -5921,7 +5922,7 @@ PeleLM::mac_sync ()
     //
     // Scalars.
     //
-    BL_PROFILE_VAR("HT::mac_sync::Ssync", HTSSYNC);
+    BL_PROFILE_VAR_START(HTSSYNC);
     for (int comp=BL_SPACEDIM; comp<NUM_STATE; ++comp)
     {
       if (sync_scheme[comp]==UseEdgeState)
