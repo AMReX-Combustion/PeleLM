@@ -4,7 +4,6 @@
 
 #include <AMReX_AuxBoundaryData.H>
 #include <NavierStokesBase.H>
-#include <ChemDriver.H>
 
 #include <list>
 #include <map>
@@ -25,6 +24,83 @@
 //       multigrid code.
 //
 
+extern "C"
+{
+  typedef void (*LMEF)(int* tag, ARLIM_P(tlo), ARLIM_P(thi),
+                       const int* tagval, const int* clearval,
+                       const amrex::Real* data, ARLIM_P(data_lo), ARLIM_P(data_hi),
+                       const int* lo, const int* hi, const int* nvar,
+                       const int* domain_lo, const int* domain_hi,
+                       const amrex::Real* dx, const amrex::Real* xlo,
+                       const amrex::Real* prob_lo, const amrex::Real* time,
+                       const int* level, const amrex::Real* value);
+
+  typedef void (*LMEF_BOX) (int* tag, ARLIM_P(tlo), ARLIM_P(thi),
+                            const int* tagval, const int* clearval,
+                            const amrex::Real* blo, const amrex::Real* bhi,
+                            const int* lo, const int* hi,
+                            const int* domain_lo, const int* domain_hi,
+                            const amrex::Real* dx, const amrex::Real* xlo,
+                            const amrex::Real* prob_lo, const amrex::Real* time,
+                            const int* level);
+}
+
+class LM_Error_Value
+  :
+  public amrex::ErrorRec::ErrorFunc
+{
+public:
+  LM_Error_Value()
+    :
+    lmef(0), lmef_box(0), value(), min_time(), max_time(), max_level() {}
+  
+  LM_Error_Value (amrex::Real min_time, amrex::Real max_time, int max_level);
+  
+  LM_Error_Value (LMEF lmef, amrex::Real value, amrex::Real min_time,
+                  amrex::Real max_time, int max_level);
+  
+  LM_Error_Value (LMEF_BOX lmef_box, const amrex::RealBox& box, amrex::Real min_time,
+                  amrex::Real max_time, int max_level);
+  
+  virtual ~LM_Error_Value () {}
+  
+  virtual amrex::ErrorRec::ErrorFunc* clone () const {
+    if (BoxTag()) {
+      return new LM_Error_Value(lmef_box,box,min_time,max_time,max_level);
+    }
+    return new LM_Error_Value(lmef,value,min_time,max_time,max_level);
+  }
+  
+  void tagCells(int* tag, ARLIM_P(tlo), ARLIM_P(thi),
+                const int* tagval, const int* clearval,
+                const amrex::Real* data, ARLIM_P(data_lo), ARLIM_P(data_hi),
+                const int* lo, const int* hi, const int* nvar,
+                const int* domain_lo, const int* domain_hi,
+                const amrex::Real* dx, const amrex::Real* xlo,
+                const amrex::Real* prob_lo, const amrex::Real* time,
+                const int* level) const;
+
+  void tagCells1(int* tag, ARLIM_P(tlo), ARLIM_P(thi),
+                 const int* tagval, const int* clearval,
+                 const int* lo, const int* hi,
+                 const int* domain_lo, const int* domain_hi,
+                 const amrex::Real* dx, const amrex::Real* xlo,
+                 const amrex::Real* prob_lo, const amrex::Real* time,
+                 const int* level) const;
+  
+  int MaxLevel() const {return max_level;}
+  amrex::Real MinTime() const {return min_time;}
+  amrex::Real MaxTime() const {return max_time;}
+  amrex::Real Value() const {return value;}
+  bool BoxTag() const {return lmef==0 && lmef_box!=0;}
+  
+protected:
+  LMEF lmef;
+  LMEF_BOX lmef_box;
+  amrex::Real value, min_time, max_time;
+  amrex::RealBox box;
+  int max_level;
+};
 
 class PeleLM
   :
@@ -123,7 +199,6 @@ public:
   //    PeleLM public static functions                                //
   ////////////////////////////////////////////////////////////////////////////
 
-  static ChemDriver& getChemSolve () { return *chemSolve; }
   //
   // Define data descriptors.
   //
@@ -134,6 +209,10 @@ public:
   // Cleanup data descriptors at end of run.
   //
   static void variableCleanUp ();
+
+  static void getSpeciesNames(amrex::Vector<std::string>& spn);
+
+  static int getSpeciesIdx(const std::string& spName);
     
 protected:
 
@@ -201,12 +280,19 @@ protected:
 
   virtual void velocity_diffusion_update (amrex::Real dt) override;
 
+  virtual void errorEst (amrex::TagBoxArray& tags,
+                         int                 clearval,
+                         int                 tagval,
+                         amrex::Real         time,
+                         int                 n_error_buf, 
+                         int                 ngrow) override;
 
   ////////////////////////////////////////////////////////////////////////////
   //    PeleLM protected static functions                             //
   ////////////////////////////////////////////////////////////////////////////
 
   static void Initialize ();
+  static void Initialize_specific ();
   static void Finalize ();
     
 #ifdef AMREX_PARTICLES
@@ -330,7 +416,7 @@ private:
                         amrex::Vector<int>&  nc_save,
                         amrex::Vector<amrex::Real>& dt_save);
 
-  amrex::Real predict_velocity (amrex::Real dt, amrex::Real& comp_cfl);
+  amrex::Real predict_velocity (amrex::Real dt);
 
   void set_htt_hmixTYP ();
 
@@ -380,7 +466,90 @@ private:
                                     const FPLoc&     bc_hi);
 
   static void init_once ();
-    
+
+  static void init_extern ();
+
+  static void init_network ();
+
+  static void init_transport (int iEG);
+
+  //bool solveChemistry_sdc(amrex::FArrayBox&        rhoYnew,
+  //                          amrex::FArrayBox&        rhoHnew,
+  //                          amrex::FArrayBox&        Tnew,
+  //                          const amrex::FArrayBox&  rhoYold,
+  //                          const amrex::FArrayBox&  rhoHold,
+  //                          const amrex::FArrayBox&  Told,
+  //                          const amrex::FArrayBox&  const_src,
+  //                          amrex::FArrayBox&        FuncCount,
+  //                          const amrex::Box&        box,
+  //                          int               sComprhoY,
+  //                          int               sComprhoH,
+  //                          int               sCompT,
+  //                          amrex::Real              dt,
+  //                          amrex::FArrayBox*        chemDiag,
+  //                          bool              use_stiff_solver = true) const;
+
+  void reactionRateRhoY_pphys(amrex::FArrayBox&       RhoYdot,
+                          const amrex::FArrayBox& RhoY,
+                          const amrex::FArrayBox& RhoH,
+                          const amrex::FArrayBox& T,
+                          const amrex::Box&       box,
+                          int              sCompRhoY,
+                          int              sCompRhoH,
+                          int              sCompT,
+                          int              sCompRhoYdot) const;
+
+  void getPGivenRTY_pphys(amrex::FArrayBox&       p,
+                         const amrex::FArrayBox& Rho,
+                         const amrex::FArrayBox& T,
+                         const amrex::FArrayBox& Y,
+                         const amrex::Box&       box,
+                         int              sCompR,
+                         int              sCompT,
+                         int              sCompY,
+                         int              sCompP) const;
+
+  void getMwmixGivenY_pphys(amrex::FArrayBox&       mwmix,
+                         const amrex::FArrayBox& Y,
+                         const amrex::Box&       box,
+                         int              sCompY,
+                         int              sCompMw) const;
+
+  void getHmixGivenTY_pphys (amrex::FArrayBox&       hmix,
+                         const amrex::FArrayBox& T,
+                         const amrex::FArrayBox& Y,
+                         const amrex::Box&       box,
+                         int              sCompT,
+                         int              sCompY,
+                         int              sCompH) const;
+
+  void getHGivenT_pphys (amrex::FArrayBox&       h,
+                     const amrex::FArrayBox& T,
+                     const amrex::Box&       box,
+                     int              sCompT,
+                     int              sCompH) const;
+
+  void getCpmixGivenTY_pphys (amrex::FArrayBox&       cpmix,
+                          const amrex::FArrayBox& T,
+                          const amrex::FArrayBox& Y,
+                          const amrex::Box&       box,
+                          int              sCompT,
+                          int              sCompY,
+                          int              sCompCp) const;
+
+  static int getTGivenHY_pphys (amrex::FArrayBox&       T,
+                     const amrex::FArrayBox& H,
+                     const amrex::FArrayBox& Y,
+                     const amrex::Box&       box,
+                     int              sCompH,
+                     int              sCompY,
+                     int              sCompT,
+                     const amrex::Real&      errMAX = -1);
+
+  void HfromT_pphys(const int* lo, const int* hi,
+		     amrex::Real*       H, ARLIM_P(Hlo), ARLIM_P(Hhi),
+		     const amrex::Real* T, ARLIM_P(Tlo), ARLIM_P(Thi));
+
   static void RhoH_to_Temp (amrex::MultiFab& S,
                             int       nGrow = 0,
                             int       dominmax = false);
@@ -388,6 +557,15 @@ private:
   static int RhoH_to_Temp (amrex::FArrayBox& S,
                            const amrex::Box& box,
                            int        dominmax = false);
+
+  static int RhoH_to_Temp_DoIt(amrex::FArrayBox&       T,
+		  const amrex::FArrayBox& H,
+		  const amrex::FArrayBox& Y,
+		  const amrex::Box&       box,
+		  int              sCompH, 
+		  int              sCompY,
+		  int              sCompT,  
+		  const amrex::Real&      htt_hmixTYP );
 
 
   ////////////////////////////////////////////////////////////////////////////
@@ -440,11 +618,12 @@ private:
   static int         FuncCount_Type;
   static int         RhoYdot_Type;
   static int         divu_ceiling;
-  static amrex::Real        min_rho_divu_ceiling;
-  static amrex::Real        divu_dt_factor;
-  static amrex::Real        htt_tempmin;
-  static amrex::Real        htt_tempmax;
-  static amrex::Real        htt_hmixTYP;
+  static amrex::Real min_rho_divu_ceiling;
+  static amrex::Real divu_dt_factor;
+  static amrex::Real htt_tempmin;
+  static amrex::Real htt_tempmax;
+  static amrex::Real htt_hmixTYP;
+  static amrex::Real typical_Y_val_min;
   static int         Trac;
   static int         have_trac;
   static int         RhoRT;
@@ -452,14 +631,13 @@ private:
   static int         first_spec;
   static int         last_spec;
   static int         nspecies;
+  static int         nreactions;
+  static amrex::Vector<std::string> spec_names;
   static int         floor_species;
-  static ChemDriver* chemSolve;
-  static amrex::Real        rgas;
-  static amrex::Real        prandtl;
-  static amrex::Real        schmidt;
-  static amrex::Real        constant_mu_val;
-  static amrex::Real        constant_rhoD_val;
-  static amrex::Real        constant_lambda_val;
+  static amrex::Real rgas;
+  static amrex::Real prandtl;
+  static amrex::Real schmidt;
+  static amrex::Real constant_thick_val;
   static int         do_diffuse_sync;
   static int         do_reflux_visc;
   static int         dpdt_option;
@@ -470,23 +648,32 @@ private:
   static int         hack_nochem;
   static int         hack_nospecdiff;
   static int         hack_noavgdivu;
-  static amrex::Real        trac_diff_coef;
+  static amrex::Real trac_diff_coef;
   static int         use_tranlib;
-  static amrex::Real        P1atm_MKS;
+  static amrex::Real P1atm_MKS;
   static std::string turbFile;
   static std::string fuelName;
   static std::string productName;
   static amrex::Vector<std::string> consumptionName;
   static int         calcDiffusivity_count;
-  static amrex::Real        new_T_threshold;
+  static amrex::Real new_T_threshold;
   static amrex::Vector<amrex::Real> typical_values;
   static bool        avg_down_chem;
   static int         reset_typical_vals_int;
   static std::map<std::string,amrex::Real> typical_values_FileVals;
   static int         sdc_iterMAX;
   static int         num_mac_sync_iter;
-    
+  static int         iter_debug;
+  static int         mHtoTiterMAX;
+  static amrex::Vector<amrex::Real> mTmpData;
+  
+  static bool         flag_active_control;
+
+  static int  cvode_iE;
+
   static int nGrowAdvForcing;
+
+  static std::string probin_file;
 };
 
 #endif /*_PeleLM_H_*/

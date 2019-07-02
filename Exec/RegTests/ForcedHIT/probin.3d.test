@@ -1,0 +1,19 @@
+ &fortin
+  T_in = 300.0d0
+ /
+ &heattransin
+  pamb = 101325.
+  dpdt_factor = 1.
+  closed_chamber = 1
+ /
+ &forcing
+  use_rho_in_forcing = 1
+  div_free_force = 0 
+  spectrum_type          = 2
+  mode_start             = 1
+  nmodes                 = 4
+  force_scale            = 3.d10 
+  forcing_time_scale_min = 1.0e-5
+  forcing_time_scale_max = 2.0e-5
+  time_offset = 0.0d0
+ /

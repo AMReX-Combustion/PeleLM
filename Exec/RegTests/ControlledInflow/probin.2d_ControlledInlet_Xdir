@@ -1,0 +1,19 @@
+ &fortin
+  V_in = .2280410684149
+
+  standoff = -.022
+
+  flame_dir = 1
+
+ /
+ &heattransin
+  pamb = 101325.
+  dpdt_factor = 1.0
+ /
+  &control
+  tau_control = 6.e-5
+  sest = .2
+  h_control = 7.7e-3
+  changeMax_control = .2
+  controlVelMax = .5 
+/
