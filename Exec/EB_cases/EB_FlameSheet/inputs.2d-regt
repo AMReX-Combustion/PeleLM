@@ -175,6 +175,8 @@ fab.format = NATIVE
 fabarray.mfiter_tile_size = 8 8 8 
 amrex.regtest_reduction=1
 
+# Embedded Boundary options
+eb2.geom_type    =  all_regular
 # for getting things started with eb skip some steps
 ns.init_iter = 0
 ns.do_mac_proj = 0
@@ -182,4 +184,8 @@ ns.do_mac_proj = 0
 ns.do_init_proj = 0
 ns.do_sync_proj = 0
 ns.do_MLsync_proj = 0
+
+#proj.v = 1
+#proj.proj_tol = 1.e-12
+#proj.proj_abs_tol = 1.e-15
 
