@@ -4609,8 +4609,8 @@ PeleLM::predict_velocity (Real  dt)
       godunov->ExtrapVelToFaces(bx, dx, dt,
                                 D_DECL(Uface[0], Uface[1], Uface[2]),
                                 D_DECL(bndry[0], bndry[1], bndry[2]),
-                                //Ufab, tforces);
-                                Umf[U_mfi], tforces);
+                                Ufab, tforces);
+
 
       for (int d=0; d<BL_SPACEDIM; ++d) {
         const Box& ebx = U_mfi.nodaltilebox(d);
