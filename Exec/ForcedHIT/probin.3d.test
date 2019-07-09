@@ -1,11 +1,17 @@
  &fortin
-  probtype = 'forcedHIT'
+  probtype = 'forcedHIT_with_scalar'
 
   iname = 'hit_ic_4_32.dat'
   inres = 32
 
+  siname = 'hit_scal_ic_4_32.dat'
+  sinres = 32
+
   urms0 = 1.0
   uin_norm = 1.0
+
+  Gain = 10.0
+  sGain = 10.0
 
   V_in = .2280410684149
   standoff = -.022

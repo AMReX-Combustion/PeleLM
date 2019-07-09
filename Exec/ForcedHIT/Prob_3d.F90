@@ -76,7 +76,7 @@ contains
                        standoff, pertmag, nchemdiag, splitx, xfrontw, &
                        splity, yfrontw, blobx, bloby, blobz, blobr, &
                        blobT, Tfrontw, stTh, fuel_N2_vol_percent, iname, inres, &
-                       urms0, uin_norm
+                       urms0, uin_norm, siname, sinres, Gain, sGain
       namelist /heattransin/ pamb, dpdt_factor, closed_chamber
 #if defined(BL_DO_FLCT)
       integer nCompFile
@@ -120,6 +120,8 @@ contains
       ! Local variables
       REAL_T, dimension(:), allocatable :: data
       REAL_T lint, ubar, vbar, wbar, nu, dudx2, dudy2, dudz2, dvdx2, dvdy2, dvdz2, dwdx2, dwdy2, dwdz2
+      REAL_T linf, uinf, einf, tinf
+      REAL_T Z2mean, Zmean
       integer(kind=8) :: nnx, nny, nnz
       integer len, j, k
       len = len_trim(probtype)
@@ -604,10 +606,10 @@ contains
       endif
 #endif
 
-if (probtype(1:len).eq.BL_PROB_FORCEDHIT) then
+if ((probtype(1:len).eq.BL_PROB_FORCEDHIT) .or. (probtype(1:len).eq.BL_PROB_FORCEDHITWSCALAR)) then
 
-   ! uin_norm = 1.0_amrex_real
 
+   ! Read in the velocity data
    nnx = int8(inres)
    nny = int8(inres)
    nnz = int8(inres)
@@ -620,7 +622,7 @@ if (probtype(1:len).eq.BL_PROB_FORCEDHIT) then
    allocate(vinput(0:nnx-1,0:nny-1,0:nnz-1))
    allocate(winput(0:nnx-1,0:nny-1,0:nnz-1))
    ! Only read in CSV files for now
-   call read_csv(iname, nnx, nny, nnz, data)
+   call read_csv(iname, nnx, nny, nnz, data, int8(6))
 
    uinput = urms0 / uin_norm * reshape(data(3::6), (/nnx, nny, nnz/))
    vinput = urms0 / uin_norm * reshape(data(4::6), (/nnx, nny, nnz/))
@@ -671,21 +673,91 @@ if (probtype(1:len).eq.BL_PROB_FORCEDHIT) then
    tke0 = tke0 / (nnx*nny*nnz)
 
    ! Compute dissipation, assume periodicity
+   nu = 1.5d-5
+   ! Compute derivatives in x
+   dudx2 = 0.0
+   dvdx2 = 0.0
+   dwdx2 = 0.0
+   do k = 0, nnz-1
+      do j = 0, nny-1
+         do i = 1, nnx-2
+            dudx2 = dudx2 + ((uinput(i+1,j,k) - uinput(i-1,j,k)) / (xinput(i+1,j,k) - xinput(i-1,j,k)))**2
+            dvdx2 = dvdx2 + ((vinput(i+1,j,k) - vinput(i-1,j,k)) / (xinput(i+1,j,k) - xinput(i-1,j,k)))**2
+            dwdx2 = dwdx2 + ((winput(i+1,j,k) - winput(i-1,j,k)) / (xinput(i+1,j,k) - xinput(i-1,j,k)))**2
+         enddo
+         dudx2 = dudx2 + ((uinput(1,j,k) - uinput(nnx-1,j,k)) / (xinput(1,j,k) - xinput(nnx-1,j,k)))**2
+         dudx2 = dudx2 + ((uinput(0,j,k) - uinput(nnx-2,j,k)) / (xinput(0,j,k) - xinput(nnx-2,j,k)))**2
+         dvdx2 = dvdx2 + ((vinput(1,j,k) - vinput(nnx-1,j,k)) / (xinput(1,j,k) - xinput(nnx-1,j,k)))**2
+         dvdx2 = dvdx2 + ((vinput(0,j,k) - vinput(nnx-2,j,k)) / (xinput(0,j,k) - xinput(nnx-2,j,k)))**2
+         dwdx2 = dwdx2 + ((winput(1,j,k) - winput(nnx-1,j,k)) / (xinput(1,j,k) - xinput(nnx-1,j,k)))**2
+         dwdx2 = dwdx2 + ((winput(0,j,k) - winput(nnx-2,j,k)) / (xinput(0,j,k) - xinput(nnx-2,j,k)))**2
+      enddo
+   enddo
+   dudx2 = dudx2 / (nnx*nny*nnz)
+   dvdx2 = dvdx2 / (nnx*nny*nnz)
+   dwdx2 = dwdx2 / (nnx*nny*nnz)
+
+   ! Compute derivatives in y
+   dudy2 = 0.0
+   dvdy2 = 0.0
+   dwdy2 = 0.0
+   do k = 0, nnz-1
+      do i = 0, nnx-1
+         do j = 1, nny-2
+            dudy2 = dudy2 + ((uinput(i,j+1,k) - uinput(i,j-1,k)) / (yinput(i,j+1,k) - yinput(i,j-1,k)))**2
+            dvdy2 = dvdy2 + ((vinput(i,j+1,k) - vinput(i,j-1,k)) / (yinput(i,j+1,k) - yinput(i,j-1,k)))**2
+            dwdy2 = dwdy2 + ((winput(i,j+1,k) - winput(i,j-1,k)) / (yinput(i,j+1,k) - yinput(i,j-1,k)))**2
+         enddo
+         dudy2 = dudy2 + ((uinput(i,1,k) - uinput(i,nny-1,k)) / (yinput(i,1,k) - yinput(i,nny-1,k)))**2
+         dudy2 = dudy2 + ((uinput(i,0,k) - uinput(i,nny-2,k)) / (yinput(i,0,k) - yinput(i,nny-2,k)))**2
+         dvdy2 = dvdy2 + ((vinput(i,1,k) - vinput(i,nny-1,k)) / (yinput(i,1,k) - yinput(i,nny-1,k)))**2
+         dvdy2 = dvdy2 + ((vinput(i,0,k) - vinput(i,nny-2,k)) / (yinput(i,0,k) - yinput(i,nny-2,k)))**2
+         dwdy2 = dwdy2 + ((winput(i,1,k) - winput(i,nny-1,k)) / (yinput(i,1,k) - yinput(i,nny-1,k)))**2
+         dwdy2 = dwdy2 + ((winput(i,0,k) - winput(i,nny-2,k)) / (yinput(i,0,k) - yinput(i,nny-2,k)))**2
+      enddo
+   enddo
+   dudy2 = dudy2 / (nnx*nny*nnz)
+   dvdy2 = dvdy2 / (nnx*nny*nnz)
+   dwdy2 = dwdy2 / (nnx*nny*nnz)
+
+   ! Compute derivatives in z
+   dudz2 = 0.0
+   dvdz2 = 0.0
+   dwdz2 = 0.0
+   do j = 0, nny-1
+      do i = 0, nnx-1
+         do k = 1, nnz-2
+            dudz2 = dudz2 + ((uinput(i,j,k+1) - uinput(i,j,k-1)) / (zinput(i,j,k+1) - zinput(i,j,k-1)))**2
+            dvdz2 = dvdz2 + ((vinput(i,j,k+1) - vinput(i,j,k-1)) / (zinput(i,j,k+1) - zinput(i,j,k-1)))**2
+            dwdz2 = dwdz2 + ((winput(i,j,k+1) - winput(i,j,k-1)) / (zinput(i,j,k+1) - zinput(i,j,k-1)))**2
+         enddo
+         dudz2 = dudz2 + ((uinput(i,j,1) - uinput(i,j,nnz-1)) / (zinput(i,j,1) - zinput(i,j,nnz-1)))**2
+         dudz2 = dudz2 + ((uinput(i,j,0) - uinput(i,j,nnz-2)) / (zinput(i,j,0) - zinput(i,j,nnz-2)))**2
+         dvdz2 = dvdz2 + ((vinput(i,j,1) - vinput(i,j,nnz-1)) / (zinput(i,j,1) - zinput(i,j,nnz-1)))**2
+         dvdz2 = dvdz2 + ((vinput(i,j,0) - vinput(i,j,nnz-2)) / (zinput(i,j,0) - zinput(i,j,nnz-2)))**2
+         dwdz2 = dwdz2 + ((winput(i,j,1) - winput(i,j,nnz-1)) / (zinput(i,j,1) - zinput(i,j,nnz-1)))**2
+         dwdz2 = dwdz2 + ((winput(i,j,0) - winput(i,j,nnz-2)) / (zinput(i,j,0) - zinput(i,j,nnz-2)))**2
+      enddo
+   enddo
+   dudz2 = dudz2 / (nnx*nny*nnz)
+   dvdz2 = dvdz2 / (nnx*nny*nnz)
+   dwdz2 = dwdz2 / (nnx*nny*nnz)
+
    ! nu = 1.5d-5
    ! dudx2 = 0.0
    ! dvdx2 = 0.0
    ! dwdx2 = 0.0
    ! do i = 1, nnx-2
-   !    dudx2 = dudx2 + sum( (uinput(i+1,:,:) - uinput(i-1,:,:))**2 / (xinput(i+1,:,:) - xinput(i-1,:,:))**2 )
-   !    dvdx2 = dvdx2 + sum( (vinput(i+1,:,:) - vinput(i-1,:,:))**2 / (xinput(i+1,:,:) - xinput(i-1,:,:))**2 )
-   !    dwdx2 = dwdx2 + sum( (winput(i+1,:,:) - winput(i-1,:,:))**2 / (xinput(i+1,:,:) - xinput(i-1,:,:))**2 )
+   !    dudx2 = dudx2 + sum( ((uinput(i+1,:,:) - uinput(i-1,:,:)) / (xinput(i+1,:,:) - xinput(i-1,:,:)))**2 )
+   !    dvdx2 = dvdx2 + sum( ((vinput(i+1,:,:) - vinput(i-1,:,:)) / (xinput(i+1,:,:) - xinput(i-1,:,:)))**2 )
+   !    dwdx2 = dwdx2 + sum( ((winput(i+1,:,:) - winput(i-1,:,:)) / (xinput(i+1,:,:) - xinput(i-1,:,:)))**2 )
    ! enddo
-   ! dudx2 = dudx2 + sum( (uinput(1,:,:) - uinput(nnx-1,:,:))**2 / (xinput(1,:,:) - xinput(nnx-1,:,:))**2 )
-   ! dudx2 = dudx2 + sum( (uinput(0,:,:) - uinput(nnx-2,:,:))**2 / (xinput(0,:,:) - xinput(nnx-2,:,:))**2 )
-   ! dvdx2 = dvdx2 + sum( (vinput(1,:,:) - vinput(nnx-1,:,:))**2 / (xinput(1,:,:) - xinput(nnx-1,:,:))**2 )
-   ! dvdx2 = dvdx2 + sum( (vinput(0,:,:) - vinput(nnx-2,:,:))**2 / (xinput(0,:,:) - xinput(nnx-2,:,:))**2 )
-   ! dwdx2 = dwdx2 + sum( (winput(1,:,:) - winput(nnx-1,:,:))**2 / (xinput(1,:,:) - xinput(nnx-1,:,:))**2 )
-   ! dwdx2 = dwdx2 + sum( (winput(0,:,:) - winput(nnx-2,:,:))**2 / (xinput(0,:,:) - xinput(nnx-2,:,:))**2 )
+   ! dudx2 = dudx2 + sum( ((uinput(1,:,:) - uinput(nnx-1,:,:)) / (xinput(1,:,:) - xinput(nnx-1,:,:)))**2 )
+   ! dudx2 = dudx2 + sum( ((uinput(0,:,:) - uinput(nnx-2,:,:)) / (xinput(0,:,:) - xinput(nnx-2,:,:)))**2 )
+   ! dvdx2 = dvdx2 + sum( ((vinput(1,:,:) - vinput(nnx-1,:,:)) / (xinput(1,:,:) - xinput(nnx-1,:,:)))**2 )
+   ! dvdx2 = dvdx2 + sum( ((vinput(0,:,:) - vinput(nnx-2,:,:)) / (xinput(0,:,:) - xinput(nnx-2,:,:)))**2 )
+   ! dwdx2 = dwdx2 + sum( ((winput(1,:,:) - winput(nnx-1,:,:)) / (xinput(1,:,:) - xinput(nnx-1,:,:)))**2 )
+   ! dwdx2 = dwdx2 + sum( ((winput(0,:,:) - winput(nnx-2,:,:)) / (xinput(0,:,:) - xinput(nnx-2,:,:)))**2 )
    ! dudx2 = dudx2 / (nnx*nny*nnz)
    ! dvdx2 = dvdx2 / (nnx*nny*nnz)
    ! dwdx2 = dwdx2 / (nnx*nny*nnz)
@@ -694,16 +766,16 @@ if (probtype(1:len).eq.BL_PROB_FORCEDHIT) then
    ! dvdy2 = 0.0
    ! dwdy2 = 0.0
    ! do j = 1, nny-2
-   !    dudy2 = dudy2 + sum( (uinput(:,j+1,:) - uinput(:,j-1,:))**2 / (yinput(:,j+1,:) - yinput(:,j-1,:))**2 )
-   !    dvdy2 = dvdy2 + sum( (vinput(:,j+1,:) - vinput(:,j-1,:))**2 / (yinput(:,j+1,:) - yinput(:,j-1,:))**2 )
-   !    dwdy2 = dwdy2 + sum( (winput(:,j+1,:) - winput(:,j-1,:))**2 / (yinput(:,j+1,:) - yinput(:,j-1,:))**2 )
+   !    dudy2 = dudy2 + sum( ((uinput(:,j+1,:) - uinput(:,j-1,:)) / (yinput(:,j+1,:) - yinput(:,j-1,:)))**2 )
+   !    dvdy2 = dvdy2 + sum( ((vinput(:,j+1,:) - vinput(:,j-1,:)) / (yinput(:,j+1,:) - yinput(:,j-1,:)))**2 )
+   !    dwdy2 = dwdy2 + sum( ((winput(:,j+1,:) - winput(:,j-1,:)) / (yinput(:,j+1,:) - yinput(:,j-1,:)))**2 )
    ! enddo
-   ! dudy2 = dudy2 + sum( (uinput(:,1,:) - uinput(:,nny-1,:))**2 / (yinput(:,1,:) - yinput(:,nny-1,:))**2 )
-   ! dudy2 = dudy2 + sum( (uinput(:,0,:) - uinput(:,nny-2,:))**2 / (yinput(:,0,:) - yinput(:,nny-2,:))**2 )
-   ! dvdy2 = dvdy2 + sum( (vinput(:,1,:) - vinput(:,nny-1,:))**2 / (yinput(:,1,:) - yinput(:,nny-1,:))**2 )
-   ! dvdy2 = dvdy2 + sum( (vinput(:,0,:) - vinput(:,nny-2,:))**2 / (yinput(:,0,:) - yinput(:,nny-2,:))**2 )
-   ! dwdy2 = dwdy2 + sum( (winput(:,1,:) - winput(:,nny-1,:))**2 / (yinput(:,1,:) - yinput(:,nny-1,:))**2 )
-   ! dwdy2 = dwdy2 + sum( (winput(:,0,:) - winput(:,nny-2,:))**2 / (yinput(:,0,:) - yinput(:,nny-2,:))**2 )
+   ! dudy2 = dudy2 + sum( ((uinput(:,1,:) - uinput(:,nny-1,:)) / (yinput(:,1,:) - yinput(:,nny-1,:)))**2 )
+   ! dudy2 = dudy2 + sum( ((uinput(:,0,:) - uinput(:,nny-2,:)) / (yinput(:,0,:) - yinput(:,nny-2,:)))**2 )
+   ! dvdy2 = dvdy2 + sum( ((vinput(:,1,:) - vinput(:,nny-1,:)) / (yinput(:,1,:) - yinput(:,nny-1,:)))**2 )
+   ! dvdy2 = dvdy2 + sum( ((vinput(:,0,:) - vinput(:,nny-2,:)) / (yinput(:,0,:) - yinput(:,nny-2,:)))**2 )
+   ! dwdy2 = dwdy2 + sum( ((winput(:,1,:) - winput(:,nny-1,:)) / (yinput(:,1,:) - yinput(:,nny-1,:)))**2 )
+   ! dwdy2 = dwdy2 + sum( ((winput(:,0,:) - winput(:,nny-2,:)) / (yinput(:,0,:) - yinput(:,nny-2,:)))**2 )
    ! dudy2 = dudy2 / (nnx*nny*nnz)
    ! dvdy2 = dvdy2 / (nnx*nny*nnz)
    ! dwdy2 = dwdy2 / (nnx*nny*nnz)
@@ -712,34 +784,98 @@ if (probtype(1:len).eq.BL_PROB_FORCEDHIT) then
    ! dvdz2 = 0.0
    ! dwdz2 = 0.0
    ! do k = 1, nnz-2
-   !    dudz2 = dudz2 + sum( (uinput(:,:,k+1) - uinput(:,:,k-1))**2 / (zinput(:,:,k+1) - zinput(:,:,k-1))**2 )
-   !    dvdz2 = dvdz2 + sum( (vinput(:,:,k+1) - vinput(:,:,k-1))**2 / (zinput(:,:,k+1) - zinput(:,:,k-1))**2 )
-   !    dwdz2 = dwdz2 + sum( (winput(:,:,k+1) - winput(:,:,k-1))**2 / (zinput(:,:,k+1) - zinput(:,:,k-1))**2 )
+   !    dudz2 = dudz2 + sum( ((uinput(:,:,k+1) - uinput(:,:,k-1)) / (zinput(:,:,k+1) - zinput(:,:,k-1)))**2 )
+   !    dvdz2 = dvdz2 + sum( ((vinput(:,:,k+1) - vinput(:,:,k-1)) / (zinput(:,:,k+1) - zinput(:,:,k-1)))**2 )
+   !    dwdz2 = dwdz2 + sum( ((winput(:,:,k+1) - winput(:,:,k-1)) / (zinput(:,:,k+1) - zinput(:,:,k-1)))**2 )
    ! enddo
-   ! dudz2 = dudz2 + sum( (uinput(:,:,1) - uinput(:,:,nnz-1))**2 / (zinput(:,:,1) - zinput(:,:,nnz-1))**2 )
-   ! dudz2 = dudz2 + sum( (uinput(:,:,0) - uinput(:,:,nnz-2))**2 / (zinput(:,:,0) - zinput(:,:,nnz-2))**2 )
-   ! dvdz2 = dvdz2 + sum( (vinput(:,:,1) - vinput(:,:,nnz-1))**2 / (zinput(:,:,1) - zinput(:,:,nnz-1))**2 )
-   ! dvdz2 = dvdz2 + sum( (vinput(:,:,0) - vinput(:,:,nnz-2))**2 / (zinput(:,:,0) - zinput(:,:,nnz-2))**2 )
-   ! dwdz2 = dwdz2 + sum( (winput(:,:,1) - winput(:,:,nnz-1))**2 / (zinput(:,:,1) - zinput(:,:,nnz-1))**2 )
-   ! dwdz2 = dwdz2 + sum( (winput(:,:,0) - winput(:,:,nnz-2))**2 / (zinput(:,:,0) - zinput(:,:,nnz-2))**2 )
+   ! dudz2 = dudz2 + sum( ((uinput(:,:,1) - uinput(:,:,nnz-1)) / (zinput(:,:,1) - zinput(:,:,nnz-1)))**2 )
+   ! dudz2 = dudz2 + sum( ((uinput(:,:,0) - uinput(:,:,nnz-2)) / (zinput(:,:,0) - zinput(:,:,nnz-2)))**2 )
+   ! dvdz2 = dvdz2 + sum( ((vinput(:,:,1) - vinput(:,:,nnz-1)) / (zinput(:,:,1) - zinput(:,:,nnz-1)))**2 )
+   ! dvdz2 = dvdz2 + sum( ((vinput(:,:,0) - vinput(:,:,nnz-2)) / (zinput(:,:,0) - zinput(:,:,nnz-2)))**2 )
+   ! dwdz2 = dwdz2 + sum( ((winput(:,:,1) - winput(:,:,nnz-1)) / (zinput(:,:,1) - zinput(:,:,nnz-1)))**2 )
+   ! dwdz2 = dwdz2 + sum( ((winput(:,:,0) - winput(:,:,nnz-2)) / (zinput(:,:,0) - zinput(:,:,nnz-2)))**2 )
    ! dudz2 = dudz2 / (nnx*nny*nnz)
    ! dvdz2 = dvdz2 / (nnx*nny*nnz)
    ! dwdz2 = dwdz2 / (nnx*nny*nnz)
 
 
-   ! ! lint = (u'^2)^(3/2)/epsilon, epsilon = mean(nu*duidxj*duidxj)
+   ! lint = (u'^2)^(3/2)/epsilon, epsilon = mean(nu*duidxj*duidxj)
    ! lint = (2.0/3.0*tke0)**(3.0/2.0) / ( nu*(dudx2 + dvdx2 + dwdx2 + dudy2 + dvdy2 + dwdy2 + dudz2 + dvdz2 + dwdz2) )
-   ! write(*,*) "dudx2 = ", dudx2, "dvdx2 = ", dvdx2, "dwdx2 = ", dwdx2
-   ! write(*,*) "lint = ", lint
+   ! einf = nu*(dudx2 + dvdx2 + dwdx2 + dudy2 + dvdy2 + dwdy2 + dudz2 + dvdz2 + dwdz2)
+   uinf = (2.0*TKE0/3.0)**0.5
+   ! linf = uinf**3.0 / einf
+   ! tinf = linf / uinf
+   tinf = lint / uinf
+   ! write(*,*) "einf = ", einf
+   write(*,*) "uinf = ", uinf
+   write(*,*) "lint = ", lint
+   write(*,*) "tinf = ", tinf
 
-
-   Aforce = 1.0*sqrt(2.0/27.0*tke0/lint**2)     ! 1.5 times stuff works when lint = 20% of domain
-   write(*,*) "TKE0 = ", tke0, "Aforce = ", Aforce
+   ! Aforce = einf / (2.0*TKE0)
+   ! Aforce = 1.0*sqrt(2.0/27.0*tke0/lint**2)     ! 1.5 times stuff works when lint = 20% of domain
+   write(*,*) "TKE0 = ", tke0
 
 
    ! Deallocate
    deallocate(data)
 
+if ((probtype(1:len).eq.BL_PROB_FORCEDHITWSCALAR)) then
+   ! Read in the scalar data
+   nnx = int8(sinres)
+   nny = int8(sinres)
+   nnz = int8(sinres)
+
+   ! only one scalar for now
+   allocate(data(0:nnx*nny*nnz*4-1))
+   allocate(sxinput(0:nnx-1,0:nny-1,0:nnz-1))
+   allocate(syinput(0:nnx-1,0:nny-1,0:nnz-1))
+   allocate(szinput(0:nnx-1,0:nny-1,0:nnz-1))
+   allocate(sinput(0:nnx-1,0:nny-1,0:nnz-1))
+
+   ! Only read in CSV files for now
+   call read_csv(siname, nnx, nny, nnz, data, int8(4))
+
+   sinput = reshape(data(3::4), (/nnx, nny, nnz/))
+   sxinput = reshape(data(0::4), (/nnx, nny, nnz/))
+   syinput = reshape(data(1::4), (/nnx, nny, nnz/))
+   szinput = reshape(data(2::4), (/nnx, nny, nnz/))
+
+   ! Get the xarray table and the differences
+   allocate(sxarray(0:nnx-1))
+   allocate(sxdiff(0:nnx-1))
+   sxarray(0:nnx-1) = sxinput(:,0,0)
+   sxdiff(:nnx-2) = sxarray(1:) - sxarray(:nnx-2)
+   sxdiff(nnx-1) = sxarray(nnx-1) - sxarray(nnx-2)
+
+   ! Dimensions of the input box
+   sLinput = maxval(sxinput(:,0,0)) + HALF*sxdiff(nnx-1)
+
+   ! Deallocate again
+   deallocate(data)
+
+   ! Compute varience of scalar field
+   Z2mean = 0.d0
+   Zmean = 0.d0
+   do k = 0, nnz-1
+      do j= 0, nny-1
+         do i = 0, nnx-1
+            if (sinput(i,j,k) .gt. 0) then
+               Z2mean = Z2mean + sinput(i,j,k)**2
+               Zmean = Zmean + sinput(i,j,k)
+            endif
+         enddo
+      enddo
+   enddo
+
+   Z2mean = Z2mean / (nnx*nny*nnz)
+   Zmean = Zmean / (nnx*nny*nnz)
+   Svar0 = Z2mean - Zmean**2
+   Zm0 = Zmean
+
+   write(*,*) "Svar0 = ", Svar0
+   write(*,*) "Zmean0 = ", Zm0
+
+endif
 endif
 
 
@@ -781,7 +917,8 @@ endif
       num_zones_defined = 0
       len = len_trim(probtype)
 
-      if (probtype(1:len).eq.BL_PROB_FORCEDHIT) then
+      if ((probtype(1:len).eq.BL_PROB_FORCEDHIT) .or. &
+          (probtype(1:len).eq.BL_PROB_FORCEDHITWSCALAR)) then
 
       fuelZone = BL_FUELPIPE
       airZone = BL_AMBIENT
@@ -866,10 +1003,8 @@ endif
       getZone = BL_VOLUME
       len     = len_trim(probtype)
 
-      if ( (probtype(1:len).eq.BL_PROB_PREMIXED_FIXED_INFLOW) &
-          .or. (probtype(1:len).eq.BL_PROB_PREMIXED_CONTROLLED_INFLOW) &
-          .or. (probtype(1:len).eq.BL_PROB_PREMIXED_FIXED_INFLOW_FORCED)  &
-          .or. (probtype(1:len).eq.BL_PROB_PREMIXED_CONTROLLED_INFLOW_FORCED) ) then
+      if ( (probtype(1:len).eq.BL_PROB_FORCEDHIT) &
+          .or. (probtype(1:len).eq.BL_PROB_FORCEDHITWSCALAR) ) then
 
          getZone = BL_FUELPIPE
          
@@ -903,7 +1038,8 @@ endif
 
       len = len_trim(probtype)
       
-      if (probtype(1:len).eq.BL_PROB_FORCEDHIT) then
+      if ((probtype(1:len).eq.BL_PROB_FORCEDHIT) .or. &
+          (probtype(1:len).eq.BL_PROB_FORCEDHITWSCALAR)) then
 
          ! No boundary conditions needed yet
 
@@ -911,10 +1047,8 @@ endif
 
          write(6,*) 'No boundary condition for probtype = ', probtype(1:len)
          write(6,*) 'Available: '
-         write(6,*) '            ',BL_PROB_PREMIXED_FIXED_INFLOW
-         write(6,*) '            ',BL_PROB_PREMIXED_CONTROLLED_INFLOW
-         write(6,*) '            ',BL_PROB_PREMIXED_FIXED_INFLOW_FORCED
-         write(6,*) '            ',BL_PROB_PREMIXED_CONTROLLED_INFLOW_FORCED
+         write(6,*) '            ',BL_PROB_FORCEDHIT
+         write(6,*) '            ',BL_PROB_FORCEDHITWSCALAR
          call bl_pd_abort(' ')
       endif
   end subroutine bcfunction
@@ -1036,7 +1170,7 @@ endif
       REAL_T pmf_vals(maxspec+3), y1, y2
       REAL_T pert,Lx,Ly,FORT_P1ATMMKS
       REAL_T xmod, ymod, zmod
-      REAL_T r, s, t, uinterp, vinterp, winterp
+      REAL_T r, s, t, uinterp, vinterp, winterp, sinterp
       REAL_T f0, f1, f2, f3, f4, f5, f6, f7
       integer im, imp1, in, inp1, ip, ipp1
       integer nnx, nny, nnz
@@ -1044,7 +1178,8 @@ endif
 
       len = len_trim(probtype)
            
-      if ((probtype(1:len).eq.BL_PROB_FORCEDHIT)) then
+      if ((probtype(1:len).eq.BL_PROB_FORCEDHIT) .or. &
+          (probtype(1:len).eq.BL_PROB_FORCEDHITWSCALAR)) then
 
          airZone = BL_AMBIENT
          fuelZone = BL_FUELPIPE
@@ -1052,7 +1187,7 @@ endif
          vbar = 0.d0
          wbar = 0.d0
 
-         ! Read in HIT data from csv file iname from probin
+         ! Interpolate HIT data previously laoded
          do k = lo(3), hi(3)
             z = (float(k)+0.5)*delta(3)+domnlo(3)
             zmod = mod(z,Linput)
@@ -1114,75 +1249,65 @@ endif
             enddo
          enddo
 
-         ! ! Compute Aforce and tke0 for use in the forcing scheme
-         ! nnx = hi(1)-lo(1)+1
-         ! nny = hi(2)-lo(2)+1
-         ! nnz = hi(3)-lo(3)+1
+      if (probtype(1:len).eq.BL_PROB_FORCEDHITWSCALAR) then
+         ! Interpolate scalar HIT data previously laoded
+         do k = lo(3), hi(3)
+            z = (float(k)+0.5)*delta(3)+domnlo(3)
+            zmod = mod(z,sLinput)
+            call locate(sxarray, sinres, zmod, ip)
+            ipp1 = mod(ip+1,sinres)
+            t = (zmod - sxarray(ip)) / sxdiff(ip)
 
-         ! ubar = ubar / (nnx*nny*nnz)
-         ! vbar = vbar / (nnx*nny*nnz)
-         ! wbar = wbar / (nnx*nny*nnz)
-         ! ! write(*,*) "ubar = ", ubar, "vbar = ", vbar, "wbar = ", wbar
+            do j = lo(2), hi(2)
+               y = (float(j)+0.5)*delta(2)+domnlo(2)
+               ymod = mod(y,sLinput)
+               call locate(sxarray, sinres, ymod, in)
+               inp1 = mod(in+1,sinres)
+               s = (ymod - sxarray(in)) / sxdiff(in)
 
-         ! ! Assume integral length scale is about 20% of computational domain
-         ! lint = 0.2*(domnhi(1)-domnlo(1))
+               do i = lo(1), hi(1)
+                  x = (float(i)+0.5)*delta(1)+domnlo(1)
+                  xmod = mod(x,sLinput)
+                  call locate(sxarray, sinres, xmod, im)
+                  imp1 = mod(im+1,sinres)
+                  r = (xmod - sxarray(im)) / sxdiff(im)
 
-         ! ! Compute tke0
-         ! tke0 = 0.d0
-         ! do k = lo(3), hi(3)
-         !    do j = lo(2), hi(2)
-         !       do i = lo(1), hi(1)
-         !          tke0 = tke0 + 0.5*( (vel(i,j,k,1)-ubar)**2 + (vel(i,j,k,2)-vbar)**2 + (vel(i,j,k,3)-wbar)**2 )
-         !          ! write(*,*) "vel1 = ", vel(i,j,k,1), "vel2 = ", vel(i,j,k,2), "vel3 = ", vel(i,j,k,3)
-         !       enddo
-         !    enddo
-         ! enddo
-         ! tke0 = tke0 / (nnx*nny*nnz)
+               
+                  ! Factors for trilinear interpolation
+                  f0 = (1-r) * (1-s) * (1-t)
+                  f1 = r * (1-s) * (1-t)
+                  f2 = (1-r) * s * (1-t)
+                  f3 = (1-r) * (1-s) * t
+                  f4 = r * (1-s) * t
+                  f5 = (1-r) * s * t
+                  f6 = r * s * (1-t)
+                  f7 = r * s * t
+                  sinterp = sinput(im,in,ip)*f0 + sinput(imp1,in,ip)*f1 +   &
+                            sinput(im,inp1,ip)*f2 + sinput(im,in,ipp1)*f3 + &
+                            sinput(imp1,in,ipp1)*f4 + sinput(im,inp1,ipp1)*f5 + &
+                            sinput(imp1,inp1,ip)*f6 + sinput(imp1,inp1,ipp1)*f7
 
-         ! Aforce = 1.d0*sqrt(2.0/27.0*tke0/lint**2)
-         ! write(*,*) "TKE0 = ", tke0, "Aforce = ", Aforce
+                  if (sinterp .gt. 0) then
+                     if (sinterp .ge. 1.0) then
+                        sinterp = 1.0
+                     endif
+                     do n=1,Nspec
+                        scal(i,j,k,FirstSpec-1+n) = sinterp*Y_bc(n-1,fuelZone) + (1.0-sinterp)*Y_bc(n-1,airZone)
+                     enddo
+                  endif
 
-         
+               enddo
+            enddo
+         enddo
+      endif
 
 
-         ! do k = lo(3), hi(3)
-         !    z = (float(k)+0.5)*delta(3)+domnlo(3)
-         !    do j = lo(2), hi(2)
-         !       y = (float(j)+0.5)*delta(2)+domnlo(2)
-         !       do i = lo(1), hi(1)
-         !          x = (float(i)+0.5)*delta(1)+domnlo(1)
-
-         !          eta = 0.5d0*(1.d0 - TANH(2.d0*(sqrt(x**2 + y**2 + z**2)-blobr)/Tfrontw))
-
-         !          ! do n=1,Nspec
-         !          !    scal(i,j,k,FirstSpec-1+n) = (1.d0-eta)*Y_bc(n-1,airZone) + eta*Y_bc(n-1,fuelZone)
-         !          ! enddo
-         !          do n=1,Nspec
-         !             scal(i,j,k,FirstSpec-1+n) = Y_bc(n-1,airZone)
-         !          enddo
-
-         !          scal(i,j,k,Temp) = T_bc(airZone)
-
-         !          ! vel(i,j,k,1) = 0.d0
-         !          ! vel(i,j,k,2) = 0.d0
-         !          ! vel(i,j,k,3) = 1.d0
-         !          !vel(i,j,k,1) = 0.1*rand()
-         !          !vel(i,j,k,2) = 0.1*rand()
-         !          !vel(i,j,k,3) = vel(i,j,k,2)
-         !          !scal(i,j,k,Trac) = 0.d0
-
-         !       enddo
-         !    enddo
-         ! enddo
-         
       else
 
          write(6,*) 'No initial condition for probtype = ', probtype(1:len)
          write(6,*) 'Available: '
-         write(6,*) '            ',BL_PROB_PREMIXED_FIXED_INFLOW
-         write(6,*) '            ',BL_PROB_PREMIXED_CONTROLLED_INFLOW
-         write(6,*) '            ',BL_PROB_PREMIXED_FIXED_INFLOW_FORCED
-         write(6,*) '            ',BL_PROB_PREMIXED_CONTROLLED_INFLOW_FORCED
+         write(6,*) '            ',BL_PROB_FORCEDHIT
+         write(6,*) '            ',BL_PROB_FORCEDHITWSCALAR
          call bl_pd_abort(' ')
 
       endif
@@ -1224,13 +1349,13 @@ endif
 ! ::: nz    => input resolution
 ! ::: data  <= output data
 ! ::: -----------------------------------------------------------
-subroutine read_csv(iname,nx,ny,nz,data)
+subroutine read_csv(iname,nx,ny,nz,data,ncomp)
 
     implicit none
 
     character(len=255), intent(in) :: iname
-    integer(kind=8), intent(in) :: nx, ny, nz
-    REAL_T, intent(out) :: data(0:nx*ny*nz*6-1)
+    integer(kind=8), intent(in) :: nx, ny, nz, ncomp
+    REAL_T, intent(out) :: data(0:nx*ny*nz*ncomp-1)
 
     integer :: i
     integer, parameter :: in_unit=1
@@ -1258,7 +1383,7 @@ subroutine read_csv(iname,nx,ny,nz,data)
     rewind(in_unit)
     read(in_unit,*) ! skip header
     do i = 0, nlines-1
-       read(in_unit, *, iostat=ios)data(i*6:(i+1)*6-1)
+       read(in_unit, *, iostat=ios)data(i*ncomp:(i+1)*ncomp-1)
        if (ios .ne. 0) then
           write(*,*)'Error in CSV input file read. Exiting with read error', ios
           stop 99
@@ -4884,7 +5009,7 @@ subroutine zero_visc(diff,DIMS(diff),lo,hi,domlo,domhi, &
 
   subroutine FORT_MAKEFORCE(time,force,vel,scal, &
                             DIMS(force),DIMS(vel),DIMS(scal), &
-                            Ubar, TKEmean, &
+                            Ubar, TKEmean, Zmean, Svarmean, &
                             dx,xlo,xhi,gravity,scomp,ncomp,nscal,getForceVerbose) &
                             bind(C,name="FORT_MAKEFORCE")
 
@@ -4902,14 +5027,17 @@ subroutine zero_visc(diff,DIMS(diff),lo,hi,domlo,domhi, &
       REAL_T     force  (DIMV(force),scomp+1:scomp+ncomp)
       REAL_T     vel    (DIMV(vel),1:SDIM)
       REAL_T     scal   (DIMV(scal),1:nscal)
-      REAL_T     Ubar   (1:SDIM)
+      REAL_T     Ubar   (1:SDIM+1)
       REAL_T     gravity
       REAL_T     TKEmean
+      REAL_T     Svarmean(1:nscal)
+      REAL_T     Zmean(1:nscal)
 
 
 #include <probdata.H>
 #include <cdwrk.H>
 #include <bc.H>
+#include <conp.H>
 
 !
 !     ::::: local variables
@@ -4918,7 +5046,7 @@ subroutine zero_visc(diff,DIMS(diff),lo,hi,domlo,domhi, &
       integer ilo, jlo, klo
       integer ihi, jhi, khi
       integer len
-      integer nXvel, nYvel, nZvel, nRho
+      integer nXvel, nYvel, nZvel
 
       len = len_trim(probtype)
 
@@ -4929,24 +5057,24 @@ subroutine zero_visc(diff,DIMS(diff),lo,hi,domlo,domhi, &
       jhi = force_h2
       khi = force_h3
 
+
 !     Assumes components are in the following order
       nXvel = 1
       nYvel = 2
       nZvel = 3
-      nRho  = 1
-
-      ! write(*,*) "ubar = ", Ubar(nXvel), "vbar = ", Ubar(nYvel), "wbar = ", Ubar(nZvel)
-      ! write(*,*) "TKEmean = ", TKEmean
+      nRho  = 4
 
       if (scomp.eq.0) then
 !     Do velocity forcing
-         if ( (probtype(1:len).eq.BL_PROB_FORCEDHIT) ) then
+         if ((probtype(1:len).eq.BL_PROB_FORCEDHIT) .or. &
+          (probtype(1:len).eq.BL_PROB_FORCEDHITWSCALAR)) then
             do k = klo, khi
                do j = jlo, jhi
                   do i = ilo, ihi
-                     force(i,j,k,nXvel) = Aforce*(tke0/TKEmean)*(vel(i,j,k,nXvel)-Ubar(nXvel))*scal(i,j,k,nRho)
-                     force(i,j,k,nYvel) = Aforce*(tke0/TKEmean)*(vel(i,j,k,nYvel)-Ubar(nYvel))*scal(i,j,k,nRho)
-                     force(i,j,k,nZvel) = Aforce*(tke0/TKEmean)*(vel(i,j,k,nZvel)-Ubar(nZvel))*scal(i,j,k,nRho)
+                     ! Forcing scheme inspired by Bassenne et al. (2016)
+                     force(i,j,k,nXvel) = Gain*((tke0-TKEmean)/(2.0*TKEmean))*(vel(i,j,k,nXvel)-Ubar(nXvel))*scal(i,j,k,1)
+                     force(i,j,k,nYvel) = Gain*((tke0-TKEmean)/(2.0*TKEmean))*(vel(i,j,k,nYvel)-Ubar(nYvel))*scal(i,j,k,1)
+                     force(i,j,k,nZvel) = Gain*((tke0-TKEmean)/(2.0*TKEmean))*(vel(i,j,k,nZvel)-Ubar(nZvel))*scal(i,j,k,1)
                   enddo
                enddo
             enddo
@@ -4971,6 +5099,14 @@ subroutine zero_visc(diff,DIMS(diff),lo,hi,domlo,domhi, &
                   do j = jlo, jhi
                      do i = ilo, ihi
                         force(i,j,k,n) = zero
+                        if (probtype(1:len).eq.BL_PROB_FORCEDHITWSCALAR) then
+                           if ((n-nRho).eq.fuelID) then
+                              ! Force the x-component of velocity according to the magnitude of the fluctuations
+                              ! Since this will never be negative, shift the function by one standard deviation
+                              ! The gain term adjusts the magnitude of the forcing to maintain constant variance in fuel
+                              force(i,j,k,n) = sGain*((Svar0-Svarmean(fuelID))/(2.0*Svarmean(fuelID)))*(abs(vel(i,j,k,nXvel)-Ubar(nXvel)) - Ubar(nZvel+1))
+                           endif
+                        endif
                      enddo
                   enddo
                enddo

@@ -24,6 +24,7 @@
 #define BL_PROB_IGNITION 'dme_ignition'
 #define BL_PROB_UNDEFINED 'undefined_problem'
 #define BL_PROB_FORCEDHIT 'forcedHIT'
+#define BL_PROB_FORCEDHITWSCALAR 'forcedHIT_with_scalar'
 
 
 #define BL_XLO 0

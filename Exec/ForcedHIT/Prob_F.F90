@@ -79,19 +79,22 @@ end module probspec_module
 module probdata_module
 
   ! HIT parameters
-  character(len=255), save :: iname
+  character(len=255), save :: iname, siname
   logical, save            :: binfmt
   logical, save            :: restart
   REAL_T, save   :: lambda0, reynolds_lambda0, mach_t0, prandtl
-  integer, save            :: inres
+  integer, save            :: inres, sinres
   REAL_T, save   :: uin_norm
   REAL_T, save   :: L_x, L_y, L_z
-  REAL_T, save   :: Linput
+  REAL_T, save   :: Linput, sLinput
   REAL_T, save, dimension(:,:,:), allocatable :: xinput, yinput, zinput, &
        uinput, vinput, winput
-  REAL_T, save, dimension(:), allocatable :: xarray, xdiff
+  REAL_T, save, dimension(:,:,:), allocatable :: sxinput, syinput, szinput, &
+       sinput
+  REAL_T, save, dimension(:), allocatable :: xarray, xdiff, sxarray, sxdiff
   REAL_T, save   :: k0, rho0, urms0, tau, p0, T0, eint0
-  REAL_T, save   :: Aforce, tke0
+  REAL_T, save   :: Aforce, tke0, Svar0, Zm0, Gain, sGain
+  REAL_T, save, dimension(:), allocatable :: varZ0
 
 end module probdata_module
 

@@ -3956,21 +3956,22 @@ PeleLM::scalar_advection_update (Real dt,
   //
   // Careful: If here, the sign of aofs is flipped (wrt the usual NS treatment).
   //
+
   MultiFab&       S_new = get_new_data(State_Type);
   const MultiFab& S_old = get_old_data(State_Type);
 #ifdef _OPENMP
 #pragma omp parallel
-#endif  
+#endif
   for (MFIter mfi(S_new,true); mfi.isValid(); ++mfi)
   {
     const Box& box   = mfi.tilebox();
     const int nc = last_scalar - first_scalar + 1; 
     FArrayBox& snew = S_new[mfi];
-      
     snew.copy( (*aofs)[mfi],box,first_scalar,box,first_scalar,nc);
     snew.mult(dt,box,first_scalar,nc);
-    snew.plus(S_old[mfi],box,first_scalar,first_scalar,nc);            
+    snew.plus(S_old[mfi],box,first_scalar,first_scalar,nc);    
   }
+
 }
 
 void
@@ -4420,21 +4421,39 @@ PeleLM::predict_velocity (Real  dt)
 #elif LINEARFORCING
   FillPatchIterator S_fpi(*this,visc_terms,1,prev_time,State_Type,Density,NUM_SCALARS);
   MultiFab& Smf=S_fpi.get_mf();
-  // NTW: Compute Ubar and TKEmean and pass that into getForce, which will be passed along to FORT_MAKEFORCE
+  // NTW: Compute Ubar and TKEmean and Svarmean and pass that into getForce, which will be passed along to FORT_MAKEFORCE
   MultiFab Utmp(grids,dmap,BL_SPACEDIM,1);
-  MultiFab::Copy(Utmp,Umf,Xvel,0,3,0);
-  Real Ubar[BL_SPACEDIM];
+  MultiFab::Copy(Utmp,Umf,Xvel,0,BL_SPACEDIM,0);
+  MultiFab Stmp(grids,dmap,nspecies,1);
+  MultiFab::Copy(Stmp,Smf,1,0,nspecies,0);
+  Real Ubar[BL_SPACEDIM+1];
   Real TKEmean;
+  Real Svarmean[nspecies];
+  Real Zmean[nspecies];
   Ubar[Xvel] = Umf.sum(Xvel) / grids.numPts();
   Ubar[Yvel] = Umf.sum(Yvel) / grids.numPts();
   Ubar[Zvel] = Umf.sum(Zvel) / grids.numPts();
   Utmp.plus(-Ubar[Xvel],0,1,0);
   Utmp.plus(-Ubar[Yvel],1,1,0);
   Utmp.plus(-Ubar[Zvel],2,1,0);
-  MultiFab::Multiply(Utmp,Utmp,Xvel,Xvel,3,0);
+  // Compute TKEmean using Utmp in place
+  MultiFab::Multiply(Utmp,Utmp,Xvel,Xvel,BL_SPACEDIM,0);
   TKEmean = 0.5*(Utmp.sum(Xvel) + Utmp.sum(Yvel) + Utmp.sum(Zvel)) / grids.numPts();
+  // Compute std(|ui'|)
+  Ubar[Zvel+1] = sqrt( Utmp.sum(Xvel) / grids.numPts() );
   Utmp.clear();
   amrex::Print() << "NTW::TKEmean = " << TKEmean << std::endl;
+  for (int n=0; n<nspecies; ++n) {
+    MultiFab::Divide(Stmp,Smf,0,n,1,0);
+    Zmean[n] = Stmp.sum(n) / grids.numPts();
+    // amrex::Print() << "NTW::Zmean(" << n << ") = " << Zmean[n] << std::endl;
+  }
+  MultiFab::Multiply(Stmp,Stmp,0,0,nspecies,0);
+  for (int n=0; n<nspecies; ++n) {
+    Svarmean[n] = (Stmp.sum(n) / grids.numPts()) - Zmean[n]*Zmean[n];
+  }
+  Stmp.clear();
+  amrex::Print() << "NTW::Svarmean(0) = " << Svarmean[0] << std::endl;
 #endif
 
   //
@@ -4468,7 +4487,7 @@ PeleLM::predict_velocity (Real  dt)
         amrex::Print() << "---\nA - Predict velocity:\n Calling getForce..." << '\n';
       getForce(tforces,bx,1,Xvel,BL_SPACEDIM,prev_time,Umf[U_mfi],Smf[U_mfi],0);
 #elif LINEARFORCING
-      getForce(tforces,bx,1,Xvel,BL_SPACEDIM,prev_time,Umf[U_mfi],Smf[U_mfi],0,Ubar,TKEmean);
+      getForce(tforces,bx,1,Xvel,BL_SPACEDIM,prev_time,Umf[U_mfi],Smf[U_mfi],0,Ubar,TKEmean,Zmean,Svarmean);
 #else
       getForce(tforces,bx,1,Xvel,BL_SPACEDIM,rho_ptime[U_mfi]);
 #endif 
@@ -5322,6 +5341,100 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
     && level < parent->finestLevel()
     && getLevel(level+1).state[RhoYdot_Type].hasOldData();
 
+#ifdef LINEARFORCING
+
+  MultiFab TForce(grids,dmap,nspecies,1);
+
+  const Real prev_time = state[State_Type].prevTime();
+  const Real cur_time = state[State_Type].curTime();
+
+  MultiFab visc_terms(grids,dmap,BL_SPACEDIM,1);
+
+  visc_terms.setVal(0);
+  
+  // NTW: Compute Ubar and TKEmean and Svarmean and pass that into getForce, which will be passed along to FORT_MAKEFORCE
+  FillPatchIterator U_fpi(*this,visc_terms,Godunov::hypgrow(),prev_time,State_Type,Xvel,BL_SPACEDIM);
+  MultiFab& Umf=U_fpi.get_mf();
+  FillPatchIterator S_fpi(*this,visc_terms,1,prev_time,State_Type,Density,NUM_SCALARS);
+  MultiFab& Smf=S_fpi.get_mf();
+  MultiFab Utmp(grids,dmap,BL_SPACEDIM,1);
+  MultiFab::Copy(Utmp,Umf,Xvel,0,BL_SPACEDIM,0);
+  MultiFab Stmp(grids,dmap,nspecies,1);
+  MultiFab::Copy(Stmp,Smf,1,0,nspecies,0);
+  Real Ubar[BL_SPACEDIM+1];
+  Real TKEmean;
+  Real Svarmean[nspecies];
+  Real Zmean[nspecies];
+  Ubar[Xvel] = Umf.sum(Xvel) / grids.numPts();
+  Ubar[Yvel] = Umf.sum(Yvel) / grids.numPts();
+  Ubar[Zvel] = Umf.sum(Zvel) / grids.numPts();
+  Ubar[Zvel+1] = Smf.sum(0) / grids.numPts();
+  Utmp.plus(-Ubar[Xvel],0,1,0);
+  Utmp.plus(-Ubar[Yvel],1,1,0);
+  Utmp.plus(-Ubar[Zvel],2,1,0);
+  // Compute TKEmean using Utmp in place
+  MultiFab::Multiply(Utmp,Utmp,Xvel,Xvel,BL_SPACEDIM,0);
+  TKEmean = 0.5*(Utmp.sum(Xvel) + Utmp.sum(Yvel) + Utmp.sum(Zvel)) / grids.numPts();
+  Utmp.clear();
+  // Compute Svarmean using Stmp in place
+  for (int n=0; n<nspecies; ++n) {
+    MultiFab::Divide(Stmp,Smf,0,n,1,0);
+    Zmean[n] = Stmp.sum(n) / grids.numPts();
+    Stmp.plus(-Zmean[n],n,1,0); // Subtract out the mean value
+  }
+  MultiFab::Multiply(Stmp,Stmp,0,0,nspecies,0);
+  for (int n=0; n<nspecies; ++n) {
+    // Svarmean[n] = (Stmp.sum(n) / grids.numPts()) - Zmean[n]*Zmean[n];
+    Svarmean[n] = (Stmp.sum(n) / grids.numPts()); // The mean is already ensured to be zero
+  }
+  // Stmp.clear();
+
+
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
+{
+        FArrayBox  tforces;
+
+        for (MFIter mfi(mf_old,true); mfi.isValid(); ++mfi)
+        {
+            const Box& bx = mfi.tilebox();
+            FArrayBox& f = TForce[mfi];
+
+            getForce(tforces,bx,0,0,first_spec+nspecies,prev_time,mf_old[mfi],mf_old[mfi],0,Ubar,TKEmean,Zmean,Svarmean);
+
+            f.copy(tforces,bx,first_spec,bx,0,nspecies);
+
+        }
+}
+
+  MultiFab::Copy(mf_new,mf_old,first_spec,first_spec,nspecies+2,0);
+  MultiFab::Saxpy(mf_new,dt,TForce,0,first_spec,nspecies,0); // NTW: Put a flag around this for species forcing
+  MultiFab::Saxpy(mf_new,dt,Force,0,first_spec,nspecies+1,0);
+  get_new_data(RhoYdot_Type).setVal(0);
+  get_new_data(FuncCount_Type).setVal(0);
+
+
+  // NTW: Rescale the new species to ensure that mass is conserved
+  MultiFab Stot(grids,dmap,1,1); // one component MF that sums up all species fractions
+  Stot.setVal(0);
+  MultiFab::Copy(Stmp,mf_new,first_spec,0,nspecies,0);
+  for (int n=0; n<nspecies; ++n) {
+    MultiFab::Divide(Stmp,mf_new,Density,n,1,0); // Stmp is the species fractions (not rhoY)
+    MultiFab::Add(Stot,Stmp,n,0,1,0);            // Add species to Stot
+  }
+  for (int n=0; n<nspecies; ++n) {
+    MultiFab::Divide(Stmp,Stot,0,n,1,0);
+    MultiFab::Multiply(Stmp,mf_new,Density,n,1,0); // Stmp is now rhoY (updated to ensure sum(Xn)==1)
+  }
+  Stot.clear();
+
+  // Update mf_new with the new species in Stmp
+  MultiFab::Copy(mf_new,Stmp,0,first_spec,nspecies,0);
+  Stmp.clear();
+
+#else
+
   if (hack_nochem)
   {
     MultiFab::Copy(mf_new,mf_old,first_spec,first_spec,nspecies+2,0);
@@ -5506,6 +5619,7 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
     amrex::Print() << "PeleLM::advance_chemistry(): lev: " << level << ", time: ["
 		   << mn << " ... " << mx << "]\n";
   }
+#endif
 }
 
 void
