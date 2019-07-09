@@ -28,7 +28,7 @@ module PeleLM_3d
   private
 
   public ::  calc_divu_fortran, calc_gamma_pinv, floor_spec, enth_diff_terms, &
-             compute_rho_dgrad_hdot_grad_Y, vel_visc, spec_temp_visc, &
+             compute_rho_dgrad_hdot_grad_Y, vel_visc, spec_temp_visc, spec_wbar,&
              est_divu_dt, check_divu_dt, dqrad_fill, divu_fill, &
              dsdt_fill, ydot_fill, rhoYdot_fill, fab_minmax, repair_flux, &
              incrwext_flx_div, flux_div, compute_ugradp, conservative_T_floor, &
@@ -1363,28 +1363,28 @@ contains
 
 !     Warning, FORT_VELVISC is called separately from this routine, so if there's
 !     any hacking to be done on viscosity, be sure to catch it there as well.
-      Tfac = thickFac / Pr
-      Yfac = thickFac / Sc
+    Tfac = thickFac / Pr
+    Yfac = thickFac / Sc
 
-      call CKWT(invmwt)
-      do n=1,Nspec
-          invmwt(n) = one / invmwt(n)
-      end do
+    call CKWT(invmwt)
+    do n=1,Nspec
+       invmwt(n) = one / invmwt(n)
+    end do
 
-      do k=lo(3),hi(3) 
-        do j=lo(2),hi(2)
-          do i=lo(1),hi(1)
-            RHO(i,j,k) = 0.d0
-            do n=1,nspec
-              RHO(i,j,k) = RHO(i,j,k) + Y(i,j,k,n)
-            end do
-            do n=1,nspec
-              Y_real(i,j,k,n) = Y(i,j,k,n) / RHO(i,j,k)
-            end do
-            RHO(i,j,k) = RHO(i,j,k) * 1.d-3
+    do k=lo(3),hi(3) 
+      do j=lo(2),hi(2)
+        do i=lo(1),hi(1)
+          RHO(i,j,k) = 0.d0
+          do n=1,nspec
+            RHO(i,j,k) = RHO(i,j,k) + Y(i,j,k,n)
           end do
+          do n=1,nspec
+            Y_real(i,j,k,n) = Y(i,j,k,n) / RHO(i,j,k)
+          end do
+          RHO(i,j,k) = RHO(i,j,k) * 1.d-3
         end do
       end do
+    end do
  
       if (.not. LeEQ1) then
         Patm = Pamb_in / P1ATM_MKS
@@ -1463,6 +1463,45 @@ contains
       end if
       
   end subroutine spec_temp_visc
+
+!-------------------------------------------------
+
+  subroutine spec_wbar(lo,hi, &
+                       rhoD, rhoD_lo, rhoD_hi, &
+                       Y, Y_lo, Y_hi, &
+                       rhoD_wbar, rhoD_wbar_lo, rhoD_wbar_hi) &
+                       bind(C, name="spec_wbar")
+
+  use network,          only : nspec
+  
+  implicit none
+
+  integer, intent(in ) ::           lo(3), hi(3)
+  integer, intent(in ) ::      rhoD_lo(3), rhoD_hi(3)
+  integer, intent(in ) ::         Y_lo(3), Y_hi(3)
+  integer, intent(in ) :: rhoD_wbar_lo(3), rhoD_wbar_hi(3)
+  REAL_T , intent(in ) :: rhoD(rhoD_lo(1):rhoD_hi(1),rhoD_lo(2):rhoD_hi(2),rhoD_lo(3):rhoD_hi(3),nspec)
+  REAL_T , intent(in ) :: Y(Y_lo(1):Y_hi(1),Y_lo(2):Y_hi(2),Y_lo(3):Y_hi(3),nspec)
+  REAL_T , intent(out) :: rhoD_wbar(rhoD_wbar_lo(1):rhoD_wbar_hi(1),&
+                                    rhoD_wbar_lo(2):rhoD_wbar_hi(2),&
+                                    rhoD_wbar_lo(3):rhoD_wbar_hi(3),nspec)
+ 
+  integer :: i, j, k
+  REAL_T  :: rhoinv, Wbar
+  REAL_T  :: Y_real(1:nspec)
+
+  do k=lo(3),hi(3) 
+    do j=lo(2), hi(2)
+      do i=lo(1), hi(1)
+        rhoinv = 1.0d0 / SUM(Y(i,j,k,1:nspec))
+        Y_real(1:nspec) = Y(i,j,k,1:nspec) * rhoinv
+        CALL CKMMWY(Y_real,Wbar)
+        rhoD_wbar(i,j,k,1:nspec) = rhoD(i,j,k,1:nspec) * Y_real(1:nspec) / Wbar
+      end do
+    end do
+  end do
+
+  end subroutine spec_wbar
 
 !-------------------------------------------
 

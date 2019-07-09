@@ -7318,22 +7318,20 @@ PeleLM::calcDiffusivity_Wbar (const Real time)
   BL_ASSERT(diffWbar_cc.nGrow() >= nGrow);
 
   FillPatchIterator Rho_and_spec_fpi(*this,diff,nGrow,time,State_Type,Density,nspecies+1);
-  MultiFab& mf=Rho_and_spec_fpi.get_mf();
+  MultiFab& Rho_and_spec_mf=Rho_and_spec_fpi.get_mf();
   
 #ifdef _OPENMP
 #pragma omp parallel
 #endif  
-  for (MFIter mfi(mf,true); mfi.isValid();++mfi)
+  for (MFIter mfi(Rho_and_spec_mf,true); mfi.isValid();++mfi)
   {
-    const FArrayBox& RD = diff[mfi];
-    const FArrayBox& RYfab = mf[mfi];
-    FArrayBox& Dfab_Wbar = diffWbar_cc[mfi];
     const Box& gbox = mfi.growntilebox();
+    FArrayBox& Dfab_Wbar = diffWbar_cc[mfi];
         
-    BETA_WBAR(gbox.loVect(),gbox.hiVect(),
-                   RD.dataPtr(),ARLIM(RD.loVect()),ARLIM(RD.hiVect()),
-                   Dfab_Wbar.dataPtr(),ARLIM(Dfab_Wbar.loVect()),ARLIM(Dfab_Wbar.hiVect()),
-                   RYfab.dataPtr(1),ARLIM(RYfab.loVect()),ARLIM(RYfab.hiVect()));
+    spec_wbar(BL_TO_FORTRAN_BOX(gbox),
+              BL_TO_FORTRAN_N_3D(diff[mfi],0),
+              BL_TO_FORTRAN_N_3D(Dfab_Wbar,0),
+              BL_TO_FORTRAN_N_3D(Rho_and_spec_mf[mfi],1));
   }
 }
 #endif
