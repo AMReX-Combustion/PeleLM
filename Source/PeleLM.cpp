@@ -4557,11 +4557,35 @@ PeleLM::predict_velocity (Real  dt)
     visc_terms.setVal(0);
   }
 
+  FillPatchIterator U_fpi(*this,visc_terms,Godunov::hypgrow(),prev_time,State_Type,Xvel,BL_SPACEDIM);
+  MultiFab& Umf=U_fpi.get_mf();
+  
+  // Floor small values of states to be extrapolated
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
+  for (MFIter mfi(Umf,true); mfi.isValid(); ++mfi)
+  {
+    Box gbx=mfi.growntilebox(Godunov::hypgrow());
+    auto fab = Umf.array(mfi);
+    AMREX_HOST_DEVICE_FOR_4D ( gbx, BL_SPACEDIM, i, j, k, n,
+    {
+      auto& val = fab(i,j,k,n);
+      val = std::abs(val) > 1.e-20 ? val : 0;
+    });
+  }
+
+  FillPatchIterator S_fpi(*this,visc_terms,1,prev_time,State_Type,Density,NUM_SCALARS);
+  MultiFab& Smf=S_fpi.get_mf();
+
+  
 #ifdef AMREX_USE_EB
 //  MultiFab& Gp = *gradp;
   MultiFab& Gp = getGradP();
   Gp.FillBoundary(geom.periodicity());
-  
+
+// EM_DEBUG Comment below to de-activate EB in advection
+
   const Box& domain = geom.Domain();
     // Compute slopes and store for use in computing UgradU
 #ifdef _OPENMP
@@ -4603,26 +4627,8 @@ PeleLM::predict_velocity (Real  dt)
 //            amrex::WriteSingleLevelPlotfile("GpLM"+std::to_string(count), Gp, {"gpx","gpy"}, parent->Geom(0), 0.0, 0);
 //VisMF::Write(Gp,"gradp_PV_LM");
 
-  FillPatchIterator U_fpi(*this,visc_terms,Godunov::hypgrow(),prev_time,State_Type,Xvel,BL_SPACEDIM);
-  MultiFab& Umf=U_fpi.get_mf();
 
-  // Floor small values of states to be extrapolated
-#ifdef _OPENMP
-#pragma omp parallel
-#endif
-  for (MFIter mfi(Umf,true); mfi.isValid(); ++mfi)
-  {
-    Box gbx=mfi.growntilebox(Godunov::hypgrow());
-    auto fab = Umf.array(mfi);
-    AMREX_HOST_DEVICE_FOR_4D ( gbx, BL_SPACEDIM, i, j, k, n,
-    {
-      auto& val = fab(i,j,k,n);
-      val = std::abs(val) > 1.e-20 ? val : 0;
-    });
-  }
 
-  FillPatchIterator S_fpi(*this,visc_terms,1,prev_time,State_Type,Density,NUM_SCALARS);
-  MultiFab& Smf=S_fpi.get_mf();
 
   //
   // Compute "grid cfl number" based on cell-centered time-n velocities
@@ -4662,6 +4668,7 @@ PeleLM::predict_velocity (Real  dt)
              bndry[1] = fetchBCArray(State_Type,bx,1,1);,
              bndry[2] = fetchBCArray(State_Type,bx,2,1););
 
+// EM_DEBUG Comment below to de-activate EB in advection
 #ifdef AMREX_USE_EB
 	//
 	//  trace state to cell edges
@@ -4676,9 +4683,10 @@ PeleLM::predict_velocity (Real  dt)
 	// CHECK HERE
 	godunov->ExtrapVelToFaces(U_mfi,
 				  //dx, dt,  // these are not used yet
-				   D_DECL(Uface[0], Uface[1], Uface[2]),
+				   //D_DECL(Uface[0], Uface[1], Uface[2]),
+           D_DECL(u_mac[0][U_mfi], u_mac[1][U_mfi], u_mac[2][U_mfi]),
 				   D_DECL(bndry[0],        bndry[1],        bndry[2]),
-				   Umf[U_mfi], tforces, domain);
+				   Ufab, tforces, domain);
 #else
 	// non-EB
 	//  1. compute slopes
@@ -4686,31 +4694,28 @@ PeleLM::predict_velocity (Real  dt)
       godunov->ExtrapVelToFaces(bx, dx, dt,
                                 D_DECL(Uface[0], Uface[1], Uface[2]),
                                 D_DECL(bndry[0], bndry[1], bndry[2]),
-                                //Ufab, tforces);
-                                Umf[U_mfi], tforces);
+                                Ufab, tforces);
 
-#endif
-
-       for (int d=0; d<BL_SPACEDIM; ++d) {
+      for (int d=0; d<BL_SPACEDIM; ++d) {
         const Box& ebx = U_mfi.nodaltilebox(d);
         u_mac[d][U_mfi].copy(Uface[d],ebx,0,ebx,0,1);
       }
+                                
+#endif
 
   }
 }
 
 // EM_DEBUG 
-VisMF::Write(u_mac[0],"umac_x");
-VisMF::Write(u_mac[1],"umac_y");
+//VisMF::Write(u_mac[0],"umac_x");
+//VisMF::Write(u_mac[1],"umac_y");
 
   showMF("mac",u_mac[0],"pv_umac0",level);
   showMF("mac",u_mac[1],"pv_umac1",level);
 #if BL_SPACEDIM==3
   showMF("mac",u_mac[2],"pv_umac2",level);
 #endif
-#ifndef NDEBUG
-  showMF("mac",Force,"pv_force",level);
-#endif
+
 
   if (verbose > 1)
   {
@@ -5854,6 +5859,62 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
     });
   }
 
+  
+#ifdef AMREX_USE_EB
+
+      //
+      // compute slopes for construction of edge states
+      //
+      std::unique_ptr<amrex::MultiFab> xslps;
+      std::unique_ptr<amrex::MultiFab> yslps;
+      std::unique_ptr<amrex::MultiFab> zslps;
+      //Slopes in x-direction
+      xslps.reset(new MultiFab(grids, dmap, nspecies+1, Godunov::hypgrow(),
+			       MFInfo(), Factory()));
+      xslps->setVal(0.);
+      // Slopes in y-direction
+      yslps.reset(new MultiFab(grids, dmap, nspecies+1, Godunov::hypgrow(),
+			       MFInfo(), Factory()));
+      yslps->setVal(0.);
+      // Slopes in z-direction
+      zslps.reset(new MultiFab(grids, dmap, nspecies+1, Godunov::hypgrow(),
+			       MFInfo(), Factory()));
+      zslps->setVal(0.);
+
+    const Box& domain = geom.Domain();
+    // Compute slopes for use in computing aofs
+    // Perhaps need to call EB_set_covered(Smf,....)
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
+{
+    Vector<int> bndry[BL_SPACEDIM];
+    for (MFIter mfi(Smf, true); mfi.isValid(); ++mfi)
+    {
+       Box bx=mfi.tilebox();
+       D_TERM(bndry[0] = fetchBCArray(State_Type,bx,0,1);,
+	     bndry[1] = fetchBCArray(State_Type,bx,1,1);,
+	     bndry[2] = fetchBCArray(State_Type,bx,2,1););
+
+       godunov->ComputeScalarSlopes(mfi, Smf, nspecies+1,
+				    D_DECL(xslps, yslps, zslps),
+				    D_DECL(bndry[0], bndry[1], bndry[2]),
+				    domain);
+    }
+ }
+//
+// need to fill ghost cells for slopes here. 
+// non-periodic BCs are in theory taken care of inside compute ugradu, but IAMR
+//  only allows for periodic for now
+//
+ D_TERM(xslps->FillBoundary(geom.periodicity());,
+	yslps->FillBoundary(geom.periodicity());,
+	zslps->FillBoundary(geom.periodicity()););
+  
+#endif
+  
+  
+  
 #ifdef _OPENMP
 #pragma omp parallel
 #endif
@@ -5879,9 +5940,37 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
     for (int d=0; d<BL_SPACEDIM; ++d)
     {
       const Box& ebx = S_mfi.nodaltilebox(d);
-      (*EdgeState[d])[S_mfi].setVal(0,ebx,Density,NUM_SCALARS);
-      (*EdgeFlux[d])[S_mfi].setVal(0,ebx,Density,NUM_SCALARS);
+      //(*EdgeState[d])[S_mfi].setVal(0,ebx,Density,NUM_SCALARS);
+      //(*EdgeFlux[d])[S_mfi].setVal(0,ebx,Density,NUM_SCALARS);
+       (*EdgeState[d])[S_mfi].setVal(0.);
+      (*EdgeFlux[d])[S_mfi].setVal(0.);
     } 
+
+#ifdef AMREX_USE_EB
+	//
+	// TODO eventually want this to take multiple scalars
+	//
+  
+  // WE HAVE TO EXPORT FLUX AND EDGESTATE FROM EB ROUTINES
+  
+    Vector<int> bndry[BL_SPACEDIM];
+    D_TERM(bndry[0] = fetchBCArray(State_Type,bx,0,1);,
+           bndry[1] = fetchBCArray(State_Type,bx,1,1);,
+           bndry[2] = fetchBCArray(State_Type,bx,2,1););
+	
+	//for ( int i=0; i<nspecies+1; i++){
+    godunov->AdvectScalar(S_mfi, Smf, 0, nspecies+1 ,
+                          *aofs, first_spec,
+                          D_DECL(xslps, yslps, zslps),
+                          D_DECL( u_mac[0][S_mfi], u_mac[1][S_mfi], u_mac[2][S_mfi]),
+                          D_DECL(cflux[0],cflux[1],cflux[2]),
+                          D_DECL(edgstate[0],edgstate[1],edgstate[2]),
+                          D_DECL(bndry[0], bndry[1], bndry[2]),
+                          geom.Domain(),
+                          geom.CellSize(),Godunov::hypgrow());	
+	//}
+
+#else
         
     state_bc = fetchBCArray(State_Type,bx,first_spec,nspecies+1);
 
@@ -5893,7 +5982,9 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
                            D_DECL(edgstate[0],edgstate[1],edgstate[2]),
                            Smf[S_mfi], 0, nspecies+1 , force, 0, divu, 0,
                            (*aofs)[S_mfi], first_spec, advectionType, state_bc, FPU, volume[S_mfi]);
-       
+
+#endif
+
     // Accumulate rho flux divergence, rho on edges, and rho flux on edges
     
      for (int d=0; d<BL_SPACEDIM; ++d)
@@ -5903,6 +5994,7 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
        (*EdgeState[d])[S_mfi].copy(edgstate[d],ebx,0,ebx,first_spec,nspecies+1);
      }
           
+    
      for (int comp = 0 ; comp < nspecies+1 ; comp++)
      {      
        int state_ind = first_spec + comp;
@@ -5918,9 +6010,32 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
        }
      }
 
-  }    
+for (int d=0; d<BL_SPACEDIM; ++d)
+    {
+      const Box& ebx = S_mfi.nodaltilebox(d);
+      //(*EdgeState[d])[S_mfi].setVal(0,ebx,Density,NUM_SCALARS);
+      //(*EdgeFlux[d])[S_mfi].setVal(0,ebx,Density,NUM_SCALARS);
+       (*EdgeState[d])[S_mfi].setVal(0.);
+      (*EdgeFlux[d])[S_mfi].setVal(0.);
+    }
+
+  }
 }
 
+// EM_DEBUG
+
+VisMF::Write(*aofs,"aofs");
+
+
+  VisMF::Write(*EdgeFlux[0],"EdgeFlux_x");
+  VisMF::Write(*EdgeState[0],"EdgeState_x");
+  
+  VisMF::Write(*EdgeFlux[1],"EdgeFlux_y");
+  VisMF::Write(*EdgeState[1],"EdgeState_y");
+  
+  
+  
+  
   showMF("sdc",*EdgeState[0],"sdc_ESTATE_x",level,parent->levelSteps(level));
   showMF("sdc",*EdgeState[1],"sdc_ESTATE_y",level,parent->levelSteps(level));
 #if BL_SPACEDIM==3
@@ -8033,11 +8148,10 @@ PeleLM::writePlotFile (const std::string& dir,
 
   int n_data_items = plot_var_map.size() + num_derive + num_auxDiag;
 
-  
-//#ifdef AMREX_USE_EB
-//    // add in vol frac
-//    n_data_items++;
-//#endif
+#ifdef AMREX_USE_EB
+    // add in vol frac
+    n_data_items++;
+#endif
 
   Real tnp1 = state[State_Type].curTime();
 
@@ -8083,10 +8197,10 @@ PeleLM::writePlotFile (const std::string& dir,
         os << it->second[i] << '\n';
     }
 
-//#ifdef AMREX_USE_EB
-//	//add in vol frac
-//	os << "volFrac\n";
-//#endif
+#ifdef AMREX_USE_EB
+	//add in vol frac
+	os << "volFrac\n";
+#endif
     
     os << BL_SPACEDIM << '\n';
     os << parent->cumTime() << '\n';
@@ -8252,15 +8366,15 @@ PeleLM::writePlotFile (const std::string& dir,
       os << PathNameInHeader << '\n';
     }
     
-//#ifdef AMREX_USE_EB
-//	// volfrac threshhold for amrvis
-//	// fixme? pulled directly from CNS, might need adjustment
-//        if (level == parent->finestLevel()) {
-//            for (int lev = 0; lev <= parent->finestLevel(); ++lev) {
-//                os << "1.0e-6\n";
-//            }
-//        }
-//#endif
+#ifdef AMREX_USE_EB
+	// volfrac threshhold for amrvis
+	// fixme? pulled directly from CNS, might need adjustment
+        if (level == parent->finestLevel()) {
+            for (int lev = 0; lev <= parent->finestLevel(); ++lev) {
+                os << "1.0e-6\n";
+            }
+        }
+#endif
     
     
   }
@@ -8335,18 +8449,18 @@ PeleLM::writePlotFile (const std::string& dir,
       cnt += nComp;
   }
 
-//#ifdef AMREX_USE_EB
-//    // add volume fraction to plotfile
-//    const auto& ebfactory = dynamic_cast<EBFArrayBoxFactory const&>(Factory());
-//    const amrex::MultiFab& volfrac = ebfactory.getVolFrac();
-//
-//    plotMF.setVal(0.0, cnt, 1, nGrow);
-//    MultiFab::Copy(plotMF,volfrac,0,cnt,1,nGrow);
-//
-//    // set covered values for ease of viewing
-//    // EM_DEBUG problem here if eb.regular
-//    //EB_set_covered(plotMF, 0.0);
-//#endif
+#ifdef AMREX_USE_EB
+    // add volume fraction to plotfile
+    const auto& ebfactory = dynamic_cast<EBFArrayBoxFactory const&>(Factory());
+    const amrex::MultiFab& volfrac = ebfactory.getVolFrac();
+
+    plotMF.setVal(0.0, cnt, 1, nGrow);
+    MultiFab::Copy(plotMF,volfrac,0,cnt,1,nGrow);
+
+    // set covered values for ease of viewing
+    // EM_DEBUG problem here if eb.regular
+    //EB_set_covered(plotMF, 0.0);
+#endif
 
   //
   // Use the Full pathname when naming the MultiFab.
