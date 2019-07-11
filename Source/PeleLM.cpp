@@ -5484,22 +5484,24 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
 
   if (hack_nochem)
   {
-    FArrayBox tmp;
 #ifdef _OPENMP
 #pragma omp parallel
 #endif
-    for (MFIter mfi(mf_old,true); mfi.isValid(); ++mfi)
     {
-      const Box& box = mfi.tilebox();
-      tmp.resize(box,nspecies+1);
-      const FArrayBox& f = Force[mfi];
-      tmp.copy(f,box,0,box,0,nspecies+1);
-      tmp.mult(dt,box,0,nspecies+1);
-      FArrayBox& Sold = mf_old[mfi];
-      FArrayBox& Snew = mf_new[mfi];
-      Snew.copy(Sold,box,first_spec,box,first_spec,nspecies+1);
-      Snew.plus(tmp,box,box,0,first_spec,nspecies+1);
-      Snew.copy(Sold,box,Temp,box,Temp,1);
+        FArrayBox tmp;
+        for (MFIter mfi(mf_old,true); mfi.isValid(); ++mfi)
+        {
+            const Box& box = mfi.tilebox();
+            tmp.resize(box,nspecies+1);
+            const FArrayBox& f = Force[mfi];
+            tmp.copy(f,box,0,box,0,nspecies+1);
+            tmp.mult(dt,box,0,nspecies+1);
+            FArrayBox& Sold = mf_old[mfi];
+            FArrayBox& Snew = mf_new[mfi];
+            Snew.copy(Sold,box,first_spec,box,first_spec,nspecies+1);
+            Snew.plus(tmp,box,box,0,first_spec,nspecies+1);
+            Snew.copy(Sold,box,Temp,box,Temp,1);
+        }
     }
   }
   else
