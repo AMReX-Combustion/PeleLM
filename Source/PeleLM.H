@@ -670,6 +670,7 @@ private:
   static bool         flag_active_control;
 
   static int  cvode_iE;
+  static int  cvode_ncells;
 
   static int nGrowAdvForcing;
 

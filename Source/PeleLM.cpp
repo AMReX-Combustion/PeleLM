@@ -36,6 +36,10 @@
 #include <AMReX_AmrData.H>
 #endif
 
+#ifdef AMREX_USE_SUNDIALS_3x4x 
+#include <actual_Creactor.h>
+#endif
+
 #include <Prob_F.H>
 #include <NAVIERSTOKES_F.H>
 #include <DERIVE_F.H>
@@ -154,6 +158,7 @@ bool PeleLM::plot_reactions;
 bool PeleLM::plot_consumption;
 bool PeleLM::plot_heat_release;
 int  PeleLM::cvode_iE;
+int  PeleLM::cvode_ncells;
 static bool plot_rhoydot;
 bool PeleLM::flag_active_control;
 Real PeleLM::new_T_threshold;
@@ -608,6 +613,7 @@ PeleLM::Initialize ()
   PeleLM::num_mac_sync_iter         = 1;
   PeleLM::mHtoTiterMAX              = 20;
   PeleLM::cvode_iE                  = 2;
+  PeleLM::cvode_ncells              = 1;
 
   ParmParse pp("ns");
 
