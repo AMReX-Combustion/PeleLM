@@ -5960,19 +5960,13 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
     } 
 
 #ifdef AMREX_USE_EB
-	//
-	// TODO eventually want this to take multiple scalars
-	//
-  
-  // WE HAVE TO EXPORT FLUX AND EDGESTATE FROM EB ROUTINES
   
     Vector<int> bndry[BL_SPACEDIM];
     D_TERM(bndry[0] = fetchBCArray(State_Type,bx,0,1);,
            bndry[1] = fetchBCArray(State_Type,bx,1,1);,
            bndry[2] = fetchBCArray(State_Type,bx,2,1););
 	
-	//for ( int i=0; i<nspecies+1; i++){
-    godunov->AdvectScalar(S_mfi, Smf, 0, nspecies+1 ,
+    godunov->AdvectScalars_EB(S_mfi, Smf, 0, nspecies+1 ,
                           *aofs, first_spec,
                           D_DECL(xslps, yslps, zslps),
                           D_DECL( u_mac[0][S_mfi], u_mac[1][S_mfi], u_mac[2][S_mfi]),
@@ -5981,7 +5975,6 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
                           D_DECL(bndry[0], bndry[1], bndry[2]),
                           geom.Domain(),
                           geom.CellSize(),Godunov::hypgrow());	
-	//}
 
 #else
         
