@@ -42,6 +42,7 @@
 
 #ifdef AMREX_USE_EB
 #include <AMReX_EBMultiFabUtil.H>
+#include <AMReX_EBFArrayBox.H>
 #endif
 
 #include <AMReX_buildInfo.H>
@@ -2185,7 +2186,7 @@ PeleLM::initDataOtherTypes ()
   // to be consistent with Strang code, compute enthalpy with the EOS
   const Real tnp1  = state[State_Type].curTime();
   {
-    MultiFab rhoh(grids,dmap,1,0);
+    MultiFab rhoh(grids,dmap,1,0,MFInfo(),Factory());
     compute_rhohmix(tnp1,rhoh);
     get_new_data(State_Type).copy(rhoh,0,RhoH,1);
   }
@@ -2623,9 +2624,9 @@ PeleLM::post_init (Real stop_time)
         //
         // Don't update S_new in this strang_chem() call ...
         //
-        MultiFab S_tmp(S_new.boxArray(),S_new.DistributionMap(),S_new.nComp(),0);
+        MultiFab S_tmp(S_new.boxArray(),S_new.DistributionMap(),S_new.nComp(),0,MFInfo(),Factory());
 
-        MultiFab Forcing_tmp(S_new.boxArray(),S_new.DistributionMap(),nspecies+1,0);
+        MultiFab Forcing_tmp(S_new.boxArray(),S_new.DistributionMap(),nspecies+1,0,MFInfo(),Factory());
         Forcing_tmp.setVal(0);
 
         getLevel(k).advance_chemistry(S_new,S_tmp,dt_save[k]/2.0,Forcing_tmp,0);
@@ -3176,7 +3177,7 @@ PeleLM::avgDown ()
 
   crse_P_fine_BA.coarsen(fine_ratio);
 
-  MultiFab crse_P_fine(crse_P_fine_BA,P_fdmap,1,0);
+  MultiFab crse_P_fine(crse_P_fine_BA,P_fdmap,1,0,MFInfo(),Factory());
 #ifdef _OPENMP
 #pragma omp parallel
 #endif
@@ -3579,7 +3580,6 @@ PeleLM::compute_enthalpy_fluxes (Real                   time,
 void
 PeleLM::velocity_diffusion_update (Real dt)
 {
-
   //
   // Do implicit c-n solve for velocity
   // compute the viscous forcing
@@ -3665,10 +3665,10 @@ PeleLM::diffuse_velocity_setup (Real        dt,
     // if necessary, and stores it as an auxilliary rhs to the viscous solves.
     // This is a little strange, but probably not bad.
     //
-    delta_rhs = new MultiFab(grids,dmap,BL_SPACEDIM,0);
+    delta_rhs = new MultiFab(grids,dmap,BL_SPACEDIM,0,MFInfo(),Factory());
     delta_rhs->setVal(0);
       
-    MultiFab divmusi(grids,dmap,BL_SPACEDIM,0);
+    MultiFab divmusi(grids,dmap,BL_SPACEDIM,0,MFInfo(),Factory());
     //
     // Assume always variable viscosity.
     //
@@ -3746,7 +3746,7 @@ PeleLM::getViscTerms (MultiFab& visc_terms,
     if (num_comp < BL_SPACEDIM)
       amrex::Error("getViscTerms() need all v-components at once");
     
-    MultiFab divmusi(grids,dmap,BL_SPACEDIM,0);
+    MultiFab divmusi(grids,dmap,BL_SPACEDIM,0,MFInfo(),Factory());
     showMF("velVT",get_old_data(Divu_Type),"velVT_divu",level);
     //
     // Assume always using variable viscosity.
@@ -3922,7 +3922,7 @@ PeleLM::compute_differential_diffusion_fluxes (const Real& time,
     }
   }
 
-  MultiFab Phi(grids,dmap,1,nGrow);
+  MultiFab Phi(grids,dmap,1,nGrow,MFInfo(),Factory());
   const int phiComp = 0;
 
   for (int sigma = 0; sigma < nspecies+1; ++sigma)
@@ -4121,7 +4121,7 @@ PeleLM::scalar_advection_update (Real dt,
   //
   MultiFab&       S_new = get_new_data(State_Type);
   const MultiFab& S_old = get_old_data(State_Type);
-
+VisMF::Write(S_new,"S_new1");
 #ifdef _OPENMP
 #pragma omp parallel
 #endif  
@@ -4130,11 +4130,15 @@ PeleLM::scalar_advection_update (Real dt,
     const Box& box   = mfi.tilebox();
     const int nc = last_scalar - first_scalar + 1; 
     FArrayBox& snew = S_new[mfi];
-      
+
     snew.copy( (*aofs)[mfi],box,first_scalar,box,first_scalar,nc);
     snew.mult(dt,box,first_scalar,nc);
     snew.plus(S_old[mfi],box,first_scalar,first_scalar,nc);            
   }
+
+VisMF::Write(S_new,"S_new2");
+VisMF::Write(S_old,"S_old2");
+
 }
 
 void
@@ -4445,7 +4449,7 @@ PeleLM::set_htt_hmixTYP ()
       const MultiFab& S  = ht.get_new_data(State_Type);
       const BoxArray& ba = ht.boxArray();
       const DistributionMapping& dm = ht.DistributionMap();
-      MultiFab hmix(ba,dm,1,0);
+      MultiFab hmix(ba,dm,1,0,MFInfo(),Factory());
       MultiFab::Copy(hmix,S,RhoH,0,1,0);
       MultiFab::Divide(hmix,S,Density,0,1,0);
       if (k != finest_level) 
@@ -4835,10 +4839,10 @@ PeleLM::advance (Real time,
   setThermoPress(prev_time);  
   BL_PROFILE_VAR_STOP(HTMAC);
 
-  MultiFab Dn(grids,dmap,nspecies+2,nGrowAdvForcing);
-  MultiFab DDn(grids,dmap,1,nGrowAdvForcing);
+  MultiFab Dn(grids,dmap,nspecies+2,nGrowAdvForcing,MFInfo(),Factory());
+  MultiFab DDn(grids,dmap,1,nGrowAdvForcing,MFInfo(),Factory());
 #ifdef USE_WBAR
-  MultiFab DWbar(grids,dmap,nspecies,nGrowAdvForcing);
+  MultiFab DWbar(grids,dmap,nspecies,nGrowAdvForcing,MFInfo(),Factory());
 #endif
 
   // Compute Dn and DDn (based on state at tn)
@@ -4871,15 +4875,15 @@ PeleLM::advance (Real time,
   // copy old state into new state for Dn and DDn.
   // Note: this was already done for scalars, transport coefficients,
   // and divu in advance_setup
-  MultiFab Dnp1(grids,dmap,nspecies+2,nGrowAdvForcing);
-  MultiFab DDnp1(grids,dmap,1,nGrowAdvForcing);
-  MultiFab chi(grids,dmap,1,nGrowAdvForcing);
-  MultiFab chi_increment(grids,dmap,1,nGrowAdvForcing);
-  MultiFab mac_divu(grids,dmap,1,nGrowAdvForcing);
+  MultiFab Dnp1(grids,dmap,nspecies+2,nGrowAdvForcing,MFInfo(),Factory());
+  MultiFab DDnp1(grids,dmap,1,nGrowAdvForcing,MFInfo(),Factory());
+  MultiFab chi(grids,dmap,1,nGrowAdvForcing,MFInfo(),Factory());
+  MultiFab chi_increment(grids,dmap,1,nGrowAdvForcing,MFInfo(),Factory());
+  MultiFab mac_divu(grids,dmap,1,nGrowAdvForcing,MFInfo(),Factory());
 
   // used for closed chamber algorithm
-  MultiFab theta_old(grids,dmap,1,nGrowAdvForcing);
-  MultiFab theta_nph(grids,dmap,1,nGrowAdvForcing);
+  MultiFab theta_old(grids,dmap,1,nGrowAdvForcing,MFInfo(),Factory());
+  MultiFab theta_nph(grids,dmap,1,nGrowAdvForcing,MFInfo(),Factory());
   Real Sbar;
   Real Sbar_old, Sbar_new;
 
@@ -5058,9 +5062,9 @@ PeleLM::advance (Real time,
 
 
 // EM_DEBUG     
-    //VisMF::Write(mac_divu,"mac_divu_after");
-    //VisMF::Write(u_mac[0], "umacx");
-    //VisMF::Write(u_mac[1], "umacy");
+    VisMF::Write(mac_divu,"mac_divu_after");
+    VisMF::Write(u_mac[0], "umacx");
+    VisMF::Write(u_mac[1], "umacy");
       
     if (closed_chamber == 1 && level == 0)
     {
@@ -5166,7 +5170,7 @@ PeleLM::advance (Real time,
   }
     BL_PROFILE_VAR_STOP(HTDIFF);
 
-    MultiFab Dhat(grids,dmap,nspecies+2,nGrowAdvForcing);
+    MultiFab Dhat(grids,dmap,nspecies+2,nGrowAdvForcing,MFInfo(),Factory());
 
     // advection-diffusion solve
     showMF("sdc",Forcing,"sdc_Forcing_before_Dhat",level,sdc_iter,parent->levelSteps(level));
@@ -5375,14 +5379,14 @@ PeleLM::advance (Real time,
   BL_PROFILE_VAR_START(HTVEL);
   
 // EM_DEBUG 
-//VisMF::Write(*aofs,"AOFS_before_vel_advection");
+VisMF::Write(*aofs,"AOFS_before_vel_advection");
 
   if (do_mom_diff == 0) {
     velocity_advection(dt);
   }
   
 // EM_DEBUG 
-//VisMF::Write(*aofs,"AOFS_before_vel_update");
+VisMF::Write(*aofs,"AOFS_before_vel_update");
 
   velocity_update(dt);
   BL_PROFILE_VAR_STOP(HTVEL);
@@ -6010,14 +6014,15 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
        }
      }
 
-for (int d=0; d<BL_SPACEDIM; ++d)
-    {
-      const Box& ebx = S_mfi.nodaltilebox(d);
+//for (int d=0; d<BL_SPACEDIM; ++d)
+//    {
+//      const Box& ebx = S_mfi.nodaltilebox(d);
       //(*EdgeState[d])[S_mfi].setVal(0,ebx,Density,NUM_SCALARS);
       //(*EdgeFlux[d])[S_mfi].setVal(0,ebx,Density,NUM_SCALARS);
-       (*EdgeState[d])[S_mfi].setVal(0.);
-      (*EdgeFlux[d])[S_mfi].setVal(0.);
-    }
+//       (*EdgeState[d])[S_mfi].setVal(0.);
+//      (*EdgeFlux[d])[S_mfi].setVal(0.);
+//(*aofs)[S_mfi].setVal(0.);
+//    }
 
   }
 }
@@ -6117,7 +6122,7 @@ PeleLM::mac_sync ()
   ////////////////////////
   const int numscal = NUM_STATE - BL_SPACEDIM;
 
-  MultiFab chi_sync(grids,dmap,1,0);
+  MultiFab chi_sync(grids,dmap,1,0,MFInfo(),Factory());
   chi_sync.setVal(0);
 
   Vector<std::unique_ptr<MultiFab> > S_new_sav(finest_level+1);
@@ -6127,7 +6132,7 @@ PeleLM::mac_sync ()
     const MultiFab& S_new_lev = getLevel(lev).get_new_data(State_Type);
     S_new_sav[lev].reset(new MultiFab(S_new_lev.boxArray(),
                                       S_new_lev.DistributionMap(),
-                                      NUM_STATE,1));
+                                      NUM_STATE,1,MFInfo(),Factory()));
     MultiFab::Copy(*S_new_sav[lev],S_new_lev,0,0,NUM_STATE,1);
   }
 
@@ -6139,13 +6144,13 @@ PeleLM::mac_sync ()
     const MultiFab& Ssync_lev = getLevel(lev).Ssync;
     Ssync_sav[lev].reset(new MultiFab(Ssync_lev.boxArray(),
                                       Ssync_lev.DistributionMap(),
-                                      numscal,1));
+                                      numscal,1,MFInfo(),Factory()));
     MultiFab::Copy(*Ssync_sav[lev],Ssync_lev,0,0,numscal,1);
 
     const MultiFab& Vsync_lev = getLevel(lev).Vsync;
     Vsync_sav[lev].reset(new MultiFab(Vsync_lev.boxArray(),
                                       Vsync_lev.DistributionMap(),
-                                      BL_SPACEDIM,1));
+                                      BL_SPACEDIM,1,MFInfo(),Factory()));
     MultiFab::Copy(*Vsync_sav[lev],Vsync_lev,0,0,BL_SPACEDIM,1);
   }
 
@@ -6168,7 +6173,7 @@ PeleLM::mac_sync ()
       last_mac_sync_iter=false;
     }
 
-    MultiFab chi_sync_increment(grids,dmap,1,0);
+    MultiFab chi_sync_increment(grids,dmap,1,0,MFInfo(),Factory());
 
     for (int lev=level; lev<=finest_level; lev++)
     {
@@ -6497,7 +6502,7 @@ PeleLM::mac_sync ()
 }
 
         // take divergence of beta grad delta Wbar and multiply divergence by dt/2
-        MultiFab DWbar(grids,dmap,nspecies,nGrowAdvForcing);
+        MultiFab DWbar(grids,dmap,nspecies,nGrowAdvForcing,MFInfo(),Factory());
         MultiFab* const * fluxWbar = SpecDiffusionFluxWbar;
         flux_divergence(DWbar,0,fluxWbar,0,nspecies,-1);
         DWbar.mult(dt/2.0);
@@ -6563,7 +6568,7 @@ PeleLM::mac_sync ()
                   
         getDiffusivity(rhoh_visc, tnp1, RhoH, 0, 1); // RhoH (lambda/cp)
 	  
-        MultiFab Soln(grids,dmap,1,1);
+        MultiFab Soln(grids,dmap,1,1,MFInfo(),Factory());
 
         // compute lambda/cp grad (delta Y_m^sync)
         for (int comp = 0; comp < nspecies; ++comp)
@@ -6849,7 +6854,7 @@ PeleLM::mac_sync ()
       const BoxArray& fine_grids = S_new_lev.boxArray();
       const DistributionMapping& fine_dmap  = S_new_lev.DistributionMap();
       const int nghost           = S_new_lev.nGrow();
-      MultiFab increment(fine_grids, fine_dmap, numscal, nghost);
+      MultiFab increment(fine_grids, fine_dmap, numscal, nghost,MFInfo(),Factory());
       increment.setVal(0,nghost);
       //
       // Note: we use the lincc_interp (which_interp==3) for density,
@@ -6981,7 +6986,7 @@ PeleLM::compute_Wbar_fluxes(Real time,
 
   int nGrowOp = 1;
 
-  MultiFab rho_and_species(grids,dmap,nspecies+1,nGrowOp);
+  MultiFab rho_and_species(grids,dmap,nspecies+1,nGrowOp,MFInfo(),Factory());
 
   FillPatchIterator fpi(*this,rho_and_species,nGrowOp,time,State_Type,Density,nspecies+1);
   MultiFab& mf= fpi.get_mf();
@@ -7071,7 +7076,7 @@ PeleLM::compute_Wbar_fluxes(Real time,
     crse_br.setVal(1.e200);
     MultiFab Wbar_crse(rho_and_species_crse.boxArray(),
                        rho_and_species_crse.DistributionMap(),
-                       1,nGrowCrse);
+                       1,nGrowCrse,MFInfo(),Factory());
 #ifdef _OPENMP
 #pragma omp parallel
 #endif
@@ -7153,7 +7158,7 @@ PeleLM::differential_spec_diffuse_sync (Real dt,
   MultiFab **betanp1 = fb_betanp1.get();
   getDiffusivity(betanp1, tnp1, first_spec, 0, nspecies); // species
 
-  MultiFab Rhs(grids,dmap,nspecies,0);
+  MultiFab Rhs(grids,dmap,nspecies,0,MFInfo(),Factory());
   const int spec_Ssync_sComp = first_spec - BL_SPACEDIM;
 
   //
@@ -7718,7 +7723,7 @@ PeleLM::compute_vel_visc (Real      time,
   BL_ASSERT(nGrow == 1);
   BL_ASSERT(first_spec == Density+1);
 
-  MultiFab dummy(grids,dmap,1,0,MFInfo().SetAlloc(false));
+  MultiFab dummy(grids,dmap,1,0,MFInfo().SetAlloc(false),Factory());
 
   FillPatchIterator Temp_fpi(*this,dummy,nGrow,time,State_Type,Temp,1),
          Rho_and_spec_fpi(*this,dummy,nGrow,time,State_Type,Density,nspecies+1);
@@ -7768,7 +7773,7 @@ PeleLM::calc_divu (Real      time,
   MultiFab  mcViscTerms;
 
 #ifdef USE_WBAR
-  MultiFab DWbar_temp(grids,dmap,nspecies,nGrowAdvForcing);
+  MultiFab DWbar_temp(grids,dmap,nspecies,nGrowAdvForcing,MFInfo(),Factory());
 #endif
 
   vtCompT = nspecies + 1;
@@ -7879,7 +7884,7 @@ PeleLM::calc_dpdt (Real      time,
 
   const int pComp = (have_rhort ? RhoRT : Trac);
   int nGrow = dpdt.nGrow();
-  MultiFab Peos(grids,dmap,1,nGrow);
+  MultiFab Peos(grids,dmap,1,nGrow,MFInfo(),Factory());
   FillPatchIterator S_fpi(*this,Peos,nGrow,time,State_Type,pComp,1);
   MultiFab& Smf=S_fpi.get_mf();
   
