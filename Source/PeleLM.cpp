@@ -5089,7 +5089,7 @@ PeleLM::advance (Real time,
   {
     for (MFIter mfi(Forcing,true); mfi.isValid(); ++mfi) 
     {
-      const Box& box = mfi.validbox();
+      const Box& box = mfi.tilebox();
       FArrayBox& f = Forcing[mfi];
       const FArrayBox& a = (*aofs)[mfi];
       const FArrayBox& dn = Dn[mfi];
