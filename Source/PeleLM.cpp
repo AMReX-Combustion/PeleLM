@@ -36,6 +36,10 @@
 #include <AMReX_AmrData.H>
 #endif
 
+#ifdef AMREX_USE_SUNDIALS_3x4x 
+#include <actual_Creactor.h>
+#endif
+
 #include <Prob_F.H>
 #include <NAVIERSTOKES_F.H>
 #include <DERIVE_F.H>
@@ -161,6 +165,7 @@ bool PeleLM::plot_reactions;
 bool PeleLM::plot_consumption;
 bool PeleLM::plot_heat_release;
 int  PeleLM::cvode_iE;
+int  PeleLM::cvode_ncells;
 static bool plot_rhoydot;
 bool PeleLM::flag_active_control;
 Real PeleLM::new_T_threshold;
@@ -615,6 +620,7 @@ PeleLM::Initialize ()
   PeleLM::num_mac_sync_iter         = 1;
   PeleLM::mHtoTiterMAX              = 20;
   PeleLM::cvode_iE                  = 2;
+  PeleLM::cvode_ncells              = 1;
 
   ParmParse pp("ns");
 
@@ -4700,6 +4706,7 @@ PeleLM::predict_velocity (Real  dt)
                                 D_DECL(bndry[0], bndry[1], bndry[2]),
                                 Ufab, tforces);
 
+
       for (int d=0; d<BL_SPACEDIM; ++d) {
         const Box& ebx = U_mfi.nodaltilebox(d);
         u_mac[d][U_mfi].copy(Uface[d],ebx,0,ebx,0,1);
@@ -5195,7 +5202,7 @@ PeleLM::advance (Real time,
   {
     for (MFIter mfi(Forcing,true); mfi.isValid(); ++mfi) 
     {
-      const Box& box = mfi.validbox();
+      const Box& box = mfi.tilebox();
       FArrayBox& f = Forcing[mfi];
       const FArrayBox& a = (*aofs)[mfi];
       const FArrayBox& dn = Dn[mfi];
@@ -5609,22 +5616,24 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
 
   if (hack_nochem)
   {
-    FArrayBox tmp;
 #ifdef _OPENMP
 #pragma omp parallel
 #endif
-    for (MFIter mfi(mf_old,true); mfi.isValid(); ++mfi)
     {
-      const Box& box = mfi.tilebox();
-      tmp.resize(box,nspecies+1);
-      const FArrayBox& f = Force[mfi];
-      tmp.copy(f,box,0,box,0,nspecies+1);
-      tmp.mult(dt,box,0,nspecies+1);
-      FArrayBox& Sold = mf_old[mfi];
-      FArrayBox& Snew = mf_new[mfi];
-      Snew.copy(Sold,box,first_spec,box,first_spec,nspecies+1);
-      Snew.plus(tmp,box,box,0,first_spec,nspecies+1);
-      Snew.copy(Sold,box,Temp,box,Temp,1);
+        FArrayBox tmp;
+        for (MFIter mfi(mf_old,true); mfi.isValid(); ++mfi)
+        {
+            const Box& box = mfi.tilebox();
+            tmp.resize(box,nspecies+1);
+            const FArrayBox& f = Force[mfi];
+            tmp.copy(f,box,0,box,0,nspecies+1);
+            tmp.mult(dt,box,0,nspecies+1);
+            FArrayBox& Sold = mf_old[mfi];
+            FArrayBox& Snew = mf_new[mfi];
+            Snew.copy(Sold,box,first_spec,box,first_spec,nspecies+1);
+            Snew.plus(tmp,box,box,0,first_spec,nspecies+1);
+            Snew.copy(Sold,box,Temp,box,Temp,1);
+        }
     }
   }
   else
