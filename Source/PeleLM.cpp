@@ -6030,15 +6030,14 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
 }
 
 // EM_DEBUG
-
-VisMF::Write(*aofs,"aofs");
-
-
-  VisMF::Write(*EdgeFlux[0],"EdgeFlux_x");
-  VisMF::Write(*EdgeState[0],"EdgeState_x");
-  
-  VisMF::Write(*EdgeFlux[1],"EdgeFlux_y");
-  VisMF::Write(*EdgeState[1],"EdgeState_y");
+//VisMF::Write(*aofs,"aofs");
+//
+//
+//  VisMF::Write(*EdgeFlux[0],"EdgeFlux_x");
+//  VisMF::Write(*EdgeState[0],"EdgeState_x");
+//  
+//  VisMF::Write(*EdgeFlux[1],"EdgeFlux_y");
+//  VisMF::Write(*EdgeState[1],"EdgeState_y");
   
   
   
