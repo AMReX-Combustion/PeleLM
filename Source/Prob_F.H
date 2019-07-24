@@ -38,19 +38,6 @@
                                  const amrex::Real* dx,
                                  const amrex::Real* xlo, const amrex::Real* xhi);
                                  
-      void set_prob_spec (const int* fuelID,
-			                    const int* oxidID,
-			                    const int* prodID,
-			                    const int* numspec);
-     
-     void flame_tracer_error (int* tag, ARLIM_P(tlo), ARLIM_P(thi),
-                          const int* tagval, const int* clearval,
-                          amrex::Real* data, ARLIM_P(data_lo), ARLIM_P(data_hi),
-                          const int* lo, const int* hi, const int* nvar,
-                          const int* domain_lo, const int* domain_hi,
-                          const amrex::Real* dx, const amrex::Real* xlo,
-                          const amrex::Real* prob_lo, const amrex::Real* time,
-                          const int* level);
 
      void drhomry
                           (amrex::Real* data, ARLIM_P(dat_lo), ARLIM_P(dat_hi),
@@ -63,6 +50,26 @@
                            const int* level, const int* grid_no) ;
 
      void dsrhoydot
+                          (amrex::Real* data, ARLIM_P(dat_lo), ARLIM_P(dat_hi),
+                           const int* nvar, const amrex::Real* compdat,
+                           ARLIM_P(clo), ARLIM_P(chi), const int* ncomp,
+                           const int* lo, const int* hi,
+                           const int* domain_lo, const int* domain_hi,
+                           const amrex::Real* delta, const amrex::Real* xlo,
+                           const amrex::Real* time,  const amrex::Real* dt, const int* bcrec,
+                           const int* level, const int* grid_no) ;
+
+     void derRhoY
+                          (amrex::Real* data, ARLIM_P(dat_lo), ARLIM_P(dat_hi),
+                           const int* nvar, const amrex::Real* compdat,
+                           ARLIM_P(clo), ARLIM_P(chi), const int* ncomp,
+                           const int* lo, const int* hi,
+                           const int* domain_lo, const int* domain_hi,
+                           const amrex::Real* delta, const amrex::Real* xlo,
+                           const amrex::Real* time,  const amrex::Real* dt, const int* bcrec,
+                           const int* level, const int* grid_no) ;
+                          
+     void dermassfrac
                           (amrex::Real* data, ARLIM_P(dat_lo), ARLIM_P(dat_hi),
                            const int* nvar, const amrex::Real* compdat,
                            ARLIM_P(clo), ARLIM_P(chi), const int* ncomp,
@@ -92,6 +99,16 @@
                            const amrex::Real* time,  const amrex::Real* dt, const int* bcrec,
                            const int* level, const int* grid_no) ;
 
+     void dertransportcoeff
+                          (amrex::Real* data, ARLIM_P(dat_lo), ARLIM_P(dat_hi),
+                           const int* nvar, const amrex::Real* compdat,
+                           ARLIM_P(clo), ARLIM_P(chi), const int* ncomp,
+                           const int* lo, const int* hi,
+                           const int* domain_lo, const int* domain_hi,
+                           const amrex::Real* delta, const amrex::Real* xlo,
+                           const amrex::Real* time,  const amrex::Real* dt, const int* bcrec,
+                           const int* level, const int* grid_no) ;
+
      void FORT_DERNULL
                           (amrex::Real* data, ARLIM_P(dat_lo), ARLIM_P(dat_hi),
                            const int* nvar, const amrex::Real* compdat,
@@ -102,33 +119,6 @@
 			                     const amrex::Real* time,  const amrex::Real* dt, const int* bcrec, 
                            const int* level, const int* grid_no) ;
 
-     void temp_error(int* tag, ARLIM_P(tag_lo), ARLIM_P(tag_hi),
-                     const int* tagval, const int* clearval,
-                     amrex::Real* data, ARLIM_P(data_lo), ARLIM_P(data_hi),
-                     const int* lo, const int* hi,
-                     const int* ncomp,
-                     const int* domlo, const int* domhi,
-                     const amrex::Real* dx, const amrex::Real* grd_lo, const amrex::Real* problo,
-                     const amrex::Real* time, const int* level);
-    
-     void mv_error(int* tag, ARLIM_P(tag_lo), ARLIM_P(tag_hi),
-                     const int* tagval, const int* clearval,
-                     amrex::Real* data, ARLIM_P(data_lo), ARLIM_P(data_hi),
-                     const int* lo, const int* hi,
-                     const int* ncomp,
-                     const int* domlo, const int* domhi,
-                     const amrex::Real* dx, const amrex::Real* grd_lo, const amrex::Real* problo,
-                     const amrex::Real* time, const int* level);
-     
-     void adv_error(int* tag, ARLIM_P(tag_lo), ARLIM_P(tag_hi),
-                     const int* tagval, const int* clearval,
-                     amrex::Real* data, ARLIM_P(data_lo), ARLIM_P(data_hi),
-                     const int* lo, const int* hi,
-                     const int* ncomp,
-                     const int* domlo, const int* domhi,
-                     const amrex::Real* dx, const amrex::Real* grd_lo, const amrex::Real* problo,
-                     const amrex::Real* time, const int* level);
-    
      void rhoh_fill (amrex::Real* data, ARLIM_P(data_lo), ARLIM_P(data_hi),
                          const int* dom_lo, const int* dom_hi,
                          const amrex::Real* dx, const amrex::Real* grd_lo,
@@ -139,17 +129,17 @@
                         const amrex::Real* dx, const amrex::Real* grd_lo,
                         const amrex::Real* time, const int* bc);
      
-     void FORT_XVELFILL (amrex::Real* data, ARLIM_P(data_lo), ARLIM_P(data_hi),
+     void xvel_fill (amrex::Real* data, ARLIM_P(data_lo), ARLIM_P(data_hi),
                         const int* dom_lo, const int* dom_hi,
                         const amrex::Real* dx, const amrex::Real* grd_lo,
                         const amrex::Real* time, const int* bc);
 
-     void FORT_YVELFILL (amrex::Real* data, ARLIM_P(data_lo), ARLIM_P(data_hi),
+     void yvel_fill (amrex::Real* data, ARLIM_P(data_lo), ARLIM_P(data_hi),
                         const int* dom_lo, const int* dom_hi,
                         const amrex::Real* dx, const amrex::Real* grd_lo,
                         const amrex::Real* time, const int* bc);
      
-     void FORT_ZVELFILL (amrex::Real* data, ARLIM_P(data_lo), ARLIM_P(data_hi),
+     void zvel_fill (amrex::Real* data, ARLIM_P(data_lo), ARLIM_P(data_hi),
                         const int* dom_lo, const int* dom_hi,
                         const amrex::Real* dx, const amrex::Real* grd_lo,
                         const amrex::Real* time, const int* bc);

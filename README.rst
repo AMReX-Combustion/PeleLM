@@ -3,7 +3,11 @@ PeleLM - README
 
 `PeleLM` is an adaptive-mesh low Mach number hydrodynamics code for reacting flows.  `PeleLM` has a project
 `homepage <https://amrex-combustion.github.io/PeleLM/>`_, and can be obtained via
-`GitHub <https://github.com/AMReX-Combustion/PeleLM>`_.
+`GitHub <https://github.com/AMReX-Combustion/PeleLM>`_.  Visit the
+`PeleLM Wiki <https://github.com/AMReX-Combustion/PeleLM/wiki>`_ to sign up for the PeleLM user forum, where
+updates and significant changes will be posted.  The forum is also where general questions can be posted about
+building and running the code, processing code output, and details about the algorithm and its implementation.
+
 
 Current project build status
 ----------------------------
