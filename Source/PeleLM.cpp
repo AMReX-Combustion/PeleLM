@@ -5785,7 +5785,7 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
     }
 
     MultiFab&  React_new = get_new_data(RhoYdot_Type);
-    const int  ngrow     = std::min(std::min(React_new.nGrow(),mf_old.nGrow()),mf_new.nGrow());
+    const int  ngrow     = std::min(std::min(React_new.nGrow(),mf_old.nGrow()),mf_new.nGrow()); 
     //
     // Chop the grids to level out the chemistry work.
     // We want enough grids so that KNAPSACK works well,
@@ -5817,19 +5817,8 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
 
     DistributionMapping dm = getFuncCountDM(ba,ngrow);
 
-    int sComp = std::min(std::min((int)first_spec,(int)Temp), RhoH );
-    int eComp = std::max(std::max((int)last_spec, (int)Temp), RhoH );
-    int nComp = eComp - sComp + 1;
-
-    const int s_spec = first_spec - sComp;
-    const int s_rhoh = RhoH - sComp;
-    const int s_temp = Temp - sComp;
-
     MultiFab diagTemp;
-
-//    ba = BoxArray(geom.Domain());	// single box
-
-    MultiFab STemp(ba, dm, nComp, 0);
+    MultiFab STemp(ba, dm, nspecies+3, 0);
     MultiFab fcnCntTemp(ba, dm, 1, 0);
     MultiFab FTemp(ba, dm, Force.nComp(), 0);
 
@@ -5844,9 +5833,8 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
     if (verbose) 
       amrex::Print() << "*** advance_chemistry: FABs in tmp MF: " << STemp.size() << '\n';
 
-    STemp.copy(mf_old,sComp,0,nComp); // Parallel copy.
-    FTemp.copy(Force);                // Parallel copy.
-
+    STemp.copy(mf_old,first_spec,0,nspecies+3); // Parallel copy.
+    FTemp.copy(Force);                          // Parallel copy.
 #ifdef _OPENMP
 #pragma omp parallel
 #endif  
@@ -5861,6 +5849,14 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
       // FORTRAN WAY OF CALLING DVODE IN PP
       //BoxArray ba = do_avg_down_chem ? amrex::complementIn(bx,cf_grids) : BoxArray(bx);
 
+      //for (int i = 0; i < ba.size(); ++i)
+      //{
+      //  const int s_spec = 0, s_rhoh = nspecies, s_temp = nspecies+2;
+
+      //  solveChemistry_sdc(rYn,rHn,Tn,rYo,rHo,To,frc,fc,ba[i],
+      //  		s_spec,s_rhoh,s_temp,dt,chemDiag,
+      //  		use_stiff_solver);
+      //}
       
       Real dt_incr = dt;
       Real time_init = 0;
@@ -5886,10 +5882,10 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
                       tmp_vect[sp]       = rhoY(i,j,k,sp) * 1.e-3;
 		      tmp_src_vect[sp]   = frcing(i,j,k,sp) * 1.e-3;
                   }    
-		  tmp_vect[nspecies]     = rhoY(i,j,k,nspecies+2);
+		  tmp_vect[nspecies]     = rhoY(i,j,k,nspecies+1);
 		  tmp_vect_energy[0]     = rhoY(i,j,k,nspecies) * 10.0;
 		  tmp_src_vect_energy[0] = frcing(i,j,k,nspecies) * 10.0;
-                  fcl(i,j,k) = react(tmp_vect, tmp_src_vect,
+      fcl(i,j,k) = react(tmp_vect, tmp_src_vect,
 				  tmp_vect_energy, tmp_src_vect_energy,
 				  &pressure, &dt_incr, &time_init, &reInit);
 
@@ -5900,7 +5896,7 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
                           amrex::Abort("NaNs !! ");
                       }
 		  }
-		  rhoY(i,j,k,nspecies+2)  = tmp_vect[nspecies]; 
+		  rhoY(i,j,k,nspecies+1)  = tmp_vect[nspecies]; 
                   if (rhoY(i,j,k,nspecies+2) != rhoY(i,j,k,nspecies+2)) {
                       amrex::Abort("NaNs !! ");
                   }
@@ -5917,9 +5913,10 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
 
     FTemp.clear();
 
-    mf_new.copy(STemp,0,sComp,nComp); // Parallel copy.
+    mf_new.copy(STemp,0,first_spec,nspecies+3); // Parallel copy.
 
     STemp.clear();
+
     //
     // Set React_new (I_R).
     //
