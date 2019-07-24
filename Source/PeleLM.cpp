@@ -541,10 +541,7 @@ PeleLM::Initialize ()
   crse_dt                 = -1;
   chem_box_chop_threshold = -1;
 
-  num_deltaT_iters_MAX    = 10;
-  deltaT_norm_max         = 1.e-10;
-  num_forkjoin_tasks      = 1;
-  forkjoin_verbose        = false;
+
 
   // These two flags below belong to the NavierStokesBase class in IAMR,
   // we set them to 1 by default even if later we do a constant mu and/or lambda
@@ -708,15 +705,6 @@ PeleLM::Initialize ()
   for (int i = 0; i < visc_coef.size(); i++)
     visc_coef[i] = bogus_value;
 
-
-  ParmParse pplm("pelelm");
-  pplm.query("num_forkjoin_tasks",num_forkjoin_tasks);
-  pplm.query("forkjoin_verbose",forkjoin_verbose);
-  pplm.query("num_deltaT_iters_MAX",num_deltaT_iters_MAX);
-  pplm.query("deltaT_norm_max",deltaT_norm_max);
-  pplm.query("deltaT_verbose",deltaT_verbose);
-  verbose = pplm.contains("v");
-
   // Get some useful amr inputs
   ParmParse ppa("amr");
   ppa.query("probin_file",probin_file);
@@ -773,13 +761,25 @@ PeleLM::Initialize ()
 void
 PeleLM::Initialize_specific ()
 {
-    ParmParse pp("peleLM");
+  
+    num_deltaT_iters_MAX    = 10;
+    deltaT_norm_max         = 1.e-10;
+    num_forkjoin_tasks      = 1;
+    forkjoin_verbose        = false;
+  
+    ParmParse pplm("peleLM");
+    
+    pplm.query("num_forkjoin_tasks",num_forkjoin_tasks);
+    pplm.query("forkjoin_verbose",forkjoin_verbose);
+    pplm.query("num_deltaT_iters_MAX",num_deltaT_iters_MAX);
+    pplm.query("deltaT_norm_max",deltaT_norm_max);
+    pplm.query("deltaT_verbose",deltaT_verbose);
     
     // Get boundary conditions
     Vector<std::string> lo_bc_char(BL_SPACEDIM);
     Vector<std::string> hi_bc_char(BL_SPACEDIM);
-    pp.getarr("lo_bc",lo_bc_char,0,BL_SPACEDIM);
-    pp.getarr("hi_bc",hi_bc_char,0,BL_SPACEDIM);
+    pplm.getarr("lo_bc",lo_bc_char,0,BL_SPACEDIM);
+    pplm.getarr("hi_bc",hi_bc_char,0,BL_SPACEDIM);
 
     Vector<int> lo_bc(BL_SPACEDIM), hi_bc(BL_SPACEDIM);
     for (int dir = 0; dir<BL_SPACEDIM; dir++){
