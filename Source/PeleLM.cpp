@@ -245,7 +245,7 @@ PeleLM::compute_rhohmix (Real      time,
   const Real strt_time = ParallelDescriptor::second();
   const TimeLevel whichTime = which_time(State_Type,time);
   BL_ASSERT(whichTime == AmrOldTime || whichTime == AmrNewTime);
-  MultiFab& smf = (whichTime == AmrOldTime) ? get_old_data(State_Type): get_new_data(State_Type);
+  const MultiFab& smf = (whichTime == AmrOldTime) ? get_old_data(State_Type): get_new_data(State_Type);
 
 #ifdef _OPENMP
 #pragma omp parallel
@@ -256,18 +256,17 @@ PeleLM::compute_rhohmix (Real      time,
     for (MFIter mfi(rhohmix, true); mfi.isValid(); ++mfi)
     {
       const Box& bx = mfi.tilebox();
-      FArrayBox& sfab  = smf[mfi];
+      const FArrayBox& sfab  = smf[mfi];
 
       tmp.resize(bx,nspecies+1);
       tmp.copy(sfab,Density,0,nspecies+1);
 
       tmp.invert(1.0,bx,0,1);
       for (int k = 0; k < nspecies; k++) {
-        sfab.mult(tmp,0,k+1,1);
+        tmp.mult(tmp,0,k+1,1);
       }
 	    
-      getHmixGivenTY_pphys(rhohmix[mfi],sfab,tmp,bx,
-                                    Temp,1,dComp);
+      getHmixGivenTY_pphys(rhohmix[mfi],sfab,tmp,bx,Temp,1,dComp);
       rhohmix[mfi].mult(sfab,bx,Density,dComp,1);
 
     }
