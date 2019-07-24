@@ -245,7 +245,7 @@ PeleLM::compute_rhohmix (Real      time,
   const Real strt_time = ParallelDescriptor::second();
   const TimeLevel whichTime = which_time(State_Type,time);
   BL_ASSERT(whichTime == AmrOldTime || whichTime == AmrNewTime);
-  const MultiFab& smf = (whichTime == AmrOldTime) ? get_old_data(State_Type): get_new_data(State_Type);
+  MultiFab& smf = (whichTime == AmrOldTime) ? get_old_data(State_Type): get_new_data(State_Type);
 
 #ifdef _OPENMP
 #pragma omp parallel
@@ -4254,7 +4254,7 @@ PeleLM::compute_differential_diffusion_fluxes (const MultiFab& S,
 
   std::array<LinOpBCType,AMREX_SPACEDIM> mlmg_lobc;
   std::array<LinOpBCType,AMREX_SPACEDIM> mlmg_hibc;
-  Diffusion::setDomainBC_msd(mlmg_lobc, mlmg_hibc, bc); // Same for all comps, by assumption
+  Diffusion::setDomainBC(mlmg_lobc, mlmg_hibc, bc); // Same for all comps, by assumption
   op.setDomainBC(mlmg_lobc, mlmg_hibc);
 
   const MultiFab *aVec[AMREX_SPACEDIM];
@@ -4262,88 +4262,53 @@ PeleLM::compute_differential_diffusion_fluxes (const MultiFab& S,
       aVec[d] = &(area[d]);
   }
 
-  ParmParse ppd("diffuse");
-  bool use_mlmg_solver = false;
-  ppd.query("use_mlmg_solver",use_mlmg_solver);
-
   for (int icomp = 0; icomp < nspecies+1; ++icomp)
   {
     const int sigma = first_spec + icomp;
 
-    if (use_mlmg_solver)
     {
-      {
-        if (has_coarse_data) {
-          MultiFab::Copy(*Solnc,*Scrse,sigma,0,1,nGrow);
-          if (rho_flag == 2) {
-            MultiFab::Divide(*Solnc,*Scrse,Density,0,1,nGrow);
-          }
-          op.setCoarseFineBC(Solnc.get(), crse_ratio[0]);
-        }
-        MultiFab::Copy(Soln,S,sigma,0,1,nGrow);
+      if (has_coarse_data) {
+        MultiFab::Copy(*Solnc,*Scrse,sigma,0,1,nGrow);
         if (rho_flag == 2) {
-          MultiFab::Divide(Soln,S,Density,0,1,nGrow);
+          MultiFab::Divide(*Solnc,*Scrse,Density,0,1,nGrow);
         }
-        op.setLevelBC(0, &Soln);
+        op.setCoarseFineBC(Solnc.get(), crse_ratio[0]);
       }
+      MultiFab::Copy(Soln,S,sigma,0,1,nGrow);
+      if (rho_flag == 2) {
+        MultiFab::Divide(Soln,S,Density,0,1,nGrow);
+      }
+      op.setLevelBC(0, &Soln);
+    }
 
-      {
+    {  
 
 //	Print() << "Doing the RZ geometry - zero" << std::endl;
 //	VisMF::Write(rh,"rh_cddf");
 
-        Real* rhsscale = 0;
-        std::pair<Real,Real> scalars;
-        Diffusion::computeAlpha(Alpha, scalars, a, b, rh, rho_flag,
-                                    rhsscale, alpha_in, alpha_in_comp+icomp, &S, Density,
-                                    geom, volume, add_hoop_stress);
-        op.setScalars(scalars.first, scalars.second);
-        op.setACoeffs(0, Alpha);
-      }
+       Real* rhsscale = 0;
+       std::pair<Real,Real> scalars;
+       Diffusion::computeAlpha(Alpha, scalars, a, b, rh, rho_flag,
+                               rhsscale, alpha_in, alpha_in_comp+icomp, &S, Density,
+                               geom, volume, add_hoop_stress);
+       op.setScalars(scalars.first, scalars.second);
+       op.setACoeffs(0, Alpha);
+    }
         
-      {
-        Diffusion::computeBeta(bcoeffs, beta, betaComp+icomp, geom, aVec);
-        op.setBCoeffs(0, amrex::GetArrOfConstPtrs(bcoeffs));
-      }
-
-      AMREX_D_TERM(MultiFab flxx(*flux[0], amrex::make_alias, fluxComp+icomp, 1);,
-                   MultiFab flxy(*flux[1], amrex::make_alias, fluxComp+icomp, 1);,
-                   MultiFab flxz(*flux[2], amrex::make_alias, fluxComp+icomp, 1););
-      std::array<MultiFab*,AMREX_SPACEDIM> fp{AMREX_D_DECL(&flxx,&flxy,&flxz)};
-      mg.getFluxes({fp},{&Soln});
-      // Remove scaling left in fluxes from solve. 
-      for (int i = 0; i < BL_SPACEDIM; ++i)
-        (*flux[i]).mult(b/(geom.CellSize()[i]),fluxComp+icomp,1,0);
-    }
-    else
     {
-      Abort("Run with diffuse.use_mlmg_solver=1.  The =0 case is not yet debugged.");
-      ViscBndry visc_bndry_0(grids,dmap,1,geom);
-      MultiFab::Copy(Soln,S,sigma,0,1,0);
-      MultiFab::Copy(*Solnc,*Scrse,sigma,0,1,nGrow);
-
-      const int nlev = (level ==0 ? 1 : 2);
-      Vector<MultiFab*> Svec(nlev,0);
-      Svec[0] = &Soln;
-      if (nlev>1) {
-        Svec[1] = Solnc.get();
-      }
-
-      std::unique_ptr<ABecLaplacian> visc_op
-        (Diffusion::getViscOp(a,b,visc_bndry_0,Svec,sigma,Svec,Density,
-                                  rh,rho_flag,0,beta,betaComp+icomp,alpha_in,alpha_in_comp+icomp,
-                                  Alpha,bcoeffs,bc,crse_ratio,geom,volume,aVec,add_hoop_stress));
-      visc_op->maxOrder(diffusion->maxOrder());
-
-      if (rho_flag == 2) {
-        MultiFab::Divide(Soln, S, Density, 0, 1, 0);
-      }
-      MultiFab Rhs(grids,dmap,1,nGrow);
-      visc_op->apply(Rhs,Soln);
-      visc_op->compFlux(D_DECL(*flux[0],*flux[1],*flux[2]),Soln,false,LinOp::Inhomogeneous_BC,0,fluxComp+icomp);
-      for (int i = 0; i < BL_SPACEDIM; ++i)
-        (*flux[i]).mult(-b/(geom.CellSize()[i]),fluxComp+icomp,1,0);
+      Diffusion::computeBeta(bcoeffs, beta, betaComp+icomp, geom, aVec);
+      op.setBCoeffs(0, amrex::GetArrOfConstPtrs(bcoeffs));
     }
+
+    AMREX_D_TERM(MultiFab flxx(*flux[0], amrex::make_alias, fluxComp+icomp, 1);,
+                 MultiFab flxy(*flux[1], amrex::make_alias, fluxComp+icomp, 1);,
+                 MultiFab flxz(*flux[2], amrex::make_alias, fluxComp+icomp, 1););
+    std::array<MultiFab*,AMREX_SPACEDIM> fp{AMREX_D_DECL(&flxx,&flxy,&flxz)};
+    mg.getFluxes({fp},{&Soln});
+    // Remove scaling left in fluxes from solve. 
+    for (int i = 0; i < BL_SPACEDIM; ++i)
+      (*flux[i]).mult(b/(geom.CellSize()[i]),fluxComp+icomp,1,0);
+
   }
 
   Soln.clear();
@@ -5953,7 +5918,7 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
 
     FTemp.clear();
 
-    mf_new.copy(STemp_new,0,sComp,nComp); // Parallel copy.
+    mf_new.copy(STemp,0,sComp,nComp); // Parallel copy.
 
     STemp.clear();
     //
@@ -6130,7 +6095,7 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
         }
 
         eH.resize(ebox,1);
-        getChemSolve().getHmixGivenTY(eH, edgestate[d], eY, ebox, nspecies+2, 0, 0);
+        getHmixGivenTY_pphys(eH, edgestate[d], eY, ebox, nspecies+2, 0, 0);
 
         edgestate[d].copy(eH,ebox,0,ebox,nspecies+1,1);      // Copy H into estate
         edgestate[d].mult(edgestate[d],ebox,0,nspecies+1,1); // Make H.Rho into estate

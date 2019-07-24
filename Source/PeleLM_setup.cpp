@@ -498,7 +498,7 @@ PeleLM::variableSetUp ()
   //
   // Set scale of chemical components, used in ODE solves
   //
-  std::string speciesScaleFile; pp.query("speciesScaleFile",speciesScaleFile);
+  std::string speciesScaleFile; ppns.query("speciesScaleFile",speciesScaleFile);
 
   // Fill spec_scalY that is not used anywhere anymore: FIXME 
   //if (! speciesScaleFile.empty())
@@ -506,7 +506,7 @@ PeleLM::variableSetUp ()
   //  amrex::Print() << "  Setting scale values for chemical species\n\n";
   //  getChemSolve().set_species_Yscales(speciesScaleFile);
   //}
-  int verbose_vode=0; pp.query("verbose_vode",verbose_vode);
+  int verbose_vode=0; ppns.query("verbose_vode",verbose_vode);
   if (verbose_vode!=0)
     pphys_set_verbose_vode();
 
