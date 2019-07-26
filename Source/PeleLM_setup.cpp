@@ -735,6 +735,13 @@ PeleLM::variableSetUp ()
   derive_lst.addComponent("enthalpy",desc_lst,State_Type,RhoH,1);
 
   //
+  // Molecular Weight
+  //
+  derive_lst.add("molweight",IndexType::TheCellType(),1,dermolweight,the_same_box);
+  derive_lst.addComponent("molweight",desc_lst,State_Type,Density,1);
+  derive_lst.addComponent("molweight",desc_lst,State_Type,first_spec,nspecies);
+  
+  //
   // Group Species Rho.Y (for ploting in plot file)
   //
   Vector<std::string> var_names_rhoY(nspecies);
