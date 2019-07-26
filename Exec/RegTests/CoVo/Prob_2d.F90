@@ -164,7 +164,7 @@ contains
       use network,   only: nspec
       use PeleLM_F,  only: pphys_getP1atm_MKS, pphys_get_spec_name2
       use PeleLM_2D, only: pphys_RHOfromPTY, pphys_HMIXfromTY
-      use mod_Fvar_def, only : Density, Temp, FirstSpec, RhoH, Trac, dim
+      use mod_Fvar_def, only : Density, Temp, FirstSpec, RhoH, dim
       use mod_Fvar_def, only : domnlo, maxspec
       use probdata_module, only: meanFlowDir, meanFlowMag, &
                                  T_mean, P_mean, &
@@ -199,8 +199,6 @@ contains
             do n = 1,Nspec
                scal(i,j,FirstSpec+n-1) = Yl(n)
             end do
-
-            scal(i,j,Trac) = 0.d0
 
             dx = x - xvort
             dy = y - yvort

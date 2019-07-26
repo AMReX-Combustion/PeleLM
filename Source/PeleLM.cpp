@@ -3770,7 +3770,7 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
       if (level > 0)
       {
         auto& vfr = getViscFluxReg();
-        auto& afr = getViscFluxReg();
+        auto& afr = getAdvFluxReg();
         vfr.FineAdd(*SpecDiffusionFluxnp1[d],d,0,first_spec,nspecies,dt);
         afr.FineAdd(*SpecDiffusionFluxnp1[d],d,nspecies+1,RhoH,1,dt);
         vfr.FineAdd(*SpecDiffusionFluxnp1[d],d,nspecies+2,RhoH,1,dt);
@@ -3779,9 +3779,9 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
       {
         auto& vfr = getLevel(level+1).getViscFluxReg();
         auto& afr = getLevel(level+1).getAdvFluxReg();
-	vfr.CrseInit((*SpecDiffusionFluxnp1[d]),d,0,first_spec,nspecies+1,-dt,FluxRegister::ADD);
-	afr.CrseInit((*SpecDiffusionFluxnp1[d]),d,nspecies+1,RhoH,-dt,FluxRegister::ADD);
-	vfr.CrseInit((*SpecDiffusionFluxnp1[d]),d,nspecies+2,RhoH,-dt,FluxRegister::ADD);
+	vfr.CrseInit((*SpecDiffusionFluxnp1[d]),d,0,first_spec,nspecies,-dt,FluxRegister::ADD);
+	afr.CrseInit((*SpecDiffusionFluxnp1[d]),d,nspecies+1,RhoH,1,-dt,FluxRegister::ADD);
+        vfr.CrseInit((*SpecDiffusionFluxnp1[d]),d,nspecies+2,RhoH,1,-dt,FluxRegister::ADD);
       }
     }
   }
@@ -6547,11 +6547,11 @@ PeleLM::mac_sync ()
         MultiFab::Add(Trhs,DT_post,0,0,1,0);
         MultiFab::Add(Trhs,DD_post,0,0,1,0);
         MultiFab::Add(Trhs,Trhs0,0,0,1,0);
-
+amrex::Print() << "CRASH HERE 1";
         // Save current T value, guess deltaT=0
-        MultiFab::Copy(Told,get_new_data(State_Type),Temp,0,1,1);
-        get_new_data(State_Type).setVal(0,Temp,1,1);
-
+        MultiFab::Copy(Told,get_new_data(State_Type),Temp,0,1,0);
+        get_new_data(State_Type).setVal(0,Temp,1,0);
+amrex::Print() << "CRASH HERE 2";
         int rho_flagT = 0; // Do not do rho-based hacking of the diffusion problem
         const Vector<int> diffuse_this_comp = {1};
         const bool add_hoop_stress = false; // Only true if sigma == Xvel && Geometry::IsRZ())
@@ -6653,11 +6653,25 @@ PeleLM::mac_sync ()
 
         for (int istate = first_spec; istate <= last_spec; istate++)
         {
-          MultiFab::Add(increment,increment,istate-BL_SPACEDIM,Density-BL_SPACEDIM,1,0);
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
+          for (MFIter mfi(increment,true); mfi.isValid(); ++mfi)
+          {
+            const Box& box = mfi.tilebox();
+            increment[mfi].plus(increment[mfi],box,
+                                istate-BL_SPACEDIM,Density-BL_SPACEDIM,1);
+          }
         }
       }
-
-      MultiFab::Add(S_new_lev,increment,0,Density,numscal,0);
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
+      for (MFIter mfi(increment,true); mfi.isValid(); ++mfi)
+      {
+        const Box& box = mfi.tilebox();
+        S_new_lev[mfi].plus(increment[mfi],box,0,Density,numscal);
+      }
 
       if (last_mac_sync_iter)
       {
