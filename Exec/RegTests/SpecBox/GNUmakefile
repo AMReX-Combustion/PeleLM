@@ -1,7 +1,7 @@
 TOP = ../../../../
 AMREX_HOME ?= ${TOP}/amrex
-IAMR_HOME ?= ${TOP}/IAMR
-PELELM_HOME ?= ${TOP}/PeleLM
+IAMR_HOME ?= ${TOP}/IAMR_diff_rearange
+PELELM_HOME ?= ${TOP}/PeleLM_diff_rearange
 
 #
 # Build configuration
@@ -16,7 +16,7 @@ PRECISION       = DOUBLE
 VERBOSE         = FALSE
 
 TINY_PROFILE = FALSE
-USE_WBAR = TRUE
+#USE_WBAR = TRUE
 
 DEFINES+=-DALWAYS_NEW_J
 

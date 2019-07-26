@@ -5270,6 +5270,7 @@ PeleLM::advance (Real time,
     }
 
 #ifdef USE_WBAR
+    const Real  cur_time  = state[State_Type].curTime();
     // Update Wbar fluxes, add divergence to RHS
     compute_Wbar_fluxes(cur_time,0);
     flux_divergence(DWbar,0,SpecDiffusionFluxWbar,0,nspecies,-1);
