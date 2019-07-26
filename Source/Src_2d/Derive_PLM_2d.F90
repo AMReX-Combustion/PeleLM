@@ -27,7 +27,7 @@ module derive_PLM_2D
  
   public :: derdvrho, dermprho, dermgvort, dermgdivu, deravgpres, dergrdpx, dergrdpy, &
             drhomry, dsrhoydot, drhort, dermassfrac, dermolefrac, derconcentration, &
-            dertransportcoeff
+            dertransportcoeff, dermolweight
 
 contains
  
@@ -925,4 +925,50 @@ contains
 
   end subroutine dertransportcoeff
 
+!=========================================================
+
+  subroutine dermolweight (x,DIMS(x),nv,dat,DIMS(dat),ncomp, &
+                          lo,hi,domlo,domhi,delta,xlo,time,dt,bc, &
+                          level,grid_no) &
+                          bind(C, name="dermolweight")
+
+    use network,        only : nspec
+    use fuego_chemistry
+
+    implicit none
+
+    integer    lo(dim), hi(dim)
+    integer    DIMDEC(x)
+    integer    DIMDEC(dat)
+    integer    domlo(dim), domhi(dim)
+    integer    nv, ncomp
+    integer    bc(dim,2,ncomp)
+    REAL_T     delta(dim), xlo(dim), time, dt
+    REAL_T     x(DIMV(x),nv)
+    REAL_T     dat(DIMV(dat),ncomp)
+    REAL_T Yt(nspec)
+    integer    level, grid_no
+
+    integer i,j,n
+    integer fS,rho
+    integer lo_chem(2),hi_chem(2)
+    data lo_chem /1,1/
+    data hi_chem /1,1/
+
+    rho = 1
+    fS = 2
+
+    do j=lo(2),hi(2)
+      do i=lo(1),hi(1)
+        do n = 1,Nspec
+          Yt(n) = dat(i,j,fS+n-1)/dat(i,j,rho)
+         enddo
+         
+         CALL CKMMWY(Yt,x(i,j,1))
+         
+      enddo
+    enddo
+
+  end subroutine dermolweight
+  
 end module derive_PLM_2D
