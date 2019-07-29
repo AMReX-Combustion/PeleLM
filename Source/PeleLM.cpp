@@ -1070,16 +1070,14 @@ LM_Error_Value::tagCells(int* tag, D_DECL(const int& tlo0,const int& tlo1,const 
 {
     BL_ASSERT(lmef);
 
-    /*
-      Will call tagging if:
-
-               min_level < 0 or if level < max_level
-                          AND
-               min_time > max_time or if min_time <= time <= max_time
-     */
-
-    if ((max_level < 0 || *level < max_level)
-        && ((min_time > max_time) || (*time >= min_time && *time <= max_time)))
+    bool max_level_applies = ( (max_level < 0) || ( (max_level >= 0) && (*level < max_level) ) );
+    bool valid_time_range = (min_time >= 0) && (max_time >= 0) && (min_time <= max_time);
+    bool in_valid_time_range = valid_time_range && (*time >= min_time ) && (*time <= max_time);
+    bool one_side_lo = !valid_time_range && (min_time >= 0) && (*time >= min_time);
+    bool one_side_hi = !valid_time_range && (max_time >= 0) && (*time <= max_time);
+    bool time_window_applies = in_valid_time_range || one_side_lo || one_side_hi || !valid_time_range;
+ 
+    if (max_level_applies && time_window_applies)
     {
       lmef(tag,D_DECL(tlo0,tlo1,tlo2),D_DECL(thi0,thi1,thi2),tagval,clearval,
            data,D_DECL(dlo0,dlo1,dlo2),D_DECL(dhi0,dhi1,dhi2), lo, hi, nvar,
@@ -1100,8 +1098,14 @@ LM_Error_Value::tagCells1(int* tag,
 {
     BL_ASSERT(lmef_box);
 
-    if ((max_level < 0 || *level < max_level)
-        && ((min_time > max_time) || (*time >= min_time && *time <= max_time)))
+    bool max_level_applies = ( (max_level < 0) || ( (max_level >= 0) && (*level < max_level) ) );
+    bool valid_time_range = (min_time >= 0) && (max_time >= 0) && (min_time <= max_time);
+    bool in_valid_time_range = valid_time_range && (*time >= min_time ) && (*time <= max_time);
+    bool one_side_lo = !valid_time_range && (min_time >= 0) && (*time >= min_time);
+    bool one_side_hi = !valid_time_range && (max_time >= 0) && (*time <= max_time);
+    bool time_window_applies = in_valid_time_range || one_side_lo || one_side_hi || !valid_time_range;
+ 
+    if (max_level_applies && time_window_applies)
     {
       lmef_box(tag,D_DECL(tlo0,tlo1,tlo2),D_DECL(thi0,thi1,thi2),tagval,clearval,
                box.lo(), box.hi(), lo, hi, domain_lo,domain_hi,dx,xlo,prob_lo,time, level);
