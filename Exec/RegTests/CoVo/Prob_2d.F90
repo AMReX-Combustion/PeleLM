@@ -41,7 +41,7 @@ contains
   
       
       use PeleLM_F,  only: pphys_getP1atm_MKS
-      use mod_Fvar_def, only : pamb, dpdt_factor, closed_chamber
+      use mod_Fvar_def, only : pamb
       use mod_Fvar_def, only : dim
       use probdata_module, only: meanFlowDir, meanFlowMag, &
                                  T_mean, P_mean, &
@@ -57,7 +57,7 @@ contains
  
       namelist /fortin/ meanFlowMag, meanFlowDir, T_mean, P_mean, &
                        xvort, yvort, rvort, forcevort  
-      namelist /heattransin/ pamb, dpdt_factor, closed_chamber
+      namelist /heattransin/ pamb
 
 
 !
@@ -91,8 +91,6 @@ contains
       
 !     Set defaults
       pamb = pphys_getP1atm_MKS()
-      dpdt_factor = 0.3d0
-      closed_chamber = 0
 
       meanFlowDir = 1.0
       meanFlowMag = 1.0d0

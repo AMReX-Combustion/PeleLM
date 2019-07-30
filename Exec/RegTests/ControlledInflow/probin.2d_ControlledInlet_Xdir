@@ -4,11 +4,9 @@
   standoff = -.022
 
   flame_dir = 1
-
  /
  &heattransin
   pamb = 101325.
-  dpdt_factor = 1.0
  /
   &control
   tau_control = 6.e-5

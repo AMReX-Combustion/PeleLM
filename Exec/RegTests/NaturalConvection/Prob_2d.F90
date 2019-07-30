@@ -41,7 +41,7 @@ contains
   
       
       use PeleLM_F,  only: pphys_getP1atm_MKS
-      use mod_Fvar_def, only : pamb, dpdt_factor, closed_chamber
+      use mod_Fvar_def, only : pamb
       use mod_Fvar_def, only : dim
       use probdata_module, only: T_mean, Tc, Th, epsilon
       use extern_probin_module, only: Prandtl_number, viscosity_mu_ref, viscosity_T_ref, viscosity_S,&
@@ -58,7 +58,7 @@ contains
       namelist /fortin/ T_mean, Tc, epsilon, Prandtl_number, viscosity_mu_ref, viscosity_T_ref, viscosity_S,&
          const_bulk_viscosity, const_diffusivity
 
-      namelist /heattransin/ pamb, dpdt_factor, closed_chamber
+      namelist /heattransin/ pamb
 
 
 !
@@ -92,8 +92,6 @@ contains
       
 !     Set defaults
       pamb = pphys_getP1atm_MKS()
-      dpdt_factor = 0.3d0
-      closed_chamber = 0
 
       Prandtl_number = 0.71d0
       viscosity_mu_ref = 1.68d-5
