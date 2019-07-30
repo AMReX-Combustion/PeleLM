@@ -24,7 +24,7 @@ module PeleLM_F
 
   public :: set_scal_numb, &
             set_ht_adim_common, get_pamb, &
-            get_closed_chamber, get_dpdt, set_common, active_control, &
+            set_common, active_control, &
             pphys_calc_src_sdc, pphys_getP1atm_MKS, &
             pphys_get_spec_name2, pphys_TfromHYpt, set_prob_spec
 
@@ -316,38 +316,6 @@ end subroutine plm_extern_init
   return
 
   end subroutine get_pamb
-
-!-----------------------------------------------------------------------
-
-  subroutine get_closed_chamber(closed_chamberout)bind(C, name="get_closed_chamber")
-
-    use mod_Fvar_def, only : closed_chamber
-
-    implicit none
-
-    integer closed_chamberout
-
-    closed_chamberout = closed_chamber
-
-  return
-
-  end subroutine get_closed_chamber
-      
-!-----------------------------------------------------------------------
-
-  subroutine get_dpdt(dpdt_factorout)bind(C, name="get_dpdt")
-
-    use mod_Fvar_def, only : dpdt_factor
-
-    implicit none
-
-    REAL_T dpdt_factorout
-
-    dpdt_factorout = dpdt_factor
-
-  return
-
-  end subroutine get_dpdt
 
 !=======================================================================
 

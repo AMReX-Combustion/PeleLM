@@ -112,6 +112,7 @@ Real PeleLM::p_amb_old;
 Real PeleLM::p_amb_new;
 Real PeleLM::dp0dt;
 Real PeleLM::thetabar;
+Real PeleLM::dpdt_factor;
 int  PeleLM::closed_chamber;
 int  PeleLM::num_divu_iters;
 int  PeleLM::init_once_done;
@@ -558,7 +559,6 @@ PeleLM::Initialize ()
 
   PeleLM::p_amb_old                 = -1.0;
   PeleLM::p_amb_new                 = -1.0;
-  PeleLM::closed_chamber            = 0;
   PeleLM::num_divu_iters            = 1;
   PeleLM::init_once_done            = 0;
   PeleLM::do_OT_radiation           = 0;
@@ -780,13 +780,16 @@ PeleLM::Initialize_specific ()
     pp.getarr("hi_bc",hi_bc_char,0,BL_SPACEDIM);
 
     Vector<int> lo_bc(BL_SPACEDIM), hi_bc(BL_SPACEDIM);
+    bool flag_closed_chamber = false;
     for (int dir = 0; dir<BL_SPACEDIM; dir++){
       if (!lo_bc_char[dir].compare("Interior")){
         lo_bc[dir] = 0;
       } else if (!lo_bc_char[dir].compare("Inflow")){
         lo_bc[dir] = 1;
+        flag_closed_chamber = true;
       } else if (!lo_bc_char[dir].compare("Outflow")){
         lo_bc[dir] = 2;
+        flag_closed_chamber = true;
       } else if (!lo_bc_char[dir].compare("Symmetry")){
         lo_bc[dir] = 3;
       } else if (!lo_bc_char[dir].compare("SlipWallAdiab")){
@@ -806,8 +809,10 @@ PeleLM::Initialize_specific ()
         hi_bc[dir] = 0;
       } else if (!hi_bc_char[dir].compare("Inflow")){
         hi_bc[dir] = 1;
+        flag_closed_chamber = true;
       } else if (!hi_bc_char[dir].compare("Outflow")){
         hi_bc[dir] = 2;
+        flag_closed_chamber = true;
       } else if (!hi_bc_char[dir].compare("Symmetry")){
         hi_bc[dir] = 3;
       } else if (!hi_bc_char[dir].compare("SlipWallAdiab")){
@@ -885,7 +890,16 @@ PeleLM::Initialize_specific ()
               }
             }
         }
-    }  
+    } 
+
+    PeleLM::closed_chamber            = 1;
+    if (flag_closed_chamber = true){
+      PeleLM::closed_chamber            = 0;
+    }
+
+    PeleLM::dpdt_factor = 1.0;
+    pp.query("dpdt_factor",dpdt_factor);
+
 }
 
 void
@@ -1242,8 +1256,6 @@ PeleLM::PeleLM ()
     get_pamb(&p_amb_new);
   }
 
-  get_closed_chamber(&closed_chamber);
-
   updateFluxReg = false;
 
   EdgeState              = 0;
@@ -1290,8 +1302,6 @@ PeleLM::PeleLM (Amr&            papa,
   {
     get_pamb(&p_amb_new);
   }
-
-  get_closed_chamber(&closed_chamber);
 
   updateFluxReg = false;
 
@@ -7621,9 +7631,6 @@ PeleLM::calc_dpdt (Real      time,
                    MultiFab* umac)
 {
   BL_PROFILE("HT::calc_dpdt()");
-
-  Real dpdt_factor;
-  get_dpdt(&dpdt_factor);
 
   // for open chambers, ambient pressure is constant in time
   Real p_amb = p_amb_old;

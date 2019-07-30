@@ -15,8 +15,6 @@ module mod_Fvar_def
   ! From htdata.H
   
   REAL_T  :: pamb = 101325.d0
-  REAL_T  :: dpdt_factor = 1.0
-  integer :: closed_chamber = 0
   
   integer :: Density, Temp, RhoH, Trac, FirstSpec, LastSpec
   

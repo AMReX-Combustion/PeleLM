@@ -9,8 +9,8 @@ geometry.prob_hi   = .016 .016 .016
 # >>>>>>>>>>>>>  BC FLAGS <<<<<<<<<<<<<<<<
 # Interior, Inflow, Outflow, Symmetry,
 # SlipWallAdiab, NoSlipWallAdiab, SlipWallIsotherm, NoSlipWallIsotherm
-peleLM.lo_bc = "Interior"  "Interior"  "Inflow"
-peleLM.hi_bc = "Interior"  "Interior"  "Outflow"
+peleLM.lo_bc = Interior  Interior  Inflow
+peleLM.hi_bc = Interior  Interior  Outflow
 
 #----------------------------TOP LEVEL INPUTS----------------------
 max_step  =  10000

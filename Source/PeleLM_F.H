@@ -122,10 +122,6 @@ extern "C" {
     
   void get_pamb(amrex::Real* pamb);
 
-  void get_closed_chamber(int* closed_chamber);
-
-  void get_dpdt(amrex::Real* dpdt_factor);
-
   void compute_rho_dgrad_hdot_grad_Y(const amrex::Real* dx,
                                       const int* lo, const int* hi,
                                       ARLIM_P(speclo),ARLIM_P(spechi), const amrex::Real* specdat,

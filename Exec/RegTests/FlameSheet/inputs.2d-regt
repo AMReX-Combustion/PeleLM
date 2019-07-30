@@ -9,8 +9,8 @@ geometry.prob_hi   = .016 .016 .016
 # >>>>>>>>>>>>>  BC FLAGS <<<<<<<<<<<<<<<<
 # Interior, Inflow, Outflow, Symmetry,
 # SlipWallAdiab, NoSlipWallAdiab, SlipWallIsotherm, NoSlipWallIsotherm
-peleLM.lo_bc = "Interior"  "Inflow"
-peleLM.hi_bc = "Interior"  "Outflow"
+peleLM.lo_bc = Interior  Inflow
+peleLM.hi_bc = Interior  Outflow
 
 #----------------------------TOP LEVEL INPUTS----------------------
 max_step  =  10000
@@ -174,4 +174,3 @@ fab.format = NATIVE
 
 fabarray.mfiter_tile_size = 8 8 8 
 amrex.regtest_reduction=1
-

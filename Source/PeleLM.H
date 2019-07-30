@@ -605,6 +605,7 @@ private:
   static amrex::Real thetabar;
 
   static int closed_chamber;
+  static amrex::Real dpdt_factor;
 
   //
   // Protected static data.
