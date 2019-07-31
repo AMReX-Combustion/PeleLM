@@ -5,7 +5,6 @@
  /
  &heattransin
   pamb = 101325.
-  dpdt_factor = 1.0
  /
  &control
   tau_control = 3.e-4

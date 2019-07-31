@@ -10,12 +10,11 @@ module mod_Fvar_def
   logical :: LeEQ1
 
   REAL_T  :: Pr, Sc
-  REAL_T  :: thickFac
+  REAL_T  :: thickFac = 1.d0
   
   ! From htdata.H
   
-  REAL_T  :: pamb, dpdt_factor
-  integer :: closed_chamber
+  REAL_T  :: pamb = 101325.d0
   
   integer :: Density, Temp, RhoH, Trac, FirstSpec, LastSpec
   

@@ -10,8 +10,6 @@
  /
  &heattransin
   pamb = 101325.
-  dpdt_factor = 1.0
-  closed_chamber = 1
  /
  &extern
  const_conductivity = 0.0

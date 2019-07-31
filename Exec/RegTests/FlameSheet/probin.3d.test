@@ -3,12 +3,9 @@
   V_in = .2280410684149
   standoff = -.022
   pertmag = 0.0004
-
-
  /
  &heattransin
   pamb = 101325.
-  dpdt_factor = .3
  /
  &control
   tau_control = 3.e-4

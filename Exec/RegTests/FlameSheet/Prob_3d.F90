@@ -41,7 +41,7 @@ contains
   subroutine amrex_probinit (init,name,namlen,problo,probhi) bind(c)
   
       use PeleLM_F,  only: pphys_getP1atm_MKS
-      use mod_Fvar_def, only : pamb, dpdt_factor, closed_chamber
+      use mod_Fvar_def, only : pamb
       use mod_Fvar_def, only : fuelID, domnhi, domnlo, dim
       use mod_Fvar_def, only : ac_hist_file, cfix, changemax_control, &
                                coft_old, controlvelmax, corr, dv_control, &
@@ -64,7 +64,7 @@ contains
 
       namelist /fortin/ V_in, &
                         standoff, pertmag
-      namelist /heattransin/ pamb, dpdt_factor
+      namelist /heattransin/ pamb
 
       namelist /control/ tau_control, sest, cfix, changeMax_control, h_control, &
           zbase_control, pseudo_gravity, istemp,corr,controlVelMax,navg_pnts
@@ -100,8 +100,6 @@ contains
       
 !     Set defaults
       pamb = pphys_getP1atm_MKS()
-      dpdt_factor = 0.3d0
-      closed_chamber = 0
 
       zbase_control = 0.d0
 

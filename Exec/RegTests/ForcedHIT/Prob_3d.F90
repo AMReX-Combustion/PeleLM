@@ -41,7 +41,7 @@ contains
   subroutine amrex_probinit (init,name,namlen,problo,probhi) bind(c)
   
       use PeleLM_F,  only: pphys_getP1atm_MKS
-      use mod_Fvar_def, only : pamb, dpdt_factor, closed_chamber
+      use mod_Fvar_def, only : pamb
       use mod_Fvar_def, only : domnhi, domnlo, dim
       use probdata_module, only : T_in, FTX, FTY, FTZ, TAT, TAP, FPX, FPY, FPZ, &
                                   FAX, FAY, FAZ, FPXX, FPYX, FPXY, FPYY, &
@@ -72,7 +72,7 @@ contains
       integer i
 
       namelist /fortin/ T_in
-      namelist /heattransin/ pamb, dpdt_factor, closed_chamber
+      namelist /heattransin/ pamb
       namelist /forcing/ spectrum_type, mode_start, nmodes, &
                       force_scale, forcing_time_scale_min, forcing_time_scale_max, &
                       forcing_time_scale_min, forcing_time_scale_max, &
@@ -120,7 +120,6 @@ contains
       
 !     Set defaults
       pamb = pphys_getP1atm_MKS()
-      closed_chamber = 1
 
       T_in = 300.0d0
 

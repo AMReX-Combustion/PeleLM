@@ -118,6 +118,7 @@ Real PeleLM::p_amb_old;
 Real PeleLM::p_amb_new;
 Real PeleLM::dp0dt;
 Real PeleLM::thetabar;
+Real PeleLM::dpdt_factor;
 int  PeleLM::closed_chamber;
 int  PeleLM::num_divu_iters;
 int  PeleLM::init_once_done;
@@ -551,7 +552,6 @@ PeleLM::Initialize ()
 
   PeleLM::p_amb_old                 = -1.0;
   PeleLM::p_amb_new                 = -1.0;
-  PeleLM::closed_chamber            = 0;
   PeleLM::num_divu_iters            = 1;
   PeleLM::init_once_done            = 0;
   PeleLM::do_OT_radiation           = 0;
@@ -781,13 +781,16 @@ PeleLM::Initialize_specific ()
     pplm.getarr("hi_bc",hi_bc_char,0,BL_SPACEDIM);
 
     Vector<int> lo_bc(BL_SPACEDIM), hi_bc(BL_SPACEDIM);
+    bool flag_closed_chamber = false;
     for (int dir = 0; dir<BL_SPACEDIM; dir++){
       if (!lo_bc_char[dir].compare("Interior")){
         lo_bc[dir] = 0;
       } else if (!lo_bc_char[dir].compare("Inflow")){
         lo_bc[dir] = 1;
+        flag_closed_chamber = true;
       } else if (!lo_bc_char[dir].compare("Outflow")){
         lo_bc[dir] = 2;
+        flag_closed_chamber = true;
       } else if (!lo_bc_char[dir].compare("Symmetry")){
         lo_bc[dir] = 3;
       } else if (!lo_bc_char[dir].compare("SlipWallAdiab")){
@@ -807,8 +810,10 @@ PeleLM::Initialize_specific ()
         hi_bc[dir] = 0;
       } else if (!hi_bc_char[dir].compare("Inflow")){
         hi_bc[dir] = 1;
+        flag_closed_chamber = true;
       } else if (!hi_bc_char[dir].compare("Outflow")){
         hi_bc[dir] = 2;
+        flag_closed_chamber = true;
       } else if (!hi_bc_char[dir].compare("Symmetry")){
         hi_bc[dir] = 3;
       } else if (!hi_bc_char[dir].compare("SlipWallAdiab")){
@@ -886,7 +891,16 @@ PeleLM::Initialize_specific ()
               }
             }
         }
-    }  
+    } 
+
+    PeleLM::closed_chamber            = 1;
+    if (flag_closed_chamber = true){
+      PeleLM::closed_chamber            = 0;
+    }
+
+    PeleLM::dpdt_factor = 1.0;
+    pp.query("dpdt_factor",dpdt_factor);
+
 }
 
 void
@@ -1072,16 +1086,14 @@ LM_Error_Value::tagCells(int* tag, D_DECL(const int& tlo0,const int& tlo1,const 
 {
     BL_ASSERT(lmef);
 
-    /*
-      Will call tagging if:
-
-               min_level < 0 or if level < max_level
-                          AND
-               min_time > max_time or if min_time <= time <= max_time
-     */
-
-    if ((max_level < 0 || *level < max_level)
-        && ((min_time > max_time) || (*time >= min_time && *time <= max_time)))
+    bool max_level_applies = ( (max_level < 0) || ( (max_level >= 0) && (*level < max_level) ) );
+    bool valid_time_range = (min_time >= 0) && (max_time >= 0) && (min_time <= max_time);
+    bool in_valid_time_range = valid_time_range && (*time >= min_time ) && (*time <= max_time);
+    bool one_side_lo = !valid_time_range && (min_time >= 0) && (*time >= min_time);
+    bool one_side_hi = !valid_time_range && (max_time >= 0) && (*time <= max_time);
+    bool time_window_applies = in_valid_time_range || one_side_lo || one_side_hi || !valid_time_range;
+ 
+    if (max_level_applies && time_window_applies)
     {
       lmef(tag,D_DECL(tlo0,tlo1,tlo2),D_DECL(thi0,thi1,thi2),tagval,clearval,
            data,D_DECL(dlo0,dlo1,dlo2),D_DECL(dhi0,dhi1,dhi2), lo, hi, nvar,
@@ -1102,8 +1114,14 @@ LM_Error_Value::tagCells1(int* tag,
 {
     BL_ASSERT(lmef_box);
 
-    if ((max_level < 0 || *level < max_level)
-        && ((min_time > max_time) || (*time >= min_time && *time <= max_time)))
+    bool max_level_applies = ( (max_level < 0) || ( (max_level >= 0) && (*level < max_level) ) );
+    bool valid_time_range = (min_time >= 0) && (max_time >= 0) && (min_time <= max_time);
+    bool in_valid_time_range = valid_time_range && (*time >= min_time ) && (*time <= max_time);
+    bool one_side_lo = !valid_time_range && (min_time >= 0) && (*time >= min_time);
+    bool one_side_hi = !valid_time_range && (max_time >= 0) && (*time <= max_time);
+    bool time_window_applies = in_valid_time_range || one_side_lo || one_side_hi || !valid_time_range;
+ 
+    if (max_level_applies && time_window_applies)
     {
       lmef_box(tag,D_DECL(tlo0,tlo1,tlo2),D_DECL(thi0,thi1,thi2),tagval,clearval,
                box.lo(), box.hi(), lo, hi, domain_lo,domain_hi,dx,xlo,prob_lo,time, level);
@@ -1240,8 +1258,6 @@ PeleLM::PeleLM ()
     get_pamb(&p_amb_new);
   }
 
-  get_closed_chamber(&closed_chamber);
-
   updateFluxReg = false;
 
   EdgeState              = 0;
@@ -1288,8 +1304,6 @@ PeleLM::PeleLM (Amr&            papa,
   {
     get_pamb(&p_amb_new);
   }
-
-  get_closed_chamber(&closed_chamber);
 
   updateFluxReg = false;
 
@@ -7728,9 +7742,6 @@ PeleLM::calc_dpdt (Real      time,
                    MultiFab* umac)
 {
   BL_PROFILE("HT::calc_dpdt()");
-
-  Real dpdt_factor;
-  get_dpdt(&dpdt_factor);
 
   // for open chambers, ambient pressure is constant in time
   Real p_amb = p_amb_old;
