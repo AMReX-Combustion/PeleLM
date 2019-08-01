@@ -9,6 +9,7 @@
 
 module prob_2D_module
 
+  use amrex_fort_module, only : dim=>amrex_spacedim
   use fuego_chemistry
 
   implicit none
@@ -42,7 +43,6 @@ contains
       
       use PeleLM_F,  only: pphys_getP1atm_MKS
       use mod_Fvar_def, only : pamb, dpdt_factor, closed_chamber
-      use mod_Fvar_def, only : dim
       use probdata_module, only: T_mean, Tc, Th, epsilon
       use extern_probin_module, only: Prandtl_number, viscosity_mu_ref, viscosity_T_ref, viscosity_S,&
          const_bulk_viscosity, const_diffusivity
@@ -156,11 +156,11 @@ contains
                            delta,xlo,xhi) &
                            bind(C, name="init_data")
                               
-      use network,   only: nspec
+      use network,   only: nspecies
       use PeleLM_F,  only: pphys_getP1atm_MKS, pphys_get_spec_name2
       use PeleLM_2D, only: pphys_RHOfromPTY, pphys_HMIXfromTY
-      use mod_Fvar_def, only : Density, Temp, FirstSpec, RhoH, Trac, dim, pamb
-      use mod_Fvar_def, only : domnlo, maxspec
+      use mod_Fvar_def, only : Density, Temp, FirstSpec, RhoH, Trac, pamb
+      use mod_Fvar_def, only : domnlo
       use probdata_module, only: T_mean
       
       implicit none
@@ -176,7 +176,7 @@ contains
 
 
       integer i, j, n
-      REAL_T x, y, Yl(maxspec), Patm
+      REAL_T x, y, Yl(nspecies), Patm
       REAL_T dx
 
 
@@ -195,7 +195,7 @@ contains
             Yl(1) = 0.233
             Yl(2) = 0.767
             
-            do n = 1,Nspec
+            do n = 1,nspecies
                scal(i,j,FirstSpec+n-1) = Yl(n)
             end do
 
@@ -220,7 +220,7 @@ contains
 
       do j = lo(2), hi(2)
          do i = lo(1), hi(1)
-            do n = 0,Nspec-1
+            do n = 0,nspecies-1
                scal(i,j,FirstSpec+n) = scal(i,j,FirstSpec+n)*scal(i,j,Density)
             enddo
             scal(i,j,RhoH) = scal(i,j,RhoH)*scal(i,j,Density)

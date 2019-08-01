@@ -19,7 +19,7 @@
 
 module derive_PLM_2D
 
-  use mod_Fvar_def, only : dim
+  use amrex_fort_module, only : dim=>amrex_spacedim
   
   implicit none
 

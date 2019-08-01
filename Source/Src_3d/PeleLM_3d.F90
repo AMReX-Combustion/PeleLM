@@ -21,7 +21,7 @@
 module PeleLM_3d
 
   use fuego_chemistry
-  use mod_Fvar_def, only : dim
+  use amrex_fort_module, only : dim=>amrex_spacedim
 
   implicit none
 
@@ -1205,7 +1205,7 @@ contains
           
       use network,   only: nspecies
       use PeleLM_F,  only: pphys_getP1atm_MKS
-      use mod_Fvar_def, only : Density, Temp, FirstSpec, RhoH, pamb, Trac, dim
+      use mod_Fvar_def, only : Density, Temp, FirstSpec, RhoH, pamb, Trac
       
       implicit none
       integer  level, nscal

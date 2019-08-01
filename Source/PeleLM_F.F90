@@ -13,6 +13,7 @@
 module PeleLM_F
 
   use, intrinsic :: iso_c_binding
+  use amrex_fort_module, only : dim=>amrex_spacedim
 
   use fuego_chemistry
 
@@ -123,16 +124,15 @@ end subroutine plm_extern_init
 
   subroutine pphys_get_spec_name2(name, j)
   
-    use mod_Fvar_def, only: maxspec, maxspnml
-    
+    use network, only : L_spec_name
     implicit none
 
     integer i, j
-    integer coded(maxspnml), len
-    character*(maxspnml) name
+    integer coded(L_spec_name), len
+    character*(L_spec_name) name
 
     len = pphys_getckspecname(j, coded)
-    do i = 1, maxspnml
+    do i = 1, L_spec_name
       name(i:i) = ' '
     end do
     do i = 1, len
@@ -143,20 +143,20 @@ end subroutine plm_extern_init
   
   integer function pphys_getckspecname(i, coded)
   
-    use mod_Fvar_def, only: maxspec, maxspnml
-    
+    use network, only : L_spec_name, nspecies
+
     implicit none
       
     integer i
     integer coded(*)
-    integer names(maxspec*maxspnml)
+    integer names(L_spec_name*nspecies)
     integer j, str_len
     str_len = 0
-    call cksyms(names, maxspnml)
-    do j = 1, maxspnml
-      coded(j) = names(maxspnml*(i-1)+j)
+    call cksyms(names, L_spec_name)
+    do j = 1, L_spec_name
+      coded(j) = names(L_spec_name*(i-1)+j)
     end do
-    do j = 1, maxspnml
+    do j = 1, L_spec_name
       if (coded(j).eq.ICHAR(' ')) then
         str_len = j
         exit
@@ -272,12 +272,12 @@ end subroutine plm_extern_init
 ! ::: velocity, and our INITDATA function below fills the scalar state
 ! ::: However, add one since the C++ is 0-based      
 !     
-    Density = DensityIn - BL_SPACEDIM + 1
-    Temp = TempIn - BL_SPACEDIM + 1
-    Trac = TracIn - BL_SPACEDIM + 1
-    RhoH = RhoHIn - BL_SPACEDIM + 1
-    FirstSpec = FirstSpecIn - BL_SPACEDIM + 1
-    LastSpec = LastSpecIn - BL_SPACEDIM + 1
+    Density = DensityIn - dim + 1
+    Temp = TempIn - dim + 1
+    Trac = TracIn - dim + 1
+    RhoH = RhoHIn - dim + 1
+    FirstSpec = FirstSpecIn - dim + 1
+    LastSpec = LastSpecIn - dim + 1
 
   end subroutine set_scal_numb
 
@@ -755,7 +755,7 @@ end subroutine plm_extern_init
                            flag_active_control)  bind(C, name="set_prob_spec")
  
       use network,  only: nspecies
-      use mod_Fvar_def, only: dim, domnlo, domnhi
+      use mod_Fvar_def, only: domnlo, domnhi
       use mod_Fvar_def, only: bathID, fuelID, oxidID, prodID
       use mod_Fvar_def, only: f_flag_active_control
 
@@ -767,7 +767,9 @@ end subroutine plm_extern_init
       integer bath, fuel, oxid, prod, numspec
 
       ! Passing dimensions of problem from Cpp to Fortran
-      dim = dm
+      if (dm .ne. dim) then
+         call bl_pd_abort('dimension not right')
+      endif
       domnlo(1:dm) = problo_in(1:dm)
       domnhi(1:dm) = probhi_in(1:dm)
       f_flag_active_control = flag_active_control

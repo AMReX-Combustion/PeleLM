@@ -10,6 +10,7 @@
 
 module prob_3D_module
 
+  use amrex_fort_module, only : dim=>amrex_spacedim
   use fuego_chemistry
 
   implicit none
@@ -42,7 +43,7 @@ contains
   
       use PeleLM_F,  only: pphys_getP1atm_MKS
       use mod_Fvar_def, only : pamb, dpdt_factor, closed_chamber
-      use mod_Fvar_def, only : domnhi, domnlo, dim
+      use mod_Fvar_def, only : domnhi, domnlo
       use probdata_module, only : T_in, FTX, FTY, FTZ, TAT, TAP, FPX, FPY, FPZ, &
                                   FAX, FAY, FAZ, FPXX, FPYX, FPXY, FPYY, &
                                   FPZY, FPYZ, FPZX, FPXZ, FPZZ, &
@@ -513,11 +514,11 @@ contains
                        delta,xlo,xhi) &
                        bind(C, name="init_data")
                        
-      use network,   only: nspec
+      use network,   only: nspecies
       use PeleLM_F,  only: pphys_getP1atm_MKS, pphys_get_spec_name2
       use PeleLM_3D, only: pphys_RHOfromPTY, pphys_HMIXfromTY
-      use mod_Fvar_def, only : Density, Temp, FirstSpec, RhoH, pamb, Trac, dim
-      use mod_Fvar_def, only : domnlo, maxspec, maxspnml
+      use mod_Fvar_def, only : Density, Temp, FirstSpec, RhoH, pamb, Trac
+      use mod_Fvar_def, only : domnlo
       use probdata_module, only : T_in
 
       
@@ -533,7 +534,7 @@ contains
       REAL_T   press(DIMV(press))
 
       integer i, j, k, n
-      REAL_T x, y, z, Yl(maxspec), Patm
+      REAL_T x, y, z, Yl(nspecies), Patm
 
          do k = lo(3), hi(3)
             z = (float(k)+.5d0)*delta(3)+domnlo(3)
@@ -546,7 +547,7 @@ contains
                   Yl(1) = 0.233d0
                   Yl(2) = 0.767d0
 
-                  do n = 1,Nspec
+                  do n = 1,nspecies
                     scal(i,j,k,FirstSpec+n-1) = Yl(n)
                   end do
 
@@ -577,7 +578,7 @@ contains
       do k = lo(3), hi(3)
          do j = lo(2), hi(2)
             do i = lo(1), hi(1)
-               do n = 0,Nspec-1
+               do n = 0,nspecies-1
                   scal(i,j,k,FirstSpec+n) = scal(i,j,k,FirstSpec+n)*scal(i,j,k,Density)
                enddo
                scal(i,j,k,RhoH) = scal(i,j,k,RhoH)*scal(i,j,k,Density)
