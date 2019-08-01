@@ -932,7 +932,7 @@ contains
                           level,grid_no) &
                           bind(C, name="dermolweight")
 
-    use network,        only : nspec
+    use network,        only : nspecies
     use fuego_chemistry
 
     implicit none
@@ -946,7 +946,7 @@ contains
     REAL_T     delta(dim), xlo(dim), time, dt
     REAL_T     x(DIMV(x),nv)
     REAL_T     dat(DIMV(dat),ncomp)
-    REAL_T Yt(nspec)
+    REAL_T Yt(nspecies)
     integer    level, grid_no
 
     integer i,j,n
@@ -960,7 +960,7 @@ contains
 
     do j=lo(2),hi(2)
       do i=lo(1),hi(1)
-        do n = 1,Nspec
+        do n = 1,nspecies
           Yt(n) = dat(i,j,fS+n-1)/dat(i,j,rho)
          enddo
          
