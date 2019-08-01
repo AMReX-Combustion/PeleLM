@@ -203,6 +203,11 @@ extern "C" {
                 const BL_FORT_FAB_ARG_3D(Y),
                 BL_FORT_FAB_ARG_3D(mu));
 
+  void beta_wbar(const int* lo, const int* hi,
+                 const BL_FORT_FAB_ARG_3D(RD),
+                 BL_FORT_FAB_ARG_3D(RD_Wbar),
+                 const BL_FORT_FAB_ARG_3D(Y));
+
   void spec_temp_visc(const int* lo, const int* hi,
                       const BL_FORT_FAB_ARG_3D(T),
                       const BL_FORT_FAB_ARG_3D(Y),

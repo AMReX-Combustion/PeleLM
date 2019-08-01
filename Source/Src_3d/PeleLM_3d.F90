@@ -28,7 +28,7 @@ module PeleLM_3d
   private
 
   public ::  calc_divu_fortran, calc_gamma_pinv, floor_spec, enth_diff_terms, &
-             compute_rho_dgrad_hdot_grad_Y, vel_visc, spec_temp_visc, &
+             compute_rho_dgrad_hdot_grad_Y, vel_visc, beta_wbar, spec_temp_visc, &
              est_divu_dt, check_divu_dt, dqrad_fill, divu_fill, &
              dsdt_fill, ydot_fill, rhoYdot_fill, fab_minmax, repair_flux, &
              incrwext_flx_div, flux_div, compute_ugradp, conservative_T_floor, &
@@ -1302,6 +1302,55 @@ contains
       end if
 
   end subroutine vel_visc 
+
+!-------------------------------------------------
+
+  subroutine beta_wbar (lo, hi, &
+                        RD, RD_lo, RD_hi, &
+                        RDW, RDW_lo, RDW_hi, &
+                        Y, Y_lo, Y_hi) &
+                        bind(C, name="beta_wbar")
+
+    use network, only : nspecies
+    use fuego_chemistry, only : CKMMWY
+
+    implicit none
+
+    integer         , intent(in   ) ::     lo(3),    hi(3)
+    integer         , intent(in   ) ::  RD_lo(3), RD_hi(3)
+    integer         , intent(inout) :: RDW_lo(3),RDW_hi(3)
+    integer         , intent(in   ) ::   Y_lo(3),  Y_hi(3)
+    REAL_T, intent(in   ) :: RD(RD_lo(1):RD_hi(1),RD_lo(2):RD_hi(2),RD_lo(3):RD_hi(3),*)
+    REAL_T, intent(out  ) :: RDW(RDW_lo(1):RDW_hi(1),RDW_lo(2):RDW_hi(2),RDW_lo(3):RDW_hi(3),*)
+    REAL_T, intent(in   ) :: Y(Y_lo(1):Y_hi(1),Y_lo(2):Y_hi(2),Y_lo(3):Y_hi(3),nspecies)
+
+    integer i, j, k, n
+    REAL_T Yt(nspecies), RHO, Wavg
+
+    do k=lo(3),hi(3)
+       do j=lo(2),hi(2)
+          do i=lo(1),hi(1)
+
+             RHO = 0.d0
+             do n=1,nspecies
+                RHO = RHO + Y(i,j,k,n)
+             enddo
+
+             do n=1,nspecies
+                Yt(n) = Y(i,j,k,n) / RHO
+             enddo
+
+             CALL CKMMWY(Yt,Wavg)
+
+             do n=1,nspecies
+                RDW(i,j,k,n) = RD(i,j,k,n) * Yt(n) / Wavg
+             enddo
+
+          enddo
+       enddo
+    enddo
+
+  end subroutine beta_wbar
 
 !-------------------------------------------------
 

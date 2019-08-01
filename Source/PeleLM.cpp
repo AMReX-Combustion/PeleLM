@@ -7352,10 +7352,10 @@ PeleLM::calcDiffusivity_Wbar (const Real time)
     FArrayBox& Dfab_Wbar = diffWbar_cc[mfi];
     const Box& gbox = mfi.growntilebox();
         
-    BETA_WBAR(gbox.loVect(),gbox.hiVect(),
-                   RD.dataPtr(),ARLIM(RD.loVect()),ARLIM(RD.hiVect()),
-                   Dfab_Wbar.dataPtr(),ARLIM(Dfab_Wbar.loVect()),ARLIM(Dfab_Wbar.hiVect()),
-                   RYfab.dataPtr(1),ARLIM(RYfab.loVect()),ARLIM(RYfab.hiVect()));
+    beta_wbar(BL_TO_FORTRAN_BOX(gbox),
+              BL_TO_FORTRAN_3D(RD),
+              BL_TO_FORTRAN_3D(Dfab_Wbar),
+              BL_TO_FORTRAN_N_3D(RYfab,1));
   }
 }
 #endif
