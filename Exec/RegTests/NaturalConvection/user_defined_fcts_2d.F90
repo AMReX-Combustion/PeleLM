@@ -6,7 +6,9 @@
 
 module user_defined_fcts_2d_module
 
-implicit none
+  use amrex_fort_module, only : dim=>amrex_spacedim
+
+  implicit none
   
   private
   
@@ -21,10 +23,9 @@ contains
   subroutine bcfunction(x,y,dir,norm,time,u,v,rho,Yl,T,h,dx,getuv) &
                         bind(C, name="bcfunction")
 
-      use network,   only: nspec
       use PeleLM_F,  only: pphys_getP1atm_MKS
       use PeleLM_2D, only: pphys_RHOfromPTY, pphys_HMIXfromTY
-      use mod_Fvar_def, only : pamb, dim
+      use mod_Fvar_def, only : pamb
       use probdata_module, only : Tc, Th 
       
       implicit none
@@ -101,7 +102,7 @@ contains
                            bind(C, name="zero_visc")   
 
       use mod_Fvar_def, only : Density, Temp, FirstSpec, RhoH, LastSpec
-      use mod_Fvar_def, only : domnhi, domnlo, dim
+      use mod_Fvar_def, only : domnhi, domnlo
       
       implicit none
       integer DIMDEC(diff)

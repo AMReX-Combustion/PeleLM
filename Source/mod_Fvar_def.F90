@@ -27,15 +27,9 @@ module mod_Fvar_def
   integer :: bathID, fuelID, oxidID, prodID
   
   integer         , save :: f_flag_active_control
-  ! dimension information
-  integer         , save :: dim
   ! geometry information
   double precision, save :: domnlo(3), domnhi(3)
 
-  ! From cdwrk.H
-  integer, parameter :: maxspec  = 200
-  integer, parameter :: maxspnml =  16
-  
   ! From bc.H
   integer, parameter :: MAXPNTS = 50
   REAL_T :: time_points(0:MAXPNTS),vel_points(0:MAXPNTS),cntl_points(0:MAXPNTS)

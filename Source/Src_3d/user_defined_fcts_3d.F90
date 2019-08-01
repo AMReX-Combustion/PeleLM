@@ -6,7 +6,9 @@
 
 module user_defined_fcts_3d_module
 
-implicit none
+  use amrex_fort_module, only : dim=>amrex_spacedim
+
+  implicit none
   
   private
   
@@ -20,8 +22,6 @@ contains
 
   subroutine bcfunction(x,y,z,dir,norm,time,u,v,w,rho,Yl,T,h,dx,getuvw) &
                         bind(C, name="bcfunction")
-
-      use mod_Fvar_def, only : dim
        
       implicit none
 
@@ -41,8 +41,8 @@ contains
                            bind(C, name="zero_visc")   
 
       use mod_Fvar_def, only : Density, Temp, FirstSpec, RhoH, LastSpec
-      use mod_Fvar_def, only : domnhi, domnlo, dim
-      
+      use mod_Fvar_def, only : domnhi, domnlo
+
       implicit none
       integer DIMDEC(diff)
       integer lo(dim), hi(dim)

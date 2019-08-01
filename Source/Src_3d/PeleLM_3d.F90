@@ -21,7 +21,7 @@
 module PeleLM_3d
 
   use fuego_chemistry
-  use mod_Fvar_def, only : dim
+  use amrex_fort_module, only : dim=>amrex_spacedim
 
   implicit none
 
@@ -45,7 +45,7 @@ contains
                               rhoY, DIMS(rhoY),     T, DIMS(T)) &
                               bind(C, name="calc_divu_fortran")
 
-      use network,        only : nspec
+      use network,        only : nspecies
 
       implicit none
 
@@ -57,17 +57,17 @@ contains
       integer DIMDEC(rhoY)
       integer DIMDEC(T)
       REAL_T  divu(DIMV(divu))
-      REAL_T  rYdot(DIMV(rYdot),1:Nspec)
-      REAL_T  vtY(DIMV(vtY),1:Nspec)
+      REAL_T  rYdot(DIMV(rYdot),1:nspecies)
+      REAL_T  vtY(DIMV(vtY),1:nspecies)
       REAL_T  vtT(DIMV(vtT))
-      REAL_T  rhoY(DIMV(rhoY),1:Nspec)
+      REAL_T  rhoY(DIMV(rhoY),1:nspecies)
       REAL_T  T(DIMV(T))
       
       integer i, j, k, n
-      REAL_T Y(nspec), H(nspec), cpmix, rhoInv, tmp, mmw, invmtw(nspec)
+      REAL_T Y(nspecies), H(nspecies), cpmix, rhoInv, tmp, mmw, invmtw(nspecies)
 
       call CKWT(invmtw)
-      do n=1,Nspec
+      do n=1,nspecies
          invmtw(n) = one / invmtw(n)
       end do
 
@@ -75,11 +75,11 @@ contains
          do j=lo(2),hi(2)
             do i=lo(1),hi(1)
                rhoInv = 0.d0
-               do n=1,Nspec
+               do n=1,nspecies
                   rhoInv = rhoInv + rhoY(i,j,k,n)
                enddo
                rhoInv = 1.d0 / rhoInv
-               do n=1,Nspec
+               do n=1,nspecies
                   Y(n) = rhoInv*rhoY(i,j,k,n)
                enddo
                CALL CKCPBS(T(i,j,k),Y,cpmix)
@@ -87,13 +87,13 @@ contains
                CALL CKMMWY(Y,mmw)
 
                cpmix = cpmix*1.d-4
-               do n=1,Nspec
+               do n=1,nspecies
                   H(n) = H(n)*1.d-4
                enddo
 
                tmp = 0.d0
                divu(i,j,k) = vtT(i,j,k)
-               do n=1,Nspec
+               do n=1,nspecies
                   tmp = tmp + (rYdot(i,j,k,n)+vtY(i,j,k,n))*invmtw(n)
                   divu(i,j,k) = divu(i,j,k) - rYdot(i,j,k,n)*H(n)
                enddo
@@ -113,7 +113,7 @@ contains
                              Pamb_in)&
                              bind(C, name="calc_gamma_pinv")
                                                         
-      use network,        only : nspec
+      use network,        only : nspecies
 
       implicit none
       
@@ -122,22 +122,22 @@ contains
       integer DIMDEC(rhoY)
       integer DIMDEC(T)
       REAL_T  theta(DIMV(theta))
-      REAL_T  rhoY(DIMV(rhoY),1:Nspec)
+      REAL_T  rhoY(DIMV(rhoY),1:nspecies)
       REAL_T  T(DIMV(T))
       REAL_T  Pamb_in
       
       integer i, j, k, n
-      REAL_T Y(nspec), cpmix, cvmix, rhoInv
+      REAL_T Y(nspecies), cpmix, cvmix, rhoInv
 
       do k=lo(3),hi(3)
          do j=lo(2),hi(2)
             do i=lo(1),hi(1)
                rhoInv = 0.d0
-               do n=1,Nspec
+               do n=1,nspecies
                   rhoInv = rhoInv + rhoY(i,j,k,n)
                enddo
                rhoInv = 1.d0 / rhoInv
-               do n=1,Nspec
+               do n=1,nspecies
                   Y(n) = rhoInv*rhoY(i,j,k,n)
                enddo
                CALL CKCPBS(T(i,j,k),Y,cpmix)
@@ -156,17 +156,17 @@ contains
   
   subroutine floor_spec(lo, hi,spec,  DIMS(spec))bind(C, name="floor_spec")
 
-    use network,        only : nspec
+    use network,        only : nspecies
 
     implicit none
       
       integer lo(dim),hi(dim)
       integer DIMDEC(spec)
-      REAL_T  spec(DIMV(spec),1:Nspec)
+      REAL_T  spec(DIMV(spec),1:nspecies)
       
       integer i, j, k, n
 
-      do n=1,Nspec
+      do n=1,nspecies
          do k=lo(3),hi(3)
             do j=lo(2),hi(2)
                do i=lo(1),hi(1)
@@ -188,7 +188,7 @@ contains
                               FiGHi, DIMS(FiGHi), Tbc ) &
                               bind(C, name="enth_diff_terms")
 
-      use network,        only : nspec
+      use network,        only : nspecies
 
       implicit none
 
@@ -197,26 +197,26 @@ contains
       integer DIMDEC(T)
       REAL_T  T(DIMV(T))
       integer DIMDEC(RhoY)
-      REAL_T  RhoY(DIMV(RhoY),Nspec)
+      REAL_T  RhoY(DIMV(RhoY),nspecies)
 
       integer DIMDEC(rhoDx)
-      REAL_T  rhoDx(DIMV(rhoDx),Nspec+2)
+      REAL_T  rhoDx(DIMV(rhoDx),nspecies+2)
       integer DIMDEC(Fx)
-      REAL_T  Fx(DIMV(Fx),Nspec+3)
+      REAL_T  Fx(DIMV(Fx),nspecies+3)
       integer DIMDEC(Ax)
       REAL_T  Ax(DIMV(Ax))
 
       integer DIMDEC(rhoDy)
-      REAL_T  rhoDy(DIMV(rhoDy),Nspec+2)
+      REAL_T  rhoDy(DIMV(rhoDy),nspecies+2)
       integer DIMDEC(Fy)
-      REAL_T  Fy(DIMV(Fy),Nspec+3)
+      REAL_T  Fy(DIMV(Fy),nspecies+3)
       integer DIMDEC(Ay)
       REAL_T  Ay(DIMV(Ay))
 
       integer DIMDEC(rhoDz)
-      REAL_T  rhoDz(DIMV(rhoDz),Nspec+2)
+      REAL_T  rhoDz(DIMV(rhoDz),nspecies+2)
       integer DIMDEC(Fz)
-      REAL_T  Fz(DIMV(Fz),Nspec+3)
+      REAL_T  Fz(DIMV(Fz),nspecies+3)
       integer DIMDEC(Az)
       REAL_T  Az(DIMV(Az))
 
@@ -252,15 +252,15 @@ contains
 !     Note that any cells on a physical boundary with Dirichlet conditions will 
 !     actually be centered on the edge, so the stencils below must reflect this
 
-      allocate( H(DIMV(T),1:Nspec) )
+      allocate( H(DIMV(T),1:nspecies) )
 
       call pphys_HfromT(lob, hib, H, DIMS(T), T, DIMS(T))
 
-!     On entry, Fx(1:Nspec) = spec flux
+!     On entry, Fx(1:nspecies) = spec flux
 !     On exit:
-!     Fx(Nspec+1) = untouched
-!     Fx(Nspec+2) = sum[ (species flux).(species enthalpy) ]
-!     Fx(Nspec+3) = extensive heat conduction
+!     Fx(nspecies+1) = untouched
+!     Fx(nspecies+2) = sum[ (species flux).(species enthalpy) ]
+!     Fx(nspecies+3) = extensive heat conduction
 
 !     Compute lambda.Grad(T)
       dxInv = 1.d0 / dx(1)
@@ -270,7 +270,7 @@ contains
       do k=lo(3),hi(3)
          do j=lo(2),hi(2)
             do i=lo(1),hi(1)+1
-               Fx(i,j,k,Nspec+3) = - rhoDx(i,j,k,Nspec+2)*(T(i,j,k) - T(i-1,j,k))* dxInv * Ax(i,j,k)
+               Fx(i,j,k,nspecies+3) = - rhoDx(i,j,k,nspecies+2)*(T(i,j,k) - T(i-1,j,k))* dxInv * Ax(i,j,k)
             enddo
          enddo
       enddo
@@ -278,7 +278,7 @@ contains
       do k=lo(3),hi(3)
          do j=lo(2),hi(2)+1
             do i=lo(1),hi(1)
-               Fy(i,j,k,Nspec+3) = - rhoDy(i,j,k,Nspec+2)*(T(i,j,k) - T(i,j-1,k)) * dyInv * Ay(i,j,k)
+               Fy(i,j,k,nspecies+3) = - rhoDy(i,j,k,nspecies+2)*(T(i,j,k) - T(i,j-1,k)) * dyInv * Ay(i,j,k)
             enddo
          enddo
       enddo
@@ -286,7 +286,7 @@ contains
       do k=lo(3),hi(3)+1
          do j=lo(2),hi(2)
             do i=lo(1),hi(1)
-               Fz(i,j,k,Nspec+3) = - rhoDz(i,j,k,Nspec+2)*(T(i,j,k) - T(i,j,k-1)) * dzInv * Az(i,j,k)
+               Fz(i,j,k,nspecies+3) = - rhoDz(i,j,k,nspecies+2)*(T(i,j,k) - T(i,j,k-1)) * dzInv * Az(i,j,k)
             enddo
          enddo
       enddo
@@ -296,7 +296,7 @@ contains
          i = dlo(1)
          do k=lo(3),hi(3)
             do j=lo(2),hi(2)
-               Fx(i,j,k,Nspec+3) = 2*Fx(i,j,k,Nspec+3)
+               Fx(i,j,k,nspecies+3) = 2*Fx(i,j,k,nspecies+3)
             enddo
          enddo
       endif
@@ -305,7 +305,7 @@ contains
          i = dhi(1)+1
          do k=lo(3),hi(3)
             do j=lo(2),hi(2)
-               Fx(i,j,k,Nspec+3) = 2*Fx(i,j,k,Nspec+3)
+               Fx(i,j,k,nspecies+3) = 2*Fx(i,j,k,nspecies+3)
             enddo
          enddo
       endif
@@ -314,7 +314,7 @@ contains
          j=lo(2)
          do k=lo(3),hi(3)
             do i=lo(1),hi(1)
-               Fy(i,j,k,Nspec+3) = 2*Fy(i,j,k,Nspec+3)
+               Fy(i,j,k,nspecies+3) = 2*Fy(i,j,k,nspecies+3)
             enddo
          enddo
       endif
@@ -323,7 +323,7 @@ contains
          j=hi(2)+1
          do k=lo(3),hi(3)
             do i=lo(1),hi(1)
-               Fy(i,j,k,Nspec+3) = 2*Fy(i,j,k,Nspec+3)
+               Fy(i,j,k,nspecies+3) = 2*Fy(i,j,k,nspecies+3)
             enddo
          enddo
       endif
@@ -332,7 +332,7 @@ contains
          k=lo(3)
          do j=lo(2),hi(2)
             do i=lo(1),hi(1)
-               Fz(i,j,k,Nspec+3) = 2*Fz(i,j,k,Nspec+3)
+               Fz(i,j,k,nspecies+3) = 2*Fz(i,j,k,nspecies+3)
             enddo
          enddo
       endif
@@ -341,21 +341,21 @@ contains
          k=hi(3)+1
          do j=lo(2),hi(2)
             do i=lo(1),hi(1)
-               Fz(i,j,k,Nspec+3) = 2*Fz(i,j,k,Nspec+3)
+               Fz(i,j,k,nspecies+3) = 2*Fz(i,j,k,nspecies+3)
             enddo
          enddo
       endif
 
 !     Compute enthalpy flux as hi*(Fi+(lambda/cp).Grad(Yi))
 
-      Fx(lo(1):hi(1)+1,lo(2):hi(2),lo(3):hi(3),Nspec+2) = 0.d0
-      Fy(lo(1):hi(1),lo(2):hi(2)+1,lo(3):hi(3),Nspec+2) = 0.d0
-      Fz(lo(1):hi(1),lo(2):hi(2),lo(3):hi(3)+1,Nspec+2) = 0.d0
+      Fx(lo(1):hi(1)+1,lo(2):hi(2),lo(3):hi(3),nspecies+2) = 0.d0
+      Fy(lo(1):hi(1),lo(2):hi(2)+1,lo(3):hi(3),nspecies+2) = 0.d0
+      Fz(lo(1):hi(1),lo(2):hi(2),lo(3):hi(3)+1,nspecies+2) = 0.d0
 
       allocate(rhoInv(lo(1)-1:hi(1)+1,lo(2)-1:hi(2)+1,lo(3)-1:hi(3)+1))
 
       rhoInv = 0.0d0
-      do n=1,Nspec
+      do n=1,nspecies
          do k=lo(3)-1,hi(3)+1
             do j=lo(2)-1,hi(2)+1
                do i=lo(1)-1,hi(1)+1
@@ -367,37 +367,37 @@ contains
 
       rhoInv(:,:,:) = 1.0D0/rhoInv(:,:,:)
 
-      do n=1,Nspec
+      do n=1,nspecies
       do k=lo(3),hi(3)
       do j=lo(2),hi(2)
       do i=lo(1),hi(1)+1
          gradY = (RhoY(i,j,k,n)*rhoInv(i,j,k) - RhoY(i-1,j,k,n)*rhoInv(i-1,j,k))*dxInv
-         Fx(i,j,k,Nspec+2) = Fx(i,j,k,Nspec+2) &
-             + (Fx(i,j,k,n) + rhoDx(i,j,k,Nspec+1)*gradY*Ax(i,j,k))*(H(i,j,k,n)+H(i-1,j,k,n))*0.5d0
+         Fx(i,j,k,nspecies+2) = Fx(i,j,k,nspecies+2) &
+             + (Fx(i,j,k,n) + rhoDx(i,j,k,nspecies+1)*gradY*Ax(i,j,k))*(H(i,j,k,n)+H(i-1,j,k,n))*0.5d0
       enddo
       enddo
       enddo
       enddo
 
-      do n=1,Nspec
+      do n=1,nspecies
       do k=lo(3),hi(3)
       do j=lo(2),hi(2)+1
       do i=lo(1),hi(1)
          gradY = (RhoY(i,j,k,n)*rhoInv(i,j,k) - RhoY(i,j-1,k,n)*rhoInv(i,j-1,k))*dyInv
-         Fy(i,j,k,Nspec+2) = Fy(i,j,k,Nspec+2) &
-             + (Fy(i,j,k,n) + rhoDy(i,j,k,Nspec+1)*gradY*Ay(i,j,k))*(H(i,j,k,n)+H(i,j-1,k,n))*0.5d0
+         Fy(i,j,k,nspecies+2) = Fy(i,j,k,nspecies+2) &
+             + (Fy(i,j,k,n) + rhoDy(i,j,k,nspecies+1)*gradY*Ay(i,j,k))*(H(i,j,k,n)+H(i,j-1,k,n))*0.5d0
       enddo
       enddo
       enddo
       enddo
 
-      do n=1,Nspec
+      do n=1,nspecies
       do k=lo(3),hi(3)+1
       do j=lo(2),hi(2)
       do i=lo(1),hi(1)
          gradY = (RhoY(i,j,k,n)*rhoInv(i,j,k) - RhoY(i,j,k-1,n)*rhoInv(i,j,k-1))*dzInv
-         Fz(i,j,k,Nspec+2) = Fz(i,j,k,Nspec+2) &
-             + (Fz(i,j,k,n) + rhoDz(i,j,k,Nspec+1)*gradY*Az(i,j,k))*(H(i,j,k,n)+H(i,j,k-1,n))*0.5d0
+         Fz(i,j,k,nspecies+2) = Fz(i,j,k,nspecies+2) &
+             + (Fz(i,j,k,n) + rhoDz(i,j,k,nspecies+1)*gradY*Az(i,j,k))*(H(i,j,k,n)+H(i,j,k-1,n))*0.5d0
       enddo
       enddo
       enddo
@@ -406,13 +406,13 @@ contains
 !     xlo
       if (lo(1).eq.dlo(1)  .and.  Tbc(1,1).eq.EXT_DIR) then
          i = dlo(1)
-         Fx(i,lo(2):hi(2),lo(3):hi(3),Nspec+2) = 0.d0
-         do n=1,Nspec
+         Fx(i,lo(2):hi(2),lo(3):hi(3),nspecies+2) = 0.d0
+         do n=1,nspecies
             do k=lo(3),hi(3)
                do j=lo(2),hi(2)
                   gradY = 2*(RhoY(i,j,k,n)*rhoInv(i,j,k) - RhoY(i-1,j,k,n)*rhoInv(i-1,j,k))*dxInv
-                  Fx(i,j,k,Nspec+2) = Fx(i,j,k,Nspec+2) &
-                      + (Fx(i,j,k,n) + rhoDx(i,j,k,Nspec+1)*gradY*Ax(i,j,k))*H(i-1,j,k,n)
+                  Fx(i,j,k,nspecies+2) = Fx(i,j,k,nspecies+2) &
+                      + (Fx(i,j,k,n) + rhoDx(i,j,k,nspecies+1)*gradY*Ax(i,j,k))*H(i-1,j,k,n)
                enddo
             enddo
          enddo
@@ -420,13 +420,13 @@ contains
 !     xhi
       if (hi(1)+1.eq.dhi(1)+1  .and.  Tbc(1,2).eq.EXT_DIR) then
          i = dhi(1)+1
-         Fx(i,lo(2):hi(2),lo(3):hi(3),Nspec+2) = 0.d0
-         do n=1,Nspec
+         Fx(i,lo(2):hi(2),lo(3):hi(3),nspecies+2) = 0.d0
+         do n=1,nspecies
             do k=lo(3),hi(3)
                do j=lo(2),hi(2)
                   gradY = 2*(RhoY(i,j,k,n)*rhoInv(i,j,k) - RhoY(i-1,j,k,n)*rhoInv(i-1,j,k))*dxInv
-                  Fx(i,j,k,Nspec+2) = Fx(i,j,k,Nspec+2) &
-                      + (Fx(i,j,k,n) + rhoDx(i,j,k,Nspec+1)*gradY*Ax(i,j,k))*H(i,j,k,n)
+                  Fx(i,j,k,nspecies+2) = Fx(i,j,k,nspecies+2) &
+                      + (Fx(i,j,k,n) + rhoDx(i,j,k,nspecies+1)*gradY*Ax(i,j,k))*H(i,j,k,n)
                enddo
             enddo
          enddo
@@ -434,13 +434,13 @@ contains
 !     ylo
       if (lo(2).eq.dlo(2)  .and.  Tbc(2,1).eq.EXT_DIR) then
          j = dlo(2)
-         Fy(lo(1):hi(1),j,lo(3):hi(3),Nspec+2) = 0.d0
-         do n=1,Nspec
+         Fy(lo(1):hi(1),j,lo(3):hi(3),nspecies+2) = 0.d0
+         do n=1,nspecies
             do k=lo(3),hi(3)
                do i=lo(1),hi(1)
                   gradY = 2*(RhoY(i,j,k,n)*rhoInv(i,j,k) - RhoY(i,j-1,k,n)*rhoInv(i,j-1,k))*dyInv
-                  Fy(i,j,k,Nspec+2) = Fy(i,j,k,Nspec+2) &
-                      + (Fy(i,j,k,n) + rhoDy(i,j,k,Nspec+1)*gradY*Ay(i,j,k))*H(i,j-1,k,n)
+                  Fy(i,j,k,nspecies+2) = Fy(i,j,k,nspecies+2) &
+                      + (Fy(i,j,k,n) + rhoDy(i,j,k,nspecies+1)*gradY*Ay(i,j,k))*H(i,j-1,k,n)
                enddo
             enddo
          enddo
@@ -448,13 +448,13 @@ contains
 !     yhi
       if (hi(2)+1.eq.dhi(2)+1  .and.  Tbc(2,2).eq.EXT_DIR) then
          j = dhi(2)+1
-         Fy(lo(1):hi(1),j,lo(3):hi(3),Nspec+2) = 0.d0
-         do n=1,Nspec
+         Fy(lo(1):hi(1),j,lo(3):hi(3),nspecies+2) = 0.d0
+         do n=1,nspecies
             do k=lo(3),hi(3)
                do i=lo(1),hi(1)
                   gradY = 2*(RhoY(i,j,k,n)*rhoInv(i,j,k) - RhoY(i,j-1,k,n)*rhoInv(i,j-1,k))*dyInv
-                  Fy(i,j,k,Nspec+2) = Fy(i,j,k,Nspec+2) &
-                      + (Fy(i,j,k,n) + rhoDy(i,j,k,Nspec+1)*gradY*Ay(i,j,k))*H(i,j,k,n)
+                  Fy(i,j,k,nspecies+2) = Fy(i,j,k,nspecies+2) &
+                      + (Fy(i,j,k,n) + rhoDy(i,j,k,nspecies+1)*gradY*Ay(i,j,k))*H(i,j,k,n)
                enddo
             enddo
          enddo
@@ -462,13 +462,13 @@ contains
 !     zlo
       if (lo(3).eq.dlo(3)  .and.  Tbc(3,1).eq.EXT_DIR) then
          k = dlo(3)
-         Fz(lo(1):hi(1),lo(2):hi(2),k,Nspec+2) = 0.d0
-         do n=1,Nspec
+         Fz(lo(1):hi(1),lo(2):hi(2),k,nspecies+2) = 0.d0
+         do n=1,nspecies
             do j=lo(2),hi(2)
                do i=lo(1),hi(1)
                   gradY = 2*(RhoY(i,j,k,n)*rhoInv(i,j,k) - RhoY(i,j,k-1,n)*rhoInv(i,j,k-1))*dzInv
-                  Fz(i,j,k,Nspec+2) = Fz(i,j,k,Nspec+2) &
-                      + (Fz(i,j,k,n) + rhoDz(i,j,k,Nspec+1)*gradY*Az(i,j,k))*H(i,j,k-1,n)
+                  Fz(i,j,k,nspecies+2) = Fz(i,j,k,nspecies+2) &
+                      + (Fz(i,j,k,n) + rhoDz(i,j,k,nspecies+1)*gradY*Az(i,j,k))*H(i,j,k-1,n)
                enddo
             enddo
          enddo
@@ -476,13 +476,13 @@ contains
 !     zhi
       if (hi(3)+1.eq.dhi(3)+1  .and.  Tbc(3,2).eq.EXT_DIR) then
          k = dhi(3)+1
-         Fz(lo(1):hi(1),lo(2):hi(2),k,Nspec+2) = 0.d0
-         do n=1,Nspec
+         Fz(lo(1):hi(1),lo(2):hi(2),k,nspecies+2) = 0.d0
+         do n=1,nspecies
             do j=lo(2),hi(2)
                do i=lo(1),hi(1)
                   gradY = 2*(RhoY(i,j,k,n)*rhoInv(i,j,k) - RhoY(i,j,k-1,n)*rhoInv(i,j,k-1))*dzInv
-                  Fz(i,j,k,Nspec+2) = Fz(i,j,k,Nspec+2) &
-                      + (Fz(i,j,k,n) + rhoDz(i,j,k,Nspec+1)*gradY*Az(i,j,k))*H(i,j,k,n)
+                  Fz(i,j,k,nspecies+2) = Fz(i,j,k,nspecies+2) &
+                      + (Fz(i,j,k,n) + rhoDz(i,j,k,nspecies+1)*gradY*Az(i,j,k))*H(i,j,k,n)
                enddo
             enddo
          enddo
@@ -520,7 +520,7 @@ contains
       FiGHi(lo(1):hi(1),lo(2):hi(2),lo(3):hi(3)) = 0.0D0
 
 
-      do n=1,Nspec
+      do n=1,nspecies
       do k=lo(3),hi(3)
       do j=lo(2),hi(2)
       do i=lo(1),hi(1)
@@ -546,7 +546,7 @@ contains
             FiGHi(i,j,k) = 0.d0
          enddo
          enddo
-         do n=1,Nspec
+         do n=1,nspecies
          do k=lo(3),hi(3)
          do j=lo(2),hi(2)
             AxDxInv_lo = 2.d0/(Ax(i,j,k)*dx(1))
@@ -575,7 +575,7 @@ contains
             FiGHi(i,j,k) = 0.d0
          enddo
          enddo
-         do n=1,Nspec
+         do n=1,nspecies
          do k=lo(3),hi(3)
          do j=lo(2),hi(2)
             AxDxInv_lo = 2.d0/(Ax(i,j,k)*dx(1))
@@ -604,7 +604,7 @@ contains
             FiGHi(i,j,k) = 0.d0
          enddo
          enddo
-         do n=1,Nspec
+         do n=1,nspecies
          do k=lo(3),hi(3)
          do i=lo(1),hi(1)
             AxDxInv_lo = 2.d0/(Ax(i,j,k)*dx(1))
@@ -633,7 +633,7 @@ contains
             FiGHi(i,j,k) = 0.d0
          enddo
          enddo
-         do n=1,Nspec
+         do n=1,nspecies
          do k=lo(3),hi(3)
          do i=lo(1),hi(1)
             AxDxInv_lo = 2.d0/(Ax(i,j,k)*dx(1))
@@ -662,7 +662,7 @@ contains
             FiGHi(i,j,k) = 0.d0
          enddo
          enddo
-         do n=1,Nspec
+         do n=1,nspecies
          do j=lo(2),hi(2)
          do i=lo(1),hi(1)
             AxDxInv_lo = 2.d0/(Ax(i,j,k)*dx(1))
@@ -691,7 +691,7 @@ contains
             FiGHi(i,j,k) = 0.d0
          enddo
          enddo
-         do n=1,Nspec
+         do n=1,nspecies
          do j=lo(2),hi(2)
          do i=lo(1),hi(1)
             AxDxInv_lo = 2.d0/(Ax(i,j,k)*dx(1))
@@ -722,7 +722,7 @@ contains
                        RhoYdot,DIMS(RhoYdot))&
                        bind(C, name="pphys_RRATERHOY")
       
-      use network,        only : nspec
+      use network,        only : nspecies
       use PeleLM_F,       only : pphys_calc_src_sdc
 
       implicit none
@@ -733,12 +733,12 @@ contains
       integer DIMDEC(RhoH)
       integer DIMDEC(T)
       integer DIMDEC(RhoYdot)
-      REAL_T RhoY(DIMV(RhoY),nspec)
+      REAL_T RhoY(DIMV(RhoY),nspecies)
       REAL_T RhoH(DIMV(RhoH))
       REAL_T T(DIMV(T))
-      REAL_T RhoYdot(DIMV(RhoYdot),nspec)
+      REAL_T RhoYdot(DIMV(RhoYdot),nspecies)
 
-      REAL_T Zt(nspec+1),Zdott(nspec+1)
+      REAL_T Zt(nspecies+1),Zdott(nspecies+1)
       REAL_T Temperature, TIME
       integer i,j,k,n
 
@@ -748,15 +748,15 @@ contains
          do j=lo(2),hi(2)
             do i=lo(1),hi(1)
  
-               Zt(Nspec+1) = RhoH(i,j,k)
-               do n=1,Nspec
+               Zt(nspecies+1) = RhoH(i,j,k)
+               do n=1,nspecies
                   Zt(n) = RhoY(i,j,k,n)
                end do
                Temperature = T(i,j,k)
 
-               call pphys_calc_src_sdc(nspec,TIME,Temperature,Zt,Zdott)
+               call pphys_calc_src_sdc(nspecies,TIME,Temperature,Zt,Zdott)
 
-               do n=1,Nspec
+               do n=1,nspecies
                   RhoYdot(i,j,k,n) = Zdott(n)
                end do
             end do
@@ -771,7 +771,7 @@ contains
                       T, DIMS(T), Y, DIMS(Y))&
                       bind(C, name="pphys_PfromRTY")
 
-      use network,        only : nspec
+      use network,        only : nspecies
 
       implicit none
 
@@ -786,7 +786,7 @@ contains
       REAL_T Y(DIMV(Y),*)
       
       integer i, j, k, n
-      REAL_T Yt(nspec), RHOt, SCAL, SCAL1
+      REAL_T Yt(nspecies), RHOt, SCAL, SCAL1
       
 !     NOTE: SCAL converts result from assumed cgs to MKS (1 dyne/cm^2 = .1 Pa)
 !           SCAL1 converts density (1 kg/m^3 = 1.e-3 g/cm^3)
@@ -797,7 +797,7 @@ contains
          do j=lo(2),hi(2)
             do i=lo(1),hi(1)
 
-                do n=1,nspec
+                do n=1,nspecies
                    Yt(n) = Y(i,j,k,n)
                 end do
 
@@ -817,7 +817,7 @@ contains
   subroutine pphys_mass_to_mole(lo, hi, Y, DIMS(Y), X, DIMS(X)) &
                           bind(C, name="pphys_mass_to_mole")
 
-      use network,        only : nspec
+      use network,        only : nspecies
 
       implicit none
 
@@ -828,17 +828,17 @@ contains
       REAL_T Y(DIMV(Y),*)
       REAL_T X(DIMV(X),*)
 
-      REAL_T Xt(nspec), Yt(nspec)
+      REAL_T Xt(nspecies), Yt(nspecies)
       integer i,j,k,n
 
       do k=lo(3),hi(3)
          do j=lo(2),hi(2)
             do i=lo(1),hi(1)
-               do n = 1,Nspec
+               do n = 1,nspecies
                   Yt(n) = Y(i,j,k,n)
                end do
                CALL CKYTX(Yt,Xt)
-               do n = 1,Nspec
+               do n = 1,nspecies
                   X(i,j,k,n) = Xt(n)
                end do
             end do
@@ -853,7 +853,7 @@ contains
                            T, DIMS(T), RHO, DIMS(RHO), C, DIMS(C))&
                            bind(C, name="pphys_massr_to_conc")
                                    
-      use network,        only : nspec
+      use network,        only : nspecies
 
       implicit none
 
@@ -868,18 +868,18 @@ contains
       REAL_T C(DIMV(C),*)
       REAL_T RHO(DIMV(RHO))
 
-      REAL_T Yt(nspec), Ct(nspec), rhoScl
+      REAL_T Yt(nspecies), Ct(nspecies), rhoScl
       integer i,j,k,n
 
       do k=lo(3),hi(3)
          do j=lo(2),hi(2)
             do i=lo(1),hi(1)
-               do n = 1,Nspec
+               do n = 1,nspecies
                   Yt(n) = Y(i,j,k,n)
                end do
                rhoScl = RHO(i,j,k)*1.e-3
                CALL CKYTCR(rhoScl,T(i,j,k),Yt,Ct)
-               do n = 1,Nspec
+               do n = 1,nspecies
                   C(i,j,k,n) = Ct(n)*1.e6
                end do
             end do
@@ -895,7 +895,7 @@ contains
                         Y, DIMS(Y))&
                         bind(C, name="pphys_HMIXfromTY")
 
-      use network,        only : nspec
+      use network,        only : nspecies
 
       implicit none
 
@@ -908,7 +908,7 @@ contains
       REAL_T Y(DIMV(Y),*)
       
       integer i, j, k, n
-      REAL_T Yt(nspec), SCAL
+      REAL_T Yt(nspecies), SCAL
       
 !     NOTE: SCAL converts result from assumed cgs to MKS (1 erg/g = 1.e-4 J/kg)
       SCAL = 1.0d-4
@@ -917,7 +917,7 @@ contains
          do j=lo(2),hi(2)
             do i=lo(1),hi(1)
 
-                do n=1,Nspec
+                do n=1,nspecies
                    Yt(n) = Y(i,j,k,n)
                 end do
 
@@ -937,7 +937,7 @@ contains
                         Y, DIMS(Y), Patm) &
                         bind(C, name="pphys_RHOfromPTY")
 
-      use network,        only : nspec
+      use network,        only : nspecies
 
       implicit none
 
@@ -951,7 +951,7 @@ contains
       REAL_T Patm
       
       integer i, j, k, n
-      REAL_T RU, RUC, P1ATM, Ptmp, Yt(nspec), SCAL
+      REAL_T RU, RUC, P1ATM, Ptmp, Yt(nspecies), SCAL
       
 !     NOTE: SCAL converts result from assumed cgs to MKS (1 g/cm^3 = 1.e3 kg/m^3)
       SCAL = one * 1000
@@ -960,7 +960,7 @@ contains
       do k=lo(3),hi(3)
          do j=lo(2),hi(2)
             do i=lo(1),hi(1)
-                do n=1,Nspec
+                do n=1,nspecies
                    Yt(n) = Y(i,j,k,n)
                 end do
                 CALL CKRHOY(Ptmp,T(i,j,k),Yt,RHO(i,j,k))
@@ -975,7 +975,7 @@ contains
   subroutine pphys_HfromT(lo, hi, H, DIMS(H), T, DIMS(T))&
                     bind(C, name="pphys_HfromT")
 
-      use network,        only : nspec
+      use network,        only : nspecies
 
       implicit none
 
@@ -986,7 +986,7 @@ contains
       REAL_T T(DIMV(T))
       
       integer i, j, k, n
-      REAL_T SCAL, Ht(nspec)
+      REAL_T SCAL, Ht(nspecies)
       
 !     NOTE: SCAL converts result from assumed cgs to MKS (1 erg/g = 1.e-4 J/kg)
       SCAL = 1.0d-4
@@ -995,7 +995,7 @@ contains
          do j=lo(2),hi(2)
             do i=lo(1),hi(1)
                CALL CKHMS(T(i,j,k),Ht)
-               do n=1,Nspec
+               do n=1,nspecies
                   H(i,j,k,n) = Ht(n) * SCAL
                end do
             end do
@@ -1009,7 +1009,7 @@ contains
   subroutine pphys_MWMIXfromY(lo, hi, MWMIX, DIMS(MWMIX), Y, DIMS(Y))&
                         bind(C, name="pphys_MWMIXfromY")
 
-      use network,        only : nspec
+      use network,        only : nspecies
 
       implicit none
 
@@ -1020,7 +1020,7 @@ contains
       REAL_T Y(DIMV(Y),*)
       
       integer i, j, k, n
-      REAL_T Yt(nspec)
+      REAL_T Yt(nspecies)
 
 !     Returns mean molecular weight in kg/kmole
 
@@ -1028,7 +1028,7 @@ contains
          do j=lo(2),hi(2)
             do i=lo(1),hi(1)
 
-               do n=1,nspec
+               do n=1,nspecies
                   Yt(n) = Y(i,j,k,n)
                end do
 
@@ -1048,7 +1048,7 @@ contains
                                Y, Y_lo, Y_hi )&
                          bind(C,name="pphys_CPMIXfromTY")
 
-      use network,        only : nspec
+      use network,        only : nspecies
                          
       implicit none
 
@@ -1057,11 +1057,11 @@ contains
       integer         , intent(in   ) ::   Y_lo(3),    Y_hi(3)
       integer         , intent(in   ) ::cmix_lo(3),cmix_hi(3)
       REAL_T, intent(in   ) :: T(T_lo(1):T_hi(1),T_lo(2):T_hi(2),T_lo(3):T_hi(3))
-      REAL_T, intent(in   ) :: Y(Y_lo(1):Y_hi(1),Y_lo(2):Y_hi(2),Y_lo(3):Y_hi(3),nspec)
+      REAL_T, intent(in   ) :: Y(Y_lo(1):Y_hi(1),Y_lo(2):Y_hi(2),Y_lo(3):Y_hi(3),nspecies)
       REAL_T, intent(out  ) :: CPMIX(cmix_lo(1):cmix_hi(1),cmix_lo(2):cmix_hi(2),cmix_lo(3):cmix_hi(3))
       
       integer i, j, k, n
-      REAL_T Yt(nspec), SCAL
+      REAL_T Yt(nspecies), SCAL
       
 !     NOTE: SCAL converts result from assumed cgs to MKS (1 erg/g.K = 1.e-4 J/kg.K)
       SCAL = 1.0d-4
@@ -1069,7 +1069,7 @@ contains
       do k=lo(3),hi(3)
         do j=lo(2),hi(2)
           do i=lo(1),hi(1)
-            do n=1,nspec
+            do n=1,nspecies
                Yt(n) = Y(i,j,k,n)
             end do
             CALL CKCPBS(T(i,j,k),Yt,CPMIX(i,j,k))
@@ -1087,7 +1087,7 @@ contains
                            errMax, NiterMAX, res) &
                            bind(C, name="pphys_TfromHY")
                            
-      use network,        only : nspec
+      use network,        only : nspecies
       use PeleLM_F,       only : pphys_TfromHYpt
       
       implicit none
@@ -1103,7 +1103,7 @@ contains
       REAL_T errMAX
       REAL_T res(0:NiterMAX-1)
 
-      REAL_T Yt(nspec), lres(0:NiterMAX-1)
+      REAL_T Yt(nspecies), lres(0:NiterMAX-1)
       integer i, j, k, n, Niter,MAXiters
 
       MAXiters = 0
@@ -1111,7 +1111,7 @@ contains
          do j=lo(2),hi(2)
             do i=lo(1),hi(1)
 
-               do n=1,nspec
+               do n=1,nspecies
                   Yt(n) = Y(i,j,k,n)
                end do
 
@@ -1203,9 +1203,9 @@ contains
                                  delta,xlo,xhi)&
                                  bind(C, name="init_data_new_mech")
           
-      use network,   only: nspec
+      use network,   only: nspecies
       use PeleLM_F,  only: pphys_getP1atm_MKS
-      use mod_Fvar_def, only : Density, Temp, FirstSpec, RhoH, pamb, Trac, dim
+      use mod_Fvar_def, only : Density, Temp, FirstSpec, RhoH, pamb, Trac
       
       implicit none
       integer  level, nscal
@@ -1244,7 +1244,7 @@ contains
       do k = lo(3), hi(3)
          do j = lo(2), hi(2)
             do i = lo(1), hi(1)
-               do n = 0,Nspec-1
+               do n = 0,nspecies-1
                   scal(i,j,k,FirstSpec+n) = scal(i,j,k,FirstSpec+n)*scal(i,j,k,Density)
                enddo
                scal(i,j,k,RhoH) = scal(i,j,k,RhoH)*scal(i,j,k,Density)
@@ -1262,7 +1262,7 @@ contains
                        mu, mu_lo, mu_hi) &
                        bind(C, name="vel_visc")
                                  
-      use network,          only : nspec
+      use network,          only : nspecies
       use transport_module, only: get_visco_coeffs
       use mod_Fvar_def, only : LeEQ1
 
@@ -1274,7 +1274,7 @@ contains
       integer         , intent(in   ) ::   Y_lo(3),  Y_hi(3)
       integer         , intent(in   ) ::  mu_lo(3), mu_hi(3)
       REAL_T, intent(in   ) :: T(T_lo(1):T_hi(1),T_lo(2):T_hi(2),T_lo(3):T_hi(3))
-      REAL_T, intent(in   ) :: Y(Y_lo(1):Y_hi(1),Y_lo(2):Y_hi(2),Y_lo(3):Y_hi(3),nspec)
+      REAL_T, intent(in   ) :: Y(Y_lo(1):Y_hi(1),Y_lo(2):Y_hi(2),Y_lo(3):Y_hi(3),nspecies)
       REAL_T, intent(out  ) :: mu(mu_lo(1):mu_hi(1),mu_lo(2):mu_hi(2),mu_lo(3):mu_hi(3))
 
       integer i, j, k
@@ -1313,7 +1313,7 @@ contains
                             Pamb_in) &
                             bind(C, name="spec_temp_visc")
        
-      use network,          only : nspec
+      use network,          only : nspecies
       use transport_module, only : get_transport_coeffs
       use mod_Fvar_def, only : Pr, Sc, LeEQ1, thickFac
     
@@ -1324,18 +1324,18 @@ contains
       integer         , intent(in   ) ::   Y_lo(3),  Y_hi(3)
       integer         , intent(in   ) ::rhoD_lo(3),  rhoD_hi(3)
       REAL_T, intent(in   ) :: T(T_lo(1):T_hi(1),T_lo(2):T_hi(2),T_lo(3):T_hi(3))
-      REAL_T, intent(in   ) :: Y(Y_lo(1):Y_hi(1),Y_lo(2):Y_hi(2),Y_lo(3):Y_hi(3),nspec)
-      REAL_T, intent(out  ) :: rhoD(rhoD_lo(1):rhoD_hi(1),rhoD_lo(2):rhoD_hi(2),rhoD_lo(3):rhoD_hi(3),nspec+2)
+      REAL_T, intent(in   ) :: Y(Y_lo(1):Y_hi(1),Y_lo(2):Y_hi(2),Y_lo(3):Y_hi(3),nspecies)
+      REAL_T, intent(out  ) :: rhoD(rhoD_lo(1):rhoD_hi(1),rhoD_lo(2):rhoD_hi(2),rhoD_lo(3):rhoD_hi(3),nspecies+2)
       integer ncompd, do_temp, do_VelVisc
       REAL_T  Pamb_in, P1ATM_MKS
 
       integer i, j, k, n, nc, ncs
       REAL_T Patm, Wavg
-      REAL_T Yt(nspec), invmwt(nspec)
+      REAL_T Yt(nspecies), invmwt(nspecies)
       REAL_T cpmix(1,1,1), Tfac, Yfac
-      REAL_T  Y_real(Y_lo(1):Y_hi(1),Y_lo(2):Y_hi(2),Y_lo(3):Y_hi(3),nspec)
+      REAL_T  Y_real(Y_lo(1):Y_hi(1),Y_lo(2):Y_hi(2),Y_lo(3):Y_hi(3),nspecies)
       REAL_T  RHO(T_lo(1):T_hi(1),T_lo(2):T_hi(2),T_lo(3):T_hi(3))
-      REAL_T  D(T_lo(1):T_hi(1),T_lo(2):T_hi(2),T_lo(3):T_hi(3),nspec)
+      REAL_T  D(T_lo(1):T_hi(1),T_lo(2):T_hi(2),T_lo(3):T_hi(3),nspecies)
       REAL_T  MU(T_lo(1):T_hi(1),T_lo(2):T_hi(2),T_lo(3):T_hi(3))
       REAL_T  XI(T_lo(1):T_hi(1),T_lo(2):T_hi(2),T_lo(3):T_hi(3))
       REAL_T  LAM(T_lo(1):T_hi(1),T_lo(2):T_hi(2),T_lo(3):T_hi(3))
@@ -1343,9 +1343,9 @@ contains
       data lo_chem /1,1,1/
       data hi_chem /1,1,1/
 
-!     Nspec+1 is Temp stuff, if requested
-!     Nspec+2 is Velocity stuff, if requested
-      nc = Nspec
+!     nspecies+1 is Temp stuff, if requested
+!     nspecies+2 is Velocity stuff, if requested
+      nc = nspecies
       ncs = nc
       if (do_temp.eq.1) then
          nc = nc + 1
@@ -1367,7 +1367,7 @@ contains
       Yfac = thickFac / Sc
 
       call CKWT(invmwt)
-      do n=1,Nspec
+      do n=1,nspecies
           invmwt(n) = one / invmwt(n)
       end do
 
@@ -1375,10 +1375,10 @@ contains
         do j=lo(2),hi(2)
           do i=lo(1),hi(1)
             RHO(i,j,k) = 0.d0
-            do n=1,nspec
+            do n=1,nspecies
               RHO(i,j,k) = RHO(i,j,k) + Y(i,j,k,n)
             end do
-            do n=1,nspec
+            do n=1,nspecies
               Y_real(i,j,k,n) = Y(i,j,k,n) / RHO(i,j,k)
             end do
             RHO(i,j,k) = RHO(i,j,k) * 1.d-3
@@ -1400,19 +1400,19 @@ contains
           do j=lo(2), hi(2)
             do i=lo(1), hi(1)
               CALL CKMMWY(Y_real(i,j,k,:),Wavg)
-              do n=1,nspec
+              do n=1,nspecies
                 rhoD(i,j,k,n) = Wavg * invmwt(n) * D(i,j,k,n)  * 1.0d-1
               end do
               if (do_temp .ne. 0) then 
-                rhoD(i,j,k,nspec+1) = LAM(i,j,k) * (one / 100000.0D0)
+                rhoD(i,j,k,nspecies+1) = LAM(i,j,k) * (one / 100000.0D0)
               end if
               if (thickFac.ne.1.d0) then
-                do n=1,nspec+1
+                do n=1,nspecies+1
                   rhoD(i,j,k,n) = rhoD(i,j,k,n)*thickFac
                 enddo
               endif
               if (do_VelVisc .ne. 0) then 
-                rhoD(i,j,k,nspec+2) = MU(i,j,k) * 1.0d-1
+                rhoD(i,j,k,nspecies+2) = MU(i,j,k) * 1.0d-1
               end if
             end do
           end do
@@ -1427,14 +1427,14 @@ contains
         do k=lo(3), hi(3)
           do j=lo(2), hi(2)
             do i=lo(1), hi(1)
-              do n=Nspec+1,nc
+              do n=nspecies+1,nc
                 rhoD(i,j,k,n) = rhoD(i,j,k,1)
               end do
               rhoD(i,j,k,1) = rhoD(i,j,k,1) * Yfac
             end do
           end do
         end do
-        do n=2,Nspec
+        do n=2,nspecies
           do k=lo(3), hi(3)
             do j=lo(2), hi(2)
               do i=lo(1), hi(1)
@@ -1448,14 +1448,14 @@ contains
           do k=lo(3), hi(3)
             do j=lo(2), hi(2)
               do i=lo(1), hi(1)
-                do n=1,Nspec
+                do n=1,nspecies
                   Yt(n) = Y_real(i,j,k,n)
                 end do
                 CALL pphys_CPMIXfromTY(lo,       hi, & 
                                        cpmix,    lo_chem, hi_chem, &
                                        T(i,j,k), lo_chem, hi_chem, &
                                        Yt,       lo_chem, hi_chem)
-                rhoD(i,j,k,Nspec+1) = rhoD(i,j,k,Nspec+1)*cpmix(1,1,1)*Tfac
+                rhoD(i,j,k,nspecies+1) = rhoD(i,j,k,nspecies+1)*cpmix(1,1,1)*Tfac
               end do
             end do
           end do
@@ -1836,18 +1836,18 @@ contains
                           RhoY, DIMS(RhoY), dir, Ybc)&
                           bind(C, name="repair_flux")
                           
-      use network,        only : nspec
+      use network,        only : nspecies
 
       implicit none
 
       integer lo(dim), hi(dim), dlo(dim), dhi(dim), dir, Ybc(dim,2)
       integer DIMDEC(flux)
       integer DIMDEC(RhoY)
-      REAL_T flux(DIMV(flux),Nspec)
-      REAL_T RhoY(DIMV(RhoY),Nspec)
+      REAL_T flux(DIMV(flux),nspecies)
+      REAL_T RhoY(DIMV(RhoY),nspecies)
       
       integer i, j, k, n
-      REAL_T sumFlux, RhoYe(Nspec), sumRhoYe
+      REAL_T sumFlux, RhoYe(nspecies), sumRhoYe
 
       if (dir.eq.0) then
 
@@ -1858,13 +1858,13 @@ contains
                do i = lo(1),hi(1)
                   sumFlux = 0.d0
                   sumRhoYe = 0.d0
-                  do n=1,Nspec
+                  do n=1,nspecies
                      sumFlux = sumFlux + flux(i,j,k,n)
                      RhoYe(n) = 0.5d0*(RhoY(i-1,j,k,n) + RhoY(i,j,k,n))
                      sumRhoYe = sumRhoYe + RhoYe(n)
                   end do
                   sumRhoYe = 1.0D0/sumRhoYe
-                  do n=1,Nspec
+                  do n=1,nspecies
                      flux(i,j,k,n) = flux(i,j,k,n) - sumFlux*RhoYe(n)*sumRhoYe
                   end do
                end do
@@ -1877,12 +1877,12 @@ contains
                   do j = lo(2),hi(2)
                      sumFlux = 0.d0
                      sumRhoYe = 0.d0
-                     do n=1,Nspec
+                     do n=1,nspecies
                         sumFlux = sumFlux + flux(i,j,k,n)
                         sumRhoYe = sumRhoYe + RhoY(i-1,j,k,n)
                      enddo
                      sumRhoYe = 1.0D0/sumRhoYe
-                     do n=1,Nspec
+                     do n=1,nspecies
                         flux(i,j,k,n) = flux(i,j,k,n) - sumFlux*RhoY(i-1,j,k,n)*sumRhoYe
                      enddo
                   enddo
@@ -1896,12 +1896,12 @@ contains
                   do j = lo(2),hi(2)
                      sumFlux = 0.d0
                      sumRhoYe = 0.d0
-                     do n=1,Nspec
+                     do n=1,nspecies
                         sumFlux = sumFlux + flux(i,j,k,n)
                         sumRhoYe = sumRhoYe + RhoY(i,j,k,n)
                      enddo
                      sumRhoYe = 1.0D0/sumRhoYe
-                     do n=1,Nspec
+                     do n=1,nspecies
                         flux(i,j,k,n) = flux(i,j,k,n) - sumFlux*RhoY(i,j,k,n)*sumRhoYe
                      enddo
                   enddo
@@ -1918,13 +1918,13 @@ contains
                do i = lo(1),hi(1)
                   sumFlux = 0.d0
                   sumRhoYe = 0.d0
-                  do n=1,Nspec
+                  do n=1,nspecies
                      sumFlux = sumFlux + flux(i,j,k,n)
                      RhoYe(n) = 0.5d0*(RhoY(i,j-1,k,n) + RhoY(i,j,k,n))
                      sumRhoYe = sumRhoYe + RhoYe(n)
                   enddo
                   sumRhoYe = 1.0D0/sumRhoYe
-                  do n=1,Nspec
+                  do n=1,nspecies
                      flux(i,j,k,n) = flux(i,j,k,n) - sumFlux*RhoYe(n)*sumRhoYe
                   end do
                end do
@@ -1937,12 +1937,12 @@ contains
                   do i = lo(1),hi(1)
                      sumFlux = 0.d0
                      sumRhoYe = 0.d0
-                     do n=1,Nspec
+                     do n=1,nspecies
                         sumFlux = sumFlux + flux(i,j,k,n)
                         sumRhoYe = sumRhoYe + RhoY(i,j-1,k,n)
                      enddo
                      sumRhoYe = 1.0D0/sumRhoYe
-                     do n=1,Nspec
+                     do n=1,nspecies
                         flux(i,j,k,n) = flux(i,j,k,n) - sumFlux*RhoY(i,j-1,k,n)*sumRhoYe
                      enddo
                   enddo
@@ -1956,12 +1956,12 @@ contains
                   do i = lo(1),hi(1)
                      sumFlux = 0.d0
                      sumRhoYe = 0.d0
-                     do n=1,Nspec
+                     do n=1,nspecies
                         sumFlux = sumFlux + flux(i,j,k,n)
                         sumRhoYe = sumRhoYe + RhoY(i,j,k,n)
                      enddo
                      sumRhoYe = 1.0D0/sumRhoYe
-                     do n=1,Nspec
+                     do n=1,nspecies
                         flux(i,j,k,n) = flux(i,j,k,n) - sumFlux*RhoY(i,j,k,n)*sumRhoYe
                      enddo
                   enddo
@@ -1977,13 +1977,13 @@ contains
                do i = lo(1),hi(1)
                   sumFlux = 0.d0
                   sumRhoYe = 0.d0
-                  do n=1,Nspec
+                  do n=1,nspecies
                      sumFlux = sumFlux + flux(i,j,k,n)
                      RhoYe(n) = 0.5d0*(RhoY(i,j,k-1,n) + RhoY(i,j,k,n))
                      sumRhoYe = sumRhoYe + RhoYe(n)
                   enddo
                   sumRhoYe = 1.0D0/sumRhoYe
-                  do n=1,Nspec
+                  do n=1,nspecies
                      flux(i,j,k,n) = flux(i,j,k,n) - sumFlux*RhoYe(n)*sumRhoYe
                   end do
                end do
@@ -1996,12 +1996,12 @@ contains
                   do i = lo(1),hi(1)
                      sumFlux = 0.d0
                      sumRhoYe = 0.d0
-                     do n=1,Nspec
+                     do n=1,nspecies
                         sumFlux = sumFlux + flux(i,j,k,n)
                         sumRhoYe = sumRhoYe + RhoY(i,j,k-1,n)
                      enddo
                      sumRhoYe = 1.0D0/sumRhoYe
-                     do n=1,Nspec
+                     do n=1,nspecies
                         flux(i,j,k,n) = flux(i,j,k,n) - sumFlux*RhoY(i,j,k-1,n)*sumRhoYe
                      enddo
                   enddo
@@ -2015,12 +2015,12 @@ contains
                   do i = lo(1),hi(1)
                      sumFlux = 0.d0
                      sumRhoYe = 0.d0
-                     do n=1,Nspec
+                     do n=1,nspecies
                         sumFlux = sumFlux + flux(i,j,k,n)
                         sumRhoYe = sumRhoYe + RhoY(i,j,k,n)
                      enddo
                      sumRhoYe = 1.0D0/sumRhoYe
-                     do n=1,Nspec
+                     do n=1,nspecies
                         flux(i,j,k,n) = flux(i,j,k,n) - sumFlux*RhoY(i,j,k,n)*sumRhoYe
                      enddo
                   enddo

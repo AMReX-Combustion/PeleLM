@@ -6,7 +6,9 @@
 
 module MakeForce_2d_module
 
-implicit none
+  use amrex_fort_module, only : dim=>amrex_spacedim
+
+  implicit none
   
   private
   
@@ -32,7 +34,7 @@ contains
                                nscal,getForceVerbose &
       )bind(C, name="FORT_MAKEFORCE")
 
-      use mod_Fvar_def, only : dv_control, pseudo_gravity, dim
+      use mod_Fvar_def, only : dv_control, pseudo_gravity
 
       implicit none
 
