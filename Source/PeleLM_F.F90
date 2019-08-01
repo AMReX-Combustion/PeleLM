@@ -91,12 +91,12 @@ end subroutine plm_extern_init
 
   subroutine pphys_get_num_spec(nspec_out) bind(C, name="pphys_get_num_spec")
 
-      use network, only : nspec
+      use network, only : nspecies
 
       implicit none
       integer(c_int), intent(out) :: nspec_out
 
-      nspec_out = nspec
+      nspec_out = nspecies
 
   end subroutine pphys_get_num_spec  
 
@@ -190,10 +190,11 @@ end subroutine plm_extern_init
 
   function pphys_numReactions() bind(C, name="pphys_numReactions") result(NR)
 
+    use network, only : nreactions
     implicit none
     integer Nelt,Nspec,NR,Nfit
-      
-    call CKINDX(Nelt,Nspec,NR,Nfit)
+
+    NR = nreactions
 
   end function pphys_numReactions
 
@@ -211,42 +212,42 @@ end subroutine plm_extern_init
 !
 !     Variables in Z are:  Z(1:K) = rhoY(K) [MKS]
 !                          Z(K+1) = RhoH    [MKS]
-    use network, only : nspec
+    use network, only : nspecies
 
     implicit none
 
-    integer(c_int), intent(inout)   :: N
+    integer(c_int), intent(in)   :: N ! unused
     double precision, intent(in   ) :: TIME
     double precision, intent(inout) :: TEMP
-    double precision, intent(in   ) :: Z(nspec+1)
-    double precision, intent(out  ) :: ZP(nspec+1)
+    double precision, intent(in   ) :: Z(nspecies+1)
+    double precision, intent(out  ) :: ZP(nspecies+1)
 
-    double precision WDOT_CGS(nspec)
-    double precision Y(nspec), CONC_CGS(nspec), MWT(nspec)
+    double precision WDOT_CGS(nspecies)
+    double precision Y(nspecies), CONC_CGS(nspecies), MWT(nspecies)
     double precision RHO_MKS, RINV_MKS, THFAC, HMIX_MKS, HMIX_CGS
     integer :: lierr, K
 
 
     ! RHO MKS
-    RHO_MKS  = sum(Z(1:nspec))
+    RHO_MKS  = sum(Z(1:nspecies))
     RINV_MKS = 1.d0 / RHO_MKS
     ! MW CGS
     call CKWT(MWT);
       
-    do K=1,nspec
+    do K=1,nspecies
       CONC_CGS(K) = Z(K)/MWT(K)*1.d-3
       Y(K) = Z(K) * RINV_MKS
       !print *," Y, WT ", Z(K), 1./MWT(K)
     enddo
 
-    HMIX_MKS = (Z(nspec+1) + 0.0d0*TIME) * RINV_MKS
+    HMIX_MKS = (Z(nspecies+1) + 0.0d0*TIME) * RINV_MKS
     HMIX_CGS = HMIX_MKS * 1.0d4
     call get_t_given_hY(HMIX_CGS, Y, TEMP, lierr);
     call CKWC(TEMP,CONC_CGS,WDOT_CGS)
 
-    ZP(Nspec+1) = 0.0d0
+    ZP(nspecies+1) = 0.0d0
     THFAC = 1.d3
-    do k= 1, Nspec
+    do k= 1, nspecies
       ZP(k) = WDOT_CGS(k) * MWT(k) * THFAC + 0.0d0
       !print *," RHO, C(CGS), H, T",RHO_MKS, CONC_CGS(k), HMIX_MKS, TEMP
       !print *," wdot(CGS), wdot", WDOT_CGS(k), ZP(k)
@@ -753,7 +754,7 @@ end subroutine plm_extern_init
                            bath, fuel, oxid, prod, numspec, &
                            flag_active_control)  bind(C, name="set_prob_spec")
  
-      use network,  only: nspec
+      use network,  only: nspecies
       use mod_Fvar_def, only: dim, domnlo, domnhi
       use mod_Fvar_def, only: bathID, fuelID, oxidID, prodID
       use mod_Fvar_def, only: f_flag_active_control
@@ -776,12 +777,12 @@ end subroutine plm_extern_init
       fuelID = fuel + 1
       oxidID = oxid + 1
       prodID = prod + 1
-      if (bath .lt. 0 .or. bath .ge. nspec) then
+      if (bath .lt. 0 .or. bath .ge. nspecies) then
          call bl_pd_abort('no N2 species present in mechanism')
       endif
       bathID = bath + 1
 
-      if (numspec .ne. nspec) then
+      if (numspec .ne. nspecies) then
          call bl_pd_abort('number of species not consistent')
       endif
       
