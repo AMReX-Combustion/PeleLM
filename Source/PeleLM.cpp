@@ -4127,7 +4127,9 @@ PeleLM::scalar_advection_update (Real dt,
   //
   MultiFab&       S_new = get_new_data(State_Type);
   const MultiFab& S_old = get_old_data(State_Type);
-VisMF::Write(S_new,"S_new1");
+  
+//VisMF::Write(S_new,"S_new1");
+
 #ifdef _OPENMP
 #pragma omp parallel
 #endif  
@@ -4142,8 +4144,8 @@ VisMF::Write(S_new,"S_new1");
     snew.plus(S_old[mfi],box,first_scalar,first_scalar,nc);            
   }
 
-VisMF::Write(S_new,"S_new2");
-VisMF::Write(S_old,"S_old2");
+//VisMF::Write(S_new,"S_new2");
+//VisMF::Write(S_old,"S_old2");
 
 }
 
@@ -5069,9 +5071,9 @@ PeleLM::advance (Real time,
 
 
 // EM_DEBUG     
-    VisMF::Write(mac_divu,"mac_divu_after");
-    VisMF::Write(u_mac[0], "umacx");
-    VisMF::Write(u_mac[1], "umacy");
+    //VisMF::Write(mac_divu,"mac_divu_after");
+    //VisMF::Write(u_mac[0], "umacx");
+    //VisMF::Write(u_mac[1], "umacy");
       
     if (closed_chamber == 1 && level == 0)
     {
@@ -5386,14 +5388,14 @@ PeleLM::advance (Real time,
   BL_PROFILE_VAR_START(HTVEL);
   
 // EM_DEBUG 
-VisMF::Write(*aofs,"AOFS_before_vel_advection");
+//VisMF::Write(*aofs,"AOFS_before_vel_advection");
 
   if (do_mom_diff == 0) {
     velocity_advection(dt);
   }
   
 // EM_DEBUG 
-VisMF::Write(*aofs,"AOFS_before_vel_update");
+//VisMF::Write(*aofs,"AOFS_before_vel_update");
 
   velocity_update(dt);
   BL_PROFILE_VAR_STOP(HTVEL);
