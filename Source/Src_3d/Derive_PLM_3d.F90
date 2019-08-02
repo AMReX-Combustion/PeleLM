@@ -1241,7 +1241,7 @@ contains
       integer    level, grid_no
 
       integer i,j,k,n
-      integer fS,rho
+      integer fS
       integer lo_chem(3),hi_chem(3)
       data lo_chem /1,1,1/
       data hi_chem /1,1,1/

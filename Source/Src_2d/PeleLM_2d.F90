@@ -30,7 +30,7 @@ module PeleLM_2d
   private
 
   public ::  calc_divu_fortran, calc_gamma_pinv, floor_spec, enth_diff_terms, &
-             vel_visc, spec_temp_visc, spec_wbar, beta_wbar, &
+             vel_visc, spec_temp_visc, beta_wbar, &
              est_divu_dt, check_divu_dt, dqrad_fill, divu_fill, &
              dsdt_fill, ydot_fill, rhoYdot_fill, fab_minmax, repair_flux, &
              incrwext_flx_div, flux_div, compute_ugradp, conservative_T_floor, &
@@ -1019,45 +1019,6 @@ contains
 
 
   end subroutine spec_temp_visc
-
-!-------------------------------------------------
-
-  subroutine spec_wbar(lo,hi, &
-                       rhoD, rhoD_lo, rhoD_hi, &
-                       Y, Y_lo, Y_hi, &
-                       rhoD_wbar, rhoD_wbar_lo, rhoD_wbar_hi) &
-                       bind(C, name="spec_wbar")
-
-  use network,          only : nspec
-  
-  implicit none
-
-  integer, intent(in ) ::           lo(3), hi(3)
-  integer, intent(in ) ::      rhoD_lo(3), rhoD_hi(3)
-  integer, intent(in ) ::         Y_lo(3), Y_hi(3)
-  integer, intent(in ) :: rhoD_wbar_lo(3), rhoD_wbar_hi(3)
-  REAL_T , intent(in ) :: rhoD(rhoD_lo(1):rhoD_hi(1),rhoD_lo(2):rhoD_hi(2),rhoD_lo(3):rhoD_hi(3),nspec)
-  REAL_T , intent(in ) :: Y(Y_lo(1):Y_hi(1),Y_lo(2):Y_hi(2),Y_lo(3):Y_hi(3),nspec)
-  REAL_T , intent(out) :: rhoD_wbar(rhoD_wbar_lo(1):rhoD_wbar_hi(1),&
-                                    rhoD_wbar_lo(2):rhoD_wbar_hi(2),&
-                                    rhoD_wbar_lo(3):rhoD_wbar_hi(3),nspec)
- 
-  integer :: i, j, k
-  REAL_T  :: rhoinv, Wbar
-  REAL_T  :: Y_real(1:nspec)
-
-  do k=lo(3),hi(3) 
-    do j=lo(2), hi(2)
-      do i=lo(1), hi(1)
-        rhoinv = 1.0d0 / SUM(Y(i,j,k,1:nspec))
-        Y_real(1:nspec) = Y(i,j,k,1:nspec) * rhoinv
-        CALL CKMMWY(Y_real,Wbar)
-        rhoD_wbar(i,j,k,1:nspec) = rhoD(i,j,k,1:nspec) * Y_real(1:nspec) / Wbar
-      end do
-    end do
-  end do
-
-  end subroutine spec_wbar
 
 !-------------------------------------------
 

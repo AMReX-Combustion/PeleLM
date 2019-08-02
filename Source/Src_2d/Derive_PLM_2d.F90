@@ -743,7 +743,7 @@ contains
     integer    level, grid_no
 
     integer i,j,n
-    integer fS,rho
+    integer fS
     integer lo_chem(2),hi_chem(2)
     data lo_chem /1,1/
     data hi_chem /1,1/

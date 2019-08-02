@@ -541,15 +541,6 @@ PeleLM::Initialize ()
   crse_dt                 = -1;
   chem_box_chop_threshold = -1;
 
-
-
-  // These two flags below belong to the NavierStokesBase class in IAMR,
-  // we set them to 1 by default even if later we do a constant mu and/or lambda
-  // Note that constant mu and lambda will be imposed from Constant module in PelePhysics
-  variable_vel_visc = 1;
-  variable_scal_diff = 1;
-
-
   PeleLM::p_amb_old                 = -1.0;
   PeleLM::p_amb_new                 = -1.0;
   PeleLM::num_divu_iters            = 1;
@@ -686,16 +677,6 @@ PeleLM::Initialize ()
   pp.query("turbFile",turbFile);
 
   pp.query("zeroBndryVisc",zeroBndryVisc);
-  //
-  // Check that we are setting correctly default variability/visc for velocities.
-  //
-  if (variable_vel_visc != 1)
-    amrex::Error("PeleLM::read_params() -- must use variable viscosity");
-  //
-  // Check that we are setting correctly default variability/visc for diffusivity
-  //
-  if (variable_scal_diff != 1)
-    amrex::Error("PeleLM::read_params() -- must use variable scalar diffusivity");
   //
   // Read in scalar value and use it as tracer.
   //
@@ -899,7 +880,7 @@ PeleLM::Initialize_specific ()
     }
 
     PeleLM::dpdt_factor = 1.0;
-    pp.query("dpdt_factor",dpdt_factor);
+    pplm.query("dpdt_factor",dpdt_factor);
 
 }
 

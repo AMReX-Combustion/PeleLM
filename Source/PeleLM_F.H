@@ -215,11 +215,6 @@ extern "C" {
                       const int* do_temp, const int* do_VelVisc, 
                       const amrex::Real* Pamb_in);
 
-  void spec_wbar(const int* lo, const int* hi,
-                 const BL_FORT_FAB_ARG_3D(Rd),
-                 		  BL_FORT_FAB_ARG_3D(beta_wbar),
-                 const BL_FORT_FAB_ARG_3D(Y));
-
   void fab_minmax (const int* lo, const int* hi,
                       amrex::Real* fabdat, ARLIM_P(flo), ARLIM_P(fhi),
                       const amrex::Real* min, const amrex::Real* max, const int* nc);

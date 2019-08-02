@@ -35,9 +35,13 @@ contains
 
   subroutine pphys_network_init() bind(C, name="pphys_network_init")                                                                                         
 
-     use network, only: network_init
+     use network, only: network_init, nspecies
+     
+     write(*,*) 'DEBUG IN PeleLM_F.F90 before network_init ',nspecies
      
      call network_init()
+     
+     write(*,*) 'DEBUG IN PeleLM_F.F90 after network_init ',nspecies
        
   end subroutine pphys_network_init 
 
@@ -192,7 +196,7 @@ end subroutine plm_extern_init
 
     use network, only : nreactions
     implicit none
-    integer Nelt,Nspec,NR,Nfit
+    integer NR
 
     NR = nreactions
 
