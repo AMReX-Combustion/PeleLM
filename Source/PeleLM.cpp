@@ -3793,8 +3793,8 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
       {
         auto& vfr = getLevel(level+1).getViscFluxReg();
         auto& afr = getLevel(level+1).getAdvFluxReg();
-	vfr.CrseInit((*SpecDiffusionFluxnp1[d]),d,0,first_spec,nspecies,-dt,FluxRegister::ADD);
-	afr.CrseInit((*SpecDiffusionFluxnp1[d]),d,nspecies+1,RhoH,1,-dt,FluxRegister::ADD);
+        vfr.CrseInit((*SpecDiffusionFluxnp1[d]),d,0,first_spec,nspecies,-dt,FluxRegister::ADD);
+        afr.CrseInit((*SpecDiffusionFluxnp1[d]),d,nspecies+1,RhoH,1,-dt,FluxRegister::ADD);
         vfr.CrseInit((*SpecDiffusionFluxnp1[d]),d,nspecies+2,RhoH,1,-dt,FluxRegister::ADD);
       }
     }
@@ -3831,9 +3831,9 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
 
 void
 PeleLM::adjust_spec_diffusion_fluxes (MultiFab* const * flux,
-                                      const MultiFab&   S,
-                                      const BCRec&      bc,
-				      Real              time)
+                                                         const MultiFab&   S,
+                                                         const BCRec&      bc,
+                                                         Real              time)
 {
   //
   // Adjust the species diffusion fluxes so that their sum is zero.
@@ -3877,8 +3877,8 @@ PeleLM::adjust_spec_diffusion_fluxes (MultiFab* const * flux,
 
 void
 PeleLM::compute_enthalpy_fluxes (MultiFab* const*       flux,
-                                 const MultiFab* const* beta,
-				 Real 			time)
+                                                     const MultiFab* const* beta,
+                                                     Real        time)
 {
   /*
     Build heat fluxes based on species fluxes, Gamma_m, and fill-patched cell-centered states
@@ -5769,27 +5769,7 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
     MultiFab::Saxpy(mf_new,dt,Force,0,first_spec,nspecies+1,0);
     get_new_data(RhoYdot_Type).setVal(0);
     get_new_data(FuncCount_Type).setVal(0);
-//     RhoH_to_Temp(mf_new);
   }
-//  {
-//    FArrayBox tmp;
-//#ifdef _OPENMP
-//#pragma omp parallel
-//#endif
-//    for (MFIter mfi(mf_old,true); mfi.isValid(); ++mfi)
-//    {
-//      const Box& box = mfi.tilebox();
-//      tmp.resize(box,nspecies+1);
-//      const FArrayBox& f = Force[mfi];
-//      tmp.copy(f,box,0,box,0,nspecies+1);
-//      tmp.mult(dt,box,0,nspecies+1);
-//      FArrayBox& Sold = mf_old[mfi];
-//      FArrayBox& Snew = mf_new[mfi];
-//      Snew.copy(Sold,box,first_spec,box,first_spec,nspecies+1);
-//      Snew.plus(tmp,box,box,0,first_spec,nspecies+1);
-//      Snew.copy(Sold,box,Temp,box,Temp,1);
-//    }
-//  }
   else
   {
     BoxArray cf_grids;
@@ -7470,13 +7450,15 @@ PeleLM::calcDiffusivity_Wbar (const Real time)
 
   for (MFIter mfi(Rho_and_spec_mf,true); mfi.isValid();++mfi)
   {
-    const Box& gbox = mfi.growntilebox();
+    const FArrayBox& RD = diff[mfi];
+    const FArrayBox& RYfab = Rho_and_spec_mf[mfi];
     FArrayBox& Dfab_Wbar = diffWbar_cc[mfi];
-
-    spec_wbar(BL_TO_FORTRAN_BOX(gbox),
-              BL_TO_FORTRAN_N_3D(diff[mfi],0),
-              BL_TO_FORTRAN_N_3D(Dfab_Wbar,0),
-              BL_TO_FORTRAN_N_3D(Rho_and_spec_mf[mfi],1));
+    const Box& gbox = mfi.growntilebox();
+        
+    beta_wbar(BL_TO_FORTRAN_BOX(gbox),
+              BL_TO_FORTRAN_3D(RD),
+              BL_TO_FORTRAN_3D(Dfab_Wbar),
+              BL_TO_FORTRAN_N_3D(RYfab,1));
   }
 }
 #endif

@@ -6,7 +6,9 @@
 
 module MakeForce_3d_module
 
-implicit none
+  use amrex_fort_module, only : dim=>amrex_spacedim
+
+  implicit none
   
   private
   
@@ -31,7 +33,7 @@ contains
                                 nscal,getForceVerbose &
                                 )bind(C, name="FORT_MAKEFORCE")
 
-      use mod_Fvar_def, only : dv_control, pseudo_gravity, dim, domnlo, domnhi
+      use mod_Fvar_def, only : dv_control, pseudo_gravity, domnlo, domnhi
       use probdata_module, only : FTX, TAT, FPX, FPY, FPZ, &
                                   FAX, FAY, FAZ, FPXX, FPYX, FPXY, FPYY, &
                                   FPZY, FPYZ, FPZX, FPXZ, FPZZ, &

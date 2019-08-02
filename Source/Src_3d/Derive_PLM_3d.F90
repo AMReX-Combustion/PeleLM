@@ -19,7 +19,7 @@
 
 module derive_PLM_3D
 
-  use mod_Fvar_def, only : dim
+  use amrex_fort_module, only : dim=>amrex_spacedim
   
   implicit none
 
@@ -1115,7 +1115,7 @@ contains
                      level,grid_no) &
                      bind(C, name="drhort")
 
-    use network,        only : nspec
+    use network,        only : nspecies
     use PeleLM_3D, only: pphys_PfromRTY
     
     implicit none
@@ -1137,7 +1137,7 @@ contains
 
       integer    i, j, k, n, rho, T, fS
       integer    nxlo,nxhi,nylo,nyhi,nzlo,nzhi
-      REAL_T     Yt(nspec)
+      REAL_T     Yt(nspecies)
       integer lo_chem(3),hi_chem(3)
       data lo_chem /1,1,1/
       data hi_chem /1,1,1/
@@ -1162,7 +1162,7 @@ contains
       do k=lo(3),hi(3)
          do j=lo(2),hi(2)
             do i=lo(1),hi(1)
-               do n=1,Nspec
+               do n=1,nspecies
                   Yt(n) = dat(i,j,k,fS+n-1) / dat(i,j,k,rho)
                end do
                call pphys_PfromRTY(lo_chem, hi_chem, &
@@ -1182,7 +1182,7 @@ contains
                           level,grid_no) &
                           bind(C, name="dermassfrac")
 
-    use network,        only : nspec
+    use network,        only : nspecies
 
     implicit none
 
@@ -1209,7 +1209,7 @@ contains
       do k=lo(3),hi(3)
          do j=lo(2),hi(2)
             do i=lo(1),hi(1)
-               do n = 1,Nspec
+               do n = 1,nspecies
                   x(i,j,k,n) = dat(i,j,k,fS+n-1)/dat(i,j,k,rho)
                enddo
             enddo
@@ -1225,7 +1225,7 @@ contains
                           level,grid_no) &
                           bind(C, name="derRhoY")
 
-    use network,        only : nspec
+    use network,        only : nspecies
 
     implicit none
 
@@ -1251,7 +1251,7 @@ contains
       do k=lo(3),hi(3)
          do j=lo(2),hi(2)
             do i=lo(1),hi(1)
-               do n = 1,Nspec
+               do n = 1,nspecies
                   x(i,j,k,n) = dat(i,j,k,fS+n-1)
                enddo
             enddo
@@ -1267,7 +1267,7 @@ contains
                           level,grid_no) &
                           bind(C, name="dermolefrac")
 
-    use network,        only : nspec
+    use network,        only : nspecies
     use PeleLM_3D, only : pphys_mass_to_mole
 
     implicit none
@@ -1284,7 +1284,7 @@ contains
       integer    level, grid_no
 
       integer i,j,k,n
-      REAL_T Yt(nspec),Xt(nspec)
+      REAL_T Yt(nspecies),Xt(nspecies)
       integer fS,rho
       integer lo_chem(3),hi_chem(3)
       data lo_chem /1,1,1/
@@ -1296,13 +1296,13 @@ contains
       do k=lo(3),hi(3)
          do j=lo(2),hi(2)
             do i=lo(1),hi(1)
-               do n = 1,Nspec
+               do n = 1,nspecies
                   Yt(n) = dat(i,j,k,fS+n-1)/dat(i,j,k,rho) 
                enddo
                call pphys_mass_to_mole(lo_chem, hi_chem, &
                           Yt, ARLIM(lo_chem),ARLIM(hi_chem), &
                           Xt, ARLIM(lo_chem),ARLIM(hi_chem))
-               do n = 1,Nspec
+               do n = 1,nspecies
                   x(i,j,k,n) = Xt(n)
                enddo
             enddo
@@ -1318,7 +1318,7 @@ contains
                                level,grid_no) &
                                bind(C, name="derconcentration")
 
-    use network,        only : nspec
+    use network,        only : nspecies
     use PeleLM_3D, only: pphys_massr_to_conc
                                
     implicit none
@@ -1335,7 +1335,7 @@ contains
       integer    level, grid_no
 
       integer i,j,k,n
-      REAL_T Yt(nspec),Ct(nspec)
+      REAL_T Yt(nspecies),Ct(nspecies)
       integer fS,rho,T
       integer lo_chem(3),hi_chem(3)
       data lo_chem /1,1,1/
@@ -1348,7 +1348,7 @@ contains
       do k=lo(3),hi(3)
          do j=lo(2),hi(2)
             do i=lo(1),hi(1)
-               do n = 1,Nspec
+               do n = 1,nspecies
                   Yt(n) = dat(i,j,k,fS+n-1)/dat(i,j,k,rho) 
                enddo
                call pphys_massr_to_conc(lo_chem,hi_chem, &
@@ -1356,7 +1356,7 @@ contains
                   dat(i,j,k,T),   ARLIM(lo_chem),ARLIM(hi_chem), &
                   dat(i,j,k,rho), ARLIM(lo_chem),ARLIM(hi_chem), &
                   Ct,           ARLIM(lo_chem),ARLIM(hi_chem))
-               do n = 1,Nspec
+               do n = 1,nspecies
                   C(i,j,k,n) = Ct(n)
                enddo
             enddo
@@ -1370,7 +1370,7 @@ contains
                                level,grid_no) &
                                bind(C, name="dertransportcoeff")
 
-    use network,        only : nspec
+    use network,        only : nspecies
     use transport_module, only : get_transport_coeffs
 
     implicit none
@@ -1387,7 +1387,7 @@ contains
     integer    level, grid_no
 
     integer i,j,k,n
-    REAL_T Yt(nspec), rho_dummy(1), D(Nspec), MU(1), XI(1), LAM(1)
+    REAL_T Yt(nspecies), rho_dummy(1), D(nspecies), MU(1), XI(1), LAM(1)
     integer fS,rho,T
     integer lo_chem(3),hi_chem(3)
     data lo_chem /1,1,1/
@@ -1401,7 +1401,7 @@ contains
          do j=lo(2),hi(2)
             do i=lo(1),hi(1)
 
-              do n = 1,Nspec
+              do n = 1,nspecies
                 Yt(n) = dat(i,j,k,fS+n-1)/dat(i,j,k,rho)
               enddo
               rho_dummy(1) = dat(i,j,k,rho) * 1.d-3
@@ -1415,12 +1415,12 @@ contains
                                         XI(1),        lo_chem,hi_chem,  &
                                         LAM(1),      lo_chem,hi_chem)
 
-              do n = 1,Nspec
+              do n = 1,nspecies
                 C(i,j,k,n) = D(n) * 0.1d0
               enddo
 
-              C(i,j,k,Nspec+1) = LAM(1) * 1.0d-05
-              C(i,j,k,Nspec+2) = MU(1)  * 0.1d0
+              C(i,j,k,nspecies+1) = LAM(1) * 1.0d-05
+              C(i,j,k,nspecies+2) = MU(1)  * 0.1d0
 
             enddo
          enddo
@@ -1435,7 +1435,7 @@ contains
                           level,grid_no) &
                           bind(C, name="dermolweight")
 
-    use network,        only : nspec
+    use network,        only : nspecies
     use fuego_chemistry
 
     implicit none
@@ -1449,7 +1449,7 @@ contains
       REAL_T     delta(dim), xlo(dim), time, dt
       REAL_T     x(DIMV(x),nv)
       REAL_T     dat(DIMV(dat),ncomp)
-      REAL_T Yt(nspec)
+      REAL_T Yt(nspecies)
       integer    level, grid_no
 
       integer i,j,k,n
@@ -1464,7 +1464,7 @@ contains
       do k=lo(3),hi(3)
          do j=lo(2),hi(2)
             do i=lo(1),hi(1)
-               do n = 1,Nspec
+               do n = 1,nspecies
                   Yt(n) = dat(i,j,k,fS+n-1)/dat(i,j,k,rho)
                enddo
                
