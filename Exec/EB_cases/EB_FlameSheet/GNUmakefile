@@ -1,6 +1,6 @@
 TOP = ../../../..
 AMREX_HOME ?= ${TOP}/amrex
-IAMR_HOME ?= ${TOP}/IAMR_EB
+IAMR_HOME ?= ${TOP}/IAMR_EB_diff_rearange
 PELELM_HOME ?= ${TOP}/PeleLM_EB
 
 #
@@ -11,7 +11,7 @@ DIM             = 2
 COMP            = gnu
 DEBUG           = TRUE
 USE_MPI         = TRUE
-USE_OMP         = TRUE
+USE_OMP         = FALSE
 PRECISION       = DOUBLE
 VERBOSE         = FALSE
 
