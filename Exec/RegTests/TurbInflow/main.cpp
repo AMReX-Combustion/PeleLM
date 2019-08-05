@@ -3,6 +3,7 @@
 #include "AMReX_ParmParse.H"
 #include <AMReX_ParallelDescriptor.H>
 #include <AMReX_DataServices.H>
+#include <WritePlotFile.H>
 
 using namespace amrex;
 
@@ -22,6 +23,20 @@ encodeStringForFortran(const std::string& astr)
   for (int i = 0; i < length; ++i)
     result[i] = astr[i];
   return result;
+}
+
+void PlotFileFromMF(const MultiFab& mf,
+                    const Geometry& geom,
+                    const std::string& oFile)
+{
+  Real bgVal = 0;
+  IntVect refRatio(D_DECL(2,2,2));
+  Vector<std::string> names(mf.nComp());
+  for (int i=0; i<mf.nComp(); ++i) {
+    names[i] = amrex::Concatenate("MF_",i,5);
+  }
+    
+  writePlotFile(oFile.c_str(),mf,geom,refRatio,bgVal,names);
 }
 
 static
@@ -75,6 +90,9 @@ main (int   argc,
   {
     ParmParse pp;
 
+    ParmParse ppa("amr");
+    std::string pltfile("plt");  ppa.query("plot_file",pltfile);
+    
     std::string TurbDir("Turb");
 
     if (ParallelDescriptor::IOProcessor())
@@ -142,12 +160,12 @@ main (int   argc,
       fab(i,j,k,2) = 3.;
     });
 
-#if 0
+#if 1
     BoxArray ba(box_turb);
     DistributionMapping dm(ba);
     MultiFab vel(ba,dm,BL_SPACEDIM,0);
     vel[0].copy(vel_turb);
-    VisMF::Write(vel,"TEST");
+    PlotFileFromMF(vel,geom_turb,Concatenate(pltfile,0));
 #endif
 
     // Dump field as a "turbulence file"
@@ -218,8 +236,9 @@ main (int   argc,
               BL_TO_FORTRAN_ANYD(mf_res[mfi]),
               geom_res.CellSize(), geom_res.ProbLo());
     }
-
-    VisMF::Write(mf_res,"JUNK");
+    
+    std::string outfile = Concatenate(pltfile,1); // Need a number other than zero for reg test to pass
+    PlotFileFromMF(mf_res,geom_res,outfile);
   }
   Finalize();
 }

@@ -23,6 +23,10 @@ INCLUDE_LOCATIONS += $(AMREX_HOME)/Src/Extern/amrdata
 include $(AMREX_HOME)/Src/Extern/amrdata/Make.package
 vpathdir += $(AMREX_HOME)/Src/Extern/amrdata
 
+INCLUDE_LOCATIONS += $(AMREX_HOME)/Tools/C_util
+include $(AMREX_HOME)/Tools/C_util/Make.package
+vpathdir += $(AMREX_HOME)/Tools/C_util
+
 INCLUDE_LOCATIONS += $(IAMR_HOME)/Source/TurbInflow
 include $(IAMR_HOME)/Source/TurbInflow/Make.package
 vpathdir += $(IAMR_HOME)/Source/TurbInflow
