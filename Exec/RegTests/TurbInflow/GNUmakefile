@@ -1,17 +1,12 @@
 AMREX_HOME ?= ../../../../amrex
 IAMR_HOME ?= ../../../../IAMR
 
-DEBUG	= TRUE
 DEBUG	= FALSE
-
 DIM	= 3
 COMP    = gcc
 PRECISION = DOUBLE
 USE_MPI   = TRUE
-USE_OMP   = FALSE
-
-DEBUG=TRUE
-USE_OMP=TRUE
+USE_OMP   = TRUE
 
 EBASE     = main
 

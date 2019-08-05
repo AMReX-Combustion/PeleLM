@@ -160,26 +160,23 @@ main (int   argc,
     // We first do the lo BL_SPACEDIM plane.
     // And then all the other planes in xhi -> xlo order.
     //
-    bg[dir] = sm[dir];
+    for (int d = 0; d < BL_SPACEDIM; ++d)
     {
-      Box bx(sm,bg);
-      TMP.resize(bx,1);
-      for (int d = 0; d < BL_SPACEDIM; ++d)
+      bg[dir] = sm[dir];
       {
+        Box bx(sm,bg);
+        TMP.resize(bx,1);
         TMP.copy(vel_turb,bx,d,bx,0,1);
         Extend(xfab, TMP, box_turb);
         ifsh << ifsd.tellp() << std::endl;
         xfab.writeOn(ifsd);
       }
-    }
-    for (int i = box_turb.bigEnd(dir); i >= box_turb.smallEnd(dir); i--)
-    {
-      sm[dir] = i;
-      bg[dir] = i;
-      Box bx(sm,bg);
-      TMP.resize(bx,1);
-      for (int d = 0; d < BL_SPACEDIM; ++d)
+      for (int i = box_turb.bigEnd(dir); i >= box_turb.smallEnd(dir); i--)
       {
+        sm[dir] = i;
+        bg[dir] = i;
+        Box bx(sm,bg);
+        TMP.resize(bx,1);
         TMP.copy(vel_turb,bx,d,bx,0,1);
         Extend(xfab, TMP, box_turb);
         ifsh << ifsd.tellp() << std::endl;
