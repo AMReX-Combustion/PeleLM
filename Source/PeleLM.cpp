@@ -5378,16 +5378,7 @@ PeleLM::advance (Real time,
         f.plus(r,box,box,0,0,nspecies); // no reactions for RhoH
       }
     }
-  }
-    BL_PROFILE_VAR_STOP(HTDIFF);
-
-    MultiFab Dhat(grids,dmap,nspecies+2,nGrowAdvForcing,MFInfo(),Factory());
-
-    // advection-diffusion solve
-    showMF("sdc",Forcing,"sdc_Forcing_before_Dhat",level,sdc_iter,parent->levelSteps(level));
-    BL_PROFILE_VAR_START(HTDIFF);
-    differential_diffusion_update(Forcing,0,Dhat,0,DDnp1);
-    BL_PROFILE_VAR_STOP(HTDIFF);
+  
 
 #ifdef USE_WBAR
     const Real  cur_time  = state[State_Type].curTime();
