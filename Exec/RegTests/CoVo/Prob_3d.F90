@@ -7,9 +7,8 @@
 #include <Prob_F.H>
 #include <PeleLM_F.H>
 
-module prob_2D_module
+module prob_3D_module
 
-  use amrex_fort_module, only : dim=>amrex_spacedim
   use fuego_chemistry
 
   implicit none
@@ -42,12 +41,11 @@ contains
   
       
       use PeleLM_F,  only: pphys_getP1atm_MKS
-
-      use mod_Fvar_def, only : pamb
-
-      use probdata_module, only: T_mean, Tc, Th, epsilon
-      use extern_probin_module, only: Prandtl_number, viscosity_mu_ref, viscosity_T_ref, viscosity_S,&
-         const_bulk_viscosity, const_diffusivity
+      use mod_Fvar_def, only : pamb, dpdt_factor, closed_chamber
+      use mod_Fvar_def, only : dim
+      use probdata_module, only: meanFlowDir, meanFlowMag, &
+                                 T_mean, P_mean, &
+                                 xvort, yvort, rvort, forcevort
       
       implicit none
       integer init, namlen
@@ -57,10 +55,9 @@ contains
 
       integer i
  
-      namelist /fortin/ T_mean, Tc, epsilon, Prandtl_number, viscosity_mu_ref, viscosity_T_ref, viscosity_S,&
-         const_bulk_viscosity, const_diffusivity
-
-      namelist /heattransin/ pamb
+      namelist /fortin/ meanFlowMag, meanFlowDir, T_mean, P_mean, &
+                       xvort, yvort, rvort, forcevort  
+      namelist /heattransin/ pamb, dpdt_factor, closed_chamber
 
 
 !
@@ -94,18 +91,17 @@ contains
       
 !     Set defaults
       pamb = pphys_getP1atm_MKS()
+      dpdt_factor = 0.3d0
+      closed_chamber = 0
 
-      Prandtl_number = 0.71d0
-      viscosity_mu_ref = 1.68d-5
-      viscosity_T_ref = 273.0d0
-      viscosity_S = 110.5d0
-      const_bulk_viscosity = 0.0d0
-      const_diffusivity = 0.0d0
-
-
-      T_mean = 600.0d0
-      Tc = 300.0d0
-      epsilon = 0.6d0
+      meanFlowDir = 1.0
+      meanFlowMag = 1.0d0
+      T_mean = 298.0d0
+      P_mean = pamb
+      xvort = 0.5
+      yvort = 0.5
+      rvort = 0.01945
+      forcevort = 1.0
 
       read(untin,fortin)
       
@@ -113,13 +109,22 @@ contains
  
       close(unit=untin)
 
+!     Do some checks on COVO params     
+      IF (       meanFlowDir /= 1 .AND. meanFlowDir /= -1 &
+           .AND. meanFlowDir /= 2 .AND. meanFlowDir /= -2 &
+           .AND. meanFlowDir /= 3 .AND. meanFlowDir /= -3  ) THEN
+          WRITE(*,*) " meanFlowDir should be either: "
+          WRITE(*,*) " +/-1 for x direction" 
+          WRITE(*,*) " +/-2 for y direction" 
+          WRITE(*,*) " +/-3 for diagonal direction" 
+          WRITE(*,*) " Note: the mean flow direction(s) must be periodic "
+          CALL bl_abort('Correct meanFlowDir value !')
+      END IF
+      
       if (isioproc.eq.1) then
          write(6,fortin)
          write(6,heattransin)
       end if
-
-      Th = Tc * ((1+epsilon)/(1-epsilon))
-
 
   end subroutine amrex_probinit
 
@@ -156,12 +161,14 @@ contains
                            delta,xlo,xhi) &
                            bind(C, name="init_data")
                               
-      use network,   only: nspecies
+      use network,   only: nspec
       use PeleLM_F,  only: pphys_getP1atm_MKS, pphys_get_spec_name2
-      use PeleLM_2D, only: pphys_RHOfromPTY, pphys_HMIXfromTY
-      use mod_Fvar_def, only : Density, Temp, FirstSpec, RhoH, Trac, pamb
-      use mod_Fvar_def, only : domnlo
-      use probdata_module, only: T_mean
+      use PeleLM_3D, only: pphys_RHOfromPTY, pphys_HMIXfromTY
+      use mod_Fvar_def, only : Density, Temp, FirstSpec, RhoH, Trac, dim
+      use mod_Fvar_def, only : domnlo, maxspec
+      use probdata_module, only: meanFlowDir, meanFlowMag, &
+                                 T_mean, P_mean, &
+                                 xvort, yvort, rvort, forcevort
       
       implicit none
       integer    level, nscal
@@ -175,62 +182,86 @@ contains
       REAL_T   press(DIMV(press))
 
 
-      integer i, j, n
-      REAL_T x, y, Yl(nspecies), Patm
+      integer i, j, k, n
+      REAL_T x, y, z, Yl(maxspec), Patm
       REAL_T dx
+      REAL_T :: dy, d_sq, r_sq, u_vort, v_vort 
 
+      do k = lo(3), hi(3)
+         z = (float(k)+.5d0)*delta(3)+domnlo(3)
+         do j = lo(2), hi(2)
+            y = (float(j)+.5d0)*delta(2)+domnlo(2)
+            do i = lo(1), hi(1)
+               x = (float(i)+.5d0)*delta(1)+domnlo(1)
+               
+               scal(i,j,k,Temp) = T_mean
+               Yl(1) = 0.233
+               Yl(2) = 0.767
+               
+               do n = 1,Nspec
+                  scal(i,j,k,FirstSpec+n-1) = Yl(n)
+               end do
 
-      do j = lo(2), hi(2)
-         y = xlo(2) + delta(2)*(float(j-lo(2)) + half)
-         do i = lo(1), hi(1)
-            x = xlo(1) + delta(1)*(float(i-lo(1)) + half)
-            
-            
-            vel(i,j,1) = 0.0d0
-            vel(i,j,2) = 0.0d0
+               scal(i,j,k,Trac) = 0.d0
 
-            scal(i,j,Temp) = T_mean
+               dx = x - xvort
+               dy = y - yvort
+               d_sq = dx*dx + dy*dy
+               r_sq = rvort*rvort
 
+               u_vort = -forcevort*dy/r_sq * exp(-d_sq/r_sq/two)
+               v_vort = forcevort*dx/r_sq * exp(-d_sq/r_sq/two)
 
-            Yl(1) = 0.233
-            Yl(2) = 0.767
-            
-            do n = 1,nspecies
-               scal(i,j,FirstSpec+n-1) = Yl(n)
+               SELECT CASE ( meanFlowDir )
+                  CASE (1)
+                     vel(i,j,k,1) = meanFlowMag + u_vort
+                     vel(i,j,k,2) = v_vort
+                  CASE (-1)
+                     vel(i,j,k,1) = -meanFlowMag + u_vort
+                     vel(i,j,k,2) = v_vort
+                  CASE (2)
+                     vel(i,j,k,1) = u_vort
+                     vel(i,j,k,2) = meanFlowMag + v_vort
+                  CASE (-2)
+                     vel(i,j,k,1) = u_vort
+                     vel(i,j,k,2) = -meanFlowMag + v_vort
+                  CASE (3)
+                     vel(i,j,k,1) = meanFlowMag + u_vort
+                     vel(i,j,k,2) = meanFlowMag + v_vort
+                  CASE (-3)
+                     vel(i,j,k,1) = -meanFlowMag + u_vort
+                     vel(i,j,k,2) = -meanFlowMag + v_vort
+               END SELECT
+               vel(i,j,k,3) = 0.0d0
+
             end do
-
-            scal(i,j,Trac) = 0.d0
-
-
          end do
       end do
 
-      Patm = Pamb / pphys_getP1atm_MKS()
+      Patm = P_mean / pphys_getP1atm_MKS()
 
       call pphys_RHOfromPTY(lo,hi, &
-          scal(ARG_L1(state),ARG_L2(state),Density),  DIMS(state), &
-          scal(ARG_L1(state),ARG_L2(state),Temp),     DIMS(state), &
-          scal(ARG_L1(state),ARG_L2(state),FirstSpec),DIMS(state), &
+          scal(ARG_L1(state),ARG_L2(state),ARG_L3(state),Density),  DIMS(state), &
+          scal(ARG_L1(state),ARG_L2(state),ARG_L3(state),Temp),     DIMS(state), &
+          scal(ARG_L1(state),ARG_L2(state),ARG_L3(state),FirstSpec),DIMS(state), &
           Patm)
 
       call pphys_HMIXfromTY(lo,hi, &
-          scal(ARG_L1(state),ARG_L2(state),RhoH),     DIMS(state), &
-          scal(ARG_L1(state),ARG_L2(state),Temp),     DIMS(state), &
-          scal(ARG_L1(state),ARG_L2(state),FirstSpec),DIMS(state)) 
+          scal(ARG_L1(state),ARG_L2(state),ARG_L3(state),RhoH),     DIMS(state), &
+          scal(ARG_L1(state),ARG_L2(state),ARG_L3(state),Temp),     DIMS(state), &
+          scal(ARG_L1(state),ARG_L2(state),ARG_L3(state),FirstSpec),DIMS(state)) 
 
-      do j = lo(2), hi(2)
-         do i = lo(1), hi(1)
-            do n = 0,nspecies-1
-               scal(i,j,FirstSpec+n) = scal(i,j,FirstSpec+n)*scal(i,j,Density)
+      do k = lo(3), hi(3) 
+         do j = lo(2), hi(2)
+            do i = lo(1), hi(1)
+               do n = 0,Nspec-1
+                  scal(i,j,k,FirstSpec+n) = scal(i,j,k,FirstSpec+n)*scal(i,j,k,Density)
+               enddo
+               scal(i,j,k,RhoH) = scal(i,j,k,RhoH)*scal(i,j,k,Density)
             enddo
-            scal(i,j,RhoH) = scal(i,j,RhoH)*scal(i,j,Density)
          enddo
       enddo
       
   end subroutine init_data
       
-
-
-
-
-end module prob_2D_module
+end module prob_3D_module

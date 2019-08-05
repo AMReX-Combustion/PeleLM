@@ -13,6 +13,7 @@
 module PeleLM_F
 
   use, intrinsic :: iso_c_binding
+  use amrex_fort_module, only : dim=>amrex_spacedim
 
   use fuego_chemistry
 
@@ -24,7 +25,7 @@ module PeleLM_F
 
   public :: set_scal_numb, &
             set_ht_adim_common, get_pamb, &
-            get_closed_chamber, get_dpdt, set_common, active_control, &
+            set_common, active_control, &
             pphys_calc_src_sdc, pphys_getP1atm_MKS, &
             pphys_get_spec_name2, pphys_TfromHYpt, set_prob_spec
 
@@ -34,9 +35,13 @@ contains
 
   subroutine pphys_network_init() bind(C, name="pphys_network_init")                                                                                         
 
-     use network, only: network_init
+     use network, only: network_init, nspecies
+     
+     write(*,*) 'DEBUG IN PeleLM_F.F90 before network_init ',nspecies
      
      call network_init()
+     
+     write(*,*) 'DEBUG IN PeleLM_F.F90 after network_init ',nspecies
        
   end subroutine pphys_network_init 
 
@@ -91,12 +96,12 @@ end subroutine plm_extern_init
 
   subroutine pphys_get_num_spec(nspec_out) bind(C, name="pphys_get_num_spec")
 
-      use network, only : nspec
+      use network, only : nspecies
 
       implicit none
       integer(c_int), intent(out) :: nspec_out
 
-      nspec_out = nspec
+      nspec_out = nspecies
 
   end subroutine pphys_get_num_spec  
 
@@ -123,16 +128,15 @@ end subroutine plm_extern_init
 
   subroutine pphys_get_spec_name2(name, j)
   
-    use mod_Fvar_def, only: maxspec, maxspnml
-    
+    use network, only : L_spec_name
     implicit none
 
     integer i, j
-    integer coded(maxspnml), len
-    character*(maxspnml) name
+    integer coded(L_spec_name), len
+    character*(L_spec_name) name
 
     len = pphys_getckspecname(j, coded)
-    do i = 1, maxspnml
+    do i = 1, L_spec_name
       name(i:i) = ' '
     end do
     do i = 1, len
@@ -143,20 +147,20 @@ end subroutine plm_extern_init
   
   integer function pphys_getckspecname(i, coded)
   
-    use mod_Fvar_def, only: maxspec, maxspnml
-    
+    use network, only : L_spec_name, nspecies
+
     implicit none
       
     integer i
     integer coded(*)
-    integer names(maxspec*maxspnml)
+    integer names(L_spec_name*nspecies)
     integer j, str_len
     str_len = 0
-    call cksyms(names, maxspnml)
-    do j = 1, maxspnml
-      coded(j) = names(maxspnml*(i-1)+j)
+    call cksyms(names, L_spec_name)
+    do j = 1, L_spec_name
+      coded(j) = names(L_spec_name*(i-1)+j)
     end do
-    do j = 1, maxspnml
+    do j = 1, L_spec_name
       if (coded(j).eq.ICHAR(' ')) then
         str_len = j
         exit
@@ -190,10 +194,11 @@ end subroutine plm_extern_init
 
   function pphys_numReactions() bind(C, name="pphys_numReactions") result(NR)
 
+    use network, only : nreactions
     implicit none
-    integer Nelt,Nspec,NR,Nfit
-      
-    call CKINDX(Nelt,Nspec,NR,Nfit)
+    integer NR
+
+    NR = nreactions
 
   end function pphys_numReactions
 
@@ -211,42 +216,42 @@ end subroutine plm_extern_init
 !
 !     Variables in Z are:  Z(1:K) = rhoY(K) [MKS]
 !                          Z(K+1) = RhoH    [MKS]
-    use network, only : nspec
+    use network, only : nspecies
 
     implicit none
 
-    integer(c_int), intent(inout)   :: N
+    integer(c_int), intent(in)   :: N ! unused
     double precision, intent(in   ) :: TIME
     double precision, intent(inout) :: TEMP
-    double precision, intent(in   ) :: Z(nspec+1)
-    double precision, intent(out  ) :: ZP(nspec+1)
+    double precision, intent(in   ) :: Z(nspecies+1)
+    double precision, intent(out  ) :: ZP(nspecies+1)
 
-    double precision WDOT_CGS(nspec)
-    double precision Y(nspec), CONC_CGS(nspec), MWT(nspec)
+    double precision WDOT_CGS(nspecies)
+    double precision Y(nspecies), CONC_CGS(nspecies), MWT(nspecies)
     double precision RHO_MKS, RINV_MKS, THFAC, HMIX_MKS, HMIX_CGS
     integer :: lierr, K
 
 
     ! RHO MKS
-    RHO_MKS  = sum(Z(1:nspec))
+    RHO_MKS  = sum(Z(1:nspecies))
     RINV_MKS = 1.d0 / RHO_MKS
     ! MW CGS
     call CKWT(MWT);
       
-    do K=1,nspec
+    do K=1,nspecies
       CONC_CGS(K) = Z(K)/MWT(K)*1.d-3
       Y(K) = Z(K) * RINV_MKS
       !print *," Y, WT ", Z(K), 1./MWT(K)
     enddo
 
-    HMIX_MKS = (Z(nspec+1) + 0.0d0*TIME) * RINV_MKS
+    HMIX_MKS = (Z(nspecies+1) + 0.0d0*TIME) * RINV_MKS
     HMIX_CGS = HMIX_MKS * 1.0d4
     call get_t_given_hY(HMIX_CGS, Y, TEMP, lierr);
     call CKWC(TEMP,CONC_CGS,WDOT_CGS)
 
-    ZP(Nspec+1) = 0.0d0
+    ZP(nspecies+1) = 0.0d0
     THFAC = 1.d3
-    do k= 1, Nspec
+    do k= 1, nspecies
       ZP(k) = WDOT_CGS(k) * MWT(k) * THFAC + 0.0d0
       !print *," RHO, C(CGS), H, T",RHO_MKS, CONC_CGS(k), HMIX_MKS, TEMP
       !print *," wdot(CGS), wdot", WDOT_CGS(k), ZP(k)
@@ -255,28 +260,27 @@ end subroutine plm_extern_init
   end subroutine pphys_calc_src_sdc
 
 !------------------------------------  
-
-  subroutine set_scal_numb(DensityIn, TempIn, TracIn, RhoHIn, &
+  subroutine set_scal_numb(DensityIn, TempIn, RhoHIn, &
                            FirstSpecIn, LastSpecIn) &
                            bind(C, name="set_scal_numb")
 
-    use mod_Fvar_def, only : Density, Temp, RhoH, Trac, FirstSpec, LastSpec
+    use mod_Fvar_def, only : Density, Temp, RhoH, FirstSpec, LastSpec
     
     implicit none
 
-    integer DensityIn, TempIn, TracIn, RhoHIn, FirstSpecIn, LastSpecIn
+    integer DensityIn, TempIn, RhoHIn, FirstSpecIn, LastSpecIn
+
 
 !
 ! ::: Remove SPACEDIM from the counter, since those spots contain the
 ! ::: velocity, and our INITDATA function below fills the scalar state
 ! ::: However, add one since the C++ is 0-based      
-!     
-    Density = DensityIn - BL_SPACEDIM + 1
-    Temp = TempIn - BL_SPACEDIM + 1
-    Trac = TracIn - BL_SPACEDIM + 1
-    RhoH = RhoHIn - BL_SPACEDIM + 1
-    FirstSpec = FirstSpecIn - BL_SPACEDIM + 1
-    LastSpec = LastSpecIn - BL_SPACEDIM + 1
+!
+    Density = DensityIn - dim + 1
+    Temp = TempIn - dim + 1
+    RhoH = RhoHIn - dim + 1
+    FirstSpec = FirstSpecIn - dim + 1
+    LastSpec = LastSpecIn - dim + 1
 
   end subroutine set_scal_numb
 
@@ -317,38 +321,6 @@ end subroutine plm_extern_init
 
   end subroutine get_pamb
 
-!-----------------------------------------------------------------------
-
-  subroutine get_closed_chamber(closed_chamberout)bind(C, name="get_closed_chamber")
-
-    use mod_Fvar_def, only : closed_chamber
-
-    implicit none
-
-    integer closed_chamberout
-
-    closed_chamberout = closed_chamber
-
-  return
-
-  end subroutine get_closed_chamber
-      
-!-----------------------------------------------------------------------
-
-  subroutine get_dpdt(dpdt_factorout)bind(C, name="get_dpdt")
-
-    use mod_Fvar_def, only : dpdt_factor
-
-    implicit none
-
-    REAL_T dpdt_factorout
-
-    dpdt_factorout = dpdt_factor
-
-  return
-
-  end subroutine get_dpdt
-
 !=======================================================================
 
   subroutine set_common(time1,iteration1)bind(C, name="set_common")
@@ -385,12 +357,6 @@ end subroutine plm_extern_init
 
     REAL_T coft,time,dt
     integer myproc,step,restart,usetemp
-
-!
-! ACTIVE_CONTROL_IS_USABLE should be remove.
-! lets compile everything and put variables in mod_Fvar_def.F90
-!
-
 
     REAL_T slocal,V_new,dVmax,dVmin
     !REAL_T vslope,
@@ -753,8 +719,8 @@ end subroutine plm_extern_init
                            bath, fuel, oxid, prod, numspec, &
                            flag_active_control)  bind(C, name="set_prob_spec")
  
-      use network,  only: nspec
-      use mod_Fvar_def, only: dim, domnlo, domnhi
+      use network,  only: nspecies
+      use mod_Fvar_def, only: domnlo, domnhi
       use mod_Fvar_def, only: bathID, fuelID, oxidID, prodID
       use mod_Fvar_def, only: f_flag_active_control
 
@@ -766,7 +732,9 @@ end subroutine plm_extern_init
       integer bath, fuel, oxid, prod, numspec
 
       ! Passing dimensions of problem from Cpp to Fortran
-      dim = dm
+      if (dm .ne. dim) then
+         call bl_pd_abort('dimension not right')
+      endif
       domnlo(1:dm) = problo_in(1:dm)
       domnhi(1:dm) = probhi_in(1:dm)
       f_flag_active_control = flag_active_control
@@ -776,12 +744,12 @@ end subroutine plm_extern_init
       fuelID = fuel + 1
       oxidID = oxid + 1
       prodID = prod + 1
-      if (bath .lt. 0 .or. bath .ge. nspec) then
+      if (bath .lt. 0 .or. bath .ge. nspecies) then
          call bl_pd_abort('no N2 species present in mechanism')
       endif
       bathID = bath + 1
 
-      if (numspec .ne. nspec) then
+      if (numspec .ne. nspecies) then
          call bl_pd_abort('number of species not consistent')
       endif
       

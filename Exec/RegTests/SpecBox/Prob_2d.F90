@@ -9,7 +9,6 @@
 
 module prob_2D_module
 
-  use amrex_fort_module, only : dim=>amrex_spacedim
   use fuego_chemistry
 
   implicit none
@@ -42,12 +41,10 @@ contains
   
       
       use PeleLM_F,  only: pphys_getP1atm_MKS
-
-      use mod_Fvar_def, only : pamb
-
-      use probdata_module, only: T_mean, Tc, Th, epsilon
-      use extern_probin_module, only: Prandtl_number, viscosity_mu_ref, viscosity_T_ref, viscosity_S,&
-         const_bulk_viscosity, const_diffusivity
+      use mod_Fvar_def, only : pamb, dpdt_factor, closed_chamber
+      use mod_Fvar_def, only : dim
+      use probdata_module, only: T_mean, P_mean, &
+                                 xgauss, ygauss, rgauss
       
       implicit none
       integer init, namlen
@@ -57,10 +54,9 @@ contains
 
       integer i
  
-      namelist /fortin/ T_mean, Tc, epsilon, Prandtl_number, viscosity_mu_ref, viscosity_T_ref, viscosity_S,&
-         const_bulk_viscosity, const_diffusivity
-
-      namelist /heattransin/ pamb
+      namelist /fortin/ T_mean, P_mean, &
+                       xgauss, ygauss, rgauss  
+      namelist /heattransin/ pamb, dpdt_factor, closed_chamber
 
 
 !
@@ -94,18 +90,15 @@ contains
       
 !     Set defaults
       pamb = pphys_getP1atm_MKS()
+      dpdt_factor = 1.0d0
+      closed_chamber = 0
 
-      Prandtl_number = 0.71d0
-      viscosity_mu_ref = 1.68d-5
-      viscosity_T_ref = 273.0d0
-      viscosity_S = 110.5d0
-      const_bulk_viscosity = 0.0d0
-      const_diffusivity = 0.0d0
+      T_mean = 298.0d0
+      P_mean = pamb
+      xgauss = 0.5
+      ygauss = 0.5
+      rgauss = 0.1
 
-
-      T_mean = 600.0d0
-      Tc = 300.0d0
-      epsilon = 0.6d0
 
       read(untin,fortin)
       
@@ -113,13 +106,11 @@ contains
  
       close(unit=untin)
 
+      
       if (isioproc.eq.1) then
          write(6,fortin)
          write(6,heattransin)
       end if
-
-      Th = Tc * ((1+epsilon)/(1-epsilon))
-
 
   end subroutine amrex_probinit
 
@@ -156,12 +147,12 @@ contains
                            delta,xlo,xhi) &
                            bind(C, name="init_data")
                               
-      use network,   only: nspecies
+      use network,   only: nspec
       use PeleLM_F,  only: pphys_getP1atm_MKS, pphys_get_spec_name2
       use PeleLM_2D, only: pphys_RHOfromPTY, pphys_HMIXfromTY
-      use mod_Fvar_def, only : Density, Temp, FirstSpec, RhoH, Trac, pamb
-      use mod_Fvar_def, only : domnlo
-      use probdata_module, only: T_mean
+      use mod_Fvar_def, only : Density, Temp, FirstSpec, RhoH, Trac, dim
+      use mod_Fvar_def, only : domnlo, maxspec
+      use probdata_module, only: xgauss, ygauss, rgauss, T_mean, P_mean
       
       implicit none
       integer    level, nscal
@@ -176,36 +167,57 @@ contains
 
 
       integer i, j, n
-      REAL_T x, y, Yl(nspecies), Patm
+      REAL_T x, y, Yl(maxspec), Patm
       REAL_T dx
-
+      REAL_T, DIMENSION(1:Nspec) :: mwt, invmwt
+      REAL_T :: dy, d_sq, r_sq, mwtbar, invmwtbar
 
       do j = lo(2), hi(2)
-         y = xlo(2) + delta(2)*(float(j-lo(2)) + half)
+         y = (float(j)+.5d0)*delta(2)+domnlo(2)
          do i = lo(1), hi(1)
-            x = xlo(1) + delta(1)*(float(i-lo(1)) + half)
+            x = (float(i)+.5d0)*delta(1)+domnlo(1)
             
-            
-            vel(i,j,1) = 0.0d0
-            vel(i,j,2) = 0.0d0
+            dx = x - xgauss
+            dy = y - ygauss
+            d_sq = dx*dx + dy*dy
+            r_sq = rgauss*rgauss
 
             scal(i,j,Temp) = T_mean
 
+            CALL CKWT(mwt(1:Nspec))
+            invmwt = 1.0 / mwt
 
-            Yl(1) = 0.233
-            Yl(2) = 0.767
-            
-            do n = 1,nspecies
+            Yl(1) = 0.067
+            !Yl(1) = 0.000
+            Yl(2) = 0.217
+            !Yl(2) = 0.233
+            Yl(3) = 0.716
+            !Yl(3) = 0.767
+            invmwtbar =  ( Yl(1) * invmwt(1) + &
+                           Yl(2) * invmwt(2) + & 
+                           Yl(3) * invmwt(3) ) 
+
+            Yl(2) = (invmwtbar-invmwt(3))/(invmwt(2)-invmwt(3)) &
+                   - Yl(1)*(invmwt(1)-invmwt(3))/(invmwt(2)-invmwt(3)) + &
+                   + ( Yl(1) * 0.4 * (-invmwt(1)+invmwt(3))/(invmwt(2)-invmwt(3))) * EXP(-d_sq/r_sq)
+            Yl(3) = -(invmwtbar-invmwt(2))/(invmwt(2)-invmwt(3)) &
+                   + Yl(1)*(invmwt(1)-invmwt(2))/(invmwt(2)-invmwt(3)) + &
+                   + ( Yl(1) * 0.4 * (invmwt(1)-invmwt(2))/(invmwt(2)-invmwt(3))) * EXP(-d_sq/r_sq)
+            Yl(1) = Yl(1) * ( 1.0 + 0.4*EXP(-d_sq/r_sq)) 
+
+            do n = 1,Nspec
                scal(i,j,FirstSpec+n-1) = Yl(n)
             end do
 
             scal(i,j,Trac) = 0.d0
 
+            vel(i,j,1) = 0.0 
+            vel(i,j,2) = 0.0
 
          end do
       end do
 
-      Patm = Pamb / pphys_getP1atm_MKS()
+      Patm = P_mean / pphys_getP1atm_MKS()
 
       call pphys_RHOfromPTY(lo,hi, &
           scal(ARG_L1(state),ARG_L2(state),Density),  DIMS(state), &
@@ -220,7 +232,7 @@ contains
 
       do j = lo(2), hi(2)
          do i = lo(1), hi(1)
-            do n = 0,nspecies-1
+            do n = 0,Nspec-1
                scal(i,j,FirstSpec+n) = scal(i,j,FirstSpec+n)*scal(i,j,Density)
             enddo
             scal(i,j,RhoH) = scal(i,j,RhoH)*scal(i,j,Density)

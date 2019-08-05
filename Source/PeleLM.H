@@ -5,6 +5,8 @@
 #include <AMReX_AuxBoundaryData.H>
 #include <NavierStokesBase.H>
 
+#include <AMReX_ForkJoin.H>
+
 #include <list>
 #include <map>
 #include <utility>
@@ -306,7 +308,10 @@ private:
   // enum YdotAction { HT_EstimateYdotNew, HT_ImproveYdotOld, HT_LeaveYdotAlone };
   // enum Solver_Status {HT_InProgress, HT_Stalled, HT_Solved};
 
-  void adjust_spec_diffusion_fluxes (amrex::Real time);
+  void adjust_spec_diffusion_fluxes (amrex::MultiFab* const * flux,
+                                     const amrex::MultiFab&   S,
+                                     const amrex::BCRec&      bc,
+				     amrex::Real 	      time);
 
   void advance_chemistry (amrex::MultiFab&       mf_old,
                           amrex::MultiFab&       mf_new,
@@ -326,19 +331,23 @@ private:
 
   void checkTimeStep (amrex::Real dt);
 
-  void compute_differential_diffusion_fluxes (const amrex::Real& time,
-                                              const amrex::Real& dt);
+  void compute_differential_diffusion_fluxes (const amrex::MultiFab& S,
+                                              const amrex::MultiFab* Scrse,
+                                              amrex::MultiFab* const * flux,
+                                              const amrex::MultiFab* const * beta,
+                                              amrex::Real dt,
+					      amrex::Real time,
+                                              bool  include_Wbar_fluxes);
 
   void compute_differential_diffusion_terms (amrex::MultiFab& D,
                                              amrex::MultiFab& DD,
-#ifdef USE_WBAR
-                                             amrex::MultiFab& DWbar,
-#endif
                                              amrex::Real      time,
-                                             amrex::Real      dt);
+                                             amrex::Real      dt,
+                                             bool             include_Wbar_terms);
 
-  void compute_enthalpy_fluxes (amrex::Real                   time,
-                                const amrex::MultiFab* const* beta);
+  void compute_enthalpy_fluxes (amrex::MultiFab* const*       flux,
+                                const amrex::MultiFab* const* beta,
+				amrex::Real		      time);
 
   enum HowToFillGrow {HT_ZERO_GROW_CELLS, HT_EXTRAP_GROW_CELLS, HT_NUM_GROW_OPTIONS};
 
@@ -348,8 +357,11 @@ private:
                                              int             nGrow = 0,
                                              HowToFillGrow   how = HT_ZERO_GROW_CELLS);
 
-  void compute_rhohmix (amrex::Real       time,
-                        amrex::MultiFab& rhohmix);
+  amrex::Real adjust_p_and_divu_for_closed_chamber(amrex::MultiFab& mac_divu);
+
+  void compute_rhohmix (amrex::Real      time,
+                        amrex::MultiFab& rhohmix,
+                        int              dComp);
 
   void compute_rhoRT (const amrex::MultiFab& S,
                       amrex::MultiFab&       P,
@@ -447,6 +459,40 @@ private:
                          const int  dst_comp,
                          const int  ncomp) const;
 
+  void diffuse_scalar_fj  (const amrex::Vector<amrex::MultiFab*>& S_old,
+                           const amrex::Vector<amrex::MultiFab*>& Rho_old,
+                           amrex::Vector<amrex::MultiFab*>&       S_new,
+                           const amrex::Vector<amrex::MultiFab*>& Rho_new,
+                           int                                    S_comp,
+                           int                                    num_comp,
+                           int                                    Rho_comp,
+                           amrex::Real                            prev_time,
+                           amrex::Real                            curr_time,
+                           amrex::Real                            be_cn_theta,
+                           const amrex::MultiFab&                 rho_half,
+                           int                                    rho_flag,
+                           amrex::MultiFab* const*                fluxn,
+                           amrex::MultiFab* const*                fluxnp1,
+                           int                                    fluxComp,
+                           amrex::MultiFab*                       delta_rhs, 
+                           int                                    rhsComp,
+                           const amrex::MultiFab*                 alpha, 
+                           int                                    alphaComp,
+                           const amrex::MultiFab* const*          betan, 
+                           const amrex::MultiFab* const*          betanp1,
+                           int                                    betaComp,
+                           const amrex::Vector<amrex::Real>&      visc_coef,
+                           int                                    visc_coef_comp,
+                           const amrex::MultiFab&                 volume,
+                           const amrex::MultiFab* const*          area,
+                           const amrex::IntVect&                  cratio,
+                           const amrex::BCRec&                    bc,
+                           const amrex::Geometry&                 geom,
+                           bool                                   add_hoop_stress,
+                           const Diffusion::SolveMode&            solve_mode = Diffusion::ONEPASS,
+                           bool                                   add_old_time_divFlux = true,
+                           const amrex::Vector<int>&              is_diffusive = amrex::Vector<int>());
+
   //
   // Functions for interpolating from cell centers to cell edges
   //
@@ -472,22 +518,6 @@ private:
   static void init_network ();
 
   static void init_transport (int iEG);
-
-  //bool solveChemistry_sdc(amrex::FArrayBox&        rhoYnew,
-  //                          amrex::FArrayBox&        rhoHnew,
-  //                          amrex::FArrayBox&        Tnew,
-  //                          const amrex::FArrayBox&  rhoYold,
-  //                          const amrex::FArrayBox&  rhoHold,
-  //                          const amrex::FArrayBox&  Told,
-  //                          const amrex::FArrayBox&  const_src,
-  //                          amrex::FArrayBox&        FuncCount,
-  //                          const amrex::Box&        box,
-  //                          int               sComprhoY,
-  //                          int               sComprhoH,
-  //                          int               sCompT,
-  //                          amrex::Real              dt,
-  //                          amrex::FArrayBox*        chemDiag,
-  //                          bool              use_stiff_solver = true) const;
 
   void reactionRateRhoY_pphys(amrex::FArrayBox&       RhoYdot,
                           const amrex::FArrayBox& RhoY,
@@ -580,12 +610,6 @@ private:
   amrex::MultiFab**  SpecDiffusionFluxnp1;
 #ifdef USE_WBAR
   amrex::MultiFab**  SpecDiffusionFluxWbar;
-#endif
-
-  amrex::MultiFab    sumSpecFluxDotGradHn;
-  amrex::MultiFab    sumSpecFluxDotGradHnp1;
-
-#ifdef USE_WBAR
   amrex::MultiFab    diffWbar_cc;
 #endif
 
@@ -605,6 +629,7 @@ private:
   static amrex::Real thetabar;
 
   static int closed_chamber;
+  static amrex::Real dpdt_factor;
 
   //
   // Protected static data.
@@ -624,8 +649,6 @@ private:
   static amrex::Real htt_tempmax;
   static amrex::Real htt_hmixTYP;
   static amrex::Real typical_Y_val_min;
-  static int         Trac;
-  static int         have_trac;
   static int         RhoRT;
   static int         have_rhort;
   static int         first_spec;
@@ -643,7 +666,6 @@ private:
   static int         dpdt_option;
   static int         do_set_rho_to_species_sum;
   static int         zeroBndryVisc;
-  static int         do_add_nonunityLe_corr_to_rhoh_adv_flux;
   static int         do_check_divudt;
   static int         hack_nochem;
   static int         hack_nospecdiff;
@@ -663,6 +685,7 @@ private:
   static std::map<std::string,amrex::Real> typical_values_FileVals;
   static int         sdc_iterMAX;
   static int         num_mac_sync_iter;
+  static int         deltaT_verbose;
   static int         iter_debug;
   static int         mHtoTiterMAX;
   static amrex::Vector<amrex::Real> mTmpData;

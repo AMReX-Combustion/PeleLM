@@ -1,5 +1,5 @@
 # ----------------  PROBLEM DEPENDENT INPUTS
-geometry.is_periodic = 1 1
+geometry.is_periodic = 1 1 1
 
 geometry.coord_sys = 0  # 0 => cart, 1 => RZ
 
@@ -10,8 +10,8 @@ geometry.prob_hi   = 1.0 1.0 1.0
 # Interior, Inflow, Outflow, Symmetry,
 # SlipWallAdiab, NoSlipWallAdiab, SlipWallIsotherm, NoSlipWallIsotherm
 
-peleLM.lo_bc = "Interior"  "Interior"
-peleLM.hi_bc = "Interior"  "Interior"
+peleLM.lo_bc = "Interior"  "Interior" "Interior"
+peleLM.hi_bc = "Interior"  "Interior" "Interior"
 
 #----------------------------TOP LEVEL INPUTS----------------------
 max_step  =  10000
@@ -43,7 +43,7 @@ amr.derive_plot_vars=rhoRT mag_vort avg_pressure gradpx gradpy diveru cc_transpo
 amr.grid_log        = grdlog  # name of grid logging file
 amr.max_grid_size   = 64
 
-amr.probin_file = probin.2d.regt # This will default to file "probin" if not set
+amr.probin_file = probin.3d.regt # This will default to file "probin" if not set
 
 
 # ------------------  INPUTS TO PHYSICS CLASS -------------------
@@ -150,7 +150,4 @@ cg.cg_solver=1
 #
 fab.format = NATIVE
 
-fabarray.mfiter_tile_size = 8 8 8
-
-ns.verbose = true
- 
+fabarray.mfiter_tile_size = 8 8 8 

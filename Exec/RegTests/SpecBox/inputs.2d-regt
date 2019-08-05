@@ -15,8 +15,8 @@ peleLM.hi_bc = "Interior"  "Interior"
 
 #----------------------------TOP LEVEL INPUTS----------------------
 max_step  =  10000
-max_step  =  5000
-stop_time = 0.04
+max_step  =  10000
+stop_time = 100.0
 
 #-------------------------AMR INPUTS----------------------------
 amr.n_cell    = 32 32 32
@@ -37,8 +37,8 @@ amr.check_file      = chk     # root name of checkpoint file
 amr.check_int       = 5       # number of timesteps between checkpoints
 
 amr.plot_file       = plt_
-amr.plot_int        = 200000
-amr.derive_plot_vars=rhoRT mag_vort avg_pressure gradpx gradpy diveru cc_transport_coeffs
+amr.plot_int        = 200
+amr.derive_plot_vars=rhoRT mag_vort avg_pressure gradpx gradpy diveru mass_fractions cc_transport_coeffs
 
 amr.grid_log        = grdlog  # name of grid logging file
 amr.max_grid_size   = 64
@@ -50,11 +50,11 @@ amr.probin_file = probin.2d.regt # This will default to file "probin" if not set
 ns.dt_cutoff       = 5.e-10   # level 0 timestep below which we halt
 ns.visc_tol        = 1.0e-15  # tolerence for viscous solves
 ns.visc_abs_tol    = 1.0e-15  # tolerence for viscous solves
-ns.cfl            = 0.7     # cfl number for hyperbolic system
+ns.cfl            = 0.5     # cfl number for hyperbolic system
 ns.init_shrink    = 1.0       # scale back initial timestep
-ns.init_shrink    = 0.0001       # scale back initial timestep
+ns.init_shrink    = 0.01       # scale back initial timestep
 ns.change_max     = 1.1       # scale back initial timestep
-ns.init_iter      = 3        # number of init iters to def pressure
+ns.init_iter      = 1        # number of init iters to def pressure
 ns.gravity        = 0        # body force  (gravity in MKS units)
 ns.sum_interval   = 1        # timesteps between computing mass
 ns.do_reflux      = 1        # 1 => do refluxing
@@ -77,7 +77,7 @@ ns.divu_ceiling = 1
 ns.divu_dt_factor = .4
 ns.min_rho_divu_ceiling = .01
 
-ns.fuelName        = N2
+ns.fuelName  = N2
 ns.unity_Le = 0
 
 ns.dpdt_option = 0
@@ -152,5 +152,4 @@ fab.format = NATIVE
 
 fabarray.mfiter_tile_size = 8 8 8
 
-ns.verbose = true
- 
+ns.sdc_iterMAX = 3 

@@ -9,8 +9,8 @@ PELELM_HOME ?= ${TOP}/PeleLM_diff_rearange
 
 DIM             = 2
 COMP            = gnu
-DEBUG           = TRUE
-USE_MPI         = FALSE
+DEBUG           = FALSE
+USE_MPI         = TRUE
 USE_OMP         = FALSE
 PRECISION       = DOUBLE
 VERBOSE         = FALSE
@@ -31,7 +31,7 @@ USE_SUNDIALS_3x4x = FALSE
 # USE_NEWMECH    = FALSE
 
 # Choose model (from list below), and pmf file
-Chemistry_Model = air
+Chemistry_Model = decane_3sp
 
 # This sets the EOS directory in $(PELE_PHYSICS_HOME)/Eos
 Eos_dir     := Fuego

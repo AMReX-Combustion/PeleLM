@@ -9,6 +9,7 @@ PELE_PHYSICS_HOME = /home/emotheau/GitCodes/PelePhysics_dev
 
 DIM             = 2
 COMP            = gnu
+DEBUG           = TRUE
 DEBUG           = FALSE
 USE_MPI         = TRUE
 USE_OMP         = TRUE

@@ -69,7 +69,7 @@ extern "C" {
   void pphys_network_close();
 
 #ifndef AMREX_USE_SUNDIALS_3x4x 
-  int reactor_init(const int* cvode_iE, const int* Ncells);
+  void reactor_init(const int* cvode_iE, const int* Ncells);
 
   int react(amrex::Real *rY_in, amrex::Real *rY_src_in, 
 		  amrex::Real *rX_in, amrex::Real *rX_src_in,
@@ -115,16 +115,11 @@ extern "C" {
 
   void set_scal_numb(const int* Density,
                           const int* Temp,
-                          const int* Trac,
                           const int* RhoH,
                           const int* FirstSpec,
                           const int* LastSpec);
     
   void get_pamb(amrex::Real* pamb);
-
-  void get_closed_chamber(int* closed_chamber);
-
-  void get_dpdt(amrex::Real* dpdt_factor);
 
   void compute_rho_dgrad_hdot_grad_Y(const amrex::Real* dx,
                                       const int* lo, const int* hi,
@@ -207,6 +202,11 @@ extern "C" {
                 const BL_FORT_FAB_ARG_3D(Y),
                 BL_FORT_FAB_ARG_3D(mu));
 
+  void beta_wbar(const int* lo, const int* hi,
+                 const BL_FORT_FAB_ARG_3D(RD),
+                 BL_FORT_FAB_ARG_3D(RD_Wbar),
+                 const BL_FORT_FAB_ARG_3D(Y));
+
   void spec_temp_visc(const int* lo, const int* hi,
                       const BL_FORT_FAB_ARG_3D(T),
                       const BL_FORT_FAB_ARG_3D(Y),
@@ -226,24 +226,22 @@ extern "C" {
                         const int* dir, const int* bc);
 
   void enth_diff_terms(const int* lo, const int* hi, 
-                            const int* dlo, const int* dhi, const amrex::Real* dx,
-                            const amrex::Real* T, ARLIM_P(Tlo),  ARLIM_P(Thi),
-                            const amrex::Real* RhoY, ARLIM_P(rYlo),  ARLIM_P(rYhi),
+                       const int* dlo, const int* dhi, const amrex::Real* dx,
+                       const amrex::Real* T, ARLIM_P(Tlo),  ARLIM_P(Thi),
 
-                            const amrex::Real* rDx,ARLIM_P(rDxlo),ARLIM_P(rDxhi),
-                            const amrex::Real* Fix,ARLIM_P(Fixlo),ARLIM_P(Fixhi),
-                            const amrex::Real* ax, ARLIM_P(axlo), ARLIM_P(axhi),
+                       const amrex::Real* rDx,ARLIM_P(rDxlo),ARLIM_P(rDxhi),
+                       const amrex::Real* Fix,ARLIM_P(Fixlo),ARLIM_P(Fixhi),
+                       const amrex::Real* ax, ARLIM_P(axlo), ARLIM_P(axhi),
 
-                            const amrex::Real* rDy,ARLIM_P(rDylo),ARLIM_P(rDyhi),
-                            const amrex::Real* Fiy,ARLIM_P(Fiylo),ARLIM_P(Fiyhi),
-                            const amrex::Real* ay, ARLIM_P(aylo), ARLIM_P(ayhi),
+                       const amrex::Real* rDy,ARLIM_P(rDylo),ARLIM_P(rDyhi),
+                       const amrex::Real* Fiy,ARLIM_P(Fiylo),ARLIM_P(Fiyhi),
+                       const amrex::Real* ay, ARLIM_P(aylo), ARLIM_P(ayhi),
 #if BL_SPACEDIM == 3
-                            const amrex::Real* rDz,ARLIM_P(rDzlo),ARLIM_P(rDzhi),
-                            const amrex::Real* Fiz,ARLIM_P(Fizlo),ARLIM_P(Fizhi),
-                            const amrex::Real* az, ARLIM_P(azlo), ARLIM_P(azhi),
+                       const amrex::Real* rDz,ARLIM_P(rDzlo),ARLIM_P(rDzhi),
+                       const amrex::Real* Fiz,ARLIM_P(Fizlo),ARLIM_P(Fizhi),
+                       const amrex::Real* az, ARLIM_P(azlo), ARLIM_P(azhi),
 #endif
-                            amrex::Real* fh,      ARLIM_P(fhlo), ARLIM_P(fhhi),
-                            const int* Tbc);
+                       const int* Tbc);
 
   void incrwext_flx_div (const int* lo, const int* hi,
                            const amrex::Real* xflux, ARLIM_P(fxlo),  ARLIM_P(fxhi),
@@ -308,16 +306,6 @@ extern "C" {
                          const amrex::Real* dx, const amrex::Real* xlo,
                          const amrex::Real* prob_lo, const amrex::Real* time,
                          const int* level);
-
-  void recomp_update(const int* lo, const int* hi,
-                          const amrex::Real* updat, ARLIM_P(uplo), ARLIM_P(uphi),
-                          const amrex::Real* xflux, ARLIM_P(fxlo), ARLIM_P(fxhi),
-                          const amrex::Real* yflux, ARLIM_P(fylo), ARLIM_P(fyhi),
-#if BL_SPACEDIM == 3
-                          const amrex::Real* zflux, ARLIM_P(fzlo), ARLIM_P(fzhi),
-#endif
-                          const amrex::Real* vol,   ARLIM_P(vlo),  ARLIM_P(vhi),
-                          const int* nc);
 
   void mcurve(const int* lo, const int* hi,
                    const amrex::Real* T, ARLIM_P(Tlo),  ARLIM_P(Thi),

@@ -1,6 +1,6 @@
 module probdata_module
 
-  use mod_Fvar_def, only: maxspec
+  use network, only: nspecies
 
   implicit none
 

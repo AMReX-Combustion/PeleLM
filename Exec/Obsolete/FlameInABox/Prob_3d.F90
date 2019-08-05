@@ -817,14 +817,6 @@ contains
       integer i, j, k, n
       REAL_T Patm
  
-      do k = lo(3), hi(3)
-         do j = lo(2), hi(2)
-            do i = lo(1), hi(1)
-               scal(i,j,k,Trac) = zero
-            end do
-         end do
-      end do
- 
       Patm = pamb / 101325.0d0
  
       call pphys_RHOfromPTY(lo,hi, &
@@ -955,8 +947,6 @@ contains
                   do n = 1,Nspec
                      scal(i,j,k,FirstSpec+n-1) = Yl(n)
                   end do
-                  
-                  scal(i,j,k,Trac) = 0.d0
                   
                   vel(i,j,k,1) = 0.d0
                   vel(i,j,k,2) = 0.d0
@@ -4081,7 +4071,7 @@ subroutine zero_visc(diff,DIMS(diff),lo,hi,domlo,domhi, &
       REAL_T  xt, yt, zt
       integer kx, ky, kz, mode_count, xstep, ystep, zstep
       integer isioproc, len
-      integer nXvel, nYvel, nZvel, nRho, nTrac
+      integer nXvel, nYvel, nZvel, nRho
 
       call bl_pd_is_ioproc(isioproc)
 
@@ -4107,7 +4097,6 @@ subroutine zero_visc(diff,DIMS(diff),lo,hi,domlo,domhi, &
       nYvel = 2
       nZvel = 3
       nRho  = 4
-      nTrac = 5
 
       if (scomp.eq.0) then
 !     Do velocity forcing
@@ -4332,15 +4321,6 @@ subroutine zero_visc(diff,DIMS(diff),lo,hi,domlo,domhi, &
          do n = max(scomp+1,nRho), scomp+ncomp
             if (n.eq.nRho) then
 !     Density
-               do k = klo, khi
-                  do j = jlo, jhi
-                     do i = ilo, ihi
-                        force(i,j,k,n) = zero
-                     enddo
-                  enddo
-               enddo
-            else if (n.eq.nTrac) then
-!     Tracer
                do k = klo, khi
                   do j = jlo, jhi
                      do i = ilo, ihi

@@ -466,11 +466,9 @@ PeleLM::variableSetUp ()
   nreactions = pphys_numReactions();
   counter  += nspecies - 1;
   RhoH = ++counter;
-  Trac = ++counter;
   Temp = ++counter;
-#ifndef BL_RHORT_IN_TRACER
   RhoRT = ++counter;
-#endif
+
   NUM_STATE = ++counter;
   NUM_SCALARS = NUM_STATE - Density;
 
@@ -485,22 +483,22 @@ PeleLM::variableSetUp ()
   //
   // Send indices of fuel and oxidizer to fortran for setting prob data in common block
   //
-  ParmParse pp("ns");
-  pp.query("fuelName",fuelName);
+  ParmParse ppns("ns");
+  ppns.query("fuelName",fuelName);
   consumptionName[0] = fuelName;
-  if (int nc = pp.countval("consumptionName"))
+  if (int nc = ppns.countval("consumptionName"))
   {
     consumptionName.resize(nc);
-    pp.getarr("consumptionName",consumptionName,0,nc);
+    ppns.getarr("consumptionName",consumptionName,0,nc);
   }
-  pp.query("oxidizerName",oxidizerName);
-  pp.query("productName",productName);
-  pp.query("do_group_bndry_fills",do_group_bndry_fills);
+  ppns.query("oxidizerName",oxidizerName);
+  ppns.query("productName",productName);
+  ppns.query("do_group_bndry_fills",do_group_bndry_fills);
 
   //
   // Set scale of chemical components, used in ODE solves
   //
-  std::string speciesScaleFile; pp.query("speciesScaleFile",speciesScaleFile);
+  std::string speciesScaleFile; ppns.query("speciesScaleFile",speciesScaleFile);
 
   // Fill spec_scalY that is not used anywhere anymore: FIXME 
   //if (! speciesScaleFile.empty())
@@ -508,7 +506,7 @@ PeleLM::variableSetUp ()
   //  amrex::Print() << "  Setting scale values for chemical species\n\n";
   //  getChemSolve().set_species_Yscales(speciesScaleFile);
   //}
-  int verbose_vode=0; pp.query("verbose_vode",verbose_vode);
+  int verbose_vode=0; ppns.query("verbose_vode",verbose_vode);
   if (verbose_vode!=0)
     pphys_set_verbose_vode();
 
@@ -534,7 +532,7 @@ PeleLM::variableSetUp ()
   // Get a species to use as a flame tracker.
   //
   std::string flameTracName = fuelName;
-  pp.query("flameTracName",flameTracName);    
+  ppns.query("flameTracName",flameTracName);    
   //
   // **************  DEFINE VELOCITY VARIABLES  ********************
   //
@@ -623,19 +621,8 @@ PeleLM::variableSetUp ()
   // Force BCs to be REFLECT_EVEN for RhoRT ghost cells in UGRADP.
   // ADVFILL is ok for this, if all BC's are REFLECT_EVEN (ie, no EXT_DIR)
   //
-  if (RhoRT >= 0)
-  {
-    set_scalar_bc(bc,phys_bc);
-    desc_lst.setComponent(State_Type,Trac,"tracer",bc,BndryFunc(adv_fill));
-
-    set_reflect_bc(bc,phys_bc);
-    desc_lst.setComponent(State_Type,RhoRT,"RhoRT",bc,BndryFunc(adv_fill));
-  }
-  else
-  {
-    set_reflect_bc(bc,phys_bc);
-    desc_lst.setComponent(State_Type,Trac,"tracer",bc,BndryFunc(adv_fill));
-  }
+  set_reflect_bc(bc,phys_bc);
+  desc_lst.setComponent(State_Type,RhoRT,"RhoRT",bc,BndryFunc(adv_fill));
 
   advectionType.resize(NUM_STATE);
   diffusionType.resize(NUM_STATE);
@@ -659,21 +646,6 @@ PeleLM::variableSetUp ()
 
   if (RhoRT > 0)
     is_diffusive[RhoRT] = false;
-
-  if (Trac > 0)
-  {
-    if (RhoRT > 0)
-    {
-      advectionType[Trac] = NonConservative;
-      diffusionType[Trac] = Laplacian_S;
-      if (trac_diff_coef <= 0.0)
-        is_diffusive[Trac] = false;
-    }
-    else
-    {
-      is_diffusive[Trac] = false;
-    }
-  }
 
   advectionType[Density] = Conservative;
   diffusionType[Density] = Laplacian_SoverRho;
@@ -762,6 +734,13 @@ PeleLM::variableSetUp ()
   derive_lst.addComponent("enthalpy",desc_lst,State_Type,Density,1);
   derive_lst.addComponent("enthalpy",desc_lst,State_Type,RhoH,1);
 
+  //
+  // Molecular Weight
+  //
+  derive_lst.add("molweight",IndexType::TheCellType(),1,dermolweight,the_same_box);
+  derive_lst.addComponent("molweight",desc_lst,State_Type,Density,1);
+  derive_lst.addComponent("molweight",desc_lst,State_Type,first_spec,nspecies);
+  
   //
   // Group Species Rho.Y (for ploting in plot file)
   //
