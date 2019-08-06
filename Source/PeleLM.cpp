@@ -6200,35 +6200,35 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
 
       for (int d=0; d<BL_SPACEDIM; ++d)
       {
-        const Box& ebx = amrex::surroundingNodes(bx,d);
+        //const Box& ebx = amrex::surroundingNodes(bx,d);
+        const Box& ebx = amrex::grow(amrex::surroundingNodes(bx,d),3);
         edgeflux[d].resize(ebx,nspecies+3);
         edgestate[d].resize(ebx,nspecies+3); // comps: 0:rho, 1:nspecies: rho*Y, nspecies+1: rho*H, nspecies+2: Temp
         edgeflux[d].setVal(0);
         edgestate[d].setVal(0);
+          amrex::Print() << "DEBUG dim  edgeflux[d] " << edgeflux[d].box() << "\n";
       }
 
       // Advect RhoY
+      state_bc = fetchBCArray(State_Type,bx,first_spec,nspecies+1);
       
 #ifdef AMREX_USE_EB
   
-    Vector<int> bndry[BL_SPACEDIM];
-    D_TERM(bndry[0] = fetchBCArray(State_Type,bx,0,1);,
-           bndry[1] = fetchBCArray(State_Type,bx,1,1);,
-           bndry[2] = fetchBCArray(State_Type,bx,2,1););
 	//std::cout << "DEBUG rhoYcomp, nspecies " << rhoYcomp << " " <<  nspecies << std::endl;
+
     godunov->AdvectScalars_EB(S_mfi, Smf, rhoYcomp, nspecies,
                           *aofs, first_spec, 1, 
                           D_DECL(xslps, yslps, zslps),
                           D_DECL( u_mac[0][S_mfi], u_mac[1][S_mfi], u_mac[2][S_mfi]),
                           D_DECL(edgeflux[0],edgeflux[1],edgeflux[2]),
                           D_DECL(edgestate[0],edgestate[1],edgestate[2]),
-                          D_DECL(bndry[0], bndry[1], bndry[2]),
+                          state_bc,
                           geom.Domain(),
                           geom.CellSize(),Godunov::hypgrow());	
 
 #else      
 
-      state_bc = fetchBCArray(State_Type,bx,first_spec,nspecies+1);
+      
       godunov->AdvectScalars(bx, dx, dt, 
                              D_DECL(  area[0][S_mfi],  area[1][S_mfi],  area[2][S_mfi]),
                              D_DECL( u_mac[0][S_mfi], u_mac[1][S_mfi], u_mac[2][S_mfi]), 0,
@@ -6259,10 +6259,29 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
           edgeflux[d].plus(edgeflux[d],comp+1,0,1);
         }
       }
-
+      
+      
       // Extrapolate Temp, then compute flux divergence and value for RhoH from face values of T,Y,Rho
       // Note that this requires that the nspecies component of force be the temperature forcing
-      state_bc = fetchBCArray(State_Type,bx,Temp,1);
+
+      state_bc = fetchBCArray(State_Type,bx,Temp,1);      
+      
+#ifdef AMREX_USE_EB
+
+	//std::cout << "DEBUG rhoYcomp, nspecies " << rhoYcomp << " " <<  nspecies << std::endl;
+
+    godunov->AdvectScalars_EB(S_mfi, Smf, Tcomp, 1,
+                          *aofs, Temp, nspecies+2, 
+                          D_DECL(xslps, yslps, zslps),
+                          D_DECL( u_mac[0][S_mfi], u_mac[1][S_mfi], u_mac[2][S_mfi]),
+                          D_DECL(edgeflux[0],edgeflux[1],edgeflux[2]),
+                          D_DECL(edgestate[0],edgestate[1],edgestate[2]),
+                          state_bc,
+                          geom.Domain(),
+                          geom.CellSize(),Godunov::hypgrow());	
+
+#else 
+
       godunov->AdvectScalars(bx, dx, dt, 
                              D_DECL(  area[0][S_mfi],  area[1][S_mfi],  area[2][S_mfi]),
                              D_DECL( u_mac[0][S_mfi], u_mac[1][S_mfi], u_mac[2][S_mfi]), 0,
@@ -6270,11 +6289,14 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
                              D_DECL(edgestate[0],edgestate[1],edgestate[2]), nspecies+2,
                              Sfab, Tcomp, 1, force, nspecies, divu, 0,
                              (*aofs)[S_mfi], Temp, advectionType, state_bc, FPU, volume[S_mfi]);
+
+#endif
      
       // Compute RhoH on faces, store in nspecies+1 component of edgestate[d]
       for (int d=0; d<BL_SPACEDIM; ++d)
       {
-        const Box& ebox = surroundingNodes(bx,d);
+        //const Box& ebox = surroundingNodes(bx,d);
+        const Box& ebox = amrex::grow(amrex::surroundingNodes(bx,d),3);
         eR.resize(ebox,1);
         eR.copy(edgestate[d],0,0,1);
         eR.invert(1);
