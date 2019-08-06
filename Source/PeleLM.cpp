@@ -6200,8 +6200,12 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
 
       for (int d=0; d<BL_SPACEDIM; ++d)
       {
-        //const Box& ebx = amrex::surroundingNodes(bx,d);
+
+#ifdef AMREX_USE_EB        
         const Box& ebx = amrex::grow(amrex::surroundingNodes(bx,d),3);
+#else
+        const Box& ebx = amrex::surroundingNodes(bx,d);
+#endif
         edgeflux[d].resize(ebx,nspecies+3);
         edgestate[d].resize(ebx,nspecies+3); // comps: 0:rho, 1:nspecies: rho*Y, nspecies+1: rho*H, nspecies+2: Temp
         edgeflux[d].setVal(0);
@@ -6224,7 +6228,7 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
                           D_DECL(edgestate[0],edgestate[1],edgestate[2]),
                           state_bc,
                           geom.Domain(),
-                          geom.CellSize(),Godunov::hypgrow());	
+                          geom.CellSize(),Godunov::hypgrow(), 0);	
 
 #else      
 
@@ -6244,7 +6248,6 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
       (*aofs)[S_mfi].setVal(0,bx,Density,1);
       for (int d=0; d<BL_SPACEDIM; ++d)
      {
-       const Box& ebx = S_mfi.nodaltilebox(d);
        (*EdgeState[d])[S_mfi].setVal(0.);
        (*EdgeFlux[d])[S_mfi].setVal(0.);
      }
@@ -6260,7 +6263,29 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
         }
       }
       
-      
+//{      
+//std::ofstream os("edgestate_x");
+//edgestate[0].writeOn(os);
+//os.close();
+//}
+//{
+//std::ofstream os("edgestate_y");
+//edgestate[1].writeOn(os);
+//os.close();
+//}
+//{
+//std::ofstream os("edgeflux_x");
+//edgeflux[0].writeOn(os);
+//os.close();
+//}
+//{
+//std::ofstream os("edgeflux_y");
+//edgeflux[1].writeOn(os);
+//os.close();
+//}
+//
+//VisMF::Write(*aofs,"aofs");
+
       // Extrapolate Temp, then compute flux divergence and value for RhoH from face values of T,Y,Rho
       // Note that this requires that the nspecies component of force be the temperature forcing
 
@@ -6269,7 +6294,7 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
 #ifdef AMREX_USE_EB
 
 	//std::cout << "DEBUG rhoYcomp, nspecies " << rhoYcomp << " " <<  nspecies << std::endl;
-
+  
     godunov->AdvectScalars_EB(S_mfi, Smf, Tcomp, 1,
                           *aofs, Temp, nspecies+2, 
                           D_DECL(xslps, yslps, zslps),
@@ -6278,7 +6303,7 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
                           D_DECL(edgestate[0],edgestate[1],edgestate[2]),
                           state_bc,
                           geom.Domain(),
-                          geom.CellSize(),Godunov::hypgrow());	
+                          geom.CellSize(),Godunov::hypgrow(), 0);	
 
 #else 
 
@@ -6295,28 +6320,92 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
       // Compute RhoH on faces, store in nspecies+1 component of edgestate[d]
       for (int d=0; d<BL_SPACEDIM; ++d)
       {
-        //const Box& ebox = surroundingNodes(bx,d);
+
+#ifdef AMREX_USE_EB        
         const Box& ebox = amrex::grow(amrex::surroundingNodes(bx,d),3);
+#else
+        const Box& ebox = amrex::surroundingNodes(bx,d);
+#endif
         eR.resize(ebox,1);
         eR.copy(edgestate[d],0,0,1);
-        eR.invert(1);
+        eR.invert(1.);
 
+//{      
+//std::ofstream os("fab_eR");
+//eR.writeOn(os);
+//os.close();
+//}
+        
         eY.resize(ebox,nspecies);
         eY.copy(edgestate[d],1,0,nspecies);
         for (int n=0; n<nspecies; ++n) {
           eY.mult(eR,0,n,1);
         }
+        
+//{
+//std::ofstream os("fab_eY");
+//eY.writeOn(os);
+//os.close();
+//}
 
         eH.resize(ebox,1);
         getHmixGivenTY_pphys(eH, edgestate[d], eY, ebox, nspecies+2, 0, 0);
-
+        
+//{
+//        std::ofstream os("fab_eH");
+//eH.writeOn(os);
+//os.close();
+//}
+        
         edgestate[d].copy(eH,ebox,0,ebox,nspecies+1,1);      // Copy H into estate
         edgestate[d].mult(edgestate[d],ebox,0,nspecies+1,1); // Make H.Rho into estate
         // Copy edgestate into edgeflux. ComputeAofs() overwrites but needs edgestate to start.
         edgeflux[d].copy(edgestate[d],ebox,nspecies+1,ebox,nspecies+1,1);
       }
 
+      
+//{      
+//std::ofstream os("edgestate_x");
+//edgestate[0].writeOn(os);
+//os.close();
+//}
+//{
+//std::ofstream os("edgestate_y");
+//edgestate[1].writeOn(os);
+//os.close();
+//}
+//{
+//std::ofstream os("edgeflux_x");
+//edgeflux[0].writeOn(os);
+//os.close();
+//}
+//{
+//std::ofstream os("edgeflux_y");
+//edgeflux[1].writeOn(os);
+//os.close();
+//}
+//
+//VisMF::Write(*aofs,"aofs");
+      
+      
       // Compute -Div(flux.Area) for RhoH, return Area-scaled (extensive) fluxes
+      
+#ifdef AMREX_USE_EB
+
+	//std::cout << "DEBUG rhoYcomp, nspecies " << rhoYcomp << " " <<  nspecies << std::endl;
+  
+    godunov->AdvectScalars_EB(S_mfi, Smf, RhoH, 1,
+                          *aofs, RhoH, nspecies+1, 
+                          D_DECL(xslps, yslps, zslps),
+                          D_DECL( u_mac[0][S_mfi], u_mac[1][S_mfi], u_mac[2][S_mfi]),
+                          D_DECL(edgeflux[0],edgeflux[1],edgeflux[2]),
+                          D_DECL(edgestate[0],edgestate[1],edgestate[2]),
+                          state_bc,
+                          geom.Domain(),
+                          geom.CellSize(),Godunov::hypgrow(), 1);	
+
+#else 
+            
       int avcomp = 0;
       int ucomp = 0;
       int iconserv = advectionType[RhoH] == Conservative ? 1 : 0;
@@ -6325,6 +6414,30 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
                            D_DECL(u_mac[0][S_mfi],u_mac[1][S_mfi],u_mac[2][S_mfi]),D_DECL(ucomp,ucomp,ucomp),
                            D_DECL(edgeflux[0],edgeflux[1],edgeflux[2]),D_DECL(nspecies+1,nspecies+1,nspecies+1),
                            volume[S_mfi], avcomp, (*aofs)[S_mfi], RhoH, iconserv);
+
+#endif
+
+//{      
+//std::ofstream os("edgestate_x");
+//edgestate[0].writeOn(os);
+//os.close();
+//}
+//{
+//std::ofstream os("edgestate_y");
+//edgestate[1].writeOn(os);
+//os.close();
+//}
+//{
+//std::ofstream os("edgeflux_x");
+//edgeflux[0].writeOn(os);
+//os.close();
+//}
+//{
+//std::ofstream os("edgeflux_y");
+//edgeflux[1].writeOn(os);
+//os.close();
+//}
+
 
       // Load up non-overlapping bits of edge states and fluxes into mfs
       for (int d=0; d<BL_SPACEDIM; ++d)
@@ -6349,7 +6462,7 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
 //  
 //  VisMF::Write(*EdgeFlux[1],"EdgeFlux_y");
 //  VisMF::Write(*EdgeState[1],"EdgeState_y");
-  
+//  
   
   
   
