@@ -6133,15 +6133,15 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
       std::unique_ptr<amrex::MultiFab> yslps;
       std::unique_ptr<amrex::MultiFab> zslps;
       //Slopes in x-direction
-      xslps.reset(new MultiFab(grids, dmap, nspecies+1, Godunov::hypgrow(),
+      xslps.reset(new MultiFab(grids, dmap, nspecies+2, Godunov::hypgrow(),
 			       MFInfo(), Factory()));
       xslps->setVal(0.);
       // Slopes in y-direction
-      yslps.reset(new MultiFab(grids, dmap, nspecies+1, Godunov::hypgrow(),
+      yslps.reset(new MultiFab(grids, dmap, nspecies+2, Godunov::hypgrow(),
 			       MFInfo(), Factory()));
       yslps->setVal(0.);
       // Slopes in z-direction
-      zslps.reset(new MultiFab(grids, dmap, nspecies+1, Godunov::hypgrow(),
+      zslps.reset(new MultiFab(grids, dmap, nspecies+2, Godunov::hypgrow(),
 			       MFInfo(), Factory()));
       zslps->setVal(0.);
 
@@ -6160,7 +6160,7 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
 	     bndry[1] = fetchBCArray(State_Type,bx,1,1);,
 	     bndry[2] = fetchBCArray(State_Type,bx,2,1););
 // EM_DEBUG maybe need to put nspecies+2 here
-       godunov->ComputeScalarSlopes(mfi, Smf, nspecies+1,
+       godunov->ComputeScalarSlopes(mfi, Smf, nspecies+2,
 				    D_DECL(xslps, yslps, zslps),
 				    D_DECL(bndry[0], bndry[1], bndry[2]),
 				    domain);
@@ -6208,6 +6208,26 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
       }
 
       // Advect RhoY
+      
+#ifdef AMREX_USE_EB
+  
+    Vector<int> bndry[BL_SPACEDIM];
+    D_TERM(bndry[0] = fetchBCArray(State_Type,bx,0,1);,
+           bndry[1] = fetchBCArray(State_Type,bx,1,1);,
+           bndry[2] = fetchBCArray(State_Type,bx,2,1););
+	//std::cout << "DEBUG rhoYcomp, nspecies " << rhoYcomp << " " <<  nspecies << std::endl;
+    godunov->AdvectScalars_EB(S_mfi, Smf, rhoYcomp, nspecies,
+                          *aofs, first_spec, 1, 
+                          D_DECL(xslps, yslps, zslps),
+                          D_DECL( u_mac[0][S_mfi], u_mac[1][S_mfi], u_mac[2][S_mfi]),
+                          D_DECL(edgeflux[0],edgeflux[1],edgeflux[2]),
+                          D_DECL(edgestate[0],edgestate[1],edgestate[2]),
+                          D_DECL(bndry[0], bndry[1], bndry[2]),
+                          geom.Domain(),
+                          geom.CellSize(),Godunov::hypgrow());	
+
+#else      
+
       state_bc = fetchBCArray(State_Type,bx,first_spec,nspecies+1);
       godunov->AdvectScalars(bx, dx, dt, 
                              D_DECL(  area[0][S_mfi],  area[1][S_mfi],  area[2][S_mfi]),
@@ -6217,6 +6237,9 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
                              Sfab, rhoYcomp, nspecies, force, 0, divu, 0,
                              (*aofs)[S_mfi], first_spec, advectionType, state_bc, FPU, volume[S_mfi]);
 
+#endif
+                             
+                             
       // Set flux, flux divergence, and face values for rho as sums of the corresponding RhoY quantities
       (*aofs)[S_mfi].setVal(0,bx,Density,1);
       for (int d=0; d<BL_SPACEDIM; ++d)
