@@ -164,7 +164,9 @@ main (int   argc,
     BoxArray ba(box_turb);
     DistributionMapping dm(ba);
     MultiFab vel(ba,dm,BL_SPACEDIM,0);
-    vel[0].copy(vel_turb);
+    if (dm[0] == ParallelDescriptor::MyProc() ) {
+      vel[0].copy(vel_turb);
+    }
     PlotFileFromMF(vel,geom_turb,Concatenate(pltfile,0));
 #endif
 
