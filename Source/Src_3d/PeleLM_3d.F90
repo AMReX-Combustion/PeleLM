@@ -1365,7 +1365,8 @@ contains
       use network,          only : nspecies
       use transport_module, only : get_transport_coeffs
       use mod_Fvar_def, only : Pr, Sc, LeEQ1, thickFac
-    
+      use amrex_mempool_module
+
       implicit none
 
       integer         , intent(in   ) ::     lo(3),    hi(3)
@@ -1382,18 +1383,24 @@ contains
       REAL_T Patm, Wavg
       REAL_T Yt(nspecies), invmwt(nspecies)
       REAL_T cpmix(1,1,1), Tfac, Yfac
-      REAL_T  Y_real(Y_lo(1):Y_hi(1),Y_lo(2):Y_hi(2),Y_lo(3):Y_hi(3),nspecies)
-      REAL_T  RHO(T_lo(1):T_hi(1),T_lo(2):T_hi(2),T_lo(3):T_hi(3))
-      REAL_T  D(T_lo(1):T_hi(1),T_lo(2):T_hi(2),T_lo(3):T_hi(3),nspecies)
-      REAL_T  MU(T_lo(1):T_hi(1),T_lo(2):T_hi(2),T_lo(3):T_hi(3))
-      REAL_T  XI(T_lo(1):T_hi(1),T_lo(2):T_hi(2),T_lo(3):T_hi(3))
-      REAL_T  LAM(T_lo(1):T_hi(1),T_lo(2):T_hi(2),T_lo(3):T_hi(3))
+      REAL_T,pointer ::  Y_real(:,:,:,:)
+      REAL_T,pointer ::  RHO(:,:,:)
+      REAL_T,pointer ::  D(:,:,:,:)
+      REAL_T,pointer ::  MU(:,:,:)
+      REAL_T,pointer ::  XI(:,:,:)
+      REAL_T,pointer ::  LAM(:,:,:)
       integer lo_chem(3),hi_chem(3)
       data lo_chem /1,1,1/
       data hi_chem /1,1,1/
 
 !     nspecies+1 is Temp stuff, if requested
 !     nspecies+2 is Velocity stuff, if requested
+      call amrex_allocate(Y_real,Y_lo(1),Y_hi(1),Y_lo(2),Y_hi(2),Y_lo(3),Y_hi(3),1,nspecies)
+      call amrex_allocate(RHO,Y_lo(1),Y_hi(1),Y_lo(2),Y_hi(2),Y_lo(3),Y_hi(3))
+      call amrex_allocate(D,Y_lo(1),Y_hi(1),Y_lo(2),Y_hi(2),Y_lo(3),Y_hi(3),1,nspecies)
+      call amrex_allocate(MU,Y_lo(1),Y_hi(1),Y_lo(2),Y_hi(2),Y_lo(3),Y_hi(3))
+      call amrex_allocate(XI,Y_lo(1),Y_hi(1),Y_lo(2),Y_hi(2),Y_lo(3),Y_hi(3))
+      call amrex_allocate(LAM,Y_lo(1),Y_hi(1),Y_lo(2),Y_hi(2),Y_lo(3),Y_hi(3))
       nc = nspecies
       ncs = nc
       if (do_temp.eq.1) then
@@ -1510,6 +1517,12 @@ contains
           end do
         end if
       end if
+      call amrex_deallocate(Y_real)
+      call amrex_deallocate(RHO)
+      call amrex_deallocate(D)
+      call amrex_deallocate(MU)
+      call amrex_deallocate(XI)
+      call amrex_deallocate(LAM)
       
   end subroutine spec_temp_visc
 
