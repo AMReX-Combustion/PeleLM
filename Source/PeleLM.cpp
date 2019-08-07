@@ -7497,44 +7497,30 @@ PeleLM::compute_vel_visc (Real      time,
   const int nGrow = beta->nGrow();
 
   BL_ASSERT(nGrow == 1);
-  BL_ASSERT(first_spec == Density+1);
 
   MultiFab dummy(grids,dmap,1,0,MFInfo().SetAlloc(false));
 
   FillPatchIterator Temp_fpi(*this,dummy,nGrow,time,State_Type,Temp,1),
-         Rho_and_spec_fpi(*this,dummy,nGrow,time,State_Type,Density,nspecies+1);
+                    Spec_fpi(*this,dummy,nGrow,time,State_Type,first_spec,nspecies);
   MultiFab& Temp_mf = Temp_fpi.get_mf();
-  MultiFab& Rho_and_spec_mf = Rho_and_spec_fpi.get_mf();
+  MultiFab& Spec_mf = Spec_fpi.get_mf();
   
 #ifdef _OPENMP
 #pragma omp parallel
 #endif
-{
-  FArrayBox tmp;
-  for (MFIter mfi(Temp_mf,true); mfi.isValid();++mfi)
   {
-    const Box& box          = mfi.growntilebox();
-    FArrayBox& temp         = Temp_mf[mfi];
-    FArrayBox& rho_and_spec = Rho_and_spec_mf[mfi];
-    //
-    // Convert from RhoY_l to Y_l
-    //
-    tmp.resize(box,1);
-    tmp.copy(rho_and_spec,box,0,box,0,1);
-    tmp.invert(1,box);
-
-    for (int n = 1; n < nspecies+1; ++n)
-      rho_and_spec.mult(tmp,box,0,n,1);
-
-    vel_visc(BL_TO_FORTRAN_BOX(box),
-             BL_TO_FORTRAN_N_3D(temp,0),
-             BL_TO_FORTRAN_N_3D(rho_and_spec,1),
-             BL_TO_FORTRAN_N_3D(tmp,0));
-
-    (*beta)[mfi].copy(tmp,box,0,box,0,1);
+    for (MFIter mfi(Temp_mf,true); mfi.isValid();++mfi)
+    {
+      const Box& box  = mfi.growntilebox();
+      FArrayBox& temp = Temp_mf[mfi];
+      FArrayBox& spec = Spec_mf[mfi];
+      
+      vel_visc(BL_TO_FORTRAN_BOX(box),
+               BL_TO_FORTRAN_N_3D(temp,0),
+               BL_TO_FORTRAN_N_3D(spec,0),
+               BL_TO_FORTRAN_N_3D((*beta)[mfi],0));
+    }
   }
-}
-
 }
 
 void

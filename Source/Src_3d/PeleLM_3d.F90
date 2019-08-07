@@ -1258,50 +1258,69 @@ contains
 
   subroutine vel_visc (lo,hi, &
                        T, T_lo, T_hi, &
-                       Y, Y_lo, Y_hi, &
+                       RY, RY_lo, RY_hi, &
                        mu, mu_lo, mu_hi) &
                        bind(C, name="vel_visc")
-                                 
-      use network,          only : nspecies
-      use transport_module, only: get_visco_coeffs
-      use mod_Fvar_def, only : LeEQ1
 
-      implicit none
+    use network,          only : nspecies
+    use transport_module, only: get_visco_coeffs
+    use mod_Fvar_def, only : LeEQ1
 
+    implicit none
 
-      integer         , intent(in   ) ::     lo(3),    hi(3)
-      integer         , intent(in   ) ::   T_lo(3),  T_hi(3)
-      integer         , intent(in   ) ::   Y_lo(3),  Y_hi(3)
-      integer         , intent(in   ) ::  mu_lo(3), mu_hi(3)
-      REAL_T, intent(in   ) :: T(T_lo(1):T_hi(1),T_lo(2):T_hi(2),T_lo(3):T_hi(3))
-      REAL_T, intent(in   ) :: Y(Y_lo(1):Y_hi(1),Y_lo(2):Y_hi(2),Y_lo(3):Y_hi(3),nspecies)
-      REAL_T, intent(out  ) :: mu(mu_lo(1):mu_hi(1),mu_lo(2):mu_hi(2),mu_lo(3):mu_hi(3))
+    integer         , intent(in   ) ::     lo(3),    hi(3)
+    integer         , intent(in   ) ::   T_lo(3),  T_hi(3)
+    integer         , intent(in   ) ::  RY_lo(3), RY_hi(3)
+    integer         , intent(in   ) ::  mu_lo(3), mu_hi(3)
+    REAL_T, intent(in   ) :: T(T_lo(1):T_hi(1),T_lo(2):T_hi(2),T_lo(3):T_hi(3))
+    REAL_T, intent(in   ) :: RY(RY_lo(1):RY_hi(1),RY_lo(2):RY_hi(2),RY_lo(3):RY_hi(3),nspecies)
+    REAL_T, intent(out  ) :: mu(mu_lo(1):mu_hi(1),mu_lo(2):mu_hi(2),mu_lo(3):mu_hi(3))
 
-      integer i, j, k
+    REAL_T Yt(lo(1):hi(1),nspecies), RHO_MKS, RHO_MKS_inv
+    integer i, j, k, n
 
-      if (.not. LeEQ1) then
-        call get_visco_coeffs(lo, hi, &
-                              Y,  Y_lo,  Y_hi, &
-                              T,  T_lo,  T_hi, &
-                              mu, mu_lo, mu_hi)
-        do k=lo(3), hi(3)
+    integer bl(3), bh(3)
+
+    bl = 1
+    bh = 1
+    bl(1) = lo(1)
+    bh(1) = hi(1)
+
+    if (.not. LeEQ1) then
+       do k=lo(3), hi(3)
           do j=lo(2), hi(2)
-            do i=lo(1), hi(1)
-              mu(i,j,k) = mu(i,j,k) * 1.0d-1
-            end do
-          end do
-        end do
-      else 
-        do k=lo(3), hi(3)
-          do j=lo(2), hi(2)
-            do i=lo(1), hi(1)
-              mu(i,j,k) = 1.85e-5*(T(i,j,k)/298.0)**.7
-            end do
-          end do
-        end do
-      end if
+             
+             do i=lo(1), hi(1)
+                RHO_MKS = 0.d0
+                do n=1,nspecies
+                   RHO_MKS = RHO_MKS + RY(i,j,k,n)
+                end do
+                RHO_MKS_inv = 1.d0 / RHO_MKS
+                do n=1,nspecies
+                   Yt(i,n) = RY(i,j,k,n) * RHO_MKS_inv
+                end do
+             enddo
 
-  end subroutine vel_visc 
+             call get_visco_coeffs(bl, bh, &
+                                   Yt, bl, bh, &
+                                   T(lo(1),j,k), bl, bh, &
+                                   mu(lo(1),j,k), bl, bh)
+
+             mu(lo(1):hi(1),j,k) = mu(lo(1):hi(1),j,k) * 1.0d-1
+
+          end do
+       end do
+    else 
+       do k=lo(3), hi(3)
+          do j=lo(2), hi(2)
+             do i=lo(1), hi(1)
+                mu(i,j,k) = 1.85e-5*(T(i,j,k)/298.0)**.7
+             end do
+          end do
+       end do
+    end if
+
+  end subroutine vel_visc
 
 !-------------------------------------------------
 
@@ -1356,177 +1375,175 @@ contains
 
   subroutine spec_temp_visc(lo,hi, &
                             T, T_lo, T_hi, &
-                            Y, Y_lo, Y_hi, &
+                            RY, RY_lo, RY_hi, &
                             rhoD, rhoD_lo, rhoD_hi, &
                             ncompd, P1ATM_MKS, do_temp, do_VelVisc, &
                             Pamb_in) &
                             bind(C, name="spec_temp_visc")
-       
-      use network,          only : nspecies
-      use transport_module, only : get_transport_coeffs
-      use mod_Fvar_def, only : Pr, Sc, LeEQ1, thickFac
-      use amrex_mempool_module
 
-      implicit none
+    use network, only : nspecies
+    use transport_module, only : get_transport_coeffs
+    use mod_Fvar_def, only : Pr, Sc, LeEQ1, thickFac
+    
+    implicit none
 
-      integer         , intent(in   ) ::     lo(3),    hi(3)
-      integer         , intent(in   ) ::   T_lo(3),  T_hi(3)
-      integer         , intent(in   ) ::   Y_lo(3),  Y_hi(3)
-      integer         , intent(in   ) ::rhoD_lo(3),  rhoD_hi(3)
-      REAL_T, intent(in   ) :: T(T_lo(1):T_hi(1),T_lo(2):T_hi(2),T_lo(3):T_hi(3))
-      REAL_T, intent(in   ) :: Y(Y_lo(1):Y_hi(1),Y_lo(2):Y_hi(2),Y_lo(3):Y_hi(3),nspecies)
-      REAL_T, intent(out  ) :: rhoD(rhoD_lo(1):rhoD_hi(1),rhoD_lo(2):rhoD_hi(2),rhoD_lo(3):rhoD_hi(3),nspecies+2)
-      integer ncompd, do_temp, do_VelVisc
-      REAL_T  Pamb_in, P1ATM_MKS
-
-      integer i, j, k, n, nc, ncs
-      REAL_T Patm, Wavg
-      REAL_T Yt(nspecies), invmwt(nspecies)
-      REAL_T cpmix(1,1,1), Tfac, Yfac
-      REAL_T,pointer ::  Y_real(:,:,:,:)
-      REAL_T,pointer ::  RHO(:,:,:)
-      REAL_T,pointer ::  D(:,:,:,:)
-      REAL_T,pointer ::  MU(:,:,:)
-      REAL_T,pointer ::  XI(:,:,:)
-      REAL_T,pointer ::  LAM(:,:,:)
-      integer lo_chem(3),hi_chem(3)
-      data lo_chem /1,1,1/
-      data hi_chem /1,1,1/
-
-!     nspecies+1 is Temp stuff, if requested
-!     nspecies+2 is Velocity stuff, if requested
-      call amrex_allocate(Y_real,Y_lo(1),Y_hi(1),Y_lo(2),Y_hi(2),Y_lo(3),Y_hi(3),1,nspecies)
-      call amrex_allocate(RHO,Y_lo(1),Y_hi(1),Y_lo(2),Y_hi(2),Y_lo(3),Y_hi(3))
-      call amrex_allocate(D,Y_lo(1),Y_hi(1),Y_lo(2),Y_hi(2),Y_lo(3),Y_hi(3),1,nspecies)
-      call amrex_allocate(MU,Y_lo(1),Y_hi(1),Y_lo(2),Y_hi(2),Y_lo(3),Y_hi(3))
-      call amrex_allocate(XI,Y_lo(1),Y_hi(1),Y_lo(2),Y_hi(2),Y_lo(3),Y_hi(3))
-      call amrex_allocate(LAM,Y_lo(1),Y_hi(1),Y_lo(2),Y_hi(2),Y_lo(3),Y_hi(3))
-      nc = nspecies
-      ncs = nc
-      if (do_temp.eq.1) then
-         nc = nc + 1
-         ncs = nc
-         if (do_VelVisc.eq.1) then
-            nc = nc + 1
-         endif
-      endif
-      if (ncompd.lt.nc) then
-         call bl_pd_abort("not enough components in rhoD")
-      endif
-      if (do_temp.eq.0 .and. do_VelVisc.eq.1) then
-         call bl_pd_abort("if do_VelVisc, rhoD requires do_temp")
-      endif
-
-!     Warning, FORT_VELVISC is called separately from this routine, so if there's
-!     any hacking to be done on viscosity, be sure to catch it there as well.
-      Tfac = thickFac / Pr
-      Yfac = thickFac / Sc
-
-      call CKWT(invmwt)
-      do n=1,nspecies
-          invmwt(n) = one / invmwt(n)
-      end do
-
-      do k=lo(3),hi(3) 
-        do j=lo(2),hi(2)
-          do i=lo(1),hi(1)
-            RHO(i,j,k) = 0.d0
-            do n=1,nspecies
-              RHO(i,j,k) = RHO(i,j,k) + Y(i,j,k,n)
-            end do
-            do n=1,nspecies
-              Y_real(i,j,k,n) = Y(i,j,k,n) / RHO(i,j,k)
-            end do
-            RHO(i,j,k) = RHO(i,j,k) * 1.d-3
-          end do
-        end do
-      end do
+    integer         , intent(in   ) ::     lo(3),    hi(3)
+    integer         , intent(in   ) ::   T_lo(3),  T_hi(3)
+    integer         , intent(in   ) ::  RY_lo(3), RY_hi(3)
+    integer         , intent(in   ) ::rhoD_lo(3),  rhoD_hi(3)
+    REAL_T, intent(in   ) :: T(T_lo(1):T_hi(1),T_lo(2):T_hi(2),T_lo(3):T_hi(3))
+    REAL_T, intent(in   ) :: RY(RY_lo(1):RY_hi(1),RY_lo(2):RY_hi(2),RY_lo(3):RY_hi(3),nspecies)
+    REAL_T, intent(out  ) :: rhoD(rhoD_lo(1):rhoD_hi(1),rhoD_lo(2):rhoD_hi(2),rhoD_lo(3):rhoD_hi(3),ncompd)
+    integer ncompd, do_temp, do_VelVisc
+    REAL_T  Pamb_in, P1ATM_MKS
  
-      if (.not. LeEQ1) then
-        Patm = Pamb_in / P1ATM_MKS
-        call get_transport_coeffs(lo,   hi, &
-                                  Y_real, Y_lo,  Y_hi,  &
-                                  T,      T_lo,  T_hi,  &
-                                  RHO,    T_lo,  T_hi,  &
-                                  D,      T_lo,  T_hi,  &
-                                  MU,     T_lo,  T_hi,  &
-                                  XI,     T_lo,  T_hi,  &
-                                  LAM,    T_lo,  T_hi)
-        do k=lo(3),hi(3) 
-          do j=lo(2), hi(2)
-            do i=lo(1), hi(1)
-              CALL CKMMWY(Y_real(i,j,k,:),Wavg)
-              do n=1,nspecies
-                rhoD(i,j,k,n) = Wavg * invmwt(n) * D(i,j,k,n)  * 1.0d-1
-              end do
-              if (do_temp .ne. 0) then 
-                rhoD(i,j,k,nspecies+1) = LAM(i,j,k) * (one / 100000.0D0)
-              end if
-              if (thickFac.ne.1.d0) then
-                do n=1,nspecies+1
-                  rhoD(i,j,k,n) = rhoD(i,j,k,n)*thickFac
-                enddo
-              endif
-              if (do_VelVisc .ne. 0) then 
-                rhoD(i,j,k,nspecies+2) = MU(i,j,k) * 1.0d-1
-              end if
-            end do
-          end do
-        end do
-      
-      else
-      
-        call vel_visc(lo,      hi,&
-                      T,       T_lo,    T_hi, &
-                      Y_real,  Y_lo,    Y_hi, &
-                      rhoD,    rhoD_lo, rhoD_hi)
-        do k=lo(3), hi(3)
-          do j=lo(2), hi(2)
-            do i=lo(1), hi(1)
-              do n=nspecies+1,nc
-                rhoD(i,j,k,n) = rhoD(i,j,k,1)
-              end do
-              rhoD(i,j,k,1) = rhoD(i,j,k,1) * Yfac
-            end do
-          end do
-        end do
-        do n=2,nspecies
-          do k=lo(3), hi(3)
-            do j=lo(2), hi(2)
-              do i=lo(1), hi(1)
-                rhoD(i,j,k,n) = rhoD(i,j,k,1)
-              end do
-            end do
-          end do
-        end do
+    integer i, j, k, n, nc, ncs
+    REAL_T  Patm, Yl(nspecies)
+    REAL_T  Yt(lo(1):hi(1),nspecies), invmwt(nspecies), Wavg(lo(1):hi(1))
+    REAL_T  Tfac, Yfac, cpmix(1), RHO_MKS, RHO_MKS_inv, RHO_CGS(lo(1):hi(1))
+    REAL_T  D(lo(1):hi(1),nspecies), mu(lo(1):hi(1)), lambda(lo(1):hi(1)), xi(lo(1):hi(1))
 
-        if (do_temp .ne. 0) then
-          do k=lo(3), hi(3)
-            do j=lo(2), hi(2)
-              do i=lo(1), hi(1)
+    integer bl(3), bh(3)
+
+    bl = 1
+    bh = 1
+    bl(1) = lo(1)
+    bh(1) = hi(1)
+
+    ! nspecies+1 is Temp stuff, if requested
+    ! nspecies+2 is Velocity stuff, if requested
+    nc = nspecies
+    ncs = nc
+    if (do_temp.eq.1) then
+      nc = nc + 1
+      ncs = nc
+      if (do_VelVisc.eq.1) then
+        nc = nc + 1
+      endif
+    endif
+    if (ncompd.lt.nc) then
+      call bl_pd_abort("not enough components in rhoD")
+    endif
+    if (do_temp.eq.0 .and. do_VelVisc.eq.1) then
+      call bl_pd_abort("if do_VelVisc, rhoD requires do_temp")
+    endif
+
+    ! Warning, FORT_VELVISC is called separately from this routine, so if there's
+    ! any hacking to be done on viscosity, be sure to catch it there as well.
+    Tfac = thickFac / Pr
+    Yfac = thickFac / Sc
+
+    call CKWT(invmwt)
+    do n=1,nspecies
+       invmwt(n) = one / invmwt(n)
+    end do
+
+    if (.not. LeEQ1) then
+       Patm = Pamb_in / P1ATM_MKS
+
+       do k=lo(3),hi(3) 
+          do j=lo(2), hi(2)
+             
+             do i=lo(1), hi(1)                
+                RHO_MKS = 0.d0
                 do n=1,nspecies
-                  Yt(n) = Y_real(i,j,k,n)
+                   RHO_MKS = RHO_MKS + RY(i,j,k,n)
                 end do
-                CALL pphys_CPMIXfromTY(lo,       hi, & 
-                                       cpmix,    lo_chem, hi_chem, &
-                                       T(i,j,k), lo_chem, hi_chem, &
-                                       Yt,       lo_chem, hi_chem)
-                rhoD(i,j,k,nspecies+1) = rhoD(i,j,k,nspecies+1)*cpmix(1,1,1)*Tfac
-              end do
-            end do
+                RHO_MKS_inv = 1.d0 / RHO_MKS
+                do n=1,nspecies
+                   Yt(i,n) = RY(i,j,k,n) * RHO_MKS_inv
+                   Yl(n) = Yt(i,n)
+                end do
+                call CKMMWY(Yl,Wavg(i))
+                RHO_CGS(i) = RHO_MKS * 1.d-3
+             enddo
+
+             ! Get transport coefficients over vector in i
+             call get_transport_coeffs(bl, bh, &
+                                       Yt,       bl, bh, &
+                                       T(lo(1),j,k), bl, bh, &
+                                       RHO_CGS,      bl, bh, &
+                                       D,            bl, bh, &
+                                       mu,           bl, bh, &
+                                       xi,           bl, bh, &
+                                       lambda,       bl, bh)
+             
+             do i=lo(1), hi(1)                
+                do n=1,nspecies
+                   rhoD(i,j,k,n) = Wavg(i) * invmwt(n) * D(i,n)  * 1.0d-1 
+                end do
+                if (do_temp .ne. 0) then 
+                   rhoD(i,j,k,nspecies+1) = lambda(i) * 1.d-5
+                end if
+                if (thickFac.ne.1.d0) then
+                   do n=1,nspecies+1
+                      rhoD(i,j,k,n) = rhoD(i,j,k,n)*thickFac
+                   enddo
+                endif
+                if (do_VelVisc .ne. 0) then 
+                   rhoD(i,j,k,nspecies+2) = mu(i) * 1.0d-1
+                end if
+             end do
+             
           end do
-        end if
-      end if
-      call amrex_deallocate(Y_real)
-      call amrex_deallocate(RHO)
-      call amrex_deallocate(D)
-      call amrex_deallocate(MU)
-      call amrex_deallocate(XI)
-      call amrex_deallocate(LAM)
+       end do
       
+    else
+    
+       call vel_visc(lo, hi,&
+                     T,    T_lo,    T_hi, &
+                     RY,   RY_lo,   RY_hi, &
+                     rhoD, rhoD_lo, rhoD_hi)
+
+       ! Set rhoD[1] = mu * Yfac
+       do k=lo(3),hi(3) 
+          do j=lo(2), hi(2)
+             do i=lo(1), hi(1)
+                do n=nspecies+1,nc
+                   rhoD(i,j,k,n) = rhoD(i,j,k,1)
+                end do
+                rhoD(i,j,k,1) = rhoD(i,j,k,1) * Yfac
+             end do
+          end do
+       end do
+       ! Set rhoD[2:N] = rhoD[1]
+       do n=2,nspecies
+          do k=lo(3),hi(3) 
+             do j=lo(2), hi(2)
+                do i=lo(1), hi(1)
+                   rhoD(i,j,k,n) = rhoD(i,j,k,1)
+                end do
+             end do
+          end do
+       end do
+       
+       if (do_temp .ne. 0) then
+          ! Set lambda = mu * cpmix, ptwise
+          do k=lo(3),hi(3) 
+             do j=lo(2), hi(2)               
+                do i=lo(1), hi(1)
+                   RHO_MKS = 0.d0
+                   do n=1,nspecies
+                      RHO_MKS = RHO_MKS + RY(i,j,k,n)
+                   end do
+                   RHO_MKS_inv = 1.d0 / RHO_MKS
+                   do n=1,nspecies
+                      Yl(n) = RY(i,j,k,n) * RHO_MKS_inv
+                   end do
+                   CALL pphys_CPMIXfromTY(bl, bl, &
+                                          cpmix,    bl, bl, &
+                                          T(i,j,k), bl, bl, &
+                                          Yl,       bl, bl)
+                   rhoD(i,j,k,nspecies+1) = rhoD(i,j,k,nspecies+1)*cpmix(1)*Tfac
+                end do
+             end do
+          end do
+       end if
+    end if
+
   end subroutine spec_temp_visc
 
-!-------------------------------------------
+ !-------------------------------------------
 
   subroutine est_divu_dt(flag, dtfactor, delta, divu, DIMS(divu), &
                          dsdt, DIMS(dsdt), rho, DIMS(rho),  &
