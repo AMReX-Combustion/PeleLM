@@ -4902,6 +4902,18 @@ PeleLM::predict_velocity (Real  dt)
   Gp.FillBoundary(geom.periodicity());
 
 // EM_DEBUG Comment below to de-activate EB in advection
+  
+//        //Slopes in x-direction
+//    MultiFab m_xslopes (grids, dmap, AMREX_SPACEDIM, Godunov::hypgrow(), MFInfo(), Factory());
+//   m_xslopes.setVal(0.);
+//    // Slopes in y-direction
+//    MultiFab m_yslopes(grids, dmap, AMREX_SPACEDIM, Godunov::hypgrow(), MFInfo(), Factory());
+//    m_yslopes.setVal(0.);
+//#if (AMREX_SPACEDIM > 2)
+//    // Slopes in z-direction
+//    MultiFab m_zslopes(grids, dmap, AMREX_SPACEDIM, Godunov::hypgrow(), MFInfo(), Factory());
+//    m_zslopes.setVal(0.);
+//#endif
 
   const Box& domain = geom.Domain();
     // Compute slopes and store for use in computing UgradU
@@ -4918,10 +4930,14 @@ PeleLM::predict_velocity (Real  dt)
 	      bndry[2] = fetchBCArray(State_Type,bx,2,1););
 
       godunov->ComputeVelocitySlopes(mfi, Umf,
+             D_DECL(m_xslopes, m_yslopes, m_zslopes),
 				     D_DECL(bndry[0], bndry[1], bndry[2]),
 				     domain);
     }
  }
+ 
+ //amrex::Print() << m_xslopes[0];
+ 
     //
     // need to fill ghost cells for slopes here. 
     // vel advection term ugradu uses these slopes (does not recompute in incflo
@@ -4929,8 +4945,10 @@ PeleLM::predict_velocity (Real  dt)
     // non-periodic BCs are in theory taken care of inside compute ugradu, but IAMR
     //  only allows for periodic for now
     //
-    godunov->slopes_FillBoundary(geom.periodicity());
-  
+    //godunov->slopes_FillBoundary(m_xslopes, m_yslopes, m_zslopes, geom.periodicity());
+   m_xslopes.FillBoundary(geom.periodicity());
+	 m_yslopes.FillBoundary(geom.periodicity());
+	 m_zslopes.FillBoundary(geom.periodicity());
   
 #else
   MultiFab Gp(grids,dmap,BL_SPACEDIM,1);
@@ -5003,6 +5021,7 @@ PeleLM::predict_velocity (Real  dt)
 				   //D_DECL(Uface[0], Uface[1], Uface[2]),
            D_DECL(u_mac[0][U_mfi], u_mac[1][U_mfi], u_mac[2][U_mfi]),
 				   D_DECL(bndry[0],        bndry[1],        bndry[2]),
+           D_DECL(m_xslopes, m_yslopes, m_zslopes),
 				   Ufab, tforces, domain);
 #else
 	// non-EB
@@ -6150,35 +6169,23 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
 
 #ifdef AMREX_USE_EB
 
-      //
-      // compute slopes for construction of edge states
-      //
-//      std::unique_ptr<amrex::MultiFab> xslps;
-//      std::unique_ptr<amrex::MultiFab> yslps;
-//      std::unique_ptr<amrex::MultiFab> zslps;
-//      //Slopes in x-direction
-//      xslps.reset(new MultiFab(grids, dmap, nspecies+2, Godunov::hypgrow(),
-//			       MFInfo(), Factory()));
-      
-      MultiFab xslps(grids, dmap, nspecies+3, Godunov::hypgrow(),MFInfo(), Factory());
-      
-      xslps.setVal(0.);
-      // Slopes in y-direction
-//      yslps.reset(new MultiFab(grids, dmap, nspecies+2, Godunov::hypgrow(),
-//			       MFInfo(), Factory()));
-
-      MultiFab yslps(grids, dmap, nspecies+3, Godunov::hypgrow(), MFInfo(), Factory());
-      yslps.setVal(0.);
-      // Slopes in z-direction
-//      zslps.reset(new MultiFab(grids, dmap, nspecies+2, Godunov::hypgrow(),
-//			       MFInfo(), Factory()));
-
-      MultiFab zslps(grids, dmap, nspecies+3, Godunov::hypgrow(), MFInfo(), Factory());
-      zslps.setVal(0.);
+    //
+    // compute slopes for construction of edge states
+    //
+    //Slopes in x-direction      
+    MultiFab xslps(grids, dmap, nspecies+3, Godunov::hypgrow(),MFInfo(), Factory());
+    xslps.setVal(0.);
+    // Slopes in y-direction
+    MultiFab yslps(grids, dmap, nspecies+3, Godunov::hypgrow(), MFInfo(), Factory());
+    yslps.setVal(0.);
+    // Slopes in z-direction
+    MultiFab zslps(grids, dmap, nspecies+3, Godunov::hypgrow(), MFInfo(), Factory());
+    zslps.setVal(0.);
 
     const Box& domain = geom.Domain();
     // Compute slopes for use in computing aofs
     // Perhaps need to call EB_set_covered(Smf,....)
+    
 #ifdef _OPENMP
 #pragma omp parallel
 #endif
@@ -6190,7 +6197,7 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
        D_TERM(bndry[0] = fetchBCArray(State_Type,bx,0,1);,
 	     bndry[1] = fetchBCArray(State_Type,bx,1,1);,
 	     bndry[2] = fetchBCArray(State_Type,bx,2,1););
-// EM_DEBUG maybe need to put nspecies+2 here
+
        godunov->ComputeScalarSlopes(mfi, Smf, nspecies+3,
 				    D_DECL(xslps, yslps, zslps),
 				    D_DECL(bndry[0], bndry[1], bndry[2]),
@@ -6242,7 +6249,6 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
       }
             
       // Advect RhoY
-      if (verbose) amrex::Print() << "\n \n DEBUG STARTGING SPECIES ADEVCTION \n \n";
       state_bc = fetchBCArray(State_Type,bx,first_spec,nspecies+1);
 
 #ifdef AMREX_USE_EB
@@ -6291,7 +6297,6 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
       // Extrapolate Temp, then compute flux divergence and value for RhoH from face values of T,Y,Rho
       // Note that this requires that the nspecies component of force be the temperature forcing
 
-      if (verbose) amrex::Print() << "\n \n DEBUG STARTGING TEMPERATURE ADEVCTION \n \n";
       state_bc = fetchBCArray(State_Type,bx,Temp,1);      
       
 #ifdef AMREX_USE_EB
@@ -6346,7 +6351,6 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
       }
 
       // Compute -Div(flux.Area) for RhoH, return Area-scaled (extensive) fluxes
-      if (verbose) amrex::Print() << "\n \n DEBUG STARTGING RHO AOFS recompute \n \n";
       
 #ifdef AMREX_USE_EB
 
