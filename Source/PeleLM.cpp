@@ -4897,26 +4897,12 @@ PeleLM::predict_velocity (Real  dt)
 
   
 #ifdef AMREX_USE_EB
-//  MultiFab& Gp = *gradp;
   MultiFab& Gp = getGradP();
   Gp.FillBoundary(geom.periodicity());
 
-// EM_DEBUG Comment below to de-activate EB in advection
-  
-//        //Slopes in x-direction
-//    MultiFab m_xslopes (grids, dmap, AMREX_SPACEDIM, Godunov::hypgrow(), MFInfo(), Factory());
-//   m_xslopes.setVal(0.);
-//    // Slopes in y-direction
-//    MultiFab m_yslopes(grids, dmap, AMREX_SPACEDIM, Godunov::hypgrow(), MFInfo(), Factory());
-//    m_yslopes.setVal(0.);
-//#if (AMREX_SPACEDIM > 2)
-//    // Slopes in z-direction
-//    MultiFab m_zslopes(grids, dmap, AMREX_SPACEDIM, Godunov::hypgrow(), MFInfo(), Factory());
-//    m_zslopes.setVal(0.);
-//#endif
-
   const Box& domain = geom.Domain();
-    // Compute slopes and store for use in computing UgradU
+  
+  // Compute slopes and store for use in computing UgradU
 #ifdef _OPENMP
 #pragma omp parallel
 #endif
@@ -4936,19 +4922,17 @@ PeleLM::predict_velocity (Real  dt)
     }
  }
  
- //amrex::Print() << m_xslopes[0];
- 
-    //
-    // need to fill ghost cells for slopes here. 
-    // vel advection term ugradu uses these slopes (does not recompute in incflo
-    //  scheme) needs 4 ghost cells (comments say 5, but I only see use of 4 max)
-    // non-periodic BCs are in theory taken care of inside compute ugradu, but IAMR
-    //  only allows for periodic for now
-    //
-    //godunov->slopes_FillBoundary(m_xslopes, m_yslopes, m_zslopes, geom.periodicity());
-   m_xslopes.FillBoundary(geom.periodicity());
-	 m_yslopes.FillBoundary(geom.periodicity());
-	 m_zslopes.FillBoundary(geom.periodicity());
+
+  //
+  // need to fill ghost cells for slopes here. 
+  // vel advection term ugradu uses these slopes (does not recompute in incflo
+  //  scheme) needs 4 ghost cells (comments say 5, but I only see use of 4 max)
+  // non-periodic BCs are in theory taken care of inside compute ugradu, but IAMR
+  //  only allows for periodic for now
+  //
+  m_xslopes.FillBoundary(geom.periodicity());
+	m_yslopes.FillBoundary(geom.periodicity());
+	m_zslopes.FillBoundary(geom.periodicity());
   
 #else
   MultiFab Gp(grids,dmap,BL_SPACEDIM,1);
@@ -4961,8 +4945,6 @@ PeleLM::predict_velocity (Real  dt)
 //       count++;
 //            amrex::WriteSingleLevelPlotfile("GpLM"+std::to_string(count), Gp, {"gpx","gpy"}, parent->Geom(0), 0.0, 0);
 //VisMF::Write(Gp,"gradp_PV_LM");
-
-
 
 
   //
@@ -5017,8 +4999,6 @@ PeleLM::predict_velocity (Real  dt)
 	//
 	// CHECK HERE
 	godunov->ExtrapVelToFaces(U_mfi,
-				  //dx, dt,  // these are not used yet
-				   //D_DECL(Uface[0], Uface[1], Uface[2]),
            D_DECL(u_mac[0][U_mfi], u_mac[1][U_mfi], u_mac[2][U_mfi]),
 				   D_DECL(bndry[0],        bndry[1],        bndry[2]),
            D_DECL(m_xslopes, m_yslopes, m_zslopes),
@@ -6210,8 +6190,8 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
 //  only allows for periodic for now
 //
  D_TERM(xslps.FillBoundary(geom.periodicity());,
-	yslps.FillBoundary(geom.periodicity());,
-	zslps.FillBoundary(geom.periodicity()););
+	      yslps.FillBoundary(geom.periodicity());,
+	      zslps.FillBoundary(geom.periodicity()););
   
 #endif
   
@@ -6255,7 +6235,7 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
   
       godunov->AdvectScalars_EB(S_mfi, Smf, rhoYcomp, nspecies,
                                 *aofs, first_spec, 1, 
-                                xslps, yslps, zslps,
+                                D_DECL(xslps, yslps, zslps),
                                 D_DECL( u_mac[0][S_mfi], u_mac[1][S_mfi], u_mac[2][S_mfi]),
                                 D_DECL(edgeflux[0],edgeflux[1],edgeflux[2]),
                                 D_DECL(edgestate[0],edgestate[1],edgestate[2]),
@@ -6303,7 +6283,7 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
 
       godunov->AdvectScalars_EB(S_mfi, Smf, Tcomp, 1,
                                 *aofs, Temp, nspecies+2, 
-                                xslps, yslps, zslps,
+                                D_DECL(xslps, yslps, zslps),
                                 D_DECL( u_mac[0][S_mfi], u_mac[1][S_mfi], u_mac[2][S_mfi]),
                                 D_DECL(edgeflux[0],edgeflux[1],edgeflux[2]),
                                 D_DECL(edgestate[0],edgestate[1],edgestate[2]),
@@ -6356,7 +6336,7 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
 
       godunov->AdvectScalars_EB(S_mfi, Smf, RhoH, 1,
                                 *aofs, RhoH, nspecies+1, 
-                                xslps, yslps, zslps,
+                                D_DECL(xslps, yslps, zslps),
                                 D_DECL( u_mac[0][S_mfi], u_mac[1][S_mfi], u_mac[2][S_mfi]),
                                 D_DECL(edgeflux[0],edgeflux[1],edgeflux[2]),
                                 D_DECL(edgestate[0],edgestate[1],edgestate[2]),
