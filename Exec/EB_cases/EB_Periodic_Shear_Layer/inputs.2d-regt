@@ -137,7 +137,7 @@ ns.do_group_bndry_fills = 1
 #
 fab.format = NATIVE
 
-#fabarray.mfiter_tile_size = 8 8 8
+fabarray.mfiter_tile_size = 8 8 8
 
 # for getting things started with eb skip some steps
 ns.init_iter = 0

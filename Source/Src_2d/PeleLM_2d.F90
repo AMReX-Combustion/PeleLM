@@ -740,6 +740,8 @@ contains
             !HMIX_CGS = HMIX(i,j) * 1.0d4
             !call get_t_given_hy(HMIX_CGS, Yt, T(i,j), lierr);
 
+            !write(*,*) 'DEBUG in pphys_TfromHY', i,j,T(i,j),HMIX(i,j),Yt
+            
             call pphys_TfromHYpt(T(i,j),HMIX(i,j),Yt,errMax,NiterMAX,res,Niter)
 
             if (Niter .lt. 0) then
