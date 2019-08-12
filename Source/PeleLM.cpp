@@ -3260,7 +3260,7 @@ GetVecOfPtrs(MultiFab* const* a, int scomp, int ncomp)
 }
 
 void
-diffusionFJDriver(ForkJoin&                   fj,
+PeleLM::diffusionFJDriver(ForkJoin&                   fj,
                   Real                        prev_time,
                   Real                        curr_time,
                   Real                        be_cn_theta,
@@ -3333,8 +3333,8 @@ diffusionFJDriver(ForkJoin&                   fj,
 
   MultiFab& volume = fj.get_mf("volume");
   Vector<MultiFab *> area = fj.get_mf_vec("area");
-
-  Diffusion::diffuse_scalar (S_old,Rho_old,S_new,Rho_new,S_comp,num_comp,Rho_comp,
+  
+  diffusion->diffuse_scalar (S_old,Rho_old,S_new,Rho_new,S_comp,num_comp,Rho_comp,
                                  prev_time,curr_time,be_cn_theta,*rho_half,rho_flag,
                                  &(fluxn[0]),&(fluxnp1[0]),fluxComp,delta_rhs,rhsComp,
                                  alpha_in,alpha_in_comp,&(betan[0]),&(betanp1[0]),betaComp,
@@ -3384,7 +3384,7 @@ PeleLM::diffuse_scalar_fj  (const Vector<MultiFab*>&  S_old,
 
   if (n_tasks == 1)
   {
-    Diffusion::diffuse_scalar(S_old,Rho_old,S_new,Rho_new,S_comp,num_comp,Rho_comp,
+    diffusion->diffuse_scalar(S_old,Rho_old,S_new,Rho_new,S_comp,num_comp,Rho_comp,
                                   prev_time,curr_time,be_cn_theta,rho_mid,rho_flag,
                                   fluxn,fluxnp1,fluxComp,delta_rhs,rhsComp,
                                   alpha_in,alpha_in_comp,betan,betanp1,betaComp,

@@ -493,6 +493,26 @@ private:
                            bool                                   add_old_time_divFlux = true,
                            const amrex::Vector<int>&              is_diffusive = amrex::Vector<int>());
 
+  void diffusionFJDriver(amrex::ForkJoin&                   fj,
+                  amrex::Real                        prev_time,
+                  amrex::Real                        curr_time,
+                  amrex::Real                        be_cn_theta,
+                  int                         rho_flag,
+                  const amrex::Vector<amrex::Real>&         visc_coef,
+                  int                         visc_coef_comp,
+                  const amrex::IntVect&              cratio,
+                  const amrex::BCRec&                bc,
+                  const amrex::Geometry&             geom,
+                  bool                        add_hoop_stress,
+                  const Diffusion::SolveMode& solve_mode,
+                  bool                        add_old_time_divFlux,
+                  const amrex::Vector<int>&   is_diffusive,
+                  bool                        has_coarse_data,
+                  bool                        has_delta_rhs,
+                  bool                        has_alpha_in,
+                  bool                        has_betan,
+                  bool                        has_betanp1);
+                           
   //
   // Functions for interpolating from cell centers to cell edges
   //

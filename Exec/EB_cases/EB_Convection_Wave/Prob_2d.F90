@@ -174,17 +174,18 @@ contains
             vel(i,j,1) = MeanFlow
             vel(i,j,2) = 0.0d0
 
-!            Yl(1) = merge(.233d0,0.1d0,dist.lt.radblob) !0.233
-!            Yl(2) = 1.0d0 - Yl(1) !0.767
+            Yl(1) = merge(.233d0,0.1d0,dist.lt.radblob) !0.233
+            Yl(2) = 1.0d0 - Yl(1) !0.767
 
-            Yl(1) = 0.233
-            Yl(2) = 0.767
+!            Yl(1) = 0.233
+!            Yl(2) = 0.767
 
             do n = 1,nspecies
                scal(i,j,FirstSpec+n-1) = Yl(n)
             end do
 
-            scal(i,j,Temp) = merge(600.d0,300.d0,dist.lt.radblob) !T_mean
+            !scal(i,j,Temp) = merge(600.d0,300.d0,dist.lt.radblob) !T_mean
+            scal(i,j,Temp) = T_mean
 
          end do
       end do
