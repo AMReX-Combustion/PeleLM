@@ -49,6 +49,7 @@
 #ifdef AMREX_USE_EB
 #include <AMReX_EBMultiFabUtil.H>
 #include <AMReX_EBFArrayBox.H>
+#include <AMReX_MLEBABecLap.H>
 #endif
 
 #include <AMReX_buildInfo.H>
@@ -4244,13 +4245,13 @@ PeleLM::compute_differential_diffusion_fluxes (const MultiFab& S,
   std::array<MultiFab,AMREX_SPACEDIM> bcoeffs;
   for (int n = 0; n < BL_SPACEDIM; n++)
   {
-    bcoeffs[n].define(area[n].boxArray(),dmap,1,0);
+    bcoeffs[n].define(area[n].boxArray(),dmap,1,0,MFInfo(),Factory());
   }
-  MultiFab Soln(grids,dmap,1,nGrow);
-  MultiFab Alpha(grids,dmap,1,0);
+  MultiFab Soln(grids,dmap,1,nGrow,MFInfo(),Factory());
+  MultiFab Alpha(grids,dmap,1,0,MFInfo(),Factory());
   auto Solnc = std::unique_ptr<MultiFab>(new MultiFab());
   if (has_coarse_data) {
-    Solnc->define(*bac, *dmc, 1, nGrow);
+    Solnc->define(*bac, *dmc, 1, nGrow,MFInfo(),Factory());
   }
 
   LPInfo info;
@@ -4258,7 +4259,17 @@ PeleLM::compute_differential_diffusion_fluxes (const MultiFab& S,
   info.setConsolidation(1);
   info.setMetricTerm(false);
   info.setMaxCoarseningLevel(0);
+#ifdef AMREX_USE_EB
+        // create the right data holder for passing to MLEBABecLap
+  amrex::Vector<const amrex::EBFArrayBoxFactory*> ebf(1);
+        //ebf.resize(1);
+  ebf[0] = &(dynamic_cast<EBFArrayBoxFactory const&>(Factory()));
+
+  MLEBABecLap op({geom}, {grids}, {dmap}, info, ebf);
+#else
   MLABecLaplacian op({geom}, {grids}, {dmap}, info);
+#endif
+
   op.setMaxOrder(diffusion->maxOrder());
   MLMG mg(op);
 
@@ -4322,10 +4333,64 @@ PeleLM::compute_differential_diffusion_fluxes (const MultiFab& S,
                  MultiFab flxz(*flux[2], amrex::make_alias, fluxComp+icomp, 1););
     std::array<MultiFab*,AMREX_SPACEDIM> fp{AMREX_D_DECL(&flxx,&flxy,&flxz)};
     mg.getFluxes({fp},{&Soln});
+
+        int nghost = 0;
+#ifdef AMREX_USE_EB
+        // now dx, areas, and vol are not constant.
+        std::array<const amrex::MultiCutFab*,AMREX_SPACEDIM>areafrac = ebf[0]->getAreaFrac();
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
+        for (MFIter mfi(Soln,true); mfi.isValid(); ++mfi)
+        {
+            Box bx = mfi.tilebox();
+
+            // need face-centered tilebox for each direction
+            D_TERM(const Box& xbx = mfi.tilebox(IntVect::TheDimensionVector(0));,
+                   const Box& ybx = mfi.tilebox(IntVect::TheDimensionVector(1));,
+                   const Box& zbx = mfi.tilebox(IntVect::TheDimensionVector(2)););
+
+            // this is to check efficiently if this tile contains any eb stuff
+            const EBFArrayBox& in_fab = static_cast<EBFArrayBox const&>(Soln[mfi]);
+            const EBCellFlagFab& flags = in_fab.getEBCellFlagFab();
+
+            if(flags.getType(amrex::grow(bx, nghost)) == FabType::covered)
+            {
+              // If tile is completely covered by EB geometry, set 
+              // value to some very large number so we know if
+              // we accidentaly use these covered vals later in calculations
+              D_TERM(flux[0]->setVal(1.2345e30, xbx, fluxComp+icomp, 1);,
+                     flux[1]->setVal(1.2345e30, ybx, fluxComp+icomp, 1);,
+                     flux[2]->setVal(1.2345e30, zbx, fluxComp+icomp, 1););
+            }
+            else
+            {
+              // No cut cells in tile + nghost-cell witdh halo -> use non-eb routine
+              if(flags.getType(amrex::grow(bx, nghost)) == FabType::regular)
+              {
+                for (int i = 0; i < BL_SPACEDIM; ++i)
+                {
+                  (*flux[i])[mfi].mult(-b,fluxComp+icomp,1);
+                  (*flux[i])[mfi].mult((area[i])[mfi],0,fluxComp+icomp,1);
+                }
+              }
+              else
+              {
+                // Use EB routines
+                for (int i = 0; i < BL_SPACEDIM; ++i)
+                {
+                  (*flux[i])[mfi].mult(-b,fluxComp+icomp,1);
+                  (*flux[i])[mfi].mult((area[i])[mfi],0,fluxComp+icomp,1);
+                  (*flux[i])[mfi].mult((*areafrac[i])[mfi],0,fluxComp+icomp,1);
+                }
+              }
+            }
+        }
+#else // non-EB
     // Remove scaling left in fluxes from solve. 
     for (int i = 0; i < BL_SPACEDIM; ++i)
       (*flux[i]).mult(b/(geom.CellSize()[i]),fluxComp+icomp,1,0);
-
+#endif
   }
 
   Soln.clear();
