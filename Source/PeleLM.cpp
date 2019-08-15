@@ -4231,9 +4231,24 @@ PeleLM::compute_differential_diffusion_fluxes (const MultiFab& S,
   int       fluxComp        = 0;
   int       betaComp        = 0;
   Real      a               = 0;
-  Real      b               = 1;
+  Real      b               = 1.;
   bool      add_hoop_stress = false; // Only true if sigma == Xvel && Geometry::IsRZ())
 //  bool      add_hoop_stress = true; // Only true if sigma == Xvel && Geometry::IsRZ())
+
+// Some stupid check below to ensure we don't do stupid things
+#if (BL_SPACEDIM == 3)
+  // Here we ensure that R-Z related routines cannot be called in 3D
+  if (add_hoop_stress){
+    amrex::Abort("in diffuse_scalar: add_hoop_stress for R-Z geometry called in 3D !");
+  }
+#endif
+
+#ifdef AMREX_USE_EB
+  // Here we ensure that R-Z cannot work with EB (for now)
+  if (add_hoop_stress){
+    amrex::Abort("in diffuse_scalar: add_hoop_stress for R-Z geometry not yet working with EB support !");
+  }
+#endif
 
   const int nGrow = 1;
   BL_ASSERT(S.nGrow()>=nGrow);
@@ -4258,7 +4273,7 @@ PeleLM::compute_differential_diffusion_fluxes (const MultiFab& S,
   info.setAgglomeration(1);
   info.setConsolidation(1);
   info.setMetricTerm(false);
-  info.setMaxCoarseningLevel(0);
+  //info.setMaxCoarseningLevel(0);
 #ifdef AMREX_USE_EB
         // create the right data holder for passing to MLEBABecLap
   amrex::Vector<const amrex::EBFArrayBoxFactory*> ebf(1);
@@ -4324,7 +4339,7 @@ PeleLM::compute_differential_diffusion_fluxes (const MultiFab& S,
     }
         
     {
-      Diffusion::computeBeta(bcoeffs, beta, betaComp+icomp, geom, aVec);
+      Diffusion::computeBeta(bcoeffs, beta, betaComp+icomp, geom, aVec, add_hoop_stress);
       op.setBCoeffs(0, amrex::GetArrOfConstPtrs(bcoeffs));
     }
 
@@ -4334,62 +4349,73 @@ PeleLM::compute_differential_diffusion_fluxes (const MultiFab& S,
     std::array<MultiFab*,AMREX_SPACEDIM> fp{AMREX_D_DECL(&flxx,&flxy,&flxz)};
     mg.getFluxes({fp},{&Soln});
 
-        int nghost = 0;
 #ifdef AMREX_USE_EB
-        // now dx, areas, and vol are not constant.
-        std::array<const amrex::MultiCutFab*,AMREX_SPACEDIM>areafrac = ebf[0]->getAreaFrac();
+    // now dx, areas, and vol are not constant.
+    int nghost = 0;
+    std::array<const amrex::MultiCutFab*,AMREX_SPACEDIM>areafrac = ebf[0]->getAreaFrac();
 #ifdef _OPENMP
 #pragma omp parallel
 #endif
-        for (MFIter mfi(Soln,true); mfi.isValid(); ++mfi)
+    for (MFIter mfi(Soln,true); mfi.isValid(); ++mfi)
+    {
+      Box bx = mfi.tilebox();
+
+      // need face-centered tilebox for each direction
+      D_TERM(const Box& xbx = mfi.tilebox(IntVect::TheDimensionVector(0));,
+             const Box& ybx = mfi.tilebox(IntVect::TheDimensionVector(1));,
+             const Box& zbx = mfi.tilebox(IntVect::TheDimensionVector(2)););
+
+      // this is to check efficiently if this tile contains any eb stuff
+      const EBFArrayBox& in_fab = static_cast<EBFArrayBox const&>(Soln[mfi]);
+      const EBCellFlagFab& flags = in_fab.getEBCellFlagFab();
+
+      if(flags.getType(amrex::grow(bx, nghost)) == FabType::covered)
+      {
+        // If tile is completely covered by EB geometry, set 
+        // value to some very large number so we know if
+        // we accidentaly use these covered vals later in calculations
+        D_TERM(flux[0]->setVal(1.2345e30, xbx, fluxComp+icomp, 1);,
+               flux[1]->setVal(1.2345e30, ybx, fluxComp+icomp, 1);,
+               flux[2]->setVal(1.2345e30, zbx, fluxComp+icomp, 1););
+      }
+      else
+      {
+      // No cut cells in tile + nghost-cell witdh halo -> use non-eb routine
+      if(flags.getType(amrex::grow(bx, nghost)) == FabType::regular)
+      {
+        for (int i = 0; i < BL_SPACEDIM; ++i)
         {
-            Box bx = mfi.tilebox();
-
-            // need face-centered tilebox for each direction
-            D_TERM(const Box& xbx = mfi.tilebox(IntVect::TheDimensionVector(0));,
-                   const Box& ybx = mfi.tilebox(IntVect::TheDimensionVector(1));,
-                   const Box& zbx = mfi.tilebox(IntVect::TheDimensionVector(2)););
-
-            // this is to check efficiently if this tile contains any eb stuff
-            const EBFArrayBox& in_fab = static_cast<EBFArrayBox const&>(Soln[mfi]);
-            const EBCellFlagFab& flags = in_fab.getEBCellFlagFab();
-
-            if(flags.getType(amrex::grow(bx, nghost)) == FabType::covered)
-            {
-              // If tile is completely covered by EB geometry, set 
-              // value to some very large number so we know if
-              // we accidentaly use these covered vals later in calculations
-              D_TERM(flux[0]->setVal(1.2345e30, xbx, fluxComp+icomp, 1);,
-                     flux[1]->setVal(1.2345e30, ybx, fluxComp+icomp, 1);,
-                     flux[2]->setVal(1.2345e30, zbx, fluxComp+icomp, 1););
-            }
-            else
-            {
-              // No cut cells in tile + nghost-cell witdh halo -> use non-eb routine
-              if(flags.getType(amrex::grow(bx, nghost)) == FabType::regular)
-              {
-                for (int i = 0; i < BL_SPACEDIM; ++i)
-                {
-                  (*flux[i])[mfi].mult(-b,fluxComp+icomp,1);
-                  (*flux[i])[mfi].mult((area[i])[mfi],0,fluxComp+icomp,1);
-                }
-              }
-              else
-              {
-                // Use EB routines
-                for (int i = 0; i < BL_SPACEDIM; ++i)
-                {
-                  (*flux[i])[mfi].mult(-b,fluxComp+icomp,1);
-                  (*flux[i])[mfi].mult((area[i])[mfi],0,fluxComp+icomp,1);
-                  (*flux[i])[mfi].mult((*areafrac[i])[mfi],0,fluxComp+icomp,1);
-                }
-              }
-            }
+          (*flux[i])[mfi].mult(b,fluxComp+icomp,1);
+          (*flux[i])[mfi].mult((area[i])[mfi],0,fluxComp+icomp,1);
         }
+      }
+      else
+      {
+        // Use EB routines
+        for (int i = 0; i < BL_SPACEDIM; ++i)
+        {
+          (*flux[i])[mfi].mult(b,fluxComp+icomp,1);
+          (*flux[i])[mfi].mult((area[i])[mfi],0,fluxComp+icomp,1);
+          (*flux[i])[mfi].mult((*areafrac[i])[mfi],0,fluxComp+icomp,1);
+        }
+      }
+      }
+    }
 #else // non-EB
     // Remove scaling left in fluxes from solve. 
-    for (int i = 0; i < BL_SPACEDIM; ++i)
-      (*flux[i]).mult(b/(geom.CellSize()[i]),fluxComp+icomp,1,0);
+    for (int i = 0; i < BL_SPACEDIM; ++i){
+      
+      if (add_hoop_stress)
+      {
+      // Below if for scaling by volume, only for R-Z case
+        (*flux[i]).mult(b/(geom.CellSize()[i]),fluxComp+icomp,1,0);
+      }
+      else
+      {
+        MultiFab::Multiply(*flux[i],(area[i]),0,fluxComp+icomp,1,0);
+	      (*flux[i]).mult(b,fluxComp+icomp,1,0);
+      }
+    }
 #endif
   }
 
