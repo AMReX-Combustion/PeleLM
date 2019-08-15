@@ -4273,7 +4273,7 @@ PeleLM::compute_differential_diffusion_fluxes (const MultiFab& S,
   info.setAgglomeration(1);
   info.setConsolidation(1);
   info.setMetricTerm(false);
-  //info.setMaxCoarseningLevel(0);
+  info.setMaxCoarseningLevel(0);
 #ifdef AMREX_USE_EB
         // create the right data holder for passing to MLEBABecLap
   amrex::Vector<const amrex::EBFArrayBoxFactory*> ebf(1);
