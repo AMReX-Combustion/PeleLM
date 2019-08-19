@@ -840,17 +840,17 @@ PeleLM::Initialize_specific ()
             {
                 if (lo_bc[dir] != Interior)
                 {
-                    std::cerr << "NavierStokesBase::variableSetUp:periodic in direction "
+                    std::cerr << "PeleLM::variableSetUp:periodic in direction "
                               << dir
                               << " but low BC is not Interior\n";
-                    amrex::Abort("NavierStokesBase::Initialize()");
+                    amrex::Abort("PeleLM::Initialize()");
                 }
                 if (hi_bc[dir] != Interior)
                 {
-                    std::cerr << "NavierStokesBase::variableSetUp:periodic in direction "
+                    std::cerr << "PeleLM::variableSetUp:periodic in direction "
                               << dir
                               << " but high BC is not Interior\n";
-                    amrex::Abort("NavierStokesBase::Initialize()");
+                    amrex::Abort("PeleLM::Initialize()");
                 }
             } 
         }
@@ -866,17 +866,17 @@ PeleLM::Initialize_specific ()
             {
               if (lo_bc[dir] == Interior)
               {
-                  std::cerr << "NavierStokesBase::variableSetUp:Interior bc in direction "
+                  std::cerr << "PeleLM::variableSetUp:Interior bc in direction "
                             << dir
                             << " but not defined as periodic\n";
-                  amrex::Abort("NavierStokesBase::Initialize()");
+                  amrex::Abort("PeleLM::Initialize()");
               }
               if (hi_bc[dir] == Interior)
               {
-                  std::cerr << "NavierStokesBase::variableSetUp:Interior bc in direction "
+                  std::cerr << "PeleLM::variableSetUp:Interior bc in direction "
                             << dir
                             << " but not defined as periodic\n";
-                  amrex::Abort("NavierStokesBase::Initialize()");
+                  amrex::Abort("PeleLM::Initialize()");
               }
             }
         }
@@ -2024,6 +2024,7 @@ PeleLM::initData ()
 
   if (verbose) amrex::Print() << "initData: finished init from pltfile" << '\n';
 #endif
+
 #ifdef _OPENMP
 #pragma omp parallel
 #endif
@@ -2062,6 +2063,11 @@ PeleLM::initData ()
   }
 
   showMFsub("1D",S_new,stripBox,"1D_S",level);
+  
+#ifdef AMREX_USE_EB
+  set_body_state(S_new);
+#endif
+  
 
 #ifdef BL_USE_VELOCITY
   //
@@ -3342,6 +3348,8 @@ PeleLM::diffusionFJDriver(ForkJoin&                   fj,
                                  visc_coef_shifted,visc_comp_shifted,
                                  volume,&(area[0]),cratio,bc,geom,add_hoop_stress,
                                  solve_mode,add_old_time_divFlux,is_diffusive);
+
+
 }
 
 void
@@ -3604,6 +3612,15 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
       a[d] = &(area[d]);
   }
 
+  //amrex::Print() << "\n \n DEBUG STARTING SPECIES SOLVE in FJ \n \n";
+  
+  
+//    for (MFIter mfi(*Sn[0],true); mfi.isValid(); ++mfi)
+//      {
+//amrex::Print() << (*Sn[0])[mfi];
+//      }
+//amrex::Abort();
+  
   // Diffuse all the species
   diffuse_scalar_fj(Sn, Sn, Snp1, Snp1, first_spec, nspecies, Rho_comp,
                     prev_time,curr_time,be_cn_theta_SDC,Rh,rho_flag,
@@ -3612,7 +3629,40 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
                     betan,betanp1,betaComp,visc_coef,visc_coef_comp,
                     volume,a,crse_ratio,theBCs[bc_comp],geom,
                     add_hoop_stress,solve_mode,add_old_time_divFlux,diffuse_comp);
+        
+//  amrex::Print() << "\n \n DEBUG FINISHED SPECIES SOLVE in FJ \n \n";
+//
+//  for (MFIter mfi(*Snp1[0],true); mfi.isValid(); ++mfi)
+//      {
+//amrex::Print() << (*Snp1[0])[mfi];
+//      }
+      
+  
+  
+#ifdef AMREX_USE_EB
+  set_body_state(*Snp1[0]);
+#endif
 
+//static int count555=0;
+//count555++;             
+//amrex::WriteSingleLevelPlotfile("SpecDiffusionFluxnp1"+std::to_string(count555), *SpecDiffusionFluxnp1[1], {"test"}, geom, 0.0, 0);
+//amrex::WriteSingleLevelPlotfile("Sn_test"+std::to_string(count555), *Sn[0], {"test"}, geom, 0.0, 0);
+
+//amrex::Print() << "\n \n DEBUG AFTER APPLY BODY_STATE \n \n";
+//
+//  for (MFIter mfi(*Snp1[0],true); mfi.isValid(); ++mfi)
+//      {
+//amrex::Print() << (*Snp1[0])[mfi];
+//      }
+//      
+      
+//  for (MFIter mfi(*SpecDiffusionFluxnp1[0],true); mfi.isValid(); ++mfi)
+//      {
+//amrex::Print() << (*SpecDiffusionFluxnp1[0])[mfi];
+//      }
+//amrex::Abort();
+
+                    
 #ifdef USE_WBAR
   // add lagged grad Wbar fluxes (SpecDiffusionFluxWbar) to time-advanced 
   // species diffusion fluxes (SpecDiffusionFluxnp1)
@@ -3629,12 +3679,25 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
   }
 #endif
 
+
+
+//SpecDiffusionFluxnp1 are ok here
+
   //
   // Modify/update new-time fluxes to ensure sum of species fluxes = 0, then compute Dnew[m] = -Div(flux[m])
   //
   const BCRec& Tbc = AmrLevel::desc_lst[State_Type].getBCs()[Temp];
   adjust_spec_diffusion_fluxes(SpecDiffusionFluxnp1,get_new_data(State_Type),Tbc,curr_time);
 
+  //SpecDiffusionFluxnp1 contains NAN here
+  
+//    amrex::Print() << "PLOTTING SpecDiffusionFluxnp1 " ;
+//    for (MFIter mfi(*SpecDiffusionFluxnp1[0],true); mfi.isValid(); ++mfi)
+//      {
+//amrex::Print() << (*SpecDiffusionFluxnp1[0])[mfi];
+//      }
+//amrex::Abort(); 
+  
   Dnew.setVal(0);
   flux_divergence(Dnew,DComp,SpecDiffusionFluxnp1,0,nspecies,-1);
 
@@ -3661,6 +3724,14 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
   // 1. Dnew[N+1] = -Div(flux[N+2])
   // 2. DD = -Sum{ Div(H_m Gamma_m) }
   flux_divergence(Dnew,DComp+nspecies+1,SpecDiffusionFluxnp1,nspecies+2,1,-1);
+  
+//  amrex::Print() << "PLOTTING SpecDiffusionFluxnp1 " ;
+//    for (MFIter mfi(*SpecDiffusionFluxnp1[0],true); mfi.isValid(); ++mfi)
+//      {
+//amrex::Print() << (*SpecDiffusionFluxnp1[0])[mfi];
+//      }
+//amrex::Abort();
+
   flux_divergence(DDnew,0,SpecDiffusionFluxnp1,nspecies+1,1,-1);
 
   if (deltaT_verbose) {
@@ -3699,21 +3770,36 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
 
     MultiFab::Copy(    Trhs,get_old_data(State_Type),RhoH,0,1,0);
     MultiFab::Subtract(Trhs,get_new_data(State_Type),RhoH,0,1,0);
+    
     Trhs.mult(1/dt);                                              // F = ( (rho.h)^n - (rho.h)^{n+1,k+1,L} )/dt
+    
     MultiFab::Add(Trhs,Force,nspecies,0,1,0);                     //      + (Dn[N+1]-Dnp1[N+1]+DDn-DDnp1)/2 + A
+    
     MultiFab::Add(Trhs,Dnew,DComp+nspecies+1,0,1,0);              //      +  Dnew[N+1]
+    
     MultiFab::Add(Trhs,DDnew,0,0,1,0);                            //      +  DDnew
+    //amrex::Print() << "PLOTTING TRHS " << Trhs[0];
+    //amrex::Print() << "PLOTTING DDnew " << DDnew[0];
+//{
+//  std::ofstream os("Thrs");
+//  Trhs.writeOn(os);
+//  os.close;
+//}
 
+//amrex::Abort();
+    
     // Save current T value, guess deltaT=0
     MultiFab::Copy(Told,*Snp1[0],Temp,0,1,1); // Save a copy of T^{k+1,L}
     Snp1[0]->setVal(0,Temp,1,1);
+    
+    amrex::Print() << "\n \n DEBUG STARTGING TEMPERATURE SOLVE \n \n";
     
 //  for (MFIter mfi(*Snp1[0],true); mfi.isValid(); ++mfi)
 //      {
 //amrex::Print() << (*Snp1[0])[mfi];
 //      }
-
-      //amrex::Print() << "\n \n DEBUG STARTGING TEMPERATURE SOLVE \n \n";
+//amrex::Abort();
+      
       //amrex::Print() << Trhs[0];
     int rho_flagT = 0; // Do not do rho-based hacking of the diffusion problem
     const Vector<int> diffuse_this_comp = {1};
@@ -3730,8 +3816,18 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
 //      {
 //amrex::Print() << (*Snp1[0])[mfi];
 //      }
+      //amrex::Abort();
       
-    // Here the temperature solve returns NaNs
+//amrex::Print() << "\n \n DEBUG AFTER APPLY BODY_STATE \n \n";
+//#ifdef AMREX_USE_EB
+//  set_body_state(*Snp1[0]);
+//#endif
+//
+//
+//      for (MFIter mfi(*Snp1[0],true); mfi.isValid(); ++mfi)
+//      {
+//amrex::Print() << (*Snp1[0])[mfi];
+//      }
     
     deltaT_iter_norm = Snp1[0]->norm0(Temp);
     if (deltaT_verbose) {
@@ -3774,6 +3870,18 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
     }
   } // end deltaT iters
 
+  
+//amrex::Print() << "\n \n DEBUG AFTER ALL DIFFUSION SOLVE \n \n";
+//#ifdef AMREX_USE_EB
+//  set_body_state(*Snp1[0]);
+//#endif
+//
+//
+//      for (MFIter mfi(*Snp1[0],true); mfi.isValid(); ++mfi)
+//      {
+//amrex::Print() << (*Snp1[0])[mfi];
+//      }
+  
   //
   // We have just performed the correction diffusion solve for Y_m and h
   // If updateFluxReg=T, we update VISCOUS flux registers:
@@ -3837,9 +3945,9 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
 
 void
 PeleLM::adjust_spec_diffusion_fluxes (MultiFab* const * flux,
-                                                         const MultiFab&   S,
-                                                         const BCRec&      bc,
-                                                         Real              time)
+                                      const MultiFab&   S,
+                                      const BCRec&      bc,
+                                      Real              time)
 {
   //
   // Adjust the species diffusion fluxes so that their sum is zero.
@@ -4328,7 +4436,7 @@ PeleLM::compute_differential_diffusion_fluxes (const MultiFab& S,
 
 //	Print() << "Doing the RZ geometry - zero" << std::endl;
 //	VisMF::Write(rh,"rh_cddf");
-
+amrex::Print() << "WE GET FLUXES IN compute_differential_diffusion_fluxes \n";
        Real* rhsscale = 0;
        std::pair<Real,Real> scalars;
        Diffusion::computeAlpha(Alpha, scalars, a, b, rh, rho_flag,
@@ -5089,11 +5197,14 @@ PeleLM::predict_velocity (Real  dt)
 	// for now, just doing periodic, so just make sure I don't trip the bcs
 	//
 	// CHECK HERE
-	godunov->ExtrapVelToFaces(U_mfi,
-           D_DECL(u_mac[0][U_mfi], u_mac[1][U_mfi], u_mac[2][U_mfi]),
-				   D_DECL(bndry[0],        bndry[1],        bndry[2]),
-           D_DECL(m_xslopes, m_yslopes, m_zslopes),
-				   Ufab, tforces, domain);
+       godunov->ExtrapVelToFaces(U_mfi,
+                                 D_DECL(u_mac[0][U_mfi], u_mac[1][U_mfi], u_mac[2][U_mfi]),
+                                 D_DECL(bndry[0],        bndry[1],        bndry[2]),
+                                 D_DECL(m_xslopes, m_yslopes, m_zslopes),
+                                 Ufab, tforces, 
+                                 D_DECL(*areafrac[0], *areafrac[1], *areafrac[2]),
+                                 D_DECL(*facecent[0], *facecent[1], *facecent[2]),
+                                 domain);
 #else
 	// non-EB
 	//  1. compute slopes
@@ -6330,6 +6441,9 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
                                 D_DECL( u_mac[0][S_mfi], u_mac[1][S_mfi], u_mac[2][S_mfi]),
                                 D_DECL(edgeflux[0],edgeflux[1],edgeflux[2]),
                                 D_DECL(edgestate[0],edgestate[1],edgestate[2]),
+                                *volfrac, *bndrycent,
+                                D_DECL(*areafrac[0], *areafrac[1], *areafrac[2]),
+                                D_DECL(*facecent[0], *facecent[1], *facecent[2]),
                                 state_bc,
                                 geom.Domain(),
                                 geom.CellSize(),Godunov::hypgrow(), 0);	
@@ -6378,6 +6492,9 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
                                 D_DECL( u_mac[0][S_mfi], u_mac[1][S_mfi], u_mac[2][S_mfi]),
                                 D_DECL(edgeflux[0],edgeflux[1],edgeflux[2]),
                                 D_DECL(edgestate[0],edgestate[1],edgestate[2]),
+                                *volfrac, *bndrycent,
+                                D_DECL(*areafrac[0], *areafrac[1], *areafrac[2]),
+                                D_DECL(*facecent[0], *facecent[1], *facecent[2]),
                                 state_bc,
                                 geom.Domain(),
                                 geom.CellSize(),Godunov::hypgrow(), 0);	
@@ -6431,6 +6548,9 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
                                 D_DECL( u_mac[0][S_mfi], u_mac[1][S_mfi], u_mac[2][S_mfi]),
                                 D_DECL(edgeflux[0],edgeflux[1],edgeflux[2]),
                                 D_DECL(edgestate[0],edgestate[1],edgestate[2]),
+                                *volfrac, *bndrycent,
+                                D_DECL(*areafrac[0], *areafrac[1], *areafrac[2]),
+                                D_DECL(*facecent[0], *facecent[1], *facecent[2]),
                                 state_bc,
                                 geom.Domain(),
                                 geom.CellSize(),Godunov::hypgrow(), 1);	
