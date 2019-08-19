@@ -1772,8 +1772,6 @@ contains
 
 
     if (dir.eq.0) then
-!write(*,*) "DEBUG 1",lo,hi,dlo,dhi
-!write(*,*) "DEBUG 2",DIMS(flux)
 !     First, assume away from physical boundaries, then use boundary-aware version below if applicable
       do j = lo(2),hi(2)
         do i = lo(1),hi(1)
@@ -2618,5 +2616,6 @@ contains
       endif
 
       end subroutine FORT_AVERAGE_EDGE_STATES
+
 
 end module PeleLM_2d
