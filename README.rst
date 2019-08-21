@@ -47,14 +47,22 @@ To build `PeleLM` and run a sample 2D flame problem:
 4. Set the environment variable, PELE_PHYSICS_HOME, and clone a copy of `PelePhysics` there ::
 
     export PELE_PHYSICS_HOME=<location for PelePhysics>
-    git clone https://github.com/AMReX-Combustion/PelePhysics.git ${PELEPHYSICS_HOME}
+    git clone https://github.com/AMReX-Combustion/PelePhysics.git ${PELE_PHYSICS_HOME}
        or (if you have the proper SSH keys set in your GitHub settings)
-    git clone git@github.com:AMReX-Combustion/PelePhysics.git ${PELEPHYSICS_HOME}
+    git clone git@github.com:AMReX-Combustion/PelePhysics.git ${PELE_PHYSICS_HOME}
 
 5. Move to an example build folder, build an executable ::
 
-    cd ${PELELM_HOME}/Exec/FlameInABox
+    cd ${PELELM_HOME}/Exec/RegTests/FlameSheet
     make
+    ./PeleLM2d.xxx.yyy.ex inputs.2d-regt
+
+* Notes
+
+   A. In the exec line above, xxx.yyy is a tag identifying your compiler and various build options, and will vary across pltaform.  (Note that GNU compilers must be at least 4.8.4, and MPI should be at least version 3).
+   B. The example is 2D premixed flame, flowing vertically upward through the domain with no gravity. The lateral boundaries are periodic.  A detailed methane model is used.  The solution is initialized with a wrinkled (perturbed) 1D steady flame solution computed using the PREMIX code.  Two levels of solution-adaptive refinement are automatically triggered by the presence of the flame intermediate, H.
+   C. In addition to informative output to the terminal, periodic plotfiles are written in the run folder.  These may be viewed with CCSE's Amrvis (<https://github.com/AMReX-Codes/Amrvis>) for example. Please look at the AMReX documentation for further options about visualization (<https://amrex-codes.github.io/amrex/docs_html/Visualization.html>).
+
 
 Dependencies
 ------------
@@ -90,7 +98,7 @@ Documentation
 -------------
 Documentation for PeleLM is under development in the Docs directory.  To build ::
 
-    cd ${PELELM_DIR}/Docs
+    cd ${PELELM_HOME}/Docs
     make html
 
 
