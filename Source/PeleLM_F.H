@@ -69,7 +69,7 @@ extern "C" {
   void pphys_network_close();
 
 #ifndef AMREX_USE_SUNDIALS_3x4x 
-  int reactor_init(const int* cvode_iE);
+  void reactor_init(const int* cvode_iE, const int* Ncells);
 
   int react(amrex::Real *rY_in, amrex::Real *rY_src_in, 
 		  amrex::Real *rX_in, amrex::Real *rX_src_in,
@@ -121,10 +121,6 @@ extern "C" {
                           const int* LastSpec);
     
   void get_pamb(amrex::Real* pamb);
-
-  void get_closed_chamber(int* closed_chamber);
-
-  void get_dpdt(amrex::Real* dpdt_factor);
 
   void compute_rho_dgrad_hdot_grad_Y(const amrex::Real* dx,
                                       const int* lo, const int* hi,
@@ -206,6 +202,11 @@ extern "C" {
                 const BL_FORT_FAB_ARG_3D(T),
                 const BL_FORT_FAB_ARG_3D(Y),
                 BL_FORT_FAB_ARG_3D(mu));
+
+  void beta_wbar(const int* lo, const int* hi,
+                 const BL_FORT_FAB_ARG_3D(RD),
+                 BL_FORT_FAB_ARG_3D(RD_Wbar),
+                 const BL_FORT_FAB_ARG_3D(Y));
 
   void spec_temp_visc(const int* lo, const int* hi,
                       const BL_FORT_FAB_ARG_3D(T),

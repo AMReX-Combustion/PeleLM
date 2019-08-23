@@ -3,8 +3,6 @@
  /
  &heattransin
   pamb = 101325.
-  dpdt_factor = 1.
-  closed_chamber = 1
  /
  &forcing
   use_rho_in_forcing = 1

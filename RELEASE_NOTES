@@ -17,6 +17,9 @@ Release version 1.0 (June, 2019)
     The FIAB case has been cleaned and renamed as FlameSheet in RegTests. Production cases have been removed.
     Production cases thar are part of a collaboration with the CCSE combustion team have been moved to the
     GitHub repo PeleProduction.
+  * Several derive functions have been added to plot mass fractions, mole fractions and molecular weight. 
+    Old flags have been removed.
+  * IAMR and PeleLM have now their Initialize_specific() routine. They still share the Initialize() routine.
 
 * New regression test cases in RegTests dir:
     1D PMF in X and Y directions, with and without control,

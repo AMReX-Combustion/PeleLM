@@ -36,6 +36,10 @@
 #include <AMReX_AmrData.H>
 #endif
 
+#ifdef AMREX_USE_SUNDIALS_3x4x 
+#include <actual_Creactor.h>
+#endif
+
 #include <Prob_F.H>
 #include <NAVIERSTOKES_F.H>
 #include <DERIVE_F.H>
@@ -108,6 +112,7 @@ Real PeleLM::p_amb_old;
 Real PeleLM::p_amb_new;
 Real PeleLM::dp0dt;
 Real PeleLM::thetabar;
+Real PeleLM::dpdt_factor;
 int  PeleLM::closed_chamber;
 int  PeleLM::num_divu_iters;
 int  PeleLM::init_once_done;
@@ -154,6 +159,7 @@ bool PeleLM::plot_reactions;
 bool PeleLM::plot_consumption;
 bool PeleLM::plot_heat_release;
 int  PeleLM::cvode_iE;
+int  PeleLM::cvode_ncells;
 static bool plot_rhoydot;
 bool PeleLM::flag_active_control;
 Real PeleLM::new_T_threshold;
@@ -553,7 +559,6 @@ PeleLM::Initialize ()
 
   PeleLM::p_amb_old                 = -1.0;
   PeleLM::p_amb_new                 = -1.0;
-  PeleLM::closed_chamber            = 0;
   PeleLM::num_divu_iters            = 1;
   PeleLM::init_once_done            = 0;
   PeleLM::do_OT_radiation           = 0;
@@ -608,6 +613,7 @@ PeleLM::Initialize ()
   PeleLM::num_mac_sync_iter         = 1;
   PeleLM::mHtoTiterMAX              = 20;
   PeleLM::cvode_iE                  = 2;
+  PeleLM::cvode_ncells              = 1;
 
   ParmParse pp("ns");
 
@@ -774,13 +780,16 @@ PeleLM::Initialize_specific ()
     pp.getarr("hi_bc",hi_bc_char,0,BL_SPACEDIM);
 
     Vector<int> lo_bc(BL_SPACEDIM), hi_bc(BL_SPACEDIM);
+    bool flag_closed_chamber = false;
     for (int dir = 0; dir<BL_SPACEDIM; dir++){
       if (!lo_bc_char[dir].compare("Interior")){
         lo_bc[dir] = 0;
       } else if (!lo_bc_char[dir].compare("Inflow")){
         lo_bc[dir] = 1;
+        flag_closed_chamber = true;
       } else if (!lo_bc_char[dir].compare("Outflow")){
         lo_bc[dir] = 2;
+        flag_closed_chamber = true;
       } else if (!lo_bc_char[dir].compare("Symmetry")){
         lo_bc[dir] = 3;
       } else if (!lo_bc_char[dir].compare("SlipWallAdiab")){
@@ -800,8 +809,10 @@ PeleLM::Initialize_specific ()
         hi_bc[dir] = 0;
       } else if (!hi_bc_char[dir].compare("Inflow")){
         hi_bc[dir] = 1;
+        flag_closed_chamber = true;
       } else if (!hi_bc_char[dir].compare("Outflow")){
         hi_bc[dir] = 2;
+        flag_closed_chamber = true;
       } else if (!hi_bc_char[dir].compare("Symmetry")){
         hi_bc[dir] = 3;
       } else if (!hi_bc_char[dir].compare("SlipWallAdiab")){
@@ -879,7 +890,16 @@ PeleLM::Initialize_specific ()
               }
             }
         }
-    }  
+    } 
+
+    PeleLM::closed_chamber            = 1;
+    if (flag_closed_chamber = true){
+      PeleLM::closed_chamber            = 0;
+    }
+
+    PeleLM::dpdt_factor = 1.0;
+    pp.query("dpdt_factor",dpdt_factor);
+
 }
 
 void
@@ -1064,16 +1084,14 @@ LM_Error_Value::tagCells(int* tag, D_DECL(const int& tlo0,const int& tlo1,const 
 {
     BL_ASSERT(lmef);
 
-    /*
-      Will call tagging if:
-
-               min_level < 0 or if level < max_level
-                          AND
-               min_time > max_time or if min_time <= time <= max_time
-     */
-
-    if ((max_level < 0 || *level < max_level)
-        && ((min_time > max_time) || (*time >= min_time && *time <= max_time)))
+    bool max_level_applies = ( (max_level < 0) || ( (max_level >= 0) && (*level < max_level) ) );
+    bool valid_time_range = (min_time >= 0) && (max_time >= 0) && (min_time <= max_time);
+    bool in_valid_time_range = valid_time_range && (*time >= min_time ) && (*time <= max_time);
+    bool one_side_lo = !valid_time_range && (min_time >= 0) && (*time >= min_time);
+    bool one_side_hi = !valid_time_range && (max_time >= 0) && (*time <= max_time);
+    bool time_window_applies = in_valid_time_range || one_side_lo || one_side_hi || !valid_time_range;
+ 
+    if (max_level_applies && time_window_applies)
     {
       lmef(tag,D_DECL(tlo0,tlo1,tlo2),D_DECL(thi0,thi1,thi2),tagval,clearval,
            data,D_DECL(dlo0,dlo1,dlo2),D_DECL(dhi0,dhi1,dhi2), lo, hi, nvar,
@@ -1094,8 +1112,14 @@ LM_Error_Value::tagCells1(int* tag,
 {
     BL_ASSERT(lmef_box);
 
-    if ((max_level < 0 || *level < max_level)
-        && ((min_time > max_time) || (*time >= min_time && *time <= max_time)))
+    bool max_level_applies = ( (max_level < 0) || ( (max_level >= 0) && (*level < max_level) ) );
+    bool valid_time_range = (min_time >= 0) && (max_time >= 0) && (min_time <= max_time);
+    bool in_valid_time_range = valid_time_range && (*time >= min_time ) && (*time <= max_time);
+    bool one_side_lo = !valid_time_range && (min_time >= 0) && (*time >= min_time);
+    bool one_side_hi = !valid_time_range && (max_time >= 0) && (*time <= max_time);
+    bool time_window_applies = in_valid_time_range || one_side_lo || one_side_hi || !valid_time_range;
+ 
+    if (max_level_applies && time_window_applies)
     {
       lmef_box(tag,D_DECL(tlo0,tlo1,tlo2),D_DECL(thi0,thi1,thi2),tagval,clearval,
                box.lo(), box.hi(), lo, hi, domain_lo,domain_hi,dx,xlo,prob_lo,time, level);
@@ -1232,8 +1256,6 @@ PeleLM::PeleLM ()
     get_pamb(&p_amb_new);
   }
 
-  get_closed_chamber(&closed_chamber);
-
   updateFluxReg = false;
 
   EdgeState              = 0;
@@ -1280,8 +1302,6 @@ PeleLM::PeleLM (Amr&            papa,
   {
     get_pamb(&p_amb_new);
   }
-
-  get_closed_chamber(&closed_chamber);
 
   updateFluxReg = false;
 
@@ -4609,8 +4629,8 @@ PeleLM::predict_velocity (Real  dt)
       godunov->ExtrapVelToFaces(bx, dx, dt,
                                 D_DECL(Uface[0], Uface[1], Uface[2]),
                                 D_DECL(bndry[0], bndry[1], bndry[2]),
-                                //Ufab, tforces);
-                                Umf[U_mfi], tforces);
+                                Ufab, tforces);
+
 
       for (int d=0; d<BL_SPACEDIM; ++d) {
         const Box& ebx = U_mfi.nodaltilebox(d);
@@ -5083,7 +5103,7 @@ PeleLM::advance (Real time,
   {
     for (MFIter mfi(Forcing,true); mfi.isValid(); ++mfi) 
     {
-      const Box& box = mfi.validbox();
+      const Box& box = mfi.tilebox();
       FArrayBox& f = Forcing[mfi];
       const FArrayBox& a = (*aofs)[mfi];
       const FArrayBox& dn = Dn[mfi];
@@ -5478,22 +5498,24 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
 
   if (hack_nochem)
   {
-    FArrayBox tmp;
 #ifdef _OPENMP
 #pragma omp parallel
 #endif
-    for (MFIter mfi(mf_old,true); mfi.isValid(); ++mfi)
     {
-      const Box& box = mfi.tilebox();
-      tmp.resize(box,nspecies+1);
-      const FArrayBox& f = Force[mfi];
-      tmp.copy(f,box,0,box,0,nspecies+1);
-      tmp.mult(dt,box,0,nspecies+1);
-      FArrayBox& Sold = mf_old[mfi];
-      FArrayBox& Snew = mf_new[mfi];
-      Snew.copy(Sold,box,first_spec,box,first_spec,nspecies+1);
-      Snew.plus(tmp,box,box,0,first_spec,nspecies+1);
-      Snew.copy(Sold,box,Temp,box,Temp,1);
+        FArrayBox tmp;
+        for (MFIter mfi(mf_old,true); mfi.isValid(); ++mfi)
+        {
+            const Box& box = mfi.tilebox();
+            tmp.resize(box,nspecies+1);
+            const FArrayBox& f = Force[mfi];
+            tmp.copy(f,box,0,box,0,nspecies+1);
+            tmp.mult(dt,box,0,nspecies+1);
+            FArrayBox& Sold = mf_old[mfi];
+            FArrayBox& Snew = mf_new[mfi];
+            Snew.copy(Sold,box,first_spec,box,first_spec,nspecies+1);
+            Snew.plus(tmp,box,box,0,first_spec,nspecies+1);
+            Snew.copy(Sold,box,Temp,box,Temp,1);
+        }
     }
   }
   else
@@ -7330,10 +7352,10 @@ PeleLM::calcDiffusivity_Wbar (const Real time)
     FArrayBox& Dfab_Wbar = diffWbar_cc[mfi];
     const Box& gbox = mfi.growntilebox();
         
-    BETA_WBAR(gbox.loVect(),gbox.hiVect(),
-                   RD.dataPtr(),ARLIM(RD.loVect()),ARLIM(RD.hiVect()),
-                   Dfab_Wbar.dataPtr(),ARLIM(Dfab_Wbar.loVect()),ARLIM(Dfab_Wbar.hiVect()),
-                   RYfab.dataPtr(1),ARLIM(RYfab.loVect()),ARLIM(RYfab.hiVect()));
+    beta_wbar(BL_TO_FORTRAN_BOX(gbox),
+              BL_TO_FORTRAN_3D(RD),
+              BL_TO_FORTRAN_3D(Dfab_Wbar),
+              BL_TO_FORTRAN_N_3D(RYfab,1));
   }
 }
 #endif
@@ -7475,44 +7497,30 @@ PeleLM::compute_vel_visc (Real      time,
   const int nGrow = beta->nGrow();
 
   BL_ASSERT(nGrow == 1);
-  BL_ASSERT(first_spec == Density+1);
 
   MultiFab dummy(grids,dmap,1,0,MFInfo().SetAlloc(false));
 
   FillPatchIterator Temp_fpi(*this,dummy,nGrow,time,State_Type,Temp,1),
-         Rho_and_spec_fpi(*this,dummy,nGrow,time,State_Type,Density,nspecies+1);
+                    Spec_fpi(*this,dummy,nGrow,time,State_Type,first_spec,nspecies);
   MultiFab& Temp_mf = Temp_fpi.get_mf();
-  MultiFab& Rho_and_spec_mf = Rho_and_spec_fpi.get_mf();
+  MultiFab& Spec_mf = Spec_fpi.get_mf();
   
 #ifdef _OPENMP
 #pragma omp parallel
 #endif
-{
-  FArrayBox tmp;
-  for (MFIter mfi(Temp_mf,true); mfi.isValid();++mfi)
   {
-    const Box& box          = mfi.growntilebox();
-    FArrayBox& temp         = Temp_mf[mfi];
-    FArrayBox& rho_and_spec = Rho_and_spec_mf[mfi];
-    //
-    // Convert from RhoY_l to Y_l
-    //
-    tmp.resize(box,1);
-    tmp.copy(rho_and_spec,box,0,box,0,1);
-    tmp.invert(1,box);
-
-    for (int n = 1; n < nspecies+1; ++n)
-      rho_and_spec.mult(tmp,box,0,n,1);
-
-    vel_visc(BL_TO_FORTRAN_BOX(box),
-             BL_TO_FORTRAN_N_3D(temp,0),
-             BL_TO_FORTRAN_N_3D(rho_and_spec,1),
-             BL_TO_FORTRAN_N_3D(tmp,0));
-
-    (*beta)[mfi].copy(tmp,box,0,box,0,1);
+    for (MFIter mfi(Temp_mf,true); mfi.isValid();++mfi)
+    {
+      const Box& box  = mfi.growntilebox();
+      FArrayBox& temp = Temp_mf[mfi];
+      FArrayBox& spec = Spec_mf[mfi];
+      
+      vel_visc(BL_TO_FORTRAN_BOX(box),
+               BL_TO_FORTRAN_N_3D(temp,0),
+               BL_TO_FORTRAN_N_3D(spec,0),
+               BL_TO_FORTRAN_N_3D((*beta)[mfi],0));
+    }
   }
-}
-
 }
 
 void
@@ -7609,9 +7617,6 @@ PeleLM::calc_dpdt (Real      time,
                    MultiFab* umac)
 {
   BL_PROFILE("HT::calc_dpdt()");
-
-  Real dpdt_factor;
-  get_dpdt(&dpdt_factor);
 
   // for open chambers, ambient pressure is constant in time
   Real p_amb = p_amb_old;

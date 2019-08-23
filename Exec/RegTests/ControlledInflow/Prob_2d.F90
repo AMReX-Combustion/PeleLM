@@ -10,6 +10,7 @@
 
 module prob_2D_module
 
+  use amrex_fort_module, only : dim=>amrex_spacedim
   use fuego_chemistry
 
   implicit none
@@ -41,8 +42,9 @@ contains
   subroutine amrex_probinit (init,name,namlen,problo,probhi) bind(c)
   
       use PeleLM_F,  only: pphys_getP1atm_MKS
-      use mod_Fvar_def, only : pamb, dpdt_factor, closed_chamber
-      use mod_Fvar_def, only : fuelID, domnhi, domnlo, dim
+
+      use mod_Fvar_def, only : pamb, fuelID, domnhi, domnlo
+
       use mod_Fvar_def, only : ac_hist_file, cfix, changemax_control, &
                                coft_old, controlvelmax, corr, dv_control, &
                                h_control, navg_pnts, scale_control, sest, &
@@ -64,7 +66,7 @@ contains
 
       namelist /fortin/ V_in, flame_dir, &
                         standoff
-      namelist /heattransin/ pamb, dpdt_factor
+      namelist /heattransin/ pamb
 
       namelist /control/ tau_control, sest, cfix, changeMax_control, h_control, &
           zbase_control, pseudo_gravity, istemp,corr,controlVelMax,navg_pnts
@@ -100,8 +102,6 @@ contains
       
 !     Set defaults
       pamb = pphys_getP1atm_MKS()
-      dpdt_factor = 0.3d0
-      closed_chamber = 0
 
       zbase_control = 0.d0
 
@@ -162,17 +162,16 @@ contains
   
   subroutine setupbc()bind(C, name="setupbc")
 
-    use network,   only: nspec
+    use network,   only: nspecies
     use PeleLM_F, only: pphys_getP1atm_MKS
     use PeleLM_2D, only: pphys_RHOfromPTY, pphys_HMIXfromTY
-    use mod_Fvar_def, only : pamb, domnlo, maxspec, maxspnml, V_in
+    use mod_Fvar_def, only : pamb, domnlo, V_in
     use probdata_module, only : standoff, Y_bc, T_bc, u_bc, v_bc, rho_bc, h_bc
     use probdata_module, only : bcinit, flame_dir
   
     implicit none
 
-    REAL_T Patm, pmf_vals(maxspec+3)
-    REAL_T Xt(maxspec), Yt(maxspec), loc
+    REAL_T Patm, pmf_vals(nspecies+3), Xt(nspecies), Yt(nspecies), loc
     
     integer n
     integer b(2)
@@ -183,17 +182,17 @@ contains
   !     Take fuel mixture from pmf file
         loc = (domnlo(2)-standoff)*100.d0
         call pmf(loc,loc,pmf_vals,n)
-        if (n.ne.Nspec+3) then
-          call bl_pd_abort('setupbc: n(pmf) .ne. Nspec+3')
+        if (n.ne.nspecies+3) then
+          call bl_pd_abort('setupbc: n(pmf) .ne. nspecies+3')
         endif
               
-        do n = 1,Nspec
+        do n = 1,nspecies
           Xt(n) = pmf_vals(3+n)
         end do 
               
         CALL CKXTY (Xt, Yt)
   
-        do n=1,Nspec
+        do n=1,nspecies
           Y_bc(n-1) = Yt(n)
         end do
         
@@ -269,11 +268,11 @@ contains
                        bind(C, name="init_data")
                               
 
-      use network,   only: nspec
+      use network,   only: nspecies
       use PeleLM_F,  only: pphys_getP1atm_MKS, pphys_get_spec_name2
       use PeleLM_2D, only: pphys_RHOfromPTY, pphys_HMIXfromTY
-      use mod_Fvar_def, only : Density, Temp, FirstSpec, RhoH, pamb, Trac, dim
-      use mod_Fvar_def, only : bathID, domnhi, domnlo, maxspec, maxspnml 
+      use mod_Fvar_def, only : Density, Temp, FirstSpec, RhoH, pamb, Trac
+      use mod_Fvar_def, only : bathID, domnhi, domnlo
       use probdata_module, only : standoff, flame_dir
 
       implicit none
@@ -289,12 +288,12 @@ contains
       integer nPMF
 
       integer i, j, n
-      REAL_T x, y, Yl(maxspec), Xl(maxspec), Patm
-      REAL_T pmf_vals(maxspec+3)
+      REAL_T x, y, Yl(nspecies), Xl(nspecies), Patm
+      REAL_T pmf_vals(nspecies+3)
       REAL_T pert,Lx, pos1, pos2
 
 !      write(6,*)" made it to initdata"
-      if (bathID.lt.1 .or. bathID.gt.Nspec) then
+      if (bathID.lt.1 .or. bathID.gt.nspecies) then
          call bl_pd_abort()
       endif
 
@@ -318,18 +317,18 @@ contains
        
           call pmf(pos1,pos2,pmf_vals,nPMF) 
 
-          if (nPMF.ne.Nspec+3) then
-            call bl_abort('INITDATA: n .ne. Nspec+3')
+          if (nPMF.ne.nspecies+3) then
+            call bl_abort('INITDATA: n .ne. nspecies+3')
           endif
                
           scal(i,j,Temp) = pmf_vals(1)
-          do n = 1,Nspec
+          do n = 1,nspecies
             Xl(n) = pmf_vals(3+n)
           end do 
                
           CALL CKXTY (Xl, Yl)
                
-          do n = 1,Nspec
+          do n = 1,nspecies
             scal(i,j,FirstSpec+n-1) = Yl(n)
           end do
 
@@ -365,7 +364,7 @@ contains
 
       do j = lo(2), hi(2)
          do i = lo(1), hi(1)
-            do n = 0,Nspec-1
+            do n = 0,nspecies-1
               scal(i,j,FirstSpec+n) = scal(i,j,FirstSpec+n)*scal(i,j,Density)
             enddo
             scal(i,j,RhoH) = scal(i,j,RhoH)*scal(i,j,Density)

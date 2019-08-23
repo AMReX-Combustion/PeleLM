@@ -40,6 +40,10 @@
 #include <AMReX_Utility.H>
 #include <NS_error_F.H>
 
+#ifdef AMREX_USE_SUNDIALS_3x4x 
+#include <actual_Creactor.h>
+#endif
+
 using namespace amrex;
 
 #define DEF_LIMITS(fab,fabdat,fablo,fabhi)      \
@@ -443,7 +447,7 @@ PeleLM::variableSetUp ()
 #ifdef _OPENMP
 #pragma omp parallel
 #endif  
-  reactor_init(&cvode_iE);
+  reactor_init(&cvode_iE,&cvode_ncells);
 
   init_transport(use_tranlib);
 
@@ -758,6 +762,13 @@ PeleLM::variableSetUp ()
   derive_lst.addComponent("enthalpy",desc_lst,State_Type,Density,1);
   derive_lst.addComponent("enthalpy",desc_lst,State_Type,RhoH,1);
 
+  //
+  // Molecular Weight
+  //
+  derive_lst.add("molweight",IndexType::TheCellType(),1,dermolweight,the_same_box);
+  derive_lst.addComponent("molweight",desc_lst,State_Type,Density,1);
+  derive_lst.addComponent("molweight",desc_lst,State_Type,first_spec,nspecies);
+  
   //
   // Group Species Rho.Y (for ploting in plot file)
   //

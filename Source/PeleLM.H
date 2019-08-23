@@ -605,6 +605,7 @@ private:
   static amrex::Real thetabar;
 
   static int closed_chamber;
+  static amrex::Real dpdt_factor;
 
   //
   // Protected static data.
@@ -670,6 +671,7 @@ private:
   static bool         flag_active_control;
 
   static int  cvode_iE;
+  static int  cvode_ncells;
 
   static int nGrowAdvForcing;
 

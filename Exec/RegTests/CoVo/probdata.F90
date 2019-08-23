@@ -3,8 +3,6 @@
 
 module probdata_module
 
-  use mod_Fvar_def, only: maxspec
-
   implicit none
 
   ! from probdata.H
