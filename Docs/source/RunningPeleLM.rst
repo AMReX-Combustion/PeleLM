@@ -110,26 +110,28 @@ by `AMReX`.  The runtime parameters that we use are:
 
 The valid boundary types are: ::
 
-    0 - Interior/periodic
-    1 - Inflow
-    2 - Outflow
-    3 - Symmetry
-    4 - Slip Wall
-    5 - No Slip Wall
+    Interior
+    Inflow
+    Outflow
+    Symmetry
+    SlipWallAdiab
+    NoSlipWallAdiab
+    SlipWallIsotherm
+    NoSlipWallIsotherm
 
 Note: ``ns.lo_bc`` and ``ns.hi_bc`` must be consistent with 
 ``geometry.is_periodic``---if the domain is periodic in a particular
-direction then the low and high bc's must be set to ``0`` for that direction.
+direction then the low and high bc's must be set to ``Interior`` for that direction.
 
 As an example, the following: ::
 
-    ns.lo_bc = 1 4 0 
-    ns.hi_bc = 2 4 0 
+    ns.lo_bc = Inflow SlipWallAdiab Interior 
+    ns.hi_bc = Outflow SlipWallAdiab Interior
 
     geometry.is_periodic = 0 0 1
 
 would define a problem with inflow in the low-:math:`x` direction,
-outflow in the high-:math:`x` direction, slip wall on
+outflow in the high-:math:`x` direction, adiabatic slip wall on
 the low and high :math:`y`-faces, and periodic in the :math:`z`-direction.
 
 Resolution
