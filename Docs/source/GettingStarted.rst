@@ -50,13 +50,13 @@ sub-folder under ``$(PELELM_HOME)/Exec/``, and a local version of the
 `PeleLM` executable is built directly in that folder (object libraries are not used to manage `AMReX`
 and the application code).  In the following, we step through building a representative `PeleLM` executable.
 
-1. We will work in the folder containing setup for the `FlameInABox` problem in 2D
-(``$(PELELM_HOME)/Exec/FlameInABox``).
+1. We will work in the folder containing setup for the `FlameSheet` problem in 2D
+(``$(PELELM_HOME)/Exec/RegTests/FlameSheet``).
 In this setup, cold fuel enters the domain bottom and passes through a flame sheet.
 Hot products exit the domain at the top.  The sides of the domain are periodic, and the coordinates are
 cartesian. Go to the problem-specific source folder::
 
-    cd $(PELELM_HOME)/Exec/FlameInABox
+    cd $(PELELM_HOME)/Exec/RegTests/FlameSheet
 
 2. Edit the ``GNUmakefile`` to ensure that the following are set::
 
