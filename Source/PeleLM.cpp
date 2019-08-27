@@ -4058,18 +4058,31 @@ PeleLM::diffuse_velocity_setup (Real        dt,
     delta_rhs->setVal(0);
       
     MultiFab divmusi(grids,dmap,BL_SPACEDIM,0,MFInfo(),Factory());
-    //
-    // Assume always variable viscosity.
-    //
-    diffusion->compute_divmusi(time,betan,divmusi);
-    divmusi.mult((-2./3.)*(1.0-be_cn_theta),0,BL_SPACEDIM,0);
-    (*delta_rhs).plus(divmusi,0,BL_SPACEDIM,0);
-    //
-    // Assume always variable viscosity.
-    //
-    diffusion->compute_divmusi(time+dt,betanp1,divmusi);
-    divmusi.mult((-2./3.)*be_cn_theta,0,BL_SPACEDIM,0);
-    (*delta_rhs).plus(divmusi,0,BL_SPACEDIM,0);
+
+    if (!variable_vel_visc)
+    {
+      diffusion->compute_divmusi(time,visc_coef[Xvel],divmusi);
+      MultiFab::Saxpy(*delta_rhs,(1./3.)*(1.0-be_cn_theta),divmusi,0,0,BL_SPACEDIM,0);
+
+      diffusion->compute_divmusi(time+dt,visc_coef[Xvel],divmusi);
+      MultiFab::Saxpy(*delta_rhs,(1./3.)*be_cn_theta,divmusi,0,0,BL_SPACEDIM,0);
+    }
+    else
+    {
+
+      //
+      // Assume always variable viscosity.
+      //
+      diffusion->compute_divmusi(time,betan,divmusi);
+      divmusi.mult((-2./3.)*(1.0-be_cn_theta),0,BL_SPACEDIM,0);
+      (*delta_rhs).plus(divmusi,0,BL_SPACEDIM,0);
+      //
+      // Assume always variable viscosity.
+      //
+      diffusion->compute_divmusi(time+dt,betanp1,divmusi);
+      divmusi.mult((-2./3.)*be_cn_theta,0,BL_SPACEDIM,0);
+      (*delta_rhs).plus(divmusi,0,BL_SPACEDIM,0);
+    }
   }
 }
 
@@ -4110,17 +4123,29 @@ PeleLM::getViscTerms (MultiFab& visc_terms,
     if (src_comp != Xvel || num_comp < BL_SPACEDIM)
       amrex::Error("tensor v -> getViscTerms needs all v-components at once");
 
-    vel_visc = fb.define(this);
-    getViscosity(vel_visc, time);
+    if (variable_vel_visc)
+    {
+      vel_visc = fb.define(this);
+      getViscosity(vel_visc, time);
 
-    showMF("velVT",*viscn_cc,"velVT_viscn_cc",level);
-    for (int dir=0; dir<BL_SPACEDIM; ++dir) {
-      showMF("velVT",*(vel_visc[dir]),amrex::Concatenate("velVT_viscn_",dir,1),level);
+      showMF("velVT",*viscn_cc,"velVT_viscn_cc",level);
+      for (int dir=0; dir<BL_SPACEDIM; ++dir) {
+        showMF("velVT",*(vel_visc[dir]),amrex::Concatenate("velVT_viscn_",dir,1),level);
+      }
+
+      int viscComp = 0;
+      diffusion->getTensorViscTerms(visc_terms,time,vel_visc,viscComp);
+      showMF("velVT",visc_terms,"velVT_visc_terms_1",level);
     }
+    else
+    {
+      for (int icomp = Xvel; icomp < BL_SPACEDIM; icomp++)
+      {
+        int rho_flag = Diffusion::set_rho_flag(diffusionType[icomp]);
 
-    int viscComp = 0;
-    diffusion->getTensorViscTerms(visc_terms,time,vel_visc,viscComp);
-    showMF("velVT",visc_terms,"velVT_visc_terms_1",level);
+        diffusion->getViscTerms(visc_terms,src_comp,icomp,time,rho_flag,0,0);
+      }
+    }
   }
   else
   {
@@ -4140,9 +4165,17 @@ PeleLM::getViscTerms (MultiFab& visc_terms,
     //
     // Assume always using variable viscosity.
     //
-    diffusion->compute_divmusi(time,vel_visc,divmusi); // pre-computed visc above
-    divmusi.mult((-2./3.),0,BL_SPACEDIM,0);
-    showMF("velVT",divmusi,"velVT_divmusi",level);
+    if (variable_vel_visc)
+    {
+      diffusion->compute_divmusi(time,vel_visc,divmusi); // pre-computed visc above
+      divmusi.mult((-2./3.),0,BL_SPACEDIM,0);
+      showMF("velVT",divmusi,"velVT_divmusi",level);
+    }
+    else
+    {
+      diffusion->compute_divmusi(time,visc_coef[Xvel],divmusi);
+      divmusi.mult((1./3.),0,BL_SPACEDIM,0);
+    }
     visc_terms.plus(divmusi,Xvel,BL_SPACEDIM,0);
     showMF("velVT",visc_terms,"velVT_visc_terms_3",level);
   }
@@ -4332,7 +4365,7 @@ PeleLM::compute_differential_diffusion_fluxes (const MultiFab& S,
 
 //	Print() << "Doing the RZ geometry - zero" << std::endl;
 //	VisMF::Write(rh,"rh_cddf");
-amrex::Print() << "WE GET FLUXES IN compute_differential_diffusion_fluxes \n";
+
        Real* rhsscale = 0;
        std::pair<Real,Real> scalars;
        Diffusion::computeAlpha(Alpha, scalars, a, b, rh, rho_flag,
@@ -7644,6 +7677,7 @@ PeleLM::calcViscosity (const Real time,
   BL_ASSERT(whichTime == AmrOldTime || whichTime == AmrNewTime);
 
   compute_vel_visc(time, whichTime == AmrOldTime ? viscn_cc : viscnp1_cc);
+  
 }
 
 void
