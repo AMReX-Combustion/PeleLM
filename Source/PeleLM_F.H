@@ -68,13 +68,14 @@ extern "C" {
 
   void pphys_network_close();
 
-#ifndef AMREX_USE_SUNDIALS_3x4x 
-  void reactor_init(const int* cvode_iE, const int* Ncells);
-
-  int react(amrex::Real *rY_in, amrex::Real *rY_src_in, 
-		  amrex::Real *rX_in, amrex::Real *rX_src_in,
-		  amrex::Real *P_in,  amrex::Real *dt_react, amrex::Real *time, int *Init);
-#endif
+//#ifndef USE_SUNDIALS_PP
+//  void reactor_init(const int* cvode_iE, const int* Ncells);
+//
+//  int react(amrex::Real *rY_in, amrex::Real *rY_src_in, 
+//		  amrex::Real *rX_in, amrex::Real *rX_src_in,
+//		  amrex::Real *P_in,
+//		  amrex::Real *dt_react, amrex::Real *time);
+//#endif
 
   //void pphys_reactor_close();
 
