@@ -161,6 +161,11 @@ ns.do_group_bndry_fills = 1
 
 cg.cg_solver=1
 
+# Select CVODE Jacobian eval: 0=FD 1=AJ
+ns.cvode_iJac = 1
+# Choose between sparse (5) dense (1) or iterative (99) solver
+ns.cvode_iDense = 1
+
 #
 # Select form of FAB output: default is NATIVE
 #
