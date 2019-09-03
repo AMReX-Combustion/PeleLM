@@ -38,8 +38,10 @@
 #include <AMReX_AmrData.H>
 #endif
 
-#ifdef AMREX_USE_SUNDIALS_3x4x 
+#ifdef USE_SUNDIALS_PP
 #include <actual_Creactor.h>
+#else
+#include <actual_reactor.H> 
 #endif
 
 #include <Prob_F.H>
@@ -6110,7 +6112,10 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
 		  tmp_src_vect_energy[0] = frcing(i,j,k,nspecies) * 10.0;
       fcl(i,j,k) = react(tmp_vect, tmp_src_vect,
 				  tmp_vect_energy, tmp_src_vect_energy,
-				  &pressure, &dt_incr, &time_init, &reInit);
+#ifndef USE_SUNDIALS_PP
+				  &pressure, 
+#endif
+				  &dt_incr, &time_init);
 
 		  dt_incr = dt;
 		  for (int sp=0;sp<nspecies; sp++){
