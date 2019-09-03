@@ -5494,20 +5494,24 @@ PeleLM::advance (Real time,
         const FArrayBox& ddnp1 = DDnp1[mfi];
 
         f.copy(dn,box,0,box,0,nspecies); // copy Dn into RhoY
+        
         f.copy(dn,box,nspecies+1,box,nspecies,1); // copy Div(lamGradT) into RhoH
         f.minus(dnp1,box,box,0,0,nspecies);  // subtract Dnp1 from RhoY
         f.minus(dnp1,box,box,nspecies+1,nspecies,1); // subtract Div(lamGradT) in Dnp1 from RhoH
         f.plus(ddn  ,box,box,0,nspecies,1); // add DDn to RhoH, no contribution for RhoY
         f.minus(ddnp1,box,box,0,nspecies,1); // subtract DDnp1 to RhoH, no contribution for RhoY
         f.mult(0.5,box,0,nspecies+1);
+        
         if (closed_chamber == 1)
           f.plus(dp0dt,box,nspecies,1); // add dp0/dt to enthalpy forcing
+        
         f.plus(a,box,box,first_spec,0,nspecies+1); // add A into RhoY and RhoH
+         //amrex::Print() << (*aofs)[mfi]; 
         f.plus(r,box,box,0,0,nspecies); // no reactions for RhoH
       }
     }
   
-
+//amrex::Print() << Forcing[0] ;
 #ifdef USE_WBAR
     const Real  cur_time  = state[State_Type].curTime();
     // Update Wbar fluxes, add divergence to RHS
@@ -5515,9 +5519,14 @@ PeleLM::advance (Real time,
     flux_divergence(DWbar,0,SpecDiffusionFluxWbar,0,nspecies,-1);
     MultiFab::Add(Forcing,DWbar,0,0,nspecies,0);
 #endif
-    
-    differential_diffusion_update(Forcing,0,Dhat,0,DDhat);
 
+
+//VisMF::Write(Dhat, "Dhat");
+//VisMF::Write(DDhat, "DDhat");
+//VisMF::Write(Forcing, "Forcing");
+    differential_diffusion_update(Forcing,0,Dhat,0,DDhat);
+//VisMF::Write(S_new, "S_new");
+//VisMF::Write(S_old, "S_old");
     // 
     // Compute R (F = A + 0.5(Dn - Dnp1 + DDn - DDnp1) + Dhat + DDhat )
     // 
@@ -6323,6 +6332,12 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
         edgestate[d].setVal(0);
       }
             
+            
+  //for (int d=0; d<BL_SPACEDIM; ++d)
+  //    {
+  //amrex::Print() << "\n DEBUG edgestate \n" << d << " " << edgestate[d];}
+  //    
+        
 // Advect RhoY
       state_bc = fetchBCArray(State_Type,bx,first_spec,nspecies+1);
 
@@ -6353,6 +6368,12 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
 
 #endif
 
+//amrex::Print() << (*aofs)[S_mfi];
+  //for (int d=0; d<BL_SPACEDIM; ++d)
+  //    {
+  //amrex::Print() << "\n DEBUG edgestate \n" << d << " " << edgestate[d];}
+  //
+
 // Set flux, flux divergence, and face values for rho as sums of the corresponding RhoY quantities
       (*aofs)[S_mfi].setVal(0,bx,Density,1);
       for (int d=0; d<BL_SPACEDIM; ++d)
@@ -6372,11 +6393,16 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
         }
       }
       
+//amrex::Print() << (*aofs)[S_mfi];
+  //for (int d=0; d<BL_SPACEDIM; ++d)
+  //    {
+  //amrex::Print() << "\n DEBUG edgestate \n" << d << " " << edgestate[d];}
+  //
 // Extrapolate Temp, then compute flux divergence and value for RhoH from face values of T,Y,Rho
 // Note that this requires that the nspecies component of force be the temperature forcing
 
       state_bc = fetchBCArray(State_Type,bx,Temp,1);      
-      
+
 #ifdef AMREX_USE_EB
 
       godunov->AdvectScalars_EB(S_mfi, Smf, Tcomp, 1,
@@ -6404,6 +6430,11 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
 
 #endif
   
+  //amrex::Print() << (*aofs)[S_mfi];
+  //for (int d=0; d<BL_SPACEDIM; ++d)
+  //    {
+  //amrex::Print() << "\n DEBUG edgestate \n" << d << " " << edgestate[d];}
+  
 // Compute RhoH on faces, store in nspecies+1 component of edgestate[d]
       for (int d=0; d<BL_SPACEDIM; ++d)
       {
@@ -6419,20 +6450,27 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
   
         eY.resize(ebox,nspecies);
         eY.copy(edgestate[d],1,0,nspecies);
+
         for (int n=0; n<nspecies; ++n) {
           eY.mult(eR,0,n,1);
         }
         
+        
         eH.resize(ebox,1);
         getHmixGivenTY_pphys(eH, edgestate[d], eY, ebox, nspecies+2, 0, 0);
+        
+        //amrex::Print() << "\n DEBUG edgestate \n" << d << " " << edgestate[d];
+        
         edgestate[d].copy(eH,ebox,0,ebox,nspecies+1,1);      // Copy H into estate
         edgestate[d].mult(edgestate[d],ebox,0,nspecies+1,1); // Make H.Rho into estate
+        
+        //amrex::Print() << "\n DEBUG edgestate \n" << d << " " << edgestate[d];
         // Copy edgestate into edgeflux. ComputeAofs() overwrites but needs edgestate to start.
         edgeflux[d].copy(edgestate[d],ebox,nspecies+1,ebox,nspecies+1,1);
       }
 
 // Compute -Div(flux.Area) for RhoH, return Area-scaled (extensive) fluxes
-      
+  //amrex::Print() << (*aofs)[S_mfi];     
 #ifdef AMREX_USE_EB
 
       godunov->AdvectScalars_EB(S_mfi, Smf, RhoH, 1,
@@ -6449,7 +6487,9 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
                                 geom.CellSize(),Godunov::hypgrow(), 1);	
 
 #else 
-            
+
+//amrex::Print() << edgeflux[1];
+  
       int avcomp = 0;
       int ucomp = 0;
       int iconserv = advectionType[RhoH] == Conservative ? 1 : 0;
@@ -6460,7 +6500,7 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
                            volume[S_mfi], avcomp, (*aofs)[S_mfi], RhoH, iconserv);
 
 #endif
-
+//amrex::Print() << (*aofs)[S_mfi]; 
 // Load up non-overlapping bits of edge states and fluxes into mfs
       for (int d=0; d<BL_SPACEDIM; ++d)
       {
@@ -8243,7 +8283,18 @@ PeleLM::RhoH_to_Temp (FArrayBox& S,
   for (int i=0; i<nspecies; i++)
   {
     Y.mult(rhoInv,box,0,i,1);
-  }    
+  }
+  
+  //{
+  //  std::ofstream os("fabH");
+  //  H.writeOn(os);
+  //  os.close(); 
+  //}
+  //  {
+  //  std::ofstream os("fabrhoInv");
+  //  rhoInv.writeOn(os);
+  //  os.close(); 
+  //}
 
   // we index into Temperature component in S.  H and Y begin with the 0th component
   int iters = RhoH_to_Temp_DoIt(S,H,Y,box,0,0,Temp,htt_hmixTYP);

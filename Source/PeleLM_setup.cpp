@@ -565,14 +565,29 @@ PeleLM::variableSetUp ()
   // overwrite the first component specifing how to do "regular"
   // and "group" fill operations.
   //
-  if (do_group_bndry_fills)
-  {
-    desc_lst.setComponent(State_Type,
-                          Xvel,
-                          name,
-                          bcs,
-                          BndryFunc(xvel_fill,vel_fill));
-  }
+//  if (do_group_bndry_fills)
+//  {
+//    desc_lst.setComponent(State_Type,
+//                          Xvel,
+//                          name,
+//                          bcs,
+//                          BndryFunc(xvel_fill,vel_fill));
+//    
+//    desc_lst.setComponent(State_Type,
+//                         Yvel,
+//                         name,
+//                         bcs,
+//                         BndryFunc(yvel_fill,vel_fill));
+//
+//#if(BL_SPACEDIM==3)
+//    desc_lst.setComponent(State_Type,
+//                         Zvel,
+//                         name,
+//                         bcs,
+//                         BndryFunc(zvel_fill,vel_fill));
+//#endif
+//
+//  }
   //
   // **************  DEFINE SCALAR VARIABLES  ********************
   //

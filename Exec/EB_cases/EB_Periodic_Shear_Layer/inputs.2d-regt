@@ -159,3 +159,5 @@ eb2.sphere_has_fluid_inside = 0
 
 ns.hack_nochem = 1 
 #ns.num_mac_sync_iter = 0
+
+ns.variable_vel_visc = 0

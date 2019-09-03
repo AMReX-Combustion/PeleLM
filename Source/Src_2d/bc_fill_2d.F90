@@ -388,6 +388,9 @@ contains
 
       call yvel_fill (vel(ARG_L1(vel),ARG_L2(vel),2), &
       DIMS(vel),domlo,domhi,delta,xlo,time,bc(1,1,2))
+      
+      !write(*,*) 'DEBUG BC FORTRAN BCFILL',vel
+      
 
   end subroutine vel_fill
 
@@ -640,6 +643,8 @@ contains
             enddo
          enddo
       endif
+      
+      !write(*,*) 'RAAH BC',yvel
       
   end subroutine yvel_fill
       
