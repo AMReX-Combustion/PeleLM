@@ -13,7 +13,7 @@ module bc_fill_2d_module
   private
   
   public :: den_fill, adv_fill, &
-            temp_fill, rhoh_fill, vel_fill, all_chem_fill, &
+            temp_fill, rhoh_fill, all_chem_fill, &
             xvel_fill, yvel_fill, chem_fill, press_fill
 
 contains
@@ -367,32 +367,6 @@ contains
       endif
 
   end subroutine rhoh_fill
-  
-!
-! Fill x & y velocity at once.
-!
-
-  subroutine vel_fill (vel,DIMS(vel),domlo,domhi,delta, &
-                              xlo,time,bc)&
-                              bind(C, name="vel_fill")
- 
-      implicit none
-      
-      integer DIMDEC(vel), bc(dim,2,dim)
-      integer domlo(dim), domhi(dim)
-      REAL_T  delta(dim), xlo(dim), time
-      REAL_T  vel(DIMV(vel),dim)
-
-      call xvel_fill (vel(ARG_L1(vel),ARG_L2(vel),1), &
-      DIMS(vel),domlo,domhi,delta,xlo,time,bc(1,1,1))
-
-      call yvel_fill (vel(ARG_L1(vel),ARG_L2(vel),2), &
-      DIMS(vel),domlo,domhi,delta,xlo,time,bc(1,1,2))
-      
-      !write(*,*) 'DEBUG BC FORTRAN BCFILL',vel
-      
-
-  end subroutine vel_fill
 
 !
 ! Fill all chem species at once

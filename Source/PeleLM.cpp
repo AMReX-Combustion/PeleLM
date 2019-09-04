@@ -4391,7 +4391,7 @@ PeleLM::compute_differential_diffusion_fluxes (const MultiFab& S,
 #ifdef AMREX_USE_EB
     // now dx, areas, and vol are not constant.
     int nghost = 0;
-    std::array<const amrex::MultiCutFab*,AMREX_SPACEDIM>areafrac = ebf[0]->getAreaFrac();
+
 #ifdef _OPENMP
 #pragma omp parallel
 #endif
@@ -5545,6 +5545,10 @@ PeleLM::advance (Real time,
   
     advance_chemistry(S_old,S_new,dt,Forcing,0);
     
+#ifdef AMREX_USE_EB
+  set_body_state(S_new);
+#endif
+    
     RhoH_to_Temp(S_new);
 
     BL_PROFILE_VAR_STOP(HTREAC);
@@ -6051,11 +6055,30 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
 
     DistributionMapping dm = getFuncCountDM(ba,ngrow);
 
+
+
     MultiFab diagTemp;
     MultiFab STemp(ba, dm, nspecies+3, 0);
     MultiFab fcnCntTemp(ba, dm, 1, 0);
     MultiFab FTemp(ba, dm, Force.nComp(), 0);
 
+#ifdef AMREX_USE_EB     
+    amrex::FabArray<amrex::BaseFab<int>>  new_ebmask;
+    new_ebmask.define(ba, dm,  1, 0);
+    
+    new_ebmask.copy(ebmask);
+
+//amrex::Print() << "\n THE DM \n";    
+//amrex::Print() << dm;
+//
+//amrex::Print() << "\n NOW THE DM of EBMASK \n";
+//amrex::Print() << ebmask.DistributionMap();
+//
+//amrex::Print() << "\n NOW THE DM of NEW_EBMASK \n";
+//amrex::Print() << new_ebmask.DistributionMap();
+
+#endif
+    
     const bool do_diag = plot_reactions && amrex::intersect(ba,auxDiag["REACTIONS"]->boxArray()).size() != 0;
 
     if (do_diag)
@@ -6079,6 +6102,11 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
       FArrayBox&       fc       = fcnCntTemp[Smfi];
       const FArrayBox& frc      = FTemp[Smfi];
       FArrayBox*       chemDiag = (do_diag ? &(diagTemp[Smfi]) : 0);
+      
+amrex::Print() << " NEW LOOP IN MFITER \n";
+#ifdef AMREX_USE_EB      
+      const BaseFab<int>& fab_ebmask = new_ebmask[Smfi];
+#endif
 
       // FORTRAN WAY OF CALLING DVODE IN PP
       //BoxArray ba = do_avg_down_chem ? amrex::complementIn(bx,cf_grids) : BoxArray(bx);
@@ -6104,46 +6132,64 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
       const auto fcl    = fc.view(lo);
       const auto frcing = frc.view(lo);
       
+      const auto local_ebmask   = fab_ebmask.view(lo);
+      
       double tmp_vect[(nspecies+1)];
       double tmp_src_vect[nspecies];
       double tmp_vect_energy[1];
       double tmp_src_vect_energy[1];
-      for         (int k = 0; k < len.z; ++k) {
-          for         (int j = 0; j < len.y; ++j) {
-              for         (int i = 0; i < len.x; ++i) {
-
-                  for (int sp=0;sp<nspecies; sp++){
-                      tmp_vect[sp]       = rhoY(i,j,k,sp) * 1.e-3;
-		      tmp_src_vect[sp]   = frcing(i,j,k,sp) * 1.e-3;
-                  }    
-		  tmp_vect[nspecies]     = rhoY(i,j,k,nspecies+1);
-		  tmp_vect_energy[0]     = rhoY(i,j,k,nspecies) * 10.0;
-		  tmp_src_vect_energy[0] = frcing(i,j,k,nspecies) * 10.0;
-      fcl(i,j,k) = react(tmp_vect, tmp_src_vect,
-				  tmp_vect_energy, tmp_src_vect_energy,
+      for (int k = 0; k < len.z; ++k) {
+        for (int j = 0; j < len.y; ++j) {
+          for (int i = 0; i < len.x; ++i) {
+            
+            for (int sp=0;sp<nspecies; sp++){
+              tmp_vect[sp]       = rhoY(i,j,k,sp) * 1.e-3;
+		          tmp_src_vect[sp]   = frcing(i,j,k,sp) * 1.e-3;
+            }
+            
+		        tmp_vect[nspecies]     = rhoY(i,j,k,nspecies+1);
+		        tmp_vect_energy[0]     = rhoY(i,j,k,nspecies) * 10.0;
+		        tmp_src_vect_energy[0] = frcing(i,j,k,nspecies) * 10.0;
+            
+            //amrex::Print() << " \n";
+            //amrex::Print() << " CELL I,J,K " << i << " " << j << " " << k << " \n ";
+            //amrex::Print() << local_ebmask(i,j,k);
+            
+            if (local_ebmask(i,j,k) != 0){
+            //amrex::Print() << " \n WE EVALUTE REACTION \n";
+            //amrex::Print() << local_ebmask(i,j,k);
+            fcl(i,j,k) = react(tmp_vect, tmp_src_vect,
+				                       tmp_vect_energy, tmp_src_vect_energy,
 #ifndef USE_SUNDIALS_PP
-				  &pressure, 
+				                       &pressure, 
 #endif
-				  &dt_incr, &time_init);
-
-		  dt_incr = dt;
-		  for (int sp=0;sp<nspecies; sp++){
-	              rhoY(i,j,k,sp)      = tmp_vect[sp] * 1.e+3;
-                      if (rhoY(i,j,k,sp) != rhoY(i,j,k,sp)) {
-                          amrex::Abort("NaNs !! ");
-                      }
-		  }
-		  rhoY(i,j,k,nspecies+1)  = tmp_vect[nspecies]; 
-                  if (rhoY(i,j,k,nspecies+2) != rhoY(i,j,k,nspecies+2)) {
-                      amrex::Abort("NaNs !! ");
-                  }
-	          rhoY(i,j,k,nspecies) = tmp_vect_energy[0] * 1.e-01;
-                  if (rhoY(i,j,k,nspecies) != rhoY(i,j,k,nspecies)) {
-                      amrex::Abort("NaNs !! ");
-                  }
-
+	                             &dt_incr, &time_init);
+            }
+            else{
+            //    amrex::Print() << "\n NOTHING DONE HERE \n";
+            //amrex::Print() << local_ebmask(i,j,k);
+            
+            
+            
+            }
+            dt_incr = dt;
+            for (int sp=0;sp<nspecies; sp++){
+	            rhoY(i,j,k,sp)      = tmp_vect[sp] * 1.e+3;
+              if (rhoY(i,j,k,sp) != rhoY(i,j,k,sp)) {
+                amrex::Abort("NaNs !! ");
               }
+            }
+            rhoY(i,j,k,nspecies+1)  = tmp_vect[nspecies]; 
+            if (rhoY(i,j,k,nspecies+2) != rhoY(i,j,k,nspecies+2)) {
+                amrex::Abort("NaNs !! ");
+            }
+	          rhoY(i,j,k,nspecies) = tmp_vect_energy[0] * 1.e-01;
+            if (rhoY(i,j,k,nspecies) != rhoY(i,j,k,nspecies)) {
+                amrex::Abort("NaNs !! ");
+            }
+
           }
+        }
       }
 
     }
@@ -8719,11 +8765,8 @@ PeleLM::writePlotFile (const std::string& dir,
 
 #ifdef AMREX_USE_EB
     // add volume fraction to plotfile
-    const auto& ebfactory = dynamic_cast<EBFArrayBoxFactory const&>(Factory());
-    const amrex::MultiFab& volfrac = ebfactory.getVolFrac();
-
     plotMF.setVal(0.0, cnt, 1, nGrow);
-    MultiFab::Copy(plotMF,volfrac,0,cnt,1,nGrow);
+    MultiFab::Copy(plotMF,*volfrac,0,cnt,1,nGrow);
 
     // set covered values for ease of viewing
     // EM_DEBUG problem here if eb.regular

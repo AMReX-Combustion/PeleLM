@@ -61,7 +61,6 @@ static Box the_same_box (const Box& b)    { return b;                 }
 static Box grow_box_by_one (const Box& b) { return amrex::grow(b,1); }
 static Box the_nodes (const Box& b) { return amrex::surroundingNodes(b); }
 
-static bool do_group_bndry_fills = false;
 
 //
 // Components are  Interior, Inflow, Outflow, Symmetry, &
@@ -495,7 +494,6 @@ PeleLM::variableSetUp ()
   }
   ppns.query("oxidizerName",oxidizerName);
   ppns.query("productName",productName);
-  ppns.query("do_group_bndry_fills",do_group_bndry_fills);
 
   //
   // Set scale of chemical components, used in ODE solves
@@ -560,34 +558,7 @@ PeleLM::variableSetUp ()
   name[2] = "z_velocity";
   desc_lst.setComponent(State_Type,Zvel,"z_velocity",bc,BndryFunc(zvel_fill));
 #endif
-  //
-  // To enable "group" operations on filling velocities, we need to
-  // overwrite the first component specifing how to do "regular"
-  // and "group" fill operations.
-  //
-//  if (do_group_bndry_fills)
-//  {
-//    desc_lst.setComponent(State_Type,
-//                          Xvel,
-//                          name,
-//                          bcs,
-//                          BndryFunc(xvel_fill,vel_fill));
-//    
-//    desc_lst.setComponent(State_Type,
-//                         Yvel,
-//                         name,
-//                         bcs,
-//                         BndryFunc(yvel_fill,vel_fill));
-//
-//#if(BL_SPACEDIM==3)
-//    desc_lst.setComponent(State_Type,
-//                         Zvel,
-//                         name,
-//                         bcs,
-//                         BndryFunc(zvel_fill,vel_fill));
-//#endif
-//
-//  }
+
   //
   // **************  DEFINE SCALAR VARIABLES  ********************
   //

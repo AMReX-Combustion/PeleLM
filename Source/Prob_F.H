@@ -134,11 +134,6 @@
                          const amrex::Real* dx, const amrex::Real* grd_lo,
                          const amrex::Real* time, const int* bc);
 
-     void vel_fill (amrex::Real* data, ARLIM_P(data_lo), ARLIM_P(data_hi),
-                        const int* dom_lo, const int* dom_hi,
-                        const amrex::Real* dx, const amrex::Real* grd_lo,
-                        const amrex::Real* time, const int* bc);
-     
      void xvel_fill (amrex::Real* data, ARLIM_P(data_lo), ARLIM_P(data_hi),
                         const int* dom_lo, const int* dom_hi,
                         const amrex::Real* dx, const amrex::Real* grd_lo,
