@@ -390,6 +390,15 @@ extern "C" {
 	                    const int* prodID,
 	                    const int* numspec,
                       const int& flag_active_control);
+   void dcma_error(int* tag, ARLIM_P(tlo), ARLIM_P(thi),
+                    const int* tagval, const int* clearval,
+                    const amrex::Real* data, ARLIM_P(data_lo), ARLIM_P(data_hi),
+                    const int* lo, const int* hi, const int* nvar,
+                    const int* domain_lo, const int* domain_hi,
+                    const amrex::Real* dx, const amrex::Real* xlo,
+                    const amrex::Real* prob_lo, const amrex::Real* time,
+                    const int* level, const amrex::Real* value);
+
 
 
 #ifdef __cplusplus
