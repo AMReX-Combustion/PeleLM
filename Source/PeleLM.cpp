@@ -123,7 +123,6 @@ int  PeleLM::do_heat_sink;
 int  PeleLM::RhoH;
 int  PeleLM::do_diffuse_sync;
 int  PeleLM::do_reflux_visc;
-int  PeleLM::dpdt_option;
 int  PeleLM::RhoYdot_Type;
 int  PeleLM::FuncCount_Type;
 int  PeleLM::divu_ceiling;
@@ -568,7 +567,6 @@ PeleLM::Initialize ()
   PeleLM::RhoH                      = -1;
   PeleLM::do_diffuse_sync           = 1;
   PeleLM::do_reflux_visc            = 1;
-  PeleLM::dpdt_option               = 2;
   PeleLM::RhoYdot_Type                 = -1;
   PeleLM::FuncCount_Type            = -1;
   PeleLM::divu_ceiling              = 0;
@@ -623,8 +621,6 @@ PeleLM::Initialize ()
   BL_ASSERT(do_diffuse_sync == 0 || do_diffuse_sync == 1);
   pp.query("do_reflux_visc",do_reflux_visc);
   BL_ASSERT(do_reflux_visc == 0 || do_reflux_visc == 1);
-  pp.query("dpdt_option",dpdt_option);
-  BL_ASSERT(dpdt_option >= 0 && dpdt_option <= 2);
   pp.query("do_active_control",do_active_control);
   pp.query("do_active_control_temp",do_active_control_temp);
   pp.query("temp_control",temp_control);
