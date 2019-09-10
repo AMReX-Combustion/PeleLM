@@ -117,7 +117,7 @@ contains
       REAL_T     e(DIMV(e),nv), cpmix(DIMV(e)), Y(DIMV(dat),nspecies)
       REAL_T     dat(DIMV(dat),ncomp), rhoD(DIMV(e),nspecies+1)
       REAL_T     mixfrac(DIMV(dat))
-      REAL_T     grad(3)
+      REAL_T     grad(dim)
       integer    level, grid_no, lo_box(dim), hi_box(dim)
 
       integer    i,j,k, n
@@ -176,7 +176,7 @@ contains
       use chemistry_module, only : nspecies
       implicit none
 !c
-!c ::: This routine will derive mixture fraction and its dissipation rate
+!c ::: This routine will derive mixture fraction
 !c
       integer    lo(dim), hi(dim)
       integer    DIMDEC(e)
@@ -216,7 +216,7 @@ contains
       use chemistry_module, only : nspecies
       implicit none
 !c
-!c ::: This routine will derive C/RHO
+!c ::: This routine will derive HRR
 !c
       integer    lo(dim), hi(dim)
       integer    DIMDEC(e)
@@ -251,10 +251,10 @@ contains
     subroutine dcma (e,DIMS(e),nv,dat,DIMS(dat),ncomp, &
                            lo,hi,domlo,domhi,delta,xlo,time,dt, &
                            bc,level, grid_no) bind(C, name="dcma")
-      use chemistry_module, only : nspecies
+      use chemistry_module, only : nspecies, get_species_index
       implicit none
 !c
-!c ::: This routine will derive C/RHO
+!c ::: This routine will derive a CMA variable needed for error tagging in our work
 !c
       integer    lo(dim), hi(dim)
       integer    DIMDEC(e)
@@ -270,11 +270,9 @@ contains
 
       integer    i,j,k
 
-!ccccccc Hard coded species index
-       OH = 4
-       RO2 = 33
 
-
+      OH = get_species_index('OH')
+      RO2 = get_species_index('C12H25O2')
 
       call  dermixfrac(e,DIMS(e),1,dat(:,:,:,1:nspecies+1),DIMS(dat),nspecies+1,&
                               lo,hi,domlo,domhi,delta,xlo,time,dt,bc,&
