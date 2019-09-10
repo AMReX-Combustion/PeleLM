@@ -950,6 +950,27 @@ PeleLM::variableSetUp ()
   //
   //err_list.add("total_particle_count",1,ErrorRec::Special,part_cnt_err);
 #endif
+  Vector<std::string> mix_and_diss(2);
+  mix_and_diss[0] = "mixture_fraction";
+  mix_and_diss[1] = "Scalar_diss";
+  derive_lst.add("mixfrac",IndexType::TheCellType(),2,mix_and_diss,dermixanddiss,grow_box_by_one,&lincc_interp);
+  derive_lst.addComponent("mixfrac",desc_lst,State_Type,Density,1);
+  derive_lst.addComponent("mixfrac",desc_lst,State_Type,first_spec,nspecies);
+  derive_lst.addComponent("mixfrac",desc_lst,State_Type,Temp,1);
+
+  derive_lst.add("HeatRelease",IndexType::TheCellType(),1,dhrr,the_same_box);
+  derive_lst.addComponent("HeatRelease",desc_lst,State_Type,Temp,1);
+  derive_lst.addComponent("HeatRelease",desc_lst,RhoYdot_Type,0,nspecies);
+
+  derive_lst.add("CMA",IndexType::TheCellType(),4,dcma,the_same_box);
+  derive_lst.addComponent("CMA",desc_lst,State_Type,Density,1);
+  derive_lst.addComponent("CMA",desc_lst,State_Type,first_spec,nspecies);
+  derive_lst.addComponent("CMA",desc_lst,State_Type,Temp,1);
+  derive_lst.addComponent("CMA",desc_lst,RhoYdot_Type,0,nspecies);
+// For this particular error I take of level inside the function
+//  err_list.add("CMA",0,ErrorRec::Special,
+//                   LM_Error_Value(dcma_error,0.0,0.0,1.0,10));
+
 
   //
   // Dynamically generated error tagging functions

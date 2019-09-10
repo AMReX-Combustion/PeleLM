@@ -35,7 +35,7 @@ module PeleLM_3d
              part_cnt_err, mcurve, smooth, grad_wbar, recomp_update, &
              valgt_error, vallt_error, magvort_error, diffgt_error, init_data_new_mech, &
              pphys_PfromRTY, pphys_mass_to_mole, pphys_massr_to_conc, pphys_HfromT, &
-             pphys_HMIXfromTY, pphys_RHOfromPTY, FORT_AVERAGE_EDGE_STATES 
+             pphys_HMIXfromTY, pphys_RHOfromPTY, FORT_AVERAGE_EDGE_STATES, pphys_CPMIXfromTY 
 
 contains
              

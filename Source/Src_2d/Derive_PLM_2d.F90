@@ -20,17 +20,272 @@
 module derive_PLM_2D
 
   use amrex_fort_module, only : dim=>amrex_spacedim
-  
+  use chemistry_module, only : nspecies, nelements
   implicit none
 
   private
  
   public :: derdvrho, dermprho, dermgvort, dermgdivu, deravgpres, dergrdpx, dergrdpy, &
             drhomry, dsrhoydot, drhort, dermassfrac, dermolefrac, derconcentration, &
-            dertransportcoeff, dermolweight
+            dertransportcoeff, dermolweight, dermixanddiss
+  double precision coeff_mix(nspecies,nelements), beta_mix(nelements)
+  double precision Zfu, Zox, fact(nspecies)
+  logical :: init_mixture = 0
+
+
 
 contains
- 
+
+  subroutine init_mixture_fraction() bind(C,name='init_mixture_fraction')
+
+      use fuego_chemistry
+      use chemistry_module, only : elem_names,  get_species_index
+      implicit none
+      double precision WtE(nelements), WtS(nspecies)
+      integer:: i, j, ELTinSp(nelements,nspecies)
+      double precision YF(nspecies), YO(nspecies),XO(nspecies)
+
+      YF=0
+      YO=0
+      XO=0
+      Zfu=0
+      Zox=0
+      fact=0
+
+      call ckwt(WtS)
+      call ckawt(WtE)
+      call ckncf(nelements,ELTinSP)
+
+      do i=1,nspecies
+        do j=1,nelements
+
+          coeff_mix(i,j) = ELTinSP(j,i)*WtE(j)/WtS(i)
+
+        enddo
+      enddo
+
+     YF(get_species_index('NC12H26')) = 1.0
+     XO(get_species_index('O2')) = 0.15d0
+     XO(get_species_index('N2')) = 0.85d0
+
+     call ckxty(XO,YO)
+     beta_mix=0
+
+     do i=1,nelements
+
+        if(elem_names(i).eq.'C') beta_mix(i) = 2.0/WtE(i)
+        if(elem_names(i).eq.'H') beta_mix(i) = 1.0/(2.0*WtE(i))
+        if(elem_names(i).eq.'O') beta_mix(i) = -1.0/WtE(i)
+
+    enddo
+
+    do i=1,nspecies
+     do j=1,nelements
+
+       fact(i) = fact(i)+beta_mix(j)*coeff_mix(i,j)
+     enddo
+     Zfu = Zfu+fact(i)*YF(i)
+     Zox = Zox+fact(i)*YO(i)
+   enddo
+
+    init_mixture=1
+
+  end subroutine
+
+   subroutine dermixanddiss (e,DIMS(e),nv,dat,DIMS(dat),ncomp, &
+                           lo,hi,domlo,domhi,delta,xlo,time,dt, &
+                           bc,level, grid_no) bind(C, name="dermixanddiss")
+      use chemistry_module, only : nspecies
+      use mod_Fvar_def, only : pamb
+      use PeleLM_2d, only : pphys_CPMIXfromTY, spec_temp_visc
+      implicit none
+!c
+!c ::: This routine will derive mixture fraction and its dissipation rate
+!c
+      integer    lo(dim), hi(dim)
+      integer    DIMDEC(e)
+      integer    DIMDEC(dat)
+      integer    domlo(dim), domhi(dim)
+      integer    nv, ncomp
+      integer    bc(dim,2,ncomp)
+      REAL_T     delta(dim), xlo(dim)
+      REAL_T     time, dt, P1ATM
+      REAL_T     e(DIMV(e),nv), cpmix(DIMV(e)), Y(DIMV(dat),nspecies)
+      REAL_T     dat(DIMV(dat),ncomp), rhoD(DIMV(e),nspecies+1)
+      REAL_T     mixfrac(DIMV(dat))
+      REAL_T     grad(dim)
+      integer    level, grid_no, lo_box(dim+1), hi_box(dim+1)
+      integer    lo1(3), hi1(3)
+      integer    i,j, n
+      if(.not.init_mixture)   call init_mixture_fraction()
+
+      lo_box(1) = e_l1
+      lo_box(2) = e_l2
+      lo_box(3) = 0
+
+      hi_box(1) = e_h1
+      hi_box(2) = e_h2
+      hi_box(3) = 0
+
+      lo1=0
+      hi1=0
+
+      lo1(1) = lo(1)
+      lo1(2) = lo(2)
+      hi1(1) = hi(1)
+      hi1(2) = hi(2)
+
+      P1ATM=101325.0
+      e = 0
+      mixfrac=0
+!     Grown box will be given for mixture fraction because derivative
+!     needs to be calculated
+       do j=dat_l2, dat_h2
+         do i=dat_l1, dat_h1
+           do n=1,nspecies
+             mixfrac(i,j) = mixfrac(i,j) + dat(i,j,n+1)*fact(n)/dat(i,j,1)
+           enddo
+             mixfrac(i,j) = (mixfrac(i,j)-Zox)/(Zfu-Zox)
+         enddo
+       enddo
+
+    do n=1,nspecies
+      Y(:,:,n) = dat(:,:,n+1)/dat(:,:,1)
+    enddo
+
+    call pphys_CPMIXfromTY(lo1, hi1,  cpmix, lo_box, hi_box, dat(DIMV(e),nspecies+2),lo_box, &
+                          hi_box, Y(DIMV(e),:),lo_box,hi_box)
+    call spec_temp_visc(lo1,hi1,dat(DIMV(e),nspecies+2),lo_box,hi_box,dat(DIMV(e),2:nspecies+1) &
+             , lo_box,hi_box, rhoD(DIMV(e),:),lo_box,hi_box,nspecies+1,P1ATM,1,0,pamb)
+
+       do j= lo(2), hi(2)
+         do i= lo(1), hi(1)
+            grad(1) = 0.5*(mixfrac(i+1,j)-mixfrac(i-1,j))/delta(1)
+            grad(2) = 0.5*(mixfrac(i,j+1)-mixfrac(i,j-1))/delta(2)
+            e(i,j,1) = mixfrac(i,j)
+            e(i,j,2) = grad(1)**2+grad(2)**2
+            e(i,j,2) = 2.0*e(i,j,2)*rhoD(i,j,nspecies+1)/(cpmix(i,j)*dat(i,j,1))
+
+       enddo
+    enddo
+    end subroutine
+
+  subroutine dermixfrac (e,DIMS(e),nv,dat,DIMS(dat),ncomp, &
+                           lo,hi,domlo,domhi,delta,xlo,time,dt, &
+                           bc,level, grid_no) bind(C, name="dermixfrac")
+      use chemistry_module, only : nspecies
+      implicit none
+!c
+!c ::: This routine will derive mixture fraction 
+!c
+      integer    lo(dim), hi(dim)
+      integer    DIMDEC(e)
+      integer    DIMDEC(dat)
+      integer    domlo(dim), domhi(dim)
+      integer    nv, ncomp
+      integer    bc(dim,2,ncomp)
+      REAL_T     delta(dim), xlo(dim)
+      REAL_T     time, dt
+      REAL_T     e(DIMV(e),nv)
+      REAL_T     dat(DIMV(dat),ncomp)
+      REAL_T     mixfrac(DIMV(dat))
+      integer    level, grid_no
+
+      integer    i,j, n
+      if(.not.init_mixture)  call init_mixture_fraction()
+
+       e = 0.0
+       do j=lo(2), hi(2)
+         do i=lo(1), hi(1)
+           do n=1,nspecies
+             e(i,j,1) = e(i,j,1) + dat(i,j,n+1)*fact(n)/dat(i,j,1)
+           enddo
+             e(i,j,1) = (e(i,j,1)-Zox)/(Zfu-Zox)
+         enddo
+       enddo
+
+    end subroutine
+
+   subroutine dhrr (e,DIMS(e),nv,dat,DIMS(dat),ncomp, &
+                           lo,hi,domlo,domhi,delta,xlo,time,dt, &
+                           bc,level, grid_no) bind(C, name="dhrr")
+
+      use PeleLM_2d, only : pphys_HfromT
+      use chemistry_module, only : nspecies
+      implicit none
+!c
+!c ::: This routine will derive HRR
+!c
+      integer    lo(dim), hi(dim)
+      integer    DIMDEC(e)
+      integer    DIMDEC(dat)
+      integer    domlo(dim), domhi(dim)
+      integer    nv, ncomp
+      integer    bc(dim,2,ncomp)
+      REAL_T     delta(dim), xlo(dim)
+      REAL_T     time, dt
+      REAL_T     e(DIMV(e),nv), H(DIMV(e),nspecies)
+      REAL_T     dat(DIMV(dat),ncomp)
+      integer    level, grid_no
+
+      integer    i,j, n
+
+      call pphys_HfromT(lo,hi,H,DIMS(dat),dat(DIMV(dat),1),DIMS(dat))
+
+      e =0
+
+      do n=1,ncomp-1
+            do j = lo(2), hi(2)
+               do i = lo(1), hi(1)
+                  e(i,j,1) = e(i,j,1)-dat(i,j,n+1)*H(i,j,n)
+               enddo
+            enddo
+      enddo
+
+  end subroutine
+
+  subroutine dcma (e,DIMS(e),nv,dat,DIMS(dat),ncomp, &
+                           lo,hi,domlo,domhi,delta,xlo,time,dt, &
+                           bc,level, grid_no) bind(C, name="dcma")
+      use chemistry_module, only : nspecies, get_species_index
+      implicit none
+!c
+!c ::: This routine will derive a CMA variable needed for error tagging in our work
+!c
+      integer    lo(dim), hi(dim)
+      integer    DIMDEC(e)
+      integer    DIMDEC(dat)
+      integer    domlo(dim), domhi(dim)
+      integer    nv, ncomp
+      integer    bc(dim,2,ncomp)
+      REAL_T     delta(dim), xlo(dim)
+      REAL_T     time, dt
+      REAL_T     e(DIMV(e),nv)
+      REAL_T     dat(DIMV(dat),ncomp)
+      integer    level, grid_no, OH, RO2
+
+      integer    i,j
+
+       OH = get_species_index('OH')
+       RO2 = get_species_index('C12H25O2')
+
+
+      call  dermixfrac(e,DIMS(e),1,dat(:,:,1:nspecies+1),DIMS(dat),nspecies+1,&
+                              lo,hi,domlo,domhi,delta,xlo,time,dt,bc,&
+                              level,grid_no)
+
+
+      call  dhrr(e(:,:,2),DIMS(e),1,dat(:,:,nspecies+2:ncomp),DIMS(dat),nspecies+1,&
+                              lo,hi,domlo,domhi,delta,xlo,time,dt,bc,&
+                              level,grid_no)
+
+      e(:,:,3) = dat(:,:,OH+1)/dat(:,:,1)
+      e(:,:,4) = dat(:,:,RO2+1)/dat(:,:,1)
+
+
+
+    end subroutine dcma
+
 !
 ! ::: This routine will derive C/RHO
 !
