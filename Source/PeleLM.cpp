@@ -5181,6 +5181,7 @@ PeleLM::advance (Real time,
   if (plot_heat_release)
   {
     const MultiFab& R = get_new_data(RhoYdot_Type);
+    const MultiFab& dat = get_new_data(State_Type);
 #ifdef _OPENMP
 #pragma omp parallel
 #endif
@@ -5192,7 +5193,8 @@ PeleLM::advance (Real time,
         const Box& box = mfi.tilebox();
         T.resize(box,1);
         T.setVal(298.15,box);
-        
+        T.copy(dat[mfi],Temp,0,1);
+
         enthi.resize(box,R.nComp());
         getHGivenT_pphys(enthi,T,box,0,0);
         enthi.mult(R[mfi],box,0,0,R.nComp());
