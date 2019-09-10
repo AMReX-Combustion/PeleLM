@@ -23,7 +23,9 @@ DEFINES+=-DALWAYS_NEW_J
 DO_2S_CONVERGENCE=FALSE
 
 #######################
-USE_SUNDIALS_3x4x = FALSE
+USE_SUNDIALS_PP = FALSE
+
+USE_KLU_PP = FALSE
 
 #######################
 
