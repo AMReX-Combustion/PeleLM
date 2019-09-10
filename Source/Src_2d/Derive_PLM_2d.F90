@@ -20,7 +20,8 @@
 module derive_PLM_2D
 
   use amrex_fort_module, only : dim=>amrex_spacedim
-  use chemistry_module, only : nspecies, nelements
+  use network, only : nspecies, nelements
+  use fuego_chemistry
   implicit none
 
   private
@@ -30,7 +31,7 @@ module derive_PLM_2D
             dertransportcoeff, dermolweight, dermixanddiss
   double precision coeff_mix(nspecies,nelements), beta_mix(nelements)
   double precision Zfu, Zox, fact(nspecies)
-  logical :: init_mixture = 0
+  logical :: init_mixture = .false.
 
 
 
@@ -88,7 +89,7 @@ contains
      Zox = Zox+fact(i)*YO(i)
    enddo
 
-    init_mixture=1
+    init_mixture=.true.
 
   end subroutine
 
