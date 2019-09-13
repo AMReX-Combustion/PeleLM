@@ -1,8 +1,8 @@
 //
-// Note: define TEMPERATURE if you want variables T and rho*h, h = c_p*T,in the 
+// Note: define TEMPERATURE if you want variables T and rho*h, h = c_p*T,in the
 //       State_Type part of the state
 //       whose component indices are Temp and RhoH
-//       whose evoution equations are 
+//       whose evoution equations are
 //       \pd (rho h)/\pd t + diver (\rho U h) = div k grad T
 //       rho DT/dt = div k/c_p grad T
 //       define RADIATION only if TEMPERATURE is also defined and the evolution equations
@@ -13,7 +13,7 @@
 //       The equation for temperature is used solely for computing div k grad T
 //
 //       Note: The reasons for using an auxiliary T equations are two fold:
-//             1) solving the C-N difference equations for 
+//             1) solving the C-N difference equations for
 //                \pd (rho h)/\pd t + diver (\rho U h) = div k/c_p grad h
 //                does not easily fit into our framework as of 10/31/96
 //             2) the boundary condition for rho h at a wall is ill defined
@@ -43,7 +43,7 @@
 #ifdef USE_SUNDIALS_PP
 #include <actual_Creactor.h>
 #else
-#include <actual_reactor.H> 
+#include <actual_reactor.H>
 #endif
 
 using namespace amrex;
@@ -72,7 +72,7 @@ static
 int
 norm_vel_bc[] =
 {
-  // 
+  //
 INT_DIR, EXT_DIR, FOEXTRAP, REFLECT_ODD, REFLECT_ODD, REFLECT_ODD, REFLECT_ODD, REFLECT_ODD
 };
 
@@ -123,7 +123,7 @@ static
 int
 dsdt_bc[] =
 {
-  INT_DIR, EXT_DIR, EXT_DIR, REFLECT_EVEN, REFLECT_EVEN, REFLECT_EVEN, EXT_DIR, EXT_DIR 
+  INT_DIR, EXT_DIR, EXT_DIR, REFLECT_EVEN, REFLECT_EVEN, REFLECT_EVEN, EXT_DIR, EXT_DIR
 };
 
 static
@@ -360,7 +360,7 @@ public:
   // Destructor.
   //
   virtual ~ChemBndryFunc ()  override {}
-    
+
   virtual StateDescriptor::BndryFunc* clone () const override
     {
       //
@@ -397,7 +397,7 @@ public:
   int getStateID () const              { return m_stateID;   }
   const std::string& getStateName () const { return m_stateName; }
   ChemBndryFunc_FortBndryFunc getBndryFunc () const  { return m_func;      }
-    
+
 protected:
 
   static int getStateID (const std::string& stateName)
@@ -409,7 +409,7 @@ protected:
           return i;
       return -1;
     }
-    
+
 private:
 
   ChemBndryFunc_FortBndryFunc m_func;
@@ -448,7 +448,7 @@ PeleLM::variableSetUp ()
 
 #ifdef _OPENMP
 #pragma omp parallel
-#endif  
+#endif
   reactor_init(&cvode_iE,&cvode_ncells);
 
   init_transport(use_tranlib);
@@ -476,7 +476,7 @@ PeleLM::variableSetUp ()
   NUM_STATE = ++counter;
   NUM_SCALARS = NUM_STATE - Density;
 
-  getSpeciesNames(spec_names); 
+  getSpeciesNames(spec_names);
 
   amrex::Print() << nreactions << " Reactions in mechanism \n";
   amrex::Print() << nspecies << " Chemical species interpreted:\n { ";
@@ -504,7 +504,7 @@ PeleLM::variableSetUp ()
   //
   std::string speciesScaleFile; pp.query("speciesScaleFile",speciesScaleFile);
 
-  // Fill spec_scalY that is not used anywhere anymore: FIXME 
+  // Fill spec_scalY that is not used anywhere anymore: FIXME
   //if (! speciesScaleFile.empty())
   //{
   //  amrex::Print() << "  Setting scale values for chemical species\n\n";
@@ -525,18 +525,18 @@ PeleLM::variableSetUp ()
 
   int dm = BL_SPACEDIM;
   int flag_active_control = 0;
-  
+
   if (PeleLM::flag_active_control){
     flag_active_control = 1;}
   else {flag_active_control = 0;}
-  
+
   set_prob_spec(dm,DefaultGeometry().ProbLo(),DefaultGeometry().ProbHi(),
                 &bathID, &fuelID, &oxidID, &prodID, &nspecies,flag_active_control);
   //
   // Get a species to use as a flame tracker.
   //
   std::string flameTracName = fuelName;
-  pp.query("flameTracName",flameTracName);    
+  pp.query("flameTracName",flameTracName);
   //
   // **************  DEFINE VELOCITY VARIABLES  ********************
   //
@@ -615,7 +615,7 @@ PeleLM::variableSetUp ()
                           bc,
                           ChemBndryFunc(chem_fill,spec_names[i]),
                           &cell_cons_interp);
-          
+
 
   }
 
@@ -738,7 +738,7 @@ PeleLM::variableSetUp ()
   // Stick Dsdt_Type on the end of the descriptor list.
   //
   Dsdt_Type = desc_lst.size();
-	    
+
   ngrow = 0;
   desc_lst.addDescriptor(Dsdt_Type,IndexType::TheCellType(),StateDescriptor::Point,ngrow,1,
                          &cell_cons_interp);
@@ -770,7 +770,7 @@ PeleLM::variableSetUp ()
   derive_lst.add("molweight",IndexType::TheCellType(),1,dermolweight,the_same_box);
   derive_lst.addComponent("molweight",desc_lst,State_Type,Density,1);
   derive_lst.addComponent("molweight",desc_lst,State_Type,first_spec,nspecies);
-  
+
   //
   // Group Species Rho.Y (for ploting in plot file)
   //
@@ -780,7 +780,7 @@ PeleLM::variableSetUp ()
   derive_lst.add("rhoY",IndexType::TheCellType(),nspecies,
                  var_names_rhoY,derRhoY,the_same_box);
   derive_lst.addComponent("rhoY",desc_lst,State_Type,first_spec,nspecies);
-  
+
   //
   // Individual Species mass fractions (for error tag with tracer)
   //
@@ -931,7 +931,7 @@ PeleLM::variableSetUp ()
 
   std::string curv_str = "mean_progress_curvature";
   derive_lst.add(curv_str,IndexType::TheCellType(),1,&DeriveRec::GrowBoxByOne);
-    
+
 #ifdef AMREX_PARTICLES
   //
   // The particle count at this level.
@@ -987,7 +987,7 @@ PeleLM::variableSetUp ()
     Real min_time =  0; ppr.query("start_time",min_time);
     Real max_time = -1; ppr.query("end_time",max_time);
     int max_level = -1;  ppr.query("max_level",max_level);
-    
+
     if (ppr.countval("value_greater")) {
       Real value; ppr.get("value_greater",value);
       std::string field; ppr.get("field_name",field);
@@ -1113,10 +1113,10 @@ PeleLM::rhoydotSetUp()
   desc_lst.addDescriptor(RhoYdot_Type,IndexType::TheCellType(),
                          StateDescriptor::Point,ngrow,nrhoydot,
                          &lincc_interp);
-	
+
   //const StateDescriptor& d_cell = desc_lst[State_Type];
 
-  BCRec bc;	
+  BCRec bc;
   set_rhoydot_bc(bc,phys_bc);
   for (int i = 0; i < nrhoydot; i++)
   {
