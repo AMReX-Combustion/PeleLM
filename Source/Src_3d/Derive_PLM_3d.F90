@@ -20,21 +20,21 @@
 module derive_PLM_3D
 
   use amrex_fort_module, only : dim=>amrex_spacedim
-  use chemistry_module, only : nspecies, nelements  
+  use chemistry_module, only : nspecies, nelements
 
   implicit none
 
   private
- 
+
   public :: derdvrho, dermprho, dermgvort, dermgdivu, &
             deravgpres, dergrdpx, dergrdpy, dergrdpz, &
-            drhomry, dsrhoydot, drhort, dermassfrac, & 
+            drhomry, dsrhoydot, drhort, dermassfrac, &
             dermolefrac, derconcentration, dertransportcoeff, &
             dermolweight, dermixanddiss
 
   double precision coeff_mix(nspecies,nelements), beta_mix(nelements)
   double precision Zfu, Zox, fact(nspecies)
-  logical :: init_mixture = 0
+  logical :: init_mixture = .false.
 
 
 contains
@@ -61,37 +61,31 @@ contains
 
       do i=1,nspecies
         do j=1,nelements
-
           coeff_mix(i,j) = ELTinSP(j,i)*WtE(j)/WtS(i)
-
         enddo
         if(spec_names(i).eq.'NC12H26') YF(i)=1.0
         if(spec_names(i).eq.'O2') XO(i)=0.15
         if(spec_names(i).eq.'N2') XO(i)=0.85
+      enddo
 
+      call ckxty(XO,YO)
+      beta_mix=0
 
-     enddo
-     call ckxty(XO,YO)
-     beta_mix=0
-
-     do i=1,nelements
-
+      do i=1,nelements
         if(elem_names(i).eq.'C') beta_mix(i) = 2.0/WtE(i)
         if(elem_names(i).eq.'H') beta_mix(i) = 1.0/(2.0*WtE(i))
         if(elem_names(i).eq.'O') beta_mix(i) = -1.0/WtE(i)
+      enddo
 
-    enddo
+      do i=1,nspecies
+        do j=1,nelements
+          fact(i) = fact(i)+beta_mix(j)*coeff_mix(i,j)
+        enddo
+        Zfu = Zfu+fact(i)*YF(i)
+        Zox = Zox+fact(i)*YO(i)
+      enddo
 
-    do i=1,nspecies
-     do j=1,nelements
-
-       fact(i) = fact(i)+beta_mix(j)*coeff_mix(i,j)
-     enddo
-     Zfu = Zfu+fact(i)*YF(i)
-     Zox = Zox+fact(i)*YO(i)
-   enddo
-
-    init_mixture=1
+      init_mixture = .true.
 
   end subroutine
 
@@ -135,39 +129,43 @@ contains
       mixfrac=0
 !     Grown box will be given for mixture fraction because derivative
 !     needs to be calculated
-     do k=dat_l3, dat_h3
-       do j=dat_l2, dat_h2
-         do i=dat_l1, dat_h1
-           do n=1,nspecies
-             mixfrac(i,j,k) = mixfrac(i,j,k) + dat(i,j,k,n+1)*fact(n)/dat(i,j,k,1)
-           enddo
-             mixfrac(i,j,k) = (mixfrac(i,j,k)-Zox)/(Zfu-Zox)
-         enddo
-       enddo
-    enddo
+      do k=dat_l3, dat_h3
+        do j=dat_l2, dat_h2
+          do i=dat_l1, dat_h1
+            do n=1,nspecies
+              mixfrac(i,j,k) = mixfrac(i,j,k) + dat(i,j,k,n+1)*fact(n)/dat(i,j,k,1)
+            enddo
+            mixfrac(i,j,k) = (mixfrac(i,j,k) - Zox)/(Zfu - Zox)
+          enddo
+        enddo
+      enddo
 
-    do n=1,nspecies
-      Y(:,:,:,n) = dat(:,:,:,n+1)/dat(:,:,:,1)
-    enddo
+      do n=1,nspecies
+        Y(:,:,:,n) = dat(:,:,:,n+1)/dat(:,:,:,1)
+      enddo
 
-    call pphys_CPMIXfromTY(lo, hi,  cpmix, lo_box,hi_box,dat(DIMV(e),nspecies+2),lo_box, &
-                          hi_box, Y(DIMV(e),:),lo_box,hi_box)
-    call spec_temp_visc(lo,hi,dat(DIMV(e),nspecies+2),lo_box,hi_box,dat(DIMV(e),2:nspecies+1) &
-             , lo_box,hi_box, rhoD(DIMV(e),:),lo_box,hi_box,nspecies+1,P1ATM,1,0,pamb)
+      call pphys_CPMIXfromTY(lo,hi, &
+                             cpmix,                   lo_box,hi_box, &
+                             dat(DIMV(e),nspecies+2), lo_box,hi_box, &
+                             Y(DIMV(e),:),            lo_box,hi_box)
+      call spec_temp_visc(lo,hi, &
+                          dat(DIMV(e),nspecies+2),   lo_box,hi_box, &
+                          dat(DIMV(e),2:nspecies+1), lo_box,hi_box, &
+                          rhoD(DIMV(e),:),           lo_box,hi_box, &
+                          nspecies+1,P1ATM,1,0,pamb)
 
-     do k=lo(3), hi(3)
-       do j= lo(2), hi(2)
-         do i= lo(1), hi(1)
+      do k=lo(3), hi(3)
+        do j= lo(2), hi(2)
+          do i= lo(1), hi(1)
             grad(1) = 0.5*(mixfrac(i+1,j,k)-mixfrac(i-1,j,k))/delta(1)
             grad(2) = 0.5*(mixfrac(i,j+1,k)-mixfrac(i,j-1,k))/delta(2)
             grad(3) = 0.5*(mixfrac(i,j,k+1)-mixfrac(i,j,k-1))/delta(3)
             e(i,j,k,1) = mixfrac(i,j,k)
             e(i,j,k,2) = grad(1)**2+grad(2)**2+grad(3)**2
             e(i,j,k,2) = 2.0*e(i,j,k,2)*rhoD(i,j,k,nspecies+1)/(cpmix(i,j,k)*dat(i,j,k,1))
-
           enddo
-       enddo
-    enddo
+        enddo
+      enddo
     end subroutine
 
     subroutine dermixfrac (e,DIMS(e),nv,dat,DIMS(dat),ncomp, &
@@ -188,23 +186,22 @@ contains
       REAL_T     time, dt
       REAL_T     e(DIMV(e),nv)
       REAL_T     dat(DIMV(dat),ncomp)
-      REAL_T     mixfrac(DIMV(dat))
       integer    level, grid_no
 
       integer    i,j,k, n
       if(.not.init_mixture)  call init_mixture_fraction()
 
       e = 0
-     do k=lo(3), hi(3)
-       do j=lo(2), hi(2)
-         do i=lo(1), hi(1)
-           do n=1,nspecies
-             e(i,j,k,1) = e(i,j,k,1) + dat(i,j,k,n+1)*fact(n)/dat(i,j,k,1)
-           enddo
-             e(i,j,k,1) = (e(i,j,k,1)-Zox)/(Zfu-Zox)
-         enddo
-       enddo
-    enddo
+      do k=lo(3), hi(3)
+        do j=lo(2), hi(2)
+          do i=lo(1), hi(1)
+            do n=1,nspecies
+              e(i,j,k,1) = e(i,j,k,1) + dat(i,j,k,n+1)*fact(n)/dat(i,j,k,1)
+            enddo
+            e(i,j,k,1) = (e(i,j,k,1) - Zox)/(Zfu - Zox)
+          enddo
+        enddo
+      enddo
 
     end subroutine
 
@@ -310,7 +307,7 @@ contains
       integer    level, grid_no
 
       integer    i,j,k
-      
+
       do k = lo(3), hi(3)
          do j = lo(2), hi(2)
             do i = lo(1), hi(1)
@@ -351,8 +348,8 @@ contains
       end do
 
       end subroutine dermprho
-      
-      
+
+
 
    subroutine dermgvort (vort,DIMS(vort),nv,dat,DIMS(dat),ncomp, &
                                 lo,hi,domlo,domhi,delta,xlo,time,dt, &
@@ -856,7 +853,7 @@ contains
       end if
 
 #     undef U
-#     undef V      
+#     undef V
 #     undef W
 #     undef ULOY
 #     undef UHIY
@@ -877,9 +874,9 @@ contains
   subroutine dermgdivu (divu,DIMS(divu),nv,dat,DIMS(dat),ncomp, &
                                 lo,hi,domlo,domhi,delta,xlo,time,dt, &
                                 bc,level,grid_no) bind(C, name="dermgdivu")
-      
+
       use bc_fill_3d_module, only : xvel_fill, yvel_fill, zvel_fill
-      
+
       implicit none
 !c
 !c ::: This routine will derive magnitude of the divergence of velocity
@@ -1064,7 +1061,7 @@ contains
                         domlo,domhi,delta,xlo,time,bc(1,1,3))
 
 #     undef U
-#     undef V      
+#     undef V
 #     undef W
 #     undef ULOX
 #     undef UHIX
@@ -1250,7 +1247,7 @@ contains
 
       end subroutine deravgpres
 
-  
+
   subroutine drhomry (e,DIMS(e),nv,dat,DIMS(dat),ncomp, &
                       lo,hi,domlo,domhi,delta,xlo,time,dt,bc, &
                       level,grid_no) &
@@ -1275,7 +1272,7 @@ contains
 
       integer    i,j,k,n
       integer    nxlo,nxhi,nylo,nyhi,nzlo,nzhi
-      
+
       nxlo = max(0,domlo(1)-lo(1))
       nxhi = max(0,hi(1)-domhi(1))
       nylo = max(0,domlo(2)-lo(2))
@@ -1332,7 +1329,7 @@ contains
 
       integer    i,j,k,n
       integer    nxlo, nxhi, nylo, nyhi, nzlo,nzhi
-      
+
       nxlo = max(0,domlo(1)-lo(1))
       nxhi = max(0,hi(1)-domhi(1))
       nylo = max(0,domlo(2)-lo(2))
@@ -1351,7 +1348,7 @@ contains
             enddo
          enddo
       enddo
-      
+
       do n=1,ncomp
          do k=lo(3),hi(3)
             do j = lo(2), hi(2)
@@ -1373,13 +1370,13 @@ contains
 
     use network,        only : nspecies
     use PeleLM_3D, only: pphys_PfromRTY
-    
+
     implicit none
 
-!     
+!
 ! ::: This routine will derive rho*R*T
 !
-      
+
       integer    lo(dim), hi(dim)
       integer    DIMDEC(e)
       integer    DIMDEC(dat)
@@ -1397,7 +1394,7 @@ contains
       integer lo_chem(3),hi_chem(3)
       data lo_chem /1,1,1/
       data hi_chem /1,1,1/
-      
+
       nxlo = max(0,domlo(1)-lo(1))
       nxhi = max(0,hi(1)-domhi(1))
       nylo = max(0,domlo(2)-lo(2))
@@ -1408,7 +1405,7 @@ contains
       if (nxlo+nxhi+nylo+nyhi+nzlo+nzhi .gt. 0) then
 	 call bl_abort("FORT_DERRHORT: outside domain")
       endif
-!      
+!
 !     Set pointers into state (these must agree with setup for this derived quant).
 !
       rho = 1
@@ -1527,7 +1524,7 @@ contains
     use PeleLM_3D, only : pphys_mass_to_mole
 
     implicit none
-    
+
       integer    lo(dim), hi(dim)
       integer    DIMDEC(x)
       integer    DIMDEC(dat)
@@ -1546,14 +1543,14 @@ contains
       data lo_chem /1,1,1/
       data hi_chem /1,1,1/
 
-      rho = 1 
+      rho = 1
       fS  = 2
 
       do k=lo(3),hi(3)
          do j=lo(2),hi(2)
             do i=lo(1),hi(1)
                do n = 1,nspecies
-                  Yt(n) = dat(i,j,k,fS+n-1)/dat(i,j,k,rho) 
+                  Yt(n) = dat(i,j,k,fS+n-1)/dat(i,j,k,rho)
                enddo
                call pphys_mass_to_mole(lo_chem, hi_chem, &
                           Yt, ARLIM(lo_chem),ARLIM(hi_chem), &
@@ -1568,7 +1565,7 @@ contains
   end subroutine dermolefrac
 
 !=========================================================
-  
+
   subroutine derconcentration (C,DIMS(C),nv,dat,DIMS(dat),ncomp, &
                                lo,hi,domlo,domhi,delta,xlo,time,dt,bc, &
                                level,grid_no) &
@@ -1576,7 +1573,7 @@ contains
 
     use network,        only : nspecies
     use PeleLM_3D, only: pphys_massr_to_conc
-                               
+
     implicit none
 
       integer    lo(dim), hi(dim)
@@ -1597,7 +1594,7 @@ contains
       data lo_chem /1,1,1/
       data hi_chem /1,1,1/
 
-      rho = 1 
+      rho = 1
       T   = 2
       fS  = 3
 
@@ -1605,7 +1602,7 @@ contains
          do j=lo(2),hi(2)
             do i=lo(1),hi(1)
                do n = 1,nspecies
-                  Yt(n) = dat(i,j,k,fS+n-1)/dat(i,j,k,rho) 
+                  Yt(n) = dat(i,j,k,fS+n-1)/dat(i,j,k,rho)
                enddo
                call pphys_massr_to_conc(lo_chem,hi_chem, &
                   Yt,           ARLIM(lo_chem),ARLIM(hi_chem), &
@@ -1683,7 +1680,7 @@ contains
       enddo
 
   end subroutine dertransportcoeff
-  
+
 !=========================================================
 
   subroutine dermolweight (x,DIMS(x),nv,dat,DIMS(dat),ncomp, &
@@ -1723,9 +1720,9 @@ contains
                do n = 1,nspecies
                   Yt(n) = dat(i,j,k,fS+n-1)/dat(i,j,k,rho)
                enddo
-               
+
                CALL CKMMWY(Yt,x(i,j,k,1))
-               
+
             enddo
          enddo
       enddo
@@ -1738,7 +1735,7 @@ contains
                               lo,hi,domlo,domhi,delta,xlo,time,dt,bc, &
                               level,grid_no) &
                               bind(C, name="FORT_DERFORCING")
-     
+
       implicit none
 
 !
@@ -1791,14 +1788,14 @@ contains
 
 !     Homogeneous Isotropic Turbulence
       twicePi=two*Pi
-      
+
 !     Adjust z offset for probtype 15
       if (time_offset.gt.(-half)) then
          force_time = time + time_offset
       else
          force_time = time
       endif
-      
+
       Lx = domnhi(1)-domnlo(1)
       Ly = domnhi(2)-domnlo(2)
       Lz = domnhi(3)-domnlo(3)
@@ -1806,13 +1803,13 @@ contains
       if (hack_lz.eq.1) then
          Lz = Lz/two
       endif
-      
+
       Lmin = min(Lx,Ly,Lz)
       kappaMax = dfloat(nmodes)/Lmin + 1.0d-8
       nxmodes = nmodes*int(0.5+Lx/Lmin)
       nymodes = nmodes*int(0.5+Ly/Lmin)
       nzmodes = nmodes*int(0.5+Lz/Lmin)
-      
+
       xstep = int(Lx/Lmin+0.5)
       ystep = int(Ly/Lmin+0.5)
       zstep = int(Lz/Lmin+0.5)
@@ -1903,15 +1900,15 @@ contains
          enddo
       enddo
 #endif
-  end subroutine FORT_DERFORCING 
+  end subroutine FORT_DERFORCING
 
-!=========================================================  
-  
+!=========================================================
+
   subroutine FORT_DERFORCEX (e,DIMS(e),nv,dat,DIMS(dat),ncomp, &
                              lo,hi,domlo,domhi,delta,xlo,time,dt,bc, &
                              level,grid_no) &
                              bind(C, name="FORT_DERFORCEX")
-                             
+
       implicit none
 
 !
@@ -1963,14 +1960,14 @@ contains
 
 !     Homogeneous Isotropic Turbulence
       twicePi=two*Pi
-      
+
 !     Adjust z offset for probtype 15
       if (time_offset.gt.(-half)) then
          force_time = time + time_offset
       else
          force_time = time
       endif
-      
+
       Lx = domnhi(1)-domnlo(1)
       Ly = domnhi(2)-domnlo(2)
       Lz = domnhi(3)-domnlo(3)
@@ -1978,13 +1975,13 @@ contains
       if (hack_lz.eq.1) then
          Lz = Lz/two
       endif
-      
+
       Lmin = min(Lx,Ly,Lz)
       kappaMax = dfloat(nmodes)/Lmin + 1.0d-8
       nxmodes = nmodes*int(0.5+Lx/Lmin)
       nymodes = nmodes*int(0.5+Ly/Lmin)
       nzmodes = nmodes*int(0.5+Lz/Lmin)
-      
+
       xstep = int(Lx/Lmin+0.5)
       ystep = int(Ly/Lmin+0.5)
       zstep = int(Lz/Lmin+0.5)
@@ -1998,7 +1995,7 @@ contains
          HLy = Ly
          HLz = Lz
       endif
-   
+
       do k = klo, khi
          z = xlo(3) + hz*(float(k-klo) + half)
          do j = jlo, jhi
@@ -2061,7 +2058,7 @@ contains
                              lo,hi,domlo,domhi,delta,xlo,time,dt,bc, &
                              level,grid_no) &
                              bind(C, name="FORT_DERFORCEY")
-                             
+
       implicit none
 !
 ! ::: This routine will computes the forcing term
@@ -2112,14 +2109,14 @@ contains
 
 !     Homogeneous Isotropic Turbulence
       twicePi=two*Pi
-      
+
 !     Adjust z offset for probtype 15
       if (time_offset.gt.(-half)) then
          force_time = time + time_offset
       else
          force_time = time
       endif
-      
+
       Lx = domnhi(1)-domnlo(1)
       Ly = domnhi(2)-domnlo(2)
       Lz = domnhi(3)-domnlo(3)
@@ -2127,13 +2124,13 @@ contains
       if (hack_lz.eq.1) then
          Lz = Lz/two
       endif
-      
+
       Lmin = min(Lx,Ly,Lz)
       kappaMax = dfloat(nmodes)/Lmin + 1.0d-8
       nxmodes = nmodes*int(0.5+Lx/Lmin)
       nymodes = nmodes*int(0.5+Ly/Lmin)
       nzmodes = nmodes*int(0.5+Lz/Lmin)
-      
+
       xstep = int(Lx/Lmin+0.5)
       ystep = int(Ly/Lmin+0.5)
       zstep = int(Lz/Lmin+0.5)
@@ -2210,7 +2207,7 @@ contains
                              lo,hi,domlo,domhi,delta,xlo,time,dt,bc, &
                              level,grid_no) &
                              bind(C, name="FORT_DERFORCEZ")
-                             
+
       implicit none
 
 !
@@ -2262,14 +2259,14 @@ contains
 
 !     Homogeneous Isotropic Turbulence
       twicePi=two*Pi
-      
+
 !     Adjust z offset for probtype 15
       if (time_offset.gt.(-half)) then
          force_time = time + time_offset
       else
          force_time = time
       endif
-      
+
       Lx = domnhi(1)-domnlo(1)
       Ly = domnhi(2)-domnlo(2)
       Lz = domnhi(3)-domnlo(3)
@@ -2277,13 +2274,13 @@ contains
       if (hack_lz.eq.1) then
          Lz = Lz/two
       endif
-      
+
       Lmin = min(Lx,Ly,Lz)
       kappaMax = dfloat(nmodes)/Lmin + 1.0d-8
       nxmodes = nmodes*int(0.5+Lx/Lmin)
       nymodes = nmodes*int(0.5+Ly/Lmin)
       nzmodes = nmodes*int(0.5+Lz/Lmin)
-      
+
       xstep = int(Lx/Lmin+0.5)
       ystep = int(Ly/Lmin+0.5)
       zstep = int(Lz/Lmin+0.5)
@@ -2297,7 +2294,7 @@ contains
          HLy = Ly
          HLz = Lz
       endif
-    
+
       do k = klo, khi
          z = xlo(3) + hz*(float(k-klo) + half)
          do j = jlo, jhi
