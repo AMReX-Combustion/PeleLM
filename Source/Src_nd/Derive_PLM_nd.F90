@@ -45,8 +45,6 @@ contains
                          level, grid_no) &
                          bind(C, name="dermgvort")
 
-      use bc_fill_nd_module, only : xvel_fill, yvel_fill, zvel_fill
-
       implicit none
 
 !  In/Out
