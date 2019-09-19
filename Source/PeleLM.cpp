@@ -826,7 +826,7 @@ PeleLM::Initialize_specific ()
       }
     }
 
-    for (int i = 0; i < BL_SPACEDIM; i++)
+    for (int i = 0; i < AMREX_SPACEDIM; i++)
     {
         phys_bc.setLo(i,lo_bc[i]);
         phys_bc.setHi(i,hi_bc[i]);
@@ -4739,8 +4739,8 @@ PeleLM::advance (Real time,
     {
       const Box& box = mfi.tilebox();            
       const FArrayBox& species = S_old[mfi];
-      floor_spec(box.loVect(), box.hiVect(), species.dataPtr(first_spec),
-                     ARLIM(species.loVect()), ARLIM(species.hiVect()));
+      floor_spec(ARLIM_3D(box.loVect()), ARLIM_3D(box.hiVect()), 
+                 BL_TO_FORTRAN_N_3D(species,first_spec));
     }
   }
   BL_PROFILE_VAR_STOP(HTDIFF);
@@ -4901,11 +4901,11 @@ PeleLM::advance (Real time,
         FArrayBox& thetafab = theta_old[mfi];
         const FArrayBox& rhoY = S_old[mfi];
         const FArrayBox& T = S_old[mfi];
-        calc_gamma_pinv(box.loVect(), box.hiVect(),
-                           thetafab.dataPtr(),       ARLIM(thetafab.loVect()), ARLIM(thetafab.hiVect()),
-                           rhoY.dataPtr(first_spec), ARLIM(rhoY.loVect()),     ARLIM(rhoY.hiVect()),
-                           T.dataPtr(Temp),          ARLIM(T.loVect()),        ARLIM(T.hiVect()),
-                           &p_amb_old);
+        calc_gamma_pinv(ARLIM_3D(box.loVect()), ARLIM_3D(box.hiVect()),
+                        BL_TO_FORTRAN_3D(thetafab),
+                        BL_TO_FORTRAN_N_3D(rhoY,first_spec),
+                        BL_TO_FORTRAN_N_3D(T,Temp),
+                        &p_amb_old);
       }
 #ifdef _OPENMP
 #pragma omp parallel
@@ -4916,11 +4916,11 @@ PeleLM::advance (Real time,
         FArrayBox& thetafab = theta_nph[mfi];
         const FArrayBox& rhoY = S_new[mfi];
         const FArrayBox& T = S_new[mfi];
-        calc_gamma_pinv(box.loVect(), box.hiVect(),
-                           thetafab.dataPtr(),       ARLIM(thetafab.loVect()), ARLIM(thetafab.hiVect()),
-                           rhoY.dataPtr(first_spec), ARLIM(rhoY.loVect()),     ARLIM(rhoY.hiVect()),
-                           T.dataPtr(Temp),          ARLIM(T.loVect()),        ARLIM(T.hiVect()),
-                           &p_amb_new);
+        calc_gamma_pinv(ARLIM_3D(box.loVect()), ARLIM_3D(box.hiVect()),
+                        BL_TO_FORTRAN_3D(thetafab),
+                        BL_TO_FORTRAN_N_3D(rhoY,first_spec),
+                        BL_TO_FORTRAN_N_3D(T,Temp),
+                        &p_amb_new);
       }
 #ifdef _OPENMP
 #pragma omp parallel
@@ -5145,8 +5145,8 @@ PeleLM::advance (Real time,
       {
         const Box& box = mfi.tilebox();            
         const FArrayBox& species = S_new[mfi];
-        floor_spec(box.loVect(), box.hiVect(),
-                       species.dataPtr(first_spec), ARLIM(species.loVect()),  ARLIM(species.hiVect()));
+        floor_spec(ARLIM_3D(box.loVect()), ARLIM_3D(box.hiVect()), 
+                   BL_TO_FORTRAN_N_3D(species,first_spec));
       }
     }
     BL_PROFILE_VAR_STOP(HTDIFF);
@@ -7483,16 +7483,16 @@ PeleLM::zeroBoundaryVisc (MultiFab*  beta[BL_SPACEDIM],
       {
         FArrayBox& beta_fab = (*(beta[dir]))[mfi];
         const Box& ebox     = amrex::surroundingNodes(mfi.growntilebox(),dir);
-        zero_visc(beta_fab.dataPtr(dst_comp),
-                      ARLIM(beta_fab.loVect()), ARLIM(beta_fab.hiVect()),
-                      ebox.loVect(),  ebox.hiVect(),
-                      edom.loVect(),  edom.hiVect(),
-                      geom.CellSize(), geom.ProbLo(), phys_bc.vect(),
-                      &dir, &isrz, &state_comp, &ncomp);
+        zero_visc(BL_TO_FORTRAN_N_ANYD(beta_fab,dst_comp),
+                  ebox.loVect(), ebox.hiVect(),
+                  edom.loVect(),  edom.hiVect(),
+                  geom.CellSize(), geom.ProbLo(), phys_bc.vect(),
+                  &dir, &isrz, &state_comp, &ncomp);
       }
     }
   }
 }
+
 void
 PeleLM::compute_vel_visc (Real      time,
                           MultiFab* beta)
@@ -7600,13 +7600,13 @@ PeleLM::calc_divu (Real      time,
     const FArrayBox& rhoY = S[mfi];
     const FArrayBox& rYdot = RhoYdot[mfi];
     const FArrayBox& T = S[mfi];
-    calc_divu_fortran(box.loVect(), box.hiVect(),
-                  du.dataPtr(),             ARLIM(du.loVect()),    ARLIM(du.hiVect()),
-                  rYdot.dataPtr(),          ARLIM(rYdot.loVect()), ARLIM(rYdot.hiVect()),
-                  vtY.dataPtr(vtCompY),     ARLIM(vtY.loVect()),   ARLIM(vtY.hiVect()),
-                  vtT.dataPtr(vtCompT),     ARLIM(vtT.loVect()),   ARLIM(vtT.hiVect()),
-                  rhoY.dataPtr(first_spec), ARLIM(rhoY.loVect()),  ARLIM(rhoY.hiVect()),
-                  T.dataPtr(Temp),          ARLIM(T.loVect()),     ARLIM(T.hiVect()));
+    calc_divu_fortran(ARLIM_ANYD(box.loVect()), ARLIM_ANYD(box.hiVect()),
+                      BL_TO_FORTRAN_ANYD(du),
+                      BL_TO_FORTRAN_ANYD(rYdot),
+                      BL_TO_FORTRAN_N_ANYD(vtY, vtCompY),
+                      BL_TO_FORTRAN_N_ANYD(vtT, vtCompT),
+                      BL_TO_FORTRAN_N_ANYD(rhoY, first_spec),
+                      BL_TO_FORTRAN_N_ANYD(T,Temp));
   }
 }
 
@@ -7957,14 +7957,14 @@ PeleLM::writePlotFile (const std::string& dir,
         os << it->second[i] << '\n';
     }
 
-    os << BL_SPACEDIM << '\n';
+    os << AMREX_SPACEDIM << '\n';
     os << parent->cumTime() << '\n';
     int f_lev = parent->finestLevel();
     os << f_lev << '\n';
-    for (int i = 0; i < BL_SPACEDIM; i++)
+    for (int i = 0; i < AMREX_SPACEDIM; i++)
       os << Geom().ProbLo(i) << ' ';
     os << '\n';
-    for (int i = 0; i < BL_SPACEDIM; i++)
+    for (int i = 0; i < AMREX_SPACEDIM; i++)
       os << Geom().ProbHi(i) << ' ';
     os << '\n';
     for (int i = 0; i < f_lev; i++)
@@ -7978,7 +7978,7 @@ PeleLM::writePlotFile (const std::string& dir,
     os << '\n';
     for (int i = 0; i <= f_lev; i++)
     {
-      for (int k = 0; k < BL_SPACEDIM; k++)
+      for (int k = 0; k < AMREX_SPACEDIM; k++)
         os << parent->Geom(i).CellSize()[k] << ' ';
       os << '\n';
     }
@@ -8055,7 +8055,7 @@ PeleLM::writePlotFile (const std::string& dir,
       jobInfoFile << "PeleLM git hash: " << githash1 << "\n";
     }
     if (strlen(githash2) > 0) {
-      jobInfoFile << "BoxLib git hash: " << githash2 << "\n";
+      jobInfoFile << "AMReX git hash: " << githash2 << "\n";
     }
     if (strlen(githash3) > 0) {
       jobInfoFile << "IAMR   git hash: " << githash3 << "\n";
