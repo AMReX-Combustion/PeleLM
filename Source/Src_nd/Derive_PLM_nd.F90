@@ -124,7 +124,7 @@ contains
 
 #if ( AMREX_SPACEDIM == 2 )
       vorfun(uy,uz,vx,vz,wx,wy) = vx - uy
-#elif ( AMREX_SPACEDIM == 2 )
+#elif ( AMREX_SPACEDIM == 3 )
       vorfun(uy,uz,vx,vz,wx,wy) = sqrt((wy-vz)**2+(uz-wx)**2+(vx-uy)**2)
 #endif
 
