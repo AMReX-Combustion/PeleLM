@@ -28,7 +28,7 @@ contains
 
       use network,   only: nspecies
       use mod_Fvar_def, only : dv_control, tbase_control, V_in, f_flag_active_control
-      use probdata_module, only : bcinit, rho_bc, Y_bc, T_bc, h_bc, v_bc
+      use probdata_module, only : bcinit, rho_bc, Y_bc, T_bc, h_bc, v_bc, w_bc
 
       implicit none
 
@@ -70,6 +70,26 @@ contains
           vel(3) = zero
         endif
       endif  
+
+      if ((dir == 3).and.(norm == 1)) then
+        rho = rho_bc(1)
+        do n = 0, nspecies-1
+          Yl(n) = Y_bc(n)
+        end do
+        T = T_bc(1)
+        h = h_bc(1)
+         
+        if (getuvw .eqv. .TRUE.) then
+            
+          vel(1) = zero
+          vel(2) = zero
+          if (f_flag_active_control == 1) then                
+            vel(3) =  V_in + (time-tbase_control)*dV_control
+          else 
+            vel(3) = w_bc
+          endif
+        endif
+      endif
 
    end subroutine bcfunction
 
