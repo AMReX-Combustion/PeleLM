@@ -120,7 +120,7 @@ extern "C" {
                                       ARLIM_P(hlo),ARLIM_P(hhi), const amrex::Real* hdat,
                                       ARLIM_P(betaxlo),ARLIM_P(betaxhi), const amrex::Real* betax,
                                       ARLIM_P(betaylo),ARLIM_P(betayhi), const amrex::Real* betay,
-#if (BL_SPACEDIM == 3) 
+#if (AMREX_SPACEDIM == 3) 
                                       ARLIM_P(betazlo),ARLIM_P(betazhi), const amrex::Real* betaz,
 #endif            
                                       ARLIM_P(ddrhslo),ARLIM_P(ddrhshi), amrex::Real* ddrhsdat);
@@ -161,7 +161,7 @@ extern "C" {
                         ARLIM_P(areax_lo),ARLIM_P(areax_hi),
                         const amrex::Real* areay,
                         ARLIM_P(areay_lo),ARLIM_P(areay_hi),
-#if (BL_SPACEDIM == 3) 
+#if (AMREX_SPACEDIM == 3) 
                         const amrex::Real* areaz,
                         ARLIM_P(areaz_lo),ARLIM_P(areaz_hi),
 #endif            
@@ -179,7 +179,7 @@ extern "C" {
                           ARLIM_P(areax_lo),ARLIM_P(areax_hi),
                           const amrex::Real* areay,
                           ARLIM_P(areay_lo),ARLIM_P(areay_hi),
-#if (BL_SPACEDIM == 3) 
+#if (AMREX_SPACEDIM == 3) 
                           const amrex::Real* areaz,
                           ARLIM_P(areaz_lo),ARLIM_P(areaz_hi),
 #endif            
@@ -230,7 +230,7 @@ extern "C" {
                             const amrex::Real* rDy,ARLIM_P(rDylo),ARLIM_P(rDyhi),
                             const amrex::Real* Fiy,ARLIM_P(Fiylo),ARLIM_P(Fiyhi),
                             const amrex::Real* ay, ARLIM_P(aylo), ARLIM_P(ayhi),
-#if BL_SPACEDIM == 3
+#if AMREX_SPACEDIM == 3
                             const amrex::Real* rDz,ARLIM_P(rDzlo),ARLIM_P(rDzhi),
                             const amrex::Real* Fiz,ARLIM_P(Fizlo),ARLIM_P(Fizhi),
                             const amrex::Real* az, ARLIM_P(azlo), ARLIM_P(azhi),
@@ -241,7 +241,7 @@ extern "C" {
   void incrwext_flx_div (const int* lo, const int* hi,
                            const amrex::Real* xflux, ARLIM_P(fxlo),  ARLIM_P(fxhi),
                            const amrex::Real* yflux, ARLIM_P(fylo),  ARLIM_P(fyhi),
-#if BL_SPACEDIM == 3
+#if AMREX_SPACEDIM == 3
                            const amrex::Real* zflux, ARLIM_P(fzlo),  ARLIM_P(fzhi),
 #endif
                            const amrex::Real* sto,     ARLIM_P(stolo),    ARLIM_P(stohi),
@@ -253,28 +253,27 @@ extern "C" {
                     const amrex::Real* updat, ARLIM_P(uplo), ARLIM_P(uphi),
                     const amrex::Real* xflux, ARLIM_P(fxlo), ARLIM_P(fxhi),
                     const amrex::Real* yflux, ARLIM_P(fylo), ARLIM_P(fyhi),
-#if BL_SPACEDIM == 3
+#if AMREX_SPACEDIM == 3
                     const amrex::Real* zflux, ARLIM_P(fzlo), ARLIM_P(fzhi),
 #endif
                     const amrex::Real* vol,   ARLIM_P(vlo),  ARLIM_P(vhi),
                     const int* nc, const amrex::Real* scale);
 
   void calc_divu_fortran(const int* lo,  const int* hi,
-                     amrex::Real* divu,         ARLIM_P(dulo),    ARLIM_P(duhi),
-                     const amrex::Real* rYdot,  ARLIM_P(rYdotlo), ARLIM_P(rYdothi),
-                     const amrex::Real* vtY,    ARLIM_P(vtYlo),   ARLIM_P(vtYhi),
-                     const amrex::Real* vtT,    ARLIM_P(vtTlo),   ARLIM_P(vtThi),
-                     const amrex::Real* rhoY,   ARLIM_P(rYlo),    ARLIM_P(rYhi),
-                     const amrex::Real* T,      ARLIM_P(Tlo),     ARLIM_P(Thi));
+                         BL_FORT_FAB_ARG_3D(divu),
+                         const BL_FORT_FAB_ARG_3D(rYdot),  
+                         const BL_FORT_FAB_ARG_3D(vtY),  
+                         const BL_FORT_FAB_ARG_3D(vtT),  
+                         const BL_FORT_FAB_ARG_3D(rhoY),  
+                         const BL_FORT_FAB_ARG_3D(T));
 
   void calc_gamma_pinv(const int* lo,  const int* hi,
-                          amrex::Real* theta,        ARLIM_P(thlo),    ARLIM_P(thhi),
-                          const amrex::Real* rhoY,   ARLIM_P(rYlo),    ARLIM_P(rYhi),
-                          const amrex::Real* T,      ARLIM_P(Tlo),     ARLIM_P(Thi),
-                          const amrex::Real* Pamb_in);
+                       BL_FORT_FAB_ARG_3D(theta),
+                       const BL_FORT_FAB_ARG_3D(rhoY),
+                       const BL_FORT_FAB_ARG_3D(T),
+                       const amrex::Real* Pamb_in); 
     
-  void floor_spec(const int* lo,  const int* hi,
-                      const amrex::Real* spec,   ARLIM_P(speclo),    ARLIM_P(spechi));
+  void floor_spec(const int* lo,  const int* hi, const BL_FORT_FAB_ARG_3D(spec));
 
   void set_common (const amrex::Real* time, const int* iteration);
 
@@ -282,7 +281,7 @@ extern "C" {
                            const amrex::Real* ugradp, ARLIM_P(up_lo),  ARLIM_P(up_hi),
                            const amrex::Real* umac, ARLIM_P(umac_lo),  ARLIM_P(umac_hi),
                            const amrex::Real* vmac, ARLIM_P(vmac_lo),  ARLIM_P(vmac_hi),
-#if BL_SPACEDIM == 3
+#if AMREX_SPACEDIM == 3
                            const amrex::Real* wmac, ARLIM_P(wmac_lo),  ARLIM_P(wmac_hi),
 #endif
                            const int* lo, const int* hi, const amrex::Real* dx);
@@ -306,7 +305,7 @@ extern "C" {
                           const amrex::Real* updat, ARLIM_P(uplo), ARLIM_P(uphi),
                           const amrex::Real* xflux, ARLIM_P(fxlo), ARLIM_P(fxhi),
                           const amrex::Real* yflux, ARLIM_P(fylo), ARLIM_P(fyhi),
-#if BL_SPACEDIM == 3
+#if AMREX_SPACEDIM == 3
                           const amrex::Real* zflux, ARLIM_P(fzlo), ARLIM_P(fzhi),
 #endif
                           const amrex::Real* vol,   ARLIM_P(vlo),  ARLIM_P(vhi),
