@@ -16,7 +16,7 @@ Current project build status
 ----------------------------
 
 .. image:: https://readthedocs.org/projects/pelelm/badge
-
+  :target: https://pelelm.readthedocs.io/en/latest/index.html
 
 Getting started with PeleLM
 ---------------------------
