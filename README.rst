@@ -1,4 +1,5 @@
 .. image:: https://amrex-codes.github.io/badges/powered%20by-AMReX-red.svg
+  :target: https://amrex-codes.github.io/amrex/
 
 PeleLM - README
 ===============
