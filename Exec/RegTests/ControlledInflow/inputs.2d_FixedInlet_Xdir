@@ -100,8 +100,6 @@ ns.min_rho_divu_ceiling = .01
 ns.fuelName        = H2
 ns.unity_Le = 0
 
-ns.dpdt_option = 0
-
 ns.do_active_control = 0
 
 ns.do_fillPatchUMAC=1
