@@ -6103,7 +6103,7 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
       const FArrayBox& frc      = FTemp[Smfi];
       FArrayBox*       chemDiag = (do_diag ? &(diagTemp[Smfi]) : 0);
       
-amrex::Print() << " NEW LOOP IN MFITER \n";
+//amrex::Print() << " NEW LOOP IN MFITER \n";
 #ifdef AMREX_USE_EB      
       const BaseFab<int>& fab_ebmask = new_ebmask[Smfi];
 #endif
@@ -6131,9 +6131,11 @@ amrex::Print() << " NEW LOOP IN MFITER \n";
       const auto rhoY   = rYn.view(lo);
       const auto fcl    = fc.view(lo);
       const auto frcing = frc.view(lo);
-      
+
+#ifdef AMREX_USE_EB       
       const auto local_ebmask   = fab_ebmask.view(lo);
-      
+#endif
+
       double tmp_vect[(nspecies+1)];
       double tmp_src_vect[nspecies];
       double tmp_vect_energy[1];
@@ -6154,8 +6156,9 @@ amrex::Print() << " NEW LOOP IN MFITER \n";
             //amrex::Print() << " \n";
             //amrex::Print() << " CELL I,J,K " << i << " " << j << " " << k << " \n ";
             //amrex::Print() << local_ebmask(i,j,k);
-            
+#ifdef AMREX_USE_EB             
             if (local_ebmask(i,j,k) != 0){
+#endif
             //amrex::Print() << " \n WE EVALUTE REACTION \n";
             //amrex::Print() << local_ebmask(i,j,k);
             fcl(i,j,k) = react(tmp_vect, tmp_src_vect,
@@ -6164,6 +6167,7 @@ amrex::Print() << " NEW LOOP IN MFITER \n";
 				                       &pressure, 
 #endif
 	                             &dt_incr, &time_init);
+#ifdef AMREX_USE_EB 
             }
             else{
             //    amrex::Print() << "\n NOTHING DONE HERE \n";
@@ -6172,6 +6176,7 @@ amrex::Print() << " NEW LOOP IN MFITER \n";
             
             
             }
+#endif
             dt_incr = dt;
             for (int sp=0;sp<nspecies; sp++){
 	            rhoY(i,j,k,sp)      = tmp_vect[sp] * 1.e+3;
