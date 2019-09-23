@@ -1054,7 +1054,7 @@ LM_Error_Value::LM_Error_Value (LMEF _lmef,
 
 LM_Error_Value::LM_Error_Value (LMEF_BOX _lmef_box, const amrex::RealBox& _box, amrex::Real _min_time,
                                 amrex::Real _max_time, int _max_level)
-    : lmef(0), lmef_box(_lmef_box), box(_box), min_time(_min_time), max_time(_max_time), max_level(_max_level)
+    : lmef(0), lmef_box(_lmef_box), min_time(_min_time), max_time(_max_time), box(_box), max_level(_max_level)
 {
 }
 
@@ -1596,12 +1596,12 @@ PeleLM::restart (Amr&          papa,
       Vector<char> fileCharPtr;
       ParallelDescriptor::ReadAndBcastFile(File, fileCharPtr);
       std::string fileCharPtrString(fileCharPtr.dataPtr());
-      std::istringstream is(fileCharPtrString, std::istringstream::in);
+      std::istringstream isp(fileCharPtrString, std::istringstream::in);
 
       // read in title line
-      std::getline(is, line);
+      std::getline(isp, line);
 
-      is >> p_amb_old;
+      isp >> p_amb_old;
       p_amb_new = p_amb_old;
   }
 }
