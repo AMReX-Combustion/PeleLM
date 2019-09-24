@@ -1,6 +1,6 @@
 TOP = ../../../../
 AMREX_HOME ?= ${TOP}/amrex
-IAMR_HOME ?= ${TOP}/IAMR_EB
+IAMR_HOME ?= ${TOP}/IAMR_EB_diff_rearange
 PELELM_HOME ?= ${TOP}/PeleLM_EB
 
 #
