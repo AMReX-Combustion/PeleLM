@@ -47,16 +47,14 @@ contains
 !  Init Bilger's element based mixture fraction
 !=========================================================
 
-   subroutine init_mixture_fraction(Yfu, Yox) bind(C,name='init_mixture_fraction')
+   subroutine init_mixture_fraction() bind(C,name='init_mixture_fraction')
 
       use amrex_paralleldescriptor_module, only : amrex_pd_ioprocessor
-      use fuego_chemistry
+      use mod_Fvar_def, only : Y_fu, Y_ox
+      use fuego_chemistry, only : ckwt, ckawt, ckncf
       use chemistry_module, only : elem_names, spec_names
 
       implicit none
-
-! In/Out
-      REAL_T, dimension(nspecies), intent(in)  :: Yfu, Yox
 
 ! Local
       REAL_T, dimension(nspecies)  :: WtS
@@ -64,22 +62,32 @@ contains
       integer, dimension(nelements,nspecies) :: ELTinSp
       integer :: i, j
       logical :: is_ioproc
+      REAL_T, parameter :: tol = ten*tiny(zero)
 
       is_ioproc = amrex_pd_ioprocessor()
+
+      ! Print stream composition
       if (is_ioproc) then
-        ! Print stream composition
-        write(6,'(4x,a)') 'Fuel mass fractions:'
+        write(6,'(2x,a)') 'Initialise mixture fraction'
+        write(6,'(4x,a)') 'Fuel-stream mass fractions:'
         do i = 1, nspecies
-          if (Yfu(i) .gt. 1e-14) then
-            write(6,'(4x,a22,1x,f12.7)') adjustl(spec_names(i)), Yfu(i)
+          if (Y_fu(i) .gt. 1e-14) then
+            write(6,'(4x,a22,1x,f12.7)') adjustl(spec_names(i)), Y_fu(i)
           endif
         enddo
-        write(6,'(4x,a)') 'Oxidiser mass fractions:'
+        write(6,'(4x,a)') 'Oxidiser-stream mass fractions:'
         do i = 1, nspecies
-          if (Yox(i) .gt. 1e-14) then
-            write(6,'(4x,a22,1x,f12.7)') adjustl(spec_names(i)), Yox(i)
+          if (Y_ox(i) .gt. 1e-14) then
+            write(6,'(4x,a22,1x,f12.7)') adjustl(spec_names(i)), Y_ox(i)
           endif
         enddo
+      endif
+
+      ! Sanity checks
+      if      (abs(sum(Y_fu) - one) .gt. tol) then
+        call amrex_abort('sum(Y_fu) != 1')
+      else if (abs(sum(Y_ox) - one) .gt. tol) then
+        call amrex_abort('sum(Y_ox) != 1')
       endif
 
       CALL ckwt(WtS)
@@ -106,11 +114,11 @@ contains
          do j=1,nelements
             fact(i) = fact(i) + beta_mix(j)*coeff_mix(i,j)
          enddo
-         Zfu = Zfu+fact(i)*Yfu(i)
-         Zox = Zox+fact(i)*Yox(i)
+         Zfu = Zfu+fact(i)*Y_fu(i)
+         Zox = Zox+fact(i)*Y_ox(i)
       enddo
 
-      Zstoic = (0.0d0 - Zox)/(Zfu - Zox)
+      Zstoic = (zero - Zox)/(Zfu - Zox)
 
       if (is_ioproc) then
         ! Print stream composition
@@ -147,10 +155,7 @@ contains
       integer    level, grid_no, lo_box(dim), hi_box(dim)
 
       integer    i,j,k, n
-
-      if(.not.init_mixture) then
-        call amrex_abort("Mixture fraction coefficients not initialised!")
-      endif
+      if(.not.init_mixture) call init_mixture_fraction()
 
       lo_box(1) = e_l1
       lo_box(2) = e_l2
@@ -224,10 +229,7 @@ contains
       integer    level, grid_no
 
       integer    i,j,k, n
-
-      if(.not.init_mixture) then
-        call amrex_abort("Mixture fraction coefficients not initialised!")
-      endif
+      if(.not.init_mixture) call init_mixture_fraction()
 
       e = 0
       do k=lo(3), hi(3)
