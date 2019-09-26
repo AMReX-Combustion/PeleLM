@@ -194,6 +194,10 @@ public:
   virtual void writePlotFile (const std::string& dir,
                               std::ostream&      os,
                               amrex::VisMF::How  how) override;
+  virtual void writePlotFileSlice (const std::string& dir,
+                                   std::ostream&      os,
+                                   amrex::VisMF::How  how) override;
+
 
   ////////////////////////////////////////////////////////////////////////////
   //    PeleLM public static functions                                //
