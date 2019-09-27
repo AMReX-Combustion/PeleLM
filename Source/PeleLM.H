@@ -196,6 +196,7 @@ public:
                               amrex::VisMF::How  how) override;
   virtual void writePlotFileSlice (const std::string& dir,
                                    std::ostream&      os,
+                                   int maxlevSlice,
                                    amrex::VisMF::How  how) override;
 
 

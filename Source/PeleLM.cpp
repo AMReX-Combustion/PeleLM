@@ -7847,6 +7847,7 @@ PeleLM::setPlotVariables ()
 void
 PeleLM::writePlotFileSlice (const std::string& dir,
                        std::ostream&  os,
+                       int maxlevSlice,
                        VisMF::How     how)
 {
   if ( ! Amr::Plot_Files_Output() ) return;
@@ -7973,7 +7974,8 @@ PeleLM::writePlotFileSlice (const std::string& dir,
 
     os << BL_SPACEDIM << '\n';
     os << parent->cumTime() << '\n';
-    int f_lev = parent->finestLevel();
+    // int f_lev = parent->finestLevel();
+    int f_lev = maxlevSlice;
     os << f_lev << '\n';
     for (int i = 0; i < BL_SPACEDIM; i++)
       os << ProbLoSlice[i] << ' ';
@@ -7984,8 +7986,14 @@ PeleLM::writePlotFileSlice (const std::string& dir,
     for (int i = 0; i < f_lev; i++)
       os << parent->refRatio(i)[0] << ' ';
     os << '\n';
-    for (int i = 0; i <= f_lev; i++)
-      os << SliceBox.refine(std::pow(2,i)) << ' ';
+    for (int i = 0; i <= f_lev; i++) {
+      if( i < 1) {
+      os << SliceBox << ' ';
+        }
+      else {
+      os << SliceBox.refine(2) << ' ';
+        }
+       }
     os << '\n';
     for (int i = 0; i <= f_lev; i++)
       os << parent->levelSteps(i) << ' ';
