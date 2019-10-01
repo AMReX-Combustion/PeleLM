@@ -21,20 +21,18 @@
       void init_data_new_mech (const int* level, const amrex::Real* time,
                                const int* lo, const int* hi,
                                const int* nscal,
-                               amrex::Real* vel, amrex::Real* scal, 
-                               ARLIM_P(s_lo), ARLIM_P(s_hi),
-                               amrex::Real* press,
-                               ARLIM_P(p_lo), ARLIM_P(p_hi),
+                               amrex::Real* vel, 
+                               BL_FORT_FAB_ARG_ANYD(scal),
+                               BL_FORT_FAB_ARG_ANYD(press),
                                const amrex::Real* dx,
                                const amrex::Real* xlo, const amrex::Real* xhi);
 
       void init_data (const int* level, const amrex::Real* time,
                       const int* lo, const int* hi,
                       const int* nscal,
-                      amrex::Real* vel, amrex::Real* scal, 
-                      ARLIM_P(s_lo), ARLIM_P(s_hi),
-                      amrex::Real* press,
-                      ARLIM_P(p_lo), ARLIM_P(p_hi),
+                      amrex::Real* vel, 
+                      BL_FORT_FAB_ARG_ANYD(scal),
+                      BL_FORT_FAB_ARG_ANYD(press),
                       const amrex::Real* dx,
                       const amrex::Real* xlo, const amrex::Real* xhi);
 

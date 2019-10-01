@@ -1,2 +1,0 @@
-F90EXE_sources += PeleLM_$(DIM)d.F90
-F90EXE_sources += MakeForce_$(DIM)d.F90
