@@ -616,7 +616,7 @@ contains
       REAL_T, dimension(0:NiterMAX-1), intent(out)  :: res
 
 ! Local
-      REAL_T :: Yt(nspecies), lres(0:NiterMAX-1)
+      REAL_T :: Yt(nspecies)
       integer :: i, j, k, n, Niter, MAXiters
 
       MAXiters = 0
@@ -629,7 +629,7 @@ contains
                   Yt(n) = Y(i,j,k,n)
                end do
 
-               CALL pphys_TfromHYpt( T(i,j,k), Hmix(i,j,k), Yt, errMax, NiterMAX, lres, Niter)
+               CALL pphys_TfromHYpt( T(i,j,k), Hmix(i,j,k), Yt, errMax, NiterMAX, res, Niter)
 
                if (Niter < 0) then
                   call amrex_abort(" Something went wrong in pphys_TfromHYpt ")
