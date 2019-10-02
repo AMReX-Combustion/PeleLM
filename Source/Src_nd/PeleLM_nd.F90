@@ -1785,18 +1785,16 @@ contains
       REAL_T  :: fluxxlo, fluxxhi, fluxylo, fluxyhi, fluxzlo, fluxzhi
       REAL_T  :: a,b,c
 
-      dt = 1.0D20
-
       do k = lo(3), hi(3)
          do j = lo(2), hi(2)
             do i = lo(1), hi(1)
-               dtcell = dt
+               dtcell = bigreal
                if ( flag == 1 ) then
                   if ( divu(i,j,k) > zero ) then
                      if ( rho(i,j,k) > rhomin) then
-                        dtcell = dtfactor * ( one - rhomin / Rho(i,j,k) ) / divu(i,j,k)
+                        dtcell = ( one - rhomin / Rho(i,j,k) ) / divu(i,j,k)
                      else
-                        dtcell = dtfactor * 0.5D0 / divu(i,j,k)
+                        dtcell = one / divu(i,j,k)
                      endif
                      if ( dsdt(i,j,k) > 1.0D-20 ) then
                         if ( abs(rho(i,j,k)) > rhomin ) then
@@ -1814,12 +1812,8 @@ contains
                         c = rhominij - rhoij
                         dtcell2 = two * c / (-b-sqrt(b**2-four*a*c))
 
-                        dtcell2 = dtfactor * dtcell2
                         dtcell = min(dtcell,dtcell2)
                      endif
-                  endif
-                  if ( dtcell<=zero )then
-                     write(6,*)'aha'
                   endif
                else if ( flag == 2 ) then
                   denom = u(i,j,k,1)*(rho(i+1,j,k)-rho(i-1,j,k))/delta(1)&
@@ -1830,9 +1824,9 @@ contains
                         + rho(i,j,k) * divu(i,j,k)
                   if ( denom > zero ) then
                      if ( rho(i,j,k) > rhomin ) then
-                        dtcell = dtfactor * ( rho(i,j,k) - rhomin ) / denom
+                        dtcell = ( rho(i,j,k) - rhomin ) / denom
                      else
-                        dtcell = dtfactor * abs( rho(i,j,k) ) / denom
+                        dtcell = abs( rho(i,j,k) ) / denom
                      endif
                   endif
                else if (flag == 3) then
@@ -1859,16 +1853,16 @@ contains
                   
                   if ( denom > zero ) then
                      if ( rho(i,j,k) > rhomin ) then
-                        dtcell = dtfactor * ( rho(i,j,k) - rhomin ) / denom
+                        dtcell = ( rho(i,j,k) - rhomin ) / denom
                      else
-                        dtcell = dtfactor * abs( rho(i,j,k) ) / denom
+                        dtcell = abs( rho(i,j,k) ) / denom
                      endif
                   endif
                endif
-               if (dt.gt.dtcell) then
+               if (dt>dtcell) then
                   write(6,*)'ERROR: FORT_CHECK_DIVU_DT : i,j,k,dt>dtcell = ', &
                       i,j,k,dt,dtcell
-               else if (dt.gt.dtcell*dtfactor) then
+               else if (dt>dtcell*dtfactor) then
                   write(6,*)'WARNING: FORT_CHECK_DIVU_DT : i,j,k,dt>dtcell*dtfactor = ', &
                       i,j,k,dt,dtcell*dtfactor
                endif
