@@ -42,7 +42,6 @@ contains
 
       vel(:) = 0.0d0
       rho = 0.0d0
-      Yl(:) = 0.0d0
       T = 0.0d0
       h = 0.0d0
 
@@ -84,7 +83,7 @@ contains
       implicit none
 
       integer :: lo(3), hi(3)
-      integer :: b_lo(3), b_hi(3),
+      integer :: b_lo(3), b_hi(3)
       integer :: domlo(3), domhi(3)
       integer :: bc(2*3)
       integer :: idir, isrz, id, ncomp
