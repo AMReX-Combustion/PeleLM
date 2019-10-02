@@ -1069,8 +1069,10 @@ LM_Error_Value::tagCells(int* tag, const int* tlo, const int* thi,
  
     if (max_level_applies && time_window_applies)
     {
-      lmef(tag, tlo, thi, tagval, clearval,
-           data, dlo, dhi, lo, hi, nvar,
+      lmef(tag, AMREX_ARLIM_ANYD(tlo), AMREX_ARLIM_ANYD(thi),
+           tagval, clearval,
+           data, AMREX_ARLIM_ANYD(dlo), AMREX_ARLIM_ANYD(dhi),
+           lo, hi, nvar,
            domain_lo, domain_hi, dx, xlo, prob_lo, time, level, &value);
     }
 }
@@ -1095,8 +1097,10 @@ LM_Error_Value::tagCells1(int* tag, const int* tlo, const int* thi,
  
     if (max_level_applies && time_window_applies)
     {
-      lmef_box(tag, tlo, thi, tagval, clearval,
-               box.lo(), box.hi(), lo, hi, domain_lo, domain_hi, dx, xlo, prob_lo, time, level);
+      lmef_box(tag, AMREX_ARLIM_ANYD(tlo), AMREX_ARLIM_ANYD(thi),
+               tagval, clearval,
+               AMREX_ZFILL(box.lo()), AMREX_ZFILL(box.hi()),
+               lo, hi, domain_lo, domain_hi, dx, xlo, prob_lo, time, level);
     }
 }
 
@@ -3516,7 +3520,7 @@ PeleLM::compute_enthalpy_fluxes (Real                   time,
                       BL_TO_FORTRAN_N_ANYD((*beta[1])[mfi],dComp),
                       BL_TO_FORTRAN_N_ANYD(ftmp[1],FComp),
                       BL_TO_FORTRAN_ANYD(area[1][mfi]),
-#if BL_SPACEDIM == 3
+#if AMREX_SPACEDIM == 3
                       BL_TO_FORTRAN_N_ANYD((*beta[2])[mfi],dComp),
                       BL_TO_FORTRAN_N_ANYD(ftmp[2],FComp),
                       BL_TO_FORTRAN_ANYD(area[2][mfi]),
@@ -3540,7 +3544,7 @@ PeleLM::compute_enthalpy_fluxes (Real                   time,
     ParallelDescriptor::ReduceRealMax(run_time,IOProc);
 
     amrex::Print() << "PeleLM::compute_enthalpy_fluxes(): lev: " << level 
-		   << ", time: " << run_time << '\n';
+                   << ", time: " << run_time << '\n';
   }
 }
     
@@ -8296,7 +8300,7 @@ PeleLM::errorEst (TagBoxArray& tags,
 
       if (box_tag)
       {
-        lmfunc->tagCells1(tptr,tlo,thi,
+        lmfunc->tagCells1(tptr, tlo, thi,
                           &tagval, &clearval,
                           BL_TO_FORTRAN_BOX(vbx),
                           BL_TO_FORTRAN_BOX(geom.Domain()),
@@ -8305,6 +8309,9 @@ PeleLM::errorEst (TagBoxArray& tags,
       else
       {
         FArrayBox&  fab     = (*mf)[mfi];
+        Real*       dat     = fab.dataPtr();
+        const int*  dlo     = fab.box().loVect();
+        const int*  dhi     = fab.box().hiVect();
         const int   ncomp   = fab.nComp();
         
         if (lmfunc==0) 
@@ -8318,9 +8325,9 @@ PeleLM::errorEst (TagBoxArray& tags,
         }
         else
         {
-          lmfunc->tagCells(tptr,tlo,thi,
+          lmfunc->tagCells(tptr, tlo, thi,
                            &tagval, &clearval,
-                           BL_TO_FORTRAN_ANYD(fab),
+                           dat, dlo, dhi, 
                            BL_TO_FORTRAN_BOX(vbx), &ncomp,
                            BL_TO_FORTRAN_BOX(geom.Domain()),
                            dx, xlo, prob_lo, &time, &level);
