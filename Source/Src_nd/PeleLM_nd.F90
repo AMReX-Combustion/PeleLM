@@ -2265,7 +2265,7 @@ contains
          do k = lo(3), hi(3)
             do j = lo(2), hi(2)
                do i = lo(1), hi(1)
-                  update(i,j,k,n) = scal * &
+                  update(i,j,k,n) = &
                       ( (xflux(i+1,j,k,n)-xflux(i,j,k,n)) &
                       + (yflux(i,j+1,k,n)-yflux(i,j,k,n)) & 
 #if ( AMREX_SPACEDIM == 3 )
