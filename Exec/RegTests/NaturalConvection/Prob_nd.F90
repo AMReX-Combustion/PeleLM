@@ -7,7 +7,7 @@
 #include <Prob_F.H>
 #include <PeleLM_F.H>
 
-module prob_2D_module
+module prob_nd_module
 
   use amrex_fort_module, only : dim=>amrex_spacedim
   use fuego_chemistry
@@ -38,9 +38,8 @@ contains
 ! ::: 
 ! ::: -----------------------------------------------------------
 
-  subroutine amrex_probinit (init,name,namlen,problo,probhi) bind(c)
-  
-      
+   subroutine amrex_probinit (init,name,namlen,problo,probhi) bind(c)
+
       use PeleLM_F,  only: pphys_getP1atm_MKS
 
       use mod_Fvar_def, only : pamb
@@ -56,7 +55,7 @@ contains
       REAL_T problo(dim), probhi(dim)
 
       integer i
- 
+
       namelist /fortin/ T_mean, Tc, epsilon, Prandtl_number, viscosity_mu_ref, viscosity_T_ref, viscosity_S,&
          const_bulk_viscosity, const_diffusivity
 
@@ -91,7 +90,7 @@ contains
 
       untin = 9
       open(untin,file=probin(1:namlen),form='formatted',status='old')
-      
+
 !     Set defaults
       pamb = pphys_getP1atm_MKS()
 
@@ -102,15 +101,14 @@ contains
       const_bulk_viscosity = 0.0d0
       const_diffusivity = 0.0d0
 
-
       T_mean = 600.0d0
       Tc = 300.0d0
       epsilon = 0.6d0
 
       read(untin,fortin)
-      
+
       read(untin,heattransin)
- 
+
       close(unit=untin)
 
       if (isioproc.eq.1) then
@@ -120,8 +118,7 @@ contains
 
       Th = Tc * ((1+epsilon)/(1-epsilon))
 
-
-  end subroutine amrex_probinit
+   end subroutine amrex_probinit
 
 ! ::: -----------------------------------------------------------
 ! ::: This routine is called at problem setup time and is used
@@ -141,96 +138,94 @@ contains
 ! ::: time      => time at which to init data             
 ! ::: lo,hi     => index limits of grid interior (cell centered)
 ! ::: nscal     => number of scalar quantities.  You should know
-! :::		   this already!
+! :::              this already!
 ! ::: vel      <=  Velocity array
 ! ::: scal     <=  Scalar array
 ! ::: press    <=  Pressure array
 ! ::: delta     => cell size
 ! ::: xlo,xhi   => physical locations of lower left and upper
 ! :::              right hand corner of grid.  (does not include
-! :::		   ghost region).
+! :::              ghost region).
 ! ::: -----------------------------------------------------------
 
-  subroutine init_data(level,time,lo,hi,nscal, &
-     	 	                   vel,scal,DIMS(state),press,DIMS(press), &
-                           delta,xlo,xhi) &
-                           bind(C, name="init_data")
+   subroutine init_data(level, time, lo, hi, nscal, &
+                        vel, scal, s_lo, s_hi, press, p_lo, p_hi, &
+                        delta, xlo, xhi) &
+                        bind(C, name="init_data")
                               
       use network,   only: nspecies
       use PeleLM_F,  only: pphys_getP1atm_MKS, pphys_get_spec_name2
-      use PeleLM_2D, only: pphys_RHOfromPTY, pphys_HMIXfromTY
+      use PeleLM_nD, only: pphys_RHOfromPTY, pphys_HMIXfromTY
       use mod_Fvar_def, only : Density, Temp, FirstSpec, RhoH, Trac, pamb
       use mod_Fvar_def, only : domnlo
       use probdata_module, only: T_mean
-      
+
       implicit none
-      integer    level, nscal
-      integer    lo(dim), hi(dim)
-      integer    DIMDEC(state)
-      integer    DIMDEC(press)
-      REAL_T     xlo(dim), xhi(dim)
-      REAL_T     time, delta(dim)
-      REAL_T     vel(DIMV(state),dim)
-      REAL_T    scal(DIMV(state),nscal)
-      REAL_T   press(DIMV(press))
 
+! In/Out
+      integer, intent(in) :: level, nscal
+      integer, intent(in) :: lo(3), hi(3)
+      integer, intent(in) :: s_lo(3), s_hi(3)
+      integer, intent(in) :: p_lo(3), p_hi(3)
+      REAL_T, intent(in)  :: xlo(3), xhi(3)
+      REAL_T, intent(in)  :: time, delta(3)
+      REAL_T, dimension(s_lo(1):s_hi(1),s_lo(2):s_hi(2),s_lo(3):s_hi(3),dim), intent(out) :: vel
+      REAL_T, dimension(s_lo(1):s_hi(1),s_lo(2):s_hi(2),s_lo(3):s_hi(3),nscal), intent(out) :: scal
+      REAL_T, dimension(p_lo(1):p_hi(1),p_lo(2):p_hi(2),p_lo(3):p_hi(3)), intent(out) :: press
 
-      integer i, j, n
-      REAL_T x, y, Yl(nspecies), Patm
-      REAL_T dx
+! Local
+      integer :: i, j, k, n
+      REAL_T  :: x, y, z, Yl(nspecies), Patm
+      REAL_T  :: dx
 
+      do k = lo(3), hi(3)
+         z = (float(k)+.5d0)*delta(3)+domnlo(3)
+         do j = lo(2), hi(2)
+            y = xlo(2) + delta(2)*(float(j-lo(2)) + half)
+            do i = lo(1), hi(1)
+               x = xlo(1) + delta(1)*(float(i-lo(1)) + half)
 
-      do j = lo(2), hi(2)
-         y = xlo(2) + delta(2)*(float(j-lo(2)) + half)
-         do i = lo(1), hi(1)
-            x = xlo(1) + delta(1)*(float(i-lo(1)) + half)
-            
-            
-            vel(i,j,1) = 0.0d0
-            vel(i,j,2) = 0.0d0
+               vel(i,j,k,1) = 0.0d0
+               vel(i,j,k,2) = 0.0d0
 
-            scal(i,j,Temp) = T_mean
+               scal(i,j,k,Temp) = T_mean
 
+               Yl(1) = 0.233d0
+               Yl(2) = 0.767d0
+ 
+               do n = 1,nspecies
+                  scal(i,j,k,FirstSpec+n-1) = Yl(n)
+               end do
 
-            Yl(1) = 0.233
-            Yl(2) = 0.767
-            
-            do n = 1,nspecies
-               scal(i,j,FirstSpec+n-1) = Yl(n)
+               scal(i,j,k,Trac) = 0.d0
+
             end do
-
-            scal(i,j,Trac) = 0.d0
-
-
          end do
       end do
 
       Patm = Pamb / pphys_getP1atm_MKS()
 
       call pphys_RHOfromPTY(lo,hi, &
-          scal(ARG_L1(state),ARG_L2(state),Density),  DIMS(state), &
-          scal(ARG_L1(state),ARG_L2(state),Temp),     DIMS(state), &
-          scal(ARG_L1(state),ARG_L2(state),FirstSpec),DIMS(state), &
-          Patm)
-
+                            scal(:,:,:,Density),   s_lo, s_hi, &
+                            scal(:,:,:,Temp),      s_lo, s_hi, &
+                            scal(:,:,:,FirstSpec), s_lo, s_hi, &
+                            Patm)
       call pphys_HMIXfromTY(lo,hi, &
-          scal(ARG_L1(state),ARG_L2(state),RhoH),     DIMS(state), &
-          scal(ARG_L1(state),ARG_L2(state),Temp),     DIMS(state), &
-          scal(ARG_L1(state),ARG_L2(state),FirstSpec),DIMS(state)) 
+                            scal(:,:,:,RhoH),      s_lo, s_hi, &
+                            scal(:,:,:,Temp),      s_lo, s_hi, &
+                            scal(:,:,:,FirstSpec), s_lo, s_hi)
 
-      do j = lo(2), hi(2)
-         do i = lo(1), hi(1)
-            do n = 0,nspecies-1
-               scal(i,j,FirstSpec+n) = scal(i,j,FirstSpec+n)*scal(i,j,Density)
+      do k = lo(3), hi(3)
+         do j = lo(2), hi(2)
+            do i = lo(1), hi(1)
+               do n = 0,nspecies-1
+                  scal(i,j,k,FirstSpec+n) = scal(i,j,k,FirstSpec+n)*scal(i,j,k,Density)
+               enddo
+               scal(i,j,k,RhoH) = scal(i,j,k,RhoH)*scal(i,j,k,Density)
             enddo
-            scal(i,j,RhoH) = scal(i,j,RhoH)*scal(i,j,Density)
          enddo
       enddo
       
   end subroutine init_data
       
-
-
-
-
-end module prob_2D_module
+end module prob_nd_module
