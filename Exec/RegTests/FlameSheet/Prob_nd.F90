@@ -182,9 +182,9 @@ contains
 
 !     Take fuel mixture from pmf file
 #if ( AMREX_SPACEDIM == 2 )
-      loc = (domnlo(3)-standoff)*100.d0
-#elif ( AMREX_SPACEDIM == 3 )
       loc = (domnlo(2)-standoff)*100.d0
+#elif ( AMREX_SPACEDIM == 3 )
+      loc = (domnlo(3)-standoff)*100.d0
 #endif
       call pmf(loc,loc,pmf_vals,n)
       if ( n /= nspecies+3) then
