@@ -1979,9 +1979,9 @@ contains
                      RhoYe(n) = 0.5d0*(RhoY(i-1,j,k,n) + RhoY(i,j,k,n))
                      sumRhoYe = sumRhoYe + RhoYe(n)
                   end do
-                  !sumRhoYe = 1.0D0/sumRhoYe
+                  sumRhoYe = 1.0D0/sumRhoYe
                   do n=1,nspecies
-                     flux(i,j,k,n) = flux(i,j,k,n) - sumFlux*RhoYe(n)/sumRhoYe
+                     flux(i,j,k,n) = flux(i,j,k,n) - sumFlux*RhoYe(n)*sumRhoYe
                   end do
                end do
             end do
@@ -1997,9 +1997,9 @@ contains
                         sumFlux = sumFlux + flux(i,j,k,n)
                         sumRhoYe = sumRhoYe + RhoY(i-1,j,k,n)
                      enddo
-                     !sumRhoYe = 1.0D0/sumRhoYe
+                     sumRhoYe = 1.0D0/sumRhoYe
                      do n=1,nspecies
-                        flux(i,j,k,n) = flux(i,j,k,n) - sumFlux*RhoY(i-1,j,k,n)/sumRhoYe
+                        flux(i,j,k,n) = flux(i,j,k,n) - sumFlux*RhoY(i-1,j,k,n)*sumRhoYe
                      enddo
                   enddo
                enddo
@@ -2016,9 +2016,9 @@ contains
                         sumFlux = sumFlux + flux(i,j,k,n)
                         sumRhoYe = sumRhoYe + RhoY(i,j,k,n)
                      enddo
-                     !sumRhoYe = 1.0D0/sumRhoYe
+                     sumRhoYe = 1.0D0/sumRhoYe
                      do n=1,nspecies
-                        flux(i,j,k,n) = flux(i,j,k,n) - sumFlux*RhoY(i,j,k,n)/sumRhoYe
+                        flux(i,j,k,n) = flux(i,j,k,n) - sumFlux*RhoY(i,j,k,n)*sumRhoYe
                      enddo
                   enddo
                enddo
@@ -2039,9 +2039,9 @@ contains
                      RhoYe(n) = 0.5d0*(RhoY(i,j-1,k,n) + RhoY(i,j,k,n))
                      sumRhoYe = sumRhoYe + RhoYe(n)
                   enddo
-                  !sumRhoYe = 1.0D0/sumRhoYe
+                  sumRhoYe = 1.0D0/sumRhoYe
                   do n=1,nspecies
-                     flux(i,j,k,n) = flux(i,j,k,n) - sumFlux*RhoYe(n)/sumRhoYe
+                     flux(i,j,k,n) = flux(i,j,k,n) - sumFlux*RhoYe(n)*sumRhoYe
                   end do
                end do
             end do
@@ -2057,9 +2057,9 @@ contains
                         sumFlux = sumFlux + flux(i,j,k,n)
                         sumRhoYe = sumRhoYe + RhoY(i,j-1,k,n)
                      enddo
-                     !sumRhoYe = 1.0D0/sumRhoYe
+                     sumRhoYe = 1.0D0/sumRhoYe
                      do n=1,nspecies
-                        flux(i,j,k,n) = flux(i,j,k,n) - sumFlux*RhoY(i,j-1,k,n)/sumRhoYe
+                        flux(i,j,k,n) = flux(i,j,k,n) - sumFlux*RhoY(i,j-1,k,n)*sumRhoYe
                      enddo
                   enddo
                enddo
@@ -2076,9 +2076,9 @@ contains
                         sumFlux = sumFlux + flux(i,j,k,n)
                         sumRhoYe = sumRhoYe + RhoY(i,j,k,n)
                      enddo
-                     !sumRhoYe = 1.0D0/sumRhoYe
+                     sumRhoYe = 1.0D0/sumRhoYe
                      do n=1,nspecies
-                        flux(i,j,k,n) = flux(i,j,k,n) - sumFlux*RhoY(i,j,k,n)/sumRhoYe
+                        flux(i,j,k,n) = flux(i,j,k,n) - sumFlux*RhoY(i,j,k,n)*sumRhoYe
                      enddo
                   enddo
                enddo
@@ -2225,6 +2225,8 @@ contains
                         nc, scal) &
                         bind(C, name="flux_div")
 
+      use amrex_mempool_module
+
       implicit none
 
       integer, intent(in) :: lo(3), hi(3)
@@ -2245,11 +2247,11 @@ contains
       REAL_T, dimension(v_lo(1):v_hi(1),v_lo(2):v_hi(2),v_lo(3):v_hi(3)) :: vol
       REAL_T :: scal
 
-      REAL_T, allocatable :: ivol(:,:,:)
+      REAL_T, pointer, dimension(:,:,:) :: ivol
 
       integer :: i, j, k, n
 
-      allocate(ivol(lo(1):hi(1),lo(2):hi(2),lo(3):hi(3)))
+      call amrex_allocate(ivol,lo(1),hi(1),lo(2),hi(2),lo(3),hi(3))
 
       do k = lo(3), hi(3)
          do j = lo(2), hi(2)
@@ -2269,11 +2271,13 @@ contains
 #if ( AMREX_SPACEDIM == 3 )
                       + (zflux(i,j,k+1,n)-zflux(i,j,k,n)) &
 #endif
-                      ) / vol(i,j,k)
+                      ) * ivol(i,j,k)
                end do
             end do
          end do
       end do
+
+      call amrex_deallocate(ivol)
 
    end subroutine flux_div
 
