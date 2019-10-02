@@ -190,11 +190,11 @@ contains
       if ( n /= nspecies+3) then
         call amrex_abort('INITDATA: n(pmf) .ne. nspecies+3')
       endif
-            
+
       do n = 1,nspecies
         Xt(n) = pmf_vals(3+n)
       end do 
-          
+
       CALL CKXTY (Xt, Yt)
 
       do n = 1, nspecies
