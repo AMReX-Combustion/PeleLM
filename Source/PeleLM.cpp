@@ -876,7 +876,7 @@ PeleLM::Initialize_specific ()
     } 
 
     PeleLM::closed_chamber            = 1;
-    if (flag_closed_chamber = true){
+    if (flag_closed_chamber == true){
       PeleLM::closed_chamber            = 0;
     }
 
