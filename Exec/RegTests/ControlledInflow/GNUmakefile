@@ -53,7 +53,7 @@ Transport_dir := EGLib
 Blocs   := .
 
 CEXE_sources +=
-F90EXE_sources += Prob_$(DIM)d.F90 probdata.F90
+F90EXE_sources += Prob_nd.F90 probdata.F90
 CEXE_headers += 
 FEXE_headers += 
 
