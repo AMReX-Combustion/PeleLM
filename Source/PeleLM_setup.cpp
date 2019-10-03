@@ -939,25 +939,25 @@ PeleLM::variableSetUp ()
   //
   // forcing - used to calculate the rate of injection of energy
   //
-  derive_lst.add("forcing",IndexType::TheCellType(),1,FORT_DERFORCING,the_same_box);
+  derive_lst.add("forcing",IndexType::TheCellType(),1,DeriveFunc3D(FORT_DERFORCING),the_same_box);
   derive_lst.addComponent("forcing",desc_lst,State_Type,Density,1);
   derive_lst.addComponent("forcing",desc_lst,State_Type,Xvel,AMREX_SPACEDIM);
   //
   // forcex - used to put the forcing term in the plot file
   //
-  derive_lst.add("forcex",IndexType::TheCellType(),1,FORT_DERFORCEX,the_same_box);
+  derive_lst.add("forcex",IndexType::TheCellType(),1,DeriveFunc3D(FORT_DERFORCEX),the_same_box);
   derive_lst.addComponent("forcex",desc_lst,State_Type,Density,1);
   //    derive_lst.addComponent("forcex",desc_lst,State_Type,Xvel,AMREX_SPACEDIM);
   //
   // forcey - used to put the forcing term in the plot file
   //
-  derive_lst.add("forcey",IndexType::TheCellType(),1,FORT_DERFORCEY,the_same_box);
+  derive_lst.add("forcey",IndexType::TheCellType(),1,DeriveFunc3D(FORT_DERFORCEY),the_same_box);
   derive_lst.addComponent("forcey",desc_lst,State_Type,Density,1);
   //    derive_lst.addComponent("forcey",desc_lst,State_Type,Xvel,BL_SPACEDIM);
   //
   // forcez - used to put the forcing term in the plot file
   //
-  derive_lst.add("forcez",IndexType::TheCellType(),1,FORT_DERFORCEZ,the_same_box);
+  derive_lst.add("forcez",IndexType::TheCellType(),1,DeriveFunc3D(FORT_DERFORCEZ),the_same_box);
   derive_lst.addComponent("forcez",desc_lst,State_Type,Density,1);
 #endif
   //    derive_lst.addComponent("forcez",desc_lst,State_Type,Xvel,BL_SPACEDIM);
