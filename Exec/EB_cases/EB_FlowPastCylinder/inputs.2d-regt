@@ -23,15 +23,17 @@ peleLM.hi_bc = Outflow Interior
 
 #----------------------------TOP LEVEL INPUTS----------------------
 max_step  =  500000
-stop_time = 0.04
+stop_time = 0.015
 
 #-------------------------AMR INPUTS----------------------------
 amr.n_cell    = 64 16 
 amr.n_cell    = 256 64
-amr.n_cell    = 512  128
+#amr.n_cell    = 512  128
 #amr.n_cell    = 1024  256
 
 amr.n_cell    = 256 256
+amr.n_cell    = 512 512
+
 
 amr.v=1
 amr.max_level =  0            # maximum level number allowed
@@ -171,4 +173,4 @@ eb2.sphere_has_fluid_inside = 0
 ns.hack_nochem = 1 
 #ns.num_mac_sync_iter = 0
 
-ns.variable_vel_visc = 0
+ns.variable_vel_visc = 1

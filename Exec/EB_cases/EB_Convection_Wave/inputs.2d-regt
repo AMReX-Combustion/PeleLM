@@ -19,7 +19,7 @@ stop_time = 800.0
 
 #-------------------------AMR INPUTS----------------------------
 amr.n_cell    = 16 16 16
-#amr.n_cell    = 64 64 64
+amr.n_cell    = 64 64 64
 
 amr.v=1
 amr.max_level =  0            # maximum level number allowed
@@ -95,9 +95,9 @@ diffuse.v = 1
 diffuse.Rhs_in_abs_tol = 1
 
 # ------------------  INPUTS TO PROJECTION CLASS -------------------
-proj.proj_tol       = 1.0e-08  # tolerence for projections
-proj.proj_abs_tol   = 1.0e-08
-proj.sync_tol       = 1.0e-10  # tolerence for projections
+proj.proj_tol       = 1.0e-12  # tolerence for projections
+proj.proj_abs_tol   = 1.0e-07
+proj.sync_tol       = 1.0e-12  # tolerence for projections
 proj.rho_wgt_vel_proj = 0      # 0 => const den proj, 1 => rho weighted
 proj.Pcode          = 2 
 proj.filter_factor  = 0.0
@@ -107,9 +107,9 @@ proj.divu_minus_s_factor = 0.
 proj.proj_2 = 1
 
 # ------------------  INPUTS TO MACPROJ CLASS -------------------
-mac.mac_tol        = 1.0e-10 # tolerence for mac projections
-mac.mac_sync_tol   = 1.0e-10  # tolerence for mac SYNC projection
-mac.mac_abs_tol    = 1.0e-10
+mac.mac_tol        = 1.0e-12 # tolerence for mac projections
+mac.mac_sync_tol   = 1.0e-12  # tolerence for mac SYNC projection
+mac.mac_abs_tol    = 1.0e-12
 mac.do_outflow_bcs = 0
 
 #--------------------------MISC/UNSORTED INPUTS-----------------------------
@@ -160,3 +160,5 @@ eb2.sphere_has_fluid_inside = 0
 
 ns.hack_nochem = 1 
 #ns.num_mac_sync_iter = 0
+
+ns.variable_vel_visc = 0

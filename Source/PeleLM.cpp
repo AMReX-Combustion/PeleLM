@@ -3850,7 +3850,7 @@ PeleLM::adjust_spec_diffusion_fluxes (MultiFab* const * flux,
   const Box& domain = geom.Domain();
 
   int ngrow = 1;
-  MultiFab TT(grids,dmap,nspecies,ngrow);
+  MultiFab TT(grids,dmap,nspecies,ngrow,MFInfo(),Factory());
   FillPatch(*this,TT,ngrow,time,State_Type,first_spec,nspecies,0);
 
 #ifdef _OPENMP

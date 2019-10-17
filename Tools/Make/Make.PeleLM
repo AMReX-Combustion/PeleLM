@@ -132,6 +132,7 @@ endif
 Pdirs   += $(AMREX_HOME)/Src/LinearSolvers/C_CellMG
 Pdirs   += $(AMREX_HOME)/Src/LinearSolvers/C_TensorMG
 Pdirs   += $(AMREX_HOME)/Src/LinearSolvers/MLMG
+Pdirs   += $(AMREX_HOME)/Src/LinearSolvers/Projections
 
 ifeq ($(USE_EB), TRUE)
   Pdirs   += $(AMREX_HOME)/Src/EB
