@@ -151,7 +151,7 @@ set_x_vel_bc (BCRec&       bc,
   bc.setHi(0,norm_vel_bc[hi_bc[0]]);
   bc.setLo(1,tang_vel_bc[lo_bc[1]]);
   bc.setHi(1,tang_vel_bc[hi_bc[1]]);
-#if (BL_SPACEDIM == 3)
+#if (AMREX_SPACEDIM == 3)
   bc.setLo(2,tang_vel_bc[lo_bc[2]]);
   bc.setHi(2,tang_vel_bc[hi_bc[2]]);
 #endif
@@ -168,13 +168,13 @@ set_y_vel_bc (BCRec&       bc,
   bc.setHi(0,tang_vel_bc[hi_bc[0]]);
   bc.setLo(1,norm_vel_bc[lo_bc[1]]);
   bc.setHi(1,norm_vel_bc[hi_bc[1]]);
-#if (BL_SPACEDIM == 3)
+#if (AMREX_SPACEDIM == 3)
   bc.setLo(2,tang_vel_bc[lo_bc[2]]);
   bc.setHi(2,tang_vel_bc[hi_bc[2]]);
 #endif
 }
 
-#if (BL_SPACEDIM == 3)
+#if (AMREX_SPACEDIM == 3)
 static
 void
 set_z_vel_bc (BCRec&       bc,
@@ -198,7 +198,7 @@ set_scalar_bc (BCRec&       bc,
 {
   const int* lo_bc = phys_bc.lo();
   const int* hi_bc = phys_bc.hi();
-  for (int i = 0; i < BL_SPACEDIM; i++)
+  for (int i = 0; i < AMREX_SPACEDIM; i++)
   {
     bc.setLo(i,scalar_bc[lo_bc[i]]);
     bc.setHi(i,scalar_bc[hi_bc[i]]);
@@ -212,7 +212,7 @@ set_reflect_bc (BCRec&       bc,
 {
   const int* lo_bc = phys_bc.lo();
   const int* hi_bc = phys_bc.hi();
-  for (int i = 0; i < BL_SPACEDIM; i++)
+  for (int i = 0; i < AMREX_SPACEDIM; i++)
   {
     bc.setLo(i,reflect_bc[lo_bc[i]]);
     bc.setHi(i,reflect_bc[hi_bc[i]]);
@@ -226,7 +226,7 @@ set_temp_bc (BCRec&       bc,
 {
   const int* lo_bc = phys_bc.lo();
   const int* hi_bc = phys_bc.hi();
-  for (int i = 0; i < BL_SPACEDIM; i++)
+  for (int i = 0; i < AMREX_SPACEDIM; i++)
   {
     bc.setLo(i,temp_bc[lo_bc[i]]);
     bc.setHi(i,temp_bc[hi_bc[i]]);
@@ -241,7 +241,7 @@ set_pressure_bc (BCRec&       bc,
   const int* lo_bc = phys_bc.lo();
   const int* hi_bc = phys_bc.hi();
   int i;
-  for (i = 0; i < BL_SPACEDIM; i++)
+  for (i = 0; i < AMREX_SPACEDIM; i++)
   {
     bc.setLo(i,press_bc[lo_bc[i]]);
     bc.setHi(i,press_bc[hi_bc[i]]);
@@ -255,7 +255,7 @@ set_rhoh_bc (BCRec&       bc,
 {
   const int* lo_bc = phys_bc.lo();
   const int* hi_bc = phys_bc.hi();
-  for (int i = 0; i < BL_SPACEDIM; i++)
+  for (int i = 0; i < AMREX_SPACEDIM; i++)
   {
     bc.setLo(i,rhoh_bc[lo_bc[i]]);
     bc.setHi(i,rhoh_bc[hi_bc[i]]);
@@ -269,7 +269,7 @@ set_divu_bc (BCRec&       bc,
 {
   const int* lo_bc = phys_bc.lo();
   const int* hi_bc = phys_bc.hi();
-  for (int i = 0; i < BL_SPACEDIM; i++)
+  for (int i = 0; i < AMREX_SPACEDIM; i++)
   {
     bc.setLo(i,divu_bc[lo_bc[i]]);
     bc.setHi(i,divu_bc[hi_bc[i]]);
@@ -283,7 +283,7 @@ set_dsdt_bc (BCRec&       bc,
 {
   const int* lo_bc = phys_bc.lo();
   const int* hi_bc = phys_bc.hi();
-  for (int i = 0; i < BL_SPACEDIM; i++)
+  for (int i = 0; i < AMREX_SPACEDIM; i++)
   {
     bc.setLo(i,dsdt_bc[lo_bc[i]]);
     bc.setHi(i,dsdt_bc[hi_bc[i]]);
@@ -297,7 +297,7 @@ set_species_bc (BCRec&       bc,
 {
   const int* lo_bc = phys_bc.lo();
   const int* hi_bc = phys_bc.hi();
-  for (int i = 0; i < BL_SPACEDIM; i++)
+  for (int i = 0; i < AMREX_SPACEDIM; i++)
   {
     bc.setLo(i,species_bc[lo_bc[i]]);
     bc.setHi(i,species_bc[hi_bc[i]]);
@@ -311,11 +311,18 @@ extern "C"
 //
 // Function called by BCRec for user-supplied boundary data.
 //
-  typedef void (*ChemBndryFunc_FortBndryFunc)(Real* data, ARLIM_P(lo), ARLIM_P(hi),
+  typedef void (*ChemBndryFunc_FortBndryFunc)(Real* data, AMREX_ARLIM_P(lo), AMREX_ARLIM_P(hi),
                                               const int* dom_lo, const int* dom_hi,
                                               const Real* dx, const Real* grd_lo,
                                               const Real* time, const int* bc,
                                               const int* stateID);
+
+  typedef void (*ChemBndryFunc3D_FortBndryFunc)(Real* data, const int* lo, const int* hi,
+                                                const int* dom_lo, const int* dom_hi,
+                                                const Real* dx, const Real* grd_lo,
+                                                const Real* time, const int* bc,
+                                                const int* stateID);
+
 }
 
 class ChemBndryFunc
@@ -342,6 +349,16 @@ public:
       m_stateID = getStateID(m_stateName);
       BL_ASSERT(m_stateID >= 0);
     }
+  ChemBndryFunc (ChemBndryFunc3D_FortBndryFunc  inFunc,
+                 const std::string& stateName)
+    :
+    m_func3D(inFunc),
+    m_stateName(stateName)
+    {
+      m_stateID = getStateID(m_stateName);
+      BL_ASSERT(m_stateID >= 0);
+    }
+
   //
   // Another Constructor which sets "regular" and "group" fill routines..
   //
@@ -351,6 +368,17 @@ public:
     :
     BndryFunc(gFunc,gFunc),
     m_func(inFunc),
+    m_stateName(stateName)
+    {
+      m_stateID = getStateID(m_stateName);
+      BL_ASSERT(m_stateID >= 0);
+    }
+  ChemBndryFunc (ChemBndryFunc3D_FortBndryFunc  inFunc,
+                 const std::string&           stateName,
+                 BndryFunc3DDefault             gFunc)
+    :
+    BndryFunc(gFunc,gFunc),
+    m_func3D(inFunc),
     m_stateName(stateName)
     {
       m_stateID = getStateID(m_stateName);
@@ -378,8 +406,12 @@ public:
                             const Real* dx, const Real* grd_lo,
                             const Real* time, const int* bc) const override
     {
-      BL_ASSERT(m_func != 0);
-      m_func(data,ARLIM(lo),ARLIM(hi),dom_lo,dom_hi,dx,grd_lo,time,bc,&m_stateID);
+      BL_ASSERT(m_func != 0 || m_func3D != 0);
+      if (m_func != 0)
+         m_func(data,AMREX_ARLIM(lo),AMREX_ARLIM(hi),dom_lo,dom_hi,dx,grd_lo,time,bc,&m_stateID);
+      else
+         m_func3D(data,AMREX_ARLIM_3D(lo),AMREX_ARLIM_3D(hi),AMREX_ARLIM_3D(dom_lo),AMREX_ARLIM_3D(dom_hi),
+                  AMREX_ZFILL(dx),AMREX_ZFILL(grd_lo),time,bc,&m_stateID);
     }
   //
   // Fill boundary cells using "group" function.
@@ -394,10 +426,11 @@ public:
   //
   // Access.
   //
-  int getStateID () const              { return m_stateID;   }
-  const std::string& getStateName () const { return m_stateName; }
-  ChemBndryFunc_FortBndryFunc getBndryFunc () const  { return m_func;      }
-    
+  int getStateID () const { return m_stateID;}
+  const std::string& getStateName () const { return m_stateName;}
+  ChemBndryFunc_FortBndryFunc getBndryFunc () const  { return m_func;}
+  ChemBndryFunc3D_FortBndryFunc getBndryFunc3D () const  { return m_func3D;}
+
 protected:
 
   static int getStateID (const std::string& stateName)
@@ -412,9 +445,10 @@ protected:
     
 private:
 
-  ChemBndryFunc_FortBndryFunc m_func;
-  std::string                 m_stateName;
-  int                         m_stateID;
+  ChemBndryFunc_FortBndryFunc   m_func = nullptr;
+  ChemBndryFunc3D_FortBndryFunc m_func3D = nullptr;
+  std::string                   m_stateName;
+  int                           m_stateID;
 };
 
 //
@@ -556,7 +590,7 @@ PeleLM::variableSetUp ()
   name[1] = "y_velocity";
   desc_lst.setComponent(State_Type,Yvel,"y_velocity",bc,BndryFunc(yvel_fill));
 
-#if(BL_SPACEDIM==3)
+#if(AMREX_SPACEDIM==3)
   set_z_vel_bc(bc,phys_bc);
   bcs[2]  = bc;
   name[2] = "z_velocity";
@@ -767,7 +801,7 @@ PeleLM::variableSetUp ()
   //
   // Molecular Weight
   //
-  derive_lst.add("molweight",IndexType::TheCellType(),1,dermolweight,the_same_box);
+  derive_lst.add("molweight",IndexType::TheCellType(),1,DeriveFunc3D(dermolweight),the_same_box);
   derive_lst.addComponent("molweight",desc_lst,State_Type,Density,1);
   derive_lst.addComponent("molweight",desc_lst,State_Type,first_spec,nspecies);
   
@@ -870,61 +904,60 @@ PeleLM::variableSetUp ()
   //
   // Divergence of velocity field.
   //
-  derive_lst.add("diveru",IndexType::TheCellType(),1,dermgdivu,grow_box_by_one);
-  derive_lst.addComponent("diveru",desc_lst,State_Type,Xvel,BL_SPACEDIM);
+  derive_lst.add("diveru",IndexType::TheCellType(),1,DeriveFunc3D(dermgdivu),grow_box_by_one);
+  derive_lst.addComponent("diveru",desc_lst,State_Type,Xvel,AMREX_SPACEDIM);
   //
   // average pressure
   //
-  derive_lst.add("avg_pressure",IndexType::TheCellType(),1,deravgpres,
-                 the_nodes);
+  derive_lst.add("avg_pressure",IndexType::TheCellType(),1,DeriveFunc3D(deravgpres),the_nodes);
   derive_lst.addComponent("avg_pressure",desc_lst,Press_Type,Pressure,1);
   //
   // Pressure gradient in X direction.
   //
-  derive_lst.add("gradpx",IndexType::TheCellType(),1,dergrdpx,the_nodes);
+  derive_lst.add("gradpx",IndexType::TheCellType(),1,DeriveFunc3D(dergrdpx),the_nodes);
   derive_lst.addComponent("gradpx",desc_lst,Press_Type,Pressure,1);
   //
   // Pressure gradient in Y direction.
   //
-  derive_lst.add("gradpy",IndexType::TheCellType(),1,dergrdpy,the_nodes);
+  derive_lst.add("gradpy",IndexType::TheCellType(),1,DeriveFunc3D(dergrdpy),the_nodes);
   derive_lst.addComponent("gradpy",desc_lst,Press_Type,Pressure,1);
 
-#if (BL_SPACEDIM == 3)
+#if (AMREX_SPACEDIM == 3)
   //
   // Pressure gradient in Z direction.
   //
-  derive_lst.add("gradpz",IndexType::TheCellType(),1,dergrdpz,the_nodes);
+  derive_lst.add("gradpz",IndexType::TheCellType(),1,DeriveFunc3D(dergrdpz),the_nodes);
   derive_lst.addComponent("gradpz",desc_lst,Press_Type,Pressure,1);
 #endif
   //
   // Magnitude of vorticity.
   //
-  derive_lst.add("mag_vort",IndexType::TheCellType(),1,dermgvort,grow_box_by_one);
-  derive_lst.addComponent("mag_vort",desc_lst,State_Type,Xvel,BL_SPACEDIM);
+  derive_lst.add("mag_vort",IndexType::TheCellType(),1,DeriveFunc3D(dermgvort),grow_box_by_one);
+  derive_lst.addComponent("mag_vort",desc_lst,State_Type,Xvel,AMREX_SPACEDIM);
 
 #ifdef DO_LMC_FORCE
   //
   // forcing - used to calculate the rate of injection of energy
   //
-  derive_lst.add("forcing",IndexType::TheCellType(),1,FORT_DERFORCING,the_same_box);
+  derive_lst.add("forcing",IndexType::TheCellType(),1,DeriveFunc3D(FORT_DERFORCING),the_same_box);
   derive_lst.addComponent("forcing",desc_lst,State_Type,Density,1);
-  derive_lst.addComponent("forcing",desc_lst,State_Type,Xvel,BL_SPACEDIM);
+  derive_lst.addComponent("forcing",desc_lst,State_Type,Xvel,AMREX_SPACEDIM);
   //
   // forcex - used to put the forcing term in the plot file
   //
-  derive_lst.add("forcex",IndexType::TheCellType(),1,FORT_DERFORCEX,the_same_box);
+  derive_lst.add("forcex",IndexType::TheCellType(),1,DeriveFunc3D(FORT_DERFORCEX),the_same_box);
   derive_lst.addComponent("forcex",desc_lst,State_Type,Density,1);
-  //    derive_lst.addComponent("forcex",desc_lst,State_Type,Xvel,BL_SPACEDIM);
+  //    derive_lst.addComponent("forcex",desc_lst,State_Type,Xvel,AMREX_SPACEDIM);
   //
   // forcey - used to put the forcing term in the plot file
   //
-  derive_lst.add("forcey",IndexType::TheCellType(),1,FORT_DERFORCEY,the_same_box);
+  derive_lst.add("forcey",IndexType::TheCellType(),1,DeriveFunc3D(FORT_DERFORCEY),the_same_box);
   derive_lst.addComponent("forcey",desc_lst,State_Type,Density,1);
   //    derive_lst.addComponent("forcey",desc_lst,State_Type,Xvel,BL_SPACEDIM);
   //
   // forcez - used to put the forcing term in the plot file
   //
-  derive_lst.add("forcez",IndexType::TheCellType(),1,FORT_DERFORCEZ,the_same_box);
+  derive_lst.add("forcez",IndexType::TheCellType(),1,DeriveFunc3D(FORT_DERFORCEZ),the_same_box);
   derive_lst.addComponent("forcez",desc_lst,State_Type,Density,1);
 #endif
   //    derive_lst.addComponent("forcez",desc_lst,State_Type,Xvel,BL_SPACEDIM);
@@ -950,13 +983,14 @@ PeleLM::variableSetUp ()
   //
   //err_list.add("total_particle_count",1,ErrorRec::Special,part_cnt_err);
 #endif
+
   Vector<std::string> mix_and_diss(2);
   mix_and_diss[0] = "mixture_fraction";
   mix_and_diss[1] = "Scalar_diss";
   derive_lst.add("mixfrac",IndexType::TheCellType(),2,mix_and_diss,dermixanddiss,grow_box_by_one,&lincc_interp);
   derive_lst.addComponent("mixfrac",desc_lst,State_Type,Density,1);
-  derive_lst.addComponent("mixfrac",desc_lst,State_Type,first_spec,nspecies);
   derive_lst.addComponent("mixfrac",desc_lst,State_Type,Temp,1);
+  derive_lst.addComponent("mixfrac",desc_lst,State_Type,first_spec,nspecies);
 
   derive_lst.add("HeatRelease",IndexType::TheCellType(),1,dhrr,the_same_box);
   derive_lst.addComponent("HeatRelease",desc_lst,State_Type,Temp,1);

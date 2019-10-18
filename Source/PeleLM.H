@@ -26,16 +26,16 @@
 
 extern "C"
 {
-  typedef void (*LMEF)(int* tag, ARLIM_P(tlo), ARLIM_P(thi),
+  typedef void (*LMEF)(BL_FORT_IFAB_ARG_ANYD(tag),
                        const int* tagval, const int* clearval,
-                       const amrex::Real* data, ARLIM_P(data_lo), ARLIM_P(data_hi),
+                       const BL_FORT_FAB_ARG_ANYD(data),
                        const int* lo, const int* hi, const int* nvar,
                        const int* domain_lo, const int* domain_hi,
                        const amrex::Real* dx, const amrex::Real* xlo,
                        const amrex::Real* prob_lo, const amrex::Real* time,
                        const int* level, const amrex::Real* value);
 
-  typedef void (*LMEF_BOX) (int* tag, ARLIM_P(tlo), ARLIM_P(thi),
+  typedef void (*LMEF_BOX) (BL_FORT_IFAB_ARG_ANYD(tag),
                             const int* tagval, const int* clearval,
                             const amrex::Real* blo, const amrex::Real* bhi,
                             const int* lo, const int* hi,
@@ -71,16 +71,16 @@ public:
     return new LM_Error_Value(lmef,value,min_time,max_time,max_level);
   }
   
-  void tagCells(int* tag, ARLIM_P(tlo), ARLIM_P(thi),
+  void tagCells(int* tag, const int* tlo, const int* thi,
                 const int* tagval, const int* clearval,
-                const amrex::Real* data, ARLIM_P(data_lo), ARLIM_P(data_hi),
+                const amrex::Real* data, const int* dlo, const int* dhi,
                 const int* lo, const int* hi, const int* nvar,
                 const int* domain_lo, const int* domain_hi,
                 const amrex::Real* dx, const amrex::Real* xlo,
                 const amrex::Real* prob_lo, const amrex::Real* time,
                 const int* level) const;
 
-  void tagCells1(int* tag, ARLIM_P(tlo), ARLIM_P(thi),
+  void tagCells1(int* tag, const int* tlo, const int* thi,
                  const int* tagval, const int* clearval,
                  const int* lo, const int* hi,
                  const int* domain_lo, const int* domain_hi,
