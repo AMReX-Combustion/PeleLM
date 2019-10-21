@@ -171,5 +171,13 @@ cg.cg_solver=1
 #
 fab.format = NATIVE
 
-fabarray.mfiter_tile_size = 8 8 8 
+#fabarray.mfiter_tile_size = 8 8 8 
 amrex.regtest_reduction=1
+
+# for getting things started with eb skip some steps
+ns.init_iter = 0
+ns.do_mac_proj = 0
+# to turn off initial projections set to 0
+ns.do_init_proj = 0
+ns.do_sync_proj = 0
+ns.do_MLsync_proj = 0
