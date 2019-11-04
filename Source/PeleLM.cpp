@@ -8339,11 +8339,12 @@ PeleLM::derive (const std::string& name,
         const Box& nodebox = amrex::surroundingNodes(box);
         nWork.resize(nodebox,BL_SPACEDIM);
 
-      mcurve( BL_TO_FORTRAN_BOX(box),
-              BL_TO_FORTRAN_ANYD(Tg),
-              BL_TO_FORTRAN_N_ANYD(MC,dcomp),
-              BL_TO_FORTRAN_ANYD(nWork),
-              dx);
+        mcurve( BL_TO_FORTRAN_BOX(box),
+                BL_TO_FORTRAN_ANYD(Tg),
+                BL_TO_FORTRAN_N_ANYD(MC,dcomp),
+                BL_TO_FORTRAN_ANYD(nWork),
+                dx);
+      }
     }
   }
   else

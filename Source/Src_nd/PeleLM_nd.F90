@@ -32,7 +32,7 @@ module PeleLM_nd
             FORT_AVERAGE_EDGE_STATES
 
 contains
-
+ 
 !=========================================================
 !  Floor species mass fraction at 0.0
 !=========================================================
@@ -127,8 +127,8 @@ contains
                divu(i,j,k) = (divu(i,j,k) + vtT(i,j,k))/(rho*cpmix*T(i,j,k))
                do n=1,nspecies
                   divu(i,j,k) = divu(i,j,k) &
-                              + (vtY(i,j,,kn) + rYdot(i,j,,kn)) &
-                              *(invmwt(n)*mmw*rhoInv - H(n)/(rho*cpmix*T(i,j,k)))
+                              + (vtY(i,j,k,n) + rYdot(i,j,k,n)) &
+                              *(invmtw(n)*mmw*rhoInv - H(n)/(rho*cpmix*T(i,j,k)))
                enddo
             enddo
          enddo
@@ -661,7 +661,7 @@ contains
                                   bind(C, name="init_data_new_mech")
 
       use PeleLM_F,  only: pphys_getP1atm_MKS
-      use mod_Fvar_def, only : Density, Temp, FirstSpec, RhoH, pamb, Trac
+      use mod_Fvar_def, only : Density, Temp, FirstSpec, RhoH, pamb
 
       implicit none
 
@@ -679,14 +679,6 @@ contains
 ! Local
       REAL_T  :: Patm
       integer :: i, j, k, n
-
-      do k = lo(3), hi(3)
-         do j = lo(2), hi(2)
-            do i = lo(1), hi(1)
-               scal(i,j,k,Trac) = zero
-            end do
-         end do
-      end do
 
       Patm = pamb / pphys_getP1atm_MKS()
 

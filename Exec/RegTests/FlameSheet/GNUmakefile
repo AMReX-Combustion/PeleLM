@@ -9,7 +9,7 @@ PELELM_HOME ?= ${TOP}/PeleLM_diff_rearange
 
 DIM             = 2
 COMP            = gnu
-DEBUG           = FALSE
+DEBUG           = TRUE
 USE_MPI         = TRUE
 USE_OMP         = FALSE
 PRECISION       = DOUBLE

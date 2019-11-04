@@ -108,7 +108,6 @@ extern "C" {
 
    void set_scal_numb(const int* Density,
                       const int* Temp,
-                      const int* Trac,
                       const int* RhoH,
                       const int* FirstSpec,
                       const int* LastSpec);
