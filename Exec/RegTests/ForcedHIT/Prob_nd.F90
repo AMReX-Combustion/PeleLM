@@ -8,7 +8,7 @@
 #include <PeleLM_F.H>
 
 
-module prob_3D_module
+module prob_nd_module
 
   use amrex_fort_module, only : dim=>amrex_spacedim
   use fuego_chemistry
@@ -16,7 +16,7 @@ module prob_3D_module
   implicit none
 
   private
-  
+
   public :: amrex_probinit, init_data
 
 contains
@@ -39,8 +39,8 @@ contains
 ! ::: 
 ! ::: -----------------------------------------------------------
 
-  subroutine amrex_probinit (init,name,namlen,problo,probhi) bind(c)
-  
+   subroutine amrex_probinit (init,name,namlen,problo,probhi) bind(c)
+
       use PeleLM_F,  only: pphys_getP1atm_MKS
 
       use mod_Fvar_def, only : pamb
@@ -53,14 +53,14 @@ contains
                                   forcing_epsilon, forcing_time_scale_max, forcing_time_scale_min, &
                                   mode_start, moderate_zero_modes, nmodes, spectrum_type, &
                                   time_offset, use_rho_in_forcing
-      
+
       implicit none
-      
-      integer init, namlen
-      integer name(namlen)
-      integer untin
-      REAL_T problo(dim), probhi(dim)
-      REAL_T     Lx, Ly, Lz
+
+      integer :: init, namlen
+      integer :: name(namlen)
+      integer :: untin
+      REAL_T  :: problo(dim), probhi(dim)
+      REAL_T  :: Lx, Ly, Lz
       double precision :: twicePi, kxd, kyd, kzd, rn
       double precision :: thetaTmp, phiTmp
       double precision :: cosThetaTmp, cosPhiTmp
@@ -72,7 +72,7 @@ contains
 
       double precision :: Lmin
       double precision :: kappa, kappaMax, freqMin, freqMax, freqDiff
-      integer i
+      integer :: i
 
       namelist /fortin/ T_in
       namelist /heattransin/ pamb
@@ -117,19 +117,18 @@ contains
       use_rho_in_forcing = 1
       time_offset = 0.0d0
 
-
       untin = 9
       open(untin,file=probin(1:namlen),form='formatted',status='old')
-      
+
 !     Set defaults
       pamb = pphys_getP1atm_MKS()
 
       T_in = 300.0d0
 
       read(untin,fortin)
-      
+
       read(untin,heattransin)
- 
+
       read(untin,forcing)
 
       close(unit=untin)
@@ -143,7 +142,7 @@ contains
     if (isioproc .eq. 1) then
        write (*,*) " "
        write (*,*) "Initialising turbulence forcing parameters..."
-    end if 
+    end if
 
     twicePi = two*Pi
 
@@ -204,7 +203,6 @@ contains
     allocate(FPXZ(1:nxmodes, 1:nymodes, 1:nzmodes))
     allocate(FPYZ(1:nxmodes, 1:nymodes, 1:nzmodes))
     allocate(FPZZ(1:nxmodes, 1:nymodes, 1:nzmodes))
-
 
     if (forcing_time_scale_min.eq.zero) then
       forcing_time_scale_min = half
@@ -349,7 +347,6 @@ contains
                 endif
              endif
 
-
           enddo
        enddo
     enddo
@@ -468,7 +465,6 @@ contains
                 endif
             endif
 
-
           enddo
        enddo
     enddo
@@ -478,9 +474,7 @@ contains
        write (*,*) " "
     end if
 
-  end subroutine amrex_probinit
-  
-     
+   end subroutine amrex_probinit
 
 ! ::: -----------------------------------------------------------
 ! ::: This routine is called at problem setup time and is used
@@ -500,81 +494,81 @@ contains
 ! ::: time      => time at which to init data             
 ! ::: lo,hi     => index limits of grid interior (cell centered)
 ! ::: nscal     => number of scalar quantities.  You should know
-! :::		   this already!
+! :::              this already!
 ! ::: vel      <=  Velocity array
 ! ::: scal     <=  Scalar array
 ! ::: press    <=  Pressure array
 ! ::: delta     => cell size
 ! ::: xlo,xhi   => physical locations of lower left and upper
 ! :::              right hand corner of grid.  (does not include
-! :::		   ghost region).
+! :::              ghost region).
 ! ::: -----------------------------------------------------------
 
-  subroutine init_data(level,time,lo,hi,nscal, &
-                       vel,scal,DIMS(state),press,DIMS(press), &
-                       delta,xlo,xhi) &
-                       bind(C, name="init_data")
-                       
+   subroutine init_data(level, time, lo, hi, nscal, &
+                        vel, scal, s_lo, s_hi, press, p_lo, p_hi, &
+                        delta, xlo, xhi) &
+                        bind(C, name="init_data")
+
       use network,   only: nspecies
       use PeleLM_F,  only: pphys_getP1atm_MKS, pphys_get_spec_name2
-      use PeleLM_3D, only: pphys_RHOfromPTY, pphys_HMIXfromTY
+      use PeleLM_nD, only: pphys_RHOfromPTY, pphys_HMIXfromTY
       use mod_Fvar_def, only : Density, Temp, FirstSpec, RhoH, pamb, Trac
       use mod_Fvar_def, only : domnlo
       use probdata_module, only : T_in
 
-      
       implicit none
-      integer    level,nscal
-      integer    lo(dim), hi(dim)
-      integer    DIMDEC(state)
-      integer    DIMDEC(press)
-      REAL_T     xlo(dim), xhi(dim)
-      REAL_T     time, delta(dim)
-      REAL_T     vel(DIMV(state),dim)
-      REAL_T    scal(DIMV(state),nscal)
-      REAL_T   press(DIMV(press))
 
-      integer i, j, k, n
-      REAL_T x, y, z, Yl(nspecies), Patm
+! In/Out
+      integer, intent(in) :: level, nscal
+      integer, intent(in) :: lo(3), hi(3)
+      integer, intent(in) :: s_lo(3), s_hi(3)
+      integer, intent(in) :: p_lo(3), p_hi(3)
+      REAL_T, intent(in)  :: xlo(3), xhi(3)
+      REAL_T, intent(in)  :: time, delta(3)
+      REAL_T, dimension(s_lo(1):s_hi(1),s_lo(2):s_hi(2),s_lo(3):s_hi(3),dim), intent(out) :: vel
+      REAL_T, dimension(s_lo(1):s_hi(1),s_lo(2):s_hi(2),s_lo(3):s_hi(3),nscal), intent(out) :: scal
+      REAL_T, dimension(p_lo(1):p_hi(1),p_lo(2):p_hi(2),p_lo(3):p_hi(3)), intent(out) :: press
 
-         do k = lo(3), hi(3)
-            z = (float(k)+.5d0)*delta(3)+domnlo(3)
-            do j = lo(2), hi(2)
-               y = (float(j)+.5d0)*delta(2)+domnlo(2)
-               do i = lo(1), hi(1)
-                  x = (float(i)+.5d0)*delta(1)+domnlo(1)
-                  
-                  scal(i,j,k,Temp) = T_in
-                  Yl(1) = 0.233d0
-                  Yl(2) = 0.767d0
+! Local
+      integer :: i, j, k, n
+      REAL_T  :: x, y, z, Yl(nspecies), Patm
 
-                  do n = 1,nspecies
-                    scal(i,j,k,FirstSpec+n-1) = Yl(n)
-                  end do
+      do k = lo(3), hi(3)
+         z = (float(k)+.5d0)*delta(3)+domnlo(3)
+         do j = lo(2), hi(2)
+            y = (float(j)+.5d0)*delta(2)+domnlo(2)
+            do i = lo(1), hi(1)
+               x = (float(i)+.5d0)*delta(1)+domnlo(1)
+               
+               scal(i,j,k,Temp) = T_in
+               Yl(1) = 0.233d0
+               Yl(2) = 0.767d0
 
-                  scal(i,j,k,Trac) = 0.d0
-                 
-                  
-                  vel(i,j,k,1) = 0.d0
-                  vel(i,j,k,2) = 0.d0
-                  vel(i,j,k,3) = 0.0d0
-                  
+               do n = 1,nspecies
+                 scal(i,j,k,FirstSpec+n-1) = Yl(n)
                end do
+
+               scal(i,j,k,Trac) = 0.d0
+
+               vel(i,j,k,1) = 0.d0
+               vel(i,j,k,2) = 0.d0
+               vel(i,j,k,3) = 0.0d0
+
             end do
          end do
-         
+      end do
+
       Patm = pamb / pphys_getP1atm_MKS()
 
       call pphys_RHOfromPTY(lo,hi, &
-          scal(ARG_L1(state),ARG_L2(state),ARG_L3(state),Density),  DIMS(state), &
-          scal(ARG_L1(state),ARG_L2(state),ARG_L3(state),Temp),     DIMS(state), &
-          scal(ARG_L1(state),ARG_L2(state),ARG_L3(state),FirstSpec),DIMS(state), &
-          Patm)
-
+                            scal(:,:,:,Density),   s_lo, s_hi, &
+                            scal(:,:,:,Temp),      s_lo, s_hi, &
+                            scal(:,:,:,FirstSpec), s_lo, s_hi, &
+                            Patm)
       call pphys_HMIXfromTY(lo,hi, &
-          scal(ARG_L1(state),ARG_L2(state),ARG_L3(state),RhoH),     DIMS(state), &
-          scal(ARG_L1(state),ARG_L2(state),ARG_L3(state),Temp),     DIMS(state), &
-          scal(ARG_L1(state),ARG_L2(state),ARG_L3(state),FirstSpec),DIMS(state))
+                            scal(:,:,:,RhoH),      s_lo, s_hi, &
+                            scal(:,:,:,Temp),      s_lo, s_hi, &
+                            scal(:,:,:,FirstSpec), s_lo, s_hi)
 
       do k = lo(3), hi(3)
          do j = lo(2), hi(2)
@@ -586,12 +580,7 @@ contains
             enddo
          enddo
       enddo
-      
-  end subroutine init_data
 
- 
+   end subroutine init_data
 
-
-
-
-end module prob_3D_module
+end module prob_nd_module

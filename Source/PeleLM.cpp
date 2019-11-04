@@ -54,21 +54,6 @@ using namespace amrex;
 
 static Box stripBox; // used for debugging
 
-#define DEF_LIMITS(fab,fabdat,fablo,fabhi)      \
-  const int* fablo = (fab).loVect();            \
-  const int* fabhi = (fab).hiVect();            \
-  Real* fabdat = (fab).dataPtr();
-
-#define DEF_CLIMITS(fab,fabdat,fablo,fabhi)     \
-  const int* fablo = (fab).loVect();            \
-  const int* fabhi = (fab).hiVect();            \
-  const Real* fabdat = (fab).dataPtr();
-
-#define DEF_CLIMITSCOMP(fab,fabdat,fablo,fabhi,comp)    \
-  const int* fablo = (fab).loVect();                    \
-  const int* fabhi = (fab).hiVect();                    \
-  const Real* fabdat = (fab).dataPtr(comp);
-
 #ifdef BL_USE_FLOAT
 const Real Real_MIN = FLT_MIN;
 const Real Real_MAX = FLT_MAX;
@@ -340,11 +325,11 @@ PeleLM::reactionRateRhoY_pphys(FArrayBox&       RhoYdot,
     const Box& ovlp = box & mabx & mbbx & mcbx & mobx;
     if( ! ovlp.ok() ) return;
     
-    pphys_RRATERHOY(ovlp.loVect(), ovlp.hiVect(),
-                   RhoY.dataPtr(sCompRhoY),       ARLIM(mabx.loVect()), ARLIM(mabx.hiVect()),
-                   RhoH.dataPtr(sCompRhoH),       ARLIM(mbbx.loVect()), ARLIM(mbbx.hiVect()),
-                   T.dataPtr(sCompT),             ARLIM(mcbx.loVect()), ARLIM(mcbx.hiVect()),
-                   RhoYdot.dataPtr(sCompRhoYdot), ARLIM(mobx.loVect()), ARLIM(mobx.hiVect()) );
+    pphys_RRATERHOY(BL_TO_FORTRAN_BOX(ovlp),
+                    BL_TO_FORTRAN_N_ANYD(RhoY,sCompRhoY),
+                    BL_TO_FORTRAN_N_ANYD(RhoH,sCompRhoH),
+                    BL_TO_FORTRAN_N_ANYD(T,sCompT),
+                    BL_TO_FORTRAN_N_ANYD(RhoYdot,sCompRhoYdot) );
 }
 
 void
@@ -368,11 +353,11 @@ PeleLM::getPGivenRTY_pphys(FArrayBox&       p,
     BL_ASSERT(T.box().contains(box));
     BL_ASSERT(Y.box().contains(box));
     
-    pphys_PfromRTY(box.loVect(), box.hiVect(),
-		  p.dataPtr(sCompP),   ARLIM(p.loVect()),   ARLIM(p.hiVect()),
-		  Rho.dataPtr(sCompR), ARLIM(Rho.loVect()), ARLIM(Rho.hiVect()),
-		  T.dataPtr(sCompT),   ARLIM(T.loVect()),   ARLIM(T.hiVect()),
-		  Y.dataPtr(sCompY),   ARLIM(Y.loVect()),   ARLIM(Y.hiVect()));
+    pphys_PfromRTY(BL_TO_FORTRAN_BOX(box),
+		             BL_TO_FORTRAN_N_ANYD(p,sCompP),
+		             BL_TO_FORTRAN_N_ANYD(Rho,sCompR),
+		             BL_TO_FORTRAN_N_ANYD(T,sCompT),
+		             BL_TO_FORTRAN_N_ANYD(Y,sCompY));
 }
 
 void
@@ -392,10 +377,10 @@ PeleLM::getHmixGivenTY_pphys(FArrayBox&       hmix,
     BL_ASSERT(T.box().contains(box));
     BL_ASSERT(Y.box().contains(box));
     
-    pphys_HMIXfromTY(box.loVect(), box.hiVect(),
-		    hmix.dataPtr(sCompH),ARLIM(hmix.loVect()), ARLIM(hmix.hiVect()),
-		    T.dataPtr(sCompT),   ARLIM(T.loVect()),    ARLIM(T.hiVect()),
-		    Y.dataPtr(sCompY),   ARLIM(Y.loVect()),    ARLIM(Y.hiVect()));
+    pphys_HMIXfromTY(BL_TO_FORTRAN_BOX(box),
+		               BL_TO_FORTRAN_N_ANYD(hmix,sCompH),
+		               BL_TO_FORTRAN_N_ANYD(T,sCompT),
+		               BL_TO_FORTRAN_N_ANYD(Y,sCompY));
 }
 
 void
@@ -411,9 +396,9 @@ PeleLM::getHGivenT_pphys(FArrayBox&       h,
     BL_ASSERT(h.box().contains(box));
     BL_ASSERT(T.box().contains(box));
     
-    pphys_HfromT(box.loVect(), box.hiVect(),
-		h.dataPtr(sCompH), ARLIM(h.loVect()), ARLIM(h.hiVect()),
-		T.dataPtr(sCompT), ARLIM(T.loVect()), ARLIM(T.hiVect()));
+    pphys_HfromT(BL_TO_FORTRAN_BOX(box),
+		           BL_TO_FORTRAN_N_ANYD(h,sCompH),
+		           BL_TO_FORTRAN_N_ANYD(T,sCompT));
 }
 
 void
@@ -429,9 +414,9 @@ PeleLM::getMwmixGivenY_pphys(FArrayBox&       mwmix,
     BL_ASSERT(mwmix.box().contains(box));
     BL_ASSERT(Y.box().contains(box));
     
-    pphys_MWMIXfromY(box.loVect(), box.hiVect(),
-		    mwmix.dataPtr(sCompMw),ARLIM(mwmix.loVect()), ARLIM(mwmix.hiVect()),
-		    Y.dataPtr(sCompY),     ARLIM(Y.loVect()),     ARLIM(Y.hiVect()));
+    pphys_MWMIXfromY(BL_TO_FORTRAN_BOX(box),
+		               BL_TO_FORTRAN_N_ANYD(mwmix,sCompMw),
+		               BL_TO_FORTRAN_N_ANYD(Y,sCompY));
 }
 
 void
@@ -452,9 +437,9 @@ PeleLM::getCpmixGivenTY_pphys(FArrayBox&       cpmix,
     BL_ASSERT(Y.box().contains(box));
     
     pphys_CPMIXfromTY(BL_TO_FORTRAN_BOX(box),
-                      BL_TO_FORTRAN_N_3D(cpmix,sCompCp),
-                      BL_TO_FORTRAN_N_3D(T,sCompT),
-                      BL_TO_FORTRAN_N_3D(Y,sCompY));
+                      BL_TO_FORTRAN_N_ANYD(cpmix,sCompCp),
+                      BL_TO_FORTRAN_N_ANYD(T,sCompT),
+                      BL_TO_FORTRAN_N_ANYD(Y,sCompY));
 }
 
 
@@ -478,11 +463,11 @@ PeleLM::getTGivenHY_pphys(FArrayBox&     T,
 
     Real solveTOL = (errMAX<0 ? 1.0e-8 : errMAX);
     
-    return pphys_TfromHY(box.loVect(), box.hiVect(),
-			T.dataPtr(sCompT), ARLIM(T.loVect()), ARLIM(T.hiVect()),
-			H.dataPtr(sCompH), ARLIM(H.loVect()), ARLIM(H.hiVect()),
-			Y.dataPtr(sCompY), ARLIM(Y.loVect()), ARLIM(Y.hiVect()),
-			&solveTOL,&mHtoTiterMAX,mTmpData.dataPtr());
+    return pphys_TfromHY(BL_TO_FORTRAN_BOX(box),
+			                BL_TO_FORTRAN_N_ANYD(T,sCompT),
+                         BL_TO_FORTRAN_N_ANYD(H,sCompH),
+			                BL_TO_FORTRAN_N_ANYD(Y,sCompY),
+			                &solveTOL, &mHtoTiterMAX, mTmpData.dataPtr());
 }
 
 
@@ -808,7 +793,7 @@ PeleLM::Initialize_specific ()
       }
     }
 
-    for (int i = 0; i < BL_SPACEDIM; i++)
+    for (int i = 0; i < AMREX_SPACEDIM; i++)
     {
         phys_bc.setLo(i,lo_bc[i]);
         phys_bc.setHi(i,hi_bc[i]);
@@ -900,13 +885,9 @@ FabMinMax (FArrayBox& fab,
   BL_ASSERT(fab.box().contains(box));
   BL_ASSERT(sComp + nComp <= fab.nComp());
 
-  const int* lo     = box.loVect();
-  const int* hi     = box.hiVect();
-  Real*      fabdat = fab.dataPtr(sComp);
-    
-  fab_minmax(lo, hi,
-                 fabdat, ARLIM(fab.loVect()), ARLIM(fab.hiVect()),
-                 &fmin, &fmax, &nComp);
+  fab_minmax(BL_TO_FORTRAN_BOX(box),
+             BL_TO_FORTRAN_ANYD(fab),
+             &fmin, &fmax, &nComp);
 }
 
 static
@@ -1051,12 +1032,9 @@ LM_Error_Value::LM_Error_Value (LMEF_BOX _lmef_box, const amrex::RealBox& _box, 
 }
 
 void
-LM_Error_Value::tagCells(int* tag, D_DECL(const int& tlo0,const int& tlo1,const int& tlo2),
-                         D_DECL(const int& thi0,const int& thi1,const int& thi2),
+LM_Error_Value::tagCells(int* tag, const int* tlo, const int* thi,
                          const int* tagval, const int* clearval,
-                         const Real* data, 
-                         D_DECL(const int& dlo0,const int& dlo1,const int& dlo2),
-                         D_DECL(const int& dhi0,const int& dhi1,const int& dhi2),
+                         const Real* data, const int* dlo, const int* dhi,
                          const int* lo, const int* hi, const int* nvar,
                          const int* domain_lo, const int* domain_hi,
                          const Real* dx, const Real* xlo,
@@ -1074,16 +1052,16 @@ LM_Error_Value::tagCells(int* tag, D_DECL(const int& tlo0,const int& tlo1,const 
  
     if (max_level_applies && time_window_applies)
     {
-      lmef(tag,D_DECL(tlo0,tlo1,tlo2),D_DECL(thi0,thi1,thi2),tagval,clearval,
-           data,D_DECL(dlo0,dlo1,dlo2),D_DECL(dhi0,dhi1,dhi2), lo, hi, nvar,
-           domain_lo,domain_hi,dx,xlo,prob_lo,time,level,&value);
+      lmef(tag, AMREX_ARLIM_ANYD(tlo), AMREX_ARLIM_ANYD(thi),
+           tagval, clearval,
+           data, AMREX_ARLIM_ANYD(dlo), AMREX_ARLIM_ANYD(dhi),
+           lo, hi, nvar,
+           domain_lo, domain_hi, dx, xlo, prob_lo, time, level, &value);
     }
 }
 
 void
-LM_Error_Value::tagCells1(int* tag,
-                          D_DECL(const int& tlo0,const int& tlo1,const int& tlo2),
-                          D_DECL(const int& thi0,const int& thi1,const int& thi2),
+LM_Error_Value::tagCells1(int* tag, const int* tlo, const int* thi,
                           const int* tagval, const int* clearval,
                           const int* lo, const int* hi,
                           const int* domain_lo, const int* domain_hi,
@@ -1102,8 +1080,10 @@ LM_Error_Value::tagCells1(int* tag,
  
     if (max_level_applies && time_window_applies)
     {
-      lmef_box(tag,D_DECL(tlo0,tlo1,tlo2),D_DECL(thi0,thi1,thi2),tagval,clearval,
-               box.lo(), box.hi(), lo, hi, domain_lo,domain_hi,dx,xlo,prob_lo,time, level);
+      lmef_box(tag, AMREX_ARLIM_ANYD(tlo), AMREX_ARLIM_ANYD(thi),
+               tagval, clearval,
+               AMREX_ZFILL(box.lo()), AMREX_ZFILL(box.hi()),
+               lo, hi, domain_lo, domain_hi, dx, xlo, prob_lo, time, level);
     }
 }
 
@@ -1815,22 +1795,22 @@ PeleLM::estTimeStep ()
     const FArrayBox& vol = volume[mfi];
     const FArrayBox& areax = area[0][mfi];
     const FArrayBox& areay = area[1][mfi];
-#if (BL_SPACEDIM==3) 
+#if (AMREX_SPACEDIM==3) 
     const FArrayBox& areaz = area[2][mfi];
 #endif
 
-    est_divu_dt(divu_ceiling,&divu_dt_factor,dx,
-                divu_mf.dataPtr(),ARLIM(divu_mf.loVect()),ARLIM(divu_mf.hiVect()),
-                dsdt_mf.dataPtr(),ARLIM(dsdt_mf.loVect()),ARLIM(dsdt_mf.hiVect()),
-                Rho.dataPtr(),ARLIM(Rho.loVect()),ARLIM(Rho.hiVect()),
-                U.dataPtr(),ARLIM(U.loVect()),ARLIM(U.hiVect()),
-                vol.dataPtr(),ARLIM(vol.loVect()),ARLIM(vol.hiVect()),
-                areax.dataPtr(),ARLIM(areax.loVect()),ARLIM(areax.hiVect()),
-                areay.dataPtr(),ARLIM(areay.loVect()),ARLIM(areay.hiVect()),
-#if (BL_SPACEDIM==3) 
-                areaz.dataPtr(),ARLIM(areaz.loVect()),ARLIM(areaz.hiVect()),
+    est_divu_dt(divu_ceiling, &divu_dt_factor, dx,
+                BL_TO_FORTRAN_ANYD(divu_mf),
+                BL_TO_FORTRAN_ANYD(dsdt_mf),
+                BL_TO_FORTRAN_ANYD(Rho),
+                BL_TO_FORTRAN_ANYD(U),
+                BL_TO_FORTRAN_ANYD(vol),
+                BL_TO_FORTRAN_ANYD(areax),
+                BL_TO_FORTRAN_ANYD(areay),
+#if (AMREX_SPACEDIM==3) 
+                BL_TO_FORTRAN_ANYD(areaz), 
 #endif 
-                bx.loVect(),bx.hiVect(),&dt,&min_rho_divu_ceiling);
+                BL_TO_FORTRAN_BOX(bx), &dt, &min_rho_divu_ceiling);
 
     divu_dt = std::min(divu_dt,dt);
 
@@ -1885,39 +1865,27 @@ PeleLM::checkTimeStep (Real dt)
 
 #ifdef _OPENMP
 #pragma omp parallel
-#endif  
-  for (MFIter mfi(Umf,true); mfi.isValid();++mfi)  
+#endif
+  for (MFIter mfi(Umf,true); mfi.isValid();++mfi)
   {
+    const Box&    grdbx  = mfi.tilebox();
     const int        i   = mfi.index();
     FArrayBox&       U   = Umf[mfi];
     const FArrayBox& Rho = rho_ctime[mfi];
-    const Box&    grdbx  = mfi.tilebox();
-    const int*       lo  = grdbx.loVect();
-    const int*       hi  = grdbx.hiVect();
 
-    DEF_LIMITS((*divu)[mfi],sdat,slo,shi);
-    DEF_CLIMITS(Rho,rhodat,rholo,rhohi);
-    DEF_CLIMITS(U,vel,ulo,uhi);
-
-    DEF_CLIMITS(volume[i],vol,v_lo,v_hi);
-    DEF_CLIMITS(area[0][i],areax,ax_lo,ax_hi);
-    DEF_CLIMITS(area[1][i],areay,ay_lo,ay_hi);
-
-#if (BL_SPACEDIM==3) 
-    DEF_CLIMITS(area[2][i],areaz,az_lo,az_hi);
+    check_divu_dt( divu_ceiling, &divu_dt_factor, dx,
+                   BL_TO_FORTRAN_ANYD((*divu)[mfi]),
+                   BL_TO_FORTRAN_ANYD((*dsdt)[mfi]),
+                   BL_TO_FORTRAN_ANYD(Rho),
+                   BL_TO_FORTRAN_ANYD(U),
+                   BL_TO_FORTRAN_ANYD(volume[i]),
+                   BL_TO_FORTRAN_ANYD(area[0][i]),
+                   BL_TO_FORTRAN_ANYD(area[1][i]),
+#if (AMREX_SPACEDIM==3)
+                   BL_TO_FORTRAN_ANYD(area[2][i]),
 #endif
-    check_divu_dt(divu_ceiling,&divu_dt_factor,
-                       dx,sdat,ARLIM(slo),ARLIM(shi),
-                       (*dsdt)[mfi].dataPtr(),
-                       rhodat,ARLIM(rholo),ARLIM(rhohi),
-                       vel,ARLIM(ulo),ARLIM(uhi),
-                       vol,ARLIM(v_lo),ARLIM(v_hi),
-                       areax,ARLIM(ax_lo),ARLIM(ax_hi),
-                       areay,ARLIM(ay_lo),ARLIM(ay_hi),
-#if (BL_SPACEDIM==3) 
-                       areaz,ARLIM(az_lo),ARLIM(az_hi),
-#endif 
-                       lo,hi,&dt,&min_rho_divu_ceiling);
+                   BL_TO_FORTRAN_BOX(grdbx),
+                   &dt, &min_rho_divu_ceiling);
   }
 
   delete dsdt;
@@ -2024,29 +1992,21 @@ PeleLM::initData ()
 
     const Box& vbx = snewmfi.tilebox();
     RealBox    gridloc = RealBox(vbx,geom.CellSize(),geom.ProbLo());
-    const int* lo      = vbx.loVect();
-    const int* hi      = vbx.hiVect();
-    const int* s_lo    = S_new[snewmfi].loVect();
-    const int* s_hi    = S_new[snewmfi].hiVect();
-    const int* p_lo    = P_new[snewmfi].loVect();
-    const int* p_hi    = P_new[snewmfi].hiVect();
 
 #ifdef BL_USE_NEWMECH
-    init_data_new_mech (&level,&cur_time,lo,hi,&ns,
-                          S_new[snewmfi].dataPtr(Xvel),
-                          S_new[snewmfi].dataPtr(BL_SPACEDIM),
-                          ARLIM(s_lo), ARLIM(s_hi),
-                          P_new[snewmfi].dataPtr(),
-                          ARLIM(p_lo), ARLIM(p_hi),
-                          dx,gridloc.lo(),gridloc.hi() );
+    init_data_new_mech (&level, &cur_time,
+                        BL_TO_FORTRAN_BOX(vbx), &ns,
+                        S_new[snewmfi].dataPtr(Xvel),
+                        BL_TO_FORTRAN_N_ANYD(S_new[snewmfi],AMREX_SPACEDIM),
+                        BL_TO_FORTRAN_ANYD(P_new[snewmfi]),
+                        dx, AMREX_ZFILL(gridloc.lo()), AMREX_ZFILL(gridloc.hi()) );
 #else
-    init_data (&level,&cur_time,lo,hi,&ns,
-                   S_new[snewmfi].dataPtr(Xvel),
-                   S_new[snewmfi].dataPtr(BL_SPACEDIM),
-                   ARLIM(s_lo), ARLIM(s_hi),
-                   P_new[snewmfi].dataPtr(),
-                   ARLIM(p_lo), ARLIM(p_hi),
-                   dx,gridloc.lo(),gridloc.hi() );
+    init_data (&level, &cur_time,
+               BL_TO_FORTRAN_BOX(vbx), &ns,
+               S_new[snewmfi].dataPtr(Xvel),
+               BL_TO_FORTRAN_N_ANYD(S_new[snewmfi],AMREX_SPACEDIM),
+               BL_TO_FORTRAN_ANYD(P_new[snewmfi]),
+               dx, AMREX_ZFILL(gridloc.lo()), AMREX_ZFILL(gridloc.hi()) );
 #endif
   }
 
@@ -2291,7 +2251,7 @@ void
 PeleLM::init ()
 {
   NavierStokesBase::init();
- 
+
   PeleLM& coarser  = getLevel(level-1);
   const Real    tnp1 = coarser.state[State_Type].curTime();
   //
@@ -2325,11 +2285,11 @@ PeleLM::init ()
     {
       FArrayBox& fab = fine[mfi];
       const Box& box = mfi.tilebox();
-      num_cells_hacked += 
-        conservative_T_floor(box.loVect(), box.hiVect(),
-                             fab.dataPtr(), ARLIM(fab.loVect()), ARLIM(fab.hiVect()),
-                             &min_T_fine, &Tcomp, &Rcomp, &first_spec, &last_spec, &RhoH,
-                             ratio, tmp.dataPtr(), &n_tmp);
+      num_cells_hacked += conservative_T_floor(BL_TO_FORTRAN_BOX(box),
+                                               BL_TO_FORTRAN_ANYD(fab),
+                                               &min_T_fine, &Tcomp, &Rcomp,
+                                               &first_spec, &last_spec, &RhoH,
+                                               ratio, tmp.dataPtr(), &n_tmp);
     }
 
     ParallelDescriptor::ReduceIntSum(num_cells_hacked);
@@ -2341,9 +2301,9 @@ PeleLM::init ()
       Real new_min = fine.min(Temp);
 
       if (verbose) {
-	amrex::Print() << "...level data adjusted to reduce new extrema (" << num_cells_hacked
-		       << " cells affected), new min = " << new_min 
-		       << " (old min = " << old_min << ")" << '\n';
+          amrex::Print() << "...level data adjusted to reduce new extrema (" << num_cells_hacked
+                         << " cells affected), new min = " << new_min 
+                         << " (old min = " << old_min << ")" << '\n';
       }
     }
   }
@@ -3835,9 +3795,15 @@ PeleLM::adjust_spec_diffusion_fluxes (MultiFab* const * flux,
       FArrayBox& Ffab = (*flux[d])[mfi];
       const Box& ebox = mfi.nodaltilebox(d);
       const Box& edomain = amrex::surroundingNodes(domain,d);
-      repair_flux(ebox.loVect(), ebox.hiVect(), edomain.loVect(), edomain.hiVect(),
-                  Ffab.dataPtr(),          ARLIM(Ffab.loVect()),ARLIM(Ffab.hiVect()),
-                  Sfab.dataPtr(0),ARLIM(Sfab.loVect()),ARLIM(Sfab.hiVect()),
+//      repair_flux(ebox.loVect(), ebox.hiVect(), edomain.loVect(), edomain.hiVect(),
+//                  Ffab.dataPtr(),          ARLIM(Ffab.loVect()),ARLIM(Ffab.hiVect()),
+//                  Sfab.dataPtr(0),ARLIM(Sfab.loVect()),ARLIM(Sfab.hiVect()),
+//                  &d, bc.vect());
+
+      repair_flux(BL_TO_FORTRAN_BOX(ebox),
+                  BL_TO_FORTRAN_BOX(edomain),
+                  BL_TO_FORTRAN_ANYD(Ffab), 
+                  BL_TO_FORTRAN_N_ANYD(Sfab,0),
                   &d, bc.vect());
     }
   }
@@ -3899,20 +3865,20 @@ PeleLM::compute_enthalpy_fluxes (MultiFab* const*       flux,
 
       enth_diff_terms(BL_TO_FORTRAN_BOX(box),
                       BL_TO_FORTRAN_BOX(domain), dx,
-                      BL_TO_FORTRAN(T),
+                      BL_TO_FORTRAN_ANYD(T),
                       
-                      BL_TO_FORTRAN_N((*beta[0])[mfi],nspecies),
-                      BL_TO_FORTRAN(    ftmp[0]),
-                      BL_TO_FORTRAN(    area[0][mfi]),
+                      BL_TO_FORTRAN_N_ANYD((*beta[0])[mfi],nspecies),
+                      BL_TO_FORTRAN_ANYD(    ftmp[0]),
+                      BL_TO_FORTRAN_ANYD(    area[0][mfi]),
 
-                      BL_TO_FORTRAN_N((*beta[1])[mfi],nspecies),
-                      BL_TO_FORTRAN(    ftmp[1]),
-                      BL_TO_FORTRAN(    area[1][mfi]),
+                      BL_TO_FORTRAN_N_ANYD((*beta[1])[mfi],nspecies),
+                      BL_TO_FORTRAN_ANYD(    ftmp[1]),
+                      BL_TO_FORTRAN_ANYD(    area[1][mfi]),
 
 #if BL_SPACEDIM == 3
-                      BL_TO_FORTRAN_N((*beta[2])[mfi],nspecies),
-                      BL_TO_FORTRAN(    ftmp[2]),
-                      BL_TO_FORTRAN(    area[2][mfi]),
+                      BL_TO_FORTRAN_N_ANYD((*beta[2])[mfi],nspecies),
+                      BL_TO_FORTRAN_ANYD(    ftmp[2]),
+                      BL_TO_FORTRAN_ANYD(    area[2][mfi]),
 #endif
                       Tbc.vect() );
 
@@ -3931,7 +3897,7 @@ PeleLM::compute_enthalpy_fluxes (MultiFab* const*       flux,
     ParallelDescriptor::ReduceRealMax(run_time,IOProc);
 
     amrex::Print() << "PeleLM::compute_enthalpy_fluxes(): lev: " << level 
-		   << ", time: " << run_time << '\n';
+                   << ", time: " << run_time << '\n';
   }
 }
     
@@ -4435,16 +4401,16 @@ PeleLM::flux_divergence (MultiFab&        fdiv,
     const Box& box = mfi.tilebox();
     FArrayBox& fab = fdiv[mfi];
 
-    flux_div(box.loVect(), box.hiVect(),
-                 fab.dataPtr(fdivComp), ARLIM(fab.loVect()), ARLIM(fab.hiVect()),
-                 (*f[0])[mfi].dataPtr(fluxComp), ARLIM((*f[0])[mfi].loVect()),   ARLIM((*f[0])[mfi].hiVect()),
-                 (*f[1])[mfi].dataPtr(fluxComp), ARLIM((*f[1])[mfi].loVect()),   ARLIM((*f[1])[mfi].hiVect()),
-#if BL_SPACEDIM == 3
-                 (*f[2])[mfi].dataPtr(fluxComp), ARLIM((*f[2])[mfi].loVect()),   ARLIM((*f[2])[mfi].hiVect()),
+    flux_div( BL_TO_FORTRAN_BOX(box),
+              BL_TO_FORTRAN_N_ANYD(fab,fdivComp),
+              BL_TO_FORTRAN_N_ANYD((*f[0])[mfi],fluxComp),
+              BL_TO_FORTRAN_N_ANYD((*f[1])[mfi],fluxComp),
+#if ( AMREX_SPACEDIM == 3 )
+              BL_TO_FORTRAN_N_ANYD((*f[2])[mfi],fluxComp),
 #endif
-                 volume[mfi].dataPtr(),          ARLIM(volume[mfi].loVect()),    ARLIM(volume[mfi].hiVect()),
-                 &nComp, &scale);
-  }	
+              BL_TO_FORTRAN_ANYD(volume[mfi]),
+              &nComp, &scale);
+  }
 }
 
 void
@@ -4570,7 +4536,7 @@ PeleLM::set_rho_to_species_sum (MultiFab& S_in,
 #endif
     for (MFIter mfi(S_in,true); mfi.isValid(); ++mfi)
     {
-      const Box&       box = mfi.tilebox();
+      const Box&  box = mfi.tilebox();
       FabMinMax(S_in[mfi], box, 0.0, Real_MAX, s_first_spec, s_num_spec);
     }
   }
@@ -5012,9 +4978,9 @@ PeleLM::advance (Real time,
     for (MFIter mfi(S_old,true); mfi.isValid(); ++mfi)
     {
       const Box& box = mfi.tilebox();            
-      const FArrayBox& species = S_old[mfi];
-      floor_spec(box.loVect(), box.hiVect(), species.dataPtr(first_spec),
-                     ARLIM(species.loVect()), ARLIM(species.hiVect()));
+      FArrayBox& species = S_old[mfi];
+      floor_spec(BL_TO_FORTRAN_BOX(box), 
+                 BL_TO_FORTRAN_N_ANYD(species,first_spec));
     }
   }
   BL_PROFILE_VAR_STOP(HTDIFF);
@@ -5301,9 +5267,9 @@ PeleLM::advance (Real time,
       for (MFIter mfi(S_new,true); mfi.isValid(); ++mfi)
       {
         const Box& box = mfi.tilebox();            
-        const FArrayBox& species = S_new[mfi];
-        floor_spec(box.loVect(), box.hiVect(),
-                   species.dataPtr(first_spec), ARLIM(species.loVect()),  ARLIM(species.hiVect()));
+        FArrayBox& species = S_new[mfi];
+        floor_spec(BL_TO_FORTRAN_BOX(box), 
+                   BL_TO_FORTRAN_N_ANYD(species,first_spec));
       }
     }
     BL_PROFILE_VAR_STOP(HTDIFF);
@@ -5569,11 +5535,11 @@ PeleLM::adjust_p_and_divu_for_closed_chamber(MultiFab& mac_divu)
     FArrayBox& thetafab = theta_old[mfi];
     const FArrayBox& rhoY = S_old[mfi];
     const FArrayBox& T = S_old[mfi];
-    calc_gamma_pinv(box.loVect(), box.hiVect(),
-                    thetafab.dataPtr(),       ARLIM(thetafab.loVect()), ARLIM(thetafab.hiVect()),
-                    rhoY.dataPtr(first_spec), ARLIM(rhoY.loVect()),     ARLIM(rhoY.hiVect()),
-                    T.dataPtr(Temp),          ARLIM(T.loVect()),        ARLIM(T.hiVect()),
-                    &p_amb_old);
+    calc_gamma_pinv(BL_TO_FORTRAN_BOX(box),
+                        BL_TO_FORTRAN_ANYD(thetafab),
+                        BL_TO_FORTRAN_N_ANYD(rhoY,first_spec),
+                        BL_TO_FORTRAN_N_ANYD(T,Temp),
+                        &p_amb_old);
   }
 
 #ifdef _OPENMP
@@ -5585,11 +5551,11 @@ PeleLM::adjust_p_and_divu_for_closed_chamber(MultiFab& mac_divu)
     FArrayBox& thetafab = theta_nph[mfi];
     const FArrayBox& rhoY = S_new[mfi];
     const FArrayBox& T = S_new[mfi];
-    calc_gamma_pinv(box.loVect(), box.hiVect(),
-                    thetafab.dataPtr(),       ARLIM(thetafab.loVect()), ARLIM(thetafab.hiVect()),
-                    rhoY.dataPtr(first_spec), ARLIM(rhoY.loVect()),     ARLIM(rhoY.hiVect()),
-                    T.dataPtr(Temp),          ARLIM(T.loVect()),        ARLIM(T.hiVect()),
-                    &p_amb_new);
+    calc_gamma_pinv(BL_TO_FORTRAN_BOX(box),
+                        BL_TO_FORTRAN_ANYD(thetafab),
+                        BL_TO_FORTRAN_N_ANYD(rhoY,first_spec),
+                        BL_TO_FORTRAN_N_ANYD(T,Temp),
+                        &p_amb_new);
   }
 
 #ifdef _OPENMP
@@ -6951,7 +6917,7 @@ PeleLM::compute_Wbar_fluxes(Real time,
   visc_op->applyBC(Wbar,0,1,0,LinOp::Inhomogeneous_BC);
 
   delete visc_op;
-  
+
 #ifdef _OPENMP
 #pragma omp parallel
 #endif   
@@ -6961,20 +6927,20 @@ PeleLM::compute_Wbar_fluxes(Real time,
     const FArrayBox& wbar = Wbar[mfi];
     const Real       mult = -1.0;
 
-    for (int d=0; d<BL_SPACEDIM; ++d) 
+    for (int d=0; d<AMREX_SPACEDIM; ++d) 
     {
+      const Box&        vbox = mfi.nodaltilebox(d);
       const FArrayBox& rhoDe = (*betaWbar[d])[mfi];
-      FArrayBox&       fluxfab  = (*SpecDiffusionFluxWbar[d])[mfi];
-		  const Box&       vbox = mfi.nodaltilebox(d);
-      
+      FArrayBox&    fluxfab  = (*SpecDiffusionFluxWbar[d])[mfi];
+
       for (int ispec=0; ispec<nspecies; ++ispec)
       {
-        grad_wbar(vbox.loVect(), vbox.hiVect(),
-                      wbar.dataPtr(), ARLIM(wbar.loVect()),ARLIM(wbar.hiVect()),
-                      rhoDe.dataPtr(ispec), ARLIM(rhoDe.loVect()), ARLIM(rhoDe.hiVect()),
-                      fluxfab.dataPtr(ispec), ARLIM(fluxfab.loVect()), ARLIM(fluxfab.hiVect()),
-                      area[d][mfi].dataPtr(), ARLIM(area[d][mfi].loVect()), ARLIM(area[d][mfi].hiVect()),
-                      &dx[d], &d, &mult, &inc);
+        grad_wbar(BL_TO_FORTRAN_BOX(vbox),
+                  BL_TO_FORTRAN_ANYD(wbar),
+                  BL_TO_FORTRAN_ANYD(rhoDe),
+                  BL_TO_FORTRAN_N_ANYD(fluxfab,ispec),
+                  BL_TO_FORTRAN_ANYD(area[d][mfi]),
+                  &dx[d], &d, &mult, &inc);
       }
     }
   }
@@ -7113,7 +7079,7 @@ PeleLM::differential_spec_diffuse_sync (Real dt,
     const Box& box   = mfi.tilebox();
 
     // copy corrected (delta gamma) on edges into efab
-    for (int d=0; d<BL_SPACEDIM; ++d)
+    for (int d=0; d<AMREX_SPACEDIM; ++d)
     {
       const Box& ebox = amrex::surroundingNodes(box,d);
       efab[d].resize(ebox,nspecies);
@@ -7131,16 +7097,15 @@ PeleLM::differential_spec_diffuse_sync (Real dt,
     // take divergence of (delta gamma) and put it in update
     // update = scale * div(flux) / vol
     // we want update to contain (dt/2) div (delta gamma)
-    flux_div(box.loVect(), box.hiVect(),
-                 update.dataPtr(),  
-                 ARLIM(update.loVect()),  ARLIM(update.hiVect()),
-                 efab[0].dataPtr(), ARLIM(efab[0].loVect()), ARLIM(efab[0].hiVect()),
-                 efab[1].dataPtr(), ARLIM(efab[1].loVect()), ARLIM(efab[1].hiVect()),
-#if BL_SPACEDIM == 3
-                 efab[2].dataPtr(), ARLIM(efab[2].loVect()), ARLIM(efab[2].hiVect()),
+    flux_div ( BL_TO_FORTRAN_BOX(box),
+               BL_TO_FORTRAN_ANYD(update),
+               BL_TO_FORTRAN_ANYD(efab[0]),
+               BL_TO_FORTRAN_ANYD(efab[1]),
+#if ( AMREX_SPACEDIM == 3 )
+               BL_TO_FORTRAN_ANYD(efab[2]),
 #endif
-                 volume[mfi].dataPtr(),  ARLIM(volume[mfi].loVect()),  ARLIM(volume[mfi].hiVect()),
-                 &nspecies,&scale);
+               BL_TO_FORTRAN_ANYD(volume[mfi]),
+               &nspecies,&scale);
 
     // add RHS from diffusion solve
     update.plus(Rhs[iGrid],box,0,0,nspecies);
@@ -7170,7 +7135,7 @@ PeleLM::differential_spec_diffuse_sync (Real dt,
     ParallelDescriptor::ReduceRealMax(run_time,IOProc);
 
     amrex::Print() << "PeleLM::differential_spec_diffuse_sync(): lev: " << level 
-		   << ", time: " << run_time << '\n';
+                   << ", time: " << run_time << '\n';
   }
 
   BL_PROFILE_REGION_STOP("R::HT::differential_spec_diffuse_sync()");
@@ -7364,9 +7329,9 @@ PeleLM::calcDiffusivity (const Real time)
     bcen.resize(gbox,nc_bcen);
     
     spec_temp_visc(BL_TO_FORTRAN_BOX(gbox),
-                   BL_TO_FORTRAN_N_3D(Tfab,0),
-                   BL_TO_FORTRAN_N_3D(RYfab,1),
-                   BL_TO_FORTRAN_N_3D(bcen,0),
+                   BL_TO_FORTRAN_N_ANYD(Tfab,0),
+                   BL_TO_FORTRAN_N_ANYD(RYfab,1),
+                   BL_TO_FORTRAN_N_ANYD(bcen,0),
                    &nc_bcen, &P1atm_MKS, &dotemp, &vflag, &p_amb);
         
     FArrayBox& Dfab = diff[mfi];
@@ -7440,9 +7405,9 @@ PeleLM::calcDiffusivity_Wbar (const Real time)
     const Box& gbox = mfi.growntilebox();
         
     beta_wbar(BL_TO_FORTRAN_BOX(gbox),
-              BL_TO_FORTRAN_3D(RD),
-              BL_TO_FORTRAN_3D(Dfab_Wbar),
-              BL_TO_FORTRAN_N_3D(RYfab,1));
+              BL_TO_FORTRAN_ANYD(RD),
+              BL_TO_FORTRAN_ANYD(Dfab_Wbar),
+              BL_TO_FORTRAN_N_ANYD(RYfab,1));
   }
 }
 #endif
@@ -7567,16 +7532,16 @@ PeleLM::zeroBoundaryVisc (MultiFab*  beta[BL_SPACEDIM],
       {
         FArrayBox& beta_fab = (*(beta[dir]))[mfi];
         const Box& ebox     = amrex::surroundingNodes(mfi.growntilebox(),dir);
-        zero_visc(beta_fab.dataPtr(dst_comp),
-                      ARLIM(beta_fab.loVect()), ARLIM(beta_fab.hiVect()),
-                      ebox.loVect(),  ebox.hiVect(),
-                      edom.loVect(),  edom.hiVect(),
-                      geom.CellSize(), geom.ProbLo(), phys_bc.vect(),
-                      &dir, &isrz, &state_comp, &ncomp);
+        zero_visc(BL_TO_FORTRAN_N_ANYD(beta_fab,dst_comp),
+                  BL_TO_FORTRAN_BOX(ebox),
+                  BL_TO_FORTRAN_BOX(edom),
+                  geom.CellSize(), geom.ProbLo(), phys_bc.vect(),
+                  &dir, &isrz, &state_comp, &ncomp);
       }
     }
   }
 }
+
 void
 PeleLM::compute_vel_visc (Real      time,
                           MultiFab* beta)
@@ -7603,9 +7568,9 @@ PeleLM::compute_vel_visc (Real      time,
       FArrayBox& spec = Spec_mf[mfi];
       
       vel_visc(BL_TO_FORTRAN_BOX(box),
-               BL_TO_FORTRAN_N_3D(temp,0),
-               BL_TO_FORTRAN_N_3D(spec,0),
-               BL_TO_FORTRAN_N_3D((*beta)[mfi],0));
+               BL_TO_FORTRAN_N_ANYD(temp,0),
+               BL_TO_FORTRAN_N_ANYD(spec,0),
+               BL_TO_FORTRAN_N_ANYD((*beta)[mfi],0));
     }
   }
 }
@@ -7675,12 +7640,13 @@ PeleLM::calc_divu (Real      time,
     const FArrayBox& rYdot = RhoYdot[mfi];
     const FArrayBox& T = S[mfi];
     calc_divu_fortran(BL_TO_FORTRAN_BOX(box),
-                      BL_TO_FORTRAN(du),
-                      BL_TO_FORTRAN(rYdot),
-                      BL_TO_FORTRAN_N(vtY,vtCompY),
-                      BL_TO_FORTRAN_N(vtT,vtCompT),
-                      BL_TO_FORTRAN_N(rhoY,first_spec),
-                      BL_TO_FORTRAN_N(T,Temp));
+                      BL_TO_FORTRAN_ANYD(du),
+                      BL_TO_FORTRAN_ANYD(rYdot),
+                      BL_TO_FORTRAN_N_ANYD(vtY,vtCompY),
+                      BL_TO_FORTRAN_N_ANYD(vtT,vtCompT),
+                      BL_TO_FORTRAN_N_ANYD(rhoY,first_spec),
+                      BL_TO_FORTRAN_N_ANYD(T,Temp));
+
   }
 }
 
@@ -8031,14 +7997,14 @@ PeleLM::writePlotFile (const std::string& dir,
         os << it->second[i] << '\n';
     }
 
-    os << BL_SPACEDIM << '\n';
+    os << AMREX_SPACEDIM << '\n';
     os << parent->cumTime() << '\n';
     int f_lev = parent->finestLevel();
     os << f_lev << '\n';
-    for (int i = 0; i < BL_SPACEDIM; i++)
+    for (int i = 0; i < AMREX_SPACEDIM; i++)
       os << Geom().ProbLo(i) << ' ';
     os << '\n';
-    for (int i = 0; i < BL_SPACEDIM; i++)
+    for (int i = 0; i < AMREX_SPACEDIM; i++)
       os << Geom().ProbHi(i) << ' ';
     os << '\n';
     for (int i = 0; i < f_lev; i++)
@@ -8052,7 +8018,7 @@ PeleLM::writePlotFile (const std::string& dir,
     os << '\n';
     for (int i = 0; i <= f_lev; i++)
     {
-      for (int k = 0; k < BL_SPACEDIM; k++)
+      for (int k = 0; k < AMREX_SPACEDIM; k++)
         os << parent->Geom(i).CellSize()[k] << ' ';
       os << '\n';
     }
@@ -8129,7 +8095,7 @@ PeleLM::writePlotFile (const std::string& dir,
       jobInfoFile << "PeleLM git hash: " << githash1 << "\n";
     }
     if (strlen(githash2) > 0) {
-      jobInfoFile << "BoxLib git hash: " << githash2 << "\n";
+      jobInfoFile << "AMReX git hash: " << githash2 << "\n";
     }
     if (strlen(githash3) > 0) {
       jobInfoFile << "IAMR   git hash: " << githash3 << "\n";
@@ -8348,11 +8314,9 @@ PeleLM::derive (const std::string& name,
         // Use result MultiFab for temporary container to hold smooth T field
         // 
         const Box& box = mfi.tilebox();
-        smooth(box.loVect(),box.hiVect(),
-               tmf[mfi].dataPtr(),
-               ARLIM(tmf[mfi].loVect()),ARLIM(tmf[mfi].hiVect()),
-               mf[mfi].dataPtr(dcomp),
-               ARLIM(mf[mfi].loVect()),ARLIM(mf[mfi].hiVect()));
+        smooth( BL_TO_FORTRAN_BOX(box),
+                BL_TO_FORTRAN_ANYD(tmf[mfi]),
+                BL_TO_FORTRAN_N_ANYD(mf[mfi],dcomp));
       }
       
       MultiFab::Copy(tmf,mf,0,0,1,0);
@@ -8374,13 +8338,12 @@ PeleLM::derive (const std::string& name,
         const Box& box = mfi.tilebox();
         const Box& nodebox = amrex::surroundingNodes(box);
         nWork.resize(nodebox,BL_SPACEDIM);
-            
-        mcurve(box.loVect(),box.hiVect(),
-               Tg.dataPtr(),ARLIM(Tg.loVect()),ARLIM(Tg.hiVect()),
-               MC.dataPtr(dcomp),ARLIM(MC.loVect()),ARLIM(MC.hiVect()),
-               nWork.dataPtr(),ARLIM(nWork.loVect()),ARLIM(nWork.hiVect()),
-               dx);
-      }
+
+      mcurve( BL_TO_FORTRAN_BOX(box),
+              BL_TO_FORTRAN_ANYD(Tg),
+              BL_TO_FORTRAN_N_ANYD(MC,dcomp),
+              BL_TO_FORTRAN_ANYD(nWork),
+              dx);
     }
   }
   else
@@ -8426,15 +8389,14 @@ PeleLM::errorEst (TagBoxArray& tags,
       int*        tptr    = itags.dataPtr();
       const int*  tlo     = tags[mfi].box().loVect();
       const int*  thi     = tags[mfi].box().hiVect();
-      const int*  lo      = vbx.loVect();
-      const int*  hi      = vbx.hiVect();
       const Real* xlo     = gridloc.lo();
 
       if (box_tag)
       {
-        lmfunc->tagCells1(tptr,ARLIM(tlo),ARLIM(thi),
+        lmfunc->tagCells1(tptr, tlo, thi,
                           &tagval, &clearval,
-                          lo,hi, domain_lo, domain_hi,
+                          BL_TO_FORTRAN_BOX(vbx),
+                          BL_TO_FORTRAN_BOX(geom.Domain()),
                           dx, xlo, prob_lo, &time, &level);
       }
       else
@@ -8447,16 +8409,20 @@ PeleLM::errorEst (TagBoxArray& tags,
         
         if (lmfunc==0) 
         {
-          err_list[j].errFunc()(tptr, ARLIM(tlo), ARLIM(thi), &tagval,
-                                &clearval, dat, ARLIM(dlo), ARLIM(dhi),
-                                lo,hi, &ncomp, domain_lo, domain_hi,
+          err_list[j].errFunc()(tptr, tlo, thi,
+                                &tagval, &clearval,
+                                BL_TO_FORTRAN_ANYD(fab),
+                                BL_TO_FORTRAN_BOX(vbx), &ncomp,
+                                BL_TO_FORTRAN_BOX(geom.Domain()),
                                 dx, xlo, prob_lo, &time, &level);
         }
         else
         {
-          lmfunc->tagCells(tptr,ARLIM(tlo),ARLIM(thi),
-                           &tagval, &clearval, dat, ARLIM(dlo), ARLIM(dhi),
-                           lo,hi, &ncomp, domain_lo, domain_hi,
+          lmfunc->tagCells(tptr, tlo, thi,
+                           &tagval, &clearval,
+                           dat, dlo, dhi, 
+                           BL_TO_FORTRAN_BOX(vbx), &ncomp,
+                           BL_TO_FORTRAN_BOX(geom.Domain()),
                            dx, xlo, prob_lo, &time, &level);
         }
       }
