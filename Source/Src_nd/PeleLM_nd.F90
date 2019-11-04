@@ -95,7 +95,7 @@ contains
 
 ! Local
       REAL_T, dimension(1:nspecies) :: Y, H, invmtw
-      REAL_T :: cpmix, rhoInv, tmp, mmw
+      REAL_T :: cpmix, rho, rhoInv, tmp, mmw
       integer :: i, j, k, n
 
       call CKWT(invmtw)
@@ -106,11 +106,11 @@ contains
       do k=lo(3),hi(3)
          do j=lo(2),hi(2)
             do i=lo(1),hi(1)
-               rhoInv = 0.d0
+               rho = 0.d0
                do n=1,nspecies
-                  rhoInv = rhoInv + rhoY(i,j,k,n)
+                  rho = rho + rhoY(i,j,k,n)
                enddo
-               rhoInv = 1.d0 / rhoInv
+               rhoInv = 1.d0 / rho
                do n=1,nspecies
                   Y(n) = rhoInv*rhoY(i,j,k,n)
                enddo
@@ -124,12 +124,12 @@ contains
                enddo
 
                tmp = 0.d0
-               divu(i,j,k) = vtT(i,j,k)
+               divu(i,j,k) = (divu(i,j,k) + vtT(i,j,k))/(rho*cpmix*T(i,j,k))
                do n=1,nspecies
-                  tmp = tmp + (rYdot(i,j,k,n)+vtY(i,j,k,n))*invmtw(n)
-                  divu(i,j,k) = divu(i,j,k) - rYdot(i,j,k,n)*H(n)
+                  divu(i,j,k) = divu(i,j,k) &
+                              + (vtY(i,j,,kn) + rYdot(i,j,,kn)) &
+                              *(invmwt(n)*mmw*rhoInv - H(n)/(rho*cpmix*T(i,j,k)))
                enddo
-               divu(i,j,k) = ( divu(i,j,k)/(cpmix*T(i,j,k)) + tmp*mmw ) * rhoInv
             enddo
          enddo
       enddo
@@ -895,13 +895,13 @@ contains
    subroutine enth_diff_terms (lo, hi, &
                                dlo, dhi, dx, &
                                T, t_lo, t_hi, &
-                               RhoY, rY_lo, rY_hi, &
+
                                rhoDx, rdx_lo, rdx_hi, Fx, fx_lo, fx_hi, Ax, ax_lo, ax_hi, &
                                rhoDy, rdy_lo, rdy_hi, Fy, fy_lo, fy_hi, Ay, ay_lo, ay_hi, &
 #if ( AMREX_SPACEDIM == 3)
                                rhoDz, rdz_lo, rdz_hi, Fz, fz_lo, fz_hi, Az, az_lo, az_hi, &
 #endif
-                               FiGHi, fg_lo, fg_hi, Tbc) &
+                               Tbc) &
                                bind(C, name="enth_diff_terms")
 
       use amrex_mempool_module
@@ -912,7 +912,6 @@ contains
       integer, intent(in) :: lo(3), hi(3), dlo(3), dhi(3)
       REAL_T, intent(in)  :: dx(3)
       integer, intent(in) :: t_lo(3), t_hi(3)
-      integer, intent(in) :: rY_lo(3), rY_hi(3)
       integer, intent(in) :: rdx_lo(3), rdx_hi(3)
       integer, intent(in) :: fx_lo(3), fx_hi(3)
       integer, intent(in) :: ax_lo(3), ax_hi(3)
@@ -924,41 +923,26 @@ contains
       integer, intent(in) :: fz_lo(3), fz_hi(3)
       integer, intent(in) :: az_lo(3), az_hi(3)
 #endif
-      integer, intent(in) :: fg_lo(3), fg_hi(3)
       REAL_T, dimension(t_lo(1):t_hi(1),t_lo(2):t_hi(2),t_lo(3):t_hi(3)), intent(in) :: T
-      REAL_T, dimension(rY_lo(1):rY_hi(1),rY_lo(2):rY_hi(2),rY_lo(3):rY_hi(3),nspecies), intent(in) :: RhoY
-      REAL_T, dimension(rdx_lo(1):rdx_hi(1),rdx_lo(2):rdx_hi(2),rdx_lo(3):rdx_hi(3),nspecies+2), intent(in) :: rhoDx
+      REAL_T, dimension(rdx_lo(1):rdx_hi(1),rdx_lo(2):rdx_hi(2),rdx_lo(3):rdx_hi(3)), intent(in) :: rhoDx
       REAL_T, dimension(fx_lo(1):fx_hi(1),fx_lo(2):fx_hi(2),fx_lo(3):fx_hi(3),nspecies+3), intent(out) :: Fx
       REAL_T, dimension(ax_lo(1):ax_hi(1),ax_lo(2):ax_hi(2),ax_lo(3):ax_hi(3)), intent(in) :: Ax
-      REAL_T, dimension(rdy_lo(1):rdy_hi(1),rdy_lo(2):rdy_hi(2),rdy_lo(3):rdy_hi(3),nspecies+2), intent(in) :: rhoDy
+      REAL_T, dimension(rdy_lo(1):rdy_hi(1),rdy_lo(2):rdy_hi(2),rdy_lo(3):rdy_hi(3)), intent(in) :: rhoDy
       REAL_T, dimension(fy_lo(1):fy_hi(1),fy_lo(2):fy_hi(2),fy_lo(3):fy_hi(3),nspecies+3), intent(out) :: Fy
       REAL_T, dimension(ay_lo(1):ay_hi(1),ay_lo(2):ay_hi(2),ay_lo(3):ay_hi(3)), intent(in) :: Ay
 #if ( AMREX_SPACEDIM == 3)
-      REAL_T, dimension(rdz_lo(1):rdz_hi(1),rdz_lo(2):rdz_hi(2),rdz_lo(3):rdz_hi(3),nspecies+2), intent(in) :: rhoDz
+      REAL_T, dimension(rdz_lo(1):rdz_hi(1),rdz_lo(2):rdz_hi(2),rdz_lo(3):rdz_hi(3)), intent(in) :: rhoDz
       REAL_T, dimension(fz_lo(1):fz_hi(1),fz_lo(2):fz_hi(2),fz_lo(3):fz_hi(3),nspecies+3), intent(out) :: Fz
       REAL_T, dimension(az_lo(1):az_hi(1),az_lo(2):az_hi(2),az_lo(3):az_hi(3)), intent(in) :: Az
 #endif
-      REAL_T, dimension(fg_lo(1):fg_hi(1),fg_lo(2):fg_hi(2),fg_lo(3):fg_hi(3)), intent(out) :: FiGHi
       integer, intent(in) :: Tbc(3,2)
 
 ! Local
-      REAL_T, pointer, dimension(:,:,:,:) :: H, AD
-      REAL_T, pointer, dimension(:,:,:) :: rhoInv
-      REAL_T :: AxDxInv_lo, AxDxInv_hi, dxInv
-      REAL_T :: AyDyInv_lo, AyDyInv_hi, dyInv
-      REAL_T :: AzDzInv_lo, AzDzInv_hi, dzInv
-      REAL_T :: gradY
+      REAL_T, pointer, dimension(:,:,:,:) :: H
+      REAL_T :: dxInv, dyInv, dzInv
       integer :: lob(3), hib(3)
-      logical :: fix_xlo, fix_xhi, fix_ylo, fix_yhi, fix_zlo, fix_zhi
 
       integer :: i, j, k, d, n
-
-      fix_xlo = .false.
-      fix_xhi = .false.
-      fix_ylo = .false.
-      fix_yhi = .false.
-      fix_zlo = .false.
-      fix_zhi = .false.
 
 !     Compute species enthalpies on box grown by one
 !     init grown box in all dims then update only active dims
@@ -977,11 +961,11 @@ contains
 
       call pphys_HfromT( lob, hib, H(:,:,:,1), t_lo, t_hi, T(:,:,:), t_lo, t_hi )
 
-!     On entry, Fx(1:nspecies) = spec flux
-!     On exit:
-!     Fx(nspecies+1) = untouched
-!     Fx(nspecies+2) = sum[ (species flux).(species enthalpy) ]
-!     Fx(nspecies+3) = extensive heat conduction
+
+!   On entry, Fx(1:nspecies) = spec flux, Fx(nspecies+1) = rhoh flux (both untouched)
+!   On exit:
+!   Fx(nspecies+2) = sum[ (species flux).(species enthalpy) ]
+!   Fx(nspecies+3) = extensive heat conduction
 
 !     Compute lambda.Grad(T)
       dxInv = 1.d0 / dx(1)
@@ -993,7 +977,7 @@ contains
       do k=lo(3),hi(3)
          do j=lo(2),hi(2)
             do i=lo(1),hi(1)+1
-               Fx(i,j,k,nspecies+3) = - rhoDx(i,j,k,nspecies+2)*(T(i,j,k) - T(i-1,j,k))* dxInv * Ax(i,j,k)
+               Fx(i,j,k,nspecies+3) = - rhoDx(i,j,k)*(T(i,j,k) - T(i-1,j,k))* dxInv * Ax(i,j,k)
             enddo
          enddo
       enddo
@@ -1001,7 +985,7 @@ contains
       do k=lo(3),hi(3)
          do j=lo(2),hi(2)+1
             do i=lo(1),hi(1)
-               Fy(i,j,k,nspecies+3) = - rhoDy(i,j,k,nspecies+2)*(T(i,j,k) - T(i,j-1,k)) * dyInv * Ay(i,j,k)
+               Fy(i,j,k,nspecies+3) = - rhoDy(i,j,k)*(T(i,j,k) - T(i,j-1,k)) * dyInv * Ay(i,j,k)
             enddo
          enddo
       enddo
@@ -1010,7 +994,7 @@ contains
       do k=lo(3),hi(3)+1
          do j=lo(2),hi(2)
             do i=lo(1),hi(1)
-               Fz(i,j,k,nspecies+3) = - rhoDz(i,j,k,nspecies+2)*(T(i,j,k) - T(i,j,k-1)) * dzInv * Az(i,j,k)
+               Fz(i,j,k,nspecies+3) = - rhoDz(i,j,k)*(T(i,j,k) - T(i,j,k-1)) * dzInv * Az(i,j,k)
             enddo
          enddo
       enddo
@@ -1073,7 +1057,7 @@ contains
       endif
 #endif
 
-!     Compute enthalpy flux as hi*(Fi+(lambda/cp).Grad(Yi))
+!     Compute enthalpy flux as hi*Fi
 
       Fx(lo(1):hi(1)+1,lo(2):hi(2),lo(3):hi(3),nspecies+2) = 0.d0
       Fy(lo(1):hi(1),lo(2):hi(2)+1,lo(3):hi(3),nspecies+2) = 0.d0
@@ -1081,28 +1065,11 @@ contains
       Fz(lo(1):hi(1),lo(2):hi(2),lo(3):hi(3)+1,nspecies+2) = 0.d0
 #endif
 
-      call amrex_allocate( rhoInv, lob(1), hib(1), lob(2), hib(2), lob(3), hib(3) )
-
-      rhoInv(:,:,:) = 0.0d0
-      do n = 1, nspecies
-         do k = lob(3), hib(3)
-            do j = lob(2), hib(2)
-               do i = lob(1), hib(1)
-               rhoInv(i,j,k) = rhoInv(i,j,k) + RhoY(i,j,k,n)
-               enddo
-            enddo
-         enddo
-      enddo
-
-      rhoInv(:,:,:) = 1.0D0 / rhoInv(:,:,:)
-
       do n = 1, nspecies
          do k = lo(3), hi(3)
             do j = lo(2), hi(2)
                do i = lo(1), hi(1)+1
-                  gradY = (RhoY(i,j,k,n)*rhoInv(i,j,k) - RhoY(i-1,j,k,n)*rhoInv(i-1,j,k))*dxInv
-                  Fx(i,j,k,nspecies+2) = Fx(i,j,k,nspecies+2) + (Fx(i,j,k,n) + &
-                                         rhoDx(i,j,k,nspecies+1)*gradY*Ax(i,j,k))*(H(i,j,k,n)+H(i-1,j,k,n))*0.5d0
+                  Fx(i,j,k,nspecies+2) = Fx(i,j,k,nspecies+2) + Fx(i,j,k,n)*(H(i,j,k,n)+H(i-1,j,k,n))*0.5d0
                enddo
             enddo
          enddo
@@ -1112,9 +1079,7 @@ contains
          do k=lo(3),hi(3)
             do j=lo(2),hi(2)+1
                do i=lo(1),hi(1)
-                  gradY = (RhoY(i,j,k,n)*rhoInv(i,j,k) - RhoY(i,j-1,k,n)*rhoInv(i,j-1,k))*dyInv
-                  Fy(i,j,k,nspecies+2) = Fy(i,j,k,nspecies+2) + (Fy(i,j,k,n) + &
-                                         rhoDy(i,j,k,nspecies+1)*gradY*Ay(i,j,k))*(H(i,j,k,n)+H(i,j-1,k,n))*0.5d0
+                  Fy(i,j,k,nspecies+2) = Fy(i,j,k,nspecies+2) + Fy(i,j,k,n) *(H(i,j,k,n)+H(i,j-1,k,n))*0.5d0
                enddo
             enddo
          enddo
@@ -1125,9 +1090,7 @@ contains
          do k=lo(3),hi(3)+1
             do j=lo(2),hi(2)
                do i=lo(1),hi(1)
-                  gradY = (RhoY(i,j,k,n)*rhoInv(i,j,k) - RhoY(i,j,k-1,n)*rhoInv(i,j,k-1))*dzInv
-                  Fz(i,j,k,nspecies+2) = Fz(i,j,k,nspecies+2) + (Fz(i,j,k,n) + &
-                                         rhoDz(i,j,k,nspecies+1)*gradY*Az(i,j,k))*(H(i,j,k,n)+H(i,j,k-1,n))*0.5d0
+                  Fz(i,j,k,nspecies+2) = Fz(i,j,k,nspecies+2) + Fz(i,j,k,n)*(H(i,j,k,n)+H(i,j,k-1,n))*0.5d0
                enddo
             enddo
          enddo
@@ -1141,9 +1104,7 @@ contains
          do n=1,nspecies
             do k=lo(3),hi(3)
                do j=lo(2),hi(2)
-                  gradY = 2*(RhoY(i,j,k,n)*rhoInv(i,j,k) - RhoY(i-1,j,k,n)*rhoInv(i-1,j,k))*dxInv
-                  Fx(i,j,k,nspecies+2) = Fx(i,j,k,nspecies+2) &
-                      + (Fx(i,j,k,n) + rhoDx(i,j,k,nspecies+1)*gradY*Ax(i,j,k))*H(i-1,j,k,n)
+                  Fx(i,j,k,nspecies+2) = Fx(i,j,k,nspecies+2) + Fx(i,j,k,n)*H(i-1,j,k,n)
                enddo
             enddo
          enddo
@@ -1155,9 +1116,7 @@ contains
          do n=1,nspecies
             do k=lo(3),hi(3)
                do j=lo(2),hi(2)
-                  gradY = 2*(RhoY(i,j,k,n)*rhoInv(i,j,k) - RhoY(i-1,j,k,n)*rhoInv(i-1,j,k))*dxInv
-                  Fx(i,j,k,nspecies+2) = Fx(i,j,k,nspecies+2) &
-                      + (Fx(i,j,k,n) + rhoDx(i,j,k,nspecies+1)*gradY*Ax(i,j,k))*H(i,j,k,n)
+                  Fx(i,j,k,nspecies+2) = Fx(i,j,k,nspecies+2) + Fx(i,j,k,n)*H(i,j,k,n)
                enddo
             enddo
          enddo
@@ -1169,9 +1128,7 @@ contains
          do n=1,nspecies
             do k=lo(3),hi(3)
                do i=lo(1),hi(1)
-                  gradY = 2*(RhoY(i,j,k,n)*rhoInv(i,j,k) - RhoY(i,j-1,k,n)*rhoInv(i,j-1,k))*dyInv
-                  Fy(i,j,k,nspecies+2) = Fy(i,j,k,nspecies+2) &
-                      + (Fy(i,j,k,n) + rhoDy(i,j,k,nspecies+1)*gradY*Ay(i,j,k))*H(i,j-1,k,n)
+                  Fy(i,j,k,nspecies+2) = Fy(i,j,k,nspecies+2) + Fy(i,j,k,n)*H(i,j-1,k,n)
                enddo
             enddo
          enddo
@@ -1183,9 +1140,7 @@ contains
          do n=1,nspecies
             do k=lo(3),hi(3)
                do i=lo(1),hi(1)
-                  gradY = 2*(RhoY(i,j,k,n)*rhoInv(i,j,k) - RhoY(i,j-1,k,n)*rhoInv(i,j-1,k))*dyInv
-                  Fy(i,j,k,nspecies+2) = Fy(i,j,k,nspecies+2) &
-                      + (Fy(i,j,k,n) + rhoDy(i,j,k,nspecies+1)*gradY*Ay(i,j,k))*H(i,j,k,n)
+                  Fy(i,j,k,nspecies+2) = Fy(i,j,k,nspecies+2) + Fy(i,j,k,n)*H(i,j,k,n)
                enddo
             enddo
          enddo
@@ -1198,9 +1153,7 @@ contains
          do n=1,nspecies
             do j=lo(2),hi(2)
                do i=lo(1),hi(1)
-                  gradY = 2*(RhoY(i,j,k,n)*rhoInv(i,j,k) - RhoY(i,j,k-1,n)*rhoInv(i,j,k-1))*dzInv
-                  Fz(i,j,k,nspecies+2) = Fz(i,j,k,nspecies+2) &
-                      + (Fz(i,j,k,n) + rhoDz(i,j,k,nspecies+1)*gradY*Az(i,j,k))*H(i,j,k-1,n)
+                  Fz(i,j,k,nspecies+2) = Fz(i,j,k,nspecies+2) + Fz(i,j,k,n)*H(i,j,k-1,n)
                enddo
             enddo
          enddo
@@ -1212,201 +1165,13 @@ contains
          do n=1,nspecies
             do j=lo(2),hi(2)
                do i=lo(1),hi(1)
-                  gradY = 2*(RhoY(i,j,k,n)*rhoInv(i,j,k) - RhoY(i,j,k-1,n)*rhoInv(i,j,k-1))*dzInv
-                  Fz(i,j,k,nspecies+2) = Fz(i,j,k,nspecies+2) &
-                      + (Fz(i,j,k,n) + rhoDz(i,j,k,nspecies+1)*gradY*Az(i,j,k))*H(i,j,k,n)
+                  Fz(i,j,k,nspecies+2) = Fz(i,j,k,nspecies+2) + Fz(i,j,k,n)*H(i,j,k,n)
                enddo
             enddo
          enddo
       endif
 #endif
 
-      call amrex_deallocate(rhoInv)
-
-!     Set FiGHi = (species flux) dot Grad(species enthalpy)
-!        compute Grad(H) on each face, and average across faces in each coordinate
-!        Fi is extensive here, so need to remove area.  Also, assume that we are 
-!        away from domain boundary, fix afterward
-!
-!     FIXME: This will fail for r-z since Ax(dlo(1),:)=0
-!
-
-      !
-      ! Use AD to cut down on some divides.
-      ! Unfortunately it ups memory usage a bit.
-      !
-      call amrex_allocate( AD, 1, 6, lo(1), hi(1), lo(2), hi(2), lo(3), hi(3) )
-
-      do k=lo(3),hi(3)
-         do j=lo(2),hi(2)
-            do i=lo(1),hi(1)
-#if ( AMREX_SPACEDIM == 2)
-               AD(1,i,j,k) = merge(0.d0, 1.d0/(Ax(i  ,j,k)*dx(1)), Ax(i  ,j,k)==0.d0)
-               AD(2,i,j,k) = merge(0.d0, 1.d0/(Ax(i+1,j,k)*dx(1)), Ax(i+1,j,k)==0.d0)
-#elif ( AMREX_SPACEDIM == 3)
-               AD(1,i,j,k) = 1.d0/(Ax(i  ,j  ,k  )*dx(1))
-               AD(2,i,j,k) = 1.d0/(Ax(i+1,j  ,k  )*dx(1))
-#endif
-               AD(3,i,j,k) = 1.d0/(Ay(i  ,j  ,k  )*dx(2))
-               AD(4,i,j,k) = 1.d0/(Ay(i  ,j+1,k  )*dx(2))
-#if ( AMREX_SPACEDIM == 3)
-               AD(5,i,j,k) = 1.d0/(Az(i  ,j  ,k  )*dx(3))
-               AD(6,i,j,k) = 1.d0/(Az(i  ,j  ,k+1)*dx(3))
-#endif
-            enddo
-         enddo
-      enddo
-
-      FiGHi(lo(1):hi(1),lo(2):hi(2),lo(3):hi(3)) = 0.0D0
-
-      do n = 1, nspecies
-         do k = lo(3), hi(3)
-            do j = lo(2), hi(2)
-               do i = lo(1), hi(1)
-                  FiGHi(i,j,k) = FiGHi(i,j,k) - 0.5d0* &
-                                 ( ( H(i+1,j,k,n) - H(i,j,k,n) )*Fx(i+1,j  ,k  ,n)*AD(2,i,j,k) &
-                                 + ( H(i,j,k,n) - H(i-1,j,k,n) )*Fx(i  ,j  ,k  ,n)*AD(1,i,j,k) &
-                                 + ( H(i,j+1,k,n) - H(i,j,k,n) )*Fy(i  ,j+1,k  ,n)*AD(4,i,j,k) &
-                                 + ( H(i,j,k,n) - H(i,j-1,k,n) )*Fy(i  ,j  ,k  ,n)*AD(3,i,j,k) &
-#if ( AMREX_SPACEDIM == 3)
-                                 + ( H(i,j,k+1,n) - H(i,j,k,n) )*Fz(i  ,j  ,k+1,n)*AD(6,i,j,k) &
-                                 + ( H(i,j,k,n) - H(i,j,k-1,n) )*Fz(i  ,j  ,k  ,n)*AD(5,i,j,k) &
-#endif
-                                 )
-               enddo
-            enddo
-         enddo
-      enddo
-
-!     xlo
-      if (fix_xlo) then
-         i = lo(1)
-         FiGHi(i,lo(2):hi(2),lo(3):hi(3)) = 0.d0
-         do n = 1, nspecies
-            do k = lo(3), hi(3)
-               do j = lo(2), hi(2)
-                  FiGHi(i,j,k) = FiGHi(i,j,k) - 0.5d0* &
-                      ( ( H(i+1,j,k,n) - H(i,j,k,n) )*Fx(i+1,j  ,k  ,n)*AD(2,i,j,k) &
-                      + ( H(i,j,k,n) - H(i-1,j,k,n) )*Fx(i  ,j  ,k  ,n)*AD(1,i,j,k)*2.0d0 &
-                      + ( H(i,j+1,k,n) - H(i,j,k,n) )*Fy(i  ,j+1,k  ,n)*AD(4,i,j,k) &
-                      + ( H(i,j,k,n) - H(i,j-1,k,n) )*Fy(i  ,j  ,k  ,n)*AD(3,i,j,k) &
-#if ( AMREX_SPACEDIM == 3)
-                      + ( H(i,j,k+1,n) - H(i,j,k,n) )*Fz(i  ,j  ,k+1,n)*AD(6,i,j,k) &
-                      + ( H(i,j,k,n) - H(i,j,k-1,n) )*Fz(i  ,j  ,k  ,n)*AD(5,i,j,k) &
-#endif
-                      )
-               enddo
-            enddo
-         enddo
-      endif
-
-!     xhi
-      if (fix_xhi) then
-         i = hi(1)
-         FiGHi(i,lo(2):hi(2),lo(3):hi(3)) = 0.d0
-         do n = 1, nspecies
-            do k = lo(3), hi(3)
-               do j = lo(2), hi(2)
-                  FiGHi(i,j,k) = FiGHi(i,j,k) - 0.5d0* &
-                      ( ( H(i+1,j,k,n) - H(i,j,k,n) )*Fx(i+1,j  ,k  ,n)*AD(2,i,j,k)*2.0d0 &
-                      + ( H(i,j,k,n) - H(i-1,j,k,n) )*Fx(i  ,j  ,k  ,n)*AD(1,i,j,k) &
-                      + ( H(i,j+1,k,n) - H(i,j,k,n) )*Fy(i  ,j+1,k  ,n)*AD(4,i,j,k) &
-                      + ( H(i,j,k,n) - H(i,j-1,k,n) )*Fy(i  ,j  ,k  ,n)*AD(3,i,j,k) & 
-#if ( AMREX_SPACEDIM == 3)
-                      + ( H(i,j,k+1,n) - H(i,j,k,n) )*Fz(i  ,j  ,k+1,n)*AD(6,i,j,k) &
-                      + ( H(i,j,k,n) - H(i,j,k-1,n) )*Fz(i  ,j  ,k  ,n)*AD(5,i,j,k) &
-#endif
-                      )
-               enddo
-            enddo
-         enddo
-      endif
-
-!     ylo
-      if (fix_ylo) then
-         j = lo(2)
-         FiGHi(lo(1):hi(1),j,lo(3):hi(3)) = 0.d0
-         do n = 1, nspecies
-            do k = lo(3), hi(3)
-               do i = lo(1), hi(1)
-                  FiGHi(i,j,k) = FiGHi(i,j,k) - 0.5d0* &
-                      ( ( H(i+1,j,k,n) - H(i,j,k,n) )*Fx(i+1,j  ,k  ,n)*AD(2,i,j,k) &
-                      + ( H(i,j,k,n) - H(i-1,j,k,n) )*Fx(i  ,j  ,k  ,n)*AD(1,i,j,k) &
-                      + ( H(i,j+1,k,n) - H(i,j,k,n) )*Fy(i  ,j+1,k  ,n)*AD(4,i,j,k) &
-                      + ( H(i,j,k,n) - H(i,j-1,k,n) )*Fy(i  ,j  ,k  ,n)*AD(3,i,j,k)*2.0d0 &
-#if ( AMREX_SPACEDIM == 3)
-                      + ( H(i,j,k+1,n) - H(i,j,k,n) )*Fz(i  ,j  ,k+1,n)*AD(6,i,j,k) &
-                      + ( H(i,j,k,n) - H(i,j,k-1,n) )*Fz(i  ,j  ,k  ,n)*AD(5,i,j,k) &
-#endif
-                      )
-               enddo
-            enddo
-         enddo
-      endif
-
-!     yhi
-      if (fix_yhi) then
-         j = hi(2)
-         FiGHi(lo(1):hi(1),j,lo(3):hi(3)) = 0.d0
-         do n = 1, nspecies
-            do k = lo(3), hi(3)
-               do i = lo(1), hi(1)
-                  FiGHi(i,j,k) = FiGHi(i,j,k) - 0.5d0* &
-                      ( ( H(i+1,j,k,n) - H(i,j,k,n) )*Fx(i+1,j  ,k  ,n)*AD(2,i,j,k) &
-                      + ( H(i,j,k,n) - H(i-1,j,k,n) )*Fx(i  ,j  ,k  ,n)*AD(1,i,j,k) &
-                      + ( H(i,j+1,k,n) - H(i,j,k,n) )*Fy(i  ,j+1,k  ,n)*AD(4,i,j,k)*2.0d0 &
-                      + ( H(i,j,k,n) - H(i,j-1,k,n) )*Fy(i  ,j  ,k  ,n)*AD(3,i,j,k) &
-#if ( AMREX_SPACEDIM == 3)
-                      + ( H(i,j,k+1,n) - H(i,j,k,n) )*Fz(i  ,j  ,k+1,n)*AD(6,i,j,k) &
-                      + ( H(i,j,k,n) - H(i,j,k-1,n) )*Fz(i  ,j  ,k  ,n)*AD(5,i,j,k) &
-#endif
-                      )
-               enddo
-            enddo
-         enddo
-      endif
-
-#if ( AMREX_SPACEDIM == 3)
-!     zlo
-      if (fix_zlo) then
-         k = lo(3)
-         FiGHi(lo(1):hi(1),lo(2):hi(2),k) = 0.d0
-         do n = 1, nspecies
-            do j = lo(2), hi(2)
-               do i = lo(1), hi(1)
-                  FiGHi(i,j,k) = FiGHi(i,j,k) - 0.5d0* &
-                      ( ( H(i+1,j,k,n) - H(i,j,k,n) )*Fx(i+1,j  ,k  ,n)*AD(2,i,j,k) &
-                      + ( H(i,j,k,n) - H(i-1,j,k,n) )*Fx(i  ,j  ,k  ,n)*AD(1,i,j,k) &
-                      + ( H(i,j+1,k,n) - H(i,j,k,n) )*Fy(i  ,j+1,k  ,n)*AD(4,i,j,k) &
-                      + ( H(i,j,k,n) - H(i,j-1,k,n) )*Fy(i  ,j  ,k  ,n)*AD(3,i,j,k) & 
-                      + ( H(i,j,k+1,n) - H(i,j,k,n) )*Fz(i  ,j  ,k+1,n)*AD(6,i,j,k) &
-                      + ( H(i,j,k,n) - H(i,j,k-1,n) )*Fz(i  ,j  ,k  ,n)*AD(5,i,j,k)*2.0d0 )
-               enddo
-            enddo
-         enddo
-      endif
-
-!     zhi
-      if (fix_zhi) then
-         k = hi(3)
-         FiGHi(lo(1):hi(1),lo(2):hi(2),k) = 0.d0
-         do n = 1, nspecies
-            do j = lo(2), hi(2)
-               do i = lo(1), hi(1)
-                  FiGHi(i,j,k) = FiGHi(i,j,k) - 0.5d0* &
-                      ( ( H(i+1,j,k,n) - H(i,j,k,n) )*Fx(i+1,j  ,k  ,n)*AD(2,i,j,k) &
-                      + ( H(i,j,k,n) - H(i-1,j,k,n) )*Fx(i  ,j  ,k  ,n)*AD(1,i,j,k) &
-                      + ( H(i,j+1,k,n) - H(i,j,k,n) )*Fy(i  ,j+1,k  ,n)*AD(4,i,j,k) &
-                      + ( H(i,j,k,n) - H(i,j-1,k,n) )*Fy(i  ,j  ,k  ,n)*AD(3,i,j,k) &
-                      + ( H(i,j,k+1,n) - H(i,j,k,n) )*Fz(i  ,j  ,k+1,n)*AD(6,i,j,k)*2.0d0 &
-                      + ( H(i,j,k,n) - H(i,j,k-1,n) )*Fz(i  ,j  ,k  ,n)*AD(5,i,j,k) )
-               enddo
-            enddo
-         enddo
-      endif
-#endif
-
-      call amrex_deallocate(AD)
       call amrex_deallocate(H)
 
    end subroutine enth_diff_terms

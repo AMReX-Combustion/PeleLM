@@ -204,7 +204,7 @@ extern "C" {
    void enth_diff_terms(const int* lo, const int* hi, 
                         const int* dlo, const int* dhi, const amrex::Real* dx,
                         const BL_FORT_FAB_ARG_ANYD(T),
-                        const BL_FORT_FAB_ARG_ANYD(RhoY),
+
                         const BL_FORT_FAB_ARG_ANYD(rDx),
                         const BL_FORT_FAB_ARG_ANYD(Fix),
                         const BL_FORT_FAB_ARG_ANYD(ax),
@@ -216,7 +216,6 @@ extern "C" {
                         const BL_FORT_FAB_ARG_ANYD(Fiz),
                         const BL_FORT_FAB_ARG_ANYD(az),
 #endif
-                              BL_FORT_FAB_ARG_ANYD(fh),
                         const int* Tbc);
 
    void incrwext_flx_div (const int* lo, const int* hi,

@@ -3822,8 +3822,8 @@ PeleLM::adjust_spec_diffusion_fluxes (MultiFab* const * flux,
 
 void
 PeleLM::compute_enthalpy_fluxes (MultiFab* const*       flux,
-                                                     const MultiFab* const* beta,
-                                                     Real        time)
+                                           const MultiFab* const* beta,
+                                           Real        time)
 {
   /*
     Build heat fluxes based on species fluxes, Gamma_m, and fill-patched cell-centered states
