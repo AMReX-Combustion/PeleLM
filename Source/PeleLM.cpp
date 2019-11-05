@@ -5819,6 +5819,7 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
 #ifndef USE_SUNDIALS_PP
                             &pressure,
 #endif
+                            &dt_incr, &time_init);
 
          dt_incr = dt;
          for (int sp=0;sp<nspecies; sp++){
