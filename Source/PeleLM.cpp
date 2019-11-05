@@ -5539,82 +5539,66 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
 
     STemp.copy(mf_old,first_spec,0,nspecies+3); // Parallel copy.
     FTemp.copy(Force);                          // Parallel copy.
+
 #ifdef _OPENMP
 #pragma omp parallel
-#endif  
+#endif
     for (MFIter Smfi(STemp,true); Smfi.isValid(); ++Smfi)
     {
-      FArrayBox&       rYn      = STemp[Smfi];
+      const auto&      rhoY     = STemp.array(Smfi);
       const Box&       bx       = Smfi.tilebox();
-      FArrayBox&       fc       = fcnCntTemp[Smfi];
-      const FArrayBox& frc      = FTemp[Smfi];
+      const auto&      fcl      = fcnCntTemp.array(Smfi);
+      const auto&      frcing   = FTemp.array(Smfi);
       FArrayBox*       chemDiag = (do_diag ? &(diagTemp[Smfi]) : 0);
 
-      // FORTRAN WAY OF CALLING DVODE IN PP
-      //BoxArray ba = do_avg_down_chem ? amrex::complementIn(bx,cf_grids) : BoxArray(bx);
-
-      //for (int i = 0; i < ba.size(); ++i)
-      //{
-      //  const int s_spec = 0, s_rhoh = nspecies, s_temp = nspecies+2;
-
-      //  solveChemistry_sdc(rYn,rHn,Tn,rYo,rHo,To,frc,fc,ba[i],
-      //  		s_spec,s_rhoh,s_temp,dt,chemDiag,
-      //  		use_stiff_solver);
-      //}
-      
       Real dt_incr = dt;
       Real time_init = 0;
       int reInit = 1;
       double pressure = 1.0; // dummy FIXME
 
       const auto len = amrex::length(bx);
-      const auto lo  = amrex::lbound(bx); 
+      const auto lo  = amrex::lbound(bx);
 
-      const auto rhoY   = rYn.view(lo);
-      const auto fcl    = fc.view(lo);
-      const auto frcing = frc.view(lo);
-      
       double tmp_vect[(nspecies+1)];
       double tmp_src_vect[nspecies];
       double tmp_vect_energy[1];
       double tmp_src_vect_energy[1];
-      for         (int k = 0; k < len.z; ++k) {
-          for         (int j = 0; j < len.y; ++j) {
-              for         (int i = 0; i < len.x; ++i) {
 
-                  for (int sp=0;sp<nspecies; sp++){
-                      tmp_vect[sp]       = rhoY(i,j,k,sp) * 1.e-3;
-		      tmp_src_vect[sp]   = frcing(i,j,k,sp) * 1.e-3;
-                  }    
-		  tmp_vect[nspecies]     = rhoY(i,j,k,nspecies+2);
-		  tmp_vect_energy[0]     = rhoY(i,j,k,nspecies) * 10.0;
-		  tmp_src_vect_energy[0] = frcing(i,j,k,nspecies) * 10.0;
-                  fcl(i,j,k) = react(tmp_vect, tmp_src_vect,
-				  tmp_vect_energy, tmp_src_vect_energy,
+      For(bx,
+      [&] AMREX_GPU_DEVICE (int i, int j, int k)
+      {
+         for (int sp=0;sp<nspecies; sp++){
+             tmp_vect[sp]       = rhoY(i,j,k,sp) * 1.e-3;
+             tmp_src_vect[sp]   = frcing(i,j,k,sp) * 1.e-3;
+         }
+         tmp_vect[nspecies]     = rhoY(i,j,k,nspecies+2);
+         tmp_vect_energy[0]     = rhoY(i,j,k,nspecies) * 10.0;
+         tmp_src_vect_energy[0] = frcing(i,j,k,nspecies) * 10.0;
+
+         fcl(i,j,k) = react(tmp_vect, tmp_src_vect,
+                            tmp_vect_energy, tmp_src_vect_energy,
 #ifndef USE_SUNDIALS_PP
-				  &pressure, 
+                            &pressure,
 #endif
-				  &dt_incr, &time_init);
+                            &dt_incr, &time_init);
 
-		  dt_incr = dt;
-		  for (int sp=0;sp<nspecies; sp++){
-	              rhoY(i,j,k,sp)      = tmp_vect[sp] * 1.e+3;
-                      if (rhoY(i,j,k,sp) != rhoY(i,j,k,sp)) {
-                          amrex::Abort("NaNs !! ");
-                      }
-		  }
-		  rhoY(i,j,k,nspecies+2)  = tmp_vect[nspecies]; 
-                  if (rhoY(i,j,k,nspecies+2) != rhoY(i,j,k,nspecies+2)) {
-                      amrex::Abort("NaNs !! ");
-                  }
-	          rhoY(i,j,k,nspecies) = tmp_vect_energy[0] * 1.e-01;
-                  if (rhoY(i,j,k,nspecies) != rhoY(i,j,k,nspecies)) {
-                      amrex::Abort("NaNs !! ");
-                  }
+         dt_incr = dt;
+         for (int sp=0;sp<nspecies; sp++){
+            rhoY(i,j,k,sp)      = tmp_vect[sp] * 1.e+3;
+            if (rhoY(i,j,k,sp) != rhoY(i,j,k,sp)) {
+               amrex::Abort("NaNs !! ");
+            }
+         }
+		     rhoY(i,j,k,nspecies+2)  = tmp_vect[nspecies];
+         if (rhoY(i,j,k,nspecies+2) != rhoY(i,j,k,nspecies+2)) {
+            amrex::Abort("NaNs !! ");
+         }
+         rhoY(i,j,k,nspecies) = tmp_vect_energy[0] * 1.e-01;
+         if (rhoY(i,j,k,nspecies) != rhoY(i,j,k,nspecies)) {
+            amrex::Abort("NaNs !! ");
+         }
 
-              }
-          }
-      }
+      });
 
     }
 
