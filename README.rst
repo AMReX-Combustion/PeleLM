@@ -1,3 +1,6 @@
+.. image:: https://amrex-codes.github.io/badges/powered%20by-AMReX-red.svg
+  :target: https://amrex-codes.github.io/amrex/
+
 PeleLM - README
 ===============
 
@@ -13,7 +16,7 @@ Current project build status
 ----------------------------
 
 .. image:: https://readthedocs.org/projects/pelelm/badge
-
+  :target: https://pelelm.readthedocs.io/en/latest/index.html
 
 Getting started with PeleLM
 ---------------------------
