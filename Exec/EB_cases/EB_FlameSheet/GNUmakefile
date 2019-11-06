@@ -1,7 +1,7 @@
 TOP = ../../../..
 AMREX_HOME ?= ${TOP}/amrex
-IAMR_HOME ?= ${TOP}/IAMR_EB_diff_rearange
-PELELM_HOME ?= ${TOP}/PeleLM_EB
+IAMR_HOME ?= ${TOP}/IAMR
+PELELM_HOME ?= ${TOP}/PeleLM
 
 #
 # Build configuration
@@ -25,7 +25,9 @@ DEFINES+=-DALWAYS_NEW_J
 DO_2S_CONVERGENCE=FALSE
 
 #######################
-USE_SUNDIALS_3x4x = FALSE
+USE_SUNDIALS_PP = FALSE
+
+USE_KLU_PP = FALSE
 
 #######################
 
@@ -67,7 +69,7 @@ Transport_dir := EGLib
 Blocs   := .
 
 CEXE_sources +=
-F90EXE_sources += Prob_$(DIM)d.F90 probdata.F90
+F90EXE_sources += Prob_nd.F90 probdata.F90
 CEXE_headers += 
 FEXE_headers += 
 

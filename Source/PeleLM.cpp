@@ -6050,7 +6050,7 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
       const auto lo  = amrex::lbound(bx);
 
 #ifdef AMREX_USE_EB       
-      const auto local_ebmask   = fab_ebmask.view(lo);
+      const auto local_ebmask   = fab_ebmask.array(Smfi);
 #endif
 
       double tmp_vect[(nspecies+1)];
