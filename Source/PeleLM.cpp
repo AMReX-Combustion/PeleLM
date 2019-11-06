@@ -3122,24 +3122,8 @@ PeleLM::avgDown ()
   const BoxArray& P_fgrids    = fine_lev.state[Press_Type].boxArray();
   const DistributionMapping& P_fdmap = fine_lev.state[Press_Type].DistributionMap();
 
-  BoxArray crse_P_fine_BA = P_fgrids;
-
-  crse_P_fine_BA.coarsen(fine_ratio);
-
-  MultiFab crse_P_fine(crse_P_fine_BA,P_fdmap,1,0,MFInfo(),Factory());
-#ifdef _OPENMP
-#pragma omp parallel
-#endif
-  for (MFIter mfi(crse_P_fine,true); mfi.isValid(); ++mfi)
-  {
-    const Box& bx = mfi.tilebox();
-
-    injectDown(bx,crse_P_fine[mfi],P_fine[mfi],fine_ratio);
-  }
-
-  P_crse.copy(crse_P_fine, parent->Geom(level).periodicity());  // Parallel copy
-
-  crse_P_fine.clear();
+  amrex::average_down_nodal(P_fine,P_crse,fine_ratio);
+ 
   //
   // Next average down divu and dSdT at new time.
   //
@@ -6050,7 +6034,7 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
       const auto lo  = amrex::lbound(bx);
 
 #ifdef AMREX_USE_EB       
-      const auto local_ebmask   = fab_ebmask.array(Smfi);
+      const auto local_ebmask   = fab_ebmask.array();
 #endif
 
       double tmp_vect[(nspecies+1)];
