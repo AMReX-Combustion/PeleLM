@@ -3,16 +3,10 @@
 
 module probdata_module
 
-  use mod_Fvar_def, only: maxspec
-
   implicit none
 
   ! from probdata.H
-  REAL_T :: T_mean, P_mean
-  REAL_T :: xgauss, ygauss, rgauss 
-  
-  logical :: bcinit
-
+  REAL_T  :: T_mean, P_mean, xblob, yblob, radblob, MeanFlow
   
 contains
 

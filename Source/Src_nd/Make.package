@@ -1,1 +1,6 @@
 F90EXE_sources += problem_derive_nd.F90
+F90EXE_sources += Derive_PLM_nd.F90
+F90EXE_sources += PeleLM_nd.F90
+F90EXE_sources += bc_fill_nd.F90
+F90EXE_sources += user_defined_fcts_nd.F90
+F90EXE_sources += MakeForce_nd.F90

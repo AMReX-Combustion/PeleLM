@@ -31,7 +31,7 @@ USE_SUNDIALS_3x4x = FALSE
 # USE_NEWMECH    = FALSE
 
 # Choose model (from list below), and pmf file
-Chemistry_Model = decane_3sp
+Chemistry_Model = air
 
 # This sets the EOS directory in $(PELE_PHYSICS_HOME)/Eos
 Eos_dir     := Fuego

@@ -7,7 +7,7 @@
 #include <Prob_F.H>
 #include <PeleLM_F.H>
 
-module prob_2D_module
+module prob_nd_module
 
   use amrex_fort_module, only : dim=>amrex_spacedim
 
@@ -39,9 +39,9 @@ contains
 ! ::: 
 ! ::: -----------------------------------------------------------
 
-  subroutine amrex_probinit (init,name,namlen,problo,probhi) bind(c)
-  
-      
+   subroutine amrex_probinit (init,name,namlen,problo,probhi) bind(c)
+
+
       use PeleLM_F,  only: pphys_getP1atm_MKS
 
       use mod_Fvar_def, only : pamb
@@ -49,7 +49,7 @@ contains
       use probdata_module, only: meanFlowDir, meanFlowMag, &
                                  T_mean, P_mean, &
                                  xvort, yvort, rvort, forcevort
-      
+
       implicit none
       integer init, namlen
       integer name(namlen)
@@ -57,7 +57,7 @@ contains
       REAL_T problo(dim), probhi(dim)
 
       integer i
- 
+
       namelist /fortin/ meanFlowMag, meanFlowDir, T_mean, P_mean, &
                        xvort, yvort, rvort, forcevort  
       namelist /heattransin/ pamb
@@ -147,88 +147,95 @@ contains
 ! ::: time      => time at which to init data             
 ! ::: lo,hi     => index limits of grid interior (cell centered)
 ! ::: nscal     => number of scalar quantities.  You should know
-! :::		   this already!
+! :::              this already!
 ! ::: vel      <=  Velocity array
 ! ::: scal     <=  Scalar array
 ! ::: press    <=  Pressure array
 ! ::: delta     => cell size
 ! ::: xlo,xhi   => physical locations of lower left and upper
 ! :::              right hand corner of grid.  (does not include
-! :::		   ghost region).
+! :::              ghost region).
 ! ::: -----------------------------------------------------------
 
-  subroutine init_data(level,time,lo,hi,nscal, &
-     	 	                   vel,scal,DIMS(state),press,DIMS(press), &
-                           delta,xlo,xhi) &
-                           bind(C, name="init_data")
-                              
+   subroutine init_data(level, time, lo, hi, nscal, &
+                        vel, scal, s_lo, s_hi, press, p_lo, p_hi, &
+                        delta, xlo, xhi) &
+                        bind(C, name="init_data")
+
       use network,   only: nspecies
       use PeleLM_F,  only: pphys_getP1atm_MKS, pphys_get_spec_name2
-      use PeleLM_2D, only: pphys_RHOfromPTY, pphys_HMIXfromTY
+      use PeleLM_nD, only: pphys_RHOfromPTY, pphys_HMIXfromTY
       use mod_Fvar_def, only : Density, Temp, FirstSpec, RhoH, domnlo
+
 
       use probdata_module, only: meanFlowDir, meanFlowMag, &
                                  T_mean, P_mean, &
                                  xvort, yvort, rvort, forcevort
-      
+
       implicit none
-      integer    level, nscal
-      integer    lo(dim), hi(dim)
-      integer    DIMDEC(state)
-      integer    DIMDEC(press)
-      REAL_T     xlo(dim), xhi(dim)
-      REAL_T     time, delta(dim)
-      REAL_T     vel(DIMV(state),dim)
-      REAL_T    scal(DIMV(state),nscal)
-      REAL_T   press(DIMV(press))
 
+! In/Out
+      integer, intent(in) :: level, nscal
+      integer, intent(in) :: lo(3), hi(3)
+      integer, intent(in) :: s_lo(3), s_hi(3)
+      integer, intent(in) :: p_lo(3), p_hi(3)
+      REAL_T, intent(in)  :: xlo(3), xhi(3)
+      REAL_T, intent(in)  :: time, delta(3)
+      REAL_T, dimension(s_lo(1):s_hi(1),s_lo(2):s_hi(2),s_lo(3):s_hi(3),dim), intent(out) :: vel
+      REAL_T, dimension(s_lo(1):s_hi(1),s_lo(2):s_hi(2),s_lo(3):s_hi(3),nscal), intent(out) :: scal
+      REAL_T, dimension(p_lo(1):p_hi(1),p_lo(2):p_hi(2),p_lo(3):p_hi(3)), intent(out) :: press
 
-      integer i, j, n
-      REAL_T x, y, Yl(nspecies), Patm
-      REAL_T dx
+! Local
       REAL_T :: dy, d_sq, r_sq, u_vort, v_vort 
+      REAL_T :: x, y, z, Yl(nspecies), Patm
+      REAL_T :: dx
+      integer :: i, j, k, n
 
-      do j = lo(2), hi(2)
-         y = (float(j)+.5d0)*delta(2)+domnlo(2)
-         do i = lo(1), hi(1)
-            x = (float(i)+.5d0)*delta(1)+domnlo(1)
-            
-            scal(i,j,Temp) = T_mean
-            Yl(1) = 0.233
-            Yl(2) = 0.767
-            
-            do n = 1,nspecies
-               scal(i,j,FirstSpec+n-1) = Yl(n)
+      do k = lo(3), hi(3)
+         z = (float(k)+.5d0)*delta(3)+domnlo(3)
+         do j = lo(2), hi(2)
+            y = (float(j)+.5d0)*delta(2)+domnlo(2)
+            do i = lo(1), hi(1)
+               x = (float(i)+.5d0)*delta(1)+domnlo(1)
+
+               scal(i,j,k,Temp) = T_mean
+               Yl(1) = 0.233d0
+               Yl(2) = 0.767d0
+
+               do n = 1,nspecies
+                  scal(i,j,k,FirstSpec+n-1) = Yl(n)
+               end do
+
+               dx = x - xvort
+               dy = y - yvort
+               d_sq = dx*dx + dy*dy
+               r_sq = rvort*rvort
+
+               u_vort = -forcevort*dy/r_sq * exp(-d_sq/r_sq/two)
+               v_vort = forcevort*dx/r_sq * exp(-d_sq/r_sq/two)
+
+               SELECT CASE ( meanFlowDir )
+                  CASE (1)
+                     vel(i,j,k,1) = meanFlowMag + u_vort
+                     vel(i,j,k,2) = v_vort
+                  CASE (-1)
+                     vel(i,j,k,1) = -meanFlowMag + u_vort
+                     vel(i,j,k,2) = v_vort
+                  CASE (2)
+                     vel(i,j,k,1) = u_vort
+                     vel(i,j,k,2) = meanFlowMag + v_vort
+                  CASE (-2)
+                     vel(i,j,k,1) = u_vort
+                     vel(i,j,k,2) = -meanFlowMag + v_vort
+                  CASE (3)
+                     vel(i,j,k,1) = meanFlowMag + u_vort
+                     vel(i,j,k,2) = meanFlowMag + v_vort
+                  CASE (-3)
+                     vel(i,j,k,1) = -meanFlowMag + u_vort
+                     vel(i,j,k,2) = -meanFlowMag + v_vort
+               END SELECT
+
             end do
-
-            dx = x - xvort
-            dy = y - yvort
-            d_sq = dx*dx + dy*dy
-            r_sq = rvort*rvort
-
-            u_vort = -forcevort*dy/r_sq * exp(-d_sq/r_sq/two)
-            v_vort = forcevort*dx/r_sq * exp(-d_sq/r_sq/two)
-
-            SELECT CASE ( meanFlowDir )
-               CASE (1)
-                  vel(i,j,1) = meanFlowMag + u_vort
-                  vel(i,j,2) = v_vort
-               CASE (-1)
-                  vel(i,j,1) = -meanFlowMag + u_vort
-                  vel(i,j,2) = v_vort
-               CASE (2)
-                  vel(i,j,1) = u_vort
-                  vel(i,j,2) = meanFlowMag + v_vort
-               CASE (-2)
-                  vel(i,j,1) = u_vort
-                  vel(i,j,2) = -meanFlowMag + v_vort
-               CASE (3)
-                  vel(i,j,1) = meanFlowMag + u_vort
-                  vel(i,j,2) = meanFlowMag + v_vort
-               CASE (-3)
-                  vel(i,j,1) = -meanFlowMag + u_vort
-                  vel(i,j,2) = -meanFlowMag + v_vort
-            END SELECT
 
          end do
       end do
@@ -236,29 +243,26 @@ contains
       Patm = P_mean / pphys_getP1atm_MKS()
 
       call pphys_RHOfromPTY(lo,hi, &
-          scal(ARG_L1(state),ARG_L2(state),Density),  DIMS(state), &
-          scal(ARG_L1(state),ARG_L2(state),Temp),     DIMS(state), &
-          scal(ARG_L1(state),ARG_L2(state),FirstSpec),DIMS(state), &
-          Patm)
-
+                            scal(:,:,:,Density),   s_lo, s_hi, &
+                            scal(:,:,:,Temp),      s_lo, s_hi, &
+                            scal(:,:,:,FirstSpec), s_lo, s_hi, &
+                            Patm)
       call pphys_HMIXfromTY(lo,hi, &
-          scal(ARG_L1(state),ARG_L2(state),RhoH),     DIMS(state), &
-          scal(ARG_L1(state),ARG_L2(state),Temp),     DIMS(state), &
-          scal(ARG_L1(state),ARG_L2(state),FirstSpec),DIMS(state)) 
+                            scal(:,:,:,RhoH),      s_lo, s_hi, &
+                            scal(:,:,:,Temp),      s_lo, s_hi, &
+                            scal(:,:,:,FirstSpec), s_lo, s_hi)
 
-      do j = lo(2), hi(2)
-         do i = lo(1), hi(1)
-            do n = 0,nspecies-1
-               scal(i,j,FirstSpec+n) = scal(i,j,FirstSpec+n)*scal(i,j,Density)
+      do k = lo(3), hi(3)
+         do j = lo(2), hi(2)
+            do i = lo(1), hi(1)
+               do n = 0,nspecies-1
+                  scal(i,j,k,FirstSpec+n) = scal(i,j,k,FirstSpec+n)*scal(i,j,k,Density)
+               enddo
+               scal(i,j,k,RhoH) = scal(i,j,k,RhoH)*scal(i,j,k,Density)
             enddo
-            scal(i,j,RhoH) = scal(i,j,RhoH)*scal(i,j,Density)
          enddo
       enddo
-      
-  end subroutine init_data
-      
 
+   end subroutine init_data
 
-
-
-end module prob_2D_module
+end module prob_nd_module
