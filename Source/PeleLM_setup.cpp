@@ -774,6 +774,14 @@ PeleLM::variableSetUp ()
   derive_lst.addComponent("molweight",desc_lst,State_Type,first_spec,nspecies);
   
   //
+  // Mixture heat capacity
+  //
+  derive_lst.add("cpmix",IndexType::TheCellType(),1,dercpmix,the_same_box);
+  derive_lst.addComponent("cpmix",desc_lst,State_Type,Density,1);
+  derive_lst.addComponent("cpmix",desc_lst,State_Type,Temp,1);
+  derive_lst.addComponent("cpmix",desc_lst,State_Type,first_spec,nspecies);
+  
+  //
   // Group Species Rho.Y (for ploting in plot file)
   //
   Vector<std::string> var_names_rhoY(nspecies);
