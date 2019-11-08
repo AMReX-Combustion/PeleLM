@@ -1590,10 +1590,7 @@ contains
       T   = 2
       fS  = 3
 
-      call CKWT(invmwt)
-      do n=1,nspecies
-         invmwt(n) = one / invmwt(n)
-      end do
+      call get_imw(invmwt)
 
       do k=lo(3),hi(3)
          do j=lo(2),hi(2)
