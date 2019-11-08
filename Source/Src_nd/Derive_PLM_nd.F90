@@ -1575,8 +1575,8 @@ contains
       integer, intent(in) :: level, grid_no
 
 !  Local
-      REAL_T, dimension(nspecies) :: Yt, D
-      REAL_T, dimension(1)        :: rho_dummy, MU, XI, LAM
+      REAL_T, dimension(nspecies) :: Yt, D, invmwt
+      REAL_T, dimension(1)        :: rho_dummy, MU, XI, LAM, Wavg
       REAL_T                      :: rhoinv
       integer :: fS, rho, T
       integer :: lo_chem(3), hi_chem(3)
@@ -1590,6 +1590,11 @@ contains
       T   = 2
       fS  = 3
 
+      call CKWT(invmwt)
+      do n=1,nspecies
+         invmwt(n) = one / invmwt(n)
+      end do
+
       do k=lo(3),hi(3)
          do j=lo(2),hi(2)
             do i=lo(1),hi(1)
@@ -1598,6 +1603,8 @@ contains
                   Yt(n) = dat(i,j,k,fS+n-1)*rhoinv
                enddo
                rho_dummy(1) = dat(i,j,k,rho) * 1.d-3
+
+               call CKMMWY(Yt,Wavg(1))
 
                CALL get_transport_coeffs(lo_chem, hi_chem, &
                                          Yt,           lo_chem,hi_chem,  &
@@ -1609,7 +1616,7 @@ contains
                                          LAM(1),       lo_chem,hi_chem)
 
                do n = 1,nspecies
-                  e(i,j,k,n) = D(n) * 0.1d0
+                  e(i,j,k,n) = Wavg(1) * invmwt(n) * D(n) * 0.1d0
                enddo
 
                e(i,j,k,nspecies+1) = LAM(1) * 1.0d-05
