@@ -24,7 +24,7 @@ module derive_PLM_nd
             deravgpres, dergrdpx, dergrdpy, dergrdpz, &
             drhomry, dsrhoydot, dermassfrac, drhort, &
             dermolefrac, derconcentration, dertransportcoeff, dermolweight, &
-            dhrr, dermixanddiss, dcma
+            dhrr, dermixanddiss, dcma, init_mixture_fraction
 
   REAL_T, dimension(nspecies,nelements) :: coeff_mix
   REAL_T, dimension(nelements) :: beta_mix
@@ -1670,13 +1670,16 @@ contains
 !  Init Bilger's element based mixture fraction
 !=========================================================
 
-   subroutine init_mixture_fraction() bind(C,name='init_mixture_fraction')
+   subroutine init_mixture_fraction(fueltank, oxitank) !bind(C,name='init_mixture_fraction')
 
       use chemistry_module, only : elem_names, spec_names
+      use PeleLM_F        , only : parse_composition
 
       implicit none
 
-      REAL_T, dimension(nspecies)  :: WtS, YF, YO, XO
+      character(len=256), intent(in) :: fueltank
+      character(len=256), intent(in) :: oxitank
+      REAL_T, dimension(nspecies)  :: WtS, YF, YO
       REAL_T, dimension(nelements) :: WtE
       integer, dimension(nelements,nspecies) :: ELTinSp
 
@@ -1692,18 +1695,14 @@ contains
          enddo
       enddo
 
-! TODO : should be related to probin file input !
-      do i = 1, nspecies
-         YF(i) = 0.0d0
-         XO(i) = 0.0d0
-         YO(i) = 0.0d0
-         if(spec_names(i).eq.'NC12H26') YF(i)=1.0
-         if(spec_names(i).eq.'O2') XO(i)=0.15
-         if(spec_names(i).eq.'N2') XO(i)=0.85
-      enddo
+      ! Get composition of fuel and oxi tank as specified in probin
+      ! Format is for example 'CH4:1.0'
+      print *, 'mixtfrac -- Initialize fueltank ...'
+      call parse_composition(fueltank, YF)
+      print *, 'mixtfrac -- Initialize oxitank ...'
+      call parse_composition(oxitank, YO)
 
-      CALL ckxty(XO,YO)
-
+      ! Bilger coeffs
       do i = 1,nelements
          beta_mix(i) = 0
          if(elem_names(i).eq.'C') beta_mix(i) = 2.0/WtE(i)
@@ -1758,7 +1757,9 @@ contains
       rho = 1
       fS  = 2
 
-      if(.not.init_mixture) CALL init_mixture_fraction()
+      if (.not.init_mixture) then
+         call amrex_abort("you dumbass did not specify a mixfrac_fueltank and mixfrac_oxitank in your probin")
+      end if
 
       do k=lo(3), hi(3)
          do j=lo(2), hi(2)
@@ -1860,11 +1861,13 @@ contains
 
       integer :: i, j, k, n
 
-      if(.not.init_mixture) CALL init_mixture_fraction()
-
       rho = 1
       T   = 2
       fS  = 3
+
+      if (.not.init_mixture) then
+         call amrex_abort("you dumbass did not specify a mixfrac_fueltank and mixfrac_oxitank in your probin")
+      end if
 
       grad(1) = 0.0d0; grad(2) = 0.0d0; grad(3) = 0.0d0
 
