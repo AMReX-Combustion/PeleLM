@@ -53,6 +53,7 @@ contains
                                pseudo_gravity
       use probdata_module, only : standoff, pertmag, rho_bc, Y_bc
       use probdata_module, only : flame_dir
+      use derive_PLM_nd  , only : init_mixture_fraction
 
 
       implicit none
@@ -64,9 +65,9 @@ contains
 
       integer i,istemp
       REAL_T area
+      character(len=256) :: mixfrac_fueltank, mixfrac_oxitank
 
-      namelist /fortin/ V_in, &
-                        standoff, pertmag
+      namelist /fortin/ V_in, standoff, pertmag, mixfrac_fueltank, mixfrac_oxitank
       namelist /heattransin/ pamb
 
       namelist /control/ tau_control, sest, cfix, changeMax_control, h_control, &
@@ -125,6 +126,8 @@ contains
       pseudo_gravity = 0
       istemp = 0
       navg_pnts = 10
+      mixfrac_fueltank = ""
+      mixfrac_oxitank = ""
 
       read(untin,fortin)
 
@@ -138,6 +141,12 @@ contains
 
 !     Set up boundary functions
       call setupbc()
+
+!     Set mixture fraction data if asked
+      if ( ( LEN_TRIM(TRIM(mixfrac_fueltank)) /= 0 ) .and. &
+           ( LEN_TRIM(TRIM(mixfrac_oxitank)) /= 0 ) ) then
+               call init_mixture_fraction(mixfrac_fueltank, mixfrac_oxitank)
+      end if
 
       area = 1.d0
       do i=1,dim

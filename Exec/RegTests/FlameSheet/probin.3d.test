@@ -1,8 +1,9 @@
  &fortin
-
   V_in = .2280410684149
   standoff = -.022
   pertmag = 0.0004
+  mixfrac_fueltank = "CH4:1.0"
+  mixfrac_oxitank  = "O2:0.233 N2:0.767"
  /
  &heattransin
   pamb = 101325.
