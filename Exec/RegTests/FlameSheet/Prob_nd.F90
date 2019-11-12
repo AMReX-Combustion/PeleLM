@@ -54,6 +54,8 @@ contains
       use probdata_module, only : standoff, pertmag, rho_bc, Y_bc
       use probdata_module, only : flame_dir
       use derive_PLM_nd  , only : init_mixture_fraction
+      use PeleLM_F       , only : parse_composition
+      use network        , only : nspecies
 
 
       implicit none
@@ -79,6 +81,7 @@ contains
       integer maxlen, isioproc
       parameter (maxlen=256)
       character probin*(maxlen)
+      REAL_T, dimension(nspecies) :: Yfu, Yox
 
       call bl_pd_is_ioproc(isioproc)
 
@@ -145,7 +148,14 @@ contains
 !     Set mixture fraction data if asked
       if ( ( LEN_TRIM(TRIM(mixfrac_fueltank)) /= 0 ) .and. &
            ( LEN_TRIM(TRIM(mixfrac_oxitank)) /= 0 ) ) then
-               call init_mixture_fraction(mixfrac_fueltank, mixfrac_oxitank)
+          ! Get composition of fuel and oxi tank as specified in probin
+          ! Format is for example 'CH4:1.0'
+          if (isioproc.eq.1) write(6,'(2x,a)') 'mixtfrac -- Parse fueltank ...'
+          call parse_composition(mixfrac_fueltank, Yfu)
+          if (isioproc.eq.1) write(6,'(2x,a)') 'mixtfrac -- Parse oxitank ...'
+          call parse_composition(mixfrac_oxitank, Yox)
+          ! Initialize mixture fraction variables
+          call init_mixture_fraction(Yfu, Yox)
       end if
 
       area = 1.d0

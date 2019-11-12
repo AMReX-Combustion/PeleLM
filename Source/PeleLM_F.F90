@@ -196,13 +196,13 @@ end subroutine plm_extern_init
         species_compo_s = compo_string_trim(1:i-1)
         READ(species_compo_s,*) species_compo_d
         compo_string_trim = compo_string_trim(i+1:256)
-        print *, 'NAME, COMPO ', TRIM(species_name), " ", TRIM(species_compo_s)
         do i = 1, nspecies
             if (TRIM(species_name) == spec_names(i)) then
                 compo_vec(i) = species_compo_d
                 exit
             end if
             if (i == nspecies) then
+                print *, 'NAME, COMPO ', TRIM(species_name), " ", TRIM(species_compo_s)
                 call amrex_abort('wrong string composition, species do not exist')
             end if
         end do

@@ -30,6 +30,7 @@ module derive_PLM_nd
   REAL_T, dimension(nelements) :: beta_mix
   REAL_T, dimension(nspecies)  :: fact
   REAL_T :: Zfu, Zox
+  REAL_T :: Zstoic = -1.0d0
   logical :: init_mixture = .FALSE.
 
 contains
@@ -1730,20 +1731,49 @@ contains
 !  Init Bilger's element based mixture fraction
 !=========================================================
 
-   subroutine init_mixture_fraction(fueltank, oxitank) !bind(C,name='init_mixture_fraction')
+   subroutine init_mixture_fraction(Yfu, Yox) bind(C,name='init_mixture_fraction')
 
+      use amrex_paralleldescriptor_module, only : amrex_pd_ioprocessor
       use chemistry_module, only : elem_names, spec_names
-      use PeleLM_F        , only : parse_composition
 
       implicit none
 
-      character(len=256), intent(in) :: fueltank
-      character(len=256), intent(in) :: oxitank
-      REAL_T, dimension(nspecies)  :: WtS, YF, YO
+! In/Out
+      REAL_T, intent(in), dimension(nspecies) :: Yfu, Yox
+
+! Local
+      REAL_T, dimension(nspecies)  :: WtS
       REAL_T, dimension(nelements) :: WtE
       integer, dimension(nelements,nspecies) :: ELTinSp
+      integer :: i, j
+      logical :: is_ioproc
+      REAL_T, parameter :: tol = ten*tiny(zero)
 
-      integer:: i, j
+      is_ioproc = amrex_pd_ioprocessor()
+
+      ! Print stream composition
+      if (is_ioproc) then
+        write(6,'(2x,a)') 'Initialise mixture fraction'
+        write(6,'(4x,a)') 'Fuel-stream mass fractions:'
+        do i = 1, nspecies
+          if (Yfu(i) .gt. 1e-14) then
+            write(6,'(4x,a22,1x,f12.7)') adjustl(spec_names(i)), Yfu(i)
+          endif
+        enddo
+        write(6,'(4x,a)') 'Oxidizer-stream mass fractions:'
+        do i = 1, nspecies
+          if (Yox(i) .gt. 1e-14) then
+            write(6,'(4x,a22,1x,f12.7)') adjustl(spec_names(i)), Yox(i)
+          endif
+        enddo
+      endif
+
+      ! Sanity checks
+      if      (abs(sum(Yfu) - one) .gt. tol) then
+        call amrex_abort('sum(Yfu) != 1')
+      else if (abs(sum(Yox) - one) .gt. tol) then
+        call amrex_abort('sum(Yox) != 1')
+      endif
 
       CALL ckwt(WtS)
       CALL ckawt(WtE)
@@ -1754,13 +1784,6 @@ contains
             coeff_mix(i,j) = ELTinSP(j,i)*WtE(j)/WtS(i)
          enddo
       enddo
-
-      ! Get composition of fuel and oxi tank as specified in probin
-      ! Format is for example 'CH4:1.0'
-      print *, 'mixtfrac -- Initialize fueltank ...'
-      call parse_composition(fueltank, YF)
-      print *, 'mixtfrac -- Initialize oxitank ...'
-      call parse_composition(oxitank, YO)
 
       ! Bilger coeffs
       do i = 1,nelements
@@ -1777,9 +1800,17 @@ contains
          do j=1,nelements
             fact(i) = fact(i) + beta_mix(j)*coeff_mix(i,j)
          enddo
-         Zfu = Zfu+fact(i)*YF(i)
-         Zox = Zox+fact(i)*YO(i)
+         Zfu = Zfu+fact(i)*Yfu(i)
+         Zox = Zox+fact(i)*Yox(i)
       enddo
+
+      Zstoic = (zero - Zox)/(Zfu - Zox)
+
+      if (is_ioproc) then
+        ! Print stream composition
+        write(6,'(4x,a)') 'Stoichiometric mixture fraction:'
+        write(6,'(8x,a,1x,f12.7)') 'Zstoic = ', Zstoic
+      endif
 
       init_mixture = .TRUE.
 
@@ -1817,9 +1848,7 @@ contains
       rho = 1
       fS  = 2
 
-      if (.not.init_mixture) then
-         call amrex_abort("you dumbass did not specify a mixfrac_fueltank and mixfrac_oxitank in your probin")
-      end if
+      if (.not.init_mixture) call amrex_abort("mixture fraction not initialized")
 
       do k=lo(3), hi(3)
          do j=lo(2), hi(2)
@@ -1925,9 +1954,7 @@ contains
       T   = 2
       fS  = 3
 
-      if (.not.init_mixture) then
-         call amrex_abort("you dumbass did not specify a mixfrac_fueltank and mixfrac_oxitank in your probin")
-      end if
+      if (.not.init_mixture) call amrex_abort("mixture fraction not initialized")
 
       grad(1) = 0.0d0; grad(2) = 0.0d0; grad(3) = 0.0d0
 
