@@ -189,12 +189,12 @@ namespace
   bool do_curvature_sample = false;
 }
 
-void
-PeleLM::read_particle_params ()
-{
-  ParmParse ppht("ht");
-  ppht.query("do_curvature_sample", do_curvature_sample);
-}
+//void
+//PeleLM::read_particle_params ()
+//{
+//  ParmParse ppht("ht");
+//  ppht.query("do_curvature_sample", do_curvature_sample);
+//}
 
 int
 PeleLM::timestamp_num_extras ()

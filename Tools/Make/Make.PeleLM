@@ -114,6 +114,27 @@ endif
 #
 SKIP_NS_SPECIFIC_CODE = TRUE
 
+#ifeq ($(USE_PARTICLES), TRUE)
+#  DEFINES+=-DAMREX_PARTICLES
+#  Pdirs += $(AMREX_HOME)/Src/Particle
+#endif
+
+ifeq ($(USE_PARTICLES), TRUE)
+
+  include $(PELEC_MP_HOME)/Source/PP_Spray/Make.package
+  INCLUDE_LOCATIONS += $(PELEC_MP_HOME)/Source/PP_Spray
+  VPATH_LOCATIONS += $(PELEC_MP_HOME)/Source/PP_Spray
+  Bpack   += $(PELEC_MP_HOME)/Source/PP_Spray/Make.package
+  Blocs   += $(PELEC_MP_HOME)/Source/PP_Spray
+
+  include $(AMREX_HOME)/Src/Particle/Make.package
+  INCLUDE_LOCATIONS += $(AMREX_HOME)/Src/Particle
+  VPATH_LOCATIONS   += $(AMREX_HOME)/Src/Particle
+  Bpack   += $(AMREX_HOME)/Src/Particle/Make.package
+  Blocs   += $(AMREX_HOME)/Src/Particle
+
+endif
+
 # IAMR
 Bdirs += $(IAMR_HOME)/Source
 Bdirs += $(IAMR_HOME)/Source/Src_$(DIM)d
@@ -126,9 +147,6 @@ Pdirs   += $(AMREX_HOME)/Src/Base
 Pdirs   += $(AMREX_HOME)/Src/AmrCore
 Pdirs   += $(AMREX_HOME)/Src/Amr
 Pdirs   += $(AMREX_HOME)/Src/Boundary
-ifeq ($(USE_PARTICLES), TRUE)
-  Pdirs += $(AMREX_HOME)/Src/Particle
-endif
 Pdirs   += $(AMREX_HOME)/Src/LinearSolvers/C_CellMG
 Pdirs   += $(AMREX_HOME)/Src/LinearSolvers/C_TensorMG
 Pdirs   += $(AMREX_HOME)/Src/LinearSolvers/MLMG

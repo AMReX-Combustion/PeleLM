@@ -9,6 +9,11 @@
 #include <map>
 #include <utility>
 
+#ifdef AMREX_PARTICLES
+#include <AMReX_Particles.H>
+#include <SprayParticles.H>
+#endif
+
 //
 // Note: define TEMPERATURE if you want a variable T in the 
 //       State_Type part of the state
@@ -102,6 +107,13 @@ protected:
   int max_level;
 };
 
+#ifdef AMREX_PARTICLES
+enum sources { ext_src = 0,
+               spray_src};
+#else
+enum sources { ext_src = 0};
+#endif
+
 class PeleLM
   :
   public NavierStokesBase
@@ -162,6 +174,94 @@ public:
   virtual void init (amrex::AmrLevel& old) override;
 
   virtual void initData () override;
+
+#ifdef AMREX_PARTICLES
+    //
+    // Read particle-related inputs
+    //
+    static void read_particle_params ();
+    //
+    // Initialize particle locations and velocities (and strengths if relevant)
+    //
+    void init_particles ();
+    //
+    // Timestamp particles
+    //
+    void TimestampParticles (int ngrow); 
+    //
+    // Advance the particles by dt
+    //
+    void advance_particles (int iteration, amrex::Real time, amrex::Real dt);
+    //
+    // Default verbosity of Particle class
+    //
+    static int particle_verbose;
+
+    //
+    // Write particles in plotfile directories
+    //
+    void particle_plot_file(const std::string& dir);
+
+    //
+    // How to initialize at restart
+    //
+    void particle_post_restart(const std::string& restart_file, bool is_checkpoint = true);
+
+    //
+    // Redistribute
+    //
+    virtual void particle_redistribute(int lbase = 0, bool init_part = false);
+
+    //
+    // Setup virtual particles if necessary
+    //
+    void setup_virtual_particles();
+
+    //
+    // Remove virtual particles if necessary
+    //
+    void remove_virtual_particles();
+    //
+    // Setup ghost particles (for finer levels) if necessary
+    //
+    void setup_ghost_particles(int ngrow);
+
+    //
+    // Remove ghost particles (for this level) if necessary
+    //
+    void remove_ghost_particles();
+
+    //
+    // Time step control based on particles
+    //
+    void particle_est_time_step(amrex::Real& est_dt);
+
+    //
+    // Derived quantities associated with particles
+    //
+    std::unique_ptr<amrex::MultiFab> particle_derive (const std::string& name, amrex::Real time, int ngrow);
+
+    //
+    // Default cfl of particles in Particle class
+    //
+    static amrex::Real particle_cfl;
+
+    //
+    // Should we write particles into plotfiles?
+    //
+    static int write_particles_in_plotfile;
+
+    void set_spray_grid_info(int& amr_iteration,
+                             int& amr_ncycle,
+                             int& ghost_width,
+                             int& where_width,
+                             int& spray_n_grow,
+                             int& tmp_src_width);
+
+    /// A state array with ghost zones
+    amrex::MultiFab Sborder;
+#endif
+
   //
   // Contains operations to be done only after a full coarse timestep.
   //
@@ -298,8 +398,23 @@ protected:
 #ifdef AMREX_PARTICLES
   virtual int timestamp_num_extras () override;
   virtual void timestamp_add_extras (int lev, amrex::Real time, amrex::MultiFab& mf) override;
-  static void read_particle_params ();
+  //static void read_particle_params (); //already declared
 #endif
+
+#ifdef AMREX_PARTICLES
+    static int       do_spray_particles;
+#endif
+
+#ifdef AMREX_PARTICLES
+    static SprayParticleContainer* theSprayPC ();
+    static SprayParticleContainer* theVirtPC ();
+    static SprayParticleContainer* theGhostPC ();
+
+  //mr: added for spray particle stuff - temporary
+  //amrex::Vector<std::unique_ptr<amrex::MultiFab>> old_sources;
+  amrex::MultiFab    old_sources;
+#endif
+
 
 private:
 

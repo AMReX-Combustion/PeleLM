@@ -2,3 +2,7 @@ CEXE_sources += PeleLM_setup.cpp PeleLM.cpp
 CEXE_headers += PeleLM.H  ArrayViewEXT.H BoxLib_Data_Dump.H
 FEXE_headers += PeleLM_F.H
 F90EXE_sources += PeleLM_F.F90 mod_Fvar_def.F90
+
+ifeq ($(USE_PARTICLES), TRUE)
+CEXE_sources += PeleLM_particles.cpp
+endif
