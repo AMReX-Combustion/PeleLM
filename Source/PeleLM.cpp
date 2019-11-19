@@ -4205,7 +4205,7 @@ PeleLM::compute_differential_diffusion_fluxes (const MultiFab& S,
 
   const int nGrow = 1;
   BL_ASSERT(S.nGrow()>=nGrow);
-  bool has_coarse_data = Scrse != 0;
+  bool has_coarse_data = bool(Scrse);
 
   const DistributionMapping* dmc = (has_coarse_data ? &(Scrse->DistributionMap()) : 0);
   const BoxArray* bac = (has_coarse_data ? &(Scrse->boxArray()) : 0);
@@ -4219,7 +4219,7 @@ PeleLM::compute_differential_diffusion_fluxes (const MultiFab& S,
   MultiFab Alpha(grids,dmap,1,0,MFInfo(),Factory());
   auto Solnc = std::unique_ptr<MultiFab>(new MultiFab());
   if (has_coarse_data) {
-    Solnc->define(*bac, *dmc, 1, nGrow,MFInfo(),Factory());
+    Solnc->define(*bac, *dmc, 1, nGrow,MFInfo(),getLevel(level-1).Factory());
   }
 
   LPInfo info;
