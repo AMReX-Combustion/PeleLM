@@ -4945,25 +4945,32 @@ PeleLM::predict_velocity (Real  dt)
 
   const Box& domain = geom.Domain();
   
-  // Compute slopes and store for use in computing UgradU
-#ifdef _OPENMP
-#pragma omp parallel
-#endif
-{
-    Vector<int> bndry[BL_SPACEDIM];
-    for (MFIter mfi(Umf, true); mfi.isValid(); ++mfi)
-    {
-       Box bx=mfi.tilebox();
-       D_TERM(bndry[0] = fetchBCArray(State_Type,bx,0,1);,
-	      bndry[1] = fetchBCArray(State_Type,bx,1,1);,
-	      bndry[2] = fetchBCArray(State_Type,bx,2,1););
+  Vector<BCRec> math_bc(AMREX_SPACEDIM);
+  math_bc = fetchBCArray(State_Type,Xvel,AMREX_SPACEDIM);
 
-      godunov->ComputeVelocitySlopes(mfi, Umf,
-             D_DECL(m_xslopes, m_yslopes, m_zslopes),
-				     D_DECL(bndry[0], bndry[1], bndry[2]),
-				     domain);
-    }
- }
+  godunov->ComputeSlopes( Umf,
+                          D_DECL(m_xslopes, m_yslopes, m_zslopes),
+                          math_bc, 0, AMREX_SPACEDIM, domain);
+  
+  // Compute slopes and store for use in computing UgradU
+//#ifdef _OPENMP
+//#pragma omp parallel
+//#endif
+//{
+//    Vector<int> bndry[BL_SPACEDIM];
+//    for (MFIter mfi(Umf, true); mfi.isValid(); ++mfi)
+//    {
+//       Box bx=mfi.tilebox();
+//       D_TERM(bndry[0] = fetchBCArray(State_Type,bx,0,1);,
+//	      bndry[1] = fetchBCArray(State_Type,bx,1,1);,
+//	      bndry[2] = fetchBCArray(State_Type,bx,2,1););
+//
+//      godunov->ComputeVelocitySlopes(mfi, Umf,
+//             D_DECL(m_xslopes, m_yslopes, m_zslopes),
+//				     D_DECL(bndry[0], bndry[1], bndry[2]),
+//				     domain);
+//    }
+// }
  
   //
   // need to fill ghost cells for slopes here. 
@@ -4972,9 +4979,13 @@ PeleLM::predict_velocity (Real  dt)
   // non-periodic BCs are in theory taken care of inside compute ugradu, but IAMR
   //  only allows for periodic for now
   //
-  m_xslopes.FillBoundary(geom.periodicity());
-	m_yslopes.FillBoundary(geom.periodicity());
-	m_zslopes.FillBoundary(geom.periodicity());
+//  m_xslopes.FillBoundary(geom.periodicity());
+//	m_yslopes.FillBoundary(geom.periodicity());
+//	m_zslopes.FillBoundary(geom.periodicity());
+
+    D_TERM( m_xslopes.FillBoundary(geom.periodicity());,
+            m_yslopes.FillBoundary(geom.periodicity());,
+            m_zslopes.FillBoundary(geom.periodicity()););
   
 #else
   MultiFab Gp(grids,dmap,BL_SPACEDIM,1);
@@ -4991,6 +5002,19 @@ PeleLM::predict_velocity (Real  dt)
   }
   Real tempdt = std::min(change_max,cfl/cflmax);
 
+  
+#if AMREX_USE_EB
+
+    Vector<BCRec> math_bcs(AMREX_SPACEDIM);
+    math_bcs = fetchBCArray(State_Type,Xvel,AMREX_SPACEDIM);
+
+    godunov->ExtrapVelToFaces(Umf,
+                              D_DECL(u_mac[0], u_mac[1], u_mac[2]),
+                              D_DECL(m_xslopes, m_yslopes, m_zslopes),
+                              geom, math_bcs );
+
+#else
+  
 #ifdef _OPENMP
 #pragma omp parallel
 #endif      
@@ -5019,27 +5043,28 @@ PeleLM::predict_velocity (Real  dt)
              bndry[1] = fetchBCArray(State_Type,bx,1,1);,
              bndry[2] = fetchBCArray(State_Type,bx,2,1););
 
-#ifdef AMREX_USE_EB
-	//
-	//  trace state to cell edges
-	//
-	// For now, import simple adv scheme from incflo
-	//
-	// FIXME 
-	//  GODUNOV uses mathematical bcs like reflect_odd
-	//  incflo convection uses phys bcs like slip wall
-	// for now, just doing periodic, so just make sure I don't trip the bcs
-	//
-	// CHECK HERE
-       godunov->ExtrapVelToFaces(U_mfi,
-                                 D_DECL(u_mac[0][U_mfi], u_mac[1][U_mfi], u_mac[2][U_mfi]),
-                                 D_DECL(bndry[0],        bndry[1],        bndry[2]),
-                                 D_DECL(m_xslopes, m_yslopes, m_zslopes),
-                                 Ufab, tforces, 
-                                 D_DECL(*areafrac[0], *areafrac[1], *areafrac[2]),
-                                 D_DECL(*facecent[0], *facecent[1], *facecent[2]),
-                                 domain);
-#else
+
+//#ifdef AMREX_USE_EB
+//	//
+//	//  trace state to cell edges
+//	//
+//	// For now, import simple adv scheme from incflo
+//	//
+//	// FIXME 
+//	//  GODUNOV uses mathematical bcs like reflect_odd
+//	//  incflo convection uses phys bcs like slip wall
+//	// for now, just doing periodic, so just make sure I don't trip the bcs
+//	//
+//	// CHECK HERE
+//       godunov->ExtrapVelToFaces(U_mfi,
+//                                 D_DECL(u_mac[0][U_mfi], u_mac[1][U_mfi], u_mac[2][U_mfi]),
+//                                 D_DECL(bndry[0],        bndry[1],        bndry[2]),
+//                                 D_DECL(m_xslopes, m_yslopes, m_zslopes),
+//                                 Ufab, tforces, 
+//                                 D_DECL(*areafrac[0], *areafrac[1], *areafrac[2]),
+//                                 D_DECL(*facecent[0], *facecent[1], *facecent[2]),
+//                                 domain);
+//#else
 	// non-EB
 	//  1. compute slopes
 	//  2. trace state to cell edges
@@ -5054,10 +5079,14 @@ PeleLM::predict_velocity (Real  dt)
         u_mac[d][U_mfi].copy(Uface[d],ebx,0,ebx,0,1);
       }
                                 
-#endif
+//#endif
 
   }
 }
+
+
+#endif
+
 
   showMF("mac",u_mac[0],"pv_umac0",level);
   showMF("mac",u_mac[1],"pv_umac1",level);
@@ -6178,7 +6207,7 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
   int nComp = eComp - sComp + 1;
 
   FillPatchIterator S_fpi(*this,get_old_data(State_Type),ng,prev_time,State_Type,sComp,nComp);
-  const MultiFab& Smf=S_fpi.get_mf();
+  MultiFab& Smf=S_fpi.get_mf();
 
   int rhoYcomp = first_spec - sComp;
   int Rcomp = Density - sComp;
@@ -6199,6 +6228,7 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
     });
   }
 
+// EM_DEBUG
 #ifdef AMREX_USE_EB
 
     //
@@ -6215,27 +6245,34 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
     zslps.setVal(0.);
 
     const Box& domain = geom.Domain();
+    
+    Vector<BCRec> math_bc(nspecies+3);
+    math_bc = fetchBCArray(State_Type,first_spec,nspecies+3);
+
+    godunov->ComputeSlopes(Smf, D_DECL(xslps, yslps, zslps),
+                           math_bc, 0, nspecies+3, domain);
+  
     // Compute slopes for use in computing aofs
     // Perhaps need to call EB_set_covered(Smf,....)
     
-#ifdef _OPENMP
-#pragma omp parallel
-#endif
-{
-    Vector<int> bndry[BL_SPACEDIM];
-    for (MFIter mfi(Smf, true); mfi.isValid(); ++mfi)
-    {
-       Box bx=mfi.tilebox();
-       D_TERM(bndry[0] = fetchBCArray(State_Type,bx,0,1);,
-	     bndry[1] = fetchBCArray(State_Type,bx,1,1);,
-	     bndry[2] = fetchBCArray(State_Type,bx,2,1););
-
-       godunov->ComputeScalarSlopes(mfi, Smf, nspecies+3,
-				    D_DECL(xslps, yslps, zslps),
-				    D_DECL(bndry[0], bndry[1], bndry[2]),
-				    domain);
-    }
- }
+//#ifdef _OPENMP
+//#pragma omp parallel
+//#endif
+//{
+//    Vector<int> bndry[BL_SPACEDIM];
+//    for (MFIter mfi(Smf, true); mfi.isValid(); ++mfi)
+//    {
+//       Box bx=mfi.tilebox();
+//       D_TERM(bndry[0] = fetchBCArray(State_Type,bx,0,1);,
+//	     bndry[1] = fetchBCArray(State_Type,bx,1,1);,
+//	     bndry[2] = fetchBCArray(State_Type,bx,2,1););
+//
+//       godunov->ComputeScalarSlopes(mfi, Smf, nspecies+3,
+//				    D_DECL(xslps, yslps, zslps),
+//				    D_DECL(bndry[0], bndry[1], bndry[2]),
+//				    domain);
+//    }
+// }
 //
 // need to fill ghost cells for slopes here. 
 // non-periodic BCs are in theory taken care of inside compute ugradu, but IAMR
@@ -6289,6 +6326,7 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
 // Advect RhoY
       state_bc = fetchBCArray(State_Type,bx,first_spec,nspecies+1);
 
+// EM_DEBUG
 #ifdef AMREX_USE_EB
   
       godunov->AdvectScalars_EB(S_mfi, Smf, rhoYcomp, nspecies,
@@ -6351,6 +6389,7 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
 
       state_bc = fetchBCArray(State_Type,bx,Temp,1);      
 
+// EM_DEBUG
 #ifdef AMREX_USE_EB
 
       godunov->AdvectScalars_EB(S_mfi, Smf, Tcomp, 1,
@@ -6387,6 +6426,7 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
       for (int d=0; d<BL_SPACEDIM; ++d)
       {
 
+// EM_DEBUG
 #ifdef AMREX_USE_EB        
         const Box& ebox = amrex::grow(amrex::surroundingNodes(bx,d),3);
 #else
@@ -6418,7 +6458,9 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
       }
 
 // Compute -Div(flux.Area) for RhoH, return Area-scaled (extensive) fluxes
-  //amrex::Print() << (*aofs)[S_mfi];     
+  //amrex::Print() << (*aofs)[S_mfi];
+  
+// EM_DEBUG  
 #ifdef AMREX_USE_EB
 
       godunov->AdvectScalars_EB(S_mfi, Smf, RhoH, 1,
@@ -6448,6 +6490,8 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
                            volume[S_mfi], avcomp, (*aofs)[S_mfi], RhoH, iconserv);
 
 #endif
+
+
 //amrex::Print() << (*aofs)[S_mfi]; 
 // Load up non-overlapping bits of edge states and fluxes into mfs
       for (int d=0; d<BL_SPACEDIM; ++d)
@@ -6612,7 +6656,7 @@ PeleLM::mac_sync ()
 
     BL_PROFILE_VAR("HT::mac_sync::ucorr", HTUCORR);
     mac_projector->mac_sync_solve(level,dt,rh,fine_ratio,
-                                  &chi_sync,subtract_avg,offset);
+                                  &chi_sync);
     BL_PROFILE_VAR_STOP(HTUCORR);
 
     if (closed_chamber && level == 0)
