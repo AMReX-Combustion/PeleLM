@@ -6213,6 +6213,9 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
   int Rcomp = Density - sComp;
   int Tcomp = Temp - sComp;
 
+amrex::Print() << "TERMS sComp = " << sComp << " eComp = " << eComp << " nComp = " << nComp << std::endl;
+amrex::Print() << "TERMS rhoYcomp = " << rhoYcomp << " Rcomp = " << Rcomp << " Tcomp = " << Tcomp << std::endl;
+amrex::Print() << "TERMS density = " << density << " Rcomp = " << Rcomp << " Tcomp = " << Tcomp << std::endl;
   // Floor small values of states to be extrapolated
 #ifdef _OPENMP
 #pragma omp parallel
