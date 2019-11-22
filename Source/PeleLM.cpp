@@ -6208,14 +6208,13 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
 
   FillPatchIterator S_fpi(*this,get_old_data(State_Type),ng,prev_time,State_Type,sComp,nComp);
   MultiFab& Smf=S_fpi.get_mf();
+  
+  MultiFab aofs_mf(*aofs, amrex::make_alias, sComp, nComp);
 
   int rhoYcomp = first_spec - sComp;
   int Rcomp = Density - sComp;
   int Tcomp = Temp - sComp;
 
-amrex::Print() << "TERMS sComp = " << sComp << " eComp = " << eComp << " nComp = " << nComp << std::endl;
-amrex::Print() << "TERMS rhoYcomp = " << rhoYcomp << " Rcomp = " << Rcomp << " Tcomp = " << Tcomp << std::endl;
-amrex::Print() << "TERMS density = " << density << " Rcomp = " << Rcomp << " Tcomp = " << Tcomp << std::endl;
   // Floor small values of states to be extrapolated
 #ifdef _OPENMP
 #pragma omp parallel
@@ -6231,63 +6230,221 @@ amrex::Print() << "TERMS density = " << density << " Rcomp = " << Rcomp << " Tco
     });
   }
 
-// EM_DEBUG
+
 #ifdef AMREX_USE_EB
 
-    //
-    // compute slopes for construction of edge states
-    //
-    //Slopes in x-direction      
-    MultiFab xslps(grids, dmap, nspecies+3, Godunov::hypgrow(),MFInfo(), Factory());
-    xslps.setVal(0.);
-    // Slopes in y-direction
-    MultiFab yslps(grids, dmap, nspecies+3, Godunov::hypgrow(), MFInfo(), Factory());
-    yslps.setVal(0.);
-    // Slopes in z-direction
-    MultiFab zslps(grids, dmap, nspecies+3, Godunov::hypgrow(), MFInfo(), Factory());
-    zslps.setVal(0.);
+  //////////////////////////////////////
+  //
+  // HERE IS THE EB PROCEDURE
+  //
+  //////////////////////////////////////
+ 
+  //
+  // compute slopes for construction of edge states
+  //
+  //Slopes in x-direction      
+  MultiFab xslps(grids, dmap, nspecies+3, Godunov::hypgrow(),MFInfo(), Factory());
+  xslps.setVal(0.);
+  // Slopes in y-direction
+  MultiFab yslps(grids, dmap, nspecies+3, Godunov::hypgrow(), MFInfo(), Factory());
+  yslps.setVal(0.);
+  // Slopes in z-direction
+  MultiFab zslps(grids, dmap, nspecies+3, Godunov::hypgrow(), MFInfo(), Factory());
+  zslps.setVal(0.);
 
-    const Box& domain = geom.Domain();
-    
-    Vector<BCRec> math_bc(nspecies+3);
-    math_bc = fetchBCArray(State_Type,first_spec,nspecies+3);
+  const Box& domain = geom.Domain();
 
-    godunov->ComputeSlopes(Smf, D_DECL(xslps, yslps, zslps),
+  Vector<BCRec> math_bc(nspecies+3);
+  math_bc = fetchBCArray(State_Type,Density,nspecies+3);
+
+  godunov->ComputeSlopes(Smf, D_DECL(xslps, yslps, zslps),
                            math_bc, 0, nspecies+3, domain);
-  
-    // Compute slopes for use in computing aofs
-    // Perhaps need to call EB_set_covered(Smf,....)
-    
-//#ifdef _OPENMP
-//#pragma omp parallel
-//#endif
-//{
-//    Vector<int> bndry[BL_SPACEDIM];
-//    for (MFIter mfi(Smf, true); mfi.isValid(); ++mfi)
-//    {
-//       Box bx=mfi.tilebox();
-//       D_TERM(bndry[0] = fetchBCArray(State_Type,bx,0,1);,
-//	     bndry[1] = fetchBCArray(State_Type,bx,1,1);,
-//	     bndry[2] = fetchBCArray(State_Type,bx,2,1););
-//
-//       godunov->ComputeScalarSlopes(mfi, Smf, nspecies+3,
-//				    D_DECL(xslps, yslps, zslps),
-//				    D_DECL(bndry[0], bndry[1], bndry[2]),
-//				    domain);
-//    }
-// }
-//
-// need to fill ghost cells for slopes here. 
-// non-periodic BCs are in theory taken care of inside compute ugradu, but IAMR
-//  only allows for periodic for now
-//
- D_TERM(xslps.FillBoundary(geom.periodicity());,
-	      yslps.FillBoundary(geom.periodicity());,
-	      zslps.FillBoundary(geom.periodicity()););
-  
+
+  // Compute slopes for use in computing aofs
+  D_TERM(xslps.FillBoundary(geom.periodicity());,
+	       yslps.FillBoundary(geom.periodicity());,
+	       zslps.FillBoundary(geom.periodicity()););
+
+  // Initialize accumulation for rho = Sum(rho.Y)
+  for (int d=0; d<BL_SPACEDIM; d++) {
+    EdgeState[d]->setVal(0);
+  }
+
+  MultiFab edgeflux[AMREX_SPACEDIM];
+  MultiFab edgestate[AMREX_SPACEDIM];
+
+  for (int i(0); i < AMREX_SPACEDIM; i++)
+  {
+    const BoxArray& ba = getEdgeBoxArray(i);
+    edgeflux[i].define(ba, dmap, nspecies+3, Godunov::hypgrow(), MFInfo(), Factory());
+    edgestate[i].define(ba, dmap, nspecies+3, Godunov::hypgrow(), MFInfo(), Factory());
+  }
+
+  // Advect RhoY  
+  {
+    Vector<BCRec> math_bcs(nspecies);
+    math_bcs = fetchBCArray(State_Type, first_spec,nspecies);
+
+    MultiFab edgestate_x(edgestate[0], amrex::make_alias, rhoYcomp, nspecies);
+    MultiFab edgeflux_x(edgeflux[0], amrex::make_alias, rhoYcomp, nspecies);
+    MultiFab edgestate_y(edgestate[1], amrex::make_alias, rhoYcomp, nspecies);
+    MultiFab edgeflux_y(edgeflux[1], amrex::make_alias, rhoYcomp, nspecies);
+#if (AMREX_SPACEDIM == 3)
+    MultiFab edgestate_z(edgestate[2], amrex::make_alias, rhoYcomp, nspecies);
+    MultiFab edgeflux_z(edgeflux[2], amrex::make_alias, rhoYcomp, nspecies);
+#endif   
+
+
+    godunov -> ComputeConvectiveTerm( Smf, rhoYcomp, *aofs, first_spec, nspecies,
+                                      D_DECL(edgeflux_x,edgeflux_y,edgeflux_z),
+                                      D_DECL(edgestate_x,edgestate_y,edgestate_z),
+                                      D_DECL(u_mac[0],u_mac[1],u_mac[2]),
+                                      D_DECL(xslps, yslps, zslps), rhoYcomp,
+                                      math_bcs, geom, 0);
+  }
+
+  // Set flux, flux divergence, and face values for rho as sums of the corresponding RhoY quantities
+#ifdef _OPENMP
+#pragma omp parallel
 #endif
+  {
+    for (MFIter S_mfi(Smf,true); S_mfi.isValid(); ++S_mfi)
+    {
+      const Box& bx = S_mfi.tilebox();
+      (*aofs)[S_mfi].setVal(0,bx,Density,1);
+      for (int d=0; d<BL_SPACEDIM; ++d)
+      {
+        (*EdgeState[d])[S_mfi].setVal(0,bx); 
+        (*EdgeFlux[d])[S_mfi].setVal(0,bx); 
+      }
+
+      for (int comp=0; comp < nspecies; comp++){      
+        (*aofs)[S_mfi].plus((*aofs)[S_mfi],bx,bx,first_spec+comp,Density,1);
+      }
+      for (int d=0; d<BL_SPACEDIM; d++)
+      {
+        for (int comp=0; comp < nspecies; comp++){
+          edgestate[d].plus(edgestate[d],comp+1,0,1);
+          edgeflux[d].plus(edgeflux[d],comp+1,0,1);
+        }
+      }
+    }
+  }
   
-// Initialize accumulation for rho = Sum(rho.Y)
+  // Extrapolate Temp, then compute flux divergence and value for RhoH from face values of T,Y,Rho
+
+  {
+    Vector<BCRec> math_bcs(1);
+    math_bcs = fetchBCArray(State_Type, Temp, 1);
+
+    MultiFab edgestate_x(edgestate[0], amrex::make_alias, Tcomp, 1);
+    MultiFab edgeflux_x(edgeflux[0], amrex::make_alias, Tcomp, 1);
+    MultiFab edgestate_y(edgestate[1], amrex::make_alias, Tcomp, 1);
+    MultiFab edgeflux_y(edgeflux[1], amrex::make_alias, Tcomp, 1);
+#if (AMREX_SPACEDIM == 3)
+    MultiFab edgestate_z(edgestate[2], amrex::make_alias, Tcomp, 1);
+    MultiFab edgeflux_z(edgeflux[2], amrex::make_alias, Tcomp, 1);
+#endif 
+
+    godunov -> ComputeConvectiveTerm( Smf, Tcomp, *aofs, Temp, 1,
+                                      D_DECL(edgeflux_x,edgeflux_y,edgeflux_z),
+                                      D_DECL(edgestate_x,edgestate_y,edgestate_z),
+                                      D_DECL(u_mac[0],u_mac[1],u_mac[2]),
+                                      D_DECL(xslps, yslps, zslps), Tcomp,
+                                      math_bcs, geom, 0);
+  }
+
+  // Compute RhoH on faces, store in nspecies+1 component of edgestate[d]
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
+  {
+    FArrayBox eR, eY, eH;
+    for (MFIter S_mfi(Smf,true); S_mfi.isValid(); ++S_mfi)
+    {
+      for (int d=0; d<BL_SPACEDIM; ++d)
+      {
+        const Box& bx = S_mfi.tilebox();
+        const Box& ebox = amrex::grow(amrex::surroundingNodes(bx,d),3);
+        eR.resize(ebox,1);
+        eR.copy(edgestate[d][S_mfi],0,0,1);
+        eR.invert(1.);
+  
+        eY.resize(ebox,nspecies);
+        eY.copy(edgestate[d][S_mfi],1,0,nspecies);
+
+        for (int n=0; n<nspecies; ++n) {
+          eY.mult(eR,0,n,1);
+        }
+
+        eH.resize(ebox,1);
+        getHmixGivenTY_pphys(eH, edgestate[d][S_mfi], eY, ebox, nspecies+2, 0, 0);
+
+        edgestate[d][S_mfi].copy(eH,ebox,0,ebox,nspecies+1,1);      // Copy H into estate
+        edgestate[d][S_mfi].mult(edgestate[d][S_mfi],ebox,0,nspecies+1,1); // Make H.Rho into estate
+
+        // Copy edgestate into edgeflux. ComputeAofs() overwrites but needs edgestate to start.
+        edgeflux[d][S_mfi].copy(edgestate[d][S_mfi],ebox,nspecies+1,ebox,nspecies+1,1);
+      }
+    }
+  }
+
+  // Compute -Div(flux.Area) for RhoH, return Area-scaled (extensive) fluxes
+
+  {
+    Vector<BCRec> math_bcs(1);
+    math_bcs = fetchBCArray(State_Type, RhoH, 1);
+
+    MultiFab edgestate_x(edgestate[0], amrex::make_alias, nspecies+1, 1);
+    MultiFab edgeflux_x(edgeflux[0], amrex::make_alias, nspecies+1, 1);
+    MultiFab edgestate_y(edgestate[1], amrex::make_alias, nspecies+1, 1);
+    MultiFab edgeflux_y(edgeflux[1], amrex::make_alias, nspecies+1, 1);
+#if (AMREX_SPACEDIM == 3)
+    MultiFab edgestate_z(edgestate[2], amrex::make_alias, nspecies+1, 1);
+    MultiFab edgeflux_z(edgeflux[2], amrex::make_alias, nspecies+1, 1);
+#endif 
+   
+    godunov -> ComputeConvectiveTerm( Smf, nspecies+1, *aofs, RhoH, 1,
+                                      D_DECL(edgeflux_x,edgeflux_y,edgeflux_z),
+                                      D_DECL(edgestate_x,edgestate_y,edgestate_z),
+                                      D_DECL(u_mac[0],u_mac[1],u_mac[2]),
+                                      D_DECL(xslps, yslps, zslps), nspecies+1,
+                                      math_bcs, geom, 1);
+  }
+
+  // Load up non-overlapping bits of edge states and fluxes into mfs
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
+  {
+    for (MFIter S_mfi(Smf,true); S_mfi.isValid(); ++S_mfi)
+    {
+      for (int d=0; d<BL_SPACEDIM; ++d)
+      {
+        const Box& efbox = S_mfi.nodaltilebox(d);
+        (*EdgeState[d])[S_mfi].copy(edgestate[d][S_mfi],efbox,0,efbox,Density,nspecies+1);
+        (*EdgeState[d])[S_mfi].copy(edgestate[d][S_mfi],efbox,nspecies+1,efbox,RhoH,1);
+        (*EdgeState[d])[S_mfi].copy(edgestate[d][S_mfi],efbox,nspecies+2,efbox,Temp,1);
+        (*EdgeFlux[d])[S_mfi].copy(edgeflux[d][S_mfi],efbox,0,efbox,Density,nspecies+1);
+        (*EdgeFlux[d])[S_mfi].copy(edgeflux[d][S_mfi],efbox,nspecies+1,efbox,RhoH,1);
+        (*EdgeFlux[d])[S_mfi].copy(edgeflux[d][S_mfi],efbox,nspecies+2,efbox,Temp,1);
+      }
+    }
+  }
+
+
+#else
+ 
+
+  //////////////////////////////////////
+  //
+  // HERE IS THE NON-EB PROCEDURE
+  //
+  //////////////////////////////////////
+ 
+ 
+  
+  // Initialize accumulation for rho = Sum(rho.Y)
   for (int d=0; d<BL_SPACEDIM; d++) {
     EdgeState[d]->setVal(0);
   }
@@ -6309,43 +6466,16 @@ amrex::Print() << "TERMS density = " << density << " Rcomp = " << Rcomp << " Tco
       for (int d=0; d<BL_SPACEDIM; ++d)
       {
 
-#ifdef AMREX_USE_EB        
-        const Box& ebx = amrex::grow(amrex::surroundingNodes(bx,d),3);
-#else
         const Box& ebx = amrex::surroundingNodes(bx,d);
-#endif
+
         edgeflux[d].resize(ebx,nspecies+3);
         edgestate[d].resize(ebx,nspecies+3); // comps: 0:rho, 1:nspecies: rho*Y, nspecies+1: rho*H, nspecies+2: Temp
-        edgeflux[d].setVal(0);
-        edgestate[d].setVal(0);
+        edgeflux[d].setVal(0,ebx);
+        edgestate[d].setVal(0,ebx);
       }
-            
-            
-  //for (int d=0; d<BL_SPACEDIM; ++d)
-  //    {
-  //amrex::Print() << "\n DEBUG edgestate \n" << d << " " << edgestate[d];}
-  //    
-        
+
 // Advect RhoY
       state_bc = fetchBCArray(State_Type,bx,first_spec,nspecies+1);
-
-// EM_DEBUG
-#ifdef AMREX_USE_EB
-  
-      godunov->AdvectScalars_EB(S_mfi, Smf, rhoYcomp, nspecies,
-                                *aofs, first_spec, 1, 
-                                D_DECL(xslps, yslps, zslps),
-                                D_DECL( u_mac[0][S_mfi], u_mac[1][S_mfi], u_mac[2][S_mfi]),
-                                D_DECL(edgeflux[0],edgeflux[1],edgeflux[2]),
-                                D_DECL(edgestate[0],edgestate[1],edgestate[2]),
-                                *volfrac, *bndrycent,
-                                D_DECL(*areafrac[0], *areafrac[1], *areafrac[2]),
-                                D_DECL(*facecent[0], *facecent[1], *facecent[2]),
-                                state_bc,
-                                geom.Domain(),
-                                geom.CellSize(),Godunov::hypgrow(), 0);	
-
-#else      
 
       godunov->AdvectScalars(bx, dx, dt, 
                              D_DECL(  area[0][S_mfi],  area[1][S_mfi],  area[2][S_mfi]),
@@ -6355,20 +6485,12 @@ amrex::Print() << "TERMS density = " << density << " Rcomp = " << Rcomp << " Tco
                              Sfab, rhoYcomp, nspecies, force, 0, divu, 0,
                              (*aofs)[S_mfi], first_spec, advectionType, state_bc, FPU, volume[S_mfi]);
 
-#endif
-
-//amrex::Print() << (*aofs)[S_mfi];
-  //for (int d=0; d<BL_SPACEDIM; ++d)
-  //    {
-  //amrex::Print() << "\n DEBUG edgestate \n" << d << " " << edgestate[d];}
-  //
-
 // Set flux, flux divergence, and face values for rho as sums of the corresponding RhoY quantities
       (*aofs)[S_mfi].setVal(0,bx,Density,1);
       for (int d=0; d<BL_SPACEDIM; ++d)
      {
-       (*EdgeState[d])[S_mfi].setVal(0.);
-       (*EdgeFlux[d])[S_mfi].setVal(0.);
+       (*EdgeState[d])[S_mfi].setVal(0,bx);
+       (*EdgeFlux[d])[S_mfi].setVal(0,bx);
      }
      
       for (int comp=0; comp < nspecies; comp++){      
@@ -6382,33 +6504,10 @@ amrex::Print() << "TERMS density = " << density << " Rcomp = " << Rcomp << " Tco
         }
       }
       
-//amrex::Print() << (*aofs)[S_mfi];
-  //for (int d=0; d<BL_SPACEDIM; ++d)
-  //    {
-  //amrex::Print() << "\n DEBUG edgestate \n" << d << " " << edgestate[d];}
-  //
 // Extrapolate Temp, then compute flux divergence and value for RhoH from face values of T,Y,Rho
 // Note that this requires that the nspecies component of force be the temperature forcing
 
       state_bc = fetchBCArray(State_Type,bx,Temp,1);      
-
-// EM_DEBUG
-#ifdef AMREX_USE_EB
-
-      godunov->AdvectScalars_EB(S_mfi, Smf, Tcomp, 1,
-                                *aofs, Temp, nspecies+2, 
-                                D_DECL(xslps, yslps, zslps),
-                                D_DECL( u_mac[0][S_mfi], u_mac[1][S_mfi], u_mac[2][S_mfi]),
-                                D_DECL(edgeflux[0],edgeflux[1],edgeflux[2]),
-                                D_DECL(edgestate[0],edgestate[1],edgestate[2]),
-                                *volfrac, *bndrycent,
-                                D_DECL(*areafrac[0], *areafrac[1], *areafrac[2]),
-                                D_DECL(*facecent[0], *facecent[1], *facecent[2]),
-                                state_bc,
-                                geom.Domain(),
-                                geom.CellSize(),Godunov::hypgrow(), 0);	
-
-#else 
 
       godunov->AdvectScalars(bx, dx, dt, 
                              D_DECL(  area[0][S_mfi],  area[1][S_mfi],  area[2][S_mfi]),
@@ -6418,23 +6517,11 @@ amrex::Print() << "TERMS density = " << density << " Rcomp = " << Rcomp << " Tco
                              Sfab, Tcomp, 1, force, nspecies, divu, 0,
                              (*aofs)[S_mfi], Temp, advectionType, state_bc, FPU, volume[S_mfi]);
 
-#endif
-  
-  //amrex::Print() << (*aofs)[S_mfi];
-  //for (int d=0; d<BL_SPACEDIM; ++d)
-  //    {
-  //amrex::Print() << "\n DEBUG edgestate \n" << d << " " << edgestate[d];}
-  
 // Compute RhoH on faces, store in nspecies+1 component of edgestate[d]
       for (int d=0; d<BL_SPACEDIM; ++d)
       {
 
-// EM_DEBUG
-#ifdef AMREX_USE_EB        
-        const Box& ebox = amrex::grow(amrex::surroundingNodes(bx,d),3);
-#else
         const Box& ebox = amrex::surroundingNodes(bx,d);
-#endif
         eR.resize(ebox,1);
         eR.copy(edgestate[d],0,0,1);
         eR.invert(1.);
@@ -6449,40 +6536,16 @@ amrex::Print() << "TERMS density = " << density << " Rcomp = " << Rcomp << " Tco
         
         eH.resize(ebox,1);
         getHmixGivenTY_pphys(eH, edgestate[d], eY, ebox, nspecies+2, 0, 0);
-        
-        //amrex::Print() << "\n DEBUG edgestate \n" << d << " " << edgestate[d];
-        
+                
         edgestate[d].copy(eH,ebox,0,ebox,nspecies+1,1);      // Copy H into estate
         edgestate[d].mult(edgestate[d],ebox,0,nspecies+1,1); // Make H.Rho into estate
         
-        //amrex::Print() << "\n DEBUG edgestate \n" << d << " " << edgestate[d];
         // Copy edgestate into edgeflux. ComputeAofs() overwrites but needs edgestate to start.
         edgeflux[d].copy(edgestate[d],ebox,nspecies+1,ebox,nspecies+1,1);
       }
 
 // Compute -Div(flux.Area) for RhoH, return Area-scaled (extensive) fluxes
-  //amrex::Print() << (*aofs)[S_mfi];
-  
-// EM_DEBUG  
-#ifdef AMREX_USE_EB
-
-      godunov->AdvectScalars_EB(S_mfi, Smf, RhoH, 1,
-                                *aofs, RhoH, nspecies+1, 
-                                D_DECL(xslps, yslps, zslps),
-                                D_DECL( u_mac[0][S_mfi], u_mac[1][S_mfi], u_mac[2][S_mfi]),
-                                D_DECL(edgeflux[0],edgeflux[1],edgeflux[2]),
-                                D_DECL(edgestate[0],edgestate[1],edgestate[2]),
-                                *volfrac, *bndrycent,
-                                D_DECL(*areafrac[0], *areafrac[1], *areafrac[2]),
-                                D_DECL(*facecent[0], *facecent[1], *facecent[2]),
-                                state_bc,
-                                geom.Domain(),
-                                geom.CellSize(),Godunov::hypgrow(), 1);	
-
-#else 
-
-//amrex::Print() << edgeflux[1];
-  
+ 
       int avcomp = 0;
       int ucomp = 0;
       int iconserv = advectionType[RhoH] == Conservative ? 1 : 0;
@@ -6492,10 +6555,6 @@ amrex::Print() << "TERMS density = " << density << " Rcomp = " << Rcomp << " Tco
                            D_DECL(edgeflux[0],edgeflux[1],edgeflux[2]),D_DECL(nspecies+1,nspecies+1,nspecies+1),
                            volume[S_mfi], avcomp, (*aofs)[S_mfi], RhoH, iconserv);
 
-#endif
-
-
-//amrex::Print() << (*aofs)[S_mfi]; 
 // Load up non-overlapping bits of edge states and fluxes into mfs
       for (int d=0; d<BL_SPACEDIM; ++d)
       {
@@ -6510,6 +6569,8 @@ amrex::Print() << "TERMS density = " << density << " Rcomp = " << Rcomp << " Tco
     }
   }
   
+  
+#endif
   
   showMF("sdc",*EdgeState[0],"sdc_ESTATE_x",level,parent->levelSteps(level));
   showMF("sdc",*EdgeState[1],"sdc_ESTATE_y",level,parent->levelSteps(level));
@@ -6942,11 +7003,11 @@ PeleLM::mac_sync ()
         MultiFab::Add(Trhs,DT_post,0,0,1,0);
         MultiFab::Add(Trhs,DD_post,0,0,1,0);
         MultiFab::Add(Trhs,Trhs0,0,0,1,0);
-amrex::Print() << "CRASH HERE 1";
+
         // Save current T value, guess deltaT=0
         MultiFab::Copy(Told,get_new_data(State_Type),Temp,0,1,0);
         get_new_data(State_Type).setVal(0,Temp,1,0);
-amrex::Print() << "CRASH HERE 2";
+
         int rho_flagT = 0; // Do not do rho-based hacking of the diffusion problem
         const Vector<int> diffuse_this_comp = {1};
         const bool add_hoop_stress = false; // Only true if sigma == Xvel && Geometry::IsRZ())

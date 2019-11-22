@@ -185,4 +185,4 @@ ns.do_MLsync_proj = 0
 # Embedded Boundary options
 eb2.geom_type    =  all_regular
 
-ns.hack_nochem = 1
+#ns.hack_nochem = 1
