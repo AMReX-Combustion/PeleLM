@@ -1,6 +1,6 @@
 TOP = ../../../../
 AMREX_HOME ?= ${TOP}/amrex
-IAMR_HOME ?= ${TOP}/IAMR_EB_diff_rearange
+IAMR_HOME ?= ${TOP}/IAMR_EB
 PELELM_HOME ?= ${TOP}/PeleLM_EB
 
 #
@@ -48,7 +48,7 @@ Transport_dir := Constant
 Blocs   := .
 
 CEXE_sources +=
-F90EXE_sources += Prob_$(DIM)d.F90 probdata.F90
+F90EXE_sources += Prob_nd.F90 probdata.F90
 CEXE_headers += 
 FEXE_headers += 
 
