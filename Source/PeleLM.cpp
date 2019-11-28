@@ -6301,6 +6301,9 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
                                       D_DECL(u_mac[0],u_mac[1],u_mac[2]),
                                       D_DECL(xslps, yslps, zslps), rhoYcomp,
                                       math_bcs, geom, 0);
+
+    EB_set_covered(*aofs, 0.);
+
   }
 
   // Set flux, flux divergence, and face values for rho as sums of the corresponding RhoY quantities
@@ -6352,6 +6355,10 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
                                       D_DECL(u_mac[0],u_mac[1],u_mac[2]),
                                       D_DECL(xslps, yslps, zslps), Tcomp,
                                       math_bcs, geom, 0);
+
+    EB_set_covered(*aofs, 0.);
+
+
   }
 
   // Compute RhoH on faces, store in nspecies+1 component of edgestate[d]
@@ -6410,6 +6417,9 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
                                       D_DECL(u_mac[0],u_mac[1],u_mac[2]),
                                       D_DECL(xslps, yslps, zslps), nspecies+1,
                                       math_bcs, geom, 1);
+
+     EB_set_covered(*aofs, 0.);
+
   }
 
   // Load up non-overlapping bits of edge states and fluxes into mfs

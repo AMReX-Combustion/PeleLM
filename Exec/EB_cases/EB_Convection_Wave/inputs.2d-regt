@@ -142,11 +142,11 @@ fab.format = NATIVE
 #fabarray.mfiter_tile_size = 8 8 8
 
 # for getting things started with eb skip some steps
-ns.init_iter = 5
-ns.init_vel_iter = 5
+ns.init_iter = 0
+ns.init_vel_iter = 0
 ns.do_mac_proj = 1
 # to turn off initial projections set to 0
-ns.do_init_proj = 1
+ns.do_init_proj = 0
 ns.do_sync_proj = 0
 ns.do_MLsync_proj = 0
 
