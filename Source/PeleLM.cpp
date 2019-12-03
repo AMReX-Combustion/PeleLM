@@ -4890,7 +4890,7 @@ PeleLM::predict_velocity (Real  dt)
   //
   // Get simulation parameters.
   //
-  const int   nComp          = BL_SPACEDIM;
+  const int   nComp          = AMREX_SPACEDIM;
   const Real* dx             = geom.CellSize();
   const Real  prev_time      = state[State_Type].prevTime();
   const Real  prev_pres_time = state[Press_Type].prevTime();
@@ -6265,6 +6265,19 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
 	       yslps.FillBoundary(geom.periodicity());,
 	       zslps.FillBoundary(geom.periodicity()););
 
+  
+
+  
+  // EM_DEBUG
+//  amrex::Print() << "EM DEBUG Plotting slopes " << std::endl;
+//static int count=0;
+//count++;
+   //amrex::WriteSingleLevelPlotfile("Gp_in_Proj"+std::to_string(count), Gp, {"gpx","gpy"}, parent->Geom(0), 0.0, 0);
+  //amrex::WriteSingleLevelPlotfile("xslps_"+std::to_string(count), xslps, {"x"}, geom, 0.0, 0);
+  //VisMF::Write(xslps,"xslps_"+std::to_string(count));
+  //VisMF::Write(yslps,"yslps_"+std::to_string(count));
+         
+         
   // Initialize accumulation for rho = Sum(rho.Y)
   for (int d=0; d<BL_SPACEDIM; d++) {
     EdgeState[d]->setVal(0);
@@ -6277,9 +6290,13 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
   {
     const BoxArray& ba = getEdgeBoxArray(i);
     edgeflux[i].define(ba, dmap, nspecies+3, Godunov::hypgrow(), MFInfo(), Factory());
+    edgeflux[i].setVal(0);
     edgestate[i].define(ba, dmap, nspecies+3, Godunov::hypgrow(), MFInfo(), Factory());
+    edgestate[i].setVal(0);
   }
 
+   //VisMF::Write(edgeflux[0],"edgeflux_x_after_define_"+std::to_string(count));
+  
   // Advect RhoY  
   {
     Vector<BCRec> math_bcs(nspecies);
@@ -6292,7 +6309,10 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
 #if (AMREX_SPACEDIM == 3)
     MultiFab edgestate_z(edgestate[2], amrex::make_alias, rhoYcomp, nspecies);
     MultiFab edgeflux_z(edgeflux[2], amrex::make_alias, rhoYcomp, nspecies);
-#endif   
+#endif
+
+  //VisMF::Write(edgeflux[0],"edgeflux_x_before_RhoY_"+std::to_string(count));
+  //VisMF::Write(edgeflux[1],"edgeflux_y_before_RhoY_"+std::to_string(count));
 
 
     godunov -> ComputeConvectiveTerm( Smf, rhoYcomp, *aofs, first_spec, nspecies,
@@ -6303,9 +6323,20 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
                                       math_bcs, geom, 0);
 
     EB_set_covered(*aofs, 0.);
+    
+    //VisMF::Write(edgeflux_x,"edgeflux_x_local_RhoY_"+std::to_string(count));
+    //VisMF::Write(Smf,"Smf_"+std::to_string(count));
 
   }
 
+    // EM_DEBUG
+  //amrex::Print() << "EM DEBUG Plotting aofs after Rho.Y advection " << std::endl;
+  //VisMF::Write(*aofs,"aofs_after_RhoY_"+std::to_string(count));
+  //VisMF::Write(edgestate[0],"edgestate_x_after_RhoY_"+std::to_string(count));
+  //VisMF::Write(edgestate[1],"edgestate_y_after_RhoY_"+std::to_string(count));
+  //VisMF::Write(edgeflux[0],"edgeflux_x_after_RhoY_"+std::to_string(count));
+  //VisMF::Write(edgeflux[1],"edgeflux_y_after_RhoY_"+std::to_string(count));
+  
   // Set flux, flux divergence, and face values for rho as sums of the corresponding RhoY quantities
 #ifdef _OPENMP
 #pragma omp parallel
@@ -6327,8 +6358,8 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
       for (int d=0; d<BL_SPACEDIM; d++)
       {
         for (int comp=0; comp < nspecies; comp++){
-          edgestate[d].plus(edgestate[d],comp+1,0,1);
-          edgeflux[d].plus(edgeflux[d],comp+1,0,1);
+          edgestate[d][S_mfi].plus(edgestate[d][S_mfi],comp+1,0,1);
+          edgeflux[d][S_mfi].plus(edgeflux[d][S_mfi],comp+1,0,1);
         }
       }
     }
@@ -6360,6 +6391,15 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
 
 
   }
+  
+      // EM_DEBUG
+  //amrex::Print() << "EM DEBUG Plotting aofs after Temperature advection " << std::endl;
+  //VisMF::Write(*aofs,"aofs_after_T_"+std::to_string(count));
+  //VisMF::Write(edgestate[0],"edgestate_x_after_T_"+std::to_string(count));
+  //VisMF::Write(edgestate[1],"edgestate_y_after_T_"+std::to_string(count));
+  //VisMF::Write(edgeflux[0],"edgeflux_x_after_T_"+std::to_string(count));
+  //VisMF::Write(edgeflux[1],"edgeflux_y_after_T_"+std::to_string(count));
+
 
   // Compute RhoH on faces, store in nspecies+1 component of edgestate[d]
 #ifdef _OPENMP
@@ -6371,12 +6411,15 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
     {
       for (int d=0; d<BL_SPACEDIM; ++d)
       {
+        
+        //amrex::Print() << "WE COMPUTE eR in dimension " << d << std::endl;
+        
         const Box& bx = S_mfi.tilebox();
         const Box& ebox = amrex::grow(amrex::surroundingNodes(bx,d),3);
         eR.resize(ebox,1);
         eR.copy(edgestate[d][S_mfi],0,0,1);
         eR.invert(1.);
-  
+
         eY.resize(ebox,nspecies);
         eY.copy(edgestate[d][S_mfi],1,0,nspecies);
 
@@ -6422,6 +6465,14 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
 
   }
 
+      // EM_DEBUG
+  //amrex::Print() << "EM DEBUG Plotting aofs after Rho.H advection " << std::endl;
+  //VisMF::Write(*aofs,"aofs_after_RhoH_"+std::to_string(count));
+  //VisMF::Write(edgestate[0],"edgestate_x_after_RhoH_"+std::to_string(count));
+  //VisMF::Write(edgestate[1],"edgestate_y_after_RhoH_"+std::to_string(count));
+  //VisMF::Write(edgeflux[0],"edgeflux_x_after_RhoH_"+std::to_string(count));
+  //VisMF::Write(edgeflux[1],"edgeflux_y_after_RhoH_"+std::to_string(count));
+  
   // Load up non-overlapping bits of edge states and fluxes into mfs
 #ifdef _OPENMP
 #pragma omp parallel
@@ -6442,7 +6493,9 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
     }
   }
 
-
+//VisMF::Write(*EdgeState[0],"edgestate_x_final_"+std::to_string(count));
+//  VisMF::Write(*EdgeState[1],"edgestate_y_final_"+std::to_string(count));
+  
 #else
  
 
