@@ -5362,7 +5362,8 @@ PeleLM::advance (Real time,
 
 #ifdef AMREX_USE_EB    
     {
-      MultiFab mac_divu_tmp(mac_divu, amrex::make_alias, 0, 1);  
+      MultiFab mac_divu_tmp(grids,dmap,1,nGrowAdvForcing+1,MFInfo(),Factory());
+      mac_divu_tmp.copy(mac_divu);
       amrex::single_level_redistribute( 0, {mac_divu_tmp}, {mac_divu}, 0, 1, {geom} );
     }
 #endif
@@ -6281,9 +6282,6 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
   // HERE IS THE EB PROCEDURE
   //
   //////////////////////////////////////
- 
- 
- set_body_state(Smf);
  
   //
   // compute slopes for construction of edge states
