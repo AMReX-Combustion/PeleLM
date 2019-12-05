@@ -5344,26 +5344,12 @@ PeleLM::advance (Real time,
       
     // compute new-time thermodynamic pressure and chi_increment
     setThermoPress(tnp1);
-//static int count55=0;
-//count55++;
 
     chi_increment.setVal(0.0,nGrowAdvForcing);
-        
     calc_dpdt(tnp1,dt,chi_increment,u_mac);
-//VisMF::Write(mac_divu,"mac_divu_"+std::to_string(count55));
-//VisMF::Write(chi,"chi_"+std::to_string(count55));
-//VisMF::Write(chi_increment,"chi_increment_"+std::to_string(count55));
 
-        //EB_set_covered(chi_increment, 0.);
-
-    // EM DEBUG PROBLEM HERE WITH EB
-    amrex::Print() << "EM DEBUG  PROBLEM HERE WITH EB " << std::endl;
     // add chi_increment to chi
     MultiFab::Add(chi,chi_increment,0,0,1,nGrowAdvForcing);
-
-
-//MultiFab mac_divu_tmp(grids,dmap,1,nGrowAdvForcing,MFInfo(),Factory());
-//MultiFab mac_divu_tmp(mac_divu, amrex::make_alias, 0, 1);
 
     // add chi to time-centered mac_divu
     MultiFab::Add(mac_divu,chi,0,0,1,nGrowAdvForcing);
@@ -5373,17 +5359,13 @@ PeleLM::advance (Real time,
     {
       Sbar = adjust_p_and_divu_for_closed_chamber(mac_divu);
     }
-    
-      amrex::Print() << "EM DEBUG Plotting UMAC " << std::endl;
-//VisMF::Write(S_old,"S_old_"+std::to_string(count55));
-//VisMF::Write(mac_divu_tmp,"mac_divu_after_"+std::to_string(count55));
 
-{
-MultiFab mac_divu_tmp(mac_divu, amrex::make_alias, 0, 1);  
-amrex::single_level_redistribute( 0, {mac_divu_tmp}, {mac_divu}, 0, 1, {geom} );
-}
-//EB_set_covered(mac_divu,0.);
-//VisMF::Write(mac_divu,"mac_divu_after_redi_"+std::to_string(count55));
+#ifdef AMREX_USE_EB    
+    {
+      MultiFab mac_divu_tmp(mac_divu, amrex::make_alias, 0, 1);  
+      amrex::single_level_redistribute( 0, {mac_divu_tmp}, {mac_divu}, 0, 1, {geom} );
+    }
+#endif
 
     // MAC-project... and overwrite U^{ADV,*}
     BL_PROFILE_VAR_START(HTMAC);
