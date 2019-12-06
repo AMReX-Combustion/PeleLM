@@ -4,14 +4,15 @@
   xblob = -0.2
   yblob = 0.
   radblob = 0.25
-  MeanFlow = 0.001d0
+  MeanFlow = 0.01d0
  /
  &heattransin
   pamb = 101325.
  /
  &extern
- const_conductivity = 0.00
- const_viscosity = 0.
+ const_conductivity = 0.00001
+ const_viscosity = 0.00001
  const_bulk_viscosity = 0.
- const_diffusivity = 0.00
+ const_diffusivity = 0.00001
+ mks_unit = true
  /

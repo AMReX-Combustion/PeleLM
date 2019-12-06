@@ -163,7 +163,10 @@ contains
 ! Local
       integer :: i, j, k, n
       REAL_T  :: x, y, z, Yl(nspecies), Patm
-      REAL_T :: dist
+      REAL_T :: dist, delta_blob, RC
+
+delta_blob = 2.0d0
+    RC = 0.02d0
 
       do k = lo(3), hi(3)
         z = (float(k)+.5d0)*delta(3)+domnlo(3)
@@ -173,22 +176,24 @@ contains
             x = (float(i)+.5d0)*delta(1) +domnlo(1)
           
             dist = sqrt((x-xblob)**2 + (y-yblob)**2)
-  
+            dist = sqrt((x-xblob)**2 )
+
             vel(i,j,k,1) = MeanFlow
             vel(i,j,k,2) = 0.0d0
 
-            Yl(1) = merge(.233d0,0.1d0,dist.lt.radblob) !0.233
-            Yl(2) = 1.0d0 - Yl(1) !0.767
+!            Yl(1) = merge(.233d0,0.1d0,dist.lt.radblob) !0.233
+!            Yl(2) = 1.0d0 - Yl(1) !0.767
 
-!            Yl(1) = 0.233
-!            Yl(2) = 0.767
+            Yl(1) = 0.233d0*(1.0d0 + delta_blob*exp(-dist/(2.0d0 *RC)))
+            Yl(2) = 1.0d0 - Yl(1)
 
             do n = 1,nspecies
                scal(i,j,k,FirstSpec+n-1) = Yl(n)
             end do
 
-            !scal(i,j,Temp) = merge(600.d0,300.d0,dist.lt.radblob) !T_mean
-            scal(i,j,k,Temp) = T_mean
+!            scal(i,j,k,Temp) = merge(600.d0,300.d0,dist.lt.radblob) !T_mean
+!            scal(i,j,k,Temp) = T_mean*(1.0d0 + delta_blob*exp(-dist/(2.0d0 *RC)))
+           scal(i,j,k,Temp) = T_mean
 
           enddo  
         end do

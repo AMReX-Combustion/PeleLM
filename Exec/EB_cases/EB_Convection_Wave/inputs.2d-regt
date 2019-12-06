@@ -14,13 +14,14 @@ peleLM.lo_bc = "Interior"  "Interior"
 peleLM.hi_bc = "Interior"  "Interior"
 
 #----------------------------TOP LEVEL INPUTS----------------------
-max_step  =  500
-stop_time = 800.0
+max_step  =  5000
+stop_time = 10000.0
 
 #-------------------------AMR INPUTS----------------------------
 amr.n_cell    = 16 16 16
 amr.n_cell    = 64 64 64
 amr.n_cell    = 256 256 
+#amr.n_cell    = 512 512
 
 amr.v=1
 amr.max_level =  0            # maximum level number allowed
@@ -37,10 +38,10 @@ amr.check_int       = 5       # number of timesteps between checkpoints
 
 amr.plot_file       = plt_
 amr.plot_int        = 1
-amr.derive_plot_vars=rhoRT mag_vort avg_pressure gradpx gradpy diveru mass_fractions
+amr.derive_plot_vars=rhoRT mag_vort avg_pressure gradpx gradpy diveru mass_fractions rhoY rhominsumrhoY
 
 amr.grid_log        = grdlog  # name of grid logging file
-amr.max_grid_size   = 32 
+amr.max_grid_size   = 128
 
 amr.probin_file = probin.2d.regt # This will default to file "probin" if not set
 
@@ -49,9 +50,9 @@ amr.probin_file = probin.2d.regt # This will default to file "probin" if not set
 ns.dt_cutoff       = 5.e-10   # level 0 timestep below which we halt
 ns.visc_tol        = 1.0e-12  # tolerence for viscous solves
 ns.visc_abs_tol    = 1.0e-12  # tolerence for viscous solves
-ns.cfl            = 0.5     # cfl number for hyperbolic system
+ns.cfl            = 0.1     # cfl number for hyperbolic system
 ns.init_shrink    = 1.0       # scale back initial timestep
-ns.change_max     = 1.1       # scale back initial timestep
+ns.change_max     = 1.0       # scale back initial timestep
 ns.init_iter      = 0        # number of init iters to def pressure
 ns.gravity        = 0        # body force  (gravity in MKS units)
 ns.sum_interval   = 1        # timesteps between computing mass
@@ -77,12 +78,10 @@ ns.min_rho_divu_ceiling = .01
 ns.fuelName        = N2
 ns.unity_Le = 0
 
-ns.dpdt_option = 0
 ns.do_active_control = 0
 
 ns.do_fillPatchUMAC=1
-ns.zeroBndryVisc=1
-ns.num_divu_iters = 0
+ns.num_divu_iters = 2
 
 # ------------------  INPUTS TO GODUNOV CLASS ----------------------
 godunov.slope_order = 4
@@ -98,7 +97,7 @@ diffuse.Rhs_in_abs_tol = 1
 proj.proj_tol       = 1.0e-12  # tolerence for projections
 proj.proj_abs_tol   = 1.0e-07
 proj.sync_tol       = 1.0e-12  # tolerence for projections
-proj.rho_wgt_vel_proj = 0      # 0 => const den proj, 1 => rho weighted
+proj.rho_wgt_vel_proj = 1      # 0 => const den proj, 1 => rho weighted
 proj.Pcode          = 2 
 proj.filter_factor  = 0.0
 proj.do_outflow_bcs = 0
@@ -107,8 +106,8 @@ proj.divu_minus_s_factor = 0.
 proj.proj_2 = 1
 
 # ------------------  INPUTS TO MACPROJ CLASS -------------------
-mac.mac_tol        = 1.0e-12 # tolerence for mac projections
-mac.mac_sync_tol   = 1.0e-12  # tolerence for mac SYNC projection
+mac.mac_tol        = 1.0e-14 # tolerence for mac projections
+mac.mac_sync_tol   = 1.0e-14  # tolerence for mac SYNC projection
 mac.mac_abs_tol    = 1.0e-12
 mac.do_outflow_bcs = 0
 
@@ -141,24 +140,34 @@ fab.format = NATIVE
 #fabarray.mfiter_tile_size = 8 8 8
 
 # for getting things started with eb skip some steps
-ns.init_iter = 0
-ns.init_vel_iter = 0
+ns.init_iter = 5
+ns.init_vel_iter = 5 
 ns.do_mac_proj = 1
 # to turn off initial projections set to 0
-ns.do_init_proj = 0
+ns.do_init_proj = 1
 ns.do_sync_proj = 0
 ns.do_MLsync_proj = 0
 
 # Embedded Boundary options
 eb2.geom_type     = sphere
 eb2.sphere_radius = 0.25
-eb2.sphere_center =  0.50  0.0  # don't forget probin: adv_dir !=1
-#eb2.sphere_center =  0.5  -0.5 # don't forget probin: adv_dir = 1
+eb2.sphere_center =  0.50  0.05  # don't forget probin: adv_dir !=1
 eb2.sphere_has_fluid_inside = 0
+
+
+#eb2.geom_type     = box
+#eb2.box_lo = -0.0625  -0.0625
+#eb2.box_hi =  0.0625   0.0625
+#eb2.box_has_fluid_inside = 0
 
 # for no embedded boundary 
 #eb2.geom_type = all_regular
 
 ns.hack_nochem = 1 
 #ns.num_mac_sync_iter = 0
+ns.sdc_iterMAX = 5
 
+#peleLM.dpdt_factor = 0.1
+
+
+#eb2.small_volfrac = 1.e-4
