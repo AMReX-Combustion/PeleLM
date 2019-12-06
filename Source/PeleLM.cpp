@@ -3714,7 +3714,6 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
     compute_enthalpy_fluxes(SpecDiffusionFluxnp1,betanp1,curr_time);
     flux_divergence(Dnew,DComp+nspecies+1,SpecDiffusionFluxnp1,nspecies+2,1,-1);
     flux_divergence(DDnew,0,SpecDiffusionFluxnp1,nspecies+1,1,-1);
-
     
 //VisMF::Write(*SpecDiffusionFluxnp1[0],"SpecDiffusionFluxnp1_x");
 //VisMF::Write(*SpecDiffusionFluxnp1[1],"SpecDiffusionFluxnp1_y");
@@ -4557,6 +4556,18 @@ PeleLM::flux_divergence (MultiFab&        fdiv,
               BL_TO_FORTRAN_ANYD(volume[mfi]),
               &nComp, &scale);
   }
+  
+#ifdef AMREX_USE_EB    
+    {
+      MultiFab fdiv_tmp(grids,dmap,fdiv.nComp(),(fdiv.nGrow())+1,MFInfo(),Factory());
+      fdiv_tmp.copy(fdiv);
+      amrex::single_level_redistribute( 0, {fdiv_tmp}, {fdiv}, fdivComp, nComp, {geom} );
+    }
+    EB_set_covered(fdiv,0.);
+
+#endif
+  
+  
 }
 
 void
@@ -5453,6 +5464,16 @@ PeleLM::advance (Real time,
     BL_PROFILE_VAR_START(HTADV);
     aofs->setVal(1.e30,aofs->nGrow());
 
+#ifdef AMREX_USE_EB    
+    { 
+      MultiFab Forcing_tmp(grids,dmap,Forcing.nComp(),(Forcing.nGrow())+1,MFInfo(),Factory());
+      Forcing_tmp.copy(Forcing);
+      amrex::single_level_redistribute( 0, {Forcing_tmp}, {Forcing}, 0, nspecies+1, {geom} );
+    }
+    EB_set_covered(Forcing,0.);
+
+#endif
+
     compute_scalar_advection_fluxes_and_divergence(Forcing,mac_divu,dt);
     BL_PROFILE_VAR_STOP(HTADV);
 
@@ -5512,6 +5533,15 @@ PeleLM::advance (Real time,
     MultiFab::Add(Forcing,DWbar,0,0,nspecies,0);
 #endif
 
+#ifdef AMREX_USE_EB    
+    {
+      MultiFab Forcing_tmp(grids,dmap,Forcing.nComp(),(Forcing.nGrow())+1,MFInfo(),Factory());
+      Forcing_tmp.copy(Forcing);
+      amrex::single_level_redistribute( 0, {Forcing_tmp}, {Forcing}, 0, nspecies+1, {geom} );
+    }
+    EB_set_covered(Forcing,0.);
+
+#endif
 
 //VisMF::Write(Dhat, "Dhat");
 //VisMF::Write(DDhat, "DDhat");
@@ -5727,6 +5757,7 @@ PeleLM::advance (Real time,
     divu_old.plus(-Sbar_old,0,1);
     divu_new.plus(-Sbar_new,0,1);
   }
+
 
   //
   // Increment rho average.
@@ -8277,6 +8308,17 @@ PeleLM::calc_divu (Real      time,
                       BL_TO_FORTRAN_N_ANYD(T,Temp));
 
   }
+  
+#ifdef AMREX_USE_EB    
+    {
+      MultiFab divu_tmp(grids,dmap,divu.nComp(),divu.nGrow()+1,MFInfo(),Factory());
+      divu_tmp.copy(divu);
+      amrex::single_level_redistribute( 0, {divu_tmp}, {divu}, 0, 1, {geom} );
+    }
+    EB_set_covered(divu,0.);
+#endif
+  
+  
 }
 
 //
