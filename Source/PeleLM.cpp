@@ -4336,7 +4336,8 @@ PeleLM::compute_differential_diffusion_fluxes (const MultiFab& S,
                  MultiFab flxy(*flux[1], amrex::make_alias, fluxComp+icomp, 1);,
                  MultiFab flxz(*flux[2], amrex::make_alias, fluxComp+icomp, 1););
     std::array<MultiFab*,AMREX_SPACEDIM> fp{AMREX_D_DECL(&flxx,&flxy,&flxz)};
-    mg.getFluxes({fp},{&Soln});
+    // Need fluxes at FaceCentroid for 2nd order -- Candace
+    mg.getFluxes({fp},{&Soln},MLLinOp::Location::FaceCentroid);
 
 #ifdef AMREX_USE_EB
     // now dx, areas, and vol are not constant.
@@ -5033,7 +5034,10 @@ PeleLM::predict_velocity (Real  dt)
   //
   auto umax = VectorMaxAbs({&Umf},FabArrayBase::mfiter_tile_size,0,BL_SPACEDIM,Umf.nGrow());
   Real cflmax = dt*umax[0]/dx[0];
-  for (int d=0; d<BL_SPACEDIM; ++d) {
+  for (int d=1; d<BL_SPACEDIM; ++d) {
+    // if d=0, then, given the initialization of cflmax, the next line would be
+    //   cflmax = std::max(dt*umax[0]/dx[0],dt*umax[0]/dx[0]) = dt*umax[0]/dx[0];
+    // -- Candace
     cflmax = std::max(cflmax,dt*umax[d]/dx[d]);
   }
   Real tempdt = std::min(change_max,cfl/cflmax);
