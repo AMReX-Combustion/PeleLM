@@ -86,7 +86,6 @@ ns.sdc_iterMAX = 4
 ns.num_mac_sync_iter = 2
 
 ns.be_cn_theta = 0.5
-ns.S_in_vel_diffusion = 1
 
 ns.do_temp = 1
 

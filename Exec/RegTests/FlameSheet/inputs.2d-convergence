@@ -85,7 +85,6 @@ ns.divu_relax_factor   = 0.0
 ns.thickening_factor = 1.0
 
 ns.be_cn_theta = 0.5
-ns.S_in_vel_diffusion = 1
 
 ns.do_temp = 1
 
