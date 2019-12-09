@@ -1706,7 +1706,13 @@ contains
 
    subroutine repair_flux (lo, hi, dlo, dhi, &
                            flux, f_lo, f_hi,&
-                           RhoY, r_lo, r_hi, dir, Ybc)&
+                           RhoY, r_lo, r_hi,&
+                           xstate, xstatelo, xstatehi, &
+                           ystate, ystatelo, ystatehi, &
+#if ( AMREX_SPACEDIM == 3 )
+                           zstate, zstatelo, zstatehi, & 
+#endif
+                           dir, Ybc)&
                            bind(C, name="repair_flux")
 
       implicit none
@@ -1718,6 +1724,18 @@ contains
       integer :: r_lo(3), r_hi(3)
       REAL_T, dimension(f_lo(1):f_hi(1),f_lo(2):f_hi(2),f_lo(3):f_hi(3),nspecies) :: flux
       REAL_T, dimension(r_lo(1):r_hi(1),r_lo(2):r_hi(2),r_lo(3):r_hi(3),nspecies) :: RhoY
+
+      integer,  intent(in   ) :: xstatelo(3), xstatehi(3)
+      integer,  intent(in   ) :: ystatelo(3), ystatehi(3)
+#if ( AMREX_SPACEDIM == 3 )
+      integer(c_int),  intent(in   ) :: zstatelo(3), zstatehi(3)
+#endif
+
+      REAL_T,  intent(in) ::  xstate(xstatelo(1):xstatehi(1),xstatelo(2):xstatehi(2),xstatelo(3):xstatehi(3),nspecies)
+      REAL_T,  intent(in) ::  ystate(ystatelo(1):ystatehi(1),ystatelo(2):ystatehi(2),ystatelo(3):ystatehi(3),nspecies)
+#if ( AMREX_SPACEDIM == 3 ) 
+      REAL_T,  intent(in) ::  zstate(zstatelo(1):zstatehi(1),zstatelo(2):zstatehi(2),zstatelo(3):zstatehi(3),nspecies)
+#endif
       
       integer :: i, j, k, n
       REAL_T :: sumFlux, RhoYe(nspecies), sumRhoYe
@@ -1733,7 +1751,10 @@ contains
                   sumRhoYe = 0.d0
                   do n=1,nspecies
                      sumFlux = sumFlux + flux(i,j,k,n)
-                     RhoYe(n) = 0.5d0*(RhoY(i-1,j,k,n) + RhoY(i,j,k,n))
+
+!write(*,*) "xstate i,j,k,n",i,j,k,n,xstate(i,j,k,n)
+
+                     RhoYe(n) = xstate(i,j,k,n) !0.5d0*(RhoY(i-1,j,k,n) + RhoY(i,j,k,n))
                      sumRhoYe = sumRhoYe + RhoYe(n)
                   end do
                   sumRhoYe = 1.0D0/sumRhoYe
@@ -1793,7 +1814,9 @@ contains
                   sumRhoYe = 0.d0
                   do n=1,nspecies
                      sumFlux = sumFlux + flux(i,j,k,n)
-                     RhoYe(n) = 0.5d0*(RhoY(i,j-1,k,n) + RhoY(i,j,k,n))
+
+write(*,*) "xstate i,j,k,n",i,j,k,n,ystate(i,j,k,n)
+                     RhoYe(n) = ystate(i,j,k,n) !0.5d0*(RhoY(i,j-1,k,n) + RhoY(i,j,k,n))
                      sumRhoYe = sumRhoYe + RhoYe(n)
                   enddo
                   sumRhoYe = 1.0D0/sumRhoYe
@@ -1853,7 +1876,7 @@ contains
                   sumRhoYe = 0.d0
                   do n=1,nspecies
                      sumFlux = sumFlux + flux(i,j,k,n)
-                     RhoYe(n) = 0.5d0*(RhoY(i,j,k-1,n) + RhoY(i,j,k,n))
+                     RhoYe(n) = zstate(i,j,k,n) !0.5d0*(RhoY(i,j,k-1,n) + RhoY(i,j,k,n))
                      sumRhoYe = sumRhoYe + RhoYe(n)
                   enddo
                   sumRhoYe = 1.0D0/sumRhoYe

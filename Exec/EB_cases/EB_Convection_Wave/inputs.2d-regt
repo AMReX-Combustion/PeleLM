@@ -14,7 +14,7 @@ peleLM.lo_bc = "Interior"  "Interior"
 peleLM.hi_bc = "Interior"  "Interior"
 
 #----------------------------TOP LEVEL INPUTS----------------------
-max_step  =  5000
+max_step  =  50000
 stop_time = 10000.0
 
 #-------------------------AMR INPUTS----------------------------
@@ -41,7 +41,7 @@ amr.plot_int        = 1
 amr.derive_plot_vars=rhoRT mag_vort avg_pressure gradpx gradpy diveru mass_fractions rhoY rhominsumrhoY
 
 amr.grid_log        = grdlog  # name of grid logging file
-amr.max_grid_size   = 128
+amr.max_grid_size   = 1024 #128
 
 amr.probin_file = probin.2d.regt # This will default to file "probin" if not set
 
@@ -71,9 +71,9 @@ ns.do_temp = 1
 ns.do_diffuse_sync = 1
 ns.do_reflux_visc  = 1
 
-ns.divu_ceiling = 1
-ns.divu_dt_factor = .4
-ns.min_rho_divu_ceiling = .01
+#ns.divu_ceiling = 1
+#ns.divu_dt_factor = .4
+#ns.min_rho_divu_ceiling = .01
 
 ns.fuelName        = N2
 ns.unity_Le = 0
@@ -95,7 +95,7 @@ diffuse.Rhs_in_abs_tol = 1
 
 # ------------------  INPUTS TO PROJECTION CLASS -------------------
 proj.proj_tol       = 1.0e-12  # tolerence for projections
-proj.proj_abs_tol   = 1.0e-07
+proj.proj_abs_tol   = 1.0e-08
 proj.sync_tol       = 1.0e-12  # tolerence for projections
 proj.rho_wgt_vel_proj = 1      # 0 => const den proj, 1 => rho weighted
 proj.Pcode          = 2 
@@ -140,11 +140,11 @@ fab.format = NATIVE
 #fabarray.mfiter_tile_size = 8 8 8
 
 # for getting things started with eb skip some steps
-ns.init_iter = 5
-ns.init_vel_iter = 5 
+ns.init_iter = 0
+ns.init_vel_iter = 0 
 ns.do_mac_proj = 1
 # to turn off initial projections set to 0
-ns.do_init_proj = 1
+ns.do_init_proj = 0
 ns.do_sync_proj = 0
 ns.do_MLsync_proj = 0
 
@@ -170,4 +170,4 @@ ns.sdc_iterMAX = 5
 #peleLM.dpdt_factor = 0.1
 
 
-#eb2.small_volfrac = 1.e-4
+eb2.small_volfrac = 1.e-3

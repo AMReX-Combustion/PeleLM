@@ -198,6 +198,11 @@ extern "C" {
                     const int* dlo, const int* dhi,
                           BL_FORT_FAB_ARG_ANYD(flux),
                     const BL_FORT_FAB_ARG_ANYD(RY),
+                    const amrex::Real* xstate, const int* xstatelo, const int* xstatehi,
+                    const amrex::Real* ystate, const int* ystatelo, const int* ystatehi,
+#if (AMREX_SPACEDIM ==3)
+                    const amrex::Real* zstate, const int* zstatelo, const int* zstatehi,
+#endif
                     const int* dir, const int* bc);
 
    void enth_diff_terms(const int* lo, const int* hi, 

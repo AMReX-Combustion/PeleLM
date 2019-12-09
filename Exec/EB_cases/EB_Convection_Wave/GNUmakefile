@@ -1,7 +1,7 @@
 TOP = ../../../../
 AMREX_HOME ?= ${TOP}/amrex
-IAMR_HOME = ${TOP}/IAMR_EB
-PELELM_HOME = ${TOP}/PeleLM_EB
+IAMR_HOME = ${TOP}/IAMR
+PELELM_HOME = ${TOP}/PeleLM
 
 #
 # Build configuration
@@ -9,7 +9,7 @@ PELELM_HOME = ${TOP}/PeleLM_EB
 
 DIM             = 2
 COMP            = gnu
-DEBUG           = FALSE
+DEBUG           = TRUE
 USE_MPI         = TRUE
 USE_OMP         = FALSE
 PRECISION       = DOUBLE

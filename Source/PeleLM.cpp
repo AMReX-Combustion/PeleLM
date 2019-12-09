@@ -3598,7 +3598,18 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
   // Modify/update new-time fluxes to ensure sum of species fluxes = 0, then compute Dnew[m] = -Div(flux[m])
   //
   const BCRec& Tbc = AmrLevel::desc_lst[State_Type].getBCs()[Temp];
-  adjust_spec_diffusion_fluxes(SpecDiffusionFluxnp1,get_new_data(State_Type),Tbc,curr_time);
+
+{
+//  MultiFab edgestate_x(*EdgeState[0], amrex::make_alias, first_spec, nspecies);
+//  MultiFab edgestate_y(*EdgeState[1], amrex::make_alias, first_spec, nspecies);
+//#if ( AMREX_SPACEDIM == 3 )
+//  MultiFab edgestate_z(*EdgeState[2], amrex::make_alias, first_spec, nspecies);
+//#endif
+
+  adjust_spec_diffusion_fluxes(SpecDiffusionFluxnp1,get_new_data(State_Type),
+//                               D_DECL(edgestate_x,edgestate_y,edgestate_z),
+                               Tbc,curr_time);
+}
   
 //  VisMF::Write(*SpecDiffusionFluxnp1[0],"SpecDiffusionFluxnp1_x");
 //VisMF::Write(*SpecDiffusionFluxnp1[1],"SpecDiffusionFluxnp1_y");
@@ -3819,6 +3830,9 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
 void
 PeleLM::adjust_spec_diffusion_fluxes (MultiFab* const * flux,
                                       const MultiFab&   S,
+//                                      D_DECL(const MultiFab& edgst_x,
+//                                             const MultiFab& edgst_y,
+//                                             const MultiFab& edgst_z),
                                       const BCRec&      bc,
                                       Real              time)
 {
@@ -3828,9 +3842,64 @@ PeleLM::adjust_spec_diffusion_fluxes (MultiFab* const * flux,
   const Real strt_time = ParallelDescriptor::second();
   const Box& domain = geom.Domain();
 
-  int ngrow = 1;
+  int ngrow = 3;
   MultiFab TT(grids,dmap,nspecies,ngrow,MFInfo(),Factory());
   FillPatch(*this,TT,ngrow,time,State_Type,first_spec,nspecies,0);
+
+
+
+  //Slopes in x-direction
+  MultiFab xslps(grids, dmap, nspecies, Godunov::hypgrow(),MFInfo(), Factory());
+  xslps.setVal(0.);
+  // Slopes in y-direction
+  MultiFab yslps(grids, dmap, nspecies, Godunov::hypgrow(), MFInfo(), Factory());
+  yslps.setVal(0.);
+  // Slopes in z-direction
+  MultiFab zslps(grids, dmap, nspecies, Godunov::hypgrow(), MFInfo(), Factory());
+  zslps.setVal(0.);
+
+  Vector<BCRec> math_bc(nspecies);
+  math_bc = fetchBCArray(State_Type,first_spec,nspecies);
+
+  godunov->ComputeSlopes(TT, D_DECL(xslps, yslps, zslps),
+                           math_bc, 0, nspecies, domain);
+
+  // Compute slopes for use in computing aofs
+  D_TERM(xslps.FillBoundary(geom.periodicity());,
+               yslps.FillBoundary(geom.periodicity());,
+               zslps.FillBoundary(geom.periodicity()););
+
+
+
+
+
+         MultiFab cfluxes[nspecies];
+         MultiFab edgstate[nspecies];
+         MultiFab null_umac[nspecies];
+
+         int nghost(4);         // Use 4 for now
+
+         for (int i(0); i < AMREX_SPACEDIM; i++)
+         {
+             const BoxArray& ba = getEdgeBoxArray(i);
+             cfluxes[i].define(ba, dmap, nspecies, nghost, MFInfo(), Factory());
+             edgstate[i].define(ba, dmap, nspecies, nghost, MFInfo(), Factory());
+             null_umac[i].define(ba, dmap, nspecies, nghost, MFInfo(), Factory());
+             null_umac[i].setVal(0.);
+         }
+
+
+  godunov->ComputeFluxes( D_DECL(cfluxes[0], cfluxes[1], cfluxes[2]),
+                   D_DECL(edgstate[0],edgstate[1],edgstate[2]),
+                   TT, 0, nspecies,
+                   D_DECL(xslps, yslps, zslps), 0,
+                   D_DECL(null_umac[0],null_umac[1],null_umac[2]),
+                   geom, math_bc, 0);
+
+amrex::Print() << "PLOTTING EDGSTATE";
+VisMF::Write(edgstate[0],"edgstate_x");
+
+//amrex::Abort();
 
 #ifdef _OPENMP
 #pragma omp parallel
@@ -3843,18 +3912,24 @@ PeleLM::adjust_spec_diffusion_fluxes (MultiFab* const * flux,
       FArrayBox& Ffab = (*flux[d])[mfi];
       const Box& ebox = mfi.nodaltilebox(d);
       const Box& edomain = amrex::surroundingNodes(domain,d);
-//      repair_flux(ebox.loVect(), ebox.hiVect(), edomain.loVect(), edomain.hiVect(),
-//                  Ffab.dataPtr(),          ARLIM(Ffab.loVect()),ARLIM(Ffab.hiVect()),
-//                  Sfab.dataPtr(0),ARLIM(Sfab.loVect()),ARLIM(Sfab.hiVect()),
-//                  &d, bc.vect());
+
+//amrex::Print() << edgstate[0][mfi];
 
       repair_flux(BL_TO_FORTRAN_BOX(ebox),
                   BL_TO_FORTRAN_BOX(edomain),
                   BL_TO_FORTRAN_ANYD(Ffab), 
                   BL_TO_FORTRAN_N_ANYD(Sfab,0),
+                  BL_TO_FORTRAN_N_ANYD(edgstate[0][mfi],0),
+                  BL_TO_FORTRAN_N_ANYD(edgstate[1][mfi],0),
+#if ( AMREX_SPACEDIM == 3 )
+                  BL_TO_FORTRAN_N_ANYD(edgstate[2][mfi],0),
+#endif
                   &d, bc.vect());
     }
   }
+
+VisMF::Write(*flux[0],"flux_x");
+amrex::Abort();
 
   if (verbose > 1)
   {
@@ -4421,7 +4496,17 @@ PeleLM::compute_differential_diffusion_fluxes (const MultiFab& S,
 
   //
   // Modify update/fluxes to preserve flux sum = 0 (conservatively correct Gamma_m)
-  adjust_spec_diffusion_fluxes(flux, S, bc, time);
+{ 
+//  MultiFab edgestate_x(*EdgeState[0], amrex::make_alias, first_spec, nspecies);
+//  MultiFab edgestate_y(*EdgeState[1], amrex::make_alias, first_spec, nspecies);
+//#if ( AMREX_SPACEDIM == 3 )
+//  MultiFab edgestate_z(*EdgeState[2], amrex::make_alias, first_spec, nspecies);
+//#endif
+
+  adjust_spec_diffusion_fluxes(flux, S, 
+  //                             D_DECL(edgestate_x,edgestate_y,edgestate_z),
+                               bc, time);
+}
 
   // build heat fluxes based on species fluxes, Gamma_m, and cell-centered states
   // compute flux[nspecies+1] = sum_m (H_m Gamma_m)
@@ -4559,12 +4644,11 @@ PeleLM::flux_divergence (MultiFab&        fdiv,
   
 #ifdef AMREX_USE_EB    
     {
-      MultiFab fdiv_tmp(grids,dmap,fdiv.nComp(),(fdiv.nGrow())+1,MFInfo(),Factory());
+      MultiFab fdiv_tmp(grids,dmap,fdiv.nComp(),fdiv.nGrow()+2,MFInfo(),Factory());
       fdiv_tmp.copy(fdiv);
       amrex::single_level_redistribute( 0, {fdiv_tmp}, {fdiv}, fdivComp, nComp, {geom} );
     }
     EB_set_covered(fdiv,0.);
-
 #endif
   
   
@@ -5377,7 +5461,7 @@ PeleLM::advance (Real time,
 
 #ifdef AMREX_USE_EB    
     {
-      MultiFab mac_divu_tmp(grids,dmap,1,nGrowAdvForcing+1,MFInfo(),Factory());
+      MultiFab mac_divu_tmp(grids,dmap,1,mac_divu.nGrow()+2,MFInfo(),Factory());
       mac_divu_tmp.copy(mac_divu);
       amrex::single_level_redistribute( 0, {mac_divu_tmp}, {mac_divu}, 0, 1, {geom} );
     }
@@ -5464,15 +5548,15 @@ PeleLM::advance (Real time,
     BL_PROFILE_VAR_START(HTADV);
     aofs->setVal(1.e30,aofs->nGrow());
 
-#ifdef AMREX_USE_EB    
-    { 
-      MultiFab Forcing_tmp(grids,dmap,Forcing.nComp(),(Forcing.nGrow())+1,MFInfo(),Factory());
-      Forcing_tmp.copy(Forcing);
-      amrex::single_level_redistribute( 0, {Forcing_tmp}, {Forcing}, 0, nspecies+1, {geom} );
-    }
-    EB_set_covered(Forcing,0.);
-
-#endif
+//#ifdef AMREX_USE_EB    
+//    { 
+//      MultiFab Forcing_tmp(grids,dmap,Forcing.nComp(),(Forcing.nGrow())+1,MFInfo(),Factory());
+//      Forcing_tmp.copy(Forcing);
+//      amrex::single_level_redistribute( 0, {Forcing_tmp}, {Forcing}, 0, nspecies+1, {geom} );
+//    }
+//    EB_set_covered(Forcing,0.);
+//
+//#endif
 
     compute_scalar_advection_fluxes_and_divergence(Forcing,mac_divu,dt);
     BL_PROFILE_VAR_STOP(HTADV);
@@ -5533,15 +5617,15 @@ PeleLM::advance (Real time,
     MultiFab::Add(Forcing,DWbar,0,0,nspecies,0);
 #endif
 
-#ifdef AMREX_USE_EB    
-    {
-      MultiFab Forcing_tmp(grids,dmap,Forcing.nComp(),(Forcing.nGrow())+1,MFInfo(),Factory());
-      Forcing_tmp.copy(Forcing);
-      amrex::single_level_redistribute( 0, {Forcing_tmp}, {Forcing}, 0, nspecies+1, {geom} );
-    }
-    EB_set_covered(Forcing,0.);
-
-#endif
+//#ifdef AMREX_USE_EB    
+//    {
+//      MultiFab Forcing_tmp(grids,dmap,Forcing.nComp(),(Forcing.nGrow())+1,MFInfo(),Factory());
+//      Forcing_tmp.copy(Forcing);
+//      amrex::single_level_redistribute( 0, {Forcing_tmp}, {Forcing}, 0, nspecies+1, {geom} );
+//    }
+//    EB_set_covered(Forcing,0.);
+//
+//#endif
 
 //VisMF::Write(Dhat, "Dhat");
 //VisMF::Write(DDhat, "DDhat");
@@ -5757,7 +5841,6 @@ PeleLM::advance (Real time,
     divu_old.plus(-Sbar_old,0,1);
     divu_new.plus(-Sbar_new,0,1);
   }
-
 
   //
   // Increment rho average.
@@ -7716,8 +7799,70 @@ PeleLM::differential_spec_diffuse_sync (Real dt,
   // need to correct SpecDiffusionFluxnp1 to contain rhoD grad (delta Y)^sync
   int ng = 1;
   FillPatch(*this,get_new_data(State_Type),ng,tnp1,State_Type,Density,nspecies+2,Density);
+
+{
+//  MultiFab edgestate_x(*EdgeState[0], amrex::make_alias, first_spec, nspecies); 
+//  MultiFab edgestate_y(*EdgeState[1], amrex::make_alias, first_spec, nspecies);
+//#if ( AMREX_SPACEDIM == 3 )
+//  MultiFab edgestate_z(*EdgeState[2], amrex::make_alias, first_spec, nspecies);
+//#endif
+
+  //Slopes in x-direction
+//  MultiFab xslps(grids, dmap, nspecies, Godunov::hypgrow(),MFInfo(), Factory());
+//  xslps.setVal(0.);
+//  // Slopes in y-direction
+//  MultiFab yslps(grids, dmap, nspecies, Godunov::hypgrow(), MFInfo(), Factory());
+//  yslps.setVal(0.);
+//  // Slopes in z-direction
+//  MultiFab zslps(grids, dmap, nspecies, Godunov::hypgrow(), MFInfo(), Factory());
+//  zslps.setVal(0.);
+
+//  const Box& domain = geom.Domain();
+
+//  Vector<BCRec> math_bc(nspecies);
+//  math_bc = fetchBCArray(State_Type,first_spec,nspecies);
+
+//  godunov->ComputeSlopes(get_new_data(State_Type), D_DECL(xslps, yslps, zslps),
+//                           math_bc, first_spec, nspecies, domain);
+//
+  // Compute slopes for use in computing aofs
+//  D_TERM(xslps.FillBoundary(geom.periodicity());,
+//               yslps.FillBoundary(geom.periodicity());,
+//               zslps.FillBoundary(geom.periodicity()););
+
+
+
+
+ 
+//        MultiFab cfluxes[AMREX_SPACEDIM];
+//         MultiFab edgstate[AMREX_SPACEDIM];
+//         MultiFab null_umac[AMREX_SPACEDIM];
+//
+//         int nghost(4);         // Use 4 for now
+//
+//         for (int i(0); i < AMREX_SPACEDIM; i++)
+//         {
+//             const BoxArray& ba = getEdgeBoxArray(i);
+//             cfluxes[i].define(ba, dmap, nspecies, nghost, MFInfo(), Factory());
+//             edgstate[i].define(ba, dmap, nspecies, nghost, MFInfo(), Factory());
+//             null_umac[i].define(ba, dmap, nspecies, nghost, MFInfo(), Factory());
+//             null_umac[i].setVal(0.);
+//         }
+
+
+//  godunov->ComputeFluxes( D_DECL(cfluxes[0], cfluxes[1], cfluxes[2]),
+//                   D_DECL(edgstate[0],edgstate[1],edgstate[2]),
+//                   get_new_data(State_Type), first_spec, nspecies,
+//                   D_DECL(xslps, yslps, zslps), 0,
+//                   D_DECL(null_umac[0],null_umac[1],null_umac[2]),
+//                   geom, math_bc, 0);
+
+//VisMF::Write(edgstate[0],"edgstate_x");
+
   adjust_spec_diffusion_fluxes(SpecDiffusionFluxnp1, get_new_data(State_Type),
+//                               D_DECL(edgstate[0],edgstate[1],edgstate[2]),
                                AmrLevel::desc_lst[State_Type].getBCs()[Temp],tnp1);
+}
 
   //
   // Need to correct Ssync to contain rho^{n+1} * (delta Y)^sync.
