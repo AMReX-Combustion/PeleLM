@@ -3879,13 +3879,13 @@ PeleLM::adjust_spec_diffusion_fluxes (MultiFab* const * flux,
 
 
 
-         MultiFab cfluxes[nspecies];
-         MultiFab edgstate[nspecies];
-         MultiFab null_umac[nspecies];
+         MultiFab cfluxes[BL_SPACEDIM];
+         MultiFab edgstate[BL_SPACEDIM];
+         MultiFab null_umac[BL_SPACEDIM];
 
          int nghost(4);         // Use 4 for now
 
-         for (int i(0); i < nspecies; i++)
+         for (int i(0); i < BL_SPACEDIM; i++)
          {
              const BoxArray& ba = getEdgeBoxArray(i);
              cfluxes[i].define(ba, dmap, nspecies, nghost, MFInfo(), Factory());
