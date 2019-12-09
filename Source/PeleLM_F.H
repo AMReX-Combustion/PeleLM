@@ -199,9 +199,12 @@ extern "C" {
                           BL_FORT_FAB_ARG_ANYD(flux),
                     const BL_FORT_FAB_ARG_ANYD(RY),
                     const amrex::Real* xstate, const int* xstatelo, const int* xstatehi,
+                    const amrex::Real* afrac_x,const int*  axlo,const int*  axhi,
                     const amrex::Real* ystate, const int* ystatelo, const int* ystatehi,
+                    const amrex::Real* afrac_y,const int*  aylo,const int*  ayhi,
 #if (AMREX_SPACEDIM ==3)
                     const amrex::Real* zstate, const int* zstatelo, const int* zstatehi,
+                    const amrex::Real* afrac_z,const int*  azlo,const int*  azhi,
 #endif
                     const int* dir, const int* bc);
 

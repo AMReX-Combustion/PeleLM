@@ -20,7 +20,7 @@ stop_time = 10000.0
 #-------------------------AMR INPUTS----------------------------
 amr.n_cell    = 16 16 16
 amr.n_cell    = 64 64 64
-amr.n_cell    = 256 256 
+#amr.n_cell    = 256 256 
 #amr.n_cell    = 512 512
 
 amr.v=1
@@ -171,3 +171,8 @@ ns.sdc_iterMAX = 5
 
 
 eb2.small_volfrac = 1.e-3
+
+
+projection.mg_rtol =  1.0e-12
+projection.mg_atol =  1.0e-08
+

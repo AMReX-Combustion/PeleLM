@@ -1708,9 +1708,12 @@ contains
                            flux, f_lo, f_hi,&
                            RhoY, r_lo, r_hi,&
                            xstate, xstatelo, xstatehi, &
+                           afrac_x, axlo, axhi, &
                            ystate, ystatelo, ystatehi, &
+                           afrac_y, aylo, ayhi, &
 #if ( AMREX_SPACEDIM == 3 )
-                           zstate, zstatelo, zstatehi, & 
+                           zstate, zstatelo, zstatehi, &
+                           afrac_z, azlo, azhi, &
 #endif
                            dir, Ybc)&
                            bind(C, name="repair_flux")
@@ -1727,18 +1730,27 @@ contains
 
       integer,  intent(in   ) :: xstatelo(3), xstatehi(3)
       integer,  intent(in   ) :: ystatelo(3), ystatehi(3)
+      integer,  intent(in   ) :: axlo(3), axhi(3)
+      integer,  intent(in   ) :: aylo(3), ayhi(3)
 #if ( AMREX_SPACEDIM == 3 )
-      integer(c_int),  intent(in   ) :: zstatelo(3), zstatehi(3)
+      integer,  intent(in   ) :: zstatelo(3), zstatehi(3)
+      integer,  intent(in   ) :: azlo(3), azhi(3)
 #endif
 
       REAL_T,  intent(in) ::  xstate(xstatelo(1):xstatehi(1),xstatelo(2):xstatehi(2),xstatelo(3):xstatehi(3),nspecies)
       REAL_T,  intent(in) ::  ystate(ystatelo(1):ystatehi(1),ystatelo(2):ystatehi(2),ystatelo(3):ystatehi(3),nspecies)
+      REAL_T,  intent(in) ::  afrac_x(axlo(1):axhi(1),axlo(2):axhi(2),axlo(3):axhi(3))
+      REAL_T,  intent(in) ::  afrac_y(aylo(1):ayhi(1),aylo(2):ayhi(2),aylo(3):ayhi(3))
 #if ( AMREX_SPACEDIM == 3 ) 
       REAL_T,  intent(in) ::  zstate(zstatelo(1):zstatehi(1),zstatelo(2):zstatehi(2),zstatelo(3):zstatehi(3),nspecies)
+      REAL_T,  intent(in) ::  afrac_z(azlo(1):azhi(1),azlo(2):azhi(2),azlo(3):azhi(3))
 #endif
       
       integer :: i, j, k, n
       REAL_T :: sumFlux, RhoYe(nspecies), sumRhoYe
+
+      
+write(*,*) 'DEBUG ', lbound(afrac_x), ubound(afrac_x)
 
       if (dir.eq.0) then
 
@@ -1747,12 +1759,16 @@ contains
          do k = lo(3),hi(3)
             do j = lo(2),hi(2)
                do i = lo(1),hi(1)
+               
+                 if ( afrac_x(i,j,k) > zero ) then
+               
                   sumFlux = 0.d0
                   sumRhoYe = 0.d0
+
                   do n=1,nspecies
                      sumFlux = sumFlux + flux(i,j,k,n)
 
-!write(*,*) "xstate i,j,k,n",i,j,k,n,xstate(i,j,k,n)
+
 
                      RhoYe(n) = xstate(i,j,k,n) !0.5d0*(RhoY(i-1,j,k,n) + RhoY(i,j,k,n))
                      sumRhoYe = sumRhoYe + RhoYe(n)
@@ -1760,10 +1776,18 @@ contains
                   sumRhoYe = 1.0D0/sumRhoYe
                   do n=1,nspecies
                      flux(i,j,k,n) = flux(i,j,k,n) - sumFlux*RhoYe(n)*sumRhoYe
+                      !write(*,*) "flux i,j,k,n",i,j,k,n,flux(i,j,k,n)
                   end do
+                  else
+                  do n=1,nspecies
+                    flux(i,j,k,n) = 0.0d0
+                  end do
+                  end if
+                  
                end do
             end do
          end do
+
 !     xlo
          if (Ybc(1,1).eq.EXT_DIR.and.lo(1).le.dlo(1)) then
             do i = lo(1),dlo(1)
@@ -1810,22 +1834,34 @@ contains
          do k = lo(3),hi(3)
             do j = lo(2),hi(2)
                do i = lo(1),hi(1)
+               
+    if ( afrac_y(i,j,k) > zero ) then
+               
                   sumFlux = 0.d0
                   sumRhoYe = 0.d0
                   do n=1,nspecies
                      sumFlux = sumFlux + flux(i,j,k,n)
 
-write(*,*) "xstate i,j,k,n",i,j,k,n,ystate(i,j,k,n)
+!write(*,*) "xstate i,j,k,n",i,j,k,n,ystate(i,j,k,n)
                      RhoYe(n) = ystate(i,j,k,n) !0.5d0*(RhoY(i,j-1,k,n) + RhoY(i,j,k,n))
                      sumRhoYe = sumRhoYe + RhoYe(n)
                   enddo
                   sumRhoYe = 1.0D0/sumRhoYe
                   do n=1,nspecies
                      flux(i,j,k,n) = flux(i,j,k,n) - sumFlux*RhoYe(n)*sumRhoYe
+                     !write(*,*) "flux i,j,k,n",i,j,k,n,flux(i,j,k,n)
                   end do
+                  
+                  else
+                  do n=1,nspecies
+                    flux(i,j,k,n) = 0.0d0
+                  end do
+                  end if
+                  
                end do
             end do
          end do
+
 !     ylo
          if (Ybc(2,1).eq.EXT_DIR.and.lo(2).le.dlo(2)) then
             do j = lo(2),dlo(2)
@@ -1869,9 +1905,11 @@ write(*,*) "xstate i,j,k,n",i,j,k,n,ystate(i,j,k,n)
       else if (dir.eq.2) then
 
 !     First, assume away from physical boundaries, then replace with boundary-aware version below if applicable
+
          do k = lo(3),hi(3)
             do j = lo(2),hi(2)
                do i = lo(1),hi(1)
+    if ( afrac_z(i,j,k) > zero ) then
                   sumFlux = 0.d0
                   sumRhoYe = 0.d0
                   do n=1,nspecies
@@ -1883,9 +1921,11 @@ write(*,*) "xstate i,j,k,n",i,j,k,n,ystate(i,j,k,n)
                   do n=1,nspecies
                      flux(i,j,k,n) = flux(i,j,k,n) - sumFlux*RhoYe(n)*sumRhoYe
                   end do
+      endif
                end do
             end do
          end do
+
 !     zlo
          if (Ybc(3,1).eq.EXT_DIR.and.lo(3).le.dlo(3)) then
             do k = lo(3),dlo(3)

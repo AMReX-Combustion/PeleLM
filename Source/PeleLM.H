@@ -310,6 +310,9 @@ private:
 
   void adjust_spec_diffusion_fluxes (amrex::MultiFab* const * flux,
                                      const amrex::MultiFab&   S,
+                                     D_DECL(const amrex::MultiCutFab& x_areafrac,
+                                                        const amrex::MultiCutFab& y_areafrac,
+                                                        const amrex::MultiCutFab& z_areafrac),
 //                                     D_DECL(const amrex::MultiFab& edgst_x,
 //                                       const amrex::MultiFab& edgst_y,
 //                                       const amrex::MultiFab& edgst_z),

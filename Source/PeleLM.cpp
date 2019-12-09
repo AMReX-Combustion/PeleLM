@@ -3606,7 +3606,10 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
 //  MultiFab edgestate_z(*EdgeState[2], amrex::make_alias, first_spec, nspecies);
 //#endif
 
+amrex::Print() << "EM DEBUG CALL 3 \n";
+
   adjust_spec_diffusion_fluxes(SpecDiffusionFluxnp1,get_new_data(State_Type),
+                               D_DECL(*areafrac[0], *areafrac[1], *areafrac[2]),
 //                               D_DECL(edgestate_x,edgestate_y,edgestate_z),
                                Tbc,curr_time);
 }
@@ -3830,6 +3833,9 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
 void
 PeleLM::adjust_spec_diffusion_fluxes (MultiFab* const * flux,
                                       const MultiFab&   S,
+                                      D_DECL(const amrex::MultiCutFab& x_areafrac,
+				                                     const amrex::MultiCutFab& y_areafrac,
+				                                     const amrex::MultiCutFab& z_areafrac),
 //                                      D_DECL(const MultiFab& edgst_x,
 //                                             const MultiFab& edgst_y,
 //                                             const MultiFab& edgst_z),
@@ -3896,10 +3902,12 @@ PeleLM::adjust_spec_diffusion_fluxes (MultiFab* const * flux,
                    D_DECL(null_umac[0],null_umac[1],null_umac[2]),
                    geom, math_bc, 0);
 
+                   
 amrex::Print() << "PLOTTING EDGSTATE";
 VisMF::Write(edgstate[0],"edgstate_x");
 
-//amrex::Abort();
+VisMF::Write(*flux[0],"flux_before_x");
+VisMF::Write(*flux[1],"flux_before_y");
 
 #ifdef _OPENMP
 #pragma omp parallel
@@ -3920,16 +3928,20 @@ VisMF::Write(edgstate[0],"edgstate_x");
                   BL_TO_FORTRAN_ANYD(Ffab), 
                   BL_TO_FORTRAN_N_ANYD(Sfab,0),
                   BL_TO_FORTRAN_N_ANYD(edgstate[0][mfi],0),
+                  BL_TO_FORTRAN_ANYD(x_areafrac[mfi]),
                   BL_TO_FORTRAN_N_ANYD(edgstate[1][mfi],0),
+                  BL_TO_FORTRAN_ANYD(y_areafrac[mfi]),
 #if ( AMREX_SPACEDIM == 3 )
                   BL_TO_FORTRAN_N_ANYD(edgstate[2][mfi],0),
+                  BL_TO_FORTRAN_ANYD(z_areafrac[mfi]),
 #endif
                   &d, bc.vect());
     }
   }
 
-VisMF::Write(*flux[0],"flux_x");
-amrex::Abort();
+VisMF::Write(*flux[0],"flux_after_x");
+VisMF::Write(*flux[1],"flux_after_y");
+//amrex::Abort();
 
   if (verbose > 1)
   {
@@ -4368,6 +4380,9 @@ PeleLM::compute_differential_diffusion_fluxes (const MultiFab& S,
       aVec[d] = &(area[d]);
   }
 
+  VisMF::Write(*flux[0],"flux_before_getFluxes_x");
+VisMF::Write(*flux[1],"flux_before_getFluxes_y");
+  
   for (int icomp = 0; icomp < nspecies+1; ++icomp)
   {
     const int sigma = first_spec + icomp;
@@ -4405,6 +4420,8 @@ PeleLM::compute_differential_diffusion_fluxes (const MultiFab& S,
       Diffusion::computeBeta(bcoeffs, beta, betaComp+icomp, geom, aVec, add_hoop_stress);
       op.setBCoeffs(0, amrex::GetArrOfConstPtrs(bcoeffs));
     }
+    
+  
 
     AMREX_D_TERM(MultiFab flxx(*flux[0], amrex::make_alias, fluxComp+icomp, 1);,
                  MultiFab flxy(*flux[1], amrex::make_alias, fluxComp+icomp, 1);,
@@ -4413,6 +4430,8 @@ PeleLM::compute_differential_diffusion_fluxes (const MultiFab& S,
     // Need fluxes at FaceCentroid for 2nd order -- Candace
     mg.getFluxes({fp},{&Soln},MLLinOp::Location::FaceCentroid);
 
+  
+    
 #ifdef AMREX_USE_EB
     // now dx, areas, and vol are not constant.
     int nghost = 0;
@@ -4482,7 +4501,10 @@ PeleLM::compute_differential_diffusion_fluxes (const MultiFab& S,
     }
 #endif
   }
-
+  
+VisMF::Write(*flux[0],"flux_after_getFluxes_x");
+VisMF::Write(*flux[1],"flux_after_getFluxes_y"); 
+  
   Soln.clear();
 
 #ifdef USE_WBAR
@@ -4503,7 +4525,10 @@ PeleLM::compute_differential_diffusion_fluxes (const MultiFab& S,
 //  MultiFab edgestate_z(*EdgeState[2], amrex::make_alias, first_spec, nspecies);
 //#endif
 
-  adjust_spec_diffusion_fluxes(flux, S, 
+amrex::Print() << "EM DEBUG CALL 1 \n";
+
+  adjust_spec_diffusion_fluxes(flux, S,
+                               D_DECL(*areafrac[0], *areafrac[1], *areafrac[2]),
   //                             D_DECL(edgestate_x,edgestate_y,edgestate_z),
                                bc, time);
 }
@@ -7859,7 +7884,10 @@ PeleLM::differential_spec_diffuse_sync (Real dt,
 
 //VisMF::Write(edgstate[0],"edgstate_x");
 
+amrex::Print() << "EM DEBUG CALL 2 \n";
+
   adjust_spec_diffusion_fluxes(SpecDiffusionFluxnp1, get_new_data(State_Type),
+                               D_DECL(*areafrac[0], *areafrac[1], *areafrac[2]),
 //                               D_DECL(edgstate[0],edgstate[1],edgstate[2]),
                                AmrLevel::desc_lst[State_Type].getBCs()[Temp],tnp1);
 }
@@ -8456,7 +8484,7 @@ PeleLM::calc_divu (Real      time,
   
 #ifdef AMREX_USE_EB    
     {
-      MultiFab divu_tmp(grids,dmap,divu.nComp(),divu.nGrow()+1,MFInfo(),Factory());
+      MultiFab divu_tmp(grids,dmap,divu.nComp(),divu.nGrow()+2,MFInfo(),Factory());
       divu_tmp.copy(divu);
       amrex::single_level_redistribute( 0, {divu_tmp}, {divu}, 0, 1, {geom} );
     }

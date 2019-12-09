@@ -1,7 +1,7 @@
 TOP = ../../../../
 AMREX_HOME ?= ${TOP}/amrex
-IAMR_HOME = ${TOP}/IAMR
-PELELM_HOME = ${TOP}/PeleLM
+IAMR_HOME = ${TOP}/IAMR_EB
+PELELM_HOME = ${TOP}/PeleLM_EB
 
 #
 # Build configuration
