@@ -3609,8 +3609,9 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
 amrex::Print() << "EM DEBUG CALL 3 \n";
 
   adjust_spec_diffusion_fluxes(SpecDiffusionFluxnp1,get_new_data(State_Type),
+#ifdef AMREX_USE_EB
                                D_DECL(*areafrac[0], *areafrac[1], *areafrac[2]),
-//                               D_DECL(edgestate_x,edgestate_y,edgestate_z),
+#endif
                                Tbc,curr_time);
 }
   
@@ -3833,12 +3834,11 @@ amrex::Print() << "EM DEBUG CALL 3 \n";
 void
 PeleLM::adjust_spec_diffusion_fluxes (MultiFab* const * flux,
                                       const MultiFab&   S,
+#ifdef AMREX_USE_EB
                                       D_DECL(const amrex::MultiCutFab& x_areafrac,
 				                                     const amrex::MultiCutFab& y_areafrac,
 				                                     const amrex::MultiCutFab& z_areafrac),
-//                                      D_DECL(const MultiFab& edgst_x,
-//                                             const MultiFab& edgst_y,
-//                                             const MultiFab& edgst_z),
+#endif
                                       const BCRec&      bc,
                                       Real              time)
 {
@@ -3853,7 +3853,7 @@ PeleLM::adjust_spec_diffusion_fluxes (MultiFab* const * flux,
   FillPatch(*this,TT,ngrow,time,State_Type,first_spec,nspecies,0);
 
 
-
+#ifdef AMREX_USE_EB
   //Slopes in x-direction
   MultiFab xslps(grids, dmap, nspecies, Godunov::hypgrow(),MFInfo(), Factory());
   xslps.setVal(0.);
@@ -3909,6 +3909,10 @@ VisMF::Write(edgstate[0],"edgstate_x");
 VisMF::Write(*flux[0],"flux_before_x");
 VisMF::Write(*flux[1],"flux_before_y");
 
+#endif
+
+
+
 #ifdef _OPENMP
 #pragma omp parallel
 #endif
@@ -3922,11 +3926,12 @@ VisMF::Write(*flux[1],"flux_before_y");
       const Box& edomain = amrex::surroundingNodes(domain,d);
 
 //amrex::Print() << edgstate[0][mfi];
-
+#ifdef AMREX_USE_EB
       repair_flux(BL_TO_FORTRAN_BOX(ebox),
                   BL_TO_FORTRAN_BOX(edomain),
                   BL_TO_FORTRAN_ANYD(Ffab), 
                   BL_TO_FORTRAN_N_ANYD(Sfab,0),
+
                   BL_TO_FORTRAN_N_ANYD(edgstate[0][mfi],0),
                   BL_TO_FORTRAN_ANYD(x_areafrac[mfi]),
                   BL_TO_FORTRAN_N_ANYD(edgstate[1][mfi],0),
@@ -3936,6 +3941,16 @@ VisMF::Write(*flux[1],"flux_before_y");
                   BL_TO_FORTRAN_ANYD(z_areafrac[mfi]),
 #endif
                   &d, bc.vect());
+      
+#else
+      repair_flux(BL_TO_FORTRAN_BOX(ebox),
+                  BL_TO_FORTRAN_BOX(edomain),
+                  BL_TO_FORTRAN_ANYD(Ffab), 
+                  BL_TO_FORTRAN_N_ANYD(Sfab,0),
+                  &d, bc.vect());
+#endif
+      
+      
     }
   }
 
@@ -4528,8 +4543,9 @@ VisMF::Write(*flux[1],"flux_after_getFluxes_y");
 amrex::Print() << "EM DEBUG CALL 1 \n";
 
   adjust_spec_diffusion_fluxes(flux, S,
+#ifdef AMREX_USE_EB
                                D_DECL(*areafrac[0], *areafrac[1], *areafrac[2]),
-  //                             D_DECL(edgestate_x,edgestate_y,edgestate_z),
+#endif
                                bc, time);
 }
 
@@ -7887,8 +7903,9 @@ PeleLM::differential_spec_diffuse_sync (Real dt,
 amrex::Print() << "EM DEBUG CALL 2 \n";
 
   adjust_spec_diffusion_fluxes(SpecDiffusionFluxnp1, get_new_data(State_Type),
+#ifdef AMREX_USE_EB
                                D_DECL(*areafrac[0], *areafrac[1], *areafrac[2]),
-//                               D_DECL(edgstate[0],edgstate[1],edgstate[2]),
+#endif
                                AmrLevel::desc_lst[State_Type].getBCs()[Temp],tnp1);
 }
 

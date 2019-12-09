@@ -1703,7 +1703,7 @@ contains
 !=========================================================
 !  Correct flux to ensure that sum of diffusicve flux is zero
 !=========================================================
-
+#ifdef AMREX_USE_EB
    subroutine repair_flux (lo, hi, dlo, dhi, &
                            flux, f_lo, f_hi,&
                            RhoY, r_lo, r_hi,&
@@ -1969,6 +1969,214 @@ write(*,*) 'DEBUG ', lbound(afrac_x), ubound(afrac_x)
       endif
 
    end subroutine repair_flux
+#else
+!=========================================================
+!  Correct flux to ensure that sum of diffusicve flux is zero
+!=========================================================
+
+   subroutine repair_flux (lo, hi, dlo, dhi, &
+                           flux, f_lo, f_hi,&
+                           RhoY, r_lo, r_hi, dir, Ybc)&
+                           bind(C, name="repair_flux")
+
+      implicit none
+
+      integer :: lo(3), hi(3)
+      integer :: dlo(3), dhi(3)
+      integer :: dir, Ybc(dim,2)
+      integer :: f_lo(3), f_hi(3)
+      integer :: r_lo(3), r_hi(3)
+      REAL_T, dimension(f_lo(1):f_hi(1),f_lo(2):f_hi(2),f_lo(3):f_hi(3),nspecies) :: flux
+      REAL_T, dimension(r_lo(1):r_hi(1),r_lo(2):r_hi(2),r_lo(3):r_hi(3),nspecies) :: RhoY
+      
+      integer :: i, j, k, n
+      REAL_T :: sumFlux, RhoYe(nspecies), sumRhoYe
+
+      if (dir.eq.0) then
+
+!     First, assume away from physical boundaries, then use boundary-aware version below if applicable
+
+         do k = lo(3),hi(3)
+            do j = lo(2),hi(2)
+               do i = lo(1),hi(1)
+                  sumFlux = 0.d0
+                  sumRhoYe = 0.d0
+                  do n=1,nspecies
+                     sumFlux = sumFlux + flux(i,j,k,n)
+                     RhoYe(n) = 0.5d0*(RhoY(i-1,j,k,n) + RhoY(i,j,k,n))
+                     sumRhoYe = sumRhoYe + RhoYe(n)
+                  end do
+                  sumRhoYe = 1.0D0/sumRhoYe
+                  do n=1,nspecies
+                     flux(i,j,k,n) = flux(i,j,k,n) - sumFlux*RhoYe(n)*sumRhoYe
+                  end do
+               end do
+            end do
+         end do
+!     xlo
+         if (Ybc(1,1).eq.EXT_DIR.and.lo(1).le.dlo(1)) then
+            do i = lo(1),dlo(1)
+               do k = lo(3),hi(3)
+                  do j = lo(2),hi(2)
+                     sumFlux = 0.d0
+                     sumRhoYe = 0.d0
+                     do n=1,nspecies
+                        sumFlux = sumFlux + flux(i,j,k,n)
+                        sumRhoYe = sumRhoYe + RhoY(i-1,j,k,n)
+                     enddo
+                     sumRhoYe = 1.0D0/sumRhoYe
+                     do n=1,nspecies
+                        flux(i,j,k,n) = flux(i,j,k,n) - sumFlux*RhoY(i-1,j,k,n)*sumRhoYe
+                     enddo
+                  enddo
+               enddo
+            enddo
+         endif
+!     xhi
+         if (Ybc(1,2).eq.EXT_DIR.and.hi(1).ge.dhi(1)) then
+            do i = dhi(1),hi(1)
+               do k = lo(3),hi(3)
+                  do j = lo(2),hi(2)
+                     sumFlux = 0.d0
+                     sumRhoYe = 0.d0
+                     do n=1,nspecies
+                        sumFlux = sumFlux + flux(i,j,k,n)
+                        sumRhoYe = sumRhoYe + RhoY(i,j,k,n)
+                     enddo
+                     sumRhoYe = 1.0D0/sumRhoYe
+                     do n=1,nspecies
+                        flux(i,j,k,n) = flux(i,j,k,n) - sumFlux*RhoY(i,j,k,n)*sumRhoYe
+                     enddo
+                  enddo
+               enddo
+            enddo
+         endif
+
+      else if (dir.eq.1) then
+
+!     First, assume away from physical boundaries, then replace with boundary-aware version below if applicable
+
+         do k = lo(3),hi(3)
+            do j = lo(2),hi(2)
+               do i = lo(1),hi(1)
+                  sumFlux = 0.d0
+                  sumRhoYe = 0.d0
+                  do n=1,nspecies
+                     sumFlux = sumFlux + flux(i,j,k,n)
+                     RhoYe(n) = 0.5d0*(RhoY(i,j-1,k,n) + RhoY(i,j,k,n))
+                     sumRhoYe = sumRhoYe + RhoYe(n)
+                  enddo
+                  sumRhoYe = 1.0D0/sumRhoYe
+                  do n=1,nspecies
+                     flux(i,j,k,n) = flux(i,j,k,n) - sumFlux*RhoYe(n)*sumRhoYe
+                  end do
+               end do
+            end do
+         end do
+!     ylo
+         if (Ybc(2,1).eq.EXT_DIR.and.lo(2).le.dlo(2)) then
+            do j = lo(2),dlo(2)
+               do k = lo(3),hi(3)
+                  do i = lo(1),hi(1)
+                     sumFlux = 0.d0
+                     sumRhoYe = 0.d0
+                     do n=1,nspecies
+                        sumFlux = sumFlux + flux(i,j,k,n)
+                        sumRhoYe = sumRhoYe + RhoY(i,j-1,k,n)
+                     enddo
+                     sumRhoYe = 1.0D0/sumRhoYe
+                     do n=1,nspecies
+                        flux(i,j,k,n) = flux(i,j,k,n) - sumFlux*RhoY(i,j-1,k,n)*sumRhoYe
+                     enddo
+                  enddo
+               enddo
+            enddo
+         endif
+!     yhi
+         if (Ybc(2,2).eq.EXT_DIR.and.hi(2).ge.dhi(2)) then
+            do j = dhi(2),hi(2)
+               do k = lo(3),hi(3)
+                  do i = lo(1),hi(1)
+                     sumFlux = 0.d0
+                     sumRhoYe = 0.d0
+                     do n=1,nspecies
+                        sumFlux = sumFlux + flux(i,j,k,n)
+                        sumRhoYe = sumRhoYe + RhoY(i,j,k,n)
+                     enddo
+                     sumRhoYe = 1.0D0/sumRhoYe
+                     do n=1,nspecies
+                        flux(i,j,k,n) = flux(i,j,k,n) - sumFlux*RhoY(i,j,k,n)*sumRhoYe
+                     enddo
+                  enddo
+               enddo
+            enddo
+         endif
+
+#if ( AMREX_SPACEDIM == 3 )
+      else if (dir.eq.2) then
+
+!     First, assume away from physical boundaries, then replace with boundary-aware version below if applicable
+         do k = lo(3),hi(3)
+            do j = lo(2),hi(2)
+               do i = lo(1),hi(1)
+                  sumFlux = 0.d0
+                  sumRhoYe = 0.d0
+                  do n=1,nspecies
+                     sumFlux = sumFlux + flux(i,j,k,n)
+                     RhoYe(n) = 0.5d0*(RhoY(i,j,k-1,n) + RhoY(i,j,k,n))
+                     sumRhoYe = sumRhoYe + RhoYe(n)
+                  enddo
+                  sumRhoYe = 1.0D0/sumRhoYe
+                  do n=1,nspecies
+                     flux(i,j,k,n) = flux(i,j,k,n) - sumFlux*RhoYe(n)*sumRhoYe
+                  end do
+               end do
+            end do
+         end do
+!     zlo
+         if (Ybc(3,1).eq.EXT_DIR.and.lo(3).le.dlo(3)) then
+            do k = lo(3),dlo(3)
+               do j = lo(2),hi(2)
+                  do i = lo(1),hi(1)
+                     sumFlux = 0.d0
+                     sumRhoYe = 0.d0
+                     do n=1,nspecies
+                        sumFlux = sumFlux + flux(i,j,k,n)
+                        sumRhoYe = sumRhoYe + RhoY(i,j,k-1,n)
+                     enddo
+                     sumRhoYe = 1.0D0/sumRhoYe
+                     do n=1,nspecies
+                        flux(i,j,k,n) = flux(i,j,k,n) - sumFlux*RhoY(i,j,k-1,n)*sumRhoYe
+                     enddo
+                  enddo
+               enddo
+            enddo
+         endif
+!     yzi
+         if (Ybc(3,2).eq.EXT_DIR.and.hi(3).ge.dhi(3)) then
+            do k = dhi(3),hi(3)
+               do j = lo(2),hi(2)
+                  do i = lo(1),hi(1)
+                     sumFlux = 0.d0
+                     sumRhoYe = 0.d0
+                     do n=1,nspecies
+                        sumFlux = sumFlux + flux(i,j,k,n)
+                        sumRhoYe = sumRhoYe + RhoY(i,j,k,n)
+                     enddo
+                     sumRhoYe = 1.0D0/sumRhoYe
+                     do n=1,nspecies
+                        flux(i,j,k,n) = flux(i,j,k,n) - sumFlux*RhoY(i,j,k,n)*sumRhoYe
+                     enddo
+                  enddo
+               enddo
+            enddo
+         endif
+#endif
+
+      endif
+
+   end subroutine repair_flux
+#endif
 
 !=========================================================
 ! Increment old state with flux divergence
