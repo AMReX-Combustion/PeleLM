@@ -3885,7 +3885,7 @@ PeleLM::adjust_spec_diffusion_fluxes (MultiFab* const * flux,
 
          int nghost(4);         // Use 4 for now
 
-         for (int i(0); i < AMREX_SPACEDIM; i++)
+         for (int i(0); i < nspecies; i++)
          {
              const BoxArray& ba = getEdgeBoxArray(i);
              cfluxes[i].define(ba, dmap, nspecies, nghost, MFInfo(), Factory());
