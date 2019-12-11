@@ -622,6 +622,15 @@ private:
 		  int              sCompT,  
 		  const amrex::Real&      htt_hmixTYP );
 
+  void InterpCCtoFcent (D_DECL( amrex::MultiFab& edgestate_x,
+                                amrex::MultiFab& edgestate_y,
+                                amrex::MultiFab& edgestate_z),
+                        const amrex::MultiFab& a_state,
+                        const int a_comp,
+                        const int a_ncomp,
+                        const amrex::Box& a_domain,
+                        const amrex::Geometry& a_geom,
+                        const amrex::Vector<amrex::BCRec>& a_bcs);
 
   ////////////////////////////////////////////////////////////////////////////
   //    Private Data                                                        //
