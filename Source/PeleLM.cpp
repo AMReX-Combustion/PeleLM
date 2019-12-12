@@ -8543,9 +8543,11 @@ PeleLM::calc_dpdt (Real      time,
     Peos[mfi].copy(S,bx,0,bx,0,1);
   }
   
-//  VisMF::Write(Peos,"EM_DEBUG_Peos_before");
-  //EB_interp_CC_to_Centroid(Peos, 1);
-//  VisMF::Write(Peos,"EM_DEBUG_Peos_after");  
+ Peos.FillBoundary(geom.periodicity());
+  
+  //VisMF::Write(Peos,"EM_DEBUG_Peos_before");
+  EB_interp_CC_to_Centroid(Peos, 1);
+  //VisMF::Write(Peos,"EM_DEBUG_Peos_after");  
 // EM DEBUG
 //static int count555=0;
 //count555++;
