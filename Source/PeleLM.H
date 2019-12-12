@@ -312,8 +312,8 @@ private:
                                      const amrex::MultiFab&   S,
 #ifdef AMREX_USE_EB
                                      D_DECL(const amrex::MultiCutFab& x_areafrac,
-                                                        const amrex::MultiCutFab& y_areafrac,
-                                                        const amrex::MultiCutFab& z_areafrac),
+                                            const amrex::MultiCutFab& y_areafrac,
+                                            const amrex::MultiCutFab& z_areafrac),
 #endif
                                      const amrex::BCRec&      bc,
 				     amrex::Real 	      time);
@@ -628,7 +628,6 @@ private:
                         const amrex::MultiFab& a_state,
                         const int a_comp,
                         const int a_ncomp,
-                        const amrex::Box& a_domain,
                         const amrex::Geometry& a_geom,
                         const amrex::Vector<amrex::BCRec>& a_bcs);
 

@@ -19,8 +19,8 @@ stop_time = 10000.0
 
 #-------------------------AMR INPUTS----------------------------
 amr.n_cell    = 16 16 16
-amr.n_cell    = 64 64 64
-#amr.n_cell    = 256 256 
+#amr.n_cell    = 64 64 64
+amr.n_cell    = 256 256 
 #amr.n_cell    = 512 512
 
 amr.v=1
@@ -30,7 +30,7 @@ amr.regrid_int      = 2       # how often to regrid
 amr.n_error_buf     = 1 1 1 2 # number of buffer cells in error est
 amr.grid_eff        = 0.9     # what constitutes an efficient grid
 amr.grid_eff        = 0.7     # what constitutes an efficient grid
-amr.blocking_factor = 16      # block factor in grid generation
+amr.blocking_factor = 4      # block factor in grid generation
 
 amr.checkpoint_files_output = 0
 amr.check_file      = chk     # root name of checkpoint file
@@ -41,7 +41,7 @@ amr.plot_int        = 1
 amr.derive_plot_vars=rhoRT mag_vort avg_pressure gradpx gradpy diveru mass_fractions rhoY rhominsumrhoY
 
 amr.grid_log        = grdlog  # name of grid logging file
-amr.max_grid_size   = 1024 #128
+amr.max_grid_size   = 128 #128
 
 amr.probin_file = probin.2d.regt # This will default to file "probin" if not set
 
@@ -165,12 +165,12 @@ eb2.sphere_has_fluid_inside = 0
 
 ns.hack_nochem = 1 
 #ns.num_mac_sync_iter = 0
-ns.sdc_iterMAX = 5
+ns.sdc_iterMAX = 3
 
 #peleLM.dpdt_factor = 0.1
 
 
-eb2.small_volfrac = 1.e-3
+#eb2.small_volfrac = 1.e-3
 
 
 nodal_proj.rtol =  1.0e-12

@@ -334,7 +334,6 @@ PeleLM::InterpCCtoFcent (D_DECL( MultiFab& a_edgestate_x,
                          const MultiFab& a_state,
                          const int a_comp,
                          const int a_ncomp,
-                         const Box& a_domain,
                          const Geometry& a_geom,
                          const Vector<BCRec>& a_bcs)
 {

@@ -3836,8 +3836,8 @@ PeleLM::adjust_spec_diffusion_fluxes (MultiFab* const * flux,
                                       const MultiFab&   S,
 #ifdef AMREX_USE_EB
                                       D_DECL(const amrex::MultiCutFab& x_areafrac,
-				                                     const amrex::MultiCutFab& y_areafrac,
-				                                     const amrex::MultiCutFab& z_areafrac),
+		                                         const amrex::MultiCutFab& y_areafrac,
+		                                         const amrex::MultiCutFab& z_areafrac),
 #endif
                                       const BCRec&      bc,
                                       Real              time)
@@ -3855,61 +3855,65 @@ PeleLM::adjust_spec_diffusion_fluxes (MultiFab* const * flux,
 
 #ifdef AMREX_USE_EB
   //Slopes in x-direction
-  MultiFab xslps(grids, dmap, nspecies, Godunov::hypgrow(),MFInfo(), Factory());
-  xslps.setVal(0.);
+//  MultiFab xslps(grids, dmap, nspecies, Godunov::hypgrow(),MFInfo(), Factory());
+//  xslps.setVal(0.);
   // Slopes in y-direction
-  MultiFab yslps(grids, dmap, nspecies, Godunov::hypgrow(), MFInfo(), Factory());
-  yslps.setVal(0.);
+//  MultiFab yslps(grids, dmap, nspecies, Godunov::hypgrow(), MFInfo(), Factory());
+//  yslps.setVal(0.);
   // Slopes in z-direction
-  MultiFab zslps(grids, dmap, nspecies, Godunov::hypgrow(), MFInfo(), Factory());
-  zslps.setVal(0.);
+//  MultiFab zslps(grids, dmap, nspecies, Godunov::hypgrow(), MFInfo(), Factory());
+//  zslps.setVal(0.);
+
 
   Vector<BCRec> math_bc(nspecies);
   math_bc = fetchBCArray(State_Type,first_spec,nspecies);
 
-  godunov->ComputeSlopes(TT, D_DECL(xslps, yslps, zslps),
-                           math_bc, 0, nspecies, domain);
-
+//  godunov->ComputeSlopes(TT, D_DECL(xslps, yslps, zslps),
+//                           math_bc, 0, nspecies, domain);
+//
   // Compute slopes for use in computing aofs
-  D_TERM(xslps.FillBoundary(geom.periodicity());,
-               yslps.FillBoundary(geom.periodicity());,
-               zslps.FillBoundary(geom.periodicity()););
+//  D_TERM(xslps.FillBoundary(geom.periodicity());,
+//               yslps.FillBoundary(geom.periodicity());,
+//               zslps.FillBoundary(geom.periodicity()););
 
 
-
-
-
-         MultiFab cfluxes[BL_SPACEDIM];
+//         MultiFab cfluxes[BL_SPACEDIM];
          MultiFab edgstate[BL_SPACEDIM];
-         MultiFab null_umac[BL_SPACEDIM];
+//         MultiFab null_umac[BL_SPACEDIM];
 
          int nghost(4);         // Use 4 for now
 
          for (int i(0); i < BL_SPACEDIM; i++)
          {
              const BoxArray& ba = getEdgeBoxArray(i);
-             cfluxes[i].define(ba, dmap, nspecies, nghost, MFInfo(), Factory());
+//             cfluxes[i].define(ba, dmap, nspecies, nghost, MFInfo(), Factory());
              edgstate[i].define(ba, dmap, nspecies, nghost, MFInfo(), Factory());
-             null_umac[i].define(ba, dmap, nspecies, nghost, MFInfo(), Factory());
-             null_umac[i].setVal(0.);
+//             null_umac[i].define(ba, dmap, nspecies, nghost, MFInfo(), Factory());
+//             null_umac[i].setVal(0.);
          }
 
 
-  godunov->ComputeFluxes( D_DECL(cfluxes[0], cfluxes[1], cfluxes[2]),
-                   D_DECL(edgstate[0],edgstate[1],edgstate[2]),
+  //godunov->ComputeFluxes( D_DECL(cfluxes[0], cfluxes[1], cfluxes[2]),
+  //                 D_DECL(edgstate[0],edgstate[1],edgstate[2]),
+  //                 TT, 0, nspecies,
+  //                 D_DECL(xslps, yslps, zslps), 0,
+  //                 D_DECL(null_umac[0],null_umac[1],null_umac[2]),
+  //                 geom, math_bc, 0);
+
+  InterpCCtoFcent( D_DECL(edgstate[0],edgstate[1],edgstate[2]),
                    TT, 0, nspecies,
-                   D_DECL(xslps, yslps, zslps), 0,
-                   D_DECL(null_umac[0],null_umac[1],null_umac[2]),
-                   geom, math_bc, 0);
-
+                   geom, math_bc);
+  
                    
-amrex::Print() << "PLOTTING EDGSTATE";
-VisMF::Write(edgstate[0],"edgstate_x");
+//amrex::Print() << "PLOTTING EDGSTATE";
+//VisMF::Write(edgstate[0],"edgstate_x");
 
-VisMF::Write(*flux[0],"flux_before_x");
-VisMF::Write(*flux[1],"flux_before_y");
+//VisMF::Write(*flux[0],"flux_before_x");
+//VisMF::Write(*flux[1],"flux_before_y");
+
 
 #endif
+
 
 
 
@@ -3925,37 +3929,50 @@ VisMF::Write(*flux[1],"flux_before_y");
       const Box& ebox = mfi.nodaltilebox(d);
       const Box& edomain = amrex::surroundingNodes(domain,d);
 
-//amrex::Print() << edgstate[0][mfi];
-#ifdef AMREX_USE_EB
-      repair_flux(BL_TO_FORTRAN_BOX(ebox),
+//amrex::Print() << " PLOTTING EBOX " << ebox << std::endl;
+//amrex::Print() << " xarea" << x_areafrac[mfi];
+
+      const EBFArrayBox&  state_fab = static_cast<EBFArrayBox const&>(S[mfi]);
+      const EBCellFlagFab&    flags = state_fab.getEBCellFlagFab();
+
+      if (flags.getType(amrex::grow(ebox,0)) != FabType::covered )
+      {
+         // No cut cells in tile + nghost-cell witdh halo -> use non-eb routine
+         if (flags.getType(amrex::grow(ebox,nghost)) == FabType::regular )
+         {
+                 repair_flux(BL_TO_FORTRAN_BOX(ebox),
+                  BL_TO_FORTRAN_BOX(edomain),
+                  BL_TO_FORTRAN_ANYD(Ffab), 
+                  BL_TO_FORTRAN_N_ANYD(Sfab,0),
+                  &d, bc.vect());
+                 
+         }
+         else
+         {
+          
+                repair_flux_eb(BL_TO_FORTRAN_BOX(ebox),
                   BL_TO_FORTRAN_BOX(edomain),
                   BL_TO_FORTRAN_ANYD(Ffab), 
                   BL_TO_FORTRAN_N_ANYD(Sfab,0),
 
                   BL_TO_FORTRAN_N_ANYD(edgstate[0][mfi],0),
-                  BL_TO_FORTRAN_ANYD(x_areafrac[mfi]),
+                  BL_TO_FORTRAN_ANYD((*areafrac[0])[mfi]),
                   BL_TO_FORTRAN_N_ANYD(edgstate[1][mfi],0),
-                  BL_TO_FORTRAN_ANYD(y_areafrac[mfi]),
+                  BL_TO_FORTRAN_ANYD((*areafrac[1])[mfi]),
 #if ( AMREX_SPACEDIM == 3 )
                   BL_TO_FORTRAN_N_ANYD(edgstate[2][mfi],0),
-                  BL_TO_FORTRAN_ANYD(z_areafrac[mfi]),
+                  BL_TO_FORTRAN_ANYD((*areafrac[2])[mfi]),
 #endif
                   &d, bc.vect());
-      
-#else
-      repair_flux(BL_TO_FORTRAN_BOX(ebox),
-                  BL_TO_FORTRAN_BOX(edomain),
-                  BL_TO_FORTRAN_ANYD(Ffab), 
-                  BL_TO_FORTRAN_N_ANYD(Sfab,0),
-                  &d, bc.vect());
-#endif
-      
+          
+         }
+      }
       
     }
   }
 
-VisMF::Write(*flux[0],"flux_after_x");
-VisMF::Write(*flux[1],"flux_after_y");
+//VisMF::Write(*flux[0],"flux_after_x");
+//VisMF::Write(*flux[1],"flux_after_y");
 //amrex::Abort();
 
   if (verbose > 1)
@@ -4395,8 +4412,8 @@ PeleLM::compute_differential_diffusion_fluxes (const MultiFab& S,
       aVec[d] = &(area[d]);
   }
 
-  VisMF::Write(*flux[0],"flux_before_getFluxes_x");
-VisMF::Write(*flux[1],"flux_before_getFluxes_y");
+//  VisMF::Write(*flux[0],"flux_before_getFluxes_x");
+//VisMF::Write(*flux[1],"flux_before_getFluxes_y");
   
   for (int icomp = 0; icomp < nspecies+1; ++icomp)
   {
@@ -4517,8 +4534,8 @@ VisMF::Write(*flux[1],"flux_before_getFluxes_y");
 #endif
   }
   
-VisMF::Write(*flux[0],"flux_after_getFluxes_x");
-VisMF::Write(*flux[1],"flux_after_getFluxes_y"); 
+//VisMF::Write(*flux[0],"flux_after_getFluxes_x");
+//VisMF::Write(*flux[1],"flux_after_getFluxes_y"); 
   
   Soln.clear();
 
@@ -4541,6 +4558,7 @@ VisMF::Write(*flux[1],"flux_after_getFluxes_y");
 //#endif
 
 amrex::Print() << "EM DEBUG CALL 1 \n";
+
 
   adjust_spec_diffusion_fluxes(flux, S,
 #ifdef AMREX_USE_EB
@@ -8550,6 +8568,8 @@ PeleLM::calc_dpdt (Real      time,
   FillPatchIterator S_fpi(*this,Peos,nGrow,time,State_Type,RhoRT,1);
   MultiFab& Smf=S_fpi.get_mf();
   
+
+  
 #ifdef _OPENMP
 #pragma omp parallel
 #endif  
@@ -8559,6 +8579,10 @@ PeleLM::calc_dpdt (Real      time,
     FArrayBox&       S   = Smf[mfi];
     Peos[mfi].copy(S,bx,0,bx,0,1);
   }
+  
+//  VisMF::Write(Peos,"EM_DEBUG_Peos_before");
+  //EB_interp_CC_to_Centroid(Peos, 1);
+//  VisMF::Write(Peos,"EM_DEBUG_Peos_after");  
 // EM DEBUG
 //static int count555=0;
 //count555++;

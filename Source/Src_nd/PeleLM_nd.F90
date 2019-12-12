@@ -1703,8 +1703,8 @@ contains
 !=========================================================
 !  Correct flux to ensure that sum of diffusicve flux is zero
 !=========================================================
-#ifdef AMREX_USE_EB
-   subroutine repair_flux (lo, hi, dlo, dhi, &
+
+   subroutine repair_flux_eb (lo, hi, dlo, dhi, &
                            flux, f_lo, f_hi,&
                            RhoY, r_lo, r_hi,&
                            xstate, xstatelo, xstatehi, &
@@ -1716,7 +1716,7 @@ contains
                            afrac_z, azlo, azhi, &
 #endif
                            dir, Ybc)&
-                           bind(C, name="repair_flux")
+                           bind(C, name="repair_flux_eb")
 
       implicit none
 
@@ -1749,9 +1749,9 @@ contains
       integer :: i, j, k, n
       REAL_T :: sumFlux, RhoYe(nspecies), sumRhoYe
 
-      
-write(*,*) 'DEBUG ', lbound(afrac_x), ubound(afrac_x)
-
+!write(*,*) ' DEBUG LO HI',lo,hi      
+!write(*,*) 'DEBUG AFRAC_X', lbound(afrac_x), ubound(afrac_x)
+!write(*,*) 'DEBUG AFRAC_Y', lbound(afrac_y), ubound(afrac_y)
       if (dir.eq.0) then
 
 !     First, assume away from physical boundaries, then use boundary-aware version below if applicable
@@ -1968,8 +1968,8 @@ write(*,*) 'DEBUG ', lbound(afrac_x), ubound(afrac_x)
 
       endif
 
-   end subroutine repair_flux
-#else
+   end subroutine repair_flux_eb
+
 !=========================================================
 !  Correct flux to ensure that sum of diffusicve flux is zero
 !=========================================================
@@ -2176,7 +2176,7 @@ write(*,*) 'DEBUG ', lbound(afrac_x), ubound(afrac_x)
       endif
 
    end subroutine repair_flux
-#endif
+
 
 !=========================================================
 ! Increment old state with flux divergence

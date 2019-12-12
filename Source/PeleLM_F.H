@@ -194,8 +194,8 @@ extern "C" {
                     BL_FORT_FAB_ARG_ANYD(fabdat),
                     const amrex::Real* min, const amrex::Real* max, const int* nc);
 
-#ifdef AMREX_USE_EB
-   void repair_flux(const int* lo,  const int* hi,
+
+   void repair_flux_eb(const int* lo,  const int* hi,
                     const int* dlo, const int* dhi,
                           BL_FORT_FAB_ARG_ANYD(flux),
                     const BL_FORT_FAB_ARG_ANYD(RY),
@@ -208,13 +208,13 @@ extern "C" {
                     const amrex::Real* afrac_z,const int*  azlo,const int*  azhi,
 #endif
                     const int* dir, const int* bc);
-#else
+
    void repair_flux(const int* lo,  const int* hi,
                     const int* dlo, const int* dhi,
                           BL_FORT_FAB_ARG_ANYD(flux),
                     const BL_FORT_FAB_ARG_ANYD(RY),
                     const int* dir, const int* bc);
-#endif
+
 
    void enth_diff_terms(const int* lo, const int* hi, 
                         const int* dlo, const int* dhi, const amrex::Real* dx,
