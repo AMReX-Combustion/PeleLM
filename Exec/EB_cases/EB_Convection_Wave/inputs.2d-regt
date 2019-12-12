@@ -19,7 +19,7 @@ stop_time = 10000.0
 
 #-------------------------AMR INPUTS----------------------------
 amr.n_cell    = 16 16 16
-#amr.n_cell    = 64 64 64
+amr.n_cell    = 64 64 64
 amr.n_cell    = 256 256 
 #amr.n_cell    = 512 512
 
@@ -41,7 +41,7 @@ amr.plot_int        = 1
 amr.derive_plot_vars=rhoRT mag_vort avg_pressure gradpx gradpy diveru mass_fractions rhoY rhominsumrhoY
 
 amr.grid_log        = grdlog  # name of grid logging file
-amr.max_grid_size   = 128 #128
+amr.max_grid_size   = 128
 
 amr.probin_file = probin.2d.regt # This will default to file "probin" if not set
 

@@ -197,7 +197,7 @@ extern "C" {
 
    void repair_flux_eb(const int* lo,  const int* hi,
                     const int* dlo, const int* dhi,
-                          BL_FORT_FAB_ARG_ANYD(flux),
+                    BL_FORT_FAB_ARG_ANYD(flux),
                     const BL_FORT_FAB_ARG_ANYD(RY),
                     const amrex::Real* xstate, const int* xstatelo, const int* xstatehi,
                     const amrex::Real* afrac_x,const int*  axlo,const int*  axhi,

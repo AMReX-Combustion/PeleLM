@@ -1759,24 +1759,19 @@ contains
          do k = lo(3),hi(3)
             do j = lo(2),hi(2)
                do i = lo(1),hi(1)
-               
+        
                  if ( afrac_x(i,j,k) > zero ) then
                
                   sumFlux = 0.d0
                   sumRhoYe = 0.d0
-
                   do n=1,nspecies
                      sumFlux = sumFlux + flux(i,j,k,n)
-
-
-
-                     RhoYe(n) = xstate(i,j,k,n) !0.5d0*(RhoY(i-1,j,k,n) + RhoY(i,j,k,n))
+                     RhoYe(n) = xstate(i,j,k,n)
                      sumRhoYe = sumRhoYe + RhoYe(n)
                   end do
                   sumRhoYe = 1.0D0/sumRhoYe
                   do n=1,nspecies
                      flux(i,j,k,n) = flux(i,j,k,n) - sumFlux*RhoYe(n)*sumRhoYe
-                      !write(*,*) "flux i,j,k,n",i,j,k,n,flux(i,j,k,n)
                   end do
                   else
                   do n=1,nspecies
@@ -1835,28 +1830,23 @@ contains
             do j = lo(2),hi(2)
                do i = lo(1),hi(1)
                
-    if ( afrac_y(i,j,k) > zero ) then
-               
-                  sumFlux = 0.d0
-                  sumRhoYe = 0.d0
-                  do n=1,nspecies
+                 if ( afrac_y(i,j,k) > zero ) then
+                   sumFlux = 0.d0
+                   sumRhoYe = 0.d0
+                   do n=1,nspecies
                      sumFlux = sumFlux + flux(i,j,k,n)
-
-!write(*,*) "xstate i,j,k,n",i,j,k,n,ystate(i,j,k,n)
-                     RhoYe(n) = ystate(i,j,k,n) !0.5d0*(RhoY(i,j-1,k,n) + RhoY(i,j,k,n))
+                     RhoYe(n) = ystate(i,j,k,n) 
                      sumRhoYe = sumRhoYe + RhoYe(n)
-                  enddo
-                  sumRhoYe = 1.0D0/sumRhoYe
-                  do n=1,nspecies
+                   enddo
+                   sumRhoYe = 1.0D0/sumRhoYe
+                   do n=1,nspecies
                      flux(i,j,k,n) = flux(i,j,k,n) - sumFlux*RhoYe(n)*sumRhoYe
-                     !write(*,*) "flux i,j,k,n",i,j,k,n,flux(i,j,k,n)
-                  end do
-                  
-                  else
-                  do n=1,nspecies
-                    flux(i,j,k,n) = 0.0d0
-                  end do
-                  end if
+                   end do         
+                 else
+                   do n=1,nspecies
+                     flux(i,j,k,n) = 0.0d0
+                   end do
+                 end if
                   
                end do
             end do
@@ -1909,19 +1899,26 @@ contains
          do k = lo(3),hi(3)
             do j = lo(2),hi(2)
                do i = lo(1),hi(1)
-    if ( afrac_z(i,j,k) > zero ) then
-                  sumFlux = 0.d0
-                  sumRhoYe = 0.d0
-                  do n=1,nspecies
+   
+                 if ( afrac_z(i,j,k) > zero ) then
+                   sumFlux = 0.d0
+                   sumRhoYe = 0.d0
+                   do n=1,nspecies
                      sumFlux = sumFlux + flux(i,j,k,n)
-                     RhoYe(n) = zstate(i,j,k,n) !0.5d0*(RhoY(i,j,k-1,n) + RhoY(i,j,k,n))
+                     RhoYe(n) = zstate(i,j,k,n) 
                      sumRhoYe = sumRhoYe + RhoYe(n)
-                  enddo
-                  sumRhoYe = 1.0D0/sumRhoYe
-                  do n=1,nspecies
+                   enddo
+                   sumRhoYe = 1.0D0/sumRhoYe
+                   do n=1,nspecies
                      flux(i,j,k,n) = flux(i,j,k,n) - sumFlux*RhoYe(n)*sumRhoYe
-                  end do
-      endif
+                   end do
+                  
+                 else
+                   do n=1,nspecies
+                     flux(i,j,k,n) = 0.0d0
+                   end do
+                 end if
+              
                end do
             end do
          end do
@@ -1998,7 +1995,7 @@ contains
 
          do k = lo(3),hi(3)
             do j = lo(2),hi(2)
-               do i = lo(1),hi(1)
+               do i = lo(1),hi(1)               
                   sumFlux = 0.d0
                   sumRhoYe = 0.d0
                   do n=1,nspecies

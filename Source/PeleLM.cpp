@@ -3854,66 +3854,24 @@ PeleLM::adjust_spec_diffusion_fluxes (MultiFab* const * flux,
 
 
 #ifdef AMREX_USE_EB
-  //Slopes in x-direction
-//  MultiFab xslps(grids, dmap, nspecies, Godunov::hypgrow(),MFInfo(), Factory());
-//  xslps.setVal(0.);
-  // Slopes in y-direction
-//  MultiFab yslps(grids, dmap, nspecies, Godunov::hypgrow(), MFInfo(), Factory());
-//  yslps.setVal(0.);
-  // Slopes in z-direction
-//  MultiFab zslps(grids, dmap, nspecies, Godunov::hypgrow(), MFInfo(), Factory());
-//  zslps.setVal(0.);
-
 
   Vector<BCRec> math_bc(nspecies);
   math_bc = fetchBCArray(State_Type,first_spec,nspecies);
 
-//  godunov->ComputeSlopes(TT, D_DECL(xslps, yslps, zslps),
-//                           math_bc, 0, nspecies, domain);
-//
-  // Compute slopes for use in computing aofs
-//  D_TERM(xslps.FillBoundary(geom.periodicity());,
-//               yslps.FillBoundary(geom.periodicity());,
-//               zslps.FillBoundary(geom.periodicity()););
+  MultiFab edgstate[BL_SPACEDIM];
+  int nghost(4);         // Use 4 for now
 
-
-//         MultiFab cfluxes[BL_SPACEDIM];
-         MultiFab edgstate[BL_SPACEDIM];
-//         MultiFab null_umac[BL_SPACEDIM];
-
-         int nghost(4);         // Use 4 for now
-
-         for (int i(0); i < BL_SPACEDIM; i++)
-         {
-             const BoxArray& ba = getEdgeBoxArray(i);
-//             cfluxes[i].define(ba, dmap, nspecies, nghost, MFInfo(), Factory());
-             edgstate[i].define(ba, dmap, nspecies, nghost, MFInfo(), Factory());
-//             null_umac[i].define(ba, dmap, nspecies, nghost, MFInfo(), Factory());
-//             null_umac[i].setVal(0.);
-         }
-
-
-  //godunov->ComputeFluxes( D_DECL(cfluxes[0], cfluxes[1], cfluxes[2]),
-  //                 D_DECL(edgstate[0],edgstate[1],edgstate[2]),
-  //                 TT, 0, nspecies,
-  //                 D_DECL(xslps, yslps, zslps), 0,
-  //                 D_DECL(null_umac[0],null_umac[1],null_umac[2]),
-  //                 geom, math_bc, 0);
+  for (int i(0); i < BL_SPACEDIM; i++)
+  {
+    const BoxArray& ba = getEdgeBoxArray(i);
+    edgstate[i].define(ba, dmap, nspecies, nghost, MFInfo(), Factory());
+  }
 
   InterpCCtoFcent( D_DECL(edgstate[0],edgstate[1],edgstate[2]),
                    TT, 0, nspecies,
                    geom, math_bc);
   
-                   
-//amrex::Print() << "PLOTTING EDGSTATE";
-//VisMF::Write(edgstate[0],"edgstate_x");
-
-//VisMF::Write(*flux[0],"flux_before_x");
-//VisMF::Write(*flux[1],"flux_before_y");
-
-
 #endif
-
 
 
 
@@ -3929,8 +3887,7 @@ PeleLM::adjust_spec_diffusion_fluxes (MultiFab* const * flux,
       const Box& ebox = mfi.nodaltilebox(d);
       const Box& edomain = amrex::surroundingNodes(domain,d);
 
-//amrex::Print() << " PLOTTING EBOX " << ebox << std::endl;
-//amrex::Print() << " xarea" << x_areafrac[mfi];
+#ifdef AMREX_USE_EB
 
       const EBFArrayBox&  state_fab = static_cast<EBFArrayBox const&>(S[mfi]);
       const EBCellFlagFab&    flags = state_fab.getEBCellFlagFab();
@@ -3940,40 +3897,46 @@ PeleLM::adjust_spec_diffusion_fluxes (MultiFab* const * flux,
          // No cut cells in tile + nghost-cell witdh halo -> use non-eb routine
          if (flags.getType(amrex::grow(ebox,nghost)) == FabType::regular )
          {
-                 repair_flux(BL_TO_FORTRAN_BOX(ebox),
-                  BL_TO_FORTRAN_BOX(edomain),
-                  BL_TO_FORTRAN_ANYD(Ffab), 
-                  BL_TO_FORTRAN_N_ANYD(Sfab,0),
-                  &d, bc.vect());
+           repair_flux(BL_TO_FORTRAN_BOX(ebox),
+                       BL_TO_FORTRAN_BOX(edomain),
+                       BL_TO_FORTRAN_ANYD(Ffab), 
+                       BL_TO_FORTRAN_N_ANYD(Sfab,0),
+                       &d, bc.vect());
                  
          }
          else
-         {
-          
-                repair_flux_eb(BL_TO_FORTRAN_BOX(ebox),
-                  BL_TO_FORTRAN_BOX(edomain),
-                  BL_TO_FORTRAN_ANYD(Ffab), 
-                  BL_TO_FORTRAN_N_ANYD(Sfab,0),
+         {         
+           repair_flux_eb(BL_TO_FORTRAN_BOX(ebox),
+                          BL_TO_FORTRAN_BOX(edomain),
+                          BL_TO_FORTRAN_ANYD(Ffab), 
+                          BL_TO_FORTRAN_N_ANYD(Sfab,0),
 
-                  BL_TO_FORTRAN_N_ANYD(edgstate[0][mfi],0),
-                  BL_TO_FORTRAN_ANYD((*areafrac[0])[mfi]),
-                  BL_TO_FORTRAN_N_ANYD(edgstate[1][mfi],0),
-                  BL_TO_FORTRAN_ANYD((*areafrac[1])[mfi]),
+                          BL_TO_FORTRAN_N_ANYD(edgstate[0][mfi],0),
+                          BL_TO_FORTRAN_ANYD((*areafrac[0])[mfi]),
+                          BL_TO_FORTRAN_N_ANYD(edgstate[1][mfi],0),
+                          BL_TO_FORTRAN_ANYD((*areafrac[1])[mfi]),
 #if ( AMREX_SPACEDIM == 3 )
-                  BL_TO_FORTRAN_N_ANYD(edgstate[2][mfi],0),
-                  BL_TO_FORTRAN_ANYD((*areafrac[2])[mfi]),
+                          BL_TO_FORTRAN_N_ANYD(edgstate[2][mfi],0),
+                          BL_TO_FORTRAN_ANYD((*areafrac[2])[mfi]),
 #endif
-                  &d, bc.vect());
+                         &d, bc.vect());
           
          }
       }
       
+#else
+
+      repair_flux(BL_TO_FORTRAN_BOX(ebox),
+                  BL_TO_FORTRAN_BOX(edomain),
+                  BL_TO_FORTRAN_ANYD(Ffab), 
+                  BL_TO_FORTRAN_N_ANYD(Sfab,0),
+                  &d, bc.vect());
+
+#endif
+
+      
     }
   }
-
-//VisMF::Write(*flux[0],"flux_after_x");
-//VisMF::Write(*flux[1],"flux_after_y");
-//amrex::Abort();
 
   if (verbose > 1)
   {
