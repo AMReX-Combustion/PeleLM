@@ -643,7 +643,8 @@ private:
   amrex::MultiFab**  SpecDiffusionFluxnp1;
 #ifdef USE_WBAR
   amrex::MultiFab**  SpecDiffusionFluxWbar;
-  amrex::MultiFab    diffWbar_cc;
+  FluxBoxes fb_diffWbar;
+  amrex::MultiFab **diffWbar;
 #endif
 
   static bool                     plot_reactions;

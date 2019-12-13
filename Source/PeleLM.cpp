@@ -4179,7 +4179,6 @@ PeleLM::getViscTerms (MultiFab& visc_terms,
     vel_visc = fb.define(this);
     getViscosity(vel_visc, time);
 
-    showMF("velVT",*viscn_cc,"velVT_viscn_cc",level);
     for (int dir=0; dir<BL_SPACEDIM; ++dir) {
       showMF("velVT",*(vel_visc[dir]),amrex::Concatenate("velVT_viscn_",dir,1),level);
     }
@@ -8098,11 +8097,43 @@ PeleLM::calcViscosity (const Real time,
                        const int  ncycle)
 {
   const TimeLevel whichTime = which_time(State_Type, time);
-
   BL_ASSERT(whichTime == AmrOldTime || whichTime == AmrNewTime);
 
-  compute_vel_visc(time, whichTime == AmrOldTime ? viscn_cc : viscnp1_cc);
+  MultiFab **visc = (whichTime == AmrOldTime ? viscn : viscnp1);
+  MultiFab& S = (whichTime == AmrOldTime) ? get_old_data(State_Type) : get_new_data(State_Type);
   
+  int sComp = amrex::min((int)first_spec,(int)Temp);
+  int eComp = amrex::max((int)last_spec, (int)Temp);
+  int nComp = eComp - sComp + 1;
+  int nGrow = 0;
+  FillPatchIterator fpi(*this,S,nGrow,time,State_Type,sComp,nComp);
+  MultiFab& mf_cc = fpi.get_mf();
+  int Tcomp = Temp - sComp;
+  int Ycomp = first_spec - sComp;
+
+  FluxBoxes fb(this,nComp,0);
+  MultiFab **mf_ec = fb.get();
+  // CCtoFCent(mf_cc,mf_ec);
+  
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
+  {
+    for (int dir=0; dir<AMREX_SPACEDIM; ++dir)
+    {
+      for (MFIter mfi(*mf_ec[dir],true); mfi.isValid();++mfi)
+      {
+        const Box& box  = mfi.tilebox();
+        FArrayBox& sfab = (*mf_ec[dir])[mfi];
+        FArrayBox& vfab = (*visc[dir])[mfi];
+
+        vel_visc(BL_TO_FORTRAN_BOX(box),
+                 BL_TO_FORTRAN_N_ANYD(sfab,Tcomp),
+                 BL_TO_FORTRAN_N_ANYD(sfab,Ycomp),
+                 BL_TO_FORTRAN_N_ANYD(vfab,0));
+      }
+    }
+  }
 }
 
 void
@@ -8111,14 +8142,14 @@ PeleLM::calcDiffusivity (const Real time)
   BL_PROFILE("HT::calcDiffusivity()");
 
   const TimeLevel whichTime = which_time(State_Type, time);
-
   BL_ASSERT(whichTime == AmrOldTime || whichTime == AmrNewTime);
 
-  const int  nGrow           = 1;
-  const int  offset          = BL_SPACEDIM + 1; // No diffusion coeff for vels or rho
-  MultiFab&  diff            = (whichTime == AmrOldTime) ? (*diffn_cc) : (*diffnp1_cc);
-  
+  MultiFab **diff = (whichTime == AmrOldTime) ? diffn : diffnp1;
+  MultiFab& S = (whichTime == AmrOldTime) ? get_old_data(State_Type) : get_new_data(State_Type);
 
+  int  offset = BL_SPACEDIM + 1; // No diffusion coeff for vels or rho
+  int nc_diff = nspecies+2;      // rhoD + lambda + mu
+  
   // for open chambers, ambient pressure is constant in time
   Real p_amb = p_amb_old;
 
@@ -8136,72 +8167,50 @@ PeleLM::calcDiffusivity (const Real time)
             (time - lev_0_prevtime)/(lev_0_curtime-lev_0_prevtime) * p_amb_new;
   }
 
-  FillPatchIterator Rho_and_spec_fpi(*this,diff,nGrow,time,State_Type,Density,nspecies+1),
-         Temp_fpi(*this,diff,nGrow,time,State_Type,Temp,1);
-  
-  MultiFab& Rho_and_spec_mf = Rho_and_spec_fpi.get_mf();
-  MultiFab& Temp_mf = Temp_fpi.get_mf();
-  
+  int sComp = amrex::min((int)Density, (int)first_spec, (int)Temp);
+  int eComp = amrex::max((int)Density, (int)first_spec, (int)Temp);
+  int nComp = eComp - sComp + 1;
+  int nGrow = 0;
+  FillPatchIterator fpi(*this,S,nGrow,time,State_Type,sComp,nComp);
+  MultiFab& mf_cc = fpi.get_mf();
+  int Rcomp  = Density    - sComp;
+  int Tcomp  = Temp       - sComp;
+  int RYcomp = first_spec - sComp;
+
+  FluxBoxes fb(this,nComp,0);
+  MultiFab **mf_ec = fb.get();
+  // CCtoFCent(mf_cc,mf_ec);
+
 #ifdef _OPENMP
 #pragma omp parallel
 #endif
-{
-  FArrayBox tmp, bcen;
-  for (MFIter mfi(Rho_and_spec_mf,true); mfi.isValid();++mfi)
   {
-    FArrayBox& Tfab = Temp_mf[mfi];
-    FArrayBox& RYfab = Rho_and_spec_mf[mfi];
-    const Box& gbox = mfi.growntilebox();
-
-    const int  vflag   = false;
-    // rhoD + lambda + mu
-    const int nc_bcen = nspecies+2; 
-    int       dotemp  = 1;
-    bcen.resize(gbox,nc_bcen);
-    
-    spec_temp_visc(BL_TO_FORTRAN_BOX(gbox),
-                   BL_TO_FORTRAN_N_ANYD(Tfab,0),
-                   BL_TO_FORTRAN_N_ANYD(RYfab,1),
-                   BL_TO_FORTRAN_N_ANYD(bcen,0),
-                   &nc_bcen, &P1atm_MKS, &dotemp, &vflag, &p_amb);
-        
-    FArrayBox& Dfab = diff[mfi];
-
-    // beta for Y's
-    Dfab.copy(bcen,gbox,0,gbox,first_spec-offset,nspecies);
-    // lambda in Temp slot
-    Dfab.copy(bcen,gbox,nspecies,gbox,Temp-offset,1);
-
-    //
-    // Convert from tmp=RhoY_l to Y_l
-    //
-    tmp.resize(gbox,1);
-    tmp.copy(RYfab,gbox,0,gbox,0,1);
-    tmp.invert(1,gbox);
-    for (int n = 1; n < nspecies+1; n++)
+    FArrayBox tmp, bcen;
+    for (int dir=0; dir<AMREX_SPACEDIM; ++dir)
     {
-      RYfab.mult(tmp,gbox,0,n,1);
-    }
+      for (MFIter mfi(*mf_ec[dir],true); mfi.isValid();++mfi)
+      {
+        const Box& box  = mfi.tilebox();
+        FArrayBox& sfab = (*mf_ec[dir])[mfi];
+        FArrayBox& dfab = (*diff[dir])[mfi];
+        dfab.setVal(0,box,0,dfab.nComp());
 
-    for (int icomp = RhoH; icomp <= NUM_STATE; icomp++)
-    {
-      if (icomp == RhoH)
-      {
-        // lambda/cp in RhoH slot
-        const int sCompT = 0, sCompY = 1, sCompCp = RhoH-offset;
-        getCpmixGivenTY_pphys(Dfab,Tfab,RYfab,gbox,sCompT,sCompY,sCompCp);
-        Dfab.invert(1,gbox,sCompCp,1);
-        Dfab.mult(Dfab,gbox,Temp-offset,RhoH-offset,1);
-      }
-      else if (icomp == RhoRT)
-      {
-        // fill RhoRT slot so trac_diff_coef (typically zero)
-        Dfab.setVal(trac_diff_coef, gbox, icomp-offset, 1);
+        int  vflag  = false;      
+        int nc_diff = nspecies+2; // rhoD + lambda + mu
+        int dotemp  = 1;
+
+        spec_temp_visc(BL_TO_FORTRAN_BOX(box),
+                       BL_TO_FORTRAN_N_ANYD(sfab,Tcomp),
+                       BL_TO_FORTRAN_N_ANYD(sfab,RYcomp),
+                       BL_TO_FORTRAN_N_ANYD(dfab,0),
+                       &nc_diff, &P1atm_MKS, &dotemp, &vflag, &p_amb);
       }
     }
   }
-}
-  showMFsub("1D",diff,stripBox,"1D_calcD_visc",level);
+
+  if (zeroBndryVisc > 0) {
+    zeroBoundaryVisc(diff,time,first_spec,0,nc_diff);
+  }  
 }
 
 #ifdef USE_WBAR
@@ -8209,11 +8218,10 @@ void
 PeleLM::calcDiffusivity_Wbar (const Real time)
 {
   BL_PROFILE("HT::calcDiffusivity_Wbar()");
-  // diffn_cc or diffnp1_cc contains cell-centered transport coefficients from Y's
-  //
 
+  Abort("Fix Dwbar");
+  
   const TimeLevel whichTime = which_time(State_Type, time);
-
   BL_ASSERT(whichTime == AmrOldTime || whichTime == AmrNewTime);
 
   MultiFab& diff       = (whichTime == AmrOldTime) ? (*diffn_cc) : (*diffnp1_cc);
@@ -8244,71 +8252,45 @@ PeleLM::calcDiffusivity_Wbar (const Real time)
 #endif
 
 void
-PeleLM::getViscosity (MultiFab*  beta[BL_SPACEDIM],
-                      const Real time)
+PeleLM::getViscosity (MultiFab* viscosity[BL_SPACEDIM],
+                            const Real time)
 {
-  BL_PROFILE("HT::getViscosity()");
-  const TimeLevel whichTime = which_time(State_Type, time);
+    //
+    // Select time level to work with (N or N+1)
+    //
+    const TimeLevel whichTime = which_time(State_Type,time);
+    BL_ASSERT(whichTime == AmrOldTime || whichTime == AmrNewTime);
 
-  BL_ASSERT(whichTime == AmrOldTime || whichTime == AmrNewTime);
-
-  MultiFab* visc = (whichTime == AmrOldTime) ? viscn_cc : viscnp1_cc;
-#ifdef _OPENMP
-#pragma omp parallel
-#endif
-  for (MFIter viscMfi(*visc,true); viscMfi.isValid(); ++viscMfi)
-  {
-    const Box& box = viscMfi.tilebox();
-
+    MultiFab **visc = (whichTime == AmrOldTime ? viscn : viscnp1);
     for (int dir = 0; dir < BL_SPACEDIM; dir++)
     {
-      FPLoc bc_lo = fpi_phys_loc(get_desc_lst()[State_Type].getBC(Density).lo(dir));
-      FPLoc bc_hi = fpi_phys_loc(get_desc_lst()[State_Type].getBC(Density).hi(dir));
-      const Box& ebox = viscMfi.nodaltilebox(dir);
-      center_to_edge_fancy((*visc)[viscMfi],(*beta[dir])[viscMfi],
-                           amrex::grow(box,amrex::BASISV(dir)), ebox, 0, 0, 1,
-                           geom.Domain(), bc_lo, bc_hi);
+        MultiFab::Copy(*viscosity[dir],*visc[dir],0,0,1,0);
     }
-  }
 }
 
 void
-PeleLM::getDiffusivity (MultiFab*  beta[BL_SPACEDIM],
-                        const Real time,
-                        const int  state_comp,
-                        const int  dst_comp,
-                        const int  ncomp)
+PeleLM::getDiffusivity (MultiFab* diffusivity[BL_SPACEDIM],
+                              const Real time,
+                              const int state_comp,
+                              const int dst_comp,
+                              const int ncomp)
 {
-  BL_PROFILE("HT::getDiffusivity()");
-  BL_ASSERT(state_comp > Density);
+    BL_ASSERT(state_comp > Density);
+    //
+    // Pick correct diffusivity component
+    //
+    int diff_comp = state_comp - Density - 1;
+    //
+    // Select time level to work with (N or N+1)
+    //
+    const TimeLevel whichTime = which_time(State_Type,time);
+    BL_ASSERT(whichTime == AmrOldTime || whichTime == AmrNewTime);
 
-  const TimeLevel whichTime = which_time(State_Type, time);
-
-  BL_ASSERT(whichTime == AmrOldTime || whichTime == AmrNewTime);
-
-  MultiFab* diff      = (whichTime == AmrOldTime) ? diffn_cc : diffnp1_cc;
-  const int offset    = BL_SPACEDIM + 1; // No diffusion coeff for vels or rho
-  int       diff_comp = state_comp - offset;
-#ifdef _OPENMP
-#pragma omp parallel
-#endif
-  for (MFIter diffMfi(*diff,true); diffMfi.isValid(); ++diffMfi)
-  {
-    const Box& box = diffMfi.tilebox();
-
+    MultiFab **diff = (whichTime == AmrOldTime ? diffn : diffnp1);
     for (int dir = 0; dir < BL_SPACEDIM; dir++)
     {
-      FPLoc bc_lo = fpi_phys_loc(get_desc_lst()[State_Type].getBC(state_comp).lo(dir));
-      FPLoc bc_hi = fpi_phys_loc(get_desc_lst()[State_Type].getBC(state_comp).hi(dir));
-      const Box& ebox = diffMfi.nodaltilebox(dir);
-      center_to_edge_fancy((*diff)[diffMfi],(*beta[dir])[diffMfi],
-                           amrex::grow(box,amrex::BASISV(dir)), ebox, diff_comp, 
-                           dst_comp, ncomp, geom.Domain(), bc_lo, bc_hi);
+        MultiFab::Copy(*diffusivity[dir],*diff[dir],diff_comp,dst_comp,ncomp,0);
     }
-  }
-
-  if (zeroBndryVisc > 0)
-    zeroBoundaryVisc(beta,time,state_comp,dst_comp,ncomp);
 }
 
 #ifdef USE_WBAR
@@ -8377,33 +8359,6 @@ void
 PeleLM::compute_vel_visc (Real      time,
                           MultiFab* beta)
 {
-  const int nGrow = beta->nGrow();
-
-  BL_ASSERT(nGrow == 1);
-
-  MultiFab dummy(grids,dmap,1,0,MFInfo().SetAlloc(false),Factory());
-
-  FillPatchIterator Temp_fpi(*this,dummy,nGrow,time,State_Type,Temp,1),
-                    Spec_fpi(*this,dummy,nGrow,time,State_Type,first_spec,nspecies);
-  MultiFab& Temp_mf = Temp_fpi.get_mf();
-  MultiFab& Spec_mf = Spec_fpi.get_mf();
-  
-#ifdef _OPENMP
-#pragma omp parallel
-#endif
-  {
-    for (MFIter mfi(Temp_mf,true); mfi.isValid();++mfi)
-    {
-      const Box& box  = mfi.growntilebox();
-      FArrayBox& temp = Temp_mf[mfi];
-      FArrayBox& spec = Spec_mf[mfi];
-      
-      vel_visc(BL_TO_FORTRAN_BOX(box),
-               BL_TO_FORTRAN_N_ANYD(temp,0),
-               BL_TO_FORTRAN_N_ANYD(spec,0),
-               BL_TO_FORTRAN_N_ANYD((*beta)[mfi],0));
-    }
-  }
 }
 
 void
