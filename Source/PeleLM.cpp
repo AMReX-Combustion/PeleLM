@@ -3867,7 +3867,7 @@ PeleLM::adjust_spec_diffusion_fluxes (MultiFab* const * flux,
     edgstate[i].define(ba, dmap, nspecies, nghost, MFInfo(), Factory());
   }
 
-  EB_interp_CC_to_FaceCentroid(TT, D_DECL(edgstate[0],edgstate[1],edgstate[2]), 0, nspecies, geom, math_bc);
+  EB_interp_CC_to_FaceCentroid(TT, D_DECL(edgstate[0],edgstate[1],edgstate[2]), 0, 0, nspecies, geom, math_bc);
   
 
 #endif
@@ -8104,16 +8104,21 @@ PeleLM::calcViscosity (const Real time,
   int sComp = amrex::min((int)first_spec,(int)Temp);
   int eComp = amrex::max((int)last_spec, (int)Temp);
   int nComp = eComp - sComp + 1;
-  int nGrow = 0;
+  int nGrow = 1;
   FillPatchIterator fpi(*this,S,nGrow,time,State_Type,sComp,nComp);
   MultiFab& mf_cc = fpi.get_mf();
-  int Tcomp = Temp - sComp;
-  int Ycomp = first_spec - sComp;
+  int Tcomp = Temp        - sComp;
+  int RYcomp = first_spec - sComp;
 
   FluxBoxes fb(this,nComp,0);
   MultiFab **mf_ec = fb.get();
-  // CCtoFCent(mf_cc,mf_ec);
-  
+
+  auto math_bc_T = fetchBCArray(State_Type,Temp,1);
+  EB_interp_CC_to_FaceCentroid(mf_cc, D_DECL(*mf_ec[0],*mf_ec[1],*mf_ec[2]), Tcomp, Tcomp, 1, geom, math_bc_T);
+
+  auto math_bc_RY = fetchBCArray(State_Type,first_spec,nspecies);
+  EB_interp_CC_to_FaceCentroid(mf_cc, D_DECL(*mf_ec[0],*mf_ec[1],*mf_ec[2]), RYcomp, RYcomp, nspecies, geom, math_bc_RY);
+
 #ifdef _OPENMP
 #pragma omp parallel
 #endif
@@ -8128,11 +8133,12 @@ PeleLM::calcViscosity (const Real time,
 
         vel_visc(BL_TO_FORTRAN_BOX(box),
                  BL_TO_FORTRAN_N_ANYD(sfab,Tcomp),
-                 BL_TO_FORTRAN_N_ANYD(sfab,Ycomp),
+                 BL_TO_FORTRAN_N_ANYD(sfab,RYcomp),
                  BL_TO_FORTRAN_N_ANYD(vfab,0));
       }
     }
   }
+  EB_set_covered_faces({D_DECL(visc[0],visc[1],visc[2])},0);
 }
 
 void
@@ -8148,7 +8154,7 @@ PeleLM::calcDiffusivity (const Real time)
 
   int  offset = BL_SPACEDIM + 1; // No diffusion coeff for vels or rho
   int nc_diff = nspecies+2;      // rhoD + lambda + mu
-  
+
   // for open chambers, ambient pressure is constant in time
   Real p_amb = p_amb_old;
 
@@ -8169,7 +8175,7 @@ PeleLM::calcDiffusivity (const Real time)
   int sComp = amrex::min((int)Density, (int)first_spec, (int)Temp);
   int eComp = amrex::max((int)Density, (int)first_spec, (int)Temp);
   int nComp = eComp - sComp + 1;
-  int nGrow = 0;
+  int nGrow = 1;
   FillPatchIterator fpi(*this,S,nGrow,time,State_Type,sComp,nComp);
   MultiFab& mf_cc = fpi.get_mf();
   int Rcomp  = Density    - sComp;
@@ -8178,7 +8184,12 @@ PeleLM::calcDiffusivity (const Real time)
 
   FluxBoxes fb(this,nComp,0);
   MultiFab **mf_ec = fb.get();
-  // CCtoFCent(mf_cc,mf_ec);
+
+  auto math_bc_T = fetchBCArray(State_Type,Temp,1);
+  EB_interp_CC_to_FaceCentroid(mf_cc, D_DECL(*mf_ec[0],*mf_ec[1],*mf_ec[2]), Tcomp, Tcomp, 1, geom, math_bc_T);
+
+  auto math_bc_RY = fetchBCArray(State_Type,first_spec,nspecies);
+  EB_interp_CC_to_FaceCentroid(mf_cc, D_DECL(*mf_ec[0],*mf_ec[1],*mf_ec[2]), RYcomp, RYcomp, nspecies, geom, math_bc_RY);
 
 #ifdef _OPENMP
 #pragma omp parallel
@@ -8194,7 +8205,7 @@ PeleLM::calcDiffusivity (const Real time)
         FArrayBox& dfab = (*diff[dir])[mfi];
         dfab.setVal(0,box,0,dfab.nComp());
 
-        int  vflag  = false;      
+        int  vflag  = false;
         int nc_diff = nspecies+2; // rhoD + lambda + mu
         int dotemp  = 1;
 
@@ -8206,10 +8217,11 @@ PeleLM::calcDiffusivity (const Real time)
       }
     }
   }
+  EB_set_covered_faces({D_DECL(diff[0],diff[1],diff[2])},0);
 
   if (zeroBndryVisc > 0) {
     zeroBoundaryVisc(diff,time,first_spec,0,nc_diff);
-  }  
+  }
 }
 
 #ifdef USE_WBAR
@@ -8219,7 +8231,7 @@ PeleLM::calcDiffusivity_Wbar (const Real time)
   BL_PROFILE("HT::calcDiffusivity_Wbar()");
 
   Abort("Fix Dwbar");
-  
+
   const TimeLevel whichTime = which_time(State_Type, time);
   BL_ASSERT(whichTime == AmrOldTime || whichTime == AmrNewTime);
 
