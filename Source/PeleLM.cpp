@@ -3867,10 +3867,9 @@ PeleLM::adjust_spec_diffusion_fluxes (MultiFab* const * flux,
     edgstate[i].define(ba, dmap, nspecies, nghost, MFInfo(), Factory());
   }
 
-  InterpCCtoFcent( D_DECL(edgstate[0],edgstate[1],edgstate[2]),
-                   TT, 0, nspecies,
-                   geom, math_bc);
+  EB_interp_CC_to_FaceCentroid(TT, D_DECL(edgstate[0],edgstate[1],edgstate[2]), 0, nspecies, geom, math_bc);
   
+
 #endif
 
 
@@ -5922,7 +5921,7 @@ PeleLM::advance (Real time,
   if (verbose) amrex::Print() << "PeleLM::advance(): at end of time step\n";
 
   temperature_stats(S_new);
-
+  
   BL_PROFILE_VAR_START(HTMAC);
 
   // during initialization, reset time 0 ambient pressure
@@ -8498,10 +8497,11 @@ PeleLM::calc_dpdt (Real      time,
     Peos[mfi].copy(S,bx,0,bx,0,1);
   }
   
- Peos.FillBoundary(geom.periodicity());
+  Peos.FillBoundary(geom.periodicity());
   
   //VisMF::Write(Peos,"EM_DEBUG_Peos_before");
-  EB_interp_CC_to_Centroid(Peos, 1);
+  EB_interp_CC_to_Centroid(Peos, 1, geom);
+
   //VisMF::Write(Peos,"EM_DEBUG_Peos_after");  
 // EM DEBUG
 //static int count555=0;
