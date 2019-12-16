@@ -3867,7 +3867,7 @@ PeleLM::adjust_spec_diffusion_fluxes (MultiFab* const * flux,
     edgstate[i].define(ba, dmap, nspecies, nghost, MFInfo(), Factory());
   }
 
-  EB_interp_CC_to_FaceCentroid(TT, D_DECL(edgstate[0],edgstate[1],edgstate[2]), 0, nspecies, geom, math_bc);
+  EB_interp_CC_to_FaceCentroid(TT, D_DECL(edgstate[0],edgstate[1],edgstate[2]), 0, 0, nspecies, geom, math_bc);
   
 
 #endif
