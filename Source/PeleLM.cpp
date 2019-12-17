@@ -8207,25 +8207,28 @@ PeleLM::calcDiffusivity (const Real time)
 #pragma omp parallel
 #endif
   {
-    FArrayBox tmp, bcen;
+    FArrayBox tmp;
     for (int dir=0; dir<AMREX_SPACEDIM; ++dir)
     {
       for (MFIter mfi(*mf_ec[dir],true); mfi.isValid();++mfi)
       {
         const Box& box  = mfi.tilebox();
+        tmp.resize(box,nc_diff);
         FArrayBox& sfab = (*mf_ec[dir])[mfi];
-        FArrayBox& dfab = (*diff[dir])[mfi];
-        dfab.setVal(0,box,0,dfab.nComp());
 
         int  vflag  = false;
-        int nc_diff = nspecies+2; // rhoD + lambda + mu
         int dotemp  = 1;
 
         spec_temp_visc(BL_TO_FORTRAN_BOX(box),
                        BL_TO_FORTRAN_N_ANYD(sfab,Tcomp),
                        BL_TO_FORTRAN_N_ANYD(sfab,RYcomp),
-                       BL_TO_FORTRAN_N_ANYD(dfab,0),
+                       BL_TO_FORTRAN_N_ANYD(tmp,0),
                        &nc_diff, &P1atm_MKS, &dotemp, &vflag, &p_amb);
+
+        FArrayBox& dfab = (*diff[dir])[mfi];
+        dfab.setVal(0,box,0,dfab.nComp());
+        dfab.copy(tmp,0,first_spec-offset,nspecies); // Put rhoD into spec slots
+        dfab.copy(tmp,nspecies,Temp-offset,1); // Put lambda into T slot        
       }
     }
   }
