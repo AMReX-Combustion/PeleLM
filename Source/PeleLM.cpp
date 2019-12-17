@@ -5314,11 +5314,30 @@ PeleLM::advance (Real time,
 
   // swaps old and new states for all state types
   // then copies each of the old state types into the new state types
-  // computes old transport coefficients and copies them into new
   BL_PROFILE_VAR("HT::advance::setup", HTSETUP);
   advance_setup(time,dt,iteration,ncycle);
   BL_PROFILE_VAR_STOP(HTSETUP);
 
+  MultiFab& S_new = get_new_data(State_Type);
+  MultiFab& S_old = get_old_data(State_Type);
+
+  const Real prev_time = state[State_Type].prevTime();
+  const Real tnp1  = state[State_Type].curTime();
+
+  //
+  // Calculate the time N viscosity and diffusivity
+  //   Note: The viscosity and diffusivity at time N+1 are
+  //         initialized here to the time N values just to
+  //         have something reasonable.
+  //
+  const int num_diff = NUM_STATE-BL_SPACEDIM-1;    
+  calcViscosity(prev_time,dt,iteration,ncycle);
+  calcDiffusivity(prev_time);
+  for (int d=0; d<AMREX_SPACEDIM; ++d) {
+    MultiFab::Copy(*viscnp1[d], *viscn[d], 0, 0, 1, viscn[d]->nGrow());
+    MultiFab::Copy(*diffnp1[d], *diffn[d], 0, 0, num_diff, diffn[d]->nGrow());
+  }
+  
   if (level==0 && reset_typical_vals_int>0)
   {
     int L0_steps = parent->levelSteps(0);
@@ -5332,12 +5351,6 @@ PeleLM::advance (Real time,
   {
     checkTimeStep(dt);
   }
-
-  MultiFab& S_new = get_new_data(State_Type);
-  MultiFab& S_old = get_old_data(State_Type);
-
-  const Real prev_time = state[State_Type].prevTime();
-  const Real tnp1  = state[State_Type].curTime();
 
   Real dt_test = 0.0;
 
@@ -8107,7 +8120,7 @@ PeleLM::calcViscosity (const Real time,
   int nGrow = 1;
   FillPatchIterator fpi(*this,S,nGrow,time,State_Type,sComp,nComp);
   MultiFab& mf_cc = fpi.get_mf();
-  int Tcomp = Temp        - sComp;
+  int Tcomp =  Temp       - sComp;
   int RYcomp = first_spec - sComp;
 
   FluxBoxes fb(this,nComp,0);
@@ -8172,13 +8185,12 @@ PeleLM::calcDiffusivity (const Real time)
             (time - lev_0_prevtime)/(lev_0_curtime-lev_0_prevtime) * p_amb_new;
   }
 
-  int sComp = amrex::min((int)Density, (int)first_spec, (int)Temp);
-  int eComp = amrex::max((int)Density, (int)first_spec, (int)Temp);
+  int sComp = amrex::min((int)first_spec, (int)Temp);
+  int eComp = amrex::max((int)last_spec,  (int)Temp);
   int nComp = eComp - sComp + 1;
   int nGrow = 1;
   FillPatchIterator fpi(*this,S,nGrow,time,State_Type,sComp,nComp);
   MultiFab& mf_cc = fpi.get_mf();
-  int Rcomp  = Density    - sComp;
   int Tcomp  = Temp       - sComp;
   int RYcomp = first_spec - sComp;
 
@@ -8264,7 +8276,7 @@ PeleLM::calcDiffusivity_Wbar (const Real time)
 
 void
 PeleLM::getViscosity (MultiFab* viscosity[BL_SPACEDIM],
-                            const Real time)
+                      const Real time)
 {
     //
     // Select time level to work with (N or N+1)
@@ -8281,10 +8293,10 @@ PeleLM::getViscosity (MultiFab* viscosity[BL_SPACEDIM],
 
 void
 PeleLM::getDiffusivity (MultiFab* diffusivity[BL_SPACEDIM],
-                              const Real time,
-                              const int state_comp,
-                              const int dst_comp,
-                              const int ncomp)
+                        const Real time,
+                        const int state_comp,
+                        const int dst_comp,
+                        const int ncomp)
 {
     BL_ASSERT(state_comp > Density);
     //
