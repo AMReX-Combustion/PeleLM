@@ -99,7 +99,7 @@ def calc_sl(args):
         ax.set_xticks(ind)
         ax.set_xticklabels(("Reference","Vin_AC","Sl_cons"))
         ax.legend()
-        plt.savefig("FlameSpeedCompa_X.png")
+        plt.savefig("FlameSpeedCompa_Y.png")
 
 def parse_args(arg_string=None):
     parser = argparse.ArgumentParser(description=USAGE)
