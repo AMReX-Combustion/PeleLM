@@ -8703,7 +8703,7 @@ PeleLM::calc_dpdt (Real      time,
     return;
   }
 
-  int nGrow = dpdt.nGrow();
+  int nGrow = dpdt.nGrow() ;
   MultiFab Peos(grids,dmap,1,nGrow,MFInfo(),Factory());
   FillPatchIterator S_fpi(*this,Peos,nGrow,time,State_Type,RhoRT,1);
   MultiFab& Smf=S_fpi.get_mf();
@@ -8717,7 +8717,7 @@ PeleLM::calc_dpdt (Real      time,
   {
     const Box& bx = mfi.tilebox();
     FArrayBox&       S   = Smf[mfi];
-    Peos[mfi].copy(S,bx,0,bx,0,1);
+    Peos[mfi].copy(S,bx,0,bx,0,nGrow);
   }
   
   Peos.FillBoundary(geom.periodicity());
@@ -8725,13 +8725,15 @@ PeleLM::calc_dpdt (Real      time,
   //VisMF::Write(Peos,"EM_DEBUG_Peos_before");
 #ifdef AMREX_USE_EB
   {
-    MultiFab TT(grids,dmap,1,1,MFInfo(),Factory());
-    MultiFab::Copy(TT,Peos,0,0,1,1);
+    MultiFab TT(grids,dmap,1,nGrow,MFInfo(),Factory());
+    MultiFab::Copy(TT,Peos,0,0,1,nGrow);
+    TT.FillBoundary(geom.periodicity());
     EB_interp_CC_to_Centroid(Peos, TT, 0, 0, 1, geom);
   }
 #endif
 
-  //VisMF::Write(Peos,"EM_DEBUG_Peos_after");  
+  //VisMF::Write(Peos,"EM_DEBUG_Peos_after");
+
 // EM DEBUG
 //static int count555=0;
 //count555++;
@@ -9325,13 +9327,16 @@ PeleLM::writePlotFile (const std::string& dir,
   std::string TheFullPath = FullPath;
   TheFullPath += BaseName;
 
+#ifdef AMREX_USE_EB
   bool plot_centroid_data = true;
   pp.query("plot_centroid_data",plot_centroid_data);
   if (plot_centroid_data) {
-    MultiFab TT(grids,dmap,plotMF.nComp(),plotMF.nGrow(),MFInfo(),Factory());
-    MultiFab::Copy(TT,plotMF,0,0,plotMF.nComp(),plotMF.nGrow());
+    MultiFab TT(grids,dmap,plotMF.nComp(),plotMF.nGrow()+1,MFInfo(),Factory());
+    MultiFab::Copy(TT,plotMF,0,0,plotMF.nComp(),plotMF.nGrow()+1);
+    TT.FillBoundary(geom.periodicity());
     EB_interp_CC_to_Centroid(plotMF,TT,0,0,plotMF.nComp(),geom);
   }
+#endif
 
   VisMF::Write(plotMF,TheFullPath,how);
 }
