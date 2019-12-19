@@ -3971,20 +3971,10 @@ PeleLM::compute_enthalpy_fluxes (MultiFab* const*       flux,
   MultiFab TT(grids,dmap,1,ngrow,MFInfo(),Factory());
   FillPatch(*this,TT,ngrow,time,State_Type,Temp,1,0);
 
-#if 1
-
   //
   // First step, we create an operator to get (EB-aware) fluxes from, it will provide flux[nspecies+2]
   //
   
-  std::array<MultiFab,AMREX_SPACEDIM> bcoeffs;
-  for (int n = 0; n < BL_SPACEDIM; n++)
-  {
-    bcoeffs[n].define(area[n].boxArray(),dmap,1,0,MFInfo(),Factory());
-  }
-
-  MultiFab Alpha(grids,dmap,1,0,MFInfo(),Factory());
-
   LPInfo info;
   info.setAgglomeration(1);
   info.setConsolidation(1);
@@ -3992,12 +3982,8 @@ PeleLM::compute_enthalpy_fluxes (MultiFab* const*       flux,
   info.setMaxCoarseningLevel(0);
   
 #ifdef AMREX_USE_EB
-        // create the right data holder for passing to MLEBABecLap
-  amrex::Vector<const amrex::EBFArrayBoxFactory*> ebf(1);
-        //ebf.resize(1);
-  ebf[0] = &(dynamic_cast<EBFArrayBoxFactory const&>(Factory()));
-
-  MLEBABecLap op({geom}, {grids}, {dmap}, info, ebf);
+  const auto& ebf = &dynamic_cast<EBFArrayBoxFactory const&>((parent->getLevel(level)).Factory());
+  MLEBABecLap op({geom}, {grids}, {dmap}, info, {ebf});
 #else
   MLABecLaplacian op({geom}, {grids}, {dmap}, info);
 #endif
@@ -4005,6 +3991,7 @@ PeleLM::compute_enthalpy_fluxes (MultiFab* const*       flux,
   op.setMaxOrder(diffusion->maxOrder());
   MLMG mg(op);
 
+  {
   const Vector<BCRec>& theBCs = AmrLevel::desc_lst[State_Type].getBCs();
   const BCRec& bc = theBCs[Temp];
 
@@ -4012,21 +3999,31 @@ PeleLM::compute_enthalpy_fluxes (MultiFab* const*       flux,
   std::array<LinOpBCType,AMREX_SPACEDIM> mlmg_hibc;
   Diffusion::setDomainBC(mlmg_lobc, mlmg_hibc, bc); // Same for all comps, by assumption
   op.setDomainBC(mlmg_lobc, mlmg_hibc);
-
-  const MultiFab *aVec[AMREX_SPACEDIM];
-  for (int d=0; d<AMREX_SPACEDIM; ++d) {
-      aVec[d] = &(area[d]);
   }
 
   op.setLevelBC(0, &TT);
 
+  // Creating alpha and beta coefficients.
+  MultiFab Alpha(grids,dmap,1,0,MFInfo(),Factory());
   Real      a               = 0;
   Real      b               = 1.;
   Alpha.setVal(1.);
   op.setScalars(a, b);
   op.setACoeffs(0, Alpha);
+  
+  std::array<MultiFab,AMREX_SPACEDIM> bcoeffs;
+  for (int n = 0; n < BL_SPACEDIM; n++)
+  {
+    bcoeffs[n].define(area[n].boxArray(),dmap,1,0,MFInfo(),Factory());
+  }
+  
+  const MultiFab *aVec[AMREX_SPACEDIM];
+  for (int d=0; d<AMREX_SPACEDIM; ++d)
+  {
+      aVec[d] = &(area[d]);
+  }
     
-// Here it is nspecies because lambda is stored after the last species (first starts at 0)
+  // Here it is nspecies because lambda is stored after the last species (first starts at 0)
   Diffusion::computeBeta(bcoeffs, beta, nspecies, geom, aVec, false);
   op.setBCoeffs(0, amrex::GetArrOfConstPtrs(bcoeffs));
 
@@ -4058,7 +4055,6 @@ PeleLM::compute_enthalpy_fluxes (MultiFab* const*       flux,
 
 
 #ifdef AMREX_USE_EB
-  // now dx, areas, and vol are not constant.
 
 #ifdef _OPENMP
 #pragma omp parallel
@@ -4125,8 +4121,12 @@ PeleLM::compute_enthalpy_fluxes (MultiFab* const*       flux,
   }
 #endif
   
+  //
+  // Now we have flux[nspecies+2]
+  // Second step, let's compute flux[nspecies+1] = sum_m (H_m Gamma_m)
+  
 
-  // Now computing enthalpy for each species h_i
+  // First we want to gather h_i from T and then interpolate it to face centroids
   MultiFab Enth(grids,dmap,nspecies,ngrow,MFInfo(),Factory());
 
 #ifdef _OPENMP
@@ -4154,10 +4154,13 @@ PeleLM::compute_enthalpy_fluxes (MultiFab* const*       flux,
     enth_edgstate[i].define(ba, dmap, nspecies, 1, MFInfo(), Factory());
   }
 
-  
   // FIX ME : HERE WE HAVE TO PROVIDE A ROUTINE TO DO THE EDGE INTERPOLATION BUT NOT COMING FROM THE EB LIBRARY
   EB_interp_CC_to_FaceCentroid(Enth, D_DECL(enth_edgstate[0],enth_edgstate[1],enth_edgstate[2]), 0, 0, nspecies, geom, math_bc);
 
+  //
+  // Now we construct the actual fluxes: sum[ (species flux).(species enthalpy) ]
+  //
+  
 #ifdef _OPENMP
 #pragma omp parallel
 #endif
@@ -4208,65 +4211,11 @@ PeleLM::compute_enthalpy_fluxes (MultiFab* const*       flux,
   }
 }
 
-
-#else
-
-#ifdef _OPENMP
-#pragma omp parallel
-#endif
-  {
-    Box edomain[BL_SPACEDIM];
-    FArrayBox ftmp[BL_SPACEDIM];
-    for (int d=0; d<BL_SPACEDIM; ++d) {
-      edomain[d] = surroundingNodes(domain,d);
-    }
-    const Real* dx = geom.CellSize();
-    for (MFIter mfi(TT,true); mfi.isValid(); ++mfi)
-    {
-      const Box& box = mfi.tilebox();
-      const FArrayBox& T    = TT[mfi];
-      
-      for (int d=0; d<BL_SPACEDIM; ++d) {
-        Box ebox = surroundingNodes(box,d);
-        ftmp[d].resize(ebox,nspecies+3);
-        ftmp[d].copy((*flux[d])[mfi],ebox,0,ebox,0,nspecies+1);
-      }
-
-      enth_diff_terms(BL_TO_FORTRAN_BOX(box),
-                      BL_TO_FORTRAN_BOX(domain), dx,
-                      BL_TO_FORTRAN_ANYD(T),
-                      
-                      BL_TO_FORTRAN_N_ANYD((*beta[0])[mfi],nspecies),
-                      BL_TO_FORTRAN_ANYD(    ftmp[0]),
-                      BL_TO_FORTRAN_ANYD(    area[0][mfi]),
-
-                      BL_TO_FORTRAN_N_ANYD((*beta[1])[mfi],nspecies),
-                      BL_TO_FORTRAN_ANYD(    ftmp[1]),
-                      BL_TO_FORTRAN_ANYD(    area[1][mfi]),
-
-#if BL_SPACEDIM == 3
-                      BL_TO_FORTRAN_N_ANYD((*beta[2])[mfi],nspecies),
-                      BL_TO_FORTRAN_ANYD(    ftmp[2]),
-                      BL_TO_FORTRAN_ANYD(    area[2][mfi]),
-#endif
-                      Tbc.vect() );
-
-      for (int d=0; d<BL_SPACEDIM; ++d) {
-       Box etbox = mfi.nodaltilebox(d);
-        (*flux[d])[mfi].copy(ftmp[d],etbox,nspecies+1,etbox,nspecies+1,2);
-      }
-    }
-  }
-
-#endif
-
   if (verbose > 1)
   {
     const int IOProc   = ParallelDescriptor::IOProcessorNumber();
     Real      run_time = ParallelDescriptor::second() - strt_time;
-
     ParallelDescriptor::ReduceRealMax(run_time,IOProc);
-
     amrex::Print() << "PeleLM::compute_enthalpy_fluxes(): lev: " << level 
                    << ", time: " << run_time << '\n';
   }
@@ -4530,9 +4479,6 @@ PeleLM::compute_differential_diffusion_fluxes (const MultiFab& S,
   BL_PROFILE("HT:::compute_differential_diffusion_fluxes_msd()");
   const Real strt_time = ParallelDescriptor::second();
 
-
-VisMF::Write(*beta[0],"beta_begin_compute_diff");
-
   if (hack_nospecdiff)
   {
     amrex::Error("compute_differential_diffusion_fluxes: hack_nospecdiff not implemented");
@@ -4617,9 +4563,6 @@ VisMF::Write(*beta[0],"beta_begin_compute_diff");
   for (int d=0; d<AMREX_SPACEDIM; ++d) {
       aVec[d] = &(area[d]);
   }
-
-//  VisMF::Write(*flux[0],"flux_before_getFluxes_x");
-//VisMF::Write(*flux[1],"flux_before_getFluxes_y");
   
   for (int icomp = 0; icomp < nspecies+1; ++icomp)
   {
@@ -4961,19 +4904,9 @@ PeleLM::compute_differential_diffusion_terms (MultiFab& D,
   }
 
   FluxBoxes fb_diff;
-//  MultiFab **beta = fb_diff.define(this,nspecies+2);
-//  getDiffusivity(beta, time, first_spec, 0, nspecies+1); // species (rhoD) and RhoH (lambda/cp)
-//  getDiffusivity(beta, time, Temp, nspecies+1, 1); // temperature (lambda)
   MultiFab **beta = fb_diff.define(this,nspecies+1);
-amrex::Print() << "CALLING getDiffusivity for species" << std::endl;
   getDiffusivity(beta, time, first_spec, 0, nspecies); // species (rhoD)
-amrex::Print() << "CALLING getDiffusivity for tempearture" << std::endl;
   getDiffusivity(beta, time, Temp, nspecies, 1); // temperature (lambda)
-
-
-
-VisMF::Write(*beta[0],"beta_after_getDiff");
-
 
   compute_differential_diffusion_fluxes(get_new_data(State_Type),Scrse.get(),flux,beta,dt,time,include_Wbar_terms);
 
@@ -8570,8 +8503,7 @@ PeleLM::getDiffusivity (MultiFab* diffusivity[BL_SPACEDIM],
     BL_ASSERT(whichTime == AmrOldTime || whichTime == AmrNewTime);
 
     MultiFab **diff = (whichTime == AmrOldTime ? diffn : diffnp1);
-amrex::Print() << " in getDiffusivity diff_comp = " << diff_comp << std::endl;
-VisMF::Write(*diff[0],"diff_coeff_in_getDiff");
+
     for (int dir = 0; dir < BL_SPACEDIM; dir++)
     {
         MultiFab::Copy(*diffusivity[dir],*diff[dir],diff_comp,dst_comp,ncomp,0);

@@ -216,22 +216,22 @@ extern "C" {
                     const int* dir, const int* bc);
 
 
-   void enth_diff_terms(const int* lo, const int* hi, 
-                        const int* dlo, const int* dhi, const amrex::Real* dx,
-                        const BL_FORT_FAB_ARG_ANYD(T),
-
-                        const BL_FORT_FAB_ARG_ANYD(rDx),
-                        const BL_FORT_FAB_ARG_ANYD(Fix),
-                        const BL_FORT_FAB_ARG_ANYD(ax),
-                        const BL_FORT_FAB_ARG_ANYD(rDy),
-                        const BL_FORT_FAB_ARG_ANYD(Fiy),
-                        const BL_FORT_FAB_ARG_ANYD(ay),
-#if AMREX_SPACEDIM == 3
-                        const BL_FORT_FAB_ARG_ANYD(rDz),
-                        const BL_FORT_FAB_ARG_ANYD(Fiz),
-                        const BL_FORT_FAB_ARG_ANYD(az),
-#endif
-                        const int* Tbc);
+//   void enth_diff_terms(const int* lo, const int* hi, 
+//                        const int* dlo, const int* dhi, const amrex::Real* dx,
+//                        const BL_FORT_FAB_ARG_ANYD(T),
+//
+//                        const BL_FORT_FAB_ARG_ANYD(rDx),
+//                        const BL_FORT_FAB_ARG_ANYD(Fix),
+//                        const BL_FORT_FAB_ARG_ANYD(ax),
+//                        const BL_FORT_FAB_ARG_ANYD(rDy),
+//                        const BL_FORT_FAB_ARG_ANYD(Fiy),
+//                        const BL_FORT_FAB_ARG_ANYD(ay),
+//#if AMREX_SPACEDIM == 3
+//                        const BL_FORT_FAB_ARG_ANYD(rDz),
+//                        const BL_FORT_FAB_ARG_ANYD(Fiz),
+//                        const BL_FORT_FAB_ARG_ANYD(az),
+//#endif
+//                        const int* Tbc);
 
    void incrwext_flx_div (const int* lo, const int* hi,
                           const BL_FORT_FAB_ARG_ANYD(xflux),
