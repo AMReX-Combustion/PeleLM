@@ -192,8 +192,7 @@ delta_blob = 2.0d0
             end do
 
 !            scal(i,j,k,Temp) = merge(600.d0,300.d0,dist.lt.radblob) !T_mean
-!            scal(i,j,k,Temp) = T_mean*(1.0d0 + delta_blob*exp(-dist/(2.0d0 *RC)))
-           scal(i,j,k,Temp) = T_mean
+            scal(i,j,k,Temp) = T_mean!*(1.0d0 + delta_blob*exp(-dist/(2.0d0 *RC)))
 
           enddo  
         end do

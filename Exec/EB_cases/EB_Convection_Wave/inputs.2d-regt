@@ -18,9 +18,11 @@ max_step  =  50000
 stop_time = 10000.0
 
 #-------------------------AMR INPUTS----------------------------
-amr.n_cell    = 16 16 16
-amr.n_cell    = 64 64 64
-amr.n_cell    = 256 256 
+amr.n_cell = 8 8
+#amr.n_cell    = 16 16 16
+#amr.n_cell    = 64 64 64
+#amr.n_cell = 128 128
+#amr.n_cell    = 256 256 
 #amr.n_cell    = 512 512
 
 amr.v=1
@@ -165,7 +167,7 @@ eb2.sphere_has_fluid_inside = 0
 
 ns.hack_nochem = 1 
 #ns.num_mac_sync_iter = 0
-ns.sdc_iterMAX = 3
+ns.sdc_iterMAX = 2
 
 #peleLM.dpdt_factor = 0.1
 

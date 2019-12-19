@@ -4227,11 +4227,96 @@ VisMF::Write(Enth,"my_hi");
 
 VisMF::Write(enth_edgstate[0],"my_hi_x");
 VisMF::Write(enth_edgstate[1],"my_hi_y");
+amrex::Print() << "Starting evaluation of enthalpy flux " << std::endl;
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
+{
+FArrayBox fab_tmp;
+    for (MFIter mfi(TT,true); mfi.isValid(); ++mfi)
+    {
+      Box bx = mfi.tilebox();
+ //     fab_tmp.resize(bx,1);
+      // need face-centered tilebox for each direction
+      D_TERM(const Box& xbx = mfi.tilebox(IntVect::TheDimensionVector(0));,
+             const Box& ybx = mfi.tilebox(IntVect::TheDimensionVector(1));,
+             const Box& zbx = mfi.tilebox(IntVect::TheDimensionVector(2)););
+
+      // this is to check efficiently if this tile contains any eb stuff
+      const EBFArrayBox& in_fab = static_cast<EBFArrayBox const&>(TT[mfi]);
+      const EBCellFlagFab& flags = in_fab.getEBCellFlagFab();
+
+        D_TERM(flux[0]->setVal(0., xbx, nspecies+1, 1);,
+               flux[1]->setVal(0., ybx, nspecies+1, 1);,
+               flux[2]->setVal(0., zbx, nspecies+1, 1););
+
+      if(flags.getType(amrex::grow(bx, 0)) == FabType::covered)
+      {
+        // If tile is completely covered by EB geometry, set 
+        // value to some very large number so we know if
+        // we accidentaly use these covered vals later in calculations
+        D_TERM(flux[0]->setVal(1.2345e30, xbx, nspecies+1, 1);,
+               flux[1]->setVal(1.2345e30, ybx, nspecies+1, 1);,
+               flux[2]->setVal(1.2345e30, zbx, nspecies+1, 1););
+      }
+      else
+      {
+        for (int i = 0; i < BL_SPACEDIM; ++i)
+        {
+Box ebox = surroundingNodes(bx,i);
+fab_tmp.resize(ebox,1);
+
+amrex::Print() << " PRINTING full flux register " << (*flux[i])[mfi]  <<  std::endl;
+for (int k = 0; k < nspecies; k++) {
+
+amrex::Print() << " PRINTING initial fab_tmp " << fab_tmp << std::endl;
+fab_tmp.setVal(0.);
+fab_tmp.copy( (*flux[i])[mfi],ebox,k,ebox,0,1);
+
+amrex::Print() << " PRINTING fab_tmp after flux copy  " << fab_tmp << std::endl;
+
+fab_tmp.mult((enth_edgstate[i])[mfi],ebox,k,0,1);
+
+amrex::Print() << " PRINTING fab_tmp after mult by enthalpy" << fab_tmp << std::endl;
+
+//snew.plus(S_old[mfi],box,first_scalar,first_scalar,nc);
+
+          (*flux[i])[mfi].plus(fab_tmp,0,nspecies+1,1);
+
+amrex::Print() << " PRINTING final flux register " << (*flux[i])[mfi]  <<  std::endl;
+         }
+        }
+      }
+    }
+
+}
 
 
+VisMF::Write(*flux[0],"flux_cpp_x");
+VisMF::Write(*flux[1],"flux_cpp_y");
 
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
+    for (MFIter mfi(TT,true); mfi.isValid(); ++mfi)
+    {
+      Box bx = mfi.tilebox();
 
+      // need face-centered tilebox for each direction
+      D_TERM(const Box& xbx = mfi.tilebox(IntVect::TheDimensionVector(0));,
+             const Box& ybx = mfi.tilebox(IntVect::TheDimensionVector(1));,
+             const Box& zbx = mfi.tilebox(IntVect::TheDimensionVector(2)););
 
+D_TERM(flux[0]->setVal(0., xbx, nspecies+1, 1);,
+             flux[1]->setVal(0., ybx, nspecies+1, 1);,
+             flux[2]->setVal(0., zbx, nspecies+1, 1););
+
+      D_TERM(flux[0]->setVal(0., xbx, nspecies+2, 1);,
+             flux[1]->setVal(0., ybx, nspecies+2, 1);,
+             flux[2]->setVal(0., zbx, nspecies+2, 1););
+    }
+
+VisMF::Write(*flux[0],"flux_set_to_zero_after_mlmg_x");
 
 #ifdef _OPENMP
 #pragma omp parallel
@@ -4253,7 +4338,7 @@ VisMF::Write(enth_edgstate[1],"my_hi_y");
         ftmp[d].resize(ebox,nspecies+3);
         ftmp[d].copy((*flux[d])[mfi],ebox,0,ebox,0,nspecies+1);
       }
-//amrex::Print() << (*beta[0])[mfi];
+amrex::Print() << " PRINTING in enth_diff final flux register " << (*flux[0])[mfi]  <<  std::endl;
       enth_diff_terms(BL_TO_FORTRAN_BOX(box),
                       BL_TO_FORTRAN_BOX(domain), dx,
                       BL_TO_FORTRAN_ANYD(T),
@@ -4280,7 +4365,8 @@ VisMF::Write(enth_edgstate[1],"my_hi_y");
     }
   }
 
-//VisMF::Write(*flux[0],"flux_after_enth_diff_terms_x");
+VisMF::Write(*flux[0],"flux_after_enth_diff_terms_x");
+VisMF::Write(*flux[1],"flux_after_enth_diff_terms_y");
 //amrex::Abort();
 
   if (verbose > 1)
