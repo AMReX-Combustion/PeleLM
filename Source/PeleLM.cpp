@@ -1790,6 +1790,12 @@ PeleLM::estTimeStep ()
   FillPatchIterator U_fpi(*this,*divu,n_grow,cur_time,State_Type,Xvel,BL_SPACEDIM);
   MultiFab& Umf=U_fpi.get_mf();
   
+#ifdef AMREX_USE_EB
+  MultiFab TT(grids,dmap,BL_SPACEDIM,n_grow,MFInfo(),Factory());
+  MultiFab::Copy(TT,Umf,0,0,BL_SPACEDIM,n_grow);
+  EB_interp_CC_to_Centroid(Umf,TT,0,0,BL_SPACEDIM,geom);
+#endif
+
 #ifdef _OPENMP
 #pragma omp parallel if (!system::regtest_reduction) reduction(min:divu_dt)
 #endif
@@ -3868,7 +3874,6 @@ PeleLM::adjust_spec_diffusion_fluxes (MultiFab* const * flux,
   }
 
   EB_interp_CC_to_FaceCentroid(TT, D_DECL(edgstate[0],edgstate[1],edgstate[2]), 0, 0, nspecies, geom, math_bc);
-  
 
 #endif
 
@@ -8207,25 +8212,28 @@ PeleLM::calcDiffusivity (const Real time)
 #pragma omp parallel
 #endif
   {
-    FArrayBox tmp, bcen;
+    FArrayBox tmp;
     for (int dir=0; dir<AMREX_SPACEDIM; ++dir)
     {
       for (MFIter mfi(*mf_ec[dir],true); mfi.isValid();++mfi)
       {
         const Box& box  = mfi.tilebox();
+        tmp.resize(box,nc_diff);
         FArrayBox& sfab = (*mf_ec[dir])[mfi];
-        FArrayBox& dfab = (*diff[dir])[mfi];
-        dfab.setVal(0,box,0,dfab.nComp());
 
         int  vflag  = false;
-        int nc_diff = nspecies+2; // rhoD + lambda + mu
         int dotemp  = 1;
 
         spec_temp_visc(BL_TO_FORTRAN_BOX(box),
                        BL_TO_FORTRAN_N_ANYD(sfab,Tcomp),
                        BL_TO_FORTRAN_N_ANYD(sfab,RYcomp),
-                       BL_TO_FORTRAN_N_ANYD(dfab,0),
+                       BL_TO_FORTRAN_N_ANYD(tmp,0),
                        &nc_diff, &P1atm_MKS, &dotemp, &vflag, &p_amb);
+
+        FArrayBox& dfab = (*diff[dir])[mfi];
+        dfab.setVal(0,box,0,dfab.nComp());
+        dfab.copy(tmp,0,first_spec-offset,nspecies); // Put rhoD into spec slots
+        dfab.copy(tmp,nspecies,Temp-offset,1); // Put lambda into T slot
       }
     }
   }
@@ -8524,7 +8532,13 @@ PeleLM::calc_dpdt (Real      time,
   Peos.FillBoundary(geom.periodicity());
   
   //VisMF::Write(Peos,"EM_DEBUG_Peos_before");
-  EB_interp_CC_to_Centroid(Peos, 1, geom);
+#ifdef AMREX_USE_EB
+  {
+    MultiFab TT(grids,dmap,1,1,MFInfo(),Factory());
+    MultiFab::Copy(TT,Peos,0,0,1,1);
+    EB_interp_CC_to_Centroid(Peos, TT, 0, 0, 1, geom);
+  }
+#endif
 
   //VisMF::Write(Peos,"EM_DEBUG_Peos_after");  
 // EM DEBUG
@@ -9040,7 +9054,8 @@ PeleLM::writePlotFile (const std::string& dir,
   int       cnt   = 0;
   int       ncomp = 1;
   const int nGrow = 0;
-  MultiFab  plotMF(grids,dmap,n_data_items,nGrow);
+  //MultiFab  plotMF(grids,dmap,n_data_items,nGrow);
+  MultiFab plotMF(grids,dmap,n_data_items,nGrow,MFInfo(),Factory());
   MultiFab* this_dat = 0;
   //
   // Cull data from state variables -- use no ghost cells.
@@ -9118,6 +9133,15 @@ PeleLM::writePlotFile (const std::string& dir,
   //
   std::string TheFullPath = FullPath;
   TheFullPath += BaseName;
+
+  bool plot_centroid_data = true;
+  pp.query("plot_centroid_data",plot_centroid_data);
+  if (plot_centroid_data) {
+    MultiFab TT(grids,dmap,plotMF.nComp(),plotMF.nGrow(),MFInfo(),Factory());
+    MultiFab::Copy(TT,plotMF,0,0,plotMF.nComp(),plotMF.nGrow());
+    EB_interp_CC_to_Centroid(plotMF,TT,0,0,plotMF.nComp(),geom);
+  }
+
   VisMF::Write(plotMF,TheFullPath,how);
 }
 
