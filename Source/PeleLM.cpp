@@ -3960,7 +3960,7 @@ PeleLM::compute_enthalpy_fluxes (MultiFab* const*       flux,
          flux[nspecies+1] = sum_m (H_m Gamma_m)
          flux[nspecies+2] = - lambda grad T
   */
-
+//VisMF::Write(*beta[0],"beta_x");
   BL_ASSERT(beta && beta[0]->nComp() == nspecies+1);
 
   const Real strt_time = ParallelDescriptor::second();
@@ -3968,8 +3968,270 @@ PeleLM::compute_enthalpy_fluxes (MultiFab* const*       flux,
   const BCRec&  Tbc    = get_desc_lst()[State_Type].getBC(Temp);
 
   int ngrow = 1;
-  MultiFab TT(grids,dmap,1,ngrow);
+  MultiFab TT(grids,dmap,1,ngrow,MFInfo(),Factory());
   FillPatch(*this,TT,ngrow,time,State_Type,Temp,1,0);
+
+//VisMF::Write(*flux[0],"flux_before_anything_x");
+
+//  const DistributionMapping* dmc = (has_coarse_data ? &(Scrse->DistributionMap()) : 0);
+//  const BoxArray* bac = (has_coarse_data ? &(Scrse->boxArray()) : 0);
+
+  std::array<MultiFab,AMREX_SPACEDIM> bcoeffs;
+  for (int n = 0; n < BL_SPACEDIM; n++)
+  {
+    bcoeffs[n].define(area[n].boxArray(),dmap,1,0,MFInfo(),Factory());
+  }
+//  MultiFab Soln(grids,dmap,1,nGrow,MFInfo(),Factory());
+  MultiFab Alpha(grids,dmap,1,0,MFInfo(),Factory());
+//  auto Solnc = std::unique_ptr<MultiFab>(new MultiFab());
+//  if (has_coarse_data) {
+//    Solnc->define(*bac, *dmc, 1, nGrow,MFInfo(),getLevel(level-1).Factory());
+//  }
+
+  LPInfo info;
+  info.setAgglomeration(1);
+  info.setConsolidation(1);
+  info.setMetricTerm(false);
+  info.setMaxCoarseningLevel(0);
+#ifdef AMREX_USE_EB
+        // create the right data holder for passing to MLEBABecLap
+  amrex::Vector<const amrex::EBFArrayBoxFactory*> ebf(1);
+        //ebf.resize(1);
+  ebf[0] = &(dynamic_cast<EBFArrayBoxFactory const&>(Factory()));
+
+  MLEBABecLap op({geom}, {grids}, {dmap}, info, ebf);
+#else
+  MLABecLaplacian op({geom}, {grids}, {dmap}, info);
+#endif
+
+  op.setMaxOrder(diffusion->maxOrder());
+  MLMG mg(op);
+
+  const Vector<BCRec>& theBCs = AmrLevel::desc_lst[State_Type].getBCs();
+// //  const int rho_flag = 2;
+  const BCRec& bc = theBCs[Temp];
+
+  std::array<LinOpBCType,AMREX_SPACEDIM> mlmg_lobc;
+  std::array<LinOpBCType,AMREX_SPACEDIM> mlmg_hibc;
+  Diffusion::setDomainBC(mlmg_lobc, mlmg_hibc, bc); // Same for all comps, by assumption
+  op.setDomainBC(mlmg_lobc, mlmg_hibc);
+
+  const MultiFab *aVec[AMREX_SPACEDIM];
+  for (int d=0; d<AMREX_SPACEDIM; ++d) {
+      aVec[d] = &(area[d]);
+  }
+
+//  VisMF::Write(*flux[0],"flux_before_getFluxes_x");
+//VisMF::Write(*flux[1],"flux_before_getFluxes_y");
+
+//  for (int icomp = 0; icomp < nspecies+1; ++icomp)
+//  {
+//    //const int sigma = first_spec + icomp;
+
+//    //{
+//      //if (has_coarse_data) {
+//      //  MultiFab::Copy(*Solnc,*Scrse,sigma,0,1,nGrow);
+//      //  if (rho_flag == 2) {
+//      //    MultiFab::Divide(*Solnc,*Scrse,Density,0,1,nGrow);
+//      //  }
+//      //  op.setCoarseFineBC(Solnc.get(), crse_ratio[0]);
+//     // }
+//     // MultiFab::Copy(Soln,S,sigma,0,1,nGrow);
+//     // if (rho_flag == 2) {
+//     //   MultiFab::Divide(Soln,S,Density,0,1,nGrow);
+//     // }
+
+
+      op.setLevelBC(0, &TT);
+
+
+//    //}
+
+    
+
+// //      Print() << "Doing the RZ geometry - zero" << std::endl;
+// //      VisMF::Write(rh,"rh_cddf");
+Real      a               = 0;
+  Real      b               = 1.;
+// //       Real* rhsscale = 0;
+// //       std::pair<Real,Real> scalars;
+// //       Diffusion::computeAlpha(Alpha, scalars, a, b, rh, rho_flag,
+// //                               rhsscale, alpha_in, alpha_in_comp+icomp, &S, Density,
+// //                               geom, volume, add_hoop_stress);
+Alpha.setVal(1.);
+       op.setScalars(a, b);
+       op.setACoeffs(0, Alpha);
+    
+
+    {
+// Here it is nspecies because lambda is stored after the last species (first starts at 0)
+      Diffusion::computeBeta(bcoeffs, beta, nspecies, geom, aVec, false);
+      op.setBCoeffs(0, amrex::GetArrOfConstPtrs(bcoeffs));
+    }
+
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
+    for (MFIter mfi(TT,true); mfi.isValid(); ++mfi)
+    {
+      Box bx = mfi.tilebox();
+
+      // need face-centered tilebox for each direction
+      D_TERM(const Box& xbx = mfi.tilebox(IntVect::TheDimensionVector(0));,
+             const Box& ybx = mfi.tilebox(IntVect::TheDimensionVector(1));,
+             const Box& zbx = mfi.tilebox(IntVect::TheDimensionVector(2)););
+
+      D_TERM(flux[0]->setVal(0., xbx, nspecies+2, 1);,
+             flux[1]->setVal(0., ybx, nspecies+2, 1);,
+             flux[2]->setVal(0., zbx, nspecies+2, 1););
+    }
+
+//VisMF::Write(*flux[0],"flux_set_to_zero_befreo_mlmg_x");
+
+// Here it is nspecies+2 because this is the heat flux (nspecies+3 in enth_diff_terms in fortran)
+    AMREX_D_TERM(MultiFab flxx(*flux[0], amrex::make_alias, nspecies+2, 1);,
+                 MultiFab flxy(*flux[1], amrex::make_alias, nspecies+2, 1);,
+                 MultiFab flxz(*flux[2], amrex::make_alias, nspecies+2, 1););
+    std::array<MultiFab*,AMREX_SPACEDIM> fp{AMREX_D_DECL(&flxx,&flxy,&flxz)};
+    // Need fluxes at FaceCentroid for 2nd order -- Candace
+    mg.getFluxes({fp},{&TT},MLLinOp::Location::FaceCentroid);
+
+
+#ifdef AMREX_USE_EB
+    // now dx, areas, and vol are not constant.
+
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
+    for (MFIter mfi(TT,true); mfi.isValid(); ++mfi)
+    {
+      Box bx = mfi.tilebox();
+
+      // need face-centered tilebox for each direction
+      D_TERM(const Box& xbx = mfi.tilebox(IntVect::TheDimensionVector(0));,
+             const Box& ybx = mfi.tilebox(IntVect::TheDimensionVector(1));,
+             const Box& zbx = mfi.tilebox(IntVect::TheDimensionVector(2)););
+
+      // this is to check efficiently if this tile contains any eb stuff
+      const EBFArrayBox& in_fab = static_cast<EBFArrayBox const&>(TT[mfi]);
+      const EBCellFlagFab& flags = in_fab.getEBCellFlagFab();
+
+      if(flags.getType(amrex::grow(bx, 0)) == FabType::covered)
+      {
+        // If tile is completely covered by EB geometry, set 
+        // value to some very large number so we know if
+        // we accidentaly use these covered vals later in calculations
+        D_TERM(flux[0]->setVal(1.2345e30, xbx, nspecies+2, 1);,
+               flux[1]->setVal(1.2345e30, ybx, nspecies+2, 1);,
+               flux[2]->setVal(1.2345e30, zbx, nspecies+2, 1););
+      }
+      else
+      {
+      // No cut cells in tile + nghost-cell witdh halo -> use non-eb routine
+      if(flags.getType(amrex::grow(bx, 0)) == FabType::regular)
+      {
+        for (int i = 0; i < BL_SPACEDIM; ++i)
+        {
+          (*flux[i])[mfi].mult(b,nspecies+2,1);
+          (*flux[i])[mfi].mult((area[i])[mfi],0,nspecies+2,1);
+        }
+      }
+      else
+      {
+        // Use EB routines
+        for (int i = 0; i < BL_SPACEDIM; ++i)
+        {
+          (*flux[i])[mfi].mult(b,nspecies+2,1);
+          (*flux[i])[mfi].mult((area[i])[mfi],0,nspecies+2,1);
+          (*flux[i])[mfi].mult((*areafrac[i])[mfi],0,nspecies+2,1);
+        }
+      }
+      }
+    }
+#else // non-EB
+    // Remove scaling left in fluxes from solve. 
+    for (int i = 0; i < BL_SPACEDIM; ++i){
+
+      if (add_hoop_stress)
+      {
+      // Below if for scaling by volume, only for R-Z case
+        (*flux[i]).mult(b/(geom.CellSize()[i]),nspecies+2,1,0);
+      }
+      else
+      {
+        MultiFab::Multiply(*flux[i],(area[i]),0,nspecies+2,1,0);
+              (*flux[i]).mult(b,nspecies+2,1,0);
+      }
+    }
+#endif
+  
+
+//VisMF::Write(*flux[0],"flux_after_getFluxes_x");
+
+
+
+
+
+
+
+//#ifdef _OPENMP
+//#pragma omp parallel
+//#endif
+//    for (MFIter mfi(TT,true); mfi.isValid(); ++mfi)
+//    {
+//      Box bx = mfi.tilebox();
+//
+//      // need face-centered tilebox for each direction
+//      D_TERM(const Box& xbx = mfi.tilebox(IntVect::TheDimensionVector(0));,
+//             const Box& ybx = mfi.tilebox(IntVect::TheDimensionVector(1));,
+//             const Box& zbx = mfi.tilebox(IntVect::TheDimensionVector(2)););
+//
+//      D_TERM(flux[0]->setVal(0., xbx, nspecies+2, 1);,
+//             flux[1]->setVal(0., ybx, nspecies+2, 1);,
+//             flux[2]->setVal(0., zbx, nspecies+2, 1););
+//    }
+
+//VisMF::Write(*flux[0],"flux_set_to_zero_after_mlmg_x");
+
+// Now computing enthalpy_i
+MultiFab Enth(grids,dmap,nspecies,ngrow,MFInfo(),Factory());
+
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
+    {
+      for (MFIter mfi(TT,true); mfi.isValid(); ++mfi)
+      {
+        FArrayBox& Tfab = TT[mfi];
+        FArrayBox& Hfab = Enth[mfi];
+        const Box& gbox = mfi.growntilebox();
+
+        getHGivenT_pphys(Hfab,Tfab,gbox,0,0);
+    }
+}
+
+VisMF::Write(Enth,"my_hi");
+
+  Vector<BCRec> math_bc(nspecies);
+  math_bc = fetchBCArray(State_Type,first_spec,nspecies);
+
+  MultiFab enth_edgstate[BL_SPACEDIM];
+
+  for (int i(0); i < BL_SPACEDIM; i++)
+  {
+    const BoxArray& ba = getEdgeBoxArray(i);
+    enth_edgstate[i].define(ba, dmap, nspecies, 1, MFInfo(), Factory());
+  }
+
+  EB_interp_CC_to_FaceCentroid(Enth, D_DECL(enth_edgstate[0],enth_edgstate[1],enth_edgstate[2]), 0, 0, nspecies, geom, math_bc);
+
+VisMF::Write(enth_edgstate[0],"my_hi_x");
+VisMF::Write(enth_edgstate[1],"my_hi_y");
+
+
+
+
+
 
 #ifdef _OPENMP
 #pragma omp parallel
@@ -3991,7 +4253,7 @@ PeleLM::compute_enthalpy_fluxes (MultiFab* const*       flux,
         ftmp[d].resize(ebox,nspecies+3);
         ftmp[d].copy((*flux[d])[mfi],ebox,0,ebox,0,nspecies+1);
       }
-
+//amrex::Print() << (*beta[0])[mfi];
       enth_diff_terms(BL_TO_FORTRAN_BOX(box),
                       BL_TO_FORTRAN_BOX(domain), dx,
                       BL_TO_FORTRAN_ANYD(T),
@@ -4012,11 +4274,14 @@ PeleLM::compute_enthalpy_fluxes (MultiFab* const*       flux,
                       Tbc.vect() );
 
       for (int d=0; d<BL_SPACEDIM; ++d) {
-        Box etbox = mfi.nodaltilebox(d);
+       Box etbox = mfi.nodaltilebox(d);
         (*flux[d])[mfi].copy(ftmp[d],etbox,nspecies+1,etbox,nspecies+1,2);
       }
     }
   }
+
+//VisMF::Write(*flux[0],"flux_after_enth_diff_terms_x");
+//amrex::Abort();
 
   if (verbose > 1)
   {
@@ -4287,6 +4552,9 @@ PeleLM::compute_differential_diffusion_fluxes (const MultiFab& S,
 {
   BL_PROFILE("HT:::compute_differential_diffusion_fluxes_msd()");
   const Real strt_time = ParallelDescriptor::second();
+
+
+VisMF::Write(*beta[0],"beta_begin_compute_diff");
 
   if (hack_nospecdiff)
   {
@@ -4720,8 +4988,16 @@ PeleLM::compute_differential_diffusion_terms (MultiFab& D,
 //  getDiffusivity(beta, time, first_spec, 0, nspecies+1); // species (rhoD) and RhoH (lambda/cp)
 //  getDiffusivity(beta, time, Temp, nspecies+1, 1); // temperature (lambda)
   MultiFab **beta = fb_diff.define(this,nspecies+1);
+amrex::Print() << "CALLING getDiffusivity for species" << std::endl;
   getDiffusivity(beta, time, first_spec, 0, nspecies); // species (rhoD)
+amrex::Print() << "CALLING getDiffusivity for tempearture" << std::endl;
   getDiffusivity(beta, time, Temp, nspecies, 1); // temperature (lambda)
+
+
+
+VisMF::Write(*beta[0],"beta_after_getDiff");
+
+
   compute_differential_diffusion_fluxes(get_new_data(State_Type),Scrse.get(),flux,beta,dt,time,include_Wbar_terms);
 
   // Compute "D":
@@ -8306,6 +8582,10 @@ PeleLM::getDiffusivity (MultiFab* diffusivity[BL_SPACEDIM],
     // Pick correct diffusivity component
     //
     int diff_comp = state_comp - Density - 1;
+    if (state_comp == Temp)
+    {
+       int diff_comp = state_comp - Density - 2;
+    }
     //
     // Select time level to work with (N or N+1)
     //
@@ -8313,6 +8593,8 @@ PeleLM::getDiffusivity (MultiFab* diffusivity[BL_SPACEDIM],
     BL_ASSERT(whichTime == AmrOldTime || whichTime == AmrNewTime);
 
     MultiFab **diff = (whichTime == AmrOldTime ? diffn : diffnp1);
+amrex::Print() << " in getDiffusivity diff_comp = " << diff_comp << std::endl;
+VisMF::Write(*diff[0],"diff_coeff_in_getDiff");
     for (int dir = 0; dir < BL_SPACEDIM; dir++)
     {
         MultiFab::Copy(*diffusivity[dir],*diff[dir],diff_comp,dst_comp,ncomp,0);
