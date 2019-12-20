@@ -5772,15 +5772,15 @@ PeleLM::advance (Real time,
     BL_PROFILE_VAR_START(HTADV);
     aofs->setVal(1.e30,aofs->nGrow());
 
-//#ifdef AMREX_USE_EB    
-//    { 
-//      MultiFab Forcing_tmp(grids,dmap,Forcing.nComp(),(Forcing.nGrow())+1,MFInfo(),Factory());
-//      Forcing_tmp.copy(Forcing);
-//      amrex::single_level_redistribute( 0, {Forcing_tmp}, {Forcing}, 0, nspecies+1, {geom} );
-//    }
-//    EB_set_covered(Forcing,0.);
-//
-//#endif
+#ifdef AMREX_USE_EB    
+    { 
+      MultiFab Forcing_tmp(grids,dmap,Forcing.nComp(),(Forcing.nGrow())+1,MFInfo(),Factory());
+      Forcing_tmp.copy(Forcing);
+      amrex::single_level_redistribute( 0, {Forcing_tmp}, {Forcing}, 0, nspecies+1, {geom} );
+    }
+    EB_set_covered(Forcing,0.);
+
+#endif
 
     compute_scalar_advection_fluxes_and_divergence(Forcing,mac_divu,dt);
     BL_PROFILE_VAR_STOP(HTADV);
@@ -5841,15 +5841,15 @@ PeleLM::advance (Real time,
     MultiFab::Add(Forcing,DWbar,0,0,nspecies,0);
 #endif
 
-//#ifdef AMREX_USE_EB    
-//    {
-//      MultiFab Forcing_tmp(grids,dmap,Forcing.nComp(),(Forcing.nGrow())+1,MFInfo(),Factory());
-//      Forcing_tmp.copy(Forcing);
-//      amrex::single_level_redistribute( 0, {Forcing_tmp}, {Forcing}, 0, nspecies+1, {geom} );
-//    }
-//    EB_set_covered(Forcing,0.);
-//
-//#endif
+#ifdef AMREX_USE_EB    
+    {
+      MultiFab Forcing_tmp(grids,dmap,Forcing.nComp(),(Forcing.nGrow())+1,MFInfo(),Factory());
+      Forcing_tmp.copy(Forcing);
+      amrex::single_level_redistribute( 0, {Forcing_tmp}, {Forcing}, 0, nspecies+1, {geom} );
+    }
+    EB_set_covered(Forcing,0.);
+
+#endif
 
 //VisMF::Write(Dhat, "Dhat");
 //VisMF::Write(DDhat, "DDhat");
