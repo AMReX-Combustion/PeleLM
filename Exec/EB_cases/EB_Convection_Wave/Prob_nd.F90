@@ -165,8 +165,8 @@ contains
       REAL_T  :: x, y, z, Yl(nspecies), Patm
       REAL_T :: dist, delta_blob, RC
 
-delta_blob = 2.0d0
-    RC = 0.02d0
+delta_blob = 2.0d-1
+    RC = 0.02d-1
 
       do k = lo(3), hi(3)
         z = (float(k)+.5d0)*delta(3)+domnlo(3)

@@ -3,8 +3,8 @@ geometry.is_periodic = 1 1
 
 geometry.coord_sys = 0  # 0 => cart, 1 => RZ
 
-geometry.prob_lo   = -1.0 -1.0 0.0
-geometry.prob_hi   = 1.0 1.0 1.0
+geometry.prob_lo   = -0.1 -0.1 0.0
+geometry.prob_hi   = 0.1 0.1 0.1
 
 # >>>>>>>>>>>>>  BC FLAGS <<<<<<<<<<<<<<<<
 # Interior, Inflow, Outflow, Symmetry,
@@ -23,7 +23,7 @@ amr.n_cell    = 16 16 16
 #amr.n_cell    = 64 64 64
 #amr.n_cell = 128 128
 amr.n_cell    = 256 256 
-#amr.n_cell    = 512 512
+amr.n_cell    = 512 512
 
 amr.v=1
 amr.max_level =  0            # maximum level number allowed
@@ -34,7 +34,7 @@ amr.grid_eff        = 0.9     # what constitutes an efficient grid
 amr.grid_eff        = 0.7     # what constitutes an efficient grid
 amr.blocking_factor = 4      # block factor in grid generation
 
-amr.checkpoint_files_output = 1
+amr.checkpoint_files_output = 0
 amr.check_file      = chk     # root name of checkpoint file
 amr.check_int       = 1       # number of timesteps between checkpoints
 
@@ -43,7 +43,7 @@ amr.plot_int        = 1
 amr.derive_plot_vars=rhoRT mag_vort avg_pressure gradpx gradpy diveru mass_fractions rhoY rhominsumrhoY
 
 amr.grid_log        = grdlog  # name of grid logging file
-amr.max_grid_size   = 128
+amr.max_grid_size   = 256
 
 amr.probin_file = probin.2d.regt # This will default to file "probin" if not set
 
@@ -152,8 +152,8 @@ ns.do_MLsync_proj = 0
 
 # Embedded Boundary options
 eb2.geom_type     = sphere
-eb2.sphere_radius = 0.25
-eb2.sphere_center =  0.50  0.05  # don't forget probin: adv_dir !=1
+eb2.sphere_radius = 0.025
+eb2.sphere_center =  0.050  0.005  # don't forget probin: adv_dir !=1
 eb2.sphere_has_fluid_inside = 0
 
 
@@ -177,5 +177,5 @@ ns.sdc_iterMAX = 2
 
 nodal_proj.rtol =  1.0e-08
 nodal_proj.atol =  1.0e-08
-nodal_proj.maxiter = 200
+#nodal_proj.maxiter = 500
 #ns.plot_centroid_data = false 
