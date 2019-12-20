@@ -6485,6 +6485,7 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
 #ifdef AMREX_USE_EB 
          }
          else{
+          fcl(i,j,k) = 0.0;
             //    amrex::Print() << "\n NOTHING DONE HERE \n";
             //amrex::Print() << local_ebmask(i,j,k);
             
