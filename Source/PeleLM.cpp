@@ -5827,12 +5827,10 @@ PeleLM::advance (Real time,
           f.plus(dp0dt,box,nspecies,1); // add dp0/dt to enthalpy forcing
         
         f.plus(a,box,box,first_spec,0,nspecies+1); // add A into RhoY and RhoH
-         //amrex::Print() << (*aofs)[mfi]; 
         f.plus(r,box,box,0,0,nspecies); // no reactions for RhoH
       }
     }
   
-//amrex::Print() << Forcing[0] ;
 #ifdef USE_WBAR
     const Real  cur_time  = state[State_Type].curTime();
     // Update Wbar fluxes, add divergence to RHS
@@ -5851,13 +5849,7 @@ PeleLM::advance (Real time,
 
 #endif
 
-//VisMF::Write(Dhat, "Dhat");
-//VisMF::Write(DDhat, "DDhat");
-//VisMF::Write(Forcing, "Forcing");
-
     differential_diffusion_update(Forcing,0,Dhat,0,DDhat);
-//VisMF::Write(S_new, "S_new");
-//VisMF::Write(S_old, "S_old");
     // 
     // Compute R (F = A + 0.5(Dn - Dnp1 + DDn - DDnp1) + Dhat + DDhat )
     // 
@@ -5872,8 +5864,9 @@ PeleLM::advance (Real time,
     Forcing.mult(1/dt);
     MultiFab::Subtract(Forcing,get_new_data(RhoYdot_Type),0,0,nspecies,0);	// remove omegaDot term
 
+// EM DEBUG: HERE DO WE NEED TO INTERPOLATE TO CENTROID BEFORE ADVANCING CHEMISTRY ?
 
-  
+
     advance_chemistry(S_old,S_new,dt,Forcing,0);
     
 #ifdef AMREX_USE_EB
@@ -6652,21 +6645,6 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
 	       yslps.FillBoundary(geom.periodicity());,
 	       zslps.FillBoundary(geom.periodicity()););
 
-  
-
-  
-  // EM_DEBUG
-  amrex::Print() << "EM DEBUG Plotting slopes " << std::endl;
-//static int count=0;
-//count++;
-//VisMF::Write(u_mac[0],"umac_x"+std::to_string(count));
-//VisMF::Write(u_mac[1],"umac_y"+std::to_string(count));
-   //amrex::WriteSingleLevelPlotfile("Gp_in_Proj"+std::to_string(count), Gp, {"gpx","gpy"}, parent->Geom(0), 0.0, 0);
-  //amrex::WriteSingleLevelPlotfile("xslps_"+std::to_string(count), xslps, {"x"}, geom, 0.0, 0);
-  //VisMF::Write(xslps,"xslps_"+std::to_string(count));
-  //VisMF::Write(yslps,"yslps_"+std::to_string(count));
-         
-         
   // Initialize accumulation for rho = Sum(rho.Y)
   for (int d=0; d<BL_SPACEDIM; d++) {
     EdgeState[d]->setVal(0);
@@ -6684,8 +6662,6 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
     edgestate[i].setVal(0);
   }
 
-   //VisMF::Write(edgeflux[0],"edgeflux_x_after_define_"+std::to_string(count));
-  
   // Advect RhoY  
   {
     Vector<BCRec> math_bcs(nspecies);
@@ -6700,9 +6676,6 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
     MultiFab edgeflux_z(edgeflux[2], amrex::make_alias, rhoYcomp, nspecies);
 #endif
 
-  //VisMF::Write(edgeflux[0],"edgeflux_x_before_RhoY_"+std::to_string(count));
-  //VisMF::Write(edgeflux[1],"edgeflux_y_before_RhoY_"+std::to_string(count));
-
 
     godunov -> ComputeConvectiveTerm( Smf, rhoYcomp, *aofs, first_spec, nspecies,
                                       D_DECL(edgeflux_x,edgeflux_y,edgeflux_z),
@@ -6713,19 +6686,8 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
 
     EB_set_covered(*aofs, 0.);
     
-    //VisMF::Write(edgeflux_x,"edgeflux_x_local_RhoY_"+std::to_string(count));
-    //VisMF::Write(Smf,"Smf_"+std::to_string(count));
-
   }
 
-    // EM_DEBUG
-  //amrex::Print() << "EM DEBUG Plotting aofs after Rho.Y advection " << std::endl;
-  //VisMF::Write(*aofs,"aofs_after_RhoY_"+std::to_string(count));
-  //VisMF::Write(edgestate[0],"edgestate_x_after_RhoY_"+std::to_string(count));
-  //VisMF::Write(edgestate[1],"edgestate_y_after_RhoY_"+std::to_string(count));
-  //VisMF::Write(edgeflux[0],"edgeflux_x_after_RhoY_"+std::to_string(count));
-  //VisMF::Write(edgeflux[1],"edgeflux_y_after_RhoY_"+std::to_string(count));
-  
   // Set flux, flux divergence, and face values for rho as sums of the corresponding RhoY quantities
 #ifdef _OPENMP
 #pragma omp parallel
@@ -6753,7 +6715,6 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
       }
     }
   }
-   //VisMF::Write(*aofs,"aofs_after_RhoY_"+std::to_string(count));
    
   // Extrapolate Temp, then compute flux divergence and value for RhoH from face values of T,Y,Rho
   
@@ -6782,15 +6743,6 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
 
   }
   
-      // EM_DEBUG
-  //amrex::Print() << "EM DEBUG Plotting aofs after Temperature advection " << std::endl;
-  //VisMF::Write(*aofs,"aofs_after_T_"+std::to_string(count));
-  //VisMF::Write(edgestate[0],"edgestate_x_after_T_"+std::to_string(count));
-  //VisMF::Write(edgestate[1],"edgestate_y_after_T_"+std::to_string(count));
-  //VisMF::Write(edgeflux[0],"edgeflux_x_after_T_"+std::to_string(count));
-  //VisMF::Write(edgeflux[1],"edgeflux_y_after_T_"+std::to_string(count));
-
-
   // Compute RhoH on faces, store in nspecies+1 component of edgestate[d]
 #ifdef _OPENMP
 #pragma omp parallel
@@ -6801,9 +6753,6 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
     {
       for (int d=0; d<BL_SPACEDIM; ++d)
       {
-        
-        //amrex::Print() << "WE COMPUTE eR in dimension " << d << std::endl;
-        
         const Box& bx = S_mfi.tilebox();
         const Box& ebox = amrex::grow(amrex::surroundingNodes(bx,d),3);
         eR.resize(ebox,1);
@@ -6855,16 +6804,6 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
 
   }
   
- 
-
-      // EM_DEBUG
-  //amrex::Print() << "EM DEBUG Plotting aofs after Rho.H advection " << std::endl;
-  //VisMF::Write(*aofs,"aofs_after_RhoH_"+std::to_string(count));
-  //VisMF::Write(edgestate[0],"edgestate_x_after_RhoH_"+std::to_string(count));
-  //VisMF::Write(edgestate[1],"edgestate_y_after_RhoH_"+std::to_string(count));
-  //VisMF::Write(edgeflux[0],"edgeflux_x_after_RhoH_"+std::to_string(count));
-  //VisMF::Write(edgeflux[1],"edgeflux_y_after_RhoH_"+std::to_string(count));
-  
   // Load up non-overlapping bits of edge states and fluxes into mfs
 #ifdef _OPENMP
 #pragma omp parallel
@@ -6885,8 +6824,6 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
     }
   }
 
-//VisMF::Write(*EdgeState[0],"edgestate_x_final_"+std::to_string(count));
-//  VisMF::Write(*EdgeState[1],"edgestate_y_final_"+std::to_string(count));
   
 #else
  
