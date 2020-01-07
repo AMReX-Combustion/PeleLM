@@ -4113,9 +4113,10 @@ PeleLM::compute_enthalpy_fluxes (MultiFab* const*       flux,
   // Remove scaling left in fluxes from solve. 
   for (int i = 0; i < BL_SPACEDIM; ++i)
   {
+    bool add_hoop_stress = false; // Only true if sigma == Xvel && Geometry::IsRZ())
     if (add_hoop_stress)
     {
-    // Below if for scaling by volume, only for R-Z case
+      // Below if for scaling by volume, only for R-Z case
       (*flux[i]).mult(b/(geom.CellSize()[i]),nspecies+2,1,0);
     }
     else
@@ -4159,9 +4160,28 @@ PeleLM::compute_enthalpy_fluxes (MultiFab* const*       flux,
     enth_edgstate[i].define(ba, dmap, nspecies, 1, MFInfo(), Factory());
   }
 
-  // FIX ME : HERE WE HAVE TO PROVIDE A ROUTINE TO DO THE EDGE INTERPOLATION BUT NOT COMING FROM THE EB LIBRARY
+#ifdef AMREX_USE_EB
   EB_interp_CC_to_FaceCentroid(Enth, D_DECL(enth_edgstate[0],enth_edgstate[1],enth_edgstate[2]), 0, 0, nspecies, geom, math_bc);
+#else
 
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
+  {
+    for (MFIter mfi(Enth,true); mfi.isValid();++mfi)
+    {
+      const Box& vbox = mfi.validbox();
+      for (int dir = 0; dir < BL_SPACEDIM; dir++)
+      {
+        const Box ebox = surroundingNodes(vbox,dir);      
+        FPLoc bc_lo = fpi_phys_loc(get_desc_lst()[State_Type].getBC(Temp).lo(dir));
+        FPLoc bc_hi = fpi_phys_loc(get_desc_lst()[State_Type].getBC(Temp).hi(dir));
+        center_to_edge_fancy(Enth[mfi],enth_edgstate[dir][mfi],grow(vbox,amrex::BASISV(dir)),ebox,0,0,1,geom.Domain(),bc_lo,bc_hi);
+      }
+    }
+  }
+  
+#endif
   //
   // Now we construct the actual fluxes: sum[ (species flux).(species enthalpy) ]
   //
@@ -4180,13 +4200,14 @@ PeleLM::compute_enthalpy_fluxes (MultiFab* const*       flux,
            const Box& ybx = mfi.tilebox(IntVect::TheDimensionVector(1));,
            const Box& zbx = mfi.tilebox(IntVect::TheDimensionVector(2)););
 
-    // this is to check efficiently if this tile contains any eb stuff
-    const EBFArrayBox& in_fab = static_cast<EBFArrayBox const&>(TT[mfi]);
-    const EBCellFlagFab& flags = in_fab.getEBCellFlagFab();
-
     D_TERM(flux[0]->setVal(0., xbx, nspecies+1, 1);,
            flux[1]->setVal(0., ybx, nspecies+1, 1);,
            flux[2]->setVal(0., zbx, nspecies+1, 1););
+
+#if AMREX_USE_EB
+    // this is to check efficiently if this tile contains any eb stuff
+    const EBFArrayBox& in_fab = static_cast<EBFArrayBox const&>(TT[mfi]);
+    const EBCellFlagFab& flags = in_fab.getEBCellFlagFab();
 
     if(flags.getType(amrex::grow(bx, 0)) == FabType::covered)
     {
@@ -4199,6 +4220,7 @@ PeleLM::compute_enthalpy_fluxes (MultiFab* const*       flux,
     }
     else
     {
+#endif
       for (int i = 0; i < BL_SPACEDIM; ++i)
       {
         Box ebox = surroundingNodes(bx,i);
@@ -4212,7 +4234,9 @@ PeleLM::compute_enthalpy_fluxes (MultiFab* const*       flux,
           (*flux[i])[mfi].plus(fab_tmp,0,nspecies+1,1);
         }
       }
+#if AMREX_USE_EB      
     }
+#endif
   }
 }
 
@@ -4671,12 +4695,13 @@ PeleLM::compute_differential_diffusion_fluxes (const MultiFab& S,
       }
     }
 #else // non-EB
-    // Remove scaling left in fluxes from solve. 
-    for (int i = 0; i < BL_SPACEDIM; ++i){
-      
+    // Remove scaling left in fluxes from solve.
+    bool add_hoop_stress = false; // Only true if sigma == Xvel && Geometry::IsRZ()), then also uses vol-scaled solver
+    for (int i = 0; i < BL_SPACEDIM; ++i)
+    {   
       if (add_hoop_stress)
       {
-      // Below if for scaling by volume, only for R-Z case
+        // Below if for scaling by volume, only for R-Z case
         (*flux[i]).mult(b/(geom.CellSize()[i]),fluxComp+icomp,1,0);
       }
       else
@@ -6381,30 +6406,20 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
 
     DistributionMapping dm = getFuncCountDM(ba,ngrow);
 
-
+#ifdef AMREX_USE_EB     
+    amrex::FabArray<amrex::BaseFab<int>>  new_ebmask;
+    new_ebmask.define(ba, dm,  1, 0);    
+    new_ebmask.copy(ebmask);
+    int ngchem=1; // Need this to move state data to centroids before reacting
+#else
+    int ngchem=0;
+#endif
 
     MultiFab diagTemp;
-    MultiFab STemp(ba, dm, nspecies+3, 0);
+    MultiFab STemp(ba, dm, nspecies+2, ngchem); // Assumes ordering is {...,RhoY,RhoH,Temp,...}
     MultiFab fcnCntTemp(ba, dm, 1, 0);
     MultiFab FTemp(ba, dm, Force.nComp(), 0);
 
-#ifdef AMREX_USE_EB     
-    amrex::FabArray<amrex::BaseFab<int>>  new_ebmask;
-    new_ebmask.define(ba, dm,  1, 0);
-    
-    new_ebmask.copy(ebmask);
-
-//amrex::Print() << "\n THE DM \n";    
-//amrex::Print() << dm;
-//
-//amrex::Print() << "\n NOW THE DM of EBMASK \n";
-//amrex::Print() << ebmask.DistributionMap();
-//
-//amrex::Print() << "\n NOW THE DM of NEW_EBMASK \n";
-//amrex::Print() << new_ebmask.DistributionMap();
-
-#endif
-    
     const bool do_diag = plot_reactions && amrex::intersect(ba,auxDiag["REACTIONS"]->boxArray()).size() != 0;
 
     if (do_diag)
@@ -6416,7 +6431,14 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
     if (verbose) 
       amrex::Print() << "*** advance_chemistry: FABs in tmp MF: " << STemp.size() << '\n';
 
-    STemp.copy(mf_old,first_spec,0,nspecies+3); // Parallel copy.
+    STemp.copy(mf_old,first_spec,0,nspecies+2); // Parallel copy.
+#ifdef AMREX_USE_EB
+    // Move data to centroid, used FTemp as work space - FIXME: Make this aware of BC?
+    STemp.FillBoundary();
+    EB_interp_CC_to_Centroid(FTemp, STemp, 0, 0, nspecies, geom);
+    EB_interp_CC_to_Centroid(FTemp, STemp, nspecies+1, nspecies, 1, geom);
+    MultiFab::Copy(STemp,FTemp,0,0,nspecies+1,0);
+#endif
     FTemp.copy(Force);                          // Parallel copy.
 
 #ifdef _OPENMP
@@ -6424,10 +6446,13 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
 #endif
     for (MFIter Smfi(STemp,true); Smfi.isValid(); ++Smfi)
     {
-      const auto&      rhoY     = STemp.array(Smfi);
       const Box&       bx       = Smfi.tilebox();
+      const auto&      rhoY     = STemp.array(Smfi,0);
+      const auto&      RH       = STemp.array(Smfi,nspecies);
+      const auto&      T        = STemp.array(Smfi,nspecies+1);
       const auto&      fcl      = fcnCntTemp.array(Smfi);
-      const auto&      frcing   = FTemp.array(Smfi);
+      const auto&      frc_RY   = FTemp.array(Smfi,0);
+      const auto&      frc_RH   = FTemp.array(Smfi,nspecies);
       FArrayBox*       chemDiag = (do_diag ? &(diagTemp[Smfi]) : 0);
       
 //amrex::Print() << " NEW LOOP IN MFITER \n";
@@ -6457,11 +6482,11 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
       {
          for (int sp=0;sp<nspecies; sp++){
              tmp_vect[sp]       = rhoY(i,j,k,sp) * 1.e-3;
-             tmp_src_vect[sp]   = frcing(i,j,k,sp) * 1.e-3;
+             tmp_src_vect[sp]   = frc_RY(i,j,k,sp) * 1.e-3;
          }
-         tmp_vect[nspecies]     = rhoY(i,j,k,nspecies+1);
-         tmp_vect_energy[0]     = rhoY(i,j,k,nspecies) * 10.0;
-         tmp_src_vect_energy[0] = frcing(i,j,k,nspecies) * 10.0;
+         tmp_vect[nspecies]     = T(i,j,k);
+         tmp_vect_energy[0]     = RH(i,j,k) * 10.0;
+         tmp_src_vect_energy[0] = frc_RH(i,j,k) * 10.0;
 
 #ifdef AMREX_USE_EB             
          if (local_ebmask(i,j,k) != 0){
@@ -6494,22 +6519,21 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
                amrex::Abort("NaNs !! ");
             }
          }
-		     rhoY(i,j,k,nspecies+1)  = tmp_vect[nspecies];
-         if (rhoY(i,j,k,nspecies+1) != rhoY(i,j,k,nspecies+1)) {
+         T(i,j,k)  = tmp_vect[nspecies];
+         if (T(i,j,k) != T(i,j,k)) {
             amrex::Abort("NaNs !! ");
          }
-         rhoY(i,j,k,nspecies) = tmp_vect_energy[0] * 1.e-01;
-         if (rhoY(i,j,k,nspecies) != rhoY(i,j,k,nspecies)) {
+         RH(i,j,k) = tmp_vect_energy[0] * 1.e-01;
+         if (RH(i,j,k) != RH(i,j,k)) {
             amrex::Abort("NaNs !! ");
          }
-
       });
 
     }
 
     FTemp.clear();
 
-    mf_new.copy(STemp,0,first_spec,nspecies+3); // Parallel copy.
+    mf_new.copy(STemp,0,first_spec,nspecies+2); // Parallel copy.
 
     STemp.clear();
 
@@ -8255,6 +8279,7 @@ PeleLM::calcViscosity (const Real time,
   FluxBoxes fb(this,nComp,0);
   MultiFab **mf_ec = fb.get();
 
+#ifdef AMREX_USE_EB
   auto math_bc_T = fetchBCArray(State_Type,Temp,1);
   EB_interp_CC_to_FaceCentroid(mf_cc, D_DECL(*mf_ec[0],*mf_ec[1],*mf_ec[2]), Tcomp, Tcomp, 1, geom, math_bc_T);
 
@@ -8281,6 +8306,42 @@ PeleLM::calcViscosity (const Real time,
     }
   }
   EB_set_covered_faces({D_DECL(visc[0],visc[1],visc[2])},0);
+#else
+
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
+  {
+    FArrayBox tmp, bcen, bfac;
+    for (MFIter mfi(mf_cc,true); mfi.isValid();++mfi)
+    {
+      FArrayBox& sfab =  mf_cc[mfi];
+      const Box& vbox = mfi.validbox();
+      const Box  gbox = grow(vbox,1);
+
+      bcen.resize(gbox,1);
+
+      vel_visc(BL_TO_FORTRAN_BOX(gbox),
+               BL_TO_FORTRAN_N_ANYD(sfab,Tcomp),
+               BL_TO_FORTRAN_N_ANYD(sfab,RYcomp),
+               BL_TO_FORTRAN_N_ANYD(bcen,0));
+
+      for (int dir = 0; dir < BL_SPACEDIM; dir++)
+      {
+        const Box ebox = surroundingNodes(vbox,dir);
+        bfac.resize(ebox,1);
+        
+        FPLoc bc_lo = fpi_phys_loc(get_desc_lst()[State_Type].getBC(Temp).lo(dir));
+        FPLoc bc_hi = fpi_phys_loc(get_desc_lst()[State_Type].getBC(Temp).hi(dir));
+        center_to_edge_fancy(bcen,bfac,grow(vbox,amrex::BASISV(dir)),ebox,0,0,1,geom.Domain(),bc_lo,bc_hi);
+
+        const Box& ntb = mfi.nodaltilebox(dir);
+        (*visc[dir])[mfi].copy(bfac,ntb,0,ntb,0,1);
+      }
+    }
+  }
+#endif
+
 }
 
 void
@@ -8323,6 +8384,7 @@ PeleLM::calcDiffusivity (const Real time)
   int Tcomp  = Temp       - sComp;
   int RYcomp = first_spec - sComp;
 
+#ifdef AMREX_USE_EB
   FluxBoxes fb(this,nComp,0);
   MultiFab **mf_ec = fb.get();
 
@@ -8362,6 +8424,49 @@ PeleLM::calcDiffusivity (const Real time)
     }
   }
   EB_set_covered_faces({D_DECL(diff[0],diff[1],diff[2])},0);
+#else
+
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
+  {
+    FArrayBox bcen, bfac;
+    for (MFIter mfi(mf_cc,true); mfi.isValid();++mfi)
+    {
+      FArrayBox& sfab =  mf_cc[mfi];
+      const Box& vbox = mfi.validbox();
+      const Box  gbox = grow(vbox,1);
+
+      const int  vflag   = false;
+      // rhoD + lambda + mu
+      const int nc_bcen = nspecies+2; 
+      int       dotemp  = 1;
+      bcen.resize(gbox,nc_bcen);
+      bcen.setVal(0);
+
+      spec_temp_visc(BL_TO_FORTRAN_BOX(gbox),
+                     BL_TO_FORTRAN_N_ANYD(sfab,Tcomp),
+                     BL_TO_FORTRAN_N_ANYD(sfab,RYcomp),
+                     BL_TO_FORTRAN_N_ANYD(bcen,0),
+                     &nc_bcen, &P1atm_MKS, &dotemp, &vflag, &p_amb);
+
+      for (int dir = 0; dir < BL_SPACEDIM; dir++)
+      {
+        const Box ebox = surroundingNodes(vbox,dir);
+        bfac.resize(ebox,nspecies+1);
+
+        FPLoc bc_lo = fpi_phys_loc(get_desc_lst()[State_Type].getBC(Temp).lo(dir));
+        FPLoc bc_hi = fpi_phys_loc(get_desc_lst()[State_Type].getBC(Temp).hi(dir));
+        center_to_edge_fancy(bcen,bfac,grow(vbox,amrex::BASISV(dir)),ebox,0,0,nspecies+1,geom.Domain(),bc_lo,bc_hi);
+
+        const Box& ntb = mfi.nodaltilebox(dir);
+        (*diff[dir])[mfi].copy(bfac,ntb,0,ntb,first_spec-offset,nspecies); // Put rhoD into spec slots
+        (*diff[dir])[mfi].copy(bfac,ntb,nspecies,ntb,Temp-offset,1); // Put lambda into T slot
+      }
+    }
+  }
+
+#endif
 
   if (zeroBndryVisc > 0) {
     zeroBoundaryVisc(diff,time,first_spec,0,nc_diff);
