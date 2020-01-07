@@ -4176,7 +4176,7 @@ PeleLM::compute_enthalpy_fluxes (MultiFab* const*       flux,
         const Box ebox = surroundingNodes(vbox,dir);      
         FPLoc bc_lo = fpi_phys_loc(get_desc_lst()[State_Type].getBC(Temp).lo(dir));
         FPLoc bc_hi = fpi_phys_loc(get_desc_lst()[State_Type].getBC(Temp).hi(dir));
-        center_to_edge_fancy(Enth[mfi],enth_edgstate[dir][mfi],grow(vbox,amrex::BASISV(dir)),ebox,0,0,1,geom.Domain(),bc_lo,bc_hi);
+        center_to_edge_fancy(Enth[mfi],enth_edgstate[dir][mfi],grow(vbox,amrex::BASISV(dir)),ebox,0,0,nspecies,geom.Domain(),bc_lo,bc_hi);
       }
     }
   }
