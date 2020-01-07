@@ -6406,20 +6406,30 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
 
     DistributionMapping dm = getFuncCountDM(ba,ngrow);
 
-#ifdef AMREX_USE_EB     
-    amrex::FabArray<amrex::BaseFab<int>>  new_ebmask;
-    new_ebmask.define(ba, dm,  1, 0);    
-    new_ebmask.copy(ebmask);
-    int ngchem=1; // Need this to move state data to centroids before reacting
-#else
-    int ngchem=0;
-#endif
+
 
     MultiFab diagTemp;
-    MultiFab STemp(ba, dm, nspecies+2, ngchem); // Assumes ordering is {...,RhoY,RhoH,Temp,...}
+    MultiFab STemp(ba, dm, nspecies+3, 0);
     MultiFab fcnCntTemp(ba, dm, 1, 0);
     MultiFab FTemp(ba, dm, Force.nComp(), 0);
 
+#ifdef AMREX_USE_EB     
+    amrex::FabArray<amrex::BaseFab<int>>  new_ebmask;
+    new_ebmask.define(ba, dm,  1, 0);
+    
+    new_ebmask.copy(ebmask);
+
+//amrex::Print() << "\n THE DM \n";    
+//amrex::Print() << dm;
+//
+//amrex::Print() << "\n NOW THE DM of EBMASK \n";
+//amrex::Print() << ebmask.DistributionMap();
+//
+//amrex::Print() << "\n NOW THE DM of NEW_EBMASK \n";
+//amrex::Print() << new_ebmask.DistributionMap();
+
+#endif
+    
     const bool do_diag = plot_reactions && amrex::intersect(ba,auxDiag["REACTIONS"]->boxArray()).size() != 0;
 
     if (do_diag)
@@ -6431,14 +6441,7 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
     if (verbose) 
       amrex::Print() << "*** advance_chemistry: FABs in tmp MF: " << STemp.size() << '\n';
 
-    STemp.copy(mf_old,first_spec,0,nspecies+2); // Parallel copy.
-#ifdef AMREX_USE_EB
-    // Move data to centroid, used FTemp as work space - FIXME: Make this aware of BC?
-    STemp.FillBoundary();
-    EB_interp_CC_to_Centroid(FTemp, STemp, 0, 0, nspecies, geom);
-    EB_interp_CC_to_Centroid(FTemp, STemp, nspecies+1, nspecies, 1, geom);
-    MultiFab::Copy(STemp,FTemp,0,0,nspecies+1,0);
-#endif
+    STemp.copy(mf_old,first_spec,0,nspecies+3); // Parallel copy.
     FTemp.copy(Force);                          // Parallel copy.
 
 #ifdef _OPENMP
@@ -6446,13 +6449,10 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
 #endif
     for (MFIter Smfi(STemp,true); Smfi.isValid(); ++Smfi)
     {
+      const auto&      rhoY     = STemp.array(Smfi);
       const Box&       bx       = Smfi.tilebox();
-      const auto&      rhoY     = STemp.array(Smfi,0);
-      const auto&      RH       = STemp.array(Smfi,nspecies);
-      const auto&      T        = STemp.array(Smfi,nspecies+1);
       const auto&      fcl      = fcnCntTemp.array(Smfi);
-      const auto&      frc_RY   = FTemp.array(Smfi,0);
-      const auto&      frc_RH   = FTemp.array(Smfi,nspecies);
+      const auto&      frcing   = FTemp.array(Smfi);
       FArrayBox*       chemDiag = (do_diag ? &(diagTemp[Smfi]) : 0);
       
 //amrex::Print() << " NEW LOOP IN MFITER \n";
@@ -6482,11 +6482,11 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
       {
          for (int sp=0;sp<nspecies; sp++){
              tmp_vect[sp]       = rhoY(i,j,k,sp) * 1.e-3;
-             tmp_src_vect[sp]   = frc_RY(i,j,k,sp) * 1.e-3;
+             tmp_src_vect[sp]   = frcing(i,j,k,sp) * 1.e-3;
          }
-         tmp_vect[nspecies]     = T(i,j,k);
-         tmp_vect_energy[0]     = RH(i,j,k) * 10.0;
-         tmp_src_vect_energy[0] = frc_RH(i,j,k) * 10.0;
+         tmp_vect[nspecies]     = rhoY(i,j,k,nspecies+1);
+         tmp_vect_energy[0]     = rhoY(i,j,k,nspecies) * 10.0;
+         tmp_src_vect_energy[0] = frcing(i,j,k,nspecies) * 10.0;
 
 #ifdef AMREX_USE_EB             
          if (local_ebmask(i,j,k) != 0){
@@ -6519,21 +6519,22 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
                amrex::Abort("NaNs !! ");
             }
          }
-         T(i,j,k)  = tmp_vect[nspecies];
-         if (T(i,j,k) != T(i,j,k)) {
+		     rhoY(i,j,k,nspecies+1)  = tmp_vect[nspecies];
+         if (rhoY(i,j,k,nspecies+1) != rhoY(i,j,k,nspecies+1)) {
             amrex::Abort("NaNs !! ");
          }
-         RH(i,j,k) = tmp_vect_energy[0] * 1.e-01;
-         if (RH(i,j,k) != RH(i,j,k)) {
+         rhoY(i,j,k,nspecies) = tmp_vect_energy[0] * 1.e-01;
+         if (rhoY(i,j,k,nspecies) != rhoY(i,j,k,nspecies)) {
             amrex::Abort("NaNs !! ");
          }
+
       });
 
     }
 
     FTemp.clear();
 
-    mf_new.copy(STemp,0,first_spec,nspecies+2); // Parallel copy.
+    mf_new.copy(STemp,0,first_spec,nspecies+3); // Parallel copy.
 
     STemp.clear();
 
