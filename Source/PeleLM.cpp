@@ -9376,7 +9376,7 @@ PeleLM::writePlotFile (const std::string& dir,
   pp.query("plot_centroid_data",plot_centroid_data);
   if (plot_centroid_data) {
     MultiFab TT(grids,dmap,plotMF.nComp(),plotMF.nGrow()+1,MFInfo(),Factory());
-    MultiFab::Copy(TT,plotMF,0,0,plotMF.nComp(),plotMF.nGrow()+1);
+    MultiFab::Copy(TT,plotMF,0,0,plotMF.nComp(),plotMF.nGrow());
     TT.FillBoundary(geom.periodicity());
     EB_interp_CC_to_Centroid(plotMF,TT,0,0,plotMF.nComp(),geom);
   }
