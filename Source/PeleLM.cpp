@@ -4882,9 +4882,9 @@ PeleLM::flux_divergence (MultiFab&        fdiv,
   
 #ifdef AMREX_USE_EB    
     {
-      MultiFab fdiv_tmp(grids,dmap,fdiv.nComp(),fdiv.nGrow()+2,MFInfo(),Factory());
-      fdiv_tmp.copy(fdiv);
-      amrex::single_level_redistribute( 0, {fdiv_tmp}, {fdiv}, fdivComp, nComp, {geom} );
+      MultiFab fdiv_SrcGhostCell(grids,dmap,nComp,fdiv.nGrow()+2,MFInfo(),Factory());
+      fdiv_SrcGhostCell.copy(fdiv, fdivComp, 0, nComp);
+      amrex::single_level_redistribute( 0, {fdiv_SrcGhostCell}, {fdiv}, fdivComp, nComp, {geom} );
     }
     EB_set_covered(fdiv,0.);
 #endif
