@@ -548,6 +548,7 @@ private:
                           const amrex::FArrayBox& RhoY,
                           const amrex::FArrayBox& RhoH,
                           const amrex::FArrayBox& T,
+                          const amrex::BaseFab<int>& mask,
                           const amrex::Box&       box,
                           int              sCompRhoY,
                           int              sCompRhoH,

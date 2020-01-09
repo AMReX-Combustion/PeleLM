@@ -315,6 +315,7 @@ PeleLM::reactionRateRhoY_pphys(FArrayBox&       RhoYdot,
                              const FArrayBox& RhoY,
                              const FArrayBox& RhoH,
                              const FArrayBox& T,
+                             const amrex::BaseFab<int>& mask,
                              const Box&       box,
                              int              sCompRhoY,
                              int              sCompRhoH,
@@ -338,6 +339,7 @@ PeleLM::reactionRateRhoY_pphys(FArrayBox&       RhoYdot,
                     BL_TO_FORTRAN_N_ANYD(RhoY,sCompRhoY),
                     BL_TO_FORTRAN_N_ANYD(RhoH,sCompRhoH),
                     BL_TO_FORTRAN_N_ANYD(T,sCompT),
+                    BL_TO_FORTRAN_N_ANYD(mask,0),
                     BL_TO_FORTRAN_N_ANYD(RhoYdot,sCompRhoYdot) );
 }
 
@@ -2189,6 +2191,13 @@ PeleLM::compute_instantaneous_reaction_rates (MultiFab&       R,
   const int sCompRhoY    = first_spec;
   const int sCompT       = Temp;
   const int sCompRhoYdot = 0;
+
+  amrex::FabArray<amrex::BaseFab<int>> mask;
+  mask.define(grids, dmap, 1, 0);
+  mask.setVal(1.0);
+#ifdef AMREX_USE_EB
+  mask.copy(ebmask);
+#endif
     
 #ifdef _OPENMP
 #pragma omp parallel
@@ -2200,8 +2209,9 @@ PeleLM::compute_instantaneous_reaction_rates (MultiFab&       R,
     const FArrayBox& T    = S[mfi];
     const Box& box = mfi.tilebox();
     FArrayBox& rhoYdot = R[mfi];
+    const BaseFab<int>& fab_mask = mask[mfi];
 
-    reactionRateRhoY_pphys(rhoYdot,rhoY,rhoH,T,box,sCompRhoY,sCompRhoH,sCompT,sCompRhoYdot);
+    reactionRateRhoY_pphys(rhoYdot,rhoY,rhoH,T,fab_mask,box,sCompRhoY,sCompRhoH,sCompT,sCompRhoYdot);
 
   }
 
@@ -6489,7 +6499,7 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
          tmp_src_vect_energy[0] = frcing(i,j,k,nspecies) * 10.0;
 
 #ifdef AMREX_USE_EB             
-         if (local_ebmask(i,j,k) != 0){
+         if (local_ebmask(i,j,k) != -1){
 #endif
 
          fcl(i,j,k) = react(tmp_vect, tmp_src_vect,
@@ -6504,11 +6514,6 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
          }
          else{
           fcl(i,j,k) = 0.0;
-            //    amrex::Print() << "\n NOTHING DONE HERE \n";
-            //amrex::Print() << local_ebmask(i,j,k);
-            
-            
-            
          }
 #endif
                             

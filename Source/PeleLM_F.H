@@ -28,6 +28,7 @@ extern "C" {
                         const BL_FORT_FAB_ARG_ANYD(RhoY),
                         const BL_FORT_FAB_ARG_ANYD(RhoH),
                         const BL_FORT_FAB_ARG_ANYD(T),
+                        const BL_FORT_IFAB_ARG_ANYD(mask),
                               BL_FORT_FAB_ARG_ANYD(RhoYdot));
 
    void pphys_PfromRTY(const int* lo, const int* hi,
