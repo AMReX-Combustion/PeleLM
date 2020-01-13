@@ -147,6 +147,9 @@ extern "C" {
                     const BL_FORT_FAB_ARG_ANYD(rhodat),
                     const BL_FORT_FAB_ARG_ANYD(vel),
                     const BL_FORT_FAB_ARG_ANYD(volume),
+#ifdef AMREX_USE_EB
+                    const BL_FORT_FAB_ARG_ANYD(volfrac),
+#endif
                     const BL_FORT_FAB_ARG_ANYD(areax),
                     const BL_FORT_FAB_ARG_ANYD(areay),
 #if (AMREX_SPACEDIM == 3) 

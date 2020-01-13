@@ -196,6 +196,7 @@ contains
                               RhoY, rY_lo, rY_hi, &
                               RhoH, rh_lo, rh_hi, &
                               T, t_lo, t_hi, &
+                              mask, m_lo, m_hi, &
                               RhoYdot, rd_lo, rd_hi)&
                               bind(C, name="pphys_RRATERHOY")
 
@@ -208,10 +209,12 @@ contains
       integer, intent(in) :: rY_lo(3), rY_hi(3)
       integer, intent(in) :: rh_lo(3), rh_hi(3)
       integer, intent(in) :: t_lo(3), t_hi(3)
+      integer, intent(in) :: m_lo(3), m_hi(3)
       integer, intent(in) :: rd_lo(3), rd_hi(3)
       REAL_T, dimension(rY_lo(1):rY_hi(1),rY_lo(2):rY_hi(2),rY_lo(3):rY_hi(3),nspecies) :: RhoY
       REAL_T, dimension(rh_lo(1):rh_hi(1),rh_lo(2):rh_hi(2),rh_lo(3):rh_hi(3)) :: RhoH
       REAL_T, dimension(t_lo(1):t_hi(1),t_lo(2):t_hi(2),t_lo(3):t_hi(3)) :: T
+      INTEGER, dimension(m_lo(1):m_hi(1),m_lo(2):m_hi(2),m_lo(3):m_hi(3)) :: mask
       REAL_T, dimension(rd_lo(1):rd_hi(1),rd_lo(2):rd_hi(2),rd_lo(3):rd_hi(3),nspecies) :: RhoYdot
 
 ! Local
@@ -225,6 +228,11 @@ contains
       do k = lo(3), hi(3)
          do j = lo(2), hi(2)
             do i = lo(1), hi(1)
+
+               if ( mask(i,j,k) == -1 ) then
+                  RhoYdot(i,j,k,:) = 0.0d0
+                  CYCLE
+               end if
 
                Zt(nspecies+1) = RhoH(i,j,k)
                do n = 1,nspecies
@@ -1298,6 +1306,9 @@ contains
                           Rho, r_lo, r_hi,&
                           U, u_lo, u_hi,&
                           volume, v_lo, v_hi,&
+#ifdef AMREX_USE_EB
+                          volfrac, vf_lo, vf_hi,&
+#endif
                           areax, ax_lo, ax_hi,&
                           areay, ay_lo, ay_hi,&
 #if ( AMREX_SPACEDIM == 3 )
@@ -1316,6 +1327,9 @@ contains
       integer, intent(in) :: r_lo(3), r_hi(3)
       integer, intent(in) :: u_lo(3), u_hi(3)
       integer, intent(in) :: v_lo(3), v_hi(3)
+#ifdef AMREX_USE_EB
+      integer, intent(in) :: vf_lo(3), vf_hi(3)
+#endif
       integer, intent(in) :: ax_lo(3), ax_hi(3)
       integer, intent(in) :: ay_lo(3), ay_hi(3)
 #if ( AMREX_SPACEDIM == 3 )
@@ -1326,6 +1340,9 @@ contains
       REAL_T, dimension(r_lo(1):r_hi(1),r_lo(2):r_hi(2),r_lo(3):r_hi(3)), intent(in) :: Rho
       REAL_T, dimension(u_lo(1):u_hi(1),u_lo(2):u_hi(2),u_lo(3):u_hi(3), AMREX_SPACEDIM), intent(in) :: U
       REAL_T, dimension(v_lo(1):v_hi(1),v_lo(2):v_hi(2),v_lo(3):v_hi(3)), intent(in) :: volume
+#ifdef AMREX_USE_EB
+      REAL_T, dimension(vf_lo(1):vf_hi(1),vf_lo(2):vf_hi(2),vf_lo(3):vf_hi(3)), intent(in) :: volfrac
+#endif
       REAL_T, dimension(ax_lo(1):ax_hi(1),ax_lo(2):ax_hi(2),ax_lo(3):ax_hi(3)), intent(in) :: areax
       REAL_T, dimension(ay_lo(1):ay_hi(1),ay_lo(2):ay_hi(2),ay_lo(3):ay_hi(3)), intent(in) :: areay
 #if ( AMREX_SPACEDIM == 3 )
@@ -1409,7 +1426,11 @@ contains
 #if ( AMREX_SPACEDIM == 3 )
                            + (areaz(i,j,k+1) * fluxzhi - areaz(i,j,k) * fluxzlo) &
 #endif
+#ifdef AMREX_USE_EB
+                          ) / (volume(i,j,k) * volfrac(i,j,k))
+#else
                           ) / volume(i,j,k)
+#endif
                   
                   if ( denom > zero ) then
                      if ( rho(i,j,k) > rhomin ) then

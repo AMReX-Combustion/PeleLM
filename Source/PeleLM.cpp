@@ -1816,6 +1816,10 @@ PeleLM::estTimeStep ()
 #if (AMREX_SPACEDIM==3) 
     const FArrayBox& areaz = area[2][mfi];
 #endif
+#ifdef AMREX_USE_EB    
+    const FArrayBox& vfrac = (*volfrac)[mfi];
+#endif
+    
 
     est_divu_dt(divu_ceiling, &divu_dt_factor, dx,
                 BL_TO_FORTRAN_ANYD(divu_mf),
@@ -1823,6 +1827,9 @@ PeleLM::estTimeStep ()
                 BL_TO_FORTRAN_ANYD(Rho),
                 BL_TO_FORTRAN_ANYD(U),
                 BL_TO_FORTRAN_ANYD(vol),
+#ifdef AMREX_USE_EB    
+                BL_TO_FORTRAN_ANYD(vfrac),
+#endif
                 BL_TO_FORTRAN_ANYD(areax),
                 BL_TO_FORTRAN_ANYD(areay),
 #if (AMREX_SPACEDIM==3) 
@@ -5706,6 +5713,15 @@ PeleLM::advance (Real time,
     chi_increment.setVal(0.0,nGrowAdvForcing);
     calc_dpdt(tnp1,dt,chi_increment,u_mac);
 
+#ifdef AMREX_USE_EB
+    {
+      MultiFab chi_tmp(grids,dmap,1,chi.nGrow()+2,MFInfo(),Factory());
+      chi_tmp.copy(chi_increment);
+      amrex::single_level_redistribute( 0, {chi_tmp}, {chi_increment}, 0, 1, {geom} );
+      EB_set_covered(chi_increment,0.0);
+    }
+#endif
+
     // add chi_increment to chi
     MultiFab::Add(chi,chi_increment,0,0,1,nGrowAdvForcing);
 
@@ -5718,13 +5734,13 @@ PeleLM::advance (Real time,
       Sbar = adjust_p_and_divu_for_closed_chamber(mac_divu);
     }
 
-#ifdef AMREX_USE_EB    
-    {
-      MultiFab mac_divu_tmp(grids,dmap,1,mac_divu.nGrow()+2,MFInfo(),Factory());
-      mac_divu_tmp.copy(mac_divu);
-      amrex::single_level_redistribute( 0, {mac_divu_tmp}, {mac_divu}, 0, 1, {geom} );
-    }
-#endif
+//#ifdef AMREX_USE_EB
+//    {
+//      MultiFab mac_divu_tmp(grids,dmap,1,mac_divu.nGrow()+2,MFInfo(),Factory());
+//      mac_divu_tmp.copy(mac_divu);
+//      amrex::single_level_redistribute( 0, {mac_divu_tmp}, {mac_divu}, 0, 1, {geom} );
+//    }
+//#endif
 
     // MAC-project... and overwrite U^{ADV,*}
     BL_PROFILE_VAR_START(HTMAC);
@@ -5808,13 +5824,13 @@ PeleLM::advance (Real time,
     aofs->setVal(1.e30,aofs->nGrow());
 
 #ifdef AMREX_USE_EB    
-    { 
-      MultiFab Forcing_tmp(grids,dmap,Forcing.nComp(),(Forcing.nGrow())+1,MFInfo(),Factory());
-      Forcing_tmp.copy(Forcing);
-      amrex::single_level_redistribute( 0, {Forcing_tmp}, {Forcing}, 0, nspecies+1, {geom} );
-    }
-    EB_set_covered(Forcing,0.);
-
+//    { 
+//      MultiFab Forcing_tmp(grids,dmap,Forcing.nComp(),(Forcing.nGrow())+1,MFInfo(),Factory());
+//      Forcing_tmp.copy(Forcing);
+//      amrex::single_level_redistribute( 0, {Forcing_tmp}, {Forcing}, 0, nspecies+1, {geom} );
+//    }
+//    EB_set_covered(Forcing,0.);
+//
 #endif
 
     compute_scalar_advection_fluxes_and_divergence(Forcing,mac_divu,dt);
@@ -5875,12 +5891,12 @@ PeleLM::advance (Real time,
 #endif
 
 #ifdef AMREX_USE_EB    
-    {
-      MultiFab Forcing_tmp(grids,dmap,Forcing.nComp(),(Forcing.nGrow())+1,MFInfo(),Factory());
-      Forcing_tmp.copy(Forcing);
-      amrex::single_level_redistribute( 0, {Forcing_tmp}, {Forcing}, 0, nspecies+1, {geom} );
-    }
-    EB_set_covered(Forcing,0.);
+//    {
+//      MultiFab Forcing_tmp(grids,dmap,Forcing.nComp(),(Forcing.nGrow())+1,MFInfo(),Factory());
+//      Forcing_tmp.copy(Forcing);
+//      amrex::single_level_redistribute( 0, {Forcing_tmp}, {Forcing}, 0, nspecies+1, {geom} );
+//    }
+//    EB_set_covered(Forcing,0.);
 
 #endif
 
@@ -6499,7 +6515,7 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
          tmp_src_vect_energy[0] = frcing(i,j,k,nspecies) * 10.0;
 
 #ifdef AMREX_USE_EB             
-         if (local_ebmask(i,j,k) != -1){
+         if (local_ebmask(i,j,k) != -1 ){   // Regular & cut cells
 #endif
 
          fcl(i,j,k) = react(tmp_vect, tmp_src_vect,
@@ -6511,9 +6527,14 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
                             &dt_incr, &time_init);
 
 #ifdef AMREX_USE_EB 
-         }
-         else{
-          fcl(i,j,k) = 0.0;
+//         } else if ( local_ebmask(i,j,k) == 0 ) {  // Cut cells
+//            for (int sp=0;sp<nspecies; sp++){                                                                                             
+//                tmp_vect[sp] = tmp_vect[sp] + dt_incr * tmp_src_vect[sp];
+//            }
+//            tmp_vect_energy[0] = tmp_vect_energy[0] + dt_incr * tmp_src_vect_energy[0];
+//            fcl(i,j,k) = 0.0;
+         } else {   // Covered cells 
+            fcl(i,j,k) = 0.0;
          }
 #endif
                             
@@ -8311,7 +8332,7 @@ PeleLM::calcViscosity (const Real time,
       }
     }
   }
-  EB_set_covered_faces({D_DECL(visc[0],visc[1],visc[2])},0);
+  EB_set_covered_faces({D_DECL(visc[0],visc[1],visc[2])},0.0);
 #else
 
 #ifdef _OPENMP
@@ -8429,7 +8450,7 @@ PeleLM::calcDiffusivity (const Real time)
       }
     }
   }
-  EB_set_covered_faces({D_DECL(diff[0],diff[1],diff[2])},0);
+  EB_set_covered_faces({D_DECL(diff[0],diff[1],diff[2])},0.0);
 #else
 
 #ifdef _OPENMP
@@ -8707,11 +8728,11 @@ PeleLM::calc_divu (Real      time,
   }
   
 #ifdef AMREX_USE_EB    
-    {
-      MultiFab divu_tmp(grids,dmap,divu.nComp(),divu.nGrow()+2,MFInfo(),Factory());
-      divu_tmp.copy(divu);
-      amrex::single_level_redistribute( 0, {divu_tmp}, {divu}, 0, 1, {geom} );
-    }
+//    {
+//      MultiFab divu_tmp(grids,dmap,divu.nComp(),divu.nGrow()+2,MFInfo(),Factory());
+//      divu_tmp.copy(divu);
+//      amrex::single_level_redistribute( 0, {divu_tmp}, {divu}, 0, 1, {geom} );
+//    }
     EB_set_covered(divu,0.);
 #endif
   
