@@ -2267,7 +2267,10 @@ contains
 #if ( AMREX_SPACEDIM == 3 )
                         zflux,  zf_lo, zf_hi,&
 #endif
-                        vol,    v_lo, v_hi,&
+                        vol,    v_lo, v_hi, &
+#ifdef AMREX_USE_EB
+                        volfrac, vf_lo, vf_hi, &
+#endif
                         nc, scal) &
                         bind(C, name="flux_div")
 
@@ -2291,6 +2294,11 @@ contains
       REAL_T, dimension(zf_lo(1):zf_hi(1),zf_lo(2):zf_hi(2),zf_lo(3):zf_hi(3),nc) :: zflux
 #endif
       REAL_T, dimension(v_lo(1):v_hi(1),v_lo(2):v_hi(2),v_lo(3):v_hi(3)) :: vol
+#ifdef AMREX_USE_EB
+      integer, intent(in) :: vf_lo(3), vf_hi(3)
+      REAL_T, dimension(vf_lo(1):vf_hi(1),vf_lo(2):vf_hi(2),vf_lo(3):vf_hi(3)), intent(in) :: volfrac
+#endif
+
       REAL_T :: scal
 
       REAL_T, pointer, dimension(:,:,:) :: ivol
@@ -2302,7 +2310,11 @@ contains
       do k = lo(3), hi(3)
          do j = lo(2), hi(2)
             do i = lo(1), hi(1)
+#ifdef AMREX_USE_EB
+               ivol(i,j,k) = scal / (vol(i,j,k)* volfrac(i,j,k))
+#else
                ivol(i,j,k) = scal / vol(i,j,k)
+#endif
             end do
          end do
       end do

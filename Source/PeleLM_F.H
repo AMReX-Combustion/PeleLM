@@ -256,6 +256,9 @@ extern "C" {
                   const BL_FORT_FAB_ARG_ANYD(zflux),
 #endif
                   const BL_FORT_FAB_ARG_ANYD(vol),
+#ifdef AMREX_USE_EB
+                  const BL_FORT_FAB_ARG_ANYD(volfrac),
+#endif
                   const int* nc, const amrex::Real* scale);
 
    void calc_divu_fortran(const int* lo,  const int* hi,

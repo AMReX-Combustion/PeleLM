@@ -4885,6 +4885,9 @@ PeleLM::flux_divergence (MultiFab&        fdiv,
   {
     const Box& box = mfi.tilebox();
     FArrayBox& fab = fdiv[mfi];
+#ifdef AMREX_USE_EB    
+    const FArrayBox& vfrac = (*volfrac)[mfi];
+#endif
 
     flux_div( BL_TO_FORTRAN_BOX(box),
               BL_TO_FORTRAN_N_ANYD(fab,fdivComp),
@@ -4894,6 +4897,9 @@ PeleLM::flux_divergence (MultiFab&        fdiv,
               BL_TO_FORTRAN_N_ANYD((*f[2])[mfi],fluxComp),
 #endif
               BL_TO_FORTRAN_ANYD(volume[mfi]),
+#ifdef AMREX_USE_EB
+              BL_TO_FORTRAN_ANYD(vfrac),
+#endif
               &nComp, &scale);
   }
   
@@ -5891,14 +5897,18 @@ PeleLM::advance (Real time,
 #endif
 
 #ifdef AMREX_USE_EB    
-//    {
-//      MultiFab Forcing_tmp(grids,dmap,Forcing.nComp(),(Forcing.nGrow())+1,MFInfo(),Factory());
-//      Forcing_tmp.copy(Forcing);
-//      amrex::single_level_redistribute( 0, {Forcing_tmp}, {Forcing}, 0, nspecies+1, {geom} );
-//    }
-//    EB_set_covered(Forcing,0.);
+    //{
+    //  MultiFab Forcing_tmp(grids,dmap,Forcing.nComp(),(Forcing.nGrow())+2,MFInfo(),Factory());
+    //  Forcing_tmp.copy(Forcing);
+    //  amrex::single_level_redistribute( 0, {Forcing_tmp}, {Forcing}, 0, nspecies+1, {geom} );
+    //}
+    EB_set_covered(Forcing,0.);
 
 #endif
+
+
+
+
 
     differential_diffusion_update(Forcing,0,Dhat,0,DDhat);
     // 
@@ -8098,6 +8108,9 @@ amrex::Print() << "EM DEBUG CALL 2 \n";
   {
     int        iGrid = mfi.index();
     const Box& box   = mfi.tilebox();
+#ifdef AMREX_USE_EB    
+    const FArrayBox& vfrac = (*volfrac)[mfi];
+#endif
 
     // copy corrected (delta gamma) on edges into efab
     for (int d=0; d<AMREX_SPACEDIM; ++d)
@@ -8126,6 +8139,9 @@ amrex::Print() << "EM DEBUG CALL 2 \n";
                BL_TO_FORTRAN_ANYD(efab[2]),
 #endif
                BL_TO_FORTRAN_ANYD(volume[mfi]),
+#ifdef AMREX_USE_EB
+              BL_TO_FORTRAN_ANYD(vfrac),
+#endif
                &nspecies,&scale);
 
     // add RHS from diffusion solve
