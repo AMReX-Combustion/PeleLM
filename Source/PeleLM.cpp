@@ -3245,7 +3245,7 @@ PeleLM::diffusionFJDriver(ForkJoin&                   fj,
                   int                         visc_coef_comp,
                   const IntVect&              cratio,
                   const BCRec&                bc,
-                  const Geometry&             geom,
+                  const Geometry&             in_geom,
                   bool                        add_hoop_stress,
                   const Diffusion::SolveMode& solve_mode,
                   bool                        add_old_time_divFlux,
@@ -3283,9 +3283,9 @@ PeleLM::diffusionFJDriver(ForkJoin&                   fj,
   int vStart = visc_coef_comp + compSet.lo;
   Vector<Real> visc_coef_shifted(&visc_coef[vStart],&visc_coef[vStart+num_comp]);
 
-  MultiFab *rho_half, *delta_rhs=0, *alpha_in=0;
+  MultiFab *rho_half_mf, *delta_rhs=0, *alpha_in=0;
   if (rho_flag == 1) {
-    rho_half = &(fj.get_mf("rho_half"));
+    rho_half_mf = &(fj.get_mf("rho_half"));
   }
 
   Vector<MultiFab *> fluxn   = fj.get_mf_vec("fluxn");
@@ -3307,15 +3307,15 @@ PeleLM::diffusionFJDriver(ForkJoin&                   fj,
     betanp1 = fj.get_mf_vec("betanp1");
   }
 
-  MultiFab& volume = fj.get_mf("volume");
-  Vector<MultiFab *> area = fj.get_mf_vec("area");
+  MultiFab& volume_mf = fj.get_mf("volume");
+  Vector<MultiFab *> area_mf = fj.get_mf_vec("area");
   
   diffusion->diffuse_scalar (S_old,Rho_old,S_new,Rho_new,S_comp,num_comp,Rho_comp,
-                                 prev_time,curr_time,be_cn_theta,*rho_half,rho_flag,
+                                 prev_time,curr_time,be_cn_theta,*rho_half_mf,rho_flag,
                                  &(fluxn[0]),&(fluxnp1[0]),fluxComp,delta_rhs,rhsComp,
                                  alpha_in,alpha_in_comp,&(betan[0]),&(betanp1[0]),betaComp,
                                  visc_coef_shifted,visc_comp_shifted,
-                                 volume,&(area[0]),cratio,bc,geom,add_hoop_stress,
+                                 volume_mf,&(area_mf[0]),cratio,bc,in_geom,add_hoop_stress,
                                  solve_mode,add_old_time_divFlux,is_diffusive);
 
 
@@ -3623,13 +3623,6 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
   const BCRec& Tbc = AmrLevel::desc_lst[State_Type].getBCs()[Temp];
 
 {
-//  MultiFab edgestate_x(*EdgeState[0], amrex::make_alias, first_spec, nspecies);
-//  MultiFab edgestate_y(*EdgeState[1], amrex::make_alias, first_spec, nspecies);
-//#if ( AMREX_SPACEDIM == 3 )
-//  MultiFab edgestate_z(*EdgeState[2], amrex::make_alias, first_spec, nspecies);
-//#endif
-
-amrex::Print() << "EM DEBUG CALL 3 \n";
 
   adjust_spec_diffusion_fluxes(SpecDiffusionFluxnp1,get_new_data(State_Type),
 #ifdef AMREX_USE_EB
@@ -3986,8 +3979,6 @@ PeleLM::compute_enthalpy_fluxes (MultiFab* const*       flux,
   BL_ASSERT(beta && beta[0]->nComp() == nspecies+1);
 
   const Real strt_time = ParallelDescriptor::second();
-  const Box&    domain = geom.Domain();
-  const BCRec&  Tbc    = get_desc_lst()[State_Type].getBC(Temp);
 
   int ngrow = 1;
   MultiFab TT(grids,dmap,1,ngrow,MFInfo(),Factory());
@@ -4747,14 +4738,6 @@ PeleLM::compute_differential_diffusion_fluxes (const MultiFab& S,
   //
   // Modify update/fluxes to preserve flux sum = 0 (conservatively correct Gamma_m)
 { 
-//  MultiFab edgestate_x(*EdgeState[0], amrex::make_alias, first_spec, nspecies);
-//  MultiFab edgestate_y(*EdgeState[1], amrex::make_alias, first_spec, nspecies);
-//#if ( AMREX_SPACEDIM == 3 )
-//  MultiFab edgestate_z(*EdgeState[2], amrex::make_alias, first_spec, nspecies);
-//#endif
-
-amrex::Print() << "EM DEBUG CALL 1 \n";
-
 
   adjust_spec_diffusion_fluxes(flux, S,
 #ifdef AMREX_USE_EB
@@ -6489,7 +6472,6 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
       const Box&       bx       = Smfi.tilebox();
       const auto&      fcl      = fcnCntTemp.array(Smfi);
       const auto&      frcing   = FTemp.array(Smfi);
-      FArrayBox*       chemDiag = (do_diag ? &(diagTemp[Smfi]) : 0);
       
 //amrex::Print() << " NEW LOOP IN MFITER \n";
 #ifdef AMREX_USE_EB      
@@ -6498,7 +6480,6 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
 
       Real dt_incr = dt;
       Real time_init = 0;
-      int reInit = 1;
       double pressure = 1.0; // dummy FIXME
 
       const auto len = amrex::length(bx);
@@ -8024,65 +8005,6 @@ PeleLM::differential_spec_diffuse_sync (Real dt,
   FillPatch(*this,get_new_data(State_Type),ng,tnp1,State_Type,Density,nspecies+2,Density);
 
 {
-//  MultiFab edgestate_x(*EdgeState[0], amrex::make_alias, first_spec, nspecies); 
-//  MultiFab edgestate_y(*EdgeState[1], amrex::make_alias, first_spec, nspecies);
-//#if ( AMREX_SPACEDIM == 3 )
-//  MultiFab edgestate_z(*EdgeState[2], amrex::make_alias, first_spec, nspecies);
-//#endif
-
-  //Slopes in x-direction
-//  MultiFab xslps(grids, dmap, nspecies, Godunov::hypgrow(),MFInfo(), Factory());
-//  xslps.setVal(0.);
-//  // Slopes in y-direction
-//  MultiFab yslps(grids, dmap, nspecies, Godunov::hypgrow(), MFInfo(), Factory());
-//  yslps.setVal(0.);
-//  // Slopes in z-direction
-//  MultiFab zslps(grids, dmap, nspecies, Godunov::hypgrow(), MFInfo(), Factory());
-//  zslps.setVal(0.);
-
-//  const Box& domain = geom.Domain();
-
-//  Vector<BCRec> math_bc(nspecies);
-//  math_bc = fetchBCArray(State_Type,first_spec,nspecies);
-
-//  godunov->ComputeSlopes(get_new_data(State_Type), D_DECL(xslps, yslps, zslps),
-//                           math_bc, first_spec, nspecies, domain);
-//
-  // Compute slopes for use in computing aofs
-//  D_TERM(xslps.FillBoundary(geom.periodicity());,
-//               yslps.FillBoundary(geom.periodicity());,
-//               zslps.FillBoundary(geom.periodicity()););
-
-
-
-
- 
-//        MultiFab cfluxes[AMREX_SPACEDIM];
-//         MultiFab edgstate[AMREX_SPACEDIM];
-//         MultiFab null_umac[AMREX_SPACEDIM];
-//
-//         int nghost(4);         // Use 4 for now
-//
-//         for (int i(0); i < AMREX_SPACEDIM; i++)
-//         {
-//             const BoxArray& ba = getEdgeBoxArray(i);
-//             cfluxes[i].define(ba, dmap, nspecies, nghost, MFInfo(), Factory());
-//             edgstate[i].define(ba, dmap, nspecies, nghost, MFInfo(), Factory());
-//             null_umac[i].define(ba, dmap, nspecies, nghost, MFInfo(), Factory());
-//             null_umac[i].setVal(0.);
-//         }
-
-
-//  godunov->ComputeFluxes( D_DECL(cfluxes[0], cfluxes[1], cfluxes[2]),
-//                   D_DECL(edgstate[0],edgstate[1],edgstate[2]),
-//                   get_new_data(State_Type), first_spec, nspecies,
-//                   D_DECL(xslps, yslps, zslps), 0,
-//                   D_DECL(null_umac[0],null_umac[1],null_umac[2]),
-//                   geom, math_bc, 0);
-
-//VisMF::Write(edgstate[0],"edgstate_x");
-
-amrex::Print() << "EM DEBUG CALL 2 \n";
 
   adjust_spec_diffusion_fluxes(SpecDiffusionFluxnp1, get_new_data(State_Type),
 #ifdef AMREX_USE_EB
@@ -8585,7 +8507,7 @@ PeleLM::getDiffusivity (MultiFab* diffusivity[BL_SPACEDIM],
     int diff_comp = state_comp - Density - 1;
     if (state_comp == Temp)
     {
-       int diff_comp = state_comp - Density - 2;
+       diff_comp = state_comp - Density - 2;
     }
     //
     // Select time level to work with (N or N+1)
