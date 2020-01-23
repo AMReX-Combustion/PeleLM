@@ -8384,7 +8384,8 @@ PeleLM::calcDiffusivity (const Real time)
         FArrayBox& dfab = (*diff[dir])[mfi];
         dfab.setVal(0,box,0,dfab.nComp());
         dfab.copy(tmp,0,first_spec-offset,nspecies); // Put rhoD into spec slots
-        dfab.copy(tmp,nspecies,Temp-offset,1); // Put lambda into T slot
+        dfab.copy(tmp,nspecies,Temp-offset-1,1); // Put lambda into T slot: note that the -1 is to put T next to Yk instead of RhoH
+        
       }
     }
   }
@@ -8501,14 +8502,21 @@ PeleLM::getDiffusivity (MultiFab* diffusivity[BL_SPACEDIM],
                         const int ncomp)
 {
     BL_ASSERT(state_comp > Density);
+    
     //
     // Pick correct diffusivity component
     //
-    int diff_comp = state_comp - Density - 1;
+      
+    int diff_comp_loc;
     if (state_comp == Temp)
     {
-       diff_comp = state_comp - Density - 2;
+       diff_comp_loc = state_comp - Density - 2;
     }
+    else
+    {
+       diff_comp_loc = state_comp - Density - 1;
+    }
+
     //
     // Select time level to work with (N or N+1)
     //
@@ -8519,7 +8527,7 @@ PeleLM::getDiffusivity (MultiFab* diffusivity[BL_SPACEDIM],
 
     for (int dir = 0; dir < BL_SPACEDIM; dir++)
     {
-        MultiFab::Copy(*diffusivity[dir],*diff[dir],diff_comp,dst_comp,ncomp,0);
+        MultiFab::Copy(*diffusivity[dir],*diff[dir],diff_comp_loc,dst_comp,ncomp,0);
     }
 }
 
