@@ -3245,7 +3245,7 @@ PeleLM::diffusionFJDriver(ForkJoin&                   fj,
                   int                         visc_coef_comp,
                   const IntVect&              cratio,
                   const BCRec&                bc,
-                  const Geometry&             geom,
+                  const Geometry&             in_geom,
                   bool                        add_hoop_stress,
                   const Diffusion::SolveMode& solve_mode,
                   bool                        add_old_time_divFlux,
@@ -3283,9 +3283,9 @@ PeleLM::diffusionFJDriver(ForkJoin&                   fj,
   int vStart = visc_coef_comp + compSet.lo;
   Vector<Real> visc_coef_shifted(&visc_coef[vStart],&visc_coef[vStart+num_comp]);
 
-  MultiFab *rho_half, *delta_rhs=0, *alpha_in=0;
+  MultiFab *rho_half_mf, *delta_rhs=0, *alpha_in=0;
   if (rho_flag == 1) {
-    rho_half = &(fj.get_mf("rho_half"));
+    rho_half_mf = &(fj.get_mf("rho_half"));
   }
 
   Vector<MultiFab *> fluxn   = fj.get_mf_vec("fluxn");
@@ -3307,15 +3307,15 @@ PeleLM::diffusionFJDriver(ForkJoin&                   fj,
     betanp1 = fj.get_mf_vec("betanp1");
   }
 
-  MultiFab& volume = fj.get_mf("volume");
-  Vector<MultiFab *> area = fj.get_mf_vec("area");
+  MultiFab& volume_mf = fj.get_mf("volume");
+  Vector<MultiFab *> area_mf = fj.get_mf_vec("area");
   
   diffusion->diffuse_scalar (S_old,Rho_old,S_new,Rho_new,S_comp,num_comp,Rho_comp,
-                                 prev_time,curr_time,be_cn_theta,*rho_half,rho_flag,
+                                 prev_time,curr_time,be_cn_theta,*rho_half_mf,rho_flag,
                                  &(fluxn[0]),&(fluxnp1[0]),fluxComp,delta_rhs,rhsComp,
                                  alpha_in,alpha_in_comp,&(betan[0]),&(betanp1[0]),betaComp,
                                  visc_coef_shifted,visc_comp_shifted,
-                                 volume,&(area[0]),cratio,bc,geom,add_hoop_stress,
+                                 volume_mf,&(area_mf[0]),cratio,bc,in_geom,add_hoop_stress,
                                  solve_mode,add_old_time_divFlux,is_diffusive);
 
 
@@ -3986,8 +3986,6 @@ PeleLM::compute_enthalpy_fluxes (MultiFab* const*       flux,
   BL_ASSERT(beta && beta[0]->nComp() == nspecies+1);
 
   const Real strt_time = ParallelDescriptor::second();
-  const Box&    domain = geom.Domain();
-  const BCRec&  Tbc    = get_desc_lst()[State_Type].getBC(Temp);
 
   int ngrow = 1;
   MultiFab TT(grids,dmap,1,ngrow,MFInfo(),Factory());
@@ -6489,7 +6487,6 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
       const Box&       bx       = Smfi.tilebox();
       const auto&      fcl      = fcnCntTemp.array(Smfi);
       const auto&      frcing   = FTemp.array(Smfi);
-      FArrayBox*       chemDiag = (do_diag ? &(diagTemp[Smfi]) : 0);
       
 //amrex::Print() << " NEW LOOP IN MFITER \n";
 #ifdef AMREX_USE_EB      
@@ -6498,7 +6495,6 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
 
       Real dt_incr = dt;
       Real time_init = 0;
-      int reInit = 1;
       double pressure = 1.0; // dummy FIXME
 
       const auto len = amrex::length(bx);
@@ -8462,7 +8458,8 @@ PeleLM::calcDiffusivity (const Real time)
         FArrayBox& dfab = (*diff[dir])[mfi];
         dfab.setVal(0,box,0,dfab.nComp());
         dfab.copy(tmp,0,first_spec-offset,nspecies); // Put rhoD into spec slots
-        dfab.copy(tmp,nspecies,Temp-offset,1); // Put lambda into T slot
+        dfab.copy(tmp,nspecies,Temp-offset-1,1); // Put lambda into T slot: note that the -1 is to put T next to Yk instead of RhoH
+        
       }
     }
   }
@@ -8579,14 +8576,21 @@ PeleLM::getDiffusivity (MultiFab* diffusivity[BL_SPACEDIM],
                         const int ncomp)
 {
     BL_ASSERT(state_comp > Density);
+    
     //
     // Pick correct diffusivity component
     //
-    int diff_comp = state_comp - Density - 1;
+      
+    int diff_comp_loc;
     if (state_comp == Temp)
     {
-       int diff_comp = state_comp - Density - 2;
+       diff_comp_loc = state_comp - Density - 2;
     }
+    else
+    {
+       diff_comp_loc = state_comp - Density - 1;
+    }
+
     //
     // Select time level to work with (N or N+1)
     //
@@ -8597,7 +8601,7 @@ PeleLM::getDiffusivity (MultiFab* diffusivity[BL_SPACEDIM],
 
     for (int dir = 0; dir < BL_SPACEDIM; dir++)
     {
-        MultiFab::Copy(*diffusivity[dir],*diff[dir],diff_comp,dst_comp,ncomp,0);
+        MultiFab::Copy(*diffusivity[dir],*diff[dir],diff_comp_loc,dst_comp,ncomp,0);
     }
 }
 
