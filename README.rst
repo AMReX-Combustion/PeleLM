@@ -48,7 +48,7 @@ and the `IAMR` code (see above).
 Development model
 -----------------
 
-To add a new feature to PeleLM (or the other subregpositories), the procedure is:
+To add a new feature to PeleLM (or the other subrepositories), the procedure is:
 
 1. Create a branch for the new feature (locally, within the appropriate submodule folder) ::
 
