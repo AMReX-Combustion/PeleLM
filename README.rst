@@ -31,8 +31,6 @@ Getting started with PeleLM
     make -j 12
     mpiexec -np 8 ./PeleLM2d.gnu.MPI.ex inputs.2d-regt
             
-The PeleLM User's Guide continues to be the best place to learn more about the code. You can also ask for help by opening up an issue on the PeleLM GitHub webpage. 
-
 * Notes
 
    A. In the exec line above, xxx.yyy is a tag identifying your compiler and various build options, and will vary across pltaform.  (Note that GNU compilers must be at least 4.8.4, and MPI should be at least version 3).
