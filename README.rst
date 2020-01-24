@@ -24,41 +24,14 @@ Getting started with PeleLM
 * To compile and run the `Pele` suite of codes, one needs a C++ compiler that supports the C++11 standard and a Fortran compiler that supports the 2003 standard.  A hierarchical strategy for parallelism is supported, based MPI + OpenMP.  The codes work with all major MPI and OpenMP implementations.  The codes should build and run with no modifications to the `make` system if using a Linux system with the GNU compilers, version 4.8.4 and above.
 
 
-To build `PeleLM` and run a sample 2D flame problem:
+* PeleLM depends on several separate GitHub repositories, each under active development. This can significantly complicate the required effort to keep all the required software up to date and internally compatible. Recently, we moved the Pele codes to a new software management style based on git "submodules", which dramatically simplifies the initial install/build/run procedure: ::
 
-1. Set the environment variable, AMREX_HOME, and clone a copy of `AMReX` there ::
-
-    export AMREX_HOME=<location for AMReX>
-    git clone https://github.com/AMReX-Codes/amrex.git ${AMREX_HOME}
-       or (if you have the proper SSH keys set in your GitHub settings)
-    git clone git@github.com:AMReX-Codes/amrex.git ${AMREX_HOME}
-
-2. Set the environment variable, IAMR_HOME, and clone a copy of `IAMR` there ::
-
-    export IAMR_HOME=<location for IAMR>
-    git clone https://github.com/AMReX-Codes/IAMR.git ${IAMR_HOME}
-       or (if you have the proper SSH keys set in your GitHub settings)    
-    git clone git@github.com:AMReX-Codes/IAMR.git ${IAMR_HOME}
-
-3. Set the environment variable, PELELM_HOME, and clone a copy of `PeleLM` there ::
-
-    export PELELM_HOME=<location for PeleLM>
-    git clone https://github.com/AMReX-Combustion/PeleLM.git ${PELELM_HOME}
-       or (if you have the proper SSH keys set in your GitHub settings)
-    git clone git@github.com:AMReX-Combustion/PeleLM.git ${PELELM_HOME}
-
-4. Set the environment variable, PELE_PHYSICS_HOME, and clone a copy of `PelePhysics` there ::
-
-    export PELE_PHYSICS_HOME=<location for PelePhysics>
-    git clone https://github.com/AMReX-Combustion/PelePhysics.git ${PELE_PHYSICS_HOME}
-       or (if you have the proper SSH keys set in your GitHub settings)
-    git clone git@github.com:AMReX-Combustion/PelePhysics.git ${PELE_PHYSICS_HOME}
-
-5. Move to an example build folder, build an executable ::
-
-    cd ${PELELM_HOME}/Exec/RegTests/FlameSheet
-    make
-    ./PeleLM2d.xxx.yyy.ex inputs.2d-regt
+    git clone --recursive https://github.com/AMReX-Combustion/PeleProduction.git
+    cd PeleLMruns/FlameSheet2D
+    make -j 12
+    mpiexec -np 8 ./PeleLM2d.gnu.MPI.ex inputs.2d-regt
+            
+The PeleLM User's Guide continues to be the best place to learn more about the code. You can also ask for help by opening up an issue on the PeleLM GitHub webpage. 
 
 * Notes
 
@@ -77,9 +50,9 @@ and the `IAMR` code (see above).
 Development model
 -----------------
 
-To add a new feature to PeleLM, the procedure is:
+To add a new feature to PeleLM (or the other subregpositories), the procedure is:
 
-1. Create a branch for the new feature (locally) ::
+1. Create a branch for the new feature (locally, within the appropriate submodule folder) ::
 
     git checkout -b AmazingNewFeature
 
@@ -95,14 +68,11 @@ To add a new feature to PeleLM, the procedure is:
 
     git push -u origin AmazingNewFeature [Note: -u option required only for the first push of new branch]
 
-4.  Submit a merge request through the github project page - be sure you are requesting to merge your branch to the development branch.
+4.  Submit a merge request through the github project page - be sure you are requesting to merge your branch to the development branch of any of the repositories (`master` is only updated via offline merges from `development`).
 
 Documentation
 -------------
-Documentation for PeleLM is under development in the Docs directory.  To build ::
-
-    cd ${PELELM_HOME}/Docs
-    make html
+`Documentation <https://pelelm.readthedocs.io/en/latest/index.html>`_ for PeleLM is under continuous development.  Please forward any suggestions as a GitHub "issue" at the PeleLM code page
 
 
 Acknowledgment
