@@ -83,7 +83,7 @@ ns.unity_Le = 0
 ns.do_active_control = 0
 
 ns.do_fillPatchUMAC=1
-ns.num_divu_iters = 1
+ns.num_divu_iters = 3
 
 # ------------------  INPUTS TO GODUNOV CLASS ----------------------
 godunov.slope_order = 4
@@ -139,7 +139,7 @@ ns.do_group_bndry_fills = 1
 #
 fab.format = NATIVE
 
-#fabarray.mfiter_tile_size = 8 8 8
+#fabarray.mfiter_tile_size = 2048 2048 2048
 
 # for getting things started with eb skip some steps
 ns.init_iter = 1
@@ -175,7 +175,8 @@ ns.sdc_iterMAX = 2
 #eb2.small_volfrac = 1.e-3
 
 
-nodal_proj.rtol =  1.0e-08
-nodal_proj.atol =  1.0e-08
+nodal_proj.rtol =  1.0e-14
+nodal_proj.atol =  1.0e-14
+nodal_proj.verbose = 3
 #nodal_proj.maxiter = 500
 #ns.plot_centroid_data = false 

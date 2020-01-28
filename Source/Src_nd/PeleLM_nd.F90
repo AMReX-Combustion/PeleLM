@@ -124,8 +124,12 @@ contains
                enddo
 
                tmp = 0.d0
+               
+               !write(*,*) "DEBUG IN calc_divu_fortran ",i,j,k,divu(i,j,k),vtT(i,j,k),rho,cpmix,T(i,j,k)
+               
                divu(i,j,k) = (divu(i,j,k) + vtT(i,j,k))/(rho*cpmix*T(i,j,k))
                do n=1,nspecies
+               !write(*,*) "DEBUG n ",n,divu(i,j,k),vtY(i,j,k,n),rYdot(i,j,k,n),invmtw(n),H(n)
                   divu(i,j,k) = divu(i,j,k) &
                               + (vtY(i,j,k,n) + rYdot(i,j,k,n)) &
                               *(invmtw(n)*mmw*rhoInv - H(n)/(rho*cpmix*T(i,j,k)))
@@ -2302,19 +2306,25 @@ contains
       REAL_T :: scal
 
       REAL_T, pointer, dimension(:,:,:) :: ivol
+      
+      REAL_T :: infinity
 
       integer :: i, j, k, n
 
+      infinity = HUGE(0.0)
+      
       call amrex_allocate(ivol,lo(1),hi(1),lo(2),hi(2),lo(3),hi(3))
 
       do k = lo(3), hi(3)
          do j = lo(2), hi(2)
             do i = lo(1), hi(1)
 #ifdef AMREX_USE_EB
-               ivol(i,j,k) = scal / (vol(i,j,k)* volfrac(i,j,k))
+               ivol(i,j,k) = scal / ((vol(i,j,k)* volfrac(i,j,k)))
 #else
                ivol(i,j,k) = scal / vol(i,j,k)
 #endif
+ !if ((ivol(i,j,k) > infinity) .or. (ivol(i,j,k) < -infinity)) ivol(i,j,k)=0.0d0
+!write(*,*) 'DEBUG IN flux_div first ',ivol(i,j,k) , scal , vol(i,j,k),volfrac(i,j,k)
             end do
          end do
       end do
@@ -2323,6 +2333,7 @@ contains
          do k = lo(3), hi(3)
             do j = lo(2), hi(2)
                do i = lo(1), hi(1)
+        !write(*,*) 'DEBUG IN flux_div ',i,j,k,n,xflux(i+1,j,k,n),xflux(i,j,k,n),yflux(i,j+1,k,n),yflux(i,j,k,n),ivol(i,j,k)
                   update(i,j,k,n) = &
                       ( (xflux(i+1,j,k,n)-xflux(i,j,k,n)) &
                       + (yflux(i,j+1,k,n)-yflux(i,j,k,n)) & 
@@ -2330,6 +2341,7 @@ contains
                       + (zflux(i,j,k+1,n)-zflux(i,j,k,n)) &
 #endif
                       ) * ivol(i,j,k)
+                      !write(*,*) 'DEBUG IN flux_div ',i,j,k,n,update(i,j,k,n)
                end do
             end do
          end do

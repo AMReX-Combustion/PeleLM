@@ -10,7 +10,7 @@
   pamb = 101325.
  /
  &extern
- const_conductivity = 0.026
+ const_conductivity = 0.029
  const_viscosity = 2.186915887850467e-06
  const_bulk_viscosity = 0.
  const_diffusivity = 2.239000000000000e-05
