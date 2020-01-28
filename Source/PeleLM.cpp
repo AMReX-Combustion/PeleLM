@@ -2045,15 +2045,6 @@ PeleLM::initData ()
 // in order to avoid non-physical values after diffusion solves
 // First we have to put Pnew in S_new so as to not impose NaNs for covered cells
 MultiFab::Copy(S_new,P_new,0,RhoRT,1,1);
-
-//for (MFIter snewmfi(S_new,true); snewmfi.isValid(); ++snewmfi)
-//  {
-//    amrex::Print() << " PRINT S_NEW ";
-//amrex::Print() << S_new[snewmfi];
-//amrex::Print() << " PRINT P_new ";
-//amrex::Print() << P_new[snewmfi];
-//    
-//  }
   
 #ifdef AMREX_USE_EB
   set_body_state(S_new);
@@ -4898,32 +4889,14 @@ PeleLM::flux_divergence (MultiFab&        fdiv,
               BL_TO_FORTRAN_ANYD(vfrac),
 #endif
               &nComp, &scale);
-    
-
         
   }
-  
   
 #ifdef AMREX_USE_EB    
     {
       MultiFab fdiv_SrcGhostCell(grids,dmap,nComp,fdiv.nGrow()+2,MFInfo(),Factory());
-            fdiv_SrcGhostCell.setVal(0.);
+      fdiv_SrcGhostCell.setVal(0.);
       fdiv_SrcGhostCell.copy(fdiv, fdivComp, 0, nComp);
-
-// Here we have to find a way to impose correct fdiv in ghost cells
-      //const Real prev_time = state[State_Type].prevTime();
-      //FillPatch(*this,fdiv_SrcGhostCell,fdiv_SrcGhostCell.nGrow(),prev_time,Divu_Type,0,nComp,0);
-
-//      
-//      #ifdef _OPENMP
-//#pragma omp parallel
-//#endif
-//  for (MFIter mfi(fdiv_SrcGhostCell,true); mfi.isValid(); ++mfi)
-//  {
-//        amrex::Print() << fdiv_SrcGhostCell[mfi];
-//  }
-//      
-      
       amrex::single_level_weighted_redistribute( 0, {fdiv_SrcGhostCell}, {fdiv}, *volfrac, fdivComp, nComp, {geom} );
     }
     EB_set_covered(fdiv,0.);
@@ -5835,7 +5808,6 @@ PeleLM::advance (Real time,
         const FArrayBox& ddnp1 = DDnp1[mfi];
 
         f.copy(dn,box,0,box,0,nspecies); // copy Dn into RhoY
-
         f.copy(dn,box,nspecies+1,box,nspecies,1); // copy Div(lamGradT) into RhoH
         f.minus(dnp1,box,box,0,0,nspecies);  // subtract Dnp1 from RhoY
         f.minus(dnp1,box,box,nspecies+1,nspecies,1); // subtract Div(lamGradT) in Dnp1 from RhoH
@@ -5846,8 +5818,7 @@ PeleLM::advance (Real time,
         if (closed_chamber == 1)
           f.plus(dp0dt,box,nspecies,1); // add dp0/dt to enthalpy forcing
 
-        f.plus(a,box,box,first_spec,0,nspecies+1); // add A into RhoY and RhoH
-                         
+        f.plus(a,box,box,first_spec,0,nspecies+1); // add A into RhoY and RhoH              
         f.plus(r,box,box,0,0,nspecies); // no reactions for RhoH
                
       }
