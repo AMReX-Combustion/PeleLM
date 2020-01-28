@@ -2034,13 +2034,27 @@ PeleLM::initData ()
                BL_TO_FORTRAN_ANYD(P_new[snewmfi]),
                dx, AMREX_ZFILL(gridloc.lo()), AMREX_ZFILL(gridloc.hi()) );
 #endif
+
+
+
   }
 
   showMFsub("1D",S_new,stripBox,"1D_S",level);
   
 // Here we save a reference state vector to apply it later to covered cells
 // in order to avoid non-physical values after diffusion solves
+// First we have to put Pnew in S_new so as to not impose NaNs for covered cells
+MultiFab::Copy(S_new,P_new,0,RhoRT,1,1);
 
+//for (MFIter snewmfi(S_new,true); snewmfi.isValid(); ++snewmfi)
+//  {
+//    amrex::Print() << " PRINT S_NEW ";
+//amrex::Print() << S_new[snewmfi];
+//amrex::Print() << " PRINT P_new ";
+//amrex::Print() << P_new[snewmfi];
+//    
+//  }
+  
 #ifdef AMREX_USE_EB
   set_body_state(S_new);
 #endif
@@ -2137,11 +2151,6 @@ PeleLM::initData ()
 
     calc_divu(tnp1,dtin,Divu_new);
     
-    std::cout << "WE ARE IN INITDATA" << std::endl;
-    VisMF::Write(Divu_new,"Divu_new");
-    //amrex::Abort();
-    
-
     if (have_dsdt)
       get_new_data(Dsdt_Type).setVal(0);
   }
@@ -4977,15 +4986,8 @@ PeleLM::compute_differential_diffusion_terms (MultiFab& D,
   // D[ nspecies+1 ] = Div( lambda    Grad(T) )
   //
   D.setVal(0);
-  
-    //VisMF::Write(*flux[0],"debug_flux_x");
-    //VisMF::Write(*flux[1],"debug_flux_y");
-  
-  flux_divergence(D,0,flux,0,nspecies,-1);
-  
-
-//VisMF::Write(D,"debug_D");
-  
+    
+  flux_divergence(D,0,flux,0,nspecies,-1);  
   flux_divergence(D,nspecies+1,flux,nspecies+2,1,-1);
 
   // compute -Sum{ Div( hk . Fk ) } a.k.a. the "diffdiff" terms
@@ -5391,8 +5393,6 @@ PeleLM::predict_velocity (Real  dt)
                               D_DECL(u_mac[0], u_mac[1], u_mac[2]),
                               D_DECL(m_xslopes, m_yslopes, m_zslopes),
                               geom, math_bcs );
-    
-
 
 #else
   
@@ -5424,29 +5424,6 @@ PeleLM::predict_velocity (Real  dt)
              bndry[1] = fetchBCArray(State_Type,bx,1,1);,
              bndry[2] = fetchBCArray(State_Type,bx,2,1););
 
-
-//#ifdef AMREX_USE_EB
-//	//
-//	//  trace state to cell edges
-//	//
-//	// For now, import simple adv scheme from incflo
-//	//
-//	// FIXME 
-//	//  GODUNOV uses mathematical bcs like reflect_odd
-//	//  incflo convection uses phys bcs like slip wall
-//	// for now, just doing periodic, so just make sure I don't trip the bcs
-//	//
-//	// CHECK HERE
-//       godunov->ExtrapVelToFaces(U_mfi,
-//                                 D_DECL(u_mac[0][U_mfi], u_mac[1][U_mfi], u_mac[2][U_mfi]),
-//                                 D_DECL(bndry[0],        bndry[1],        bndry[2]),
-//                                 D_DECL(m_xslopes, m_yslopes, m_zslopes),
-//                                 Ufab, tforces, 
-//                                 D_DECL(*areafrac[0], *areafrac[1], *areafrac[2]),
-//                                 D_DECL(*facecent[0], *facecent[1], *facecent[2]),
-//                                 domain);
-//#else
-	// non-EB
 	//  1. compute slopes
 	//  2. trace state to cell edges
       godunov->ExtrapVelToFaces(bx, dx, dt,
@@ -5459,12 +5436,8 @@ PeleLM::predict_velocity (Real  dt)
         const Box& ebx = U_mfi.nodaltilebox(d);
         u_mac[d][U_mfi].copy(Uface[d],ebx,0,ebx,0,1);
       }
-                                
-//#endif
-
   }
 }
-
 
 #endif
 
@@ -5684,28 +5657,10 @@ PeleLM::advance (Real time,
       BL_PROFILE_VAR_STOP(HTMAC);
     }
 
-  
-    
     // compute U^{ADV,*}
     BL_PROFILE_VAR_START(HTVEL);
     dt_test = predict_velocity(dt);
     BL_PROFILE_VAR_STOP(HTVEL);
-
-{
-    FillPatchIterator S_fpi(*this,get_old_data(State_Type),nGrowAdvForcing,prev_time,State_Type,0,1);
-    MultiFab& Smf=S_fpi.get_mf();
-
-#ifdef _OPENMP
-#pragma omp parallel
-#endif
-    {
-      for (MFIter mfi(Smf,true); mfi.isValid(); ++mfi) 
-      {
-                //amrex::Print() << u_mac[0][mfi];
-                //amrex::Print() << mac_divu[mfi];
-      }
-    }
-} 
     
     // create S^{n+1/2} by averaging old and new
     BL_PROFILE_VAR_START(HTMAC);
@@ -5717,44 +5672,12 @@ PeleLM::advance (Real time,
     Forcing.setBndry(1.e30);
     FillPatch(*this,mac_divu,nGrowAdvForcing,time+0.5*dt,Divu_Type,0,1,0);
     BL_PROFILE_VAR_STOP(HTMAC);
-
-//{
-//    FillPatchIterator S_fpi(*this,get_old_data(State_Type),nGrowAdvForcing,prev_time,State_Type,0,1);
-//    MultiFab& Smf=S_fpi.get_mf();
-//#ifdef _OPENMP
-//#pragma omp parallel
-//#endif
-//    {
-//      for (MFIter mfi(Smf,true); mfi.isValid(); ++mfi) 
-//      {
-//                //amrex::Print() << u_mac[0][mfi];
-//                amrex::Print() << mac_divu[mfi];
-//      }
-//    }
-//} 
-//      
+      
     // compute new-time thermodynamic pressure and chi_increment
     setThermoPress(tnp1);
 
     chi_increment.setVal(0.0,nGrowAdvForcing);
-    
-    
     calc_dpdt(tnp1,dt,chi_increment,u_mac);
-
-//{
-//    FillPatchIterator S_fpi(*this,get_old_data(State_Type),nGrowAdvForcing,prev_time,State_Type,0,1);
-//    MultiFab& Smf=S_fpi.get_mf();
-//#ifdef _OPENMP
-//#pragma omp parallel
-//#endif
-//    {
-//      for (MFIter mfi(Smf,true); mfi.isValid(); ++mfi) 
-//      {
-//                //amrex::Print() << u_mac[0][mfi];
-//                amrex::Print() << chi_increment[mfi];
-//      }
-//    }
-//} 
     
 #ifdef AMREX_USE_EB
     {
@@ -5769,10 +5692,6 @@ PeleLM::advance (Real time,
     // add chi_increment to chi
     MultiFab::Add(chi,chi_increment,0,0,1,nGrowAdvForcing);
 
-
-    
-    
-    
     // add chi to time-centered mac_divu
     MultiFab::Add(mac_divu,chi,0,0,1,nGrowAdvForcing);
 
@@ -5791,43 +5710,9 @@ PeleLM::advance (Real time,
     }
 //#endif
 
-VisMF::Write(mac_divu,"mac_divu_before_mac_project");
-VisMF::Write(S_old,"S_old_before_mac_project");
-//
-//{
-//    FillPatchIterator S_fpi(*this,get_old_data(State_Type),nGrowAdvForcing,prev_time,State_Type,0,1);
-//    MultiFab& Smf=S_fpi.get_mf();
-//
-//#ifdef _OPENMP
-//#pragma omp parallel
-//#endif
-//    {
-//      for (MFIter mfi(Smf,true); mfi.isValid(); ++mfi) 
-//      {
-//                amrex::Print() << mac_divu[mfi];
-//      }
-//    }
-//} 
-
     // MAC-project... and overwrite U^{ADV,*}
     BL_PROFILE_VAR_START(HTMAC);
     mac_project(time,dt,S_old,&mac_divu,nGrowAdvForcing,updateFluxReg);
-
-//{
-//    FillPatchIterator S_fpi(*this,get_old_data(State_Type),nGrowAdvForcing,prev_time,State_Type,0,1);
-//    MultiFab& Smf=S_fpi.get_mf();
-//
-//#ifdef _OPENMP
-//#pragma omp parallel
-//#endif
-//    {
-//      for (MFIter mfi(Smf,true); mfi.isValid(); ++mfi) 
-//      {
-//                amrex::Print() << u_mac[0][mfi];
-//      }
-//    }
-//} 
-    
     
     if (closed_chamber == 1 && level == 0 && Sbar != 0)
     {
@@ -5917,23 +5802,8 @@ VisMF::Write(S_old,"S_old_before_mac_project");
 //
 #endif
 
-
-
-    
     compute_scalar_advection_fluxes_and_divergence(Forcing,mac_divu,dt);
     BL_PROFILE_VAR_STOP(HTADV);
-
-    
-//    #ifdef _OPENMP
-//#pragma omp parallel
-//#endif
-//    {
-//      for (MFIter mfi(Forcing,true); mfi.isValid(); ++mfi) 
-//      {
-//                amrex::Print() << (*aofs)[mfi];
-//      }
-//    }
-    
     
     // update rho since not affected by diffusion
     BL_PROFILE_VAR_START(HTADV);
@@ -5972,8 +5842,6 @@ VisMF::Write(S_old,"S_old_before_mac_project");
         f.plus(ddn  ,box,box,0,nspecies,1); // add DDn to RhoH, no contribution for RhoY
         f.minus(ddnp1,box,box,0,nspecies,1); // subtract DDnp1 to RhoH, no contribution for RhoY
         f.mult(0.5,box,0,nspecies+1);
-
-        //amrex::Print() << a;
         
         if (closed_chamber == 1)
           f.plus(dp0dt,box,nspecies,1); // add dp0/dt to enthalpy forcing
@@ -6009,13 +5877,6 @@ VisMF::Write(S_old,"S_old_before_mac_project");
     // 
     BL_PROFILE_VAR_START(HTREAC);
     
-// EM_DEBUG
-static int count=666;
-count++;
-  VisMF::Write(S_new,"S_new_"+std::to_string(count));
-  VisMF::Write(S_old,"S_old"+std::to_string(count));
-  VisMF::Write(Forcing,"Forcing"+std::to_string(count));
-    
 #ifdef _OPENMP
 #pragma omp parallel
 #endif
@@ -6026,8 +5887,6 @@ count++;
     MultiFab::Subtract(Forcing,get_new_data(RhoYdot_Type),0,0,nspecies,0);	// remove omegaDot term
 
 // EM DEBUG: HERE DO WE NEED TO INTERPOLATE TO CENTROID BEFORE ADVANCING CHEMISTRY ?
-
-
     advance_chemistry(S_old,S_new,dt,Forcing,0);
     
 #ifdef AMREX_USE_EB
@@ -6849,13 +6708,6 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
     EB_set_covered(*aofs, 0.);
     
   }
-
-  
-      
-
-  
-  
-  
   
   // Set flux, flux divergence, and face values for rho as sums of the corresponding RhoY quantities
 #ifdef _OPENMP
@@ -8864,12 +8716,10 @@ PeleLM::calc_dpdt (Real      time,
     const Box& bx = mfi.growntilebox();
     FArrayBox&       S   = Smf[mfi];
     Peos[mfi].copy(S,bx,0,bx,0,nGrow);
-    //amrex::Print() << Peos[mfi];
   }
   
   Peos.FillBoundary(geom.periodicity());
   
-  //VisMF::Write(Peos,"EM_DEBUG_Peos_before");
 #ifdef AMREX_USE_EB
   {
     MultiFab TT(grids,dmap,1,nGrow,MFInfo(),Factory());
@@ -8879,13 +8729,6 @@ PeleLM::calc_dpdt (Real      time,
     EB_interp_CC_to_Centroid(Peos, TT, 0, 0, 1, geom);
   }
 #endif
-
-  //VisMF::Write(Peos,"EM_DEBUG_Peos_after");
-
-// EM DEBUG
-//static int count555=0;
-//count555++;
-//VisMF::Write(Peos,"Peos_"+std::to_string(count555));
 
 #ifdef _OPENMP
 #pragma omp parallel
@@ -8900,8 +8743,6 @@ PeleLM::calc_dpdt (Real      time,
     dpdt[mfi].divide(Peos[mfi],vbox,0,0,1);
     dpdt[mfi].mult(dpdt_factor,vbox,0,1);
   }
-
-//VisMF::Write(dpdt,"dpdt_"+std::to_string(count555));
 
   Peos.clear();
 
@@ -9475,16 +9316,16 @@ PeleLM::writePlotFile (const std::string& dir,
   std::string TheFullPath = FullPath;
   TheFullPath += BaseName;
 
-#ifdef AMREX_USE_EB
-  bool plot_centroid_data = true;
-  pp.query("plot_centroid_data",plot_centroid_data);
-  if (plot_centroid_data) {
-    MultiFab TT(grids,dmap,plotMF.nComp(),plotMF.nGrow()+1,MFInfo(),Factory());
-    MultiFab::Copy(TT,plotMF,0,0,plotMF.nComp(),plotMF.nGrow());
-    TT.FillBoundary(geom.periodicity());
-    EB_interp_CC_to_Centroid(plotMF,TT,0,0,plotMF.nComp(),geom);
-  }
-#endif
+//#ifdef AMREX_USE_EB
+//  bool plot_centroid_data = true;
+//  pp.query("plot_centroid_data",plot_centroid_data);
+//  if (plot_centroid_data) {
+//    MultiFab TT(grids,dmap,plotMF.nComp(),plotMF.nGrow()+1,MFInfo(),Factory());
+//    MultiFab::Copy(TT,plotMF,0,0,plotMF.nComp(),plotMF.nGrow());
+//    TT.FillBoundary(geom.periodicity());
+//    EB_interp_CC_to_Centroid(plotMF,TT,0,0,plotMF.nComp(),geom);
+//  }
+//#endif
 
   VisMF::Write(plotMF,TheFullPath,how);
 }
