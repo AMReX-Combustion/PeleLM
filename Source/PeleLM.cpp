@@ -8620,8 +8620,6 @@ PeleLM::calc_divu (Real      time,
                       BL_TO_FORTRAN_N_ANYD(vtT,vtCompT),
                       BL_TO_FORTRAN_N_ANYD(rhoY,first_spec),
                       BL_TO_FORTRAN_N_ANYD(T,Temp));
-    
-    //amrex::Print() << mcViscTerms[mfi];
 
   }
   
