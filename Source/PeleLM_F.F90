@@ -27,7 +27,8 @@ module PeleLM_F
             set_ht_adim_common, get_pamb, &
             set_common, active_control, &
             pphys_calc_src_sdc, pphys_getP1atm_MKS, &
-            pphys_get_spec_name2, pphys_TfromHYpt, set_prob_spec
+            pphys_get_spec_name2, pphys_TfromHYpt, set_prob_spec, &
+            parse_composition
 
 contains
 
@@ -165,6 +166,54 @@ end subroutine plm_extern_init
     pphys_getckspecname = str_len - 1
  
   end function pphys_getckspecname
+
+  subroutine parse_composition(compo_string, compo_vec)
+  
+    use network, only : nspecies, spec_names
+    use amrex_error_module, only : amrex_abort
+
+    implicit none
+
+    character(len=256), intent(in) :: compo_string
+    character(len=256) :: species_name
+    character(len=256) :: species_compo_s
+    double precision   :: species_compo_d
+    character(len=256) :: compo_string_trim
+    double precision, dimension(nspecies) :: compo_vec
+    integer i
+    
+    compo_vec(:) = 0.0d0
+
+    compo_string_trim = TRIM(ADJUSTL(compo_string))
+
+    do while ( LEN_TRIM(TRIM(compo_string_trim)) /= 0 ) 
+        ! Get species name
+        i = INDEX(compo_string_trim, ":")
+        species_name = compo_string_trim(1:i-1)
+        compo_string_trim = compo_string_trim(i+1:256)
+        ! Get compo for that name
+        i = INDEX(compo_string_trim, " ")
+        species_compo_s = compo_string_trim(1:i-1)
+        READ(species_compo_s,*) species_compo_d
+        compo_string_trim = compo_string_trim(i+1:256)
+        do i = 1, nspecies
+            if (TRIM(species_name) == spec_names(i)) then
+                compo_vec(i) = species_compo_d
+                exit
+            end if
+            if (i == nspecies) then
+                print *, 'NAME, COMPO ', TRIM(species_name), " ", TRIM(species_compo_s)
+                call amrex_abort('wrong string composition, species do not exist')
+            end if
+        end do
+    end do
+
+    ! Normalize to get mass fractions
+    compo_vec(:) = compo_vec(:) / SUM(compo_vec(:))
+
+    !print *, 'Composition vector is ', compo_vec(:)
+
+  end subroutine parse_composition
   
   function pphys_getRuniversal() bind(C, name="pphys_getRuniversal") result(RUNIV)
 
@@ -723,8 +772,9 @@ end subroutine plm_extern_init
                            flag_active_control)  bind(C, name="set_prob_spec")
  
       use network,  only: nspecies
+      use chemistry_module, only : spec_names
       use mod_Fvar_def, only: domnlo, domnhi
-      use mod_Fvar_def, only: bathID, fuelID, oxidID, prodID
+      use mod_Fvar_def, only: bathID, fuelID, oxidID, prodID, H2ID
       use mod_Fvar_def, only: f_flag_active_control
 
       implicit none
@@ -732,7 +782,9 @@ end subroutine plm_extern_init
       integer, intent(in) :: dm, flag_active_control
       double precision, intent(in) :: problo_in(dm), probhi_in(dm)
 
-      integer bath, fuel, oxid, prod, numspec
+      integer :: bath, fuel, oxid, prod, numspec
+
+      integer :: k
 
       ! Passing dimensions of problem from Cpp to Fortran
       if (dm .ne. dim) then
@@ -751,6 +803,11 @@ end subroutine plm_extern_init
          call bl_pd_abort('no N2 species present in mechanism')
       endif
       bathID = bath + 1
+
+      H2ID = -1
+      do k = 1, nspecies
+         if ( TRIM(spec_names(k)) == "H2" ) H2ID = k
+      end do
 
       if (numspec .ne. nspecies) then
          call bl_pd_abort('number of species not consistent')

@@ -24,12 +24,13 @@ module derive_PLM_nd
             deravgpres, dergrdpx, dergrdpy, dergrdpz, &
             drhomry, dsrhoydot, dermassfrac, drhort, &
             dermolefrac, derconcentration, dertransportcoeff, dermolweight, &
-            dhrr, dermixanddiss, dcma
+            dhrr, dermixanddiss, dcma, init_mixture_fraction
 
   REAL_T, dimension(nspecies,nelements) :: coeff_mix
   REAL_T, dimension(nelements) :: beta_mix
   REAL_T, dimension(nspecies)  :: fact
   REAL_T :: Zfu, Zox
+  REAL_T :: Zstoic = -1.0d0
   logical :: init_mixture = .FALSE.
 
 contains
@@ -1584,8 +1585,8 @@ contains
       integer, intent(in) :: level, grid_no
 
 !  Local
-      REAL_T, dimension(nspecies) :: Yt, D
-      REAL_T, dimension(1)        :: rho_dummy, MU, XI, LAM
+      REAL_T, dimension(nspecies) :: Yt, D, invmwt
+      REAL_T, dimension(1)        :: rho_dummy, MU, XI, LAM, Wavg
       REAL_T                      :: rhoinv
       integer :: fS, rho, T
       integer :: lo_chem(3), hi_chem(3)
@@ -1599,6 +1600,8 @@ contains
       T   = 2
       fS  = 3
 
+      call get_imw(invmwt)
+
       do k=lo(3),hi(3)
          do j=lo(2),hi(2)
             do i=lo(1),hi(1)
@@ -1607,6 +1610,8 @@ contains
                   Yt(n) = dat(i,j,k,fS+n-1)*rhoinv
                enddo
                rho_dummy(1) = dat(i,j,k,rho) * 1.d-3
+
+               call CKMMWY(Yt,Wavg(1))
 
                CALL get_transport_coeffs(lo_chem, hi_chem, &
                                          Yt,           lo_chem,hi_chem,  &
@@ -1618,7 +1623,7 @@ contains
                                          LAM(1),       lo_chem,hi_chem)
 
                do n = 1,nspecies
-                  e(i,j,k,n) = D(n) * 0.1d0
+                  e(i,j,k,n) = Wavg(1) * invmwt(n) * D(n) * 0.1d0
                enddo
 
                e(i,j,k,nspecies+1) = LAM(1) * 1.0d-05
@@ -1676,20 +1681,99 @@ contains
    end subroutine dermolweight
 
 !=========================================================
+!  Compute the mixture mean heat capacity at cst pressure
+!=========================================================
+
+   subroutine dercpmix (e,   e_lo, e_hi, nv, &
+                        dat, d_lo, d_hi, ncomp, &
+                        lo, hi, domlo, domhi, delta, xlo, time, dt, bc, &
+                        level, grid_no) &
+                        bind(C, name="dercpmix")
+
+      implicit none
+
+! In/Out
+      integer, intent(in) :: lo(3), hi(3)
+      integer, intent(in) :: e_lo(3), e_hi(3), nv
+      integer, intent(in) :: d_lo(3), d_hi(3), ncomp
+      integer, intent(in) :: domlo(3), domhi(3)
+      integer, intent(in) :: bc(3,2,ncomp)
+      REAL_T, intent(in)  :: delta(3), xlo(3), time, dt
+      REAL_T, intent(out),dimension(e_lo(1):e_hi(1),e_lo(2):e_hi(2),e_lo(3):e_hi(3),nv) :: e
+      REAL_T, intent(in), dimension(d_lo(1):d_hi(1),d_lo(2):d_hi(2),d_lo(3):d_hi(3),ncomp) :: dat
+      integer, intent(in) :: level, grid_no
+
+! Local
+      REAL_T, dimension(nspecies) :: Yt
+      integer :: fS,rho, T
+
+      integer :: i, j, k, n
+
+      rho = 1
+      T   = 2
+      fS  = 3
+
+      do k=lo(3),hi(3)
+         do j=lo(2),hi(2)
+            do i=lo(1),hi(1)
+               do n = 1,nspecies
+                  Yt(n) = dat(i,j,k,fS+n-1)/dat(i,j,k,rho)
+               enddo
+               CALL CKCPBS(dat(i,j,k,T),Yt,e(i,j,k,1))
+               e(i,j,k,1) = e(i,j,k,1) * 1.0d-4 ! CGS -> MKS
+            enddo
+         enddo
+      enddo
+
+   end subroutine dercpmix
+
+!=========================================================
 !  Init Bilger's element based mixture fraction
 !=========================================================
 
-   subroutine init_mixture_fraction() bind(C,name='init_mixture_fraction')
+   subroutine init_mixture_fraction(Yfu, Yox) bind(C,name='init_mixture_fraction')
 
+      use amrex_paralleldescriptor_module, only : amrex_pd_ioprocessor
       use chemistry_module, only : elem_names, spec_names
 
       implicit none
 
-      REAL_T, dimension(nspecies)  :: WtS, YF, YO, XO
+! In/Out
+      REAL_T, intent(in), dimension(nspecies) :: Yfu, Yox
+
+! Local
+      REAL_T, dimension(nspecies)  :: WtS
       REAL_T, dimension(nelements) :: WtE
       integer, dimension(nelements,nspecies) :: ELTinSp
+      integer :: i, j
+      logical :: is_ioproc
+      REAL_T, parameter :: tol = ten*tiny(zero)
 
-      integer:: i, j
+      is_ioproc = amrex_pd_ioprocessor()
+
+      ! Print stream composition
+      if (is_ioproc) then
+        write(6,'(2x,a)') 'Initialise mixture fraction'
+        write(6,'(4x,a)') 'Fuel-stream mass fractions:'
+        do i = 1, nspecies
+          if (Yfu(i) .gt. 1e-14) then
+            write(6,'(4x,a22,1x,f12.7)') adjustl(spec_names(i)), Yfu(i)
+          endif
+        enddo
+        write(6,'(4x,a)') 'Oxidizer-stream mass fractions:'
+        do i = 1, nspecies
+          if (Yox(i) .gt. 1e-14) then
+            write(6,'(4x,a22,1x,f12.7)') adjustl(spec_names(i)), Yox(i)
+          endif
+        enddo
+      endif
+
+      ! Sanity checks
+      if      (abs(sum(Yfu) - one) .gt. tol) then
+        call amrex_abort('sum(Yfu) != 1')
+      else if (abs(sum(Yox) - one) .gt. tol) then
+        call amrex_abort('sum(Yox) != 1')
+      endif
 
       CALL ckwt(WtS)
       CALL ckawt(WtE)
@@ -1701,18 +1785,7 @@ contains
          enddo
       enddo
 
-! TODO : should be related to probin file input !
-      do i = 1, nspecies
-         YF(i) = 0.0d0
-         XO(i) = 0.0d0
-         YO(i) = 0.0d0
-         if(spec_names(i).eq.'NC12H26') YF(i)=1.0
-         if(spec_names(i).eq.'O2') XO(i)=0.15
-         if(spec_names(i).eq.'N2') XO(i)=0.85
-      enddo
-
-      CALL ckxty(XO,YO)
-
+      ! Bilger coeffs
       do i = 1,nelements
          beta_mix(i) = 0
          if(elem_names(i).eq.'C') beta_mix(i) = 2.0/WtE(i)
@@ -1727,9 +1800,17 @@ contains
          do j=1,nelements
             fact(i) = fact(i) + beta_mix(j)*coeff_mix(i,j)
          enddo
-         Zfu = Zfu+fact(i)*YF(i)
-         Zox = Zox+fact(i)*YO(i)
+         Zfu = Zfu+fact(i)*Yfu(i)
+         Zox = Zox+fact(i)*Yox(i)
       enddo
+
+      Zstoic = (zero - Zox)/(Zfu - Zox)
+
+      if (is_ioproc) then
+        ! Print stream composition
+        write(6,'(4x,a)') 'Stoichiometric mixture fraction:'
+        write(6,'(8x,a,1x,f12.7)') 'Zstoic = ', Zstoic
+      endif
 
       init_mixture = .TRUE.
 
@@ -1767,7 +1848,7 @@ contains
       rho = 1
       fS  = 2
 
-      if(.not.init_mixture) CALL init_mixture_fraction()
+      if (.not.init_mixture) call amrex_abort("mixture fraction not initialized")
 
       do k=lo(3), hi(3)
          do j=lo(2), hi(2)
@@ -1869,11 +1950,11 @@ contains
 
       integer :: i, j, k, n
 
-      if(.not.init_mixture) CALL init_mixture_fraction()
-
       rho = 1
       T   = 2
       fS  = 3
+
+      if (.not.init_mixture) call amrex_abort("mixture fraction not initialized")
 
       grad(1) = 0.0d0; grad(2) = 0.0d0; grad(3) = 0.0d0
 

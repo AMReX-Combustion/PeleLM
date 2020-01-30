@@ -53,6 +53,9 @@ contains
                                pseudo_gravity
       use probdata_module, only : standoff, pertmag, rho_bc, Y_bc
       use probdata_module, only : flame_dir
+      use derive_PLM_nd  , only : init_mixture_fraction
+      use PeleLM_F       , only : parse_composition
+      use network        , only : nspecies
 
 
       implicit none
@@ -64,9 +67,9 @@ contains
 
       integer i,istemp
       REAL_T area
+      character(len=256) :: mixfrac_fueltank, mixfrac_oxitank
 
-      namelist /fortin/ V_in, &
-                        standoff, pertmag
+      namelist /fortin/ V_in, standoff, pertmag, mixfrac_fueltank, mixfrac_oxitank
       namelist /heattransin/ pamb
 
       namelist /control/ tau_control, sest, cfix, changeMax_control, h_control, &
@@ -78,6 +81,7 @@ contains
       integer maxlen, isioproc
       parameter (maxlen=256)
       character probin*(maxlen)
+      REAL_T, dimension(nspecies) :: Yfu, Yox
 
       call bl_pd_is_ioproc(isioproc)
 
@@ -125,6 +129,8 @@ contains
       pseudo_gravity = 0
       istemp = 0
       navg_pnts = 10
+      mixfrac_fueltank = ""
+      mixfrac_oxitank = ""
 
       read(untin,fortin)
 
@@ -138,6 +144,19 @@ contains
 
 !     Set up boundary functions
       call setupbc()
+
+!     Set mixture fraction data if asked
+      if ( ( LEN_TRIM(TRIM(mixfrac_fueltank)) /= 0 ) .and. &
+           ( LEN_TRIM(TRIM(mixfrac_oxitank)) /= 0 ) ) then
+          ! Get composition of fuel and oxi tank as specified in probin
+          ! Format is for example 'CH4:1.0'
+          if (isioproc.eq.1) write(6,'(2x,a)') 'mixtfrac -- Parse fueltank ...'
+          call parse_composition(mixfrac_fueltank, Yfu)
+          if (isioproc.eq.1) write(6,'(2x,a)') 'mixtfrac -- Parse oxitank ...'
+          call parse_composition(mixfrac_oxitank, Yox)
+          ! Initialize mixture fraction variables
+          call init_mixture_fraction(Yfu, Yox)
+      end if
 
       area = 1.d0
       do i=1,dim
