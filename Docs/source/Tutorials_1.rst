@@ -77,10 +77,6 @@ Then, follow these few steps to setup your run environment:
 
     git checkout -b Tutorial_TripleFlame remotes/origin/Tutorial_TripleFlame 
 
-Note that all remote branches correspond to a specific test case. You can get the list via : ::
-
-    git branch -a
-
 3. The first time you do this, you will need to tell git that there are submodules. Git will look at the ``.gitmodules`` file in this branch and use that : ::
 
     git submodule int 
@@ -99,25 +95,14 @@ And follow the next steps !
 Numerical setup
 -----------------------
 
-Test case
-^^^^^^^^^^^^^^^^^^^^^
+Test case and boundary conditions
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Direct Numerical Simulations (DNS) are performed on a 2x4 :math:`cm^2` 2D computational domain 
-using a 64x128 base grid and 4 levels of refinement. The refinement ratio is set to 2, corresponding to 
-a minimum grid size inside the reaction layer just below 20 :math:`μm`. 
+using a 64x128 base grid and up to 4 levels of refinement (although we will start with a lower number of levels). 
+The refinement ratio between each level is set to 2. With 4 levels, this means that the minimum grid size inside the reaction layer will be just below 20 :math:`μm`. 
 The maximum box size is fixed at 32, and the base (level 0) grid is composed of 8 boxes, 
 as shown in Fig :numref:`fig:NumSetup`.
-The edge flame is stabilized against an incoming mixing layer with a uniform velocity profile. The mixing
-layer is prescribed using an hyperbolic tangent of mixture fraction :math:`z` between 0 and 1:
-
-.. math::
-
-    z(x) = 0.5 \Big(1 + tanh \Big( \frac{x - 0.6(x_{hi} + x_{lo})}{0.05(x_{hi} - x_{lo})} \Big) \Big)
-
-where :math:`z` is based on the classical elemental composition:
-
-.. math::
-
-    z = ...
+Symmetric boundary conditions are used in the transversal (:math:`x`) direction, while ``Inflow`` (dirichlet) and ``Outflow`` (neumann) boundary conditions are used in the main flow direction (:math:`y`). The flow goes from the bottom to the top of the domain. The specificities of the ``Inflow`` boundary condition are explained in subsection :ref:`sec:TUTO1::InflowSpec`
 
 .. |b| image:: ./Visualization/SetupSketch.png
      :width: 100%
@@ -131,23 +116,68 @@ where :math:`z` is based on the classical elemental composition:
      | |b| |
      +-----+
 
-Numerical scheme
+The geometrical problem is specified in the first block of the ``inputs.2d-regt``: ::
+
+   #----------------------DOMAIN DEFINITION------------------------                                                                        
+   geometry.is_periodic = 0 0       # Periodicity in each direction: 0 => no, 1 => yes
+   geometry.coord_sys   = 0         # 0 => cart, 1 => RZ
+   geometry.prob_lo     = 0. 0.     # x_lo y_lo
+   geometry.prob_hi     = 0.02 0.04 # x_hi y_hi
+
+The second block determines the boundary conditions. Refer to Fig :numref:`fig:NumSetup`: ::
+
+   # >>>>>>>>>>>>>  BC FLAGS <<<<<<<<<<<<<<<<
+   # Interior, Inflow, Outflow, Symmetry,
+   # SlipWallAdiab, NoSlipWallAdiab, SlipWallIsotherm, NoSlipWallIsotherm
+   peleLM.lo_bc = Symmetry  Inflow
+   peleLM.hi_bc = Symmetry  Outflow
+
+The number of levels, refinement ratio, maximium grid size as well as other related refinement parameters are set under the third block  : ::
+
+   #-------------------------AMR CONTROL----------------------------
+   amr.n_cell          = 64 128     # Level 0 number of cells in each direction
+   amr.v               = 1          # amr verbosity level
+   amr.max_level       = 1          # maximum level number allowed
+   amr.ref_ratio       = 2 2 2 2    # refinement ratio
+   amr.regrid_int      = 2          # how often to regrid
+   amr.n_error_buf     = 1 1 1 2    # number of buffer cells in error est
+   amr.grid_eff        = 0.9        # what constitutes an efficient grid
+   amr.grid_eff        = 0.7        # what constitutes an efficient grid
+   amr.blocking_factor = 16         # block factor in grid generation
+   amr.max_grid_size   = 32         # maximum box size
+
+
+..  _sec:TUTO1::InflowSpec:
+
+Inflow specification
 ^^^^^^^^^^^^^^^^^^^^^
 
-Boundary conditions
-^^^^^^^^^^^^^^^^^^^^^
+The edge flame is stabilized against an incoming mixing layer with a uniform velocity profile. The mixing
+layer is prescribed using an hyperbolic tangent of mixture fraction :math:`z` between 0 and 1:
 
-Step by step instructions 
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.. math::
 
-Initialization and transient phase
-----------------------------------
+    z(x) = 0.5 \Big(1 + tanh \Big( \frac{x - 0.6(x_{hi} + x_{lo})}{0.05(x_{hi} - x_{lo})} \Big) \Big)
+
+where :math:`z` is based on the classical elemental composition:
+
+.. math::
+
+    z = ...
+
+
 
 Initial solution
 ^^^^^^^^^^^^^^^^^^^^^
 
-Initial transient
+Numerical scheme
 ^^^^^^^^^^^^^^^^^^^^^
+
+The NUMERICS CONTROL block can be modified by the user to increase the number of SDC iterations.
+
+
+Initialization and transient phase
+----------------------------------
 
 Refinement of the computation
 -----------------------------
