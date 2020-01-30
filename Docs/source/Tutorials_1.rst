@@ -57,7 +57,7 @@ As explained in section :ref:`sec:QUICKSTART`, `PeleLM` relies on a number of su
 - `IAMR` is a parallel, adaptive mesh refinement (AMR) code that solves the variable-density incompressible Navier-Stokes equations.
 - `PelePhysics` is a repository of physics databases and implementation code. In particular, the choice of chemistry and transport models as well as associated functions and capabilities are managed in `PelePhysics`.
 
-All of these codes have their own development cycle, and it can make the setup of a `PeleLM` run a bit tricky. i
+All of these codes have their own development cycle, and it can make the setup of a `PeleLM` run a bit tricky.
 To simplify the process, `PeleProduction` will be employed. `PeleProduction` is a collection of run folders for 
 various `Pele` codes and processing. It includes git submodules for the dependent codes 
 (such as `PeleLM`, `PelePhysics`, `AMReX`, etc), that can be frozen to a particular commit. 
@@ -69,9 +69,9 @@ Numerical setup
 
 Test case
 ^^^^^^^^^^^^^^^^^^^^^
-Direct Numerical Simulations (DNS) are performed on a 2x4:math:`cm^2` 2D computational domain 
+Direct Numerical Simulations (DNS) are performed on a 2x4 :math:`cm^2` 2D computational domain 
 using a 64x128 base grid and 4 levels of refinement. The refinement ratio is set to 2, corresponding to 
-a minimum grid size inside the reaction layer just below 20:math:`μm`. 
+a minimum grid size inside the reaction layer just below 20 :math:`μm`. 
 The maximum box size is fixed at 32, and the base grid is composed of 8 boxes, 
 as shown in Fig :numref:`fig:NumSetup`.
 The edge flame is stabilized against an incoming mixing layer with a uniform velocity profile. The mixing
@@ -79,7 +79,7 @@ layer is prescribed using an hyperbolic tangent of mixture fraction :math:`z` be
 
 .. math::
 
-    z(x) = 0.5(1 + tanh(\frac{x - 0.6(x_{hi} + x_{lo})}{0.05(x_{hi} - x_{lo})}))
+    z(x) = 0.5 \Big(1 + tanh \Big( \frac{x - 0.6(x_{hi} + x_{lo})}{0.05(x_{hi} - x_{lo})} \Big) \Big)
 
 where :math:`z` is based on the classical elemental composition:
 
@@ -90,7 +90,7 @@ where :math:`z` is based on the classical elemental composition:
 Fig :numref:`fig:NumSetup` 
 
 .. |b| image:: ./Visualization/SetupSketch.png
-     :width: 50%
+     :width: 100%
 
 .. _fig:NumSetup:
 
