@@ -3,20 +3,8 @@
 
 .. _sec:tutorial5:
 
-Tutorials - Jets
+Tutorial - DME Jet Flame
 ========================
 
-DME Jet Flame
----------------
-
 Typical Dalakoti setup
-
-Axisymetric Jet Flame
-----------------------------------
-
-Typical Michela setup
-
-
-
-
 

@@ -3,10 +3,8 @@
 
 .. _sec:tutorial1:
 
-Tutorial: A simple triple flame
+Tutorial - A simple triple flame
 ===============================
-
-This sections includes several tutorials - TODO
 
 .. _sec:TUTO1::Intro:
 

@@ -3,7 +3,7 @@
 
 .. _sec:tutorial2:
 
-Tutorials - Flame In A Box
+Tutorial - Flame In A Box
 ==========================
 
 This sections includes several tutorials - TODO
