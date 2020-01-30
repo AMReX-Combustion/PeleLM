@@ -1,5 +1,4 @@
-.. role:: cpp(code)
-   :language: c++
+.. highlight:: rst
 
 .. _sec:tutorial1:
 
