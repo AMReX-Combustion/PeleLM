@@ -58,9 +58,7 @@ As explained in section :ref:`sec:QUICKSTART`, `PeleLM` relies on a number of su
 - `PelePhysics` is a repository of physics databases and implementation code. In particular, the choice of chemistry and transport models as well as associated functions and capabilities are managed in `PelePhysics`.
 
 All of these codes have their own development cycle, and it can make the setup of a `PeleLM` run a bit tricky.
-To simplify the process, `PeleProduction <https://github.com/AMReX-Combustion/PeleProduction>`_. 
- will be employed. `PeleProduction` is a collection of run folders for 
-various `Pele` codes and processing. It includes git submodules for the dependent codes 
+To simplify the process, `PeleProduction <https://github.com/AMReX-Combustion/PeleProduction>`_ will be employed. `PeleProduction` is a collection of run folders for various `Pele` codes and processing. It includes git submodules for the dependent codes 
 (such as `PeleLM`, `PelePhysics`, `AMReX`, etc), that can be frozen to a particular commit. 
 This organizational strategy enables to manage the interactions between the various dependent repositories 
 (to keep them all compatible with each other).
@@ -73,9 +71,10 @@ Then, follow these few steps to setup your run environment:
 1. Download the `PeleProduction` repository and : ::
 
    git clone https://github.com/AMReX-Combustion/PeleProduction.git
+   
    cd PeleProduction
 
-2. Switch to the TripleFlame branch: ::
+2. Switch to the TripleFlame branch : ::
 
    git checkout -b Tutorial_TripleFlame remotes/origin/Tutorial_TripleFlame
 
