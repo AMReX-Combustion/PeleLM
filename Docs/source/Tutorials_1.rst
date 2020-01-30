@@ -156,7 +156,7 @@ Inflow specification
 ^^^^^^^^^^^^^^^^^^^^^
 
 The edge flame is stabilized against an incoming mixing layer with a uniform velocity profile. The mixing
-layer is prescribed using an hyperbolic tangent of mixture fraction :math:`z` between 0 and 1:
+layer is prescribed using an hyperbolic tangent of mixture fraction :math:`z` between 0 and 1, as can be seen in Fig :numref:`fig:NumSetup`:
 
 .. math::
 
@@ -167,6 +167,19 @@ where :math:`z` is based on the classical elemental composition:
 .. math::
 
     z = ...
+
+Specifying dirichlet ``Inflow`` conditions in `PeleLM` can seem daunting at first. But it is actually a very flexible process. We walk the user through the details of it for the Triple Flame case just described. The files involved are:
+
+- ``probdata.F90``, where the input variables (``*_in`` and ``*_bc``) are defined (they are part of the ``probdata_module`` module)
+- ``Prob_nd.F90``, where these input variables are filled -- only once at the beginning of the program:
+
+  - ``*_in`` are filled based on what is defined under the ``&fortin`` namelist in the ``probin.2d.test``
+  - ``*_bc`` are filled in the routine ``setupbc()``. They are usually a function of the ``*_in`` variables. In our case, a simple copy for the velocity and temperature.
+  
+- ``user_defined_fcts_nd.F90``, where the ``*_bc`` variables are used in the routine ``bcfunction()`` which is called every time step to prescribe the dirichlet inflow conditions.
+
+Note that in our specific case, we compute the input value of the mass fractions (Y) *directly* in ``bcfunction()``, using the ``probdata_module`` variable ``H2_enrich``. We do not need any additional information, because we hard coded the hyperbolic tangent profile of :math:`z` (see previous formula) and there is a direct relation with the mass fraction profiles. The interested reader can look at the function ``set_Y_from_Ksi`` and ``set_Y_from_Phi`` in ``user_defined_fcts_nd.F90``.
+
 
 Initial solution
 ^^^^^^^^^^^^^^^^^^^^^
