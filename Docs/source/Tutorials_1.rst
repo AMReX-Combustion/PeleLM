@@ -95,6 +95,8 @@ And follow the next steps !
 Numerical setup
 -----------------------
 
+In this section we review the content of the various input files for the Triple Flame test case. To get additional information about the keywords discussed, the user is referred to section :ref:`sec:control`.
+
 Test case and boundary conditions
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Direct Numerical Simulations (DNS) are performed on a 2x4 :math:`cm^2` 2D computational domain 
@@ -102,6 +104,7 @@ using a 64x128 base grid and up to 4 levels of refinement (although we will star
 The refinement ratio between each level is set to 2. With 4 levels, this means that the minimum grid size inside the reaction layer will be just below 20 :math:`μm`. 
 The maximum box size is fixed at 32, and the base (level 0) grid is composed of 8 boxes, 
 as shown in Fig :numref:`fig:NumSetup`.
+
 Symmetric boundary conditions are used in the transversal (:math:`x`) direction, while ``Inflow`` (dirichlet) and ``Outflow`` (neumann) boundary conditions are used in the main flow direction (:math:`y`). The flow goes from the bottom to the top of the domain. The specificities of the ``Inflow`` boundary condition are explained in subsection :ref:`sec:TUTO1::InflowSpec`
 
 .. |b| image:: ./Visualization/SetupSketch.png
@@ -165,16 +168,13 @@ where :math:`z` is based on the classical elemental composition:
 
     z = ...
 
-
-
 Initial solution
 ^^^^^^^^^^^^^^^^^^^^^
 
 Numerical scheme
 ^^^^^^^^^^^^^^^^^^^^^
 
-The NUMERICS CONTROL block can be modified by the user to increase the number of SDC iterations.
-
+The ``NUMERICS CONTROL`` block can be modified by the user to increase the number of SDC iterations. Note that there are many other parameters controlling the numerical algorithm that the advanced user can tweak, but we will not talk about them in the present Tutorial. The interested user can refer to section :ref:`sec:control:pelelm`.
 
 Initialization and transient phase
 ----------------------------------
