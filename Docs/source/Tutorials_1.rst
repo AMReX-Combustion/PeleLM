@@ -70,13 +70,13 @@ Then, follow these few steps to setup your run environment:
 
 1. Download the `PeleProduction` repository and : ::
 
-   git clone https://github.com/AMReX-Combustion/PeleProduction.git
-   
-   cd PeleProduction
+   git clone https://github.com/AMReX-Combustion/PeleProduction.git 
+
+   cd PeleProduction 
 
 2. Switch to the TripleFlame branch : ::
 
-   git checkout -b Tutorial_TripleFlame remotes/origin/Tutorial_TripleFlame
+   git checkout -b Tutorial_TripleFlame remotes/origin/Tutorial_TripleFlame 
 
 Note that all remote branches correspond to a specific test case. You can get the list via : ::
 
@@ -84,7 +84,7 @@ Note that all remote branches correspond to a specific test case. You can get th
 
 3. The first time you do this, you will need to tell git that there are submodules. Git will look at the ``.gitmodules`` file in this branch and use that : ::
 
-   git submodule int
+   git submodule int 
 
 4. Finally, get the correct commits of the sub-repos set up for this branch: ::
 
