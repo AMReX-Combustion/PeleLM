@@ -166,7 +166,7 @@ where :math:`z` is based on the classical elemental composition [CF1990]_:
 
 .. math::
 
-    z =  \frac{\beta - \beta_{ox}}{\beta_{fu} - \beta_{ox}}}
+    z =  \frac{\beta - \beta_{ox}}{\beta_{fu} - \beta_{ox}}
     
 where :math:`\beta` is Bilger's coupling function, and subscript :math:`ox` and :math:`fu` correspond to oxidizer and fuel streams respectively.
 
@@ -185,6 +185,23 @@ Note that in our specific case, we compute the input value of the mass fractions
 
 Initial solution
 ^^^^^^^^^^^^^^^^^^^^^
+
+An initial field of the main variables is always required to start a simulation. Ideally, you want for this initial solution to approximate the final steady-state solution as much as possible. This will speed up the initial transient and avoid many convergence issues. In the present tutorial, an initial solution is constructed by imposing the same inlet hyperbolic tangent of mixture fraction than described in subsection :ref:`sec:TUTO1::InflowSpec` everywhere in the domain; and reconstructing the mass fraction profiles. To ensure ignition of the mixture, a progressively widening Gaussian profile of temperature is added, starting from about 1 cm, and stretching until the outlet of the domain. The initial temperature field is shown in Fig :numref:`fig:InitialSol`, along with the parameters controlling the shape of the hot spot. 
+
+.. |c| image:: ./Visualization/InitialSol.001.png
+     :width: 100%
+
+.. _fig:InitialSol:
+
+.. table:: Initial temperature field (left) as well as widening gaussian 1D y-profiles (right) and associated parameters. The initial solution contains 2 levels.
+     :align: center
+
+     +-----+
+     | |c| |
+     +-----+
+
+This initial solution is constructed via the routine ``init_data()``, in the file ``Prob_nd.F90``. Additional information are provided as comments, for the eager reader, but nothing is required from the user at this point.
+
 
 Numerical scheme
 ^^^^^^^^^^^^^^^^^^^^^
