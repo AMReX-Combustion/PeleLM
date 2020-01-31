@@ -289,27 +289,35 @@ You finally have all the information necessary to run the first of several steps
 
     ./PeleLM2d.gnu.MPI.ex input.2d-regt
 
-A lot of information is printed on the screen during a `PeleLM` simulation, but it will not be detailed in the present tutorial. If you which to store these information for later analysis, you can instead use: ::
+A lot of information is printed directly on the screen during a `PeleLM` simulation, but it will not be detailed in the present tutorial. If you which to store these information for later analysis, you can instead use: ::
 
     ./PeleLM2d.gnu.MPI.ex input.2d-regt > logCheckInitialSolution.dat &
     
 Whether you have used one or the other command, within 30 s you should obtain a ``plt_00000`` and a ``plt_00001`` files (or even more, appended with .old*********** if you used both commands). Use `Amrvis <https://amrex-codes.github.io/amrex/docs_html/Visualization.html>`_ to vizualize ``plt_00000`` and make sure the solution matches the one shown in Fig. :numref:`fig:InitialSol`.
 
-As mentioned above, the initial solution is relatively far from the steady-state triple flame we wish to obtain. An inexpensive and rapid way to transition from the initial solution to an established triple flame is to perform a coarse (using only 2 AMR levels) simulation using a single SDC iteration during 2000 time steps. To do so, update (or verify) the ``input.2d-regt``: ::
+As mentioned above, the initial solution is relatively far from the steady-state triple flame we wish to obtain. An inexpensive and rapid way to transition from the initial solution to an established triple flame is to perform a coarse (using only 2 AMR levels) simulation using a single SDC iteration for a few initial number of time steps (here we start with 2000). To do so, update (or verify !) these associated keywords in the ``input.2d-regt``: ::
 
+    #-------------------------AMR CONTROL----------------------------
+    ...
     amr.max_level     = 1             # maximum level number allowed
+    ...
+    #----------------------TIME STEPING CONTROL----------------------
+    ...
     max_step          = 2000          # maximum number of time steps
+    ...
+    #--------------------NUMERICS CONTROL------------------------
+    ...
     ns.sdc_iterMAX    = 1             # Number of SDC iterations
 
-In order to continue this simulation, we need to trigger the generation of checkpoint: ::
+In order to later on continue the simulation with refined parameters, we need to trigger the generation of a checkpoint file, in the ``IO CONTROL`` block: ::
 
     amr.checkpoint_files_output = 1   # Dump check file ? 0: no, 1: yes
    
-To be able to complete this simulation relatively rapidly, it is advised to run `PeleLM` using at least 4 MPI processes. It will still take a couple of hours to reach completion. To be able to monitor the simulation while it is running, use the following: ::
+To be able to complete this first step relatively quickly, it is advised to run `PeleLM` using at least 4 MPI processes. It will then take a couple of hours to reach completion. To be able to monitor the simulation while it is running, use the following command: ::
 
     mpirun -n 4 ./PeleLM2d.gnu.MPI.ex input.2d-regt > logCheckInitialTransient.dat &
 
-A plotfile is generated every 20 time steps, and will allow you to vizualize the evolution of the flame. Use the following command to open multiple plotfiles at once with `Amrvis <https://amrex-codes.github.io/amrex/docs_html/Visualization.html>`_: ::
+A plotfile is generated every 20 time steps (as specified via the ``amr.plot_int`` keyword in the ``IO CONTROL`` block). This will allow you to vizualize and monitor the evolution of the flame. Use the following command to open multiple plotfiles at once with `Amrvis <https://amrex-codes.github.io/amrex/docs_html/Visualization.html>`_: ::
 
     amrvis -a plt????0
     
