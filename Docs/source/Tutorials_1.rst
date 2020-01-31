@@ -186,7 +186,7 @@ Note that in our specific case, we compute the input value of the mass fractions
 Initial solution
 ^^^^^^^^^^^^^^^^^^^^^
 
-An initial field of the main variables is always required to start a simulation. Ideally, you want for this initial solution to approximate the final steady-state solution as much as possible. This will speed up the initial transient and avoid many convergence issues. In the present tutorial, an initial solution is constructed by imposing the same inlet hyperbolic tangent of mixture fraction than described in subsection :ref:`sec:TUTO1::InflowSpec` everywhere in the domain; and reconstructing the mass fraction profiles. To ensure ignition of the mixture, a progressively widening Gaussian profile of temperature is added, starting from about 1 cm, and stretching until the outlet of the domain. The initial temperature field is shown in Fig :numref:`fig:InitialSol`, along with the parameters controlling the shape of the hot spot. 
+An initial field of the main variables is always required to start a simulation. Ideally, you want for this initial solution to approximate the final (steady-state in our case) solution as much as possible. This will speed up the initial transient and avoid many convergence issues. In the present tutorial, an initial solution is constructed by imposing the same inlet hyperbolic tangent of mixture fraction than described in subsection :ref:`sec:TUTO1::InflowSpec` everywhere in the domain; and reconstructing the species mass fraction profiles from it. To ensure ignition of the mixture, a progressively widening Gaussian profile of temperature is added, starting from about 1 cm, and stretching until the outlet of the domain. The initial temperature field is shown in Fig :numref:`fig:InitialSol`, along with the parameters controlling the shape of the hot spot. 
 
 .. |c| image:: ./Visualization/InitialSol.001.png
      :width: 100%
@@ -200,7 +200,7 @@ An initial field of the main variables is always required to start a simulation.
      | |c| |
      +-----+
 
-This initial solution is constructed via the routine ``init_data()``, in the file ``Prob_nd.F90``. Additional information are provided as comments, for the eager reader, but nothing is required from the user at this point.
+This initial solution is constructed via the routine ``init_data()``, in the file ``Prob_nd.F90``. Additional information is provided as comments in this file for the eager reader, but nothing is required from the user at this point.
 
 
 Numerical scheme
@@ -208,13 +208,16 @@ Numerical scheme
 
 The ``NUMERICS CONTROL`` block can be modified by the user to increase the number of SDC iterations. Note that there are many other parameters controlling the numerical algorithm that the advanced user can tweak, but we will not talk about them in the present Tutorial. The interested user can refer to section :ref:`sec:control:pelelm`.
 
+
 Initial transient phase
 ----------------------------------
 
 Build the executable
 ^^^^^^^^^^^^^^^^^^^^^
 
-The last necessary step before starting the simulation consists of building the PeleLM executable. AMReX applications use a makefile system to ensure that all the required source code from the dependent libraries is properly compiled and linked. The ``GNUmakefile`` provide some compile-time options regarding the simulation we want to perform. The first four lines of the file specifies the path toward the source code of `PeleLM`, `AMReX`, `IAMR` and `PelePhysics` and should not be changed. The build configuration bloc: ::
+The last necessary step before starting the simulation consists of building the PeleLM executable. AMReX applications use a makefile system to ensure that all the required source code from the dependent libraries be properly compiled and linked. The ``GNUmakefile`` provides some compile-time options regarding the simulation we want to perform. The first four lines of the file specify the paths towards the source code of `PeleLM`, `AMReX`, `IAMR` and `PelePhysics` and should not be changed. 
+
+Next comes the build configuration bloc: ::
 
    #
    # Build configuration
@@ -228,25 +231,25 @@ The last necessary step before starting the simulation consists of building the 
    VERBOSE         = FALSE
    TINY_PROFILE    = FALSE
 
-allows to specify the number of spatial dimensions (2D), the compiler (gnu) and the parallelism paradigm (in the present case only MPI is used). The other options can be activated for debugging and profiling the code.
+It allows to specify the number of spatial dimensions (2D), the compiler (``gnu``) and the parallelism paradigm (in the present case only MPI is used). The other options can be activated for debugging and profiling purposes.
 
 In `PeleLM`, the chemistry model (set of species, their thermodynamic and transport properties as well as the description of their of chemical interactions) is specified at compile time. Chemistry models available in `PelePhysics` can used in `PeleLM` by specifying their denomination: ::
 
    Chemistry_Model = drm19
    
-Here, the methane kinetic model ``drm19``, containing 21 species is employed. The user is referred to the `PelePhysics <https://pelephysics.readthedocs.io/en/latest/>`_ documentation for a list of available mechanisms and more information regarding the EOS, reactions and transport models specified: ::
+Here, the methane kinetic model ``drm19``, containing 21 species is employed. The user is referred to the `PelePhysics <https://pelephysics.readthedocs.io/en/latest/>`_ documentation for a list of available mechanisms and more information regarding the EOS, chemistry and transport models specified: ::
 
     Eos_dir       := Fuego
     Reactions_dir := Fuego
     Transport_dir := EGLib
 
-Finally, the default chemical kinetic ODE integrator employed in `PeleLM` is DVODE. To use to a more efficient ODE integrator, the user can (not mandatory) activate the use of `CVODE <https://computing.llnl.gov/projects/sundials/cvode>`_ by switiching the ``USE_SUNDIALS_PP`` flag to ``TRUE``. The user will be required to follow the instructions provided in the `PelePhysics documentation <https://pelephysics.readthedocs.io/en/latest/GettingStarted.html#sec-getcvode>`_ in order to install CVODE.
+Note finally that in this case, the default chemical kinetic ODE integrator employed in `PeleLM` is selected (DVODE). To switch to a more efficient ODE integrator, the user can (not mandatory) activate the use of `CVODE <https://computing.llnl.gov/projects/sundials/cvode>`_ by switiching the ``USE_SUNDIALS_PP`` flag to ``TRUE``. The user will be required to follow the instructions provided in the `PelePhysics documentation <https://pelephysics.readthedocs.io/en/latest/GettingStarted.html#sec-getcvode>`_ in order to install CVODE and necessary librairies.
 
-You are now ready to build `PeleLM` using: ::
+You are now ready to build your first `PeleLM` executable !! Type in: ::
 
     make -j4
 
-which uses 4 processors to create the executable. This step should generate the following file (providing that the build configuration you used match the one above): ::
+to use 4 processors to create the executable. This step should generate the following file (providing that the build configuration you used matches the one above): ::
 
     PeleLM2d.gnu.MPI.ex
 
