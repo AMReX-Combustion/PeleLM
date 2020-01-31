@@ -52,7 +52,7 @@ PeleProduction
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 As explained in section :ref:`sec:QUICKSTART`, `PeleLM` relies on a number of supporting softwares: 
 
-- `AMREX` is a software frameworks that provides the data structure and enable massive parallelization.
+- `AMReX` is a software frameworks that provides the data structure and enable massive parallelization.
 - `IAMR` is a parallel, adaptive mesh refinement (AMR) code that solves the variable-density incompressible Navier-Stokes equations.
 - `PelePhysics` is a repository of physics databases and implementation code. In particular, the choice of chemistry and transport models as well as associated functions and capabilities are managed in `PelePhysics`.
 
@@ -196,6 +196,47 @@ Initial transient phase
 
 Build the executable
 ^^^^^^^^^^^^^^^^^^^^^
+
+The last necessary step before starting the simulation consists of building the PeleLM executable. AMReX applications use a makefile system to ensure that all the required source code from the dependent libraries is properly compiled and linked. The ``GNUmakefile`` provide some compile-time options regarding the simulation we want to perform. The first four lines of the file specifies the path toward the source code of `PeleLM`, `AMReX`, `IAMR` and `PelePhysics` and should not be changed. The build configuration bloc: ::
+
+   #
+   # Build configuration
+   #
+   DIM             = 2
+   COMP            = gnu
+   DEBUG           = FALSE
+   USE_MPI         = TRUE
+   USE_OMP         = FALSE
+   PRECISION       = DOUBLE
+   VERBOSE         = FALSE
+   TINY_PROFILE    = FALSE
+
+allows to specify the number of spatial dimensions (2D), the compiler (gnu) and the parallelism paradigm (in the present case only MPI is used). The other options can be activated for debugging and profiling the code.
+
+In `PeleLM`, the chemistry model (set of species, their thermodynamic and transport properties as well as the description of their of chemical interactions) is specified at compile time. Chemistry models available in `PelePhysics` can used in `PeleLM` by specifying their denomination: ::
+
+   Chemistry_Model = drm19
+   
+Here, the methane kinetic model ``drm19``, containing 21 species is employed. The user is referred to the `PelePhysics <https://pelephysics.readthedocs.io/en/latest/>`_ documentation for a list of available mechanisms and more information regarding the EOS, reactions and transport models specified: ::
+
+    Eos_dir       := Fuego
+    Reactions_dir := Fuego
+    Transport_dir := EGLib
+
+Finally, the default chemical kinetic ODE integrator employed in `PeleLM` is DVODE. To use to a more efficient ODE integrator, the user can (not mandatory) activate the use of `CVODE <https://computing.llnl.gov/projects/sundials/cvode>`_ by switiching the ``USE_SUNDIALS_PP`` flag to ``TRUE``. The user will be required to follow the instructions provided in the `PelePhysics documentation <https://pelephysics.readthedocs.io/en/latest/GettingStarted.html#sec-getcvode>`_ in order to install CVODE.
+
+You are now ready to build `PeleLM` using: ::
+
+    make -j4
+
+which uses 4 processors to create the executable. This step should generate the following file (providing that the build configuration you used match the one above): ::
+
+    PeleLM2d.gnu.MPI.ex
+
+You're good to go !
+
+Initial transient 
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Refinement of the computation
 -----------------------------
