@@ -79,7 +79,7 @@ Then, follow these few steps to setup your run environment:
 
 3. The first time you do this, you will need to tell git that there are submodules. Git will look at the ``.gitmodules`` file in this branch and use that : ::
 
-    git submodule int 
+    git submodule init 
 
 4. Finally, get the correct commits of the sub-repos set up for this branch: ::
 
@@ -105,7 +105,7 @@ The refinement ratio between each level is set to 2. With 4 levels, this means t
 The maximum box size is fixed at 32, and the base (level 0) grid is composed of 8 boxes, 
 as shown in Fig :numref:`fig:NumSetup`.
 
-Symmetric boundary conditions are used in the transversal (:math:`x`) direction, while ``Inflow`` (dirichlet) and ``Outflow`` (neumann) boundary conditions are used in the main flow direction (:math:`y`). The flow goes from the bottom to the top of the domain. The specificities of the ``Inflow`` boundary condition are explained in subsection :ref:`sec:TUTO1::InflowSpec`
+Symmetric boundary conditions are used in the transverse (:math:`x`) direction, while ``Inflow`` (dirichlet) and ``Outflow`` (neumann) boundary conditions are used in the main flow direction (:math:`y`). The flow goes from the bottom to the top of the domain. The specificities of the ``Inflow`` boundary condition are explained in subsection :ref:`sec:TUTO1::InflowSpec`
 
 .. |b| image:: ./Visualization/SetupSketch.png
      :width: 100%
@@ -119,7 +119,7 @@ Symmetric boundary conditions are used in the transversal (:math:`x`) direction,
      | |b| |
      +-----+
 
-The geometrical problem is specified in the first block of the ``inputs.2d-regt``: ::
+The geometry of the problem is specified in the first block of the ``inputs.2d-regt``: ::
 
    #----------------------DOMAIN DEFINITION------------------------                                                                        
    geometry.is_periodic = 0 0       # Periodicity in each direction: 0 => no, 1 => yes
@@ -135,7 +135,7 @@ The second block determines the boundary conditions. Refer to Fig :numref:`fig:N
    peleLM.lo_bc = Symmetry  Inflow
    peleLM.hi_bc = Symmetry  Outflow
 
-The number of levels, refinement ratio, maximium grid size as well as other related refinement parameters are set under the third block  : ::
+The number of levels, refinement ratio between levels, maximium grid size as well as other related refinement parameters are set under the third block  : ::
 
    #-------------------------AMR CONTROL----------------------------
    amr.n_cell          = 64 128     # Level 0 number of cells in each direction
@@ -217,7 +217,7 @@ Build the executable
 
 The last necessary step before starting the simulation consists of building the PeleLM executable. AMReX applications use a makefile system to ensure that all the required source code from the dependent libraries be properly compiled and linked. The ``GNUmakefile`` provides some compile-time options regarding the simulation we want to perform. The first four lines of the file specify the paths towards the source code of `PeleLM`, `AMReX`, `IAMR` and `PelePhysics` and should not be changed. 
 
-Next comes the build configuration bloc: ::
+Next comes the build configuration block: ::
 
    #
    # Build configuration
@@ -231,9 +231,9 @@ Next comes the build configuration bloc: ::
    VERBOSE         = FALSE
    TINY_PROFILE    = FALSE
 
-It allows to specify the number of spatial dimensions (2D), the compiler (``gnu``) and the parallelism paradigm (in the present case only MPI is used). The other options can be activated for debugging and profiling purposes.
+It allows the user to specify the number of spatial dimensions (2D), the compiler (``gnu``) and the parallelism paradigm (in the present case only MPI is used). The other options can be activated for debugging and profiling purposes.
 
-In `PeleLM`, the chemistry model (set of species, their thermodynamic and transport properties as well as the description of their of chemical interactions) is specified at compile time. Chemistry models available in `PelePhysics` can used in `PeleLM` by specifying their denomination: ::
+In `PeleLM`, the chemistry model (set of species, their thermodynamic and transport properties as well as the description of their of chemical interactions) is specified at compile time. Chemistry models available in `PelePhysics` can used in `PeleLM` by specifying the name of the folder in `PelePhysics/Support/Fuego/Mechanisms/Models` containing the relevant files, for example: ::
 
    Chemistry_Model = drm19
    
@@ -249,7 +249,7 @@ You are now ready to build your first `PeleLM` executable !! Type in: ::
 
     make -j4
 
-to use 4 processors to create the executable. This step should generate the following file (providing that the build configuration you used matches the one above): ::
+The option here tells `make` to use up to 4 processors to create the executable (internally, `make` follows a dependency graph to ensure any required ordering in the build is satisfied). This step should generate the following file (providing that the build configuration you used matches the one above): ::
 
     PeleLM2d.gnu.MPI.ex
 
