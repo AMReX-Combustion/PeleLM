@@ -166,7 +166,7 @@ where :math:`z` is based on the classical elemental composition [CF1990]_:
 
 .. math::
 
-    z =  \frac{\beta - \beta_{ox}}{\beta_{fu} - \beta_{ox}}}
+    z =  \frac{\beta - \beta_{ox}}{\beta_{fu} - \beta_{ox}}
     
 where :math:`\beta` is Bilger's coupling function, and subscript :math:`ox` and :math:`fu` correspond to oxidizer and fuel streams respectively.
 
@@ -185,6 +185,18 @@ Note that in our specific case, we compute the input value of the mass fractions
 
 Initial solution
 ^^^^^^^^^^^^^^^^^^^^^
+
+.. |c| image:: ./Visualization/InitialSol.001.png
+     :width: 100%
+
+.. _fig:NumSetup:
+
+.. table:: Initial temperature field (left) as well as widening gaussian 1D y-profiles (right) and associated parameters. The initial solution contains 2 levels.
+     :align: center
+
+     +-----+
+     | |c| |
+     +-----+
 
 Numerical scheme
 ^^^^^^^^^^^^^^^^^^^^^
