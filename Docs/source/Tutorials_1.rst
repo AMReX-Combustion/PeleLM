@@ -209,11 +209,8 @@ Numerical scheme
 The ``NUMERICS CONTROL`` block can be modified by the user to increase the number of SDC iterations. Note that there are many other parameters controlling the numerical algorithm that the advanced user can tweak, but we will not talk about them in the present Tutorial. The interested user can refer to section :ref:`sec:control:pelelm`.
 
 
-Initial transient phase
+Building the executable
 ----------------------------------
-
-Build the executable
-^^^^^^^^^^^^^^^^^^^^^
 
 The last necessary step before starting the simulation consists of building the PeleLM executable. AMReX applications use a makefile system to ensure that all the required source code from the dependent libraries be properly compiled and linked. The ``GNUmakefile`` provides some compile-time options regarding the simulation we want to perform. The first four lines of the file specify the paths towards the source code of `PeleLM`, `AMReX`, `IAMR` and `PelePhysics` and should not be changed. 
 
@@ -255,8 +252,49 @@ The option here tells `make` to use up to 4 processors to create the executable 
 
 You're good to go !
 
-Initial transient 
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Initial transient phase
+----------------------------------
+
+When performing time-dependent numerical simulations, it is good practice to verify the initial solution. To do so, we will run `PeleLM` for a single time step, to generate an initial plotfile ``plt_00000``. 
+
+Time-stepping parameters in ``input.2d-regt`` are specified in the ``TIME STEPING CONTROL`` block: ::
+
+    #----------------------TIME STEPING CONTROL----------------------
+    max_step       = 1               # maximum number of time steps
+    stop_time      = 4.00            # final physical time
+    ns.cfl         = 0.1             # cfl number for hyperbolic system
+    ns.init_shrink = 0.01            # scale back initial timestep
+    ns.change_max  = 1.1             # max timestep size increase
+    ns.dt_cutoff   = 5.e-10          # level 0 timestep below which we halt
+
+The maximum number of time steps is set to 1 for now, while the final simulation time is 4.0 s. Note that, when both ``max_step`` and ``stop_time`` are specified, the more stringent constraint will control the termination of the simulation. `PeleLM` solves for the advection, diffusion and reaction processes in time, but only the advection term is treated explicitly and thus it constrains the maximum time step size :math:`dt_{CFL}`. This constraint is formulated with a classical Courant-Friedrich-Levy (CFL) number, specified via the keyword ``ns.cfl``. Additionally, as it is the case here, the initial solution is often made-up by the user and local mixture composition and temperature can result in the introduction of unreasonably fast chemical scales. To ease the numerical integration of this initial transient, the parameter ``ns.init_shrink`` allows to shrink the inital `dt` (evaluated from the CFL constraint) by a factor (usually smaller than 1), and let it relax towards :math:`dt_{CFL}`at a rate given by ``ns.change_max``.
+
+Input/output from `PeleLM` are specified in the ``IO CONTROL`` block: ::
+
+    #-------------------------IO CONTROL----------------------------
+    #amr.restart           = chk02000 # Restart from checkpoint ?
+    #amr.regrid_on_restart = 1        # Perform regriding upon restart ?
+    amr.checkpoint_files_output = 0   # Dump check file ? 0: no, 1: yes
+    amr.check_file      = chk         # root name of checkpoint file
+    amr.check_int       = 100         # number of timesteps between checkpoints
+    amr.plot_file       = plt         # root name of plotfiles   
+    amr.plot_int        = 20          # number of timesteps between plotfiles
+    amr.derive_plot_vars=rhoRT mag_vort avg_pressure gradpx gradpy diveru mass_fractions mixfrac
+    amr.grid_log        = grdlog      # name of grid logging file
+    amr.probin_file = probin.2d.test  # This will default to file "probin" if not set
+
+The first two lines (commented out for now) are only used when restarting a simulation from a `checkpoint` file and will be useful later during this tutorial. Information pertaining to the checkpoint and plot_file files name and output frequency can be specified there. `PeleLM` will always generate an initial plotfile ``plt_00000`` if the initialization is properly completed, and a final plotfile at the end of the simulation. It is possible to request including `derived variables` in the plotfiles by appending their names to the ``amr.derive_plot_vars`` keyword. These variables are derived from the `state variables` (velocity, density, temperature, :math:`\rho Y_k`, :math:`\rho h`) which are automatically included in the plotfile. Note also that the name of the ``probin`` file used to specify the initial/boundary conditions is defined here.
+
+You finally have all the information necessary to run the first of several steps to generate a steady triple flame. Type in: ::
+
+    ./PeleLM2d.gnu.MPI.ex input.2d-regt
+
+A lot of information is printed on the screen during a `PeleLM` simulation, but it will not be detailed in the present tutorial. If you which to store these information for later analysis, you can instead use: ::
+
+    ./PeleLM2d.gnu.MPI.ex input.2d-regt > logCheckInitialSolution.dat &
+    
+Whether you have used one or the other command, you should now have a ``plt_00000`` and a ``plt_00001`` files (or even more  appended with .old*********** if you used both commands). Use `Amrvis <https://amrex-codes.github.io/amrex/docs_html/Visualization.html>`_ to vizualize ``plt_00000`` and make sure the solution matches the one shown in Fig. :numref:`fig:InitialSol`
 
 Refinement of the computation
 -----------------------------
