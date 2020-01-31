@@ -252,7 +252,6 @@ The option here tells `make` to use up to 4 processors to create the executable 
 
 You're good to go !
 
-
 Initial transient phase
 ----------------------------------
 
@@ -268,7 +267,7 @@ Time-stepping parameters in ``input.2d-regt`` are specified in the ``TIME STEPIN
     ns.change_max  = 1.1             # max timestep size increase
     ns.dt_cutoff   = 5.e-10          # level 0 timestep below which we halt
 
-The maximum number of time steps is set to 1 for now, while the final simulation time is 4.0 s. Note that, when both ``max_step`` and ``stop_time`` are specified, the more stringent constraint will control the termination of the simulation. `PeleLM` solves for the advection, diffusion and reaction processes in time, but only the advection term is treated explicitly and thus it constrains the maximum time step size :math:`dt_{CFL}`. This constraint is formulated with a classical Courant-Friedrich-Levy (CFL) number, specified via the keyword ``ns.cfl``. Additionally, as it is the case here, the initial solution is often made-up by the user and local mixture composition and temperature can result in the introduction of unreasonably fast chemical scales. To ease the numerical integration of this initial transient, the parameter ``ns.init_shrink`` allows to shrink the inital `dt` (evaluated from the CFL constraint) by a factor (usually smaller than 1), and let it relax towards :math:`dt_{CFL}`at a rate given by ``ns.change_max``.
+The maximum number of time steps is set to 1 for now, while the final simulation time is 4.0 s. Note that, when both ``max_step`` and ``stop_time`` are specified, the more stringent constraint will control the termination of the simulation. `PeleLM` solves for the advection, diffusion and reaction processes in time, but only the advection term is treated explicitly and thus it constrains the maximum time step size :math:`dt_{CFL}`. This constraint is formulated with a classical Courant-Friedrich-Levy (CFL) number, specified via the keyword ``ns.cfl``. Additionally, as it is the case here, the initial solution is often made-up by the user and local mixture composition and temperature can result in the introduction of unreasonably fast chemical scales. To ease the numerical integration of this initial transient, the parameter ``ns.init_shrink`` allows to shrink the inital `dt` (evaluated from the CFL constraint) by a factor (usually smaller than 1), and let it relax towards :math:`dt_{CFL}`at a rate given by ``ns.change_max`` as the simulation proceeds.
 
 Input/output from `PeleLM` are specified in the ``IO CONTROL`` block: ::
 
@@ -294,7 +293,26 @@ A lot of information is printed on the screen during a `PeleLM` simulation, but 
 
     ./PeleLM2d.gnu.MPI.ex input.2d-regt > logCheckInitialSolution.dat &
     
-Whether you have used one or the other command, you should now have a ``plt_00000`` and a ``plt_00001`` files (or even more  appended with .old*********** if you used both commands). Use `Amrvis <https://amrex-codes.github.io/amrex/docs_html/Visualization.html>`_ to vizualize ``plt_00000`` and make sure the solution matches the one shown in Fig. :numref:`fig:InitialSol`
+Whether you have used one or the other command, within 30 s you should obtain a ``plt_00000`` and a ``plt_00001`` files (or even more, appended with .old*********** if you used both commands). Use `Amrvis <https://amrex-codes.github.io/amrex/docs_html/Visualization.html>`_ to vizualize ``plt_00000`` and make sure the solution matches the one shown in Fig. :numref:`fig:InitialSol`.
+
+As mentioned above, the initial solution is relatively far from the steady-state triple flame we wish to obtain. An inexpensive and rapid way to transition from the initial solution to an established triple flame is to perform a coarse (using only 2 AMR levels) simulation using a single SDC iteration during 2000 time steps. To do so, update (or verify) the ``input.2d-regt``: ::
+
+    amr.max_level     = 1             # maximum level number allowed
+    max_step          = 2000          # maximum number of time steps
+    ns.sdc_iterMAX    = 1             # Number of SDC iterations
+
+In order to continue this simulation, we need to trigger the generation of checkpoint: ::
+
+    amr.checkpoint_files_output = 1   # Dump check file ? 0: no, 1: yes
+   
+To be able to complete this simulation relatively rapidly, it is advised to run `PeleLM` using at least 4 MPI processes. It will still take a couple of hours to reach completion. To be able to monitor the simulation while it is running, use the following: ::
+
+    mpirun -n 4 ./PeleLM2d.gnu.MPI.ex input.2d-regt > logCheckInitialTransient.dat &
+
+A plotfile is generated every 20 time steps, and will allow you to vizualize the evolution of the flame. Use the following command to open multiple plotfiles at once with `Amrvis <https://amrex-codes.github.io/amrex/docs_html/Visualization.html>`_: ::
+
+    amrvis -a plt????0
+    
 
 Refinement of the computation
 -----------------------------
