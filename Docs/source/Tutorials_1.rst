@@ -166,9 +166,9 @@ where :math:`z` is based on the classical elemental composition [CF1990]_:
 
 .. math::
 
-    z =  \frac{\\Beta - \\Beta_{ox}}{\\Beta_{fu} - \\Beta_{ox}}}
+    z =  \frac{\beta - \beta_{ox}}{\beta_{fu} - \beta_{ox}}}
     
-where :math:`\\Beta` is Bilger's coupling function, and subscript :math:`ox` and :math:`fu` correspond to oxidizer and fuel streams respectively.
+where :math:`\beta` is Bilger's coupling function, and subscript :math:`ox` and :math:`fu` correspond to oxidizer and fuel streams respectively.
 
 Specifying dirichlet ``Inflow`` conditions in `PeleLM` can seem daunting at first. But it is actually a very flexible process. We walk the user through the details of it for the Triple Flame case just described. The files involved are:
 
