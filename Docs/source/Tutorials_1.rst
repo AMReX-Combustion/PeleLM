@@ -162,11 +162,13 @@ layer is prescribed using an hyperbolic tangent of mixture fraction :math:`z` be
 
     z(x) = 0.5 \Big(1 + tanh \Big( \frac{x - 0.6(x_{hi} + x_{lo})}{0.05(x_{hi} - x_{lo})} \Big) \Big)
 
-where :math:`z` is based on the classical elemental composition:
+where :math:`z` is based on the classical elemental composition [CF1990]_:
 
 .. math::
 
-    z = ...
+    z =  \frac{\Beta - \Beta_{ox}}{\Beta_{fu} - \Beta_{ox}}}
+    
+where :math:`\Beta` is Bilger's coupling function, and subscript :math:`ox` and :math:`\fu` correspond to oxidizer and fuel streams respectively.
 
 Specifying dirichlet ``Inflow`` conditions in `PeleLM` can seem daunting at first. But it is actually a very flexible process. We walk the user through the details of it for the Triple Flame case just described. The files involved are:
 
@@ -189,8 +191,11 @@ Numerical scheme
 
 The ``NUMERICS CONTROL`` block can be modified by the user to increase the number of SDC iterations. Note that there are many other parameters controlling the numerical algorithm that the advanced user can tweak, but we will not talk about them in the present Tutorial. The interested user can refer to section :ref:`sec:control:pelelm`.
 
-Initialization and transient phase
+Initial transient phase
 ----------------------------------
+
+Build the executable
+^^^^^^^^^^^^^^^^^^^^^
 
 Refinement of the computation
 -----------------------------
@@ -199,4 +204,5 @@ Analysis
 -----------------------
 
 .. [PCI2007] S. Chung, Stabilization, propagation and instability of tribrachial triple flames, Proceedings of the Combustion Institute 31 (2007) 877–892
+.. [CF1990] R. Bilger, S. Starner, R. Kee, On reduced mechanisms for methaneair combustion in nonpremixed flames, Combustion and Flames 80 (1990) 135-149
 
