@@ -255,6 +255,9 @@ You're good to go !
 Initial transient phase
 ----------------------------------
 
+First step: the initial solution
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
 When performing time-dependent numerical simulations, it is good practice to verify the initial solution. To do so, we will run `PeleLM` for a single time step, to generate an initial plotfile ``plt_00000``. 
 
 Time-stepping parameters in ``input.2d-regt`` are specified in the ``TIME STEPING CONTROL`` block: ::
@@ -295,6 +298,10 @@ A lot of information is printed directly on the screen during a `PeleLM` simulat
     
 Whether you have used one or the other command, within 30 s you should obtain a ``plt_00000`` and a ``plt_00001`` files (or even more, appended with .old*********** if you used both commands). Use `Amrvis <https://amrex-codes.github.io/amrex/docs_html/Visualization.html>`_ to vizualize ``plt_00000`` and make sure the solution matches the one shown in Fig. :numref:`fig:InitialSol`.
 
+
+Running the problem on a coarse grid
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
 As mentioned above, the initial solution is relatively far from the steady-state triple flame we wish to obtain. An inexpensive and rapid way to transition from the initial solution to an established triple flame is to perform a coarse (using only 2 AMR levels) simulation using a single SDC iteration for a few initial number of time steps (here we start with 2000). To do so, update (or verify !) these associated keywords in the ``input.2d-regt``: ::
 
     #-------------------------AMR CONTROL----------------------------
@@ -317,10 +324,59 @@ To be able to complete this first step relatively quickly, it is advised to run 
 
     mpirun -n 4 ./PeleLM2d.gnu.MPI.ex input.2d-regt > logCheckInitialTransient.dat &
 
-A plotfile is generated every 20 time steps (as specified via the ``amr.plot_int`` keyword in the ``IO CONTROL`` block). This will allow you to vizualize and monitor the evolution of the flame. Use the following command to open multiple plotfiles at once with `Amrvis <https://amrex-codes.github.io/amrex/docs_html/Visualization.html>`_: ::
+A plotfile is generated every 20 time steps (as specified via the ``amr.plot_int`` keyword in the ``IO CONTROL`` block). This will allow you to visualize and monitor the evolution of the flame. Use the following command to open multiple plotfiles at once with `Amrvis <https://amrex-codes.github.io/amrex/docs_html/Visualization.html>`_: ::
 
     amrvis -a plt????0
     
+An animation of the flame evolution during this initial transient is provided in Fig :numref:`fig:InitTransient`.
+
+.. |d| image:: ./Visualization/InitTransient.gif
+     :width: 100%
+
+.. _fig:InitTransient:
+
+.. table:: Temperature (left) and divu (right) fields from 0 to 2000 iterations (0-?? ms).
+     :align: center
+
+     +-----+
+     | |d| |
+     +-----+
+
+Steady-state problem: activating the flame control
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The speed of propagation of a triple flame is not easy to determine a-priori. As such it is useful, 
+at least until the flame settles, to have some sort of stabilization mechanism to prevent 
+flame blow-off or flashback. In the present configuration, the position of the flame front is tracked 
+at each time step (using an isoline of temperature) and the input velocity is adjusted to maintain 
+its location at a fixed distance from the inlet (1 cm in the present case). 
+
+This option is activated in the ``inputs.2d-regt`` file: ::
+
+    #---------------------PHYSICS CONTROL------------------------
+    ns.do_active_control_temp = 1               # Use control by temperature
+    ns.temp_control           = 1400.0          # Temperature threshold for control 
+
+The first keyword activates the active control, and the value of the isoline of temperature
+is chosen via the second one. The parameters controling the relaxation of the inlet velocity to
+the steady state velocity of the triple flame are specified in the ``&control`` namelist 
+in the ``probin.2d.test`` file. This block reads: ::
+
+    &control
+    tau_control = 10.0e-3
+    sest = .2
+    h_control = 0.0098
+    changeMax_control = .01 
+    controlVelMax = 2.0 
+    pseudo_gravity = 1 
+    /
+    
+``tau_control`` is a relaxation time-step, that should be of the order of the simulation time-step. 
+``h_control`` is the user-defined location where the triple flame should settle, and ``sest`` is an 
+estimation of the mean flame speed over the interval.
+The user is referred to [CAMCS2006]_ for an overview of the method and corresponding parameters.
+The ``pseudo_gravity`` tirggers a manufactured force to compensate for the acceleration of different
+density gases.
 
 Refinement of the computation
 -----------------------------
@@ -330,4 +386,5 @@ Analysis
 
 .. [PCI2007] S. Chung, Stabilization, propagation and instability of tribrachial triple flames, Proceedings of the Combustion Institute 31 (2007) 877–892
 .. [CF1990] R. Bilger, S. Starner, R. Kee, On reduced mechanisms for methane-air combustion in nonpremixed flames, Combustion and Flames 80 (1990) 135-149
+.. [CAMCS2006] J. Bell, M. Day, J. Grcar, M. Lijewski, Active Control for Statistically Stationary Turbulent PremixedFlame Simulations, Communications in Applied Mathematics and Computational Science 1 (2006) 29-51
 
