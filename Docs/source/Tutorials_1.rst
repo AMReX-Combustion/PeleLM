@@ -331,7 +331,7 @@ A plotfile is generated every 20 time steps (as specified via the ``amr.plot_int
 An animation of the flame evolution during this initial transient is provided in Fig :numref:`fig:InitTransient`.
 
 .. |d| image:: ./Visualization/InitTransient.gif
-     :width: 100%
+     :width: 60%
 
 .. _fig:InitTransient:
 
