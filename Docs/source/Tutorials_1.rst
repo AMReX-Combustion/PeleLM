@@ -79,6 +79,7 @@ Then, follow these few steps to setup your run environment:
 
 3. The first time you do this, you will need to tell git that there are submodules. Git will look at the ``.gitmodules`` file in this branch and use that : ::
 
+    cd Submodules
     git submodule init 
 
 4. Finally, get the correct commits of the sub-repos set up for this branch: ::
@@ -87,7 +88,7 @@ Then, follow these few steps to setup your run environment:
 
 You are now ready to build the ``TripleFlame`` case associated with this branch. To do so: ::
 
-   cd PeleLMruns/TripleFlame
+   cd ../PeleLMruns/TripleFlame
 
 And follow the next steps !
 
@@ -290,11 +291,11 @@ The first two lines (commented out for now) are only used when restarting a simu
 
 You finally have all the information necessary to run the first of several steps to generate a steady triple flame. Type in: ::
 
-    ./PeleLM2d.gnu.MPI.ex input.2d-regt
+    ./PeleLM2d.gnu.MPI.ex inputs.2d-regt
 
 A lot of information is printed directly on the screen during a `PeleLM` simulation, but it will not be detailed in the present tutorial. If you which to store these information for later analysis, you can instead use: ::
 
-    ./PeleLM2d.gnu.MPI.ex input.2d-regt > logCheckInitialSolution.dat &
+    ./PeleLM2d.gnu.MPI.ex inputs.2d-regt > logCheckInitialSolution.dat &
     
 Whether you have used one or the other command, within 30 s you should obtain a ``plt_00000`` and a ``plt_00001`` files (or even more, appended with .old*********** if you used both commands). Use `Amrvis <https://amrex-codes.github.io/amrex/docs_html/Visualization.html>`_ to vizualize ``plt_00000`` and make sure the solution matches the one shown in Fig. :numref:`fig:InitialSol`.
 
@@ -322,7 +323,7 @@ In order to later on continue the simulation with refined parameters, we need to
    
 To be able to complete this first step relatively quickly, it is advised to run `PeleLM` using at least 4 MPI processes. It will then take a couple of hours to reach completion. To be able to monitor the simulation while it is running, use the following command: ::
 
-    mpirun -n 4 ./PeleLM2d.gnu.MPI.ex input.2d-regt > logCheckInitialTransient.dat &
+    mpirun -n 4 ./PeleLM2d.gnu.MPI.ex inputs.2d-regt > logCheckInitialTransient.dat &
 
 A plotfile is generated every 20 time steps (as specified via the ``amr.plot_int`` keyword in the ``IO CONTROL`` block). This will allow you to visualize and monitor the evolution of the flame. Use the following command to open multiple plotfiles at once with `Amrvis <https://amrex-codes.github.io/amrex/docs_html/Visualization.html>`_: ::
 
@@ -347,7 +348,7 @@ Steady-state problem: activating the flame control
 
 The speed of propagation of a triple flame is not easy to determine a-priori. As such it is useful, 
 at least until the flame settles, to have some sort of stabilization mechanism to prevent 
-flame blow-off or flashback. In the present configuration, the position of the flame front is tracked 
+flame blow-off or flashback. In the present configuration, the position of the flame front can be tracked 
 at each time step (using an isoline of temperature) and the input velocity is adjusted to maintain 
 its location at a fixed distance from the inlet (1 cm in the present case). 
 
@@ -357,26 +358,60 @@ This option is activated in the ``inputs.2d-regt`` file: ::
     ns.do_active_control_temp = 1               # Use control by temperature
     ns.temp_control           = 1400.0          # Temperature threshold for control 
 
-The first keyword activates the active control, and the value of the isoline of temperature
+The first keyword activates the active control (based on the temperature field), and the value of the isoline of temperature
 is chosen via the second one. The parameters controling the relaxation of the inlet velocity to
 the steady state velocity of the triple flame are specified in the ``&control`` namelist 
 in the ``probin.2d.test`` file. This block reads: ::
 
     &control
-    tau_control = 10.0e-3
-    sest = .2
+    tau_control = 1.0e-4
     h_control = 0.0098
-    changeMax_control = .01 
+    changeMax_control = .05 
     controlVelMax = 2.0 
     pseudo_gravity = 1 
     /
     
-``tau_control`` is a relaxation time-step, that should be of the order of the simulation time-step. 
-``h_control`` is the user-defined location where the triple flame should settle, and ``sest`` is an 
-estimation of the mean flame speed over the interval.
-The user is referred to [CAMCS2006]_ for an overview of the method and corresponding parameters.
-The ``pseudo_gravity`` tirggers a manufactured force to compensate for the acceleration of different
-density gases.
+``tau_control`` is a relaxation time scale, that should be of the order of the simulation time-step. 
+``h_control`` is the user-defined location where the triple flame should settle, ``changeMax_control`` and ``controlVelMax`` control the maximum velocity increment and maximum inlet velocity, respectively. The user is referred to [CAMCS2006]_ for an overview of the method and corresponding parameters.
+The ``pseudo_gravity`` tirggers a manufactured force added to the momemtum equation to compensate for the acceleration of different density gases.
+
+Once these paremeters are set, you continue the previous simulation by uncommenting the first two lines of the ``IO CONTROL`` block in the input file: ::
+
+    amr.restart           = chk02000 # Restart from checkpoint ?
+    amr.regrid_on_restart = 1        # Perform regriding upon restart ?
+
+The first line provides the last `checkpoint` file generated during the first simulation performed for 2000 time steps. Note that the second line, forcing regriding of the simulation upon restart, is not essential at this point. Finally, update the ``max_step`` to allow the simulation to proceed further: ::
+
+    #----------------------TIME STEPING CONTROL----------------------
+    ...
+    max_step          = 2400          # maximum number of time steps
+
+You are now ready launch `PeleLM` again for another 400 time steps ! ::
+
+    mpirun -n 4 ./PeleLM2d.gnu.MPI.ex inputs.2d-regt > logCheckControl.dat &
+
+As the simulation proceeds, an ASCII file tracking the flame position and inlet velocity (as well as other control variables) is generated ``AC_History``. You can follow the motion of the flame tip by plotting the eigth column against the first one (flame tip vs. time step count). If `gnuplot` is available on your computer, use the following to obtain the graphs of Fig :numref:`fig:ACcontrol`: ::
+
+    gnuplot
+    plot "AC_History" u 1:8 w lp
+    plot "AC_History" u 1:3 w lp
+    exit
+    
+The second plot corresponds to the inlet velocity.
+
+.. |e| image:: ./Visualization/ACcontrol.png
+     :width: 80%
+
+.. _fig:ACcontrol:
+
+.. table:: Flame tip position (left) and inlet velocity (right) as function of time step count from 2000 to 2400 step using the inlet velocity control.
+     :align: center
+
+     +-----+
+     | |e| |
+     +-----+
+
+At this point, you have a stabilized methane/air triple flame and will now use AMR features to improve the quality of your simulation.
 
 Refinement of the computation
 -----------------------------
