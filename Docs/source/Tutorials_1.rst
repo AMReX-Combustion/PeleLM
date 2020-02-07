@@ -390,7 +390,7 @@ You are now ready launch `PeleLM` again for another 400 time steps ! ::
 
     mpirun -n 4 ./PeleLM2d.gnu.MPI.ex inputs.2d-regt > logCheckControl.dat &
 
-As the simulation proceeds, an ASCII file tracking the flame position and inlet velocity (as well as other control variables) is generated ``AC_History``. You can follow the motion of the flame tip by plotting the eigth column against the first one (flame tip vs. time step count). If `gnuplot` is available on your computer, use the following to obtain the graphs of Fig :numref:`fig:ACcontrol`: ::
+As the simulation proceeds, an ASCII file tracking the flame position and inlet velocity (as well as other control variables) is generated: ``AC_History``. You can follow the motion of the flame tip by plotting the eigth column against the first one (flame tip vs. time step count). If `gnuplot` is available on your computer, use the following to obtain the graphs of Fig :numref:`fig:ACcontrol`: ::
 
     gnuplot
     plot "AC_History" u 1:8 w lp
@@ -400,7 +400,7 @@ As the simulation proceeds, an ASCII file tracking the flame position and inlet 
 The second plot corresponds to the inlet velocity.
 
 .. |e| image:: ./Visualization/ACcontrol.png
-     :width: 80%
+     :width: 100%
 
 .. _fig:ACcontrol:
 
