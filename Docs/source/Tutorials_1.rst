@@ -416,6 +416,25 @@ At this point, you have a stabilized methane/air triple flame and will now use A
 Refinement of the computation
 -----------------------------
 
+Before going further, it is important to look at the results of the current simulation. The left panel of Fig. :numref:`fig:CoarseField` 
+displays the temperature field, while a zoom-in of the flame edge region colored by several important variables 
+is provided on the right side. 
+Note that `DivU` the `HeatRelease` and the `CH4_consumption` are good markers of the reaction/diffusion processes in our case.
+What is striking from these images is the lack of resolution of the triple flame, particularly in the reaction zone. 
+We also clearly see square unsmooth shapes in the field of intermediate species, where `Y(HCO)` is found to closely match the region of high `CH4_consumption` while `Y(CH3O)` is located closer to the cold gases, on the outer layer of the triple flame.
+
+.. |f| image:: ./Visualization/CoarseDetails.png
+     :width: 100%
+
+.. _fig:CoarseField:
+
+.. table:: Flame tip position (left) and inlet velocity (right) as function of time step count from 2000 to 2400 step using the inlet velocity control.
+     :align: center
+
+     +-----+
+     | |f| |
+     +-----+
+
 Analysis
 -----------------------
 
