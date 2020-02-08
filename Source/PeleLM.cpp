@@ -5330,9 +5330,9 @@ PeleLM::predict_velocity (Real  dt)
   Vector<BCRec> math_bc(AMREX_SPACEDIM);
   math_bc = fetchBCArray(State_Type,Xvel,AMREX_SPACEDIM);
 
-  godunov->ComputeSlopes( Umf,
-                          D_DECL(m_xslopes, m_yslopes, m_zslopes),
-                          math_bc, 0, AMREX_SPACEDIM, domain);
+  godunov->ComputeSlopes( Umf,0,
+                          D_DECL(m_xslopes, m_yslopes, m_zslopes),0,
+                          AMREX_SPACEDIM, math_bc, domain);
   
     D_TERM( m_xslopes.FillBoundary(geom.periodicity());,
             m_yslopes.FillBoundary(geom.periodicity());,
@@ -6626,8 +6626,8 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
   Vector<BCRec> math_bc(nspecies+3);
   math_bc = fetchBCArray(State_Type,Density,nspecies+3);
 
-  godunov->ComputeSlopes(Smf, D_DECL(xslps, yslps, zslps),
-                           math_bc, 0, nspecies+3, domain);
+  godunov->ComputeSlopes(Smf, 0, D_DECL(xslps, yslps, zslps), 0,
+                         nspecies+3, math_bc, domain);
 
   // Compute slopes for use in computing aofs
   D_TERM(xslps.FillBoundary(geom.periodicity());,
