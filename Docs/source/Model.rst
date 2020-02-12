@@ -148,7 +148,8 @@ With these assumptions, the conservation equations take the following form:
     \nabla \cdot \left(\rho  \boldsymbol{u} \boldsymbol{u} + \tau \right)
     = -\nabla \pi + \rho \boldsymbol{F}, \\
     &&\frac{\partial (\rho Y_m)}{\partial t} +
-    \nabla \cdot \left( \rho Y_m \boldsymbol{u} + \boldsymbol{\mathcal{F}}_{m} \right) \\
+    \nabla \cdot \left( \rho Y_m \boldsymbol{u} + \boldsymbol{\mathcal{F}}_{m} \right)
+    = \rho \dot{\omega}_m \\
     &&\frac{ \partial (\rho h)}{ \partial t} +
     \nabla \cdot \left( \rho h \boldsymbol{u} + \boldsymbol{\mathcal{Q}} \right) = 0,
 
@@ -175,7 +176,7 @@ where :math:`C_p = \partial h/\partial T` is the specific heat of the mixture at
     + \sum_m \Big( h_m \nabla \cdot \boldsymbol{\mathcal{F}}_{m}
     - \nabla \cdot h_m \boldsymbol{\mathcal{F}}_{m}\Big) \Big] \\
     &&- \frac{W}{\rho} \sum_m \frac{1}{W_m} \nabla \cdot \boldsymbol{\mathcal{F}}_{m}
-    + \frac{1}{\rho} \sum_m \Big( \frac{W}{W_m} -\frac{h_m(T)}{c_{p} T} \Big)\dot{\omega}_m
+    + \sum_m \Big( \frac{W}{W_m} -\frac{h_m(T)}{c_{p} T} \Big)\dot{\omega}_m
 
 The mixture-averaged transport coefficients discussed above (:math:`\mu`, :math:`\lambda` and :math:`D_{m,mix}`) can be evaluated from transport properties of the pure species. We follow the treatment used in the EGLib library, based on the theory/approximations developed by Ern and Givangigli (however, `PeleLM` uses a recoded version of these routines that are thread safe and vectorize well on suitable processors).
 
