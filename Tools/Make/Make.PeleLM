@@ -246,6 +246,6 @@ AMReX_buildInfo.cpp:
 include $(AMREX_HOME)/Tools/GNUMake/Make.rules
 
 clean::
-	$(SILENT) $(RM) extern.f90
+	$(SILENT) $(RM) extern_parameters.cpp extern_parameters_F.H extern_parameters.H extern.f90
 	$(SILENT) $(RM) AMReX_buildInfo.cpp
 
