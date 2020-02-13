@@ -751,7 +751,7 @@ mismatched advection fluxes may be computed explicitly
 .. math::
 
     \delta \rho^{sync} = -D^{MAC} \Big( \sum_m U^{ADV,corr} \rho Y_m \Big)^{n+1/2} 
-    + \sum_m \delta \boldsymbol{\cal F}_{\rho Y_m}
+    + \sum_m \nabla \cdot \delta \boldsymbol{\cal F}_{\rho Y_m}
 
 The post-sync new-time value of density, :math:`\rho^{n+1} = \rho^{n+1,p} + \delta \rho^{sync}`.
 Given the corrected density we can decompose the corrections for :math:`Y_m` and :math:`h` into
@@ -763,7 +763,7 @@ contains implicit diffusion fluxes from the Crank-Nicolson discretization.
 
     \rho^{n+1} \widetilde{\delta Y^{sync}} - \frac{\Delta t}{2} \nabla \cdot 
     \widetilde{\delta {\cal F}}(\widetilde{\delta Y^{sync}})
-    = -D^{MAC} (U^{ADV,corr} \rho Y_m)^{n+1/2} + \delta \boldsymbol{\cal F} - Y^{n+1,p} \delta \rho^{sync}
+    = -D^{MAC} (U^{ADV,corr} \rho Y_m)^{n+1/2} + \nabla \cdot \delta \boldsymbol{\cal F}_{\rho Y_m} - Y^{n+1,p} \delta \rho^{sync}
 
 where :math:`\widetilde{\delta {\cal F}}` is the species correction flux due to the 
 sync source, :math:`\widetilde{\delta Y^{sync}}`. However, as in the single-level algorithm, the species
