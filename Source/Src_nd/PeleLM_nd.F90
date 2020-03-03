@@ -745,8 +745,9 @@ contains
     integer :: i, j, k, n, nc, ncs
     REAL_T  :: Patm, Yl(nspecies)
     REAL_T  :: Yt(lo(1):hi(1),nspecies), invmwt(nspecies), Wavg(lo(1):hi(1))
-    REAL_T  :: Tfac, Yfac, cpmix(1), RHO_MKS, RHO_MKS_inv, RHO_CGS(lo(1):hi(1))
+    REAL_T  :: Tfac, Yfac, cpmix, RHO_MKS, RHO_MKS_inv, RHO_CGS(lo(1):hi(1))
     REAL_T  :: D(lo(1):hi(1),nspecies), mu(lo(1):hi(1)), lambda(lo(1):hi(1)), xi(lo(1):hi(1))
+    REAL_T, dimension(lo(1):hi(1),lo(2):hi(2),lo(3):hi(3)) :: mu_le1
 
     integer :: bl(3), bh(3)
 
@@ -838,32 +839,21 @@ contains
        call vel_visc(lo, hi,&
                      T,    t_lo,  t_hi, &
                      RhoY, rY_lo, rY_hi, &
-                     rhoD, rd_lo, rd_hi)
+                     mu_le1, lo, hi)
 
-       ! Set rhoD[1] = mu * Yfac
+       ! Set rhoD[:] = mu * Yfac
        do k=lo(3),hi(3) 
           do j=lo(2), hi(2)
              do i=lo(1), hi(1)
-                do n=nspecies+1,nc
-                   rhoD(i,j,k,n) = rhoD(i,j,k,1)
-                end do
-                rhoD(i,j,k,1) = rhoD(i,j,k,1) * Yfac
-             end do
-          end do
-       end do
-       ! Set rhoD[2:N] = rhoD[1]
-       do n=2,nspecies
-          do k=lo(3),hi(3) 
-             do j=lo(2), hi(2)
-                do i=lo(1), hi(1)
-                   rhoD(i,j,k,n) = rhoD(i,j,k,1)
+                do n=1,nspecies
+                   rhoD(i,j,k,n) = mu_le1(i,j,k) * Yfac
                 end do
              end do
           end do
        end do
        
-       if (do_temp /= 0) then
-          ! Set lambda = mu * cpmix, ptwise
+       if (do_temp .ne. 0) then
+          ! Set lambda = mu * cpmix * Tfac
           do k=lo(3),hi(3) 
              do j=lo(2), hi(2)
                 do i=lo(1), hi(1)
@@ -875,15 +865,24 @@ contains
                    do n=1,nspecies
                       Yl(n) = RhoY(i,j,k,n) * RHO_MKS_inv
                    end do
-                   CALL pphys_CPMIXfromTY(bl, bh, &
-                                          cpmix,    bl, bh, &
-                                          T(i,j,k), bl, bh, &
-                                          Yl,       bl, bh)
-                   rhoD(i,j,k,nspecies+1) = rhoD(i,j,k,nspecies+1)*cpmix(1)*Tfac
+                   CALL CKCPBS(T(i,j,k),Yl,cpmix)
+                   cpmix = cpmix * 1.0d-4
+                   rhoD(i,j,k,nspecies+1) = mu_le1(i,j,k)*cpmix*Tfac
                 end do
              end do
           end do
        end if
+
+       if (do_VelVisc .ne. 0) then 
+          do k=lo(3),hi(3) 
+             do j=lo(2), hi(2)
+                do i=lo(1), hi(1)
+                   rhoD(i,j,k,nspecies+2) = mu_le1(i,j,k)
+                end do
+             end do
+          end do
+       end if
+
     end if
 
    end subroutine spec_temp_visc
@@ -1446,7 +1445,7 @@ contains
       bl(1) = lo(1)
       bh(1) = hi(1)
 
-      if (.not. LeEQ1) then
+      !if (.not. LeEQ1) then
          do k = lo(3), hi(3)
             do j = lo(2), hi(2)
                do i=lo(1), hi(1)
@@ -1469,15 +1468,6 @@ contains
 
             end do
          end do
-      else 
-         do k = lo(3), hi(3)
-            do j = lo(2), hi(2)
-               do i = lo(1), hi(1)
-                  mu(i,j,k) = 1.85e-5*(T(i,j,k)/298.0)**.7
-               end do
-            end do
-         end do
-      end if
 
    end subroutine vel_visc
 

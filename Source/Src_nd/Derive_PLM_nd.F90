@@ -1570,6 +1570,8 @@ contains
                                  bind(C, name="dertransportcoeff")
 
       use transport_module, only : get_transport_coeffs
+      use PeleLM_nd,        only : vel_visc
+      use mod_Fvar_def,     only : Pr, Sc, LeEQ1, thickFac
 
       implicit none
 
@@ -1587,7 +1589,8 @@ contains
 !  Local
       REAL_T, dimension(nspecies) :: Yt, D, invmwt
       REAL_T, dimension(1)        :: rho_dummy, MU, XI, LAM, Wavg
-      REAL_T                      :: rhoinv
+      REAL_T                      :: rhoinv, cpmix, Tfac, Yfac
+      REAL_T, dimension(lo(1):hi(1),lo(2):hi(2),lo(3):hi(3)) :: mu_le1
       integer :: fS, rho, T
       integer :: lo_chem(3), hi_chem(3)
 
@@ -1602,36 +1605,69 @@ contains
 
       call get_imw(invmwt)
 
-      do k=lo(3),hi(3)
-         do j=lo(2),hi(2)
-            do i=lo(1),hi(1)
-               rhoinv = 1.0d0/dat(i,j,k,rho)
-               do n = 1,nspecies
-                  Yt(n) = dat(i,j,k,fS+n-1)*rhoinv
+      if (.not. LeEQ1) then
+
+         do k=lo(3),hi(3)
+            do j=lo(2),hi(2)
+               do i=lo(1),hi(1)
+                  rhoinv = 1.0d0/dat(i,j,k,rho)
+                  do n = 1,nspecies
+                     Yt(n) = dat(i,j,k,fS+n-1)*rhoinv
+                  enddo
+                  rho_dummy(1) = dat(i,j,k,rho) * 1.d-3
+
+                  call CKMMWY(Yt,Wavg(1))
+
+                  CALL get_transport_coeffs(lo_chem, hi_chem, &
+                                            Yt,           lo_chem,hi_chem,  &
+                                            dat(i,j,k,T), lo_chem,hi_chem,  &
+                                            rho_dummy(1), lo_chem,hi_chem,  &
+                                            D,            lo_chem,hi_chem,  &
+                                            MU(1),        lo_chem,hi_chem,  &
+                                            XI(1),        lo_chem,hi_chem,  &
+                                            LAM(1),       lo_chem,hi_chem)
+
+                  do n = 1,nspecies
+                     e(i,j,k,n) = Wavg(1) * invmwt(n) * D(n) * 0.1d0
+                  enddo
+
+                  e(i,j,k,nspecies+1) = LAM(1) * 1.0d-05
+                  e(i,j,k,nspecies+2) = MU(1)  * 0.1d0
+
                enddo
-               rho_dummy(1) = dat(i,j,k,rho) * 1.d-3
-
-               call CKMMWY(Yt,Wavg(1))
-
-               CALL get_transport_coeffs(lo_chem, hi_chem, &
-                                         Yt,           lo_chem,hi_chem,  &
-                                         dat(i,j,k,T), lo_chem,hi_chem,  &
-                                         rho_dummy(1), lo_chem,hi_chem,  &
-                                         D,            lo_chem,hi_chem,  &
-                                         MU(1),        lo_chem,hi_chem,  &
-                                         XI(1),        lo_chem,hi_chem,  &
-                                         LAM(1),       lo_chem,hi_chem)
-
-               do n = 1,nspecies
-                  e(i,j,k,n) = Wavg(1) * invmwt(n) * D(n) * 0.1d0
-               enddo
-
-               e(i,j,k,nspecies+1) = LAM(1) * 1.0d-05
-               e(i,j,k,nspecies+2) = MU(1)  * 0.1d0
-
             enddo
          enddo
-      enddo
+
+      else
+
+         Tfac = thickFac / Pr
+         Yfac = thickFac / Sc
+
+         call vel_visc(lo, hi,&
+                 dat(lo(1),lo(2),lo(3),T), d_lo, d_hi, & 
+                 dat(lo(1),lo(2),lo(3),fS), d_lo, d_hi, &
+                 mu_le1, lo, hi)
+
+         do k=lo(3),hi(3)
+            do j=lo(2),hi(2)
+               do i=lo(1),hi(1)
+                  rhoinv = 1.0d0/dat(i,j,k,rho)
+                  do n=1,nspecies
+                     Yt(n) = dat(i,j,k,fS+n-1)*rhoinv
+                  end do
+                  CALL CKCPBS(dat(i,j,k,T),Yt,cpmix)
+                  cpmix = cpmix * 1.0d-4 
+                  do n = 1,nspecies
+                     e(i,j,k,n) = mu_le1(i,j,k) * Yfac
+                  enddo
+                  e(i,j,k,nspecies+1)    = mu_le1(i,j,k)*cpmix*Tfac
+                  e(i,j,k,nspecies+2)    = mu_le1(i,j,k)
+               enddo
+            enddo
+         enddo
+
+
+      endif
 
    end subroutine dertransportcoeff
 

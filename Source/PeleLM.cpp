@@ -1305,7 +1305,9 @@ PeleLM::define_data ()
   raii_fbs.push_back(std::unique_ptr<FluxBoxes>{new FluxBoxes(this, nEdgeStates, nGrow)});
   EdgeFlux  = raii_fbs.back()->get();
     
-  if (nspecies>0 && !unity_Le)
+  // TODO: simplify expression when unity_Le
+  //if (nspecies>0 && !unity_Le)
+  if (nspecies>0)
   {
     raii_fbs.push_back(std::unique_ptr<FluxBoxes>{new FluxBoxes(this, nspecies+3, nGrow)});
     SpecDiffusionFluxn   = raii_fbs.back()->get();
@@ -5553,7 +5555,6 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
 
       Real dt_incr = dt;
       Real time_init = 0;
-      int reInit = 1;
       double pressure = 1.0; // dummy FIXME
 
       const auto len = amrex::length(bx);
@@ -6115,8 +6116,10 @@ PeleLM::mac_sync ()
                                  last_mac_sync_iter);
       }
 	    
-      if (!unity_Le 
-          && nspecies>0 
+      //TODO: simplify expression when unity_Le
+      //if (!unity_Le 
+      //    && nspecies>0 
+      if ( nspecies>0
           && do_add_nonunityLe_corr_to_rhoh_adv_flux) 
       {
         //
@@ -6450,12 +6453,13 @@ PeleLM::mac_sync ()
         //    (b) if Le!=1, do differential diffusion instead, done above
         // (5) Temp, no (set instead by RhoH to Temp)
         //
+	//TODO: simplify expression when unity_Le
         const bool is_spec = state_ind<=last_spec && state_ind>=first_spec;
         int do_it
           =  state_ind!=Density 
           && state_ind!=Temp
           && is_diffusive[state_ind]
-          && !(is_spec && !unity_Le);
+          && !(is_spec); //&& !unity_Le);
 
         if (do_it && (is_spec || state_ind==RhoH))
           rho_flag = 2;
