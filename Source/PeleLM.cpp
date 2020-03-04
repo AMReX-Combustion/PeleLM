@@ -4151,23 +4151,24 @@ PeleLM::compute_enthalpy_fluxes (MultiFab* const*       flux,
 #ifdef _OPENMP
 #pragma omp parallel
 #endif
-{
-  for (MFIter mfi(TT,true); mfi.isValid(); ++mfi)
   {
-    FArrayBox& Tfab = TT[mfi];
-    FArrayBox& Hfab = Enth[mfi];
-    const Box& gbox = mfi.growntilebox();
+    for (MFIter mfi(TT,true); mfi.isValid(); ++mfi)
+    {
+      Box bx = mfi.tilebox();
+      Box gbox = grow(bx,1);
+      FArrayBox& Tfab = TT[mfi];
+      FArrayBox& Hfab = Enth[mfi];
 
-    getHGivenT_pphys(Hfab,Tfab,gbox,0,0);
+      getHGivenT_pphys(Hfab,Tfab,gbox,0,0);
+    }
   }
-}
 
   Vector<BCRec> math_bc(nspecies);
   math_bc = fetchBCArray(State_Type,first_spec,nspecies);
 
-  MultiFab enth_edgstate[BL_SPACEDIM];
+  MultiFab enth_edgstate[AMREX_SPACEDIM];
 
-  for (int i(0); i < BL_SPACEDIM; i++)
+  for (int i(0); i < AMREX_SPACEDIM; i++)
   {
     const BoxArray& ba = getEdgeBoxArray(i);
     enth_edgstate[i].define(ba, dmap, nspecies, 1, MFInfo(), Factory());
@@ -4184,9 +4185,9 @@ PeleLM::compute_enthalpy_fluxes (MultiFab* const*       flux,
     for (MFIter mfi(Enth,true); mfi.isValid();++mfi)
     {
       const Box& vbox = mfi.validbox();
-      for (int dir = 0; dir < BL_SPACEDIM; dir++)
+      for (int dir = 0; dir < AMREX_SPACEDIM; dir++)
       {
-        const Box ebox = surroundingNodes(vbox,dir);      
+        const Box ebox = surroundingNodes(vbox,dir);
         FPLoc bc_lo = fpi_phys_loc(get_desc_lst()[State_Type].getBC(Temp).lo(dir));
         FPLoc bc_hi = fpi_phys_loc(get_desc_lst()[State_Type].getBC(Temp).hi(dir));
         center_to_edge_fancy(Enth[mfi],enth_edgstate[dir][mfi],grow(vbox,amrex::BASISV(dir)),ebox,0,0,nspecies,geom.Domain(),bc_lo,bc_hi);
@@ -4209,13 +4210,13 @@ PeleLM::compute_enthalpy_fluxes (MultiFab* const*       flux,
     Box bx = mfi.tilebox();
 
     // need face-centered tilebox for each direction
-    D_TERM(const Box& xbx = mfi.tilebox(IntVect::TheDimensionVector(0));,
-           const Box& ybx = mfi.tilebox(IntVect::TheDimensionVector(1));,
-           const Box& zbx = mfi.tilebox(IntVect::TheDimensionVector(2)););
+    D_TERM(const Box& xbx = mfi.nodaltilebox(0);,
+           const Box& ybx = mfi.nodaltilebox(1);,
+           const Box& zbx = mfi.nodaltilebox(2););
 
-    D_TERM(flux[0]->setVal(0., xbx, nspecies+1, 1);,
-           flux[1]->setVal(0., ybx, nspecies+1, 1);,
-           flux[2]->setVal(0., zbx, nspecies+1, 1););
+    D_TERM((*flux[0])[mfi].setVal(0., xbx, nspecies+1, 1);,
+           (*flux[1])[mfi].setVal(0., ybx, nspecies+1, 1);,
+           (*flux[2])[mfi].setVal(0., zbx, nspecies+1, 1););
 
 #if AMREX_USE_EB
     // this is to check efficiently if this tile contains any eb stuff
@@ -4227,27 +4228,27 @@ PeleLM::compute_enthalpy_fluxes (MultiFab* const*       flux,
       // If tile is completely covered by EB geometry, set 
       // value to some very large number so we know if
       // we accidentaly use these covered vals later in calculations
-      D_TERM(flux[0]->setVal(1.2345e30, xbx, nspecies+1, 1);,
-             flux[1]->setVal(1.2345e30, ybx, nspecies+1, 1);,
-             flux[2]->setVal(1.2345e30, zbx, nspecies+1, 1););
+      D_TERM((*flux[0])[mfi].setVal(1.2345e30, xbx, nspecies+1, 1);,
+             (*flux[1])[mfi].setVal(1.2345e30, ybx, nspecies+1, 1);,
+             (*flux[2])[mfi].setVal(1.2345e30, zbx, nspecies+1, 1););
     }
     else
     {
 #endif
-      for (int i = 0; i < BL_SPACEDIM; ++i)
+      for (int i = 0; i < AMREX_SPACEDIM; ++i)
       {
-        Box ebox = surroundingNodes(bx,i);
+        Box ebox = mfi.nodaltilebox(i);
         fab_tmp.resize(ebox,1);
 
         for (int k = 0; k < nspecies; k++)
         {
-          fab_tmp.setVal(0.);
-          fab_tmp.copy( (*flux[i])[mfi],ebox,k,ebox,0,1);
+          fab_tmp.copy((*flux[i])[mfi],ebox,k,ebox,0,1);
           fab_tmp.mult((enth_edgstate[i])[mfi],ebox,k,0,1);
-          (*flux[i])[mfi].plus(fab_tmp,0,nspecies+1,1);
+          (*flux[i])[mfi].plus(fab_tmp,ebox,ebox,0,nspecies+1,1);
         }
+
       }
-#if AMREX_USE_EB      
+#if AMREX_USE_EB
     }
 #endif
   }
@@ -4959,6 +4960,7 @@ PeleLM::compute_differential_diffusion_terms (MultiFab& D,
   // D[ nspecies+1 ] = Div( lambda    Grad(T) )
   //
   D.setVal(0);
+  DD.setVal(0);
     
   flux_divergence(D,0,flux,0,nspecies,-1);  
   flux_divergence(D,nspecies+1,flux,nspecies+2,1,-1);
