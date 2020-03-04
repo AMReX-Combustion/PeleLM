@@ -4645,8 +4645,6 @@ PeleLM::compute_differential_diffusion_fluxes (const MultiFab& S,
       op.setBCoeffs(0, amrex::GetArrOfConstPtrs(bcoeffs));
     }
     
-  
-
     AMREX_D_TERM(MultiFab flxx(*flux[0], amrex::make_alias, fluxComp+icomp, 1);,
                  MultiFab flxy(*flux[1], amrex::make_alias, fluxComp+icomp, 1);,
                  MultiFab flxz(*flux[2], amrex::make_alias, fluxComp+icomp, 1););
@@ -8352,7 +8350,7 @@ PeleLM::calcDiffusivity (const Real time)
     for (MFIter mfi(mf_cc,true); mfi.isValid();++mfi)
     {
       FArrayBox& sfab =  mf_cc[mfi];
-      const Box& vbox = mfi.validbox();
+      const Box& vbox = mfi.tilebox();
       const Box  gbox = grow(vbox,1);
 
       const int  vflag   = false;
@@ -8368,7 +8366,7 @@ PeleLM::calcDiffusivity (const Real time)
                      BL_TO_FORTRAN_N_ANYD(bcen,0),
                      &nc_bcen, &P1atm_MKS, &dotemp, &vflag, &p_amb);
 
-      for (int dir = 0; dir < BL_SPACEDIM; dir++)
+      for (int dir = 0; dir < AMREX_SPACEDIM; dir++)
       {
         const Box ebox = surroundingNodes(vbox,dir);
         bfac.resize(ebox,nspecies+1);
@@ -8379,7 +8377,7 @@ PeleLM::calcDiffusivity (const Real time)
 
         const Box& ntb = mfi.nodaltilebox(dir);
         (*diff[dir])[mfi].copy(bfac,ntb,0,ntb,first_spec-offset,nspecies); // Put rhoD into spec slots
-        (*diff[dir])[mfi].copy(bfac,ntb,nspecies,ntb,Temp-offset,1); // Put lambda into T slot
+        (*diff[dir])[mfi].copy(bfac,ntb,nspecies,ntb,Temp-offset-1,1); // Put lambda into T slot: note that the -1 is to put T next to Yk instead of RhoH
       }
     }
   }
@@ -8447,7 +8445,7 @@ PeleLM::getViscosity (MultiFab* viscosity[BL_SPACEDIM],
 }
 
 void
-PeleLM::getDiffusivity (MultiFab* diffusivity[BL_SPACEDIM],
+PeleLM::getDiffusivity (MultiFab* diffusivity[AMREX_SPACEDIM],
                         const Real time,
                         const int state_comp,
                         const int dst_comp,
@@ -8477,7 +8475,7 @@ PeleLM::getDiffusivity (MultiFab* diffusivity[BL_SPACEDIM],
 
     MultiFab **diff = (whichTime == AmrOldTime ? diffn : diffnp1);
 
-    for (int dir = 0; dir < BL_SPACEDIM; dir++)
+    for (int dir = 0; dir < AMREX_SPACEDIM; dir++)
     {
         MultiFab::Copy(*diffusivity[dir],*diff[dir],diff_comp_loc,dst_comp,ncomp,0);
     }
