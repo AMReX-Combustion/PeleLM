@@ -4681,16 +4681,16 @@ PeleLM::compute_differential_diffusion_fluxes (const MultiFab& S,
         // If tile is completely covered by EB geometry, set 
         // value to some very large number so we know if
         // we accidentaly use these covered vals later in calculations
-        D_TERM(flux[0]->setVal(1.2345e30, xbx, fluxComp+icomp, 1);,
-               flux[1]->setVal(1.2345e30, ybx, fluxComp+icomp, 1);,
-               flux[2]->setVal(1.2345e30, zbx, fluxComp+icomp, 1););
+        D_TERM((*flux[0])[mfi].setVal(1.2345e30, xbx, fluxComp+icomp, 1);,
+               (*flux[1])[mfi].setVal(1.2345e30, ybx, fluxComp+icomp, 1);,
+               (*flux[2])[mfi].setVal(1.2345e30, zbx, fluxComp+icomp, 1););
       }
       else
       {
       // No cut cells in tile + nghost-cell witdh halo -> use non-eb routine
       if(flags.getType(amrex::grow(bx, nghost)) == FabType::regular)
       {
-        for (int i = 0; i < BL_SPACEDIM; ++i)
+        for (int i = 0; i < AMREX_SPACEDIM; ++i)
         {
           (*flux[i])[mfi].mult(b,fluxComp+icomp,1);
           (*flux[i])[mfi].mult((area[i])[mfi],0,fluxComp+icomp,1);
@@ -4699,7 +4699,7 @@ PeleLM::compute_differential_diffusion_fluxes (const MultiFab& S,
       else
       {
         // Use EB routines
-        for (int i = 0; i < BL_SPACEDIM; ++i)
+        for (int i = 0; i < AMREX_SPACEDIM; ++i)
         {
           (*flux[i])[mfi].mult(b,fluxComp+icomp,1);
           (*flux[i])[mfi].mult((area[i])[mfi],0,fluxComp+icomp,1);
