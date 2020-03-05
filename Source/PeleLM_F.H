@@ -250,6 +250,7 @@ extern "C" {
 
    void flux_div (const int* lo, const int* hi,
                         BL_FORT_FAB_ARG_ANYD(update), 
+                  const BL_FORT_IFAB_ARG_ANYD(mask),
                   const BL_FORT_FAB_ARG_ANYD(xflux),
                   const BL_FORT_FAB_ARG_ANYD(yflux),
 #if AMREX_SPACEDIM == 3
