@@ -27,7 +27,7 @@ Getting started with PeleLM
 * PeleLM depends on several separate GitHub repositories, each under active development. This can significantly complicate the required effort to keep all the required software up to date and internally compatible. Recently, we moved the Pele codes to a new software management style based on git "submodules", which dramatically simplifies the initial install/build/run procedure: ::
 
     git clone --recursive https://github.com/AMReX-Combustion/PeleProduction.git
-    cd PeleLMruns/FlameSheet2D
+    cd PeleProduction/PeleLMruns/FlameSheet2D
     make -j 12
     mpiexec -np 8 ./PeleLM2d.gnu.MPI.ex inputs.2d-regt
             
