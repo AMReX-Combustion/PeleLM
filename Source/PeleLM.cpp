@@ -2123,6 +2123,12 @@ MultiFab::Copy(S_new,P_new,0,RhoRT,1,1);
   // Initialize other types.
   //
   initDataOtherTypes();
+
+  //
+  // Load typical values for each state component
+  //
+  set_typical_values(false);
+
   //
   // Initialize divU and dSdt.
   //
@@ -2521,10 +2527,6 @@ PeleLM::post_init (Real stop_time)
   Real        dt_init2 = 0.0;
   Vector<Real> dt_save2(finest_level+1);
   Vector<int>  nc_save2(finest_level+1);
-  //
-  // Load typical values for each state component
-  //
-  set_typical_values(false);
 
   // ensure system is solvable by creating deltaS = S - Sbar
   if (closed_chamber == 1)
@@ -8270,7 +8272,7 @@ PeleLM::calcDiffusivity (const Real time)
   MultiFab **diff = (whichTime == AmrOldTime) ? diffn : diffnp1;
   MultiFab& S = (whichTime == AmrOldTime) ? get_old_data(State_Type) : get_new_data(State_Type);
 
-  int  offset = BL_SPACEDIM + 1; // No diffusion coeff for vels or rho
+  int offset = AMREX_SPACEDIM + 1; // No diffusion coeff for vels or rho
   int nc_diff = nspecies+2;      // rhoD + lambda + mu
 
   // for open chambers, ambient pressure is constant in time
@@ -8303,11 +8305,21 @@ PeleLM::calcDiffusivity (const Real time)
   FluxBoxes fb(this,nComp,0);
   MultiFab **mf_ec = fb.get();
 
+//Get typical values for T and rhoY
+  Vector<Real> typvals;
+  typvals.resize(nComp);
+  typvals[Tcomp] = typical_values[Temp];
+  for (int k = 0; k < nspecies; ++k) {
+     typvals[RYcomp+k] = typical_values[first_spec+k]*typical_values[Density];
+  }
+
   auto math_bc_T = fetchBCArray(State_Type,Temp,1);
   EB_interp_CC_to_FaceCentroid(mf_cc, D_DECL(*mf_ec[0],*mf_ec[1],*mf_ec[2]), Tcomp, Tcomp, 1, geom, math_bc_T);
+  EB_set_covered_faces({D_DECL(mf_ec[0],mf_ec[1],mf_ec[2])},Tcomp,1,typvals);
 
   auto math_bc_RY = fetchBCArray(State_Type,first_spec,nspecies);
   EB_interp_CC_to_FaceCentroid(mf_cc, D_DECL(*mf_ec[0],*mf_ec[1],*mf_ec[2]), RYcomp, RYcomp, nspecies, geom, math_bc_RY);
+  EB_set_covered_faces({D_DECL(mf_ec[0],mf_ec[1],mf_ec[2])},RYcomp,nspecies,typvals);
 
 #ifdef _OPENMP
 #pragma omp parallel
