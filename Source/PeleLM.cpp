@@ -6746,9 +6746,20 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
 
     EB_set_covered(*aofs, 0.);
 
+//  Set covered values of density not to zero in roder to use fab.invert
+//  Get typical values for Rho
+    Vector<Real> typvals;
+    typvals.resize(nspecies+3);
+    typvals[Rcomp] = typical_values[Density];
+    typvals[Tcomp] = typical_values[Temp];
+    for (int k = 0; k < nspecies; ++k) {
+       typvals[rhoYcomp+k] = typical_values[first_spec+k]*typical_values[Density];
+    }
+    EB_set_covered_faces({D_DECL(&edgestate[0],&edgestate[1],&edgestate[2])},Rcomp,nspecies+1,typvals);
+    EB_set_covered_faces({D_DECL(&edgestate[0],&edgestate[1],&edgestate[2])},Tcomp,1,typvals);
 
   }
-  
+
   // Compute RhoH on faces, store in nspecies+1 component of edgestate[d]
 #ifdef _OPENMP
 #pragma omp parallel
@@ -6757,13 +6768,13 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
     FArrayBox eR, eY, eH;
     for (MFIter S_mfi(Smf,true); S_mfi.isValid(); ++S_mfi)
     {
-      for (int d=0; d<BL_SPACEDIM; ++d)
+      for (int d=0; d<AMREX_SPACEDIM; ++d)
       {
         const Box& bx = S_mfi.tilebox();
-        const Box& ebox = amrex::grow(amrex::surroundingNodes(bx,d),3);
+        const Box& ebox = amrex::surroundingNodes(bx,d);
         eR.resize(ebox,1);
         eR.copy(edgestate[d][S_mfi],0,0,1);
-        eR.invert(1.);
+        eR.invert(1.0,ebox,0,1);
 
         eY.resize(ebox,nspecies);
         eY.copy(edgestate[d][S_mfi],1,0,nspecies);
@@ -6806,7 +6817,7 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
                                       D_DECL(xslps, yslps, zslps), nspecies+1,
                                       math_bcs, geom, 1);
 
-     EB_set_covered(*aofs, 0.);
+    EB_set_covered(*aofs, 0.);
 
   }
   
@@ -6817,7 +6828,7 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
   {
     for (MFIter S_mfi(Smf,true); S_mfi.isValid(); ++S_mfi)
     {
-      for (int d=0; d<BL_SPACEDIM; ++d)
+      for (int d=0; d<AMREX_SPACEDIM; ++d)
       {
         const Box& efbox = S_mfi.nodaltilebox(d);
         (*EdgeState[d])[S_mfi].copy(edgestate[d][S_mfi],efbox,0,efbox,Density,nspecies+1);
@@ -6922,7 +6933,7 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
         const Box& ebox = amrex::surroundingNodes(bx,d);
         eR.resize(ebox,1);
         eR.copy(edgestate[d],0,0,1);
-        eR.invert(1.);
+        eR.invert(1.0,ebox,0,1);
   
         eY.resize(ebox,nspecies);
         eY.copy(edgestate[d],1,0,nspecies);
