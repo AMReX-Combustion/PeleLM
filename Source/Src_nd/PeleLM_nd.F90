@@ -2266,6 +2266,7 @@ contains
 
    subroutine flux_div (lo, hi, &
                         update, u_lo, u_hi,&
+                        mask, m_lo, m_hi, &
                         xflux,  xf_lo, xf_hi,&
                         yflux,  yf_lo, yf_hi,&
 #if ( AMREX_SPACEDIM == 3 )
@@ -2285,6 +2286,7 @@ contains
       integer, intent(in) :: lo(3), hi(3)
       integer, intent(in) :: nc
       integer, intent(in) :: u_lo(3), u_hi(3)
+      integer, intent(in) :: m_lo(3), m_hi(3)
       integer, intent(in) :: xf_lo(3), xf_hi(3)
       integer, intent(in) :: yf_lo(3), yf_hi(3)
 #if ( AMREX_SPACEDIM == 3 )
@@ -2292,6 +2294,7 @@ contains
 #endif
       integer, intent(in) :: v_lo(3), v_hi(3)
       REAL_T, dimension(u_lo(1):u_hi(1),u_lo(2):u_hi(2),u_lo(3):u_hi(3),nc) :: update
+      integer, dimension(m_lo(1):m_hi(1),m_lo(2):m_hi(2),m_lo(3):m_hi(3)) :: mask
       REAL_T, dimension(xf_lo(1):xf_hi(1),xf_lo(2):xf_hi(2),xf_lo(3):xf_hi(3),nc) :: xflux
       REAL_T, dimension(yf_lo(1):yf_hi(1),yf_lo(2):yf_hi(2),yf_lo(3):yf_hi(3),nc) :: yflux
 #if ( AMREX_SPACEDIM == 3 )
@@ -2318,13 +2321,13 @@ contains
       do k = lo(3), hi(3)
          do j = lo(2), hi(2)
             do i = lo(1), hi(1)
+               if ( mask(i,j,k) /= -1 ) then
 #ifdef AMREX_USE_EB
-               ivol(i,j,k) = scal / ((vol(i,j,k)* volfrac(i,j,k)))
+                  ivol(i,j,k) = scal / ((vol(i,j,k) * volfrac(i,j,k)))
 #else
-               ivol(i,j,k) = scal / vol(i,j,k)
+                  ivol(i,j,k) = scal / vol(i,j,k)
 #endif
- !if ((ivol(i,j,k) > infinity) .or. (ivol(i,j,k) < -infinity)) ivol(i,j,k)=0.0d0
-!write(*,*) 'DEBUG IN flux_div first ',ivol(i,j,k) , scal , vol(i,j,k),volfrac(i,j,k)
+               end if
             end do
          end do
       end do
@@ -2333,15 +2336,15 @@ contains
          do k = lo(3), hi(3)
             do j = lo(2), hi(2)
                do i = lo(1), hi(1)
-        !write(*,*) 'DEBUG IN flux_div ',i,j,k,n,xflux(i+1,j,k,n),xflux(i,j,k,n),yflux(i,j+1,k,n),yflux(i,j,k,n),ivol(i,j,k)
-                  update(i,j,k,n) = &
-                      ( (xflux(i+1,j,k,n)-xflux(i,j,k,n)) &
-                      + (yflux(i,j+1,k,n)-yflux(i,j,k,n)) & 
+                  if ( mask(i,j,k) /= -1 ) then
+                     update(i,j,k,n) = &
+                        ( (xflux(i+1,j,k,n)-xflux(i,j,k,n)) &
+                        + (yflux(i,j+1,k,n)-yflux(i,j,k,n)) & 
 #if ( AMREX_SPACEDIM == 3 )
-                      + (zflux(i,j,k+1,n)-zflux(i,j,k,n)) &
+                        + (zflux(i,j,k+1,n)-zflux(i,j,k,n)) &
 #endif
-                      ) * ivol(i,j,k)
-                      !write(*,*) 'DEBUG IN flux_div ',i,j,k,n,update(i,j,k,n)
+                        ) * ivol(i,j,k)
+                  end if
                end do
             end do
          end do

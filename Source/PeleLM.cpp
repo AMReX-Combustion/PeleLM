@@ -4867,6 +4867,15 @@ PeleLM::flux_divergence (MultiFab&        fdiv,
                          Real             scale) const
 {
   BL_ASSERT(fdiv.nComp() >= fdivComp+nComp);
+
+  amrex::FabArray<amrex::BaseFab<int>>  mask;
+  mask.define(grids, dmap,  1, 0);
+#ifdef AMREX_USE_EB
+  mask.copy(ebmask);
+#else
+  mask.setVal(1.0);
+#endif
+
 #ifdef _OPENMP
 #pragma omp parallel
 #endif
@@ -4874,12 +4883,14 @@ PeleLM::flux_divergence (MultiFab&        fdiv,
   {
     const Box& box = mfi.tilebox();
     FArrayBox& fab = fdiv[mfi];
+    const BaseFab<int>& fab_mask = mask[mfi];
 #ifdef AMREX_USE_EB    
     const FArrayBox& vfrac = (*volfrac)[mfi];
 #endif
 
     flux_div( BL_TO_FORTRAN_BOX(box),
               BL_TO_FORTRAN_N_ANYD(fab,fdivComp),
+              BL_TO_FORTRAN_N_ANYD(fab_mask,0),
               BL_TO_FORTRAN_N_ANYD((*f[0])[mfi],fluxComp),
               BL_TO_FORTRAN_N_ANYD((*f[1])[mfi],fluxComp),
 #if ( AMREX_SPACEDIM == 3 )
@@ -4961,7 +4972,8 @@ PeleLM::compute_differential_diffusion_terms (MultiFab& D,
   //
   D.setVal(0);
   DD.setVal(0);
-    
+
+
   flux_divergence(D,0,flux,0,nspecies,-1);  
   flux_divergence(D,nspecies+1,flux,nspecies+2,1,-1);
 
@@ -7972,6 +7984,14 @@ PeleLM::differential_spec_diffuse_sync (Real dt,
   //
   // Recompute update with adjusted diffusion fluxes
   //
+  amrex::FabArray<amrex::BaseFab<int>>  mask;
+  mask.define(grids, dmap,  1, 0);
+#ifdef AMREX_USE_EB
+  mask.copy(ebmask);
+#else
+  mask.setVal(1.0);
+#endif
+  
 #ifdef _OPENMP
 #pragma omp parallel
 #endif
@@ -7982,6 +8002,7 @@ PeleLM::differential_spec_diffuse_sync (Real dt,
   {
     int        iGrid = mfi.index();
     const Box& box   = mfi.tilebox();
+    const BaseFab<int>& fab_mask = mask[mfi];
 #ifdef AMREX_USE_EB    
     const FArrayBox& vfrac = (*volfrac)[mfi];
 #endif
@@ -8007,6 +8028,7 @@ PeleLM::differential_spec_diffuse_sync (Real dt,
     // we want update to contain (dt/2) div (delta gamma)
     flux_div ( BL_TO_FORTRAN_BOX(box),
                BL_TO_FORTRAN_ANYD(update),
+               BL_TO_FORTRAN_N_ANYD(fab_mask,0),
                BL_TO_FORTRAN_ANYD(efab[0]),
                BL_TO_FORTRAN_ANYD(efab[1]),
 #if ( AMREX_SPACEDIM == 3 )
