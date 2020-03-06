@@ -3667,7 +3667,7 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
 
 //VisMF::Write(*SpecDiffusionFluxnp1[0],"SpecDiffusionFluxnp1_x");
 //VisMF::Write(*SpecDiffusionFluxnp1[1],"SpecDiffusionFluxnp1_y");
-  
+
   // Divergence of energy fluxes:
   // 1. Dnew[N+1] = -Div(flux[N+2])
   // 2. DD = -Sum{ Div(H_m Gamma_m) }
@@ -3987,10 +3987,6 @@ PeleLM::compute_enthalpy_fluxes (MultiFab* const*       flux,
 
   const Real strt_time = ParallelDescriptor::second();
 
-  int ngrow = 1;
-  MultiFab TT(grids,dmap,1,ngrow,MFInfo(),Factory());
-  FillPatch(*this,TT,ngrow,time,State_Type,Temp,1,0);
-
   //
   // First step, we create an operator to get (EB-aware) fluxes from, it will provide flux[nspecies+2]
   //
@@ -4012,15 +4008,26 @@ PeleLM::compute_enthalpy_fluxes (MultiFab* const*       flux,
   MLMG mg(op);
 
   {
-  const Vector<BCRec>& theBCs = AmrLevel::desc_lst[State_Type].getBCs();
-  const BCRec& bc = theBCs[Temp];
+    const Vector<BCRec>& theBCs = AmrLevel::desc_lst[State_Type].getBCs();
+    const BCRec& bc = theBCs[Temp];
 
-  std::array<LinOpBCType,AMREX_SPACEDIM> mlmg_lobc;
-  std::array<LinOpBCType,AMREX_SPACEDIM> mlmg_hibc;
-  Diffusion::setDomainBC(mlmg_lobc, mlmg_hibc, bc); // Same for all comps, by assumption
-  op.setDomainBC(mlmg_lobc, mlmg_hibc);
+    std::array<LinOpBCType,AMREX_SPACEDIM> mlmg_lobc;
+    std::array<LinOpBCType,AMREX_SPACEDIM> mlmg_hibc;
+    Diffusion::setDomainBC(mlmg_lobc, mlmg_hibc, bc); // Same for all comps, by assumption
+    op.setDomainBC(mlmg_lobc, mlmg_hibc);
   }
 
+  MultiFab TTc;
+  if (level > 0)
+  {
+    PeleLM& clev = getLevel(level-1);
+    TTc.define(clev.grids,clev.dmap,1,0,MFInfo(),clev.Factory());
+    FillPatch(clev,TTc,0,time,State_Type,Temp,1,0);
+    op.setCoarseFineBC(&TTc, crse_ratio[0]);
+  }
+  int ngrow = 1;
+  MultiFab TT(grids,dmap,1,ngrow,MFInfo(),Factory());
+  FillPatch(*this,TT,ngrow,time,State_Type,Temp,1,0);
   op.setLevelBC(0, &TT);
 
   // Creating alpha and beta coefficients.
@@ -4046,7 +4053,6 @@ PeleLM::compute_enthalpy_fluxes (MultiFab* const*       flux,
   // Here it is nspecies because lambda is stored after the last species (first starts at 0)
   Diffusion::computeBeta(bcoeffs, beta, nspecies, geom, aVec, false);
   op.setBCoeffs(0, amrex::GetArrOfConstPtrs(bcoeffs));
-
 
 #ifdef _OPENMP
 #pragma omp parallel
@@ -6856,6 +6862,7 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
   // Initialize accumulation for rho = Sum(rho.Y)
   for (int d=0; d<BL_SPACEDIM; d++) {
     EdgeState[d]->setVal(0);
+    EdgeFlux[d]->setVal(0);
   }
 
 #ifdef _OPENMP
