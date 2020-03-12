@@ -2014,7 +2014,9 @@ PeleLM::initData ()
   {
     //BL_ASSERT(grids[snewmfi.index()] == snewmfi.validbox());
 
-    P_new[snewmfi].setVal(0);
+    // setVal in ghost cells too
+    S_new[snewmfi].setVal(0.0,snewmfi.growntilebox(),0,S_new.nComp());
+    P_new[snewmfi].setVal(0.0,snewmfi.grownnodaltilebox(-1,P_new.nGrow()));
 
     const Box& vbx = snewmfi.tilebox();
     RealBox    gridloc = RealBox(vbx,geom.CellSize(),geom.ProbLo());
@@ -2034,11 +2036,9 @@ PeleLM::initData ()
                BL_TO_FORTRAN_ANYD(P_new[snewmfi]),
                dx, AMREX_ZFILL(gridloc.lo()), AMREX_ZFILL(gridloc.hi()) );
 #endif
-
-
-
   }
 
+  
   showMFsub("1D",S_new,stripBox,"1D_S",level);
   
 // Here we save a reference state vector to apply it later to covered cells
@@ -6687,8 +6687,7 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
     MultiFab edgestate_z(edgestate[2], amrex::make_alias, rhoYcomp, nspecies);
     MultiFab edgeflux_z(edgeflux[2], amrex::make_alias, rhoYcomp, nspecies);
 #endif
-
-
+    
     godunov -> ComputeConvectiveTerm( Smf, rhoYcomp, *aofs, first_spec, nspecies,
                                       D_DECL(edgeflux_x,edgeflux_y,edgeflux_z),
                                       D_DECL(edgestate_x,edgestate_y,edgestate_z),
