@@ -7125,14 +7125,19 @@ PeleLM::mac_sync ()
     //
     bool subtract_avg = (closed_chamber && level == 0);
     Real offset = 0.0;
-
+    
     BL_PROFILE_VAR("HT::mac_sync::ucorr", HTUCORR);
     Array<MultiFab*,AMREX_SPACEDIM> Ucorr;
+#ifdef AMREX_USE_EB
+    const int ng = 4; // For redistribution ... We may not need 4 but for now we play safe
+#else
+    const int ng = 0;
+#endif
     for (int idim = 0; idim < AMREX_SPACEDIM; ++idim){
       const BoxArray& edgeba = getEdgeBoxArray(idim);
       //
       // fixme? unsure how many ghost cells...
-      Ucorr[idim]= new MultiFab(edgeba,dmap,1,0,MFInfo(),Factory());
+      Ucorr[idim]= new MultiFab(edgeba,dmap,1,ng,MFInfo(),Factory());
     }
     mac_projector->mac_sync_solve(level,dt,rh,fine_ratio,Ucorr,
                                   &chi_sync);
