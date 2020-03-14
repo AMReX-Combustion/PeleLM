@@ -4064,9 +4064,9 @@ PeleLM::compute_enthalpy_fluxes (MultiFab* const*       flux,
            const Box& ybx = mfi.tilebox(IntVect::TheDimensionVector(1));,
            const Box& zbx = mfi.tilebox(IntVect::TheDimensionVector(2)););
  
-    D_TERM(flux[0]->setVal(0., xbx, nspecies+2, 1);,
-           flux[1]->setVal(0., ybx, nspecies+2, 1);,
-           flux[2]->setVal(0., zbx, nspecies+2, 1););
+    D_TERM((*flux[0])[mfi].setVal(0., xbx, nspecies+2, 1);,
+           (*flux[1])[mfi].setVal(0., ybx, nspecies+2, 1);,
+	   (*flux[2])[mfi].setVal(0., zbx, nspecies+2, 1););
   }
 
 // Here it is nspecies+2 because this is the heat flux (nspecies+3 in enth_diff_terms in fortran)
