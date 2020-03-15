@@ -2017,7 +2017,7 @@ PeleLM::initData ()
     const Box& vbx = snewmfi.tilebox();
     RealBox    gridloc = RealBox(vbx,geom.CellSize(),geom.ProbLo());
 
-    P_new[snewmfi].setVal(0.0,vbx);
+    P_new[snewmfi].setVal(0.0,snewmfi.nodaltilebox());
     
 #ifdef BL_USE_NEWMECH
     init_data_new_mech (&level, &cur_time,
