@@ -2014,11 +2014,11 @@ PeleLM::initData ()
   {
     //BL_ASSERT(grids[snewmfi.index()] == snewmfi.validbox());
 
-    P_new[snewmfi].setVal(0);
-
     const Box& vbx = snewmfi.tilebox();
     RealBox    gridloc = RealBox(vbx,geom.CellSize(),geom.ProbLo());
 
+    P_new[snewmfi].setVal(0.0,snewmfi.nodaltilebox());
+    
 #ifdef BL_USE_NEWMECH
     init_data_new_mech (&level, &cur_time,
                         BL_TO_FORTRAN_BOX(vbx), &ns,
@@ -2034,11 +2034,9 @@ PeleLM::initData ()
                BL_TO_FORTRAN_ANYD(P_new[snewmfi]),
                dx, AMREX_ZFILL(gridloc.lo()), AMREX_ZFILL(gridloc.hi()) );
 #endif
-
-
-
   }
 
+  
   showMFsub("1D",S_new,stripBox,"1D_S",level);
   
 // Here we save a reference state vector to apply it later to covered cells
@@ -2926,7 +2924,7 @@ PeleLM::post_init_press (Real&        dt_init,
 {
   const int  nState          = desc_lst[State_Type].nComp();
   const int  nGrow           = 0;
-  const Real tnp1        = state[State_Type].curTime();
+  const Real tnp1            = state[State_Type].curTime();
   const int  finest_level    = parent->finestLevel();
   NavierStokesBase::initial_iter = true;
   Real Sbar_old, Sbar_new;
@@ -4066,9 +4064,9 @@ PeleLM::compute_enthalpy_fluxes (MultiFab* const*       flux,
            const Box& ybx = mfi.tilebox(IntVect::TheDimensionVector(1));,
            const Box& zbx = mfi.tilebox(IntVect::TheDimensionVector(2)););
  
-    D_TERM(flux[0]->setVal(0., xbx, nspecies+2, 1);,
-           flux[1]->setVal(0., ybx, nspecies+2, 1);,
-           flux[2]->setVal(0., zbx, nspecies+2, 1););
+    D_TERM((*flux[0])[mfi].setVal(0., xbx, nspecies+2, 1);,
+           (*flux[1])[mfi].setVal(0., ybx, nspecies+2, 1);,
+	   (*flux[2])[mfi].setVal(0., zbx, nspecies+2, 1););
   }
 
 // Here it is nspecies+2 because this is the heat flux (nspecies+3 in enth_diff_terms in fortran)
@@ -4843,8 +4841,6 @@ PeleLM::scalar_advection_update (Real dt,
   MultiFab&       S_new = get_new_data(State_Type);
   const MultiFab& S_old = get_old_data(State_Type);
   
-//VisMF::Write(S_new,"S_new1");
-
 #ifdef _OPENMP
 #pragma omp parallel
 #endif  
@@ -4858,9 +4854,6 @@ PeleLM::scalar_advection_update (Real dt,
     snew.mult(dt,box,first_scalar,nc);
     snew.plus(S_old[mfi],box,first_scalar,first_scalar,nc);            
   }
-
-//VisMF::Write(S_new,"S_new2");
-//VisMF::Write(S_old,"S_old2");
 
 }
 
@@ -5867,7 +5860,7 @@ PeleLM::advance (Real time,
     // Compute R (F = A + 0.5(Dn - Dnp1 + DDn - DDnp1) + Dhat + DDhat )
     // 
     BL_PROFILE_VAR_START(HTREAC);
-    
+
 #ifdef _OPENMP
 #pragma omp parallel
 #endif
@@ -6687,8 +6680,7 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
     MultiFab edgestate_z(edgestate[2], amrex::make_alias, rhoYcomp, nspecies);
     MultiFab edgeflux_z(edgeflux[2], amrex::make_alias, rhoYcomp, nspecies);
 #endif
-
-
+    
     godunov -> ComputeConvectiveTerm( Smf, rhoYcomp, *aofs, first_spec, nspecies,
                                       D_DECL(edgeflux_x,edgeflux_y,edgeflux_z),
                                       D_DECL(edgestate_x,edgestate_y,edgestate_z),
@@ -7133,14 +7125,19 @@ PeleLM::mac_sync ()
     //
     bool subtract_avg = (closed_chamber && level == 0);
     Real offset = 0.0;
-
+    
     BL_PROFILE_VAR("HT::mac_sync::ucorr", HTUCORR);
     Array<MultiFab*,AMREX_SPACEDIM> Ucorr;
+#ifdef AMREX_USE_EB
+    const int ng = 4; // For redistribution ... We may not need 4 but for now we play safe
+#else
+    const int ng = 0;
+#endif
     for (int idim = 0; idim < AMREX_SPACEDIM; ++idim){
       const BoxArray& edgeba = getEdgeBoxArray(idim);
       //
       // fixme? unsure how many ghost cells...
-      Ucorr[idim]= new MultiFab(edgeba,dmap,1,0,MFInfo(),Factory());
+      Ucorr[idim]= new MultiFab(edgeba,dmap,1,ng,MFInfo(),Factory());
     }
     mac_projector->mac_sync_solve(level,dt,rh,fine_ratio,Ucorr,
                                   &chi_sync);
