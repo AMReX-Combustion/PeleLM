@@ -98,7 +98,7 @@ diffuse.Rhs_in_abs_tol = 1
 proj.proj_tol       = 1.0e-12  # tolerence for projections
 proj.sync_tol       = 1.0e-12  # tolerence for projections
 proj.rho_wgt_vel_proj = 0     # 0 => const den proj, 1 => rho weighted
-proj.Pcode          = 2 
+nodal_proj.verbose          = 2 
 proj.filter_factor  = 0.0
 proj.do_outflow_bcs = 0
 proj.divu_minus_s_factor = .5

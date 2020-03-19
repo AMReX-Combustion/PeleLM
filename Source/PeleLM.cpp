@@ -2036,7 +2036,7 @@ PeleLM::initData ()
 #endif
   }
 
-  
+
   showMFsub("1D",S_new,stripBox,"1D_S",level);
   
 // Here we save a reference state vector to apply it later to covered cells
@@ -2924,7 +2924,7 @@ PeleLM::post_init_press (Real&        dt_init,
 {
   const int  nState          = desc_lst[State_Type].nComp();
   const int  nGrow           = 0;
-  const Real tnp1            = state[State_Type].curTime();
+  const Real tnp1        = state[State_Type].curTime();
   const int  finest_level    = parent->finestLevel();
   NavierStokesBase::initial_iter = true;
   Real Sbar_old, Sbar_new;
@@ -3320,7 +3320,7 @@ PeleLM::diffusionFJDriver(ForkJoin&                   fj,
                                  &(fluxn[0]),&(fluxnp1[0]),fluxComp,delta_rhs,rhsComp,
                                  alpha_in,alpha_in_comp,&(betan[0]),&(betanp1[0]),betaComp,
                                  visc_coef_shifted,visc_comp_shifted,
-                                 volume_mf,&(area_mf[0]),cratio,bc,in_geom,add_hoop_stress,
+			     cratio,bc,in_geom,
                                  solve_mode,add_old_time_divFlux,is_diffusive);
 
 
@@ -3372,7 +3372,7 @@ PeleLM::diffuse_scalar_fj  (const Vector<MultiFab*>&  S_old,
                                   fluxn,fluxnp1,fluxComp,delta_rhs,rhsComp,
                                   alpha_in,alpha_in_comp,betan,betanp1,betaComp,
                                   visc_coef,visc_coef_comp,
-                                  theVolume,theArea,cratio,bc,theGeom,add_hoop_stress,
+			      cratio,bc,theGeom,
                                   solve_mode,add_old_time_divFlux,diffuse_this_comp);
   }
   else
@@ -3729,8 +3729,8 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
                               SpecDiffusionFluxn,SpecDiffusionFluxnp1,nspecies+2,
                               &Trhs,0,&RhoCp,0,
                               betan,betanp1,nspecies,visc_coef,visc_coef_comp,
-                              volume,a,crse_ratio,theBCs[Temp],geom,
-                              add_hoop_stress,solve_mode,add_old_time_divFlux,diffuse_this_comp);
+                              crse_ratio,theBCs[Temp],geom,
+                              solve_mode,add_old_time_divFlux,diffuse_this_comp);
 
 //#ifdef AMREX_USE_EB
 //  set_body_state(*Snp1[0]);
@@ -4036,12 +4036,6 @@ PeleLM::compute_enthalpy_fluxes (MultiFab* const*       flux,
   op.setScalars(a, b);
   op.setACoeffs(0, Alpha);
   
-  std::array<MultiFab,AMREX_SPACEDIM> bcoeffs;
-  for (int n = 0; n < BL_SPACEDIM; n++)
-  {
-    bcoeffs[n].define(area[n].boxArray(),dmap,1,0,MFInfo(),Factory());
-  }
-  
   const MultiFab *aVec[AMREX_SPACEDIM];
   for (int d=0; d<AMREX_SPACEDIM; ++d)
   {
@@ -4049,7 +4043,7 @@ PeleLM::compute_enthalpy_fluxes (MultiFab* const*       flux,
   }
     
   // Here it is nspecies because lambda is stored after the last species (first starts at 0)
-  Diffusion::computeBeta(bcoeffs, beta, nspecies, geom, aVec, false);
+  Array<MultiFab,BL_SPACEDIM> bcoeffs = Diffusion::computeBeta(beta, nspecies);
   op.setBCoeffs(0, amrex::GetArrOfConstPtrs(bcoeffs));
 
 #ifdef _OPENMP
@@ -4066,7 +4060,7 @@ PeleLM::compute_enthalpy_fluxes (MultiFab* const*       flux,
  
     D_TERM((*flux[0])[mfi].setVal(0., xbx, nspecies+2, 1);,
            (*flux[1])[mfi].setVal(0., ybx, nspecies+2, 1);,
-	   (*flux[2])[mfi].setVal(0., zbx, nspecies+2, 1););
+           (*flux[2])[mfi].setVal(0., zbx, nspecies+2, 1););
   }
 
 // Here it is nspecies+2 because this is the heat flux (nspecies+3 in enth_diff_terms in fortran)
@@ -4640,14 +4634,13 @@ PeleLM::compute_differential_diffusion_fluxes (const MultiFab& S,
        Real* rhsscale = 0;
        std::pair<Real,Real> scalars;
        Diffusion::computeAlpha(Alpha, scalars, a, b, rh, rho_flag,
-                               rhsscale, alpha_in, alpha_in_comp+icomp, &S, Density,
-                               geom, volume, add_hoop_stress);
+                               rhsscale, alpha_in, alpha_in_comp+icomp, &S, Density);
        op.setScalars(scalars.first, scalars.second);
        op.setACoeffs(0, Alpha);
     }
         
     {
-      Diffusion::computeBeta(bcoeffs, beta, betaComp+icomp, geom, aVec, add_hoop_stress);
+      Array<MultiFab,BL_SPACEDIM> bcoeffs = Diffusion::computeBeta(beta, betaComp+icomp);
       op.setBCoeffs(0, amrex::GetArrOfConstPtrs(bcoeffs));
     }
     
@@ -4840,7 +4833,7 @@ PeleLM::scalar_advection_update (Real dt,
   //
   MultiFab&       S_new = get_new_data(State_Type);
   const MultiFab& S_old = get_old_data(State_Type);
-  
+
 #ifdef _OPENMP
 #pragma omp parallel
 #endif  
@@ -5860,7 +5853,7 @@ PeleLM::advance (Real time,
     // Compute R (F = A + 0.5(Dn - Dnp1 + DDn - DDnp1) + Dhat + DDhat )
     // 
     BL_PROFILE_VAR_START(HTREAC);
-
+    
 #ifdef _OPENMP
 #pragma omp parallel
 #endif
@@ -6680,7 +6673,8 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
     MultiFab edgestate_z(edgestate[2], amrex::make_alias, rhoYcomp, nspecies);
     MultiFab edgeflux_z(edgeflux[2], amrex::make_alias, rhoYcomp, nspecies);
 #endif
-    
+
+
     godunov -> ComputeConvectiveTerm( Smf, rhoYcomp, *aofs, first_spec, nspecies,
                                       D_DECL(edgeflux_x,edgeflux_y,edgeflux_z),
                                       D_DECL(edgestate_x,edgestate_y,edgestate_z),
@@ -7125,7 +7119,7 @@ PeleLM::mac_sync ()
     //
     bool subtract_avg = (closed_chamber && level == 0);
     Real offset = 0.0;
-    
+
     BL_PROFILE_VAR("HT::mac_sync::ucorr", HTUCORR);
     Array<MultiFab*,AMREX_SPACEDIM> Ucorr;
 #ifdef AMREX_USE_EB
@@ -7437,8 +7431,8 @@ PeleLM::mac_sync ()
                                   SpecDiffusionFluxn,SpecDiffusionFluxnp1,nspecies+2,
                                   &Trhs,0,&RhoCp_post,0,
                                   betan,betanp1,nspecies,visc_coef,visc_coef_comp,
-                                  volume,a,crse_ratio,theBCs[Temp],geom,
-                                  add_hoop_stress,solve_mode,add_old_time_divFlux,diffuse_this_comp);
+                                  crse_ratio,theBCs[Temp],geom,
+                                  solve_mode,add_old_time_divFlux,diffuse_this_comp);
 
         deltaT_iter_norm = Snp1[0]->norm0(Temp);
         if (deltaT_verbose) {
