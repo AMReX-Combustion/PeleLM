@@ -151,4 +151,9 @@ fab.format = NATIVE
 fabarray.mfiter_tile_size = 8 8 8
 
 ns.verbose = true
- 
+
+ns.getLESVerbose = 1
+ns.do_LES = 1
+ns.LES_model = Smagorinsky
+#ns.LES_model = Sigma
+ns.smago_Cs_cst = 0.18 
