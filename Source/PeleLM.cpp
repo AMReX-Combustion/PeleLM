@@ -4557,7 +4557,6 @@ PeleLM::compute_differential_diffusion_fluxes (const MultiFab& S,
     bcoeffs[n].define(area[n].boxArray(),dmap,1,0,MFInfo(),Factory());
   }
   MultiFab Soln(grids,dmap,1,nGrow,MFInfo(),Factory());
-  MultiFab Alpha(grids,dmap,1,0,MFInfo(),Factory());
   auto Solnc = std::unique_ptr<MultiFab>(new MultiFab());
   if (has_coarse_data) {
     Solnc->define(*bac, *dmc, 1, nGrow,MFInfo(),getLevel(level-1).Factory());
@@ -4625,8 +4624,15 @@ PeleLM::compute_differential_diffusion_fluxes (const MultiFab& S,
 
        Real* rhsscale = 0;
        std::pair<Real,Real> scalars;
-       Diffusion::computeAlpha(Alpha, scalars, a, b, rh, rho_flag,
-                               rhsscale, alpha_in, alpha_in_comp+icomp, &S, Density);
+       MultiFab Alpha;
+       // above sets rho_flag = 2;
+       // this is potentially dangerous if rho_flag==1, because rh is an undefined MF
+       const MultiFab& rho = (rho_flag == 1) ? rh : S;
+       const int Rho_comp = (rho_flag ==1) ? 0 : Density;
+
+       Diffusion::computeAlpha(Alpha, scalars, a, b, 
+                               rhsscale, alpha_in, alpha_in_comp+icomp,
+			       rho_flag, &rho, Rho_comp);
        op.setScalars(scalars.first, scalars.second);
        op.setACoeffs(0, Alpha);
     }
