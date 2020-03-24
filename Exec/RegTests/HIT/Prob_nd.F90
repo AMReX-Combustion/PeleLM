@@ -45,7 +45,8 @@ contains
       use PeleLM_F,  only: pphys_getP1atm_MKS
       use amrex_paralleldescriptor_module, only: amrex_pd_ioprocessor
       use mod_Fvar_def, only : pamb
-
+      use extern_probin_module, only: const_viscosity, const_bulk_viscosity, const_conductivity, const_diffusivity, mks_unit
+      use network,   only: nspecies
       use probdata_module
 
       implicit none
@@ -71,6 +72,8 @@ contains
       integer maxlen, isioproc
       parameter (maxlen=256)
       character probin*(maxlen)
+      REAL_T :: Yt(nspecies), Density_mean, P_mean_in
+      integer, parameter :: out_unit=20
 
       call bl_pd_is_ioproc(isioproc)
 
@@ -103,9 +106,10 @@ contains
     urms0 = 1.0d0
 
 ! Initial pressure and temperature
-    P_mean = 1.01325d6 ! [erg cm^-3]
+    P_mean = 101325.0
     T_mean = 300.d0
-
+    Yt(1) = 0.233d0
+    Yt(2) = 0.767d0
 
       untin = 9
       open(untin,file=probin(1:namlen),form='formatted',status='old')
@@ -124,6 +128,31 @@ contains
          write(6,fortin)
          write(6,heattransin)
       end if
+
+
+    P_mean_in = P_mean * 10.0d0   ! BEcause the chemkin routine is in CGS
+    CALL CKRHOY(P_mean_in,T_mean,Yt,Density_mean)
+    Density_mean = Density_mean * 1000.0d0  ! To convert back to MKS
+
+    ! Wavelength associated to Taylor length scale
+    k0 = 2.d0/lambda0
+
+   ! Initial density, velocity, and material properties
+    tau  = lambda0 / urms0
+    const_bulk_viscosity = 0.d0
+    const_diffusivity = 0.d0
+    const_viscosity = Density_mean * urms0 * lambda0 / reynolds_lambda0 
+    const_conductivity = 0.0d0
+    mks_unit = .true.
+
+    ! Write this out to file (might be useful for postprocessing)
+    if ( amrex_pd_ioprocessor() ) then
+       open(unit=out_unit,file="ic.txt",action="write",status="replace")
+       write(out_unit,*)"lambda0, k0, rho0, urms0, tau, p0, T0, mu, Reynolds"
+       write(out_unit,*) lambda0, "," , k0, "," , Density_mean, "," , urms0, "," , tau, "," , &
+            P_mean, "," , T_mean, "," , const_viscosity, "," ,   reynolds_lambda0 
+       close(out_unit)
+    endif 
 
     ! Load velocity fields from file. Assume data set ordered in Fortran
     ! format and reshape the data accordingly. One thing to keep in mind
