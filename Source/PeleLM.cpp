@@ -3772,8 +3772,8 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
     }
     showMF("mysdc",*Snp1[0],"sdc_Snp1_inDeltaTiterEND_inDDupdate",level,L,parent->levelSteps(level));
 
-    if (L==num_deltaT_iters_MAX && deltaT_iter_norm >= deltaT_norm_max) {
-      Warning("deltaT_iters not converged");
+    if (L==(num_deltaT_iters_MAX-1) && deltaT_iter_norm >= deltaT_norm_max) {
+      Abort("deltaT_iters not converged");
     }
   } // end deltaT iters
 
