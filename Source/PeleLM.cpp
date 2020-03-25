@@ -4148,7 +4148,7 @@ PeleLM::compute_enthalpy_fluxes (MultiFab* const*       flux,
     if (add_hoop_stress)
     {
       // Below if for scaling by volume, only for R-Z case
-      (*flux[i]).mult<RunOn::Host>(b/(geom.CellSize()[i]),nspecies+2,1,0);
+      (*flux[i]).mult(b/(geom.CellSize()[i]),nspecies+2,1,0);
     }
     else
     {
@@ -6902,8 +6902,8 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
   
   // Initialize accumulation for rho = Sum(rho.Y)
   for (int d=0; d<AMREX_SPACEDIM; d++) {
-    EdgeState[d]->setVal<RunOn::Host>(0);
-    EdgeFlux[d]->setVal<RunOn::Host>(0);
+    EdgeState[d]->setVal(0);
+    EdgeFlux[d]->setVal(0);
   }
 
 #ifdef _OPENMP
