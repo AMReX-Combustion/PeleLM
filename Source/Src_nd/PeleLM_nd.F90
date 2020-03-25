@@ -644,6 +644,7 @@ contains
                CALL pphys_TfromHYpt( T(i,j,k), Hmix(i,j,k), Yt, errMax, NiterMAX, res, Niter)
 
                if (Niter < 0) then
+                  write(*,*)"Error code ", Niter
                   call amrex_abort(" Something went wrong in pphys_TfromHYpt ")
                end if
 
