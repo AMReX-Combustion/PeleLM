@@ -15,13 +15,13 @@ peleLM.hi_bc = "Interior"  "Interior" "Interior"
 
 #----------------------------TOP LEVEL INPUTS----------------------
 max_step  =  10000
-max_step  =  5000
-stop_time = 0.04
+stop_time = 0.01
 
 #-------------------------AMR INPUTS----------------------------
 amr.n_cell    = 32 32 32
-#amr.n_cell    = 128 128 128
+amr.n_cell    = 128 128 128
 #amr.n_cell    = 64 64 64
+#amr.n_cell    = 256 256 256
 
 amr.v=1
 amr.max_level =  0            # maximum level number allowed
@@ -37,10 +37,10 @@ amr.check_file      = chk     # root name of checkpoint file
 amr.check_int       = 5       # number of timesteps between checkpoints
 
 amr.plot_file       = plt_
-amr.plot_int        = 200000
+amr.plot_int        = 10
 amr.derive_plot_vars=rhoRT mag_vort avg_pressure gradpx gradpy diveru cc_transport_coeffs
 
-amr.max_grid_size   = 32 
+amr.max_grid_size   = 64
 
 amr.probin_file = probin.3d.regt # This will default to file "probin" if not set
 
@@ -49,9 +49,8 @@ amr.probin_file = probin.3d.regt # This will default to file "probin" if not set
 ns.dt_cutoff       = 5.e-10   # level 0 timestep below which we halt
 ns.visc_tol        = 1.0e-15  # tolerence for viscous solves
 ns.visc_abs_tol    = 1.0e-15  # tolerence for viscous solves
-ns.cfl            = 0.7     # cfl number for hyperbolic system
-ns.init_shrink    = 1.0       # scale back initial timestep
-ns.init_shrink    = 0.01       # scale back initial timestep
+ns.cfl            = 0.3     # cfl number for hyperbolic system
+ns.init_shrink    = 0.5       # scale back initial timestep
 ns.change_max     = 1.1       # scale back initial timestep
 ns.init_iter      = 3        # number of init iters to def pressure
 ns.gravity        = 0        # body force  (gravity in MKS units)
@@ -140,10 +139,10 @@ fab.format = NATIVE
 fabarray.mfiter_tile_size = 1024 1024 1024 
 
 # for getting things started with eb skip some steps
-ns.init_iter = 0
-ns.do_mac_proj = 0 
+ns.init_iter = 1
+ns.do_mac_proj = 1
 # to turn off initial projections set to 0
-ns.do_init_proj = 0
+ns.do_init_proj = 1
 ns.do_sync_proj = 0
 ns.do_MLsync_proj = 0
 
@@ -156,8 +155,12 @@ nodal_proj.rtol =  1.0e-12
 nodal_proj.atol =  1.0e-12
 nodal_proj.verbose = 1
 
+diffuse.visc_tol = 1.0e-14
+
 ns.getLESVerbose = 1
 ns.do_LES = 0
-ns.LES_model = Smagorinsky
-#ns.LES_model = Sigma
-ns.smago_Cs_cst = 0.18
+#ns.LES_model = Smagorinsky
+#ns.smago_Cs_cst = 0.18
+
+ns.LES_model = Sigma
+ns.sigma_Cs_cst = 1.5
