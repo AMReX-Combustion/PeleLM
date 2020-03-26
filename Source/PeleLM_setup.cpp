@@ -40,10 +40,14 @@
 #include <AMReX_Utility.H>
 #include <NS_error_F.H>
 
+#ifdef USE_CUDA_CVODE
+#include <actual_Creactor_GPU.h>
+#else
 #ifdef USE_SUNDIALS_PP
 #include <actual_Creactor.h>
 #else
 #include <actual_reactor.H> 
+#endif
 #endif
 
 using namespace amrex;
@@ -480,6 +484,9 @@ PeleLM::variableSetUp ()
   init_network();
 
   int reactor_type = 2;
+#ifdef USE_CUDA_CVODE
+  reactor_info(&cvode_iE,&cvode_ncells);
+#else
 #ifdef _OPENMP
 #pragma omp parallel
 #endif  
@@ -489,7 +496,7 @@ PeleLM::variableSetUp ()
 #endif
   reactor_init(&reactor_type,&ncells_chem);
 }
-
+#endif
 
   init_transport(use_tranlib);
 
