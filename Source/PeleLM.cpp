@@ -3533,6 +3533,8 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
     FillPatch(crselev,*Snc  ,ng,prev_time,State_Type,sComp,nComp,sComp);
     Snp1c->define(crselev.boxArray(), crselev.DistributionMap(), NUM_STATE, ng);
     FillPatch(crselev,*Snp1c,ng,curr_time,State_Type,sComp,nComp,sComp);
+    //showMF("mysdc",*Snc,"sdc_Snc_SoldCoarse_inDDupdate",level,1,parent->levelSteps(level));
+    //showMF("mysdc",*Snp1c,"sdc_Snp1c_SnewCoarse_inDDupdate",level,1,parent->levelSteps(level));
   }
 
   const int nlev = (level ==0 ? 1 : 2);
@@ -3602,10 +3604,6 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
   set_body_state(*Sn[0]);
 #endif
 
-
-//VisMF::Write(*SpecDiffusionFluxnp1[0],"SpecDiffusionFluxnp1_x");
-//VisMF::Write(*SpecDiffusionFluxnp1[1],"SpecDiffusionFluxnp1_y");
-                    
 #ifdef USE_WBAR
   // add lagged grad Wbar fluxes (SpecDiffusionFluxWbar) to time-advanced 
   // species diffusion fluxes (SpecDiffusionFluxnp1)
@@ -3636,14 +3634,9 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
                                Tbc,curr_time);
 }
   
-//  VisMF::Write(*SpecDiffusionFluxnp1[0],"SpecDiffusionFluxnp1_x");
-//VisMF::Write(*SpecDiffusionFluxnp1[1],"SpecDiffusionFluxnp1_y");
-  
   Dnew.setVal(0);
   flux_divergence(Dnew,DComp,SpecDiffusionFluxnp1,0,nspecies,-1);
   
-  //VisMF::Write(Dnew,"Dnew");
-
   //
   // Do iterative enthalpy/temperature solve
   //
@@ -3663,18 +3656,14 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
   //
   compute_enthalpy_fluxes(SpecDiffusionFluxnp1,betanp1,curr_time);
 
-//VisMF::Write(*SpecDiffusionFluxnp1[0],"SpecDiffusionFluxnp1_x");
-//VisMF::Write(*SpecDiffusionFluxnp1[1],"SpecDiffusionFluxnp1_y");
-
   // Divergence of energy fluxes:
   // 1. Dnew[N+1] = -Div(flux[N+2])
   // 2. DD = -Sum{ Div(H_m Gamma_m) }
   flux_divergence(Dnew,DComp+nspecies+1,SpecDiffusionFluxnp1,nspecies+2,1,-1);
+  showMF("mysdc",Dnew,"sdc_Dnew_befDeltaTiter_inDDupdate",level,1,parent->levelSteps(level));
   
   flux_divergence(DDnew,0,SpecDiffusionFluxnp1,nspecies+1,1,-1);
-  
-  //VisMF::Write(DDnew,"DDnew");
-  //VisMF::Write(Dnew,"Dnew");
+  //showMF("mysdc",DDnew,"sdc_DDnew_befDeltaTiter_inDDupdate",level,1,parent->levelSteps(level));
 
   if (deltaT_verbose) {
     Print() << "Iterative solve for deltaT: " << std::endl;
@@ -3718,9 +3707,15 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
     MultiFab::Add(Trhs,Dnew,DComp+nspecies+1,0,1,0);              //      +  Dnew[N+1]
     MultiFab::Add(Trhs,DDnew,0,0,1,0);                            //      +  DDnew
     
+    //showMF("mysdc",Trhs,"sdc_Trhs_inDeltaTiter_inDDupdate",level,L,parent->levelSteps(level));
     // Save current T value, guess deltaT=0
     MultiFab::Copy(Told,*Snp1[0],Temp,0,1,1); // Save a copy of T^{k+1,L}
     Snp1[0]->setVal(0,Temp,1,1);
+    if (nlev>1) {
+       Snp1[1]->setVal(0,Temp,1,1);
+    }
+    showMF("mysdc",Told,"sdc_Told_inDeltaTiter_inDDupdate",level,L,parent->levelSteps(level));
+    showMF("mysdc",Trhs,"sdc_Trhs_inDeltaTiter_inDDupdate",level,L,parent->levelSteps(level));
     
     int rho_flagT = 0; // Do not do rho-based hacking of the diffusion problem
     const Vector<int> diffuse_this_comp = {1};
@@ -3736,6 +3731,7 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
 //  set_body_state(*Snp1[0]);
 //  set_body_state(*Sn[0]);
 //#endif
+    showMF("mysdc",*Snp1[0],"sdc_Snp1_inDeltaTiterAFT_inDDupdate",level,L,parent->levelSteps(level));
 
           
     deltaT_iter_norm = Snp1[0]->norm0(Temp);
@@ -3750,11 +3746,7 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
     compute_enthalpy_fluxes(SpecDiffusionFluxnp1,betanp1,curr_time);
     flux_divergence(Dnew,DComp+nspecies+1,SpecDiffusionFluxnp1,nspecies+2,1,-1);
     flux_divergence(DDnew,0,SpecDiffusionFluxnp1,nspecies+1,1,-1);
-    
-//VisMF::Write(*SpecDiffusionFluxnp1[0],"SpecDiffusionFluxnp1_x");
-//VisMF::Write(*SpecDiffusionFluxnp1[1],"SpecDiffusionFluxnp1_y");
-//  VisMF::Write(DDnew,"DDnew");
-//  VisMF::Write(Dnew,"Dnew");
+    //showMF("mysdc",DDnew,"sdc_DDnew_afterDeltaTiter_inDDupdate",level,L,parent->levelSteps(level));
     
 #ifdef _OPENMP
 #pragma omp parallel
@@ -3778,15 +3770,18 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
         (*Snp1[0])[mfi].mult((*Snp1[0])[mfi],tbox,tbox,Density,RhoH,1);		// mult by rho, get rho*H
       }
     }
+    showMF("mysdc",*Snp1[0],"sdc_Snp1_inDeltaTiterEND_inDDupdate",level,L,parent->levelSteps(level));
 
-    if (L==num_deltaT_iters_MAX && deltaT_iter_norm >= deltaT_norm_max) {
-      Warning("deltaT_iters not converged");
+    if (L==(num_deltaT_iters_MAX-1) && deltaT_iter_norm >= deltaT_norm_max) {
+      Abort("deltaT_iters not converged");
     }
   } // end deltaT iters
 
 #ifdef AMREX_USE_EB
   set_body_state(*Snp1[0]);
 #endif
+
+  showMF("mysdc",Dnew,"sdc_Dnew_afterDeltaTiter_inDDupdate",level,1,parent->levelSteps(level));
   
   //
   // We have just performed the correction diffusion solve for Y_m and h
@@ -3834,9 +3829,6 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
     DDnew.FillBoundary(0, 1, geom.periodicity());
     Extrapolater::FirstOrderExtrap(DDnew, geom, 0, 1);
   }
-  
-  //VisMF::Write(DDnew,"DDnew");
-  //VisMF::Write(Dnew,"Dnew");
   
   if (verbose)
   {
@@ -5858,6 +5850,9 @@ PeleLM::advance (Real time,
     // 
     // Compute R (F = A + 0.5(Dn - Dnp1 + DDn - DDnp1) + Dhat + DDhat )
     // 
+    showMF("mysdc",Dhat,"sdc_Dhat_post_DDupdate",level,sdc_iter,parent->levelSteps(level));
+    //showMF("mysdc",DDhat,"sdc_DDhat_post_DDupdate",level,sdc_iter,parent->levelSteps(level));
+    showMF("mysdc",Dn,"sdc_Dn_post_DDupdate",level,sdc_iter,parent->levelSteps(level));
     BL_PROFILE_VAR_START(HTREAC);
     
 #ifdef _OPENMP
@@ -5869,7 +5864,12 @@ PeleLM::advance (Real time,
     Forcing.mult(1/dt);
     MultiFab::Subtract(Forcing,get_new_data(RhoYdot_Type),0,0,nspecies,0);	// remove omegaDot term
 
+    showMF("mysdc",Forcing,"sdc_F_befAdvChem",level,sdc_iter,parent->levelSteps(level));
+    showMF("mysdc",S_old,"sdc_Sold_befAdvChem",level,sdc_iter,parent->levelSteps(level));
+    showMF("mysdc",S_new,"sdc_Snew_befAdvChem",level,sdc_iter,parent->levelSteps(level));
+
 // EM DEBUG: HERE DO WE NEED TO INTERPOLATE TO CENTROID BEFORE ADVANCING CHEMISTRY ?
+    //showMF("mysdc",Dhat,"sdc_F_bef_chem",level,sdc_iter,parent->levelSteps(level));
     advance_chemistry(S_old,S_new,dt,Forcing,0);
     
 #ifdef AMREX_USE_EB
@@ -5895,6 +5895,10 @@ PeleLM::advance (Real time,
       }
     }
     BL_PROFILE_VAR_STOP(HTDIFF);
+
+    showMF("mysdc",S_new,"sdc_Snew_end_sdc",level,sdc_iter,parent->levelSteps(level));
+    showMF("mysdc",S_old,"sdc_Sold_end_sdc",level,sdc_iter,parent->levelSteps(level));
+
     
     temperature_stats(S_new);
     if (verbose) amrex::Print() << "DONE WITH R (SDC corrector " << sdc_iter << ")\n";

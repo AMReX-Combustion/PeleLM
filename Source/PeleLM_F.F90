@@ -697,7 +697,7 @@ end subroutine plm_extern_init
                   stalled = (2*ABS(old_T-T)/(old_T+T).le.errMAX)
                   Niter = Niter + 1
                   if (Niter.gt.NiterMAX+Discont_NiterMAX) then
-                          Niter = -2
+                          Niter = -4
                           exit
                   endif
               end do
