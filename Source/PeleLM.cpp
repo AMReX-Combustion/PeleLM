@@ -7476,8 +7476,8 @@ PeleLM::mac_sync ()
           }
         }
 
-        if (L==num_deltaT_iters_MAX && deltaT_iter_norm >= deltaT_norm_max) {
-          Warning("deltaT_iters not converged in mac_sync");
+        if (L==(num_deltaT_iters_MAX-1) && deltaT_iter_norm >= deltaT_norm_max) {
+          Abort("deltaT_iters not converged in mac_sync");
         }
       } // deltaT_iters
 
