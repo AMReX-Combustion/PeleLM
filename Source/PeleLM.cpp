@@ -7506,14 +7506,14 @@ PeleLM::mac_sync ()
       //
       const BoxArray& fine_grids            = S_new_lev.boxArray();
       const DistributionMapping& fine_dmap  = S_new_lev.DistributionMap();
-      const int nghost           = S_new_lev.nGrow();
+      const int nghost                      = S_new_lev.nGrow();
       MultiFab increment(fine_grids, fine_dmap, numscal, nghost,MFInfo(),Factory());
 
       increment.setVal(0.0,nghost);
 
       SyncInterp(Ssync, level, increment, lev, ratio, 
-                 first_spec-AMREX_SPACEDIM, first_spec-AMREX_SPACEDIM, nspecies, 1, mult,
-                 sync_bc.dataPtr(), CellConsProt_T, Density);
+                 first_spec-AMREX_SPACEDIM, first_spec-AMREX_SPACEDIM, nspecies+2, 1, mult,
+                 sync_bc.dataPtr());
 
       if (do_set_rho_to_species_sum)
       {
