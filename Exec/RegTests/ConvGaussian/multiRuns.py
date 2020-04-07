@@ -31,7 +31,7 @@ def multiRun(args):
     
     print(" Scripted multiple runs for convergence study ")
     # User data
-    resolution = [32,64,128,256]        
+    resolution = [32,64,128,256]
 
     # Get the PeleLM exec
     run_dir = os.getcwd()
@@ -56,7 +56,7 @@ def multiRun(args):
         print(" Running {}x{} case".format(case,case))
         runtime_params = "amr.n_cell={} {} {} ".format(case,case,case)
         runtime_params += "amr.plot_file={}_plt_{}_".format(args.test_name,case)
-        os.system("mpiexec -n 1 ./{} {} {} > {}".format(executable, args.input_file, runtime_params, outfile))
+        os.system("mpiexec -n 2 ./{} {} {} > {}".format(executable, args.input_file, runtime_params, outfile))
 
 def parse_args(arg_string=None):
     parser = argparse.ArgumentParser(description=USAGE)

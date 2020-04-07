@@ -19,9 +19,11 @@ max_step  =  5000
 stop_time = 0.04
 
 #-------------------------AMR INPUTS----------------------------
+amr.n_cell    = 64 64 64
 amr.n_cell    = 32 32 32
 amr.n_cell    = 128 128 128
-amr.n_cell    = 64 64 64
+amr.n_cell    = 256 256 256
+amr.n_cell    = 512 512 512
 
 amr.v=1
 amr.max_level =  0            # maximum level number allowed
@@ -36,7 +38,7 @@ amr.checkpoint_files_output = 0
 amr.check_file      = chk     # root name of checkpoint file
 amr.check_int       = 5       # number of timesteps between checkpoints
 
-amr.plot_file       = plt_
+amr.plot_file       = DummyTest_plt_512_
 amr.plot_int        = 200000
 amr.derive_plot_vars=rhoRT mag_vort avg_pressure gradpx gradpy diveru
 
