@@ -19,7 +19,7 @@ stop_time = 0.01
 
 #-------------------------AMR INPUTS----------------------------
 amr.n_cell    = 32 32 32
-amr.n_cell    = 128 128 128
+#amr.n_cell    = 128 128 128
 #amr.n_cell    = 64 64 64
 #amr.n_cell    = 256 256 256
 
@@ -49,7 +49,7 @@ amr.probin_file = probin.3d.regt # This will default to file "probin" if not set
 ns.dt_cutoff       = 5.e-10   # level 0 timestep below which we halt
 ns.visc_tol        = 1.0e-15  # tolerence for viscous solves
 ns.visc_abs_tol    = 1.0e-15  # tolerence for viscous solves
-ns.cfl            = 0.3     # cfl number for hyperbolic system
+ns.cfl            = 0.5     # cfl number for hyperbolic system
 ns.init_shrink    = 0.5       # scale back initial timestep
 ns.change_max     = 1.1       # scale back initial timestep
 ns.init_iter      = 3        # number of init iters to def pressure
@@ -158,7 +158,7 @@ nodal_proj.verbose = 1
 diffuse.visc_tol = 1.0e-14
 
 ns.getLESVerbose = 1
-ns.do_LES = 0
+ns.do_LES = 1
 #ns.LES_model = Smagorinsky
 #ns.smago_Cs_cst = 0.18
 
