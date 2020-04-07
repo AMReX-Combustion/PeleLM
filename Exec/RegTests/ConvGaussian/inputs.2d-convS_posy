@@ -1,29 +1,28 @@
 # ----------------  PROBLEM DEPENDENT INPUTS
-geometry.is_periodic = 1 0
+geometry.is_periodic = 1 1
 
 geometry.coord_sys = 0  # 0 => cart, 1 => RZ
 
-geometry.prob_lo   =  0. 0. 0.
-geometry.prob_hi   = .016 .016 .016
+geometry.prob_lo   = 0.0 0.0 0.0
+geometry.prob_hi   = 1.0 1.0 1.0
 
 # >>>>>>>>>>>>>  BC FLAGS <<<<<<<<<<<<<<<<
 # Interior, Inflow, Outflow, Symmetry,
 # SlipWallAdiab, NoSlipWallAdiab, SlipWallIsotherm, NoSlipWallIsotherm
-peleLM.lo_bc = Interior  Inflow
-peleLM.hi_bc = Interior  Outflow
+
+peleLM.lo_bc = "Interior"  "Interior"
+peleLM.hi_bc = "Interior"  "Interior"
 
 #----------------------------TOP LEVEL INPUTS----------------------
 max_step  =  10000
-max_step  =  20
-stop_time = 4.00
+max_step  =  5000
+stop_time = 0.04
 
 #-------------------------AMR INPUTS----------------------------
 amr.n_cell    = 64 64 64
-amr.n_cell    = 128 128 128
-amr.n_cell    = 32 32 32
 
 amr.v=1
-amr.max_level =  2            # maximum level number allowed
+amr.max_level =  0            # maximum level number allowed
 amr.ref_ratio       = 2 2 2 2 # refinement ratio
 amr.regrid_int      = 2       # how often to regrid
 amr.n_error_buf     = 1 1 1 2 # number of buffer cells in error est
@@ -35,41 +34,21 @@ amr.checkpoint_files_output = 0
 amr.check_file      = chk     # root name of checkpoint file
 amr.check_int       = 5       # number of timesteps between checkpoints
 
-amr.plot_file       = plt
-amr.plot_int        = 1
-amr.derive_plot_vars=rhoRT mag_vort avg_pressure gradpx gradpy diveru mass_fractions molweight rhominsumrhoY
+amr.plot_file       = plt_
+amr.plot_int        = 200000
+amr.derive_plot_vars=rhoRT mag_vort avg_pressure gradpx gradpy diveru mass_fractions rhominsumrhoY
 
 amr.grid_log        = grdlog  # name of grid logging file
 amr.max_grid_size   = 64
 
-amr.probin_file = probin.3d.test # This will default to file "probin" if not set
+amr.probin_file = probin.2d.convS_posy # This will default to file "probin" if not set
 
-# Refinement according to a species tracer
-amr.refinement_indicators = flame_tracer 
-amr.flame_tracer.max_level = 3
-amr.flame_tracer.value_greater = 1.e-6
-amr.flame_tracer.field_name = Y(H)
-
-# Refinement according to temperature and gradient of temperature
-#amr.refinement_indicators = lo_temp gradT
-#amr.lo_temp.max_level = 2
-#amr.lo_temp.value_less = 500
-#amr.lo_temp.field_name = temp
-
-#amr.gradT.max_level = 2
-#amr.gradT.adjacent_difference_greater = 300
-#amr.gradT.field_name = temp
-
-# Refinement according to the vorticity, no field_name needed
-#amr.refinement_indicators = magvort
-#amr.magvort.max_level = 3
-#amr.magvort.vorticity_greater = 300
 
 # ------------------  INPUTS TO PHYSICS CLASS -------------------
 ns.dt_cutoff       = 5.e-10   # level 0 timestep below which we halt
-ns.visc_tol        = 1.0e-14  # tolerence for viscous solves
-ns.visc_abs_tol    = 1.0e-14  # tolerence for viscous solves
-ns.cfl            = 0.7       # cfl number for hyperbolic system
+ns.visc_tol        = 1.0e-15  # tolerence for viscous solves
+ns.visc_abs_tol    = 1.0e-15  # tolerence for viscous solves
+ns.cfl            = 0.7     # cfl number for hyperbolic system
 ns.init_shrink    = 1.0       # scale back initial timestep
 ns.init_shrink    = 0.0001       # scale back initial timestep
 ns.change_max     = 1.1       # scale back initial timestep
@@ -95,15 +74,16 @@ ns.divu_ceiling = 1
 ns.divu_dt_factor = .4
 ns.min_rho_divu_ceiling = .01
 
-ns.fuelName        = H2
+ns.fuelName        = N2
 ns.unity_Le = 0
+ns.hack_nochem = 1
+ns.sdc_iterMAX = 2
 
 ns.do_active_control = 0
 
 ns.do_fillPatchUMAC=1
 ns.zeroBndryVisc=1
 ns.num_divu_iters =3
-
 
 # ------------------  INPUTS TO GODUNOV CLASS ----------------------
 godunov.slope_order = 4
@@ -117,9 +97,9 @@ diffuse.v = 0
 diffuse.Rhs_in_abs_tol = 1
 
 # ------------------  INPUTS TO PROJECTION CLASS -------------------
-#proj.proj_tol       = 1.0e-1  # tolerence for projections
+proj.proj_tol       = 1.0e-1  # tolerence for projections
 proj.proj_tol       = 1.0e-12  # tolerence for projections
-#proj.sync_tol       = 1.0e-8  # tolerence for projections
+proj.sync_tol       = 1.0e-10  # tolerence for projections
 proj.rho_wgt_vel_proj = 0      # 0 => const den proj, 1 => rho weighted
 nodal_proj.verbose          = 0
 proj.filter_factor  = 0.0
@@ -129,17 +109,15 @@ proj.divu_minus_s_factor = 0.
 proj.proj_2 = 1
 
 # ------------------  INPUTS TO MACPROJ CLASS -------------------
-mac.mac_tol        = 1.0e-12  # tolerence for mac projections
-mac.mac_sync_tol   = 1.0e-8   # tolerence for mac SYNC projection
+mac.mac_tol        = 1.0e-9 # tolerence for mac projections
+mac.mac_sync_tol   = 1.0e-8  # tolerence for mac SYNC projection
 mac.mac_abs_tol    = 1.0e-14
 mac.use_cg_solve   = 0
 mac.do_outflow_bcs = 0
 
 #--------------------------MISC/UNSORTED INPUTS-----------------------------
-
-mg.smooth_on_cg_unstable=1
-
 # multigrid class
+mg.smooth_on_cg_unstable=1
 mg.usecg = 1
 cg.v = 0
 cg.isExpert=1
@@ -170,5 +148,4 @@ cg.cg_solver=1
 #
 fab.format = NATIVE
 
-#fabarray.mfiter_tile_size = 8 8 8 
-amrex.regtest_reduction=1
+fabarray.mfiter_tile_size = 8 8 8 

@@ -13,17 +13,14 @@ peleLM.lo_bc = Interior  Inflow
 peleLM.hi_bc = Interior  Outflow
 
 #----------------------------TOP LEVEL INPUTS----------------------
-max_step  =  10000
-max_step  =  20
+max_step  =  2
 stop_time = 4.00
 
 #-------------------------AMR INPUTS----------------------------
 amr.n_cell    = 64 64 64
-amr.n_cell    = 128 128 128
-amr.n_cell    = 32 32 32
 
 amr.v=1
-amr.max_level =  2            # maximum level number allowed
+amr.max_level       = 1       # maximum level number allowed
 amr.ref_ratio       = 2 2 2 2 # refinement ratio
 amr.regrid_int      = 2       # how often to regrid
 amr.n_error_buf     = 1 1 1 2 # number of buffer cells in error est
@@ -33,11 +30,11 @@ amr.blocking_factor = 16      # block factor in grid generation
 
 amr.checkpoint_files_output = 0
 amr.check_file      = chk     # root name of checkpoint file
-amr.check_int       = 5       # number of timesteps between checkpoints
+amr.check_int       = 10       # number of timesteps between checkpoints
 
 amr.plot_file       = plt
 amr.plot_int        = 1
-amr.derive_plot_vars=rhoRT mag_vort avg_pressure gradpx gradpy diveru mass_fractions molweight rhominsumrhoY
+amr.derive_plot_vars=rhoRT mag_vort avg_pressure gradpx gradpy diveru mass_fractions molweight
 
 amr.grid_log        = grdlog  # name of grid logging file
 amr.max_grid_size   = 64
@@ -45,10 +42,15 @@ amr.max_grid_size   = 64
 amr.probin_file = probin.3d.test # This will default to file "probin" if not set
 
 # Refinement according to a species tracer
-amr.refinement_indicators = flame_tracer 
-amr.flame_tracer.max_level = 3
-amr.flame_tracer.value_greater = 1.e-6
-amr.flame_tracer.field_name = Y(H)
+amr.refinement_indicators = lo_temp
+amr.lo_temp.max_level = 3
+amr.lo_temp.value_less = 450 
+amr.lo_temp.field_name = temp
+
+amr.refinement_indicators = hi_temp
+amr.hi_temp.max_level = 3
+amr.hi_temp.value_greater = 350 
+amr.hi_temp.field_name = temp
 
 # Refinement according to temperature and gradient of temperature
 #amr.refinement_indicators = lo_temp gradT
@@ -70,10 +72,9 @@ ns.dt_cutoff       = 5.e-10   # level 0 timestep below which we halt
 ns.visc_tol        = 1.0e-14  # tolerence for viscous solves
 ns.visc_abs_tol    = 1.0e-14  # tolerence for viscous solves
 ns.cfl            = 0.7       # cfl number for hyperbolic system
-ns.init_shrink    = 1.0       # scale back initial timestep
-ns.init_shrink    = 0.0001       # scale back initial timestep
+ns.init_shrink    = 0.1       # scale back initial timestep
 ns.change_max     = 1.1       # scale back initial timestep
-ns.init_iter      = 3        # number of init iters to def pressure
+ns.init_iter      = 0        # number of init iters to def pressure
 ns.gravity        = 0        # body force  (gravity in MKS units)
 ns.sum_interval   = 1        # timesteps between computing mass
 ns.do_reflux      = 1        # 1 => do refluxing
@@ -85,6 +86,7 @@ ns.do_divu_sync = 0
 ns.divu_relax_factor   = 0.0
 
 ns.be_cn_theta = 0.5
+ns.S_in_vel_diffusion = 1
 
 ns.do_temp = 1
 
@@ -96,14 +98,17 @@ ns.divu_dt_factor = .4
 ns.min_rho_divu_ceiling = .01
 
 ns.fuelName        = H2
-ns.unity_Le = 0
+ns.unity_Le        = 0
 
 ns.do_active_control = 0
 
 ns.do_fillPatchUMAC=1
 ns.zeroBndryVisc=1
-ns.num_divu_iters =3
+ns.num_divu_iters =0
 
+peleLM.deltaT_verbose = 1
+ 
+ns.fixed_dt = 1.e-4
 
 # ------------------  INPUTS TO GODUNOV CLASS ----------------------
 godunov.slope_order = 4
@@ -117,11 +122,10 @@ diffuse.v = 0
 diffuse.Rhs_in_abs_tol = 1
 
 # ------------------  INPUTS TO PROJECTION CLASS -------------------
-#proj.proj_tol       = 1.0e-1  # tolerence for projections
-proj.proj_tol       = 1.0e-12  # tolerence for projections
-#proj.sync_tol       = 1.0e-8  # tolerence for projections
+proj.proj_tol       = 1.0e-1  # tolerence for projections
+proj.proj_tol       = 1.0e-11  # tolerence for projections
+proj.sync_tol       = 1.0e-8  # tolerence for projections
 proj.rho_wgt_vel_proj = 0      # 0 => const den proj, 1 => rho weighted
-nodal_proj.verbose          = 0
 proj.filter_factor  = 0.0
 proj.do_outflow_bcs = 0
 proj.divu_minus_s_factor = .5
@@ -129,7 +133,7 @@ proj.divu_minus_s_factor = 0.
 proj.proj_2 = 1
 
 # ------------------  INPUTS TO MACPROJ CLASS -------------------
-mac.mac_tol        = 1.0e-12  # tolerence for mac projections
+mac.mac_tol        = 1.0e-9  # tolerence for mac projections
 mac.mac_sync_tol   = 1.0e-8   # tolerence for mac SYNC projection
 mac.mac_abs_tol    = 1.0e-14
 mac.use_cg_solve   = 0
@@ -172,3 +176,8 @@ fab.format = NATIVE
 
 #fabarray.mfiter_tile_size = 8 8 8 
 amrex.regtest_reduction=1
+
+ns.hack_nochem = 1
+
+#ShowMF_Sets = DBGSync
+#ShowMF_Dir = DebugMcSyncIII

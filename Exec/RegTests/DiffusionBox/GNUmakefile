@@ -1,7 +1,7 @@
-TOP = ../../../../
-AMREX_HOME ?= ${TOP}/amrex
-IAMR_HOME ?= ${TOP}/IAMR
-PELELM_HOME ?= ${TOP}/PeleLM
+#TOP = ../../../..
+#AMREX_HOME ?= ${TOP}/amrex
+#IAMR_HOME ?= ${TOP}/IAMR
+#PELELM_HOME ?= ${TOP}/PeleLM
 
 #
 # Build configuration
@@ -16,22 +16,39 @@ PRECISION       = DOUBLE
 VERBOSE         = FALSE
 
 TINY_PROFILE = FALSE
-#USE_WBAR = TRUE
 
-DEFINES+=-DALWAYS_NEW_J
-
+DO_2S_CONVERGENCE=FALSE
 #######################
-USE_SUNDIALS_3x4x = FALSE
+USE_SUNDIALS_PP = FALSE
+
+USE_KLU_PP = FALSE
+#######################
 
 # Enable ht.velocity_plotfile option
 #USE_VELOCITY    = FALSE
 
-# Enable the restart-from-plotfile option (ht.pltfile)
-#  ... default this off because when on, code expects it to be used
-# USE_NEWMECH    = FALSE
-
-# Choose model (from list below), and pmf file
-Chemistry_Model = air
+ifeq ($(DO_2S_CONVERGENCE),TRUE)
+	Chemistry_Model = chem-CH4-2step
+	F90EXE_sources += 2step_Phi0.8_refined_CubicInterp.F90
+	DEFINES+=-DINTERP_PMF_AS_POINT
+else
+	# Enable the restart-from-plotfile option (ht.pltfile)
+	#  ... default this off because when on, code expects it to be used
+	# USE_NEWMECH    = FALSE
+	
+	# Choose model (from list below), and pmf file
+	Chemistry_Model = drm19
+	fEXE_sources += drm19Soln_seed_0.50.f
+	
+	#Chemistry_Model = LIDRYER
+	#fEXE_sources += LiDryer_040_01ATM.f
+	
+	#Chemistry_Model = LUDME
+	#fEXE_sources += LuDME_0700.f
+	
+	#Chemistry_Model = GRI30
+	#fEXE_sources += gri30_070.f
+endif
 
 # This sets the EOS directory in $(PELE_PHYSICS_HOME)/Eos
 Eos_dir     := Fuego
@@ -40,8 +57,7 @@ Eos_dir     := Fuego
 Reactions_dir := Fuego
 
 # This sets the transport directory in $(PELE_PHYSICS_HOME)/Transport
-#Transport_dir := EGLib
-Transport_dir := Constant
+Transport_dir := EGLib
 
 Blocs   := .
 
