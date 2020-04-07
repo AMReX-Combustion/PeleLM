@@ -8734,25 +8734,9 @@ PeleLM::calc_dpdt (Real      time,
   }
 
   int nGrow = dpdt.nGrow();
-  MultiFab Peos(grids,dmap,1,nGrow,MFInfo(),Factory());
-  Peos.setVal(0.);
-  FillPatchIterator S_fpi(*this,Peos,nGrow,time,State_Type,RhoRT,1);
-  MultiFab& Smf=S_fpi.get_mf();
-  
-
-  
-#ifdef _OPENMP
-#pragma omp parallel
-#endif  
-  for (MFIter mfi(Smf,true); mfi.isValid();++mfi)
-  {
-    const Box& bx = mfi.growntilebox();
-    FArrayBox&       S   = Smf[mfi];
-    Peos[mfi].copy(S,bx,0,bx,0,nGrow);
-  }
-  
-  Peos.FillBoundary(geom.periodicity());
-  
+  FillPatchIterator S_fpi(*this,get_new_data(State_Type),nGrow,time,State_Type,RhoRT,1);
+  MultiFab& Peos=S_fpi.get_mf();
+ 
 #ifdef AMREX_USE_EB
   {
     MultiFab TT(grids,dmap,1,nGrow,MFInfo(),Factory());
