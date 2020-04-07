@@ -7133,8 +7133,8 @@ PeleLM::mac_sync ()
     mac_projector->mac_sync_solve(level,dt,rh,fine_ratio,Ucorr,
                                   &chi_sync);
     BL_PROFILE_VAR_STOP(HTUCORR);
-    showMF("DBGSync",*Ucorr[0],"sdc_UcorrX_inSync",level,0,parent->levelSteps(level));
-    showMF("DBGSync",*Ucorr[1],"sdc_UcorrY_inSync",level,0,parent->levelSteps(level));
+    showMF("DBGSync",*Ucorr[0],"sdc_UcorrX_inSync",level,mac_sync_iter,parent->levelSteps(level));
+    showMF("DBGSync",*Ucorr[1],"sdc_UcorrY_inSync",level,mac_sync_iter,parent->levelSteps(level));
 
     if (closed_chamber && level == 0)
     {
@@ -7224,7 +7224,7 @@ PeleLM::mac_sync ()
       }
     }
 
-    showMF("DBGSync",Ssync,"sdc_Ssync_MinusUcorr",level,0,parent->levelSteps(level));
+    showMF("DBGSync",Ssync,"sdc_Ssync_MinusUcorr",level,mac_sync_iter,parent->levelSteps(level));
     Ssync.mult(dt); // Turn this into an increment over dt
 
 #ifdef USE_WBAR
@@ -7439,9 +7439,9 @@ PeleLM::mac_sync ()
           Print() << "DeltaTsync solve norm = " << deltaT_iter_norm << std::endl;
         }
 
-        showMF("DBGSync",*Snp1[0],"sdc_Snp1_inDeltaTiter_inSync",level,L,parent->levelSteps(level));
+        showMF("DBGSync",*Snp1[0],"sdc_Snp1_inDeltaTiter_inSync",level,mac_sync_iter*1000+L,parent->levelSteps(level));
         MultiFab::Add(get_new_data(State_Type),Told,0,Temp,1,0);
-        showMF("DBGSync",get_new_data(State_Type),"sdc_Snew_inDeltaTiter_inSync",level,L,parent->levelSteps(level));
+        showMF("DBGSync",get_new_data(State_Type),"sdc_Snew_inDeltaTiter_inSync",level,mac_sync_iter*1000+L,parent->levelSteps(level));
         compute_enthalpy_fluxes(SpecDiffusionFluxnp1,betanp1,curr_time); // Compute F[N+1], F[N=2]
         flux_divergence(DT_post,0,SpecDiffusionFluxnp1,nspecies+2,1,-1);
         flux_divergence(DD_post,0,SpecDiffusionFluxnp1,nspecies+1,1,-1);
@@ -7480,7 +7480,7 @@ PeleLM::mac_sync ()
       Abort("FIXME: Properly deal with do_diffuse_sync=0");
     }
 
-    showMF("DBGSync",Ssync,"sdc_SsyncToInterp_inSyncIter",level,0,parent->levelSteps(level));
+    showMF("DBGSync",Ssync,"sdc_SsyncToInterp_inSyncIter",level,mac_sync_iter,parent->levelSteps(level));
     //
     // Interpolate the sync correction to the finer levels.
     //
@@ -7499,7 +7499,7 @@ PeleLM::mac_sync ()
       ratio               *= parent->refRatio(lev-1);
       PeleLM& fine_level  = getLevel(lev);
       MultiFab& S_new_lev = fine_level.get_new_data(State_Type);
-      showMF("DBGSync",S_new_lev,"sdc_SnewBefIncr_inSync",level,0,parent->levelSteps(level));
+      showMF("DBGSync",S_new_lev,"sdc_SnewBefIncr_inSync",level,mac_sync_iter,parent->levelSteps(level));
       //
       // New way of interpolating syncs to make sure mass is conserved
       // and to ensure freestream preservation for species & temperature.
@@ -7540,8 +7540,8 @@ PeleLM::mac_sync ()
         const Box& box = mfi.tilebox();
         S_new_lev[mfi].plus(increment[mfi],box,0,Density,numscal);
       }
-      showMF("DBGSync",increment,"sdc_increment_inSync",level,0,parent->levelSteps(level));
-      showMF("DBGSync",S_new_lev,"sdc_SnewAftIncr_inSync",level,0,parent->levelSteps(level));
+      showMF("DBGSync",increment,"sdc_increment_inSync",level,mac_sync_iter,parent->levelSteps(level));
+      showMF("DBGSync",S_new_lev,"sdc_SnewAftIncr_inSync",level,mac_sync_iter,parent->levelSteps(level));
 
       if (last_mac_sync_iter)
       {
@@ -7554,7 +7554,7 @@ PeleLM::mac_sync ()
       //
       RhoH_to_Temp(S_new_lev);
       fine_level.setThermoPress(curr_time);
-      showMF("DBGSync",fine_level.get_new_data(State_Type),"sdc_SnewFine_BefRhoRTUpdate_SyncIter",level,0,parent->levelSteps(level));
+      showMF("DBGSync",fine_level.get_new_data(State_Type),"sdc_SnewFine_BefRhoRTUpdate_SyncIter",level,mac_sync_iter,parent->levelSteps(level));
     }
 
     //
@@ -7573,7 +7573,7 @@ PeleLM::mac_sync ()
                           RhoRT, 1, crse_level.fine_ratio);
     }
     PeleLM& fine_level = getLevel(level+1);
-    showMF("DBGSync",fine_level.get_new_data(State_Type),"sdc_SnewFine_EndSyncIter",level+1,0,parent->levelSteps(level));
+    showMF("DBGSync",fine_level.get_new_data(State_Type),"sdc_SnewFine_EndSyncIter",level+1,mac_sync_iter,parent->levelSteps(level));
 
 
     chi_sync_increment.setVal(0,0);
