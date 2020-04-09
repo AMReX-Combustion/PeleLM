@@ -2036,7 +2036,6 @@ PeleLM::initData ()
 #endif
   }
 
-
   showMFsub("1D",S_new,stripBox,"1D_S",level);
   
 // Here we save a reference state vector to apply it later to covered cells
@@ -2686,7 +2685,7 @@ PeleLM::post_init (Real stop_time)
         MultiFab&       S_crse  = getLevel(k).get_new_data(State_Type);
 
         amrex::average_down(S_fine, S_crse, fine_lev.geom, crse_lev.geom,
-                             Xvel, BL_SPACEDIM, getLevel(k).fine_ratio);
+                             Xvel, AMREX_SPACEDIM, getLevel(k).fine_ratio);
       }
     }
     //
@@ -5770,6 +5769,8 @@ PeleLM::advance (Real time,
 
     compute_scalar_advection_fluxes_and_divergence(Forcing,mac_divu,dt);
     BL_PROFILE_VAR_STOP(HTADV);
+    showMF("DBGSync",u_mac[0],"DBGSync_umacX",level,sdc_iter,parent->levelSteps(level));
+    showMF("DBGSync",u_mac[1],"DBGSync_umacY",level,sdc_iter,parent->levelSteps(level));
     
     // update rho since not affected by diffusion
     BL_PROFILE_VAR_START(HTADV);
@@ -5891,6 +5892,7 @@ PeleLM::advance (Real time,
     setThermoPress(tnp1);
     BL_PROFILE_VAR_STOP(HTMAC);
 
+    showMF("DBGSync",S_new,"DBGSync_Snew_end_sdc",level,sdc_iter,parent->levelSteps(level));
   }
 
   Dn.clear();
@@ -7130,9 +7132,10 @@ PeleLM::mac_sync ()
       // fixme? unsure how many ghost cells...
       Ucorr[idim]= new MultiFab(edgeba,dmap,1,ng,MFInfo(),Factory());
     }
-    mac_projector->mac_sync_solve(level,dt,rh,fine_ratio,Ucorr,
-                                  &chi_sync);
+    mac_projector->mac_sync_solve(level,dt,rh,fine_ratio,Ucorr,&chi_sync);
+
     BL_PROFILE_VAR_STOP(HTUCORR);
+    showMF("DBGSync",chi_sync,"sdc_chi_sync_inSync",level,mac_sync_iter,parent->levelSteps(level));
     showMF("DBGSync",*Ucorr[0],"sdc_UcorrX_inSync",level,mac_sync_iter,parent->levelSteps(level));
     showMF("DBGSync",*Ucorr[1],"sdc_UcorrY_inSync",level,mac_sync_iter,parent->levelSteps(level));
 
@@ -7147,10 +7150,10 @@ PeleLM::mac_sync ()
     Vector<SYNC_SCHEME> sync_scheme(NUM_STATE,ReAdvect);
 
     if (do_mom_diff == 1)
-      for (int i=0; i<BL_SPACEDIM; ++i)
+      for (int i=0; i<AMREX_SPACEDIM; ++i)
         sync_scheme[i] = UseEdgeState;
 
-    for (int i=BL_SPACEDIM; i<NUM_STATE; ++i)
+    for (int i=AMREX_SPACEDIM; i<NUM_STATE; ++i)
       sync_scheme[i] = UseEdgeState;
         
     Vector<int> incr_sync(NUM_STATE,0);
@@ -7195,6 +7198,8 @@ PeleLM::mac_sync ()
       }
     }
     BL_PROFILE_VAR_STOP(HTVSYNC);
+    showMF("DBGSync",Ssync,"sdc_Ssync_AfterMACSync",level,mac_sync_iter,parent->levelSteps(level));
+    showMF("DBGSync",Vsync,"sdc_Vsync_AfterMACSync",level,mac_sync_iter,parent->levelSteps(level));
 
     //
     // Scalars.
