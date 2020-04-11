@@ -7485,6 +7485,7 @@ PeleLM::mac_sync ()
       Abort("FIXME: Properly deal with do_diffuse_sync=0");
     }
 
+    RhoH_to_Temp(S_new);
     setThermoPress(curr_time);
 
 //    Ssync.setVal(0.0,Temp-AMREX_SPACEDIM,1);
@@ -7520,7 +7521,7 @@ PeleLM::mac_sync ()
       increment.setVal(0.0,nghost);
 
       SyncInterp(Ssync, level, increment, lev, ratio, 
-                 first_spec-AMREX_SPACEDIM, first_spec-AMREX_SPACEDIM, nspecies+2, 1, mult,
+                 first_spec-AMREX_SPACEDIM, first_spec-AMREX_SPACEDIM, nspecies+1, 1, mult,
                  sync_bc.dataPtr());
 
       if (do_set_rho_to_species_sum)
