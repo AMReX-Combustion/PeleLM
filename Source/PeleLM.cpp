@@ -7035,23 +7035,13 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
       }
      
       for (int comp=0; comp < nspecies; comp++){      
-#ifdef AMREX_USE_CUDA
         (*aofs)[S_mfi].plus<RunOn::Host>((*aofs)[S_mfi],bx,bx,first_spec+comp,Density,1);
-#else
-        (*aofs)[S_mfi].plus((*aofs)[S_mfi],bx,bx,first_spec+comp,Density,1);
-#endif
-
       }
       for (int d=0; d<AMREX_SPACEDIM; d++)
       {
         for (int comp=0; comp < nspecies; comp++){
-#ifdef AMREX_USE_CUDA
           edgestate[d].plus<RunOn::Host>(edgestate[d],comp+1,0,1);
           edgeflux[d].plus<RunOn::Host>(edgeflux[d],comp+1,0,1);
-#else
-          edgestate[d].plus(edgestate[d],comp+1,0,1);
-          edgeflux[d].plus(edgeflux[d],comp+1,0,1);
-#endif
         }
       }
       
