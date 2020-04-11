@@ -117,9 +117,8 @@ diffuse.v = 0
 diffuse.Rhs_in_abs_tol = 1
 
 # ------------------  INPUTS TO PROJECTION CLASS -------------------
-#proj.proj_tol       = 1.0e-1  # tolerence for projections
 proj.proj_tol       = 1.0e-12  # tolerence for projections
-#proj.sync_tol       = 1.0e-8  # tolerence for projections
+proj.sync_tol       = 1.0e-12  # tolerence for projections
 proj.rho_wgt_vel_proj = 0      # 0 => const den proj, 1 => rho weighted
 nodal_proj.verbose          = 0
 proj.filter_factor  = 0.0
@@ -129,8 +128,8 @@ proj.divu_minus_s_factor = 0.
 proj.proj_2 = 1
 
 # ------------------  INPUTS TO MACPROJ CLASS -------------------
-mac.mac_tol        = 1.0e-12  # tolerence for mac projections
-mac.mac_sync_tol   = 1.0e-8   # tolerence for mac SYNC projection
+mac.mac_tol        = 1.0e-14  # tolerence for mac projections
+mac.mac_sync_tol   = 1.0e-14   # tolerence for mac SYNC projection
 mac.mac_abs_tol    = 1.0e-14
 mac.use_cg_solve   = 0
 mac.do_outflow_bcs = 0
