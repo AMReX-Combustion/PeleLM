@@ -964,7 +964,7 @@ showMFsub(const std::string&   mySet,
 
     if (ShowMF_Check_Nans)
     {
-      BL_ASSERT(!sub.contains_nan(box,0,mf.nComp()));
+      BL_ASSERT(!sub.contains_nan<RunOn::Host>(box,0,mf.nComp()));
     }
     std::ofstream os;
     os.precision(15);
