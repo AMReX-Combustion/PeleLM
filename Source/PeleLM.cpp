@@ -53,6 +53,7 @@
 #include <AMReX_EBFArrayBox.H>
 #include <AMReX_MLEBABecLap.H>
 #include <AMReX_EB_utils.H>
+#include <iamr_mol.H>
 #endif
 
 #include <AMReX_buildInfo.H>
@@ -5312,29 +5313,6 @@ PeleLM::predict_velocity (Real  dt)
   FillPatchIterator S_fpi(*this,visc_terms,1,prev_time,State_Type,Density,NUM_SCALARS);
   MultiFab& Smf=S_fpi.get_mf();
 
-  
-#ifdef AMREX_USE_EB
-  MultiFab& Gp = getGradP();
-  Gp.FillBoundary(geom.periodicity());
-
-  const Box& domain = geom.Domain();
-  
-  Vector<BCRec> math_bc(AMREX_SPACEDIM);
-  math_bc = fetchBCArray(State_Type,Xvel,AMREX_SPACEDIM);
-
-  godunov->ComputeSlopes( Umf,0,
-                          D_DECL(m_xslopes, m_yslopes, m_zslopes),0,
-                          AMREX_SPACEDIM, math_bc, domain);
-  
-    D_TERM( m_xslopes.FillBoundary(geom.periodicity());,
-            m_yslopes.FillBoundary(geom.periodicity());,
-            m_zslopes.FillBoundary(geom.periodicity()););
-  
-#else
-  MultiFab Gp(grids,dmap,BL_SPACEDIM,1);
-  getGradP(Gp, prev_pres_time);
-#endif
-
   //
   // Compute "grid cfl number" based on cell-centered time-n velocities
   //
@@ -5354,13 +5332,20 @@ PeleLM::predict_velocity (Real  dt)
     Vector<BCRec> math_bcs(AMREX_SPACEDIM);
     math_bcs = fetchBCArray(State_Type,Xvel,AMREX_SPACEDIM);
 
-    godunov->ExtrapVelToFaces(Umf,
-                              D_DECL(u_mac[0], u_mac[1], u_mac[2]),
-                              D_DECL(m_xslopes, m_yslopes, m_zslopes),
-                              geom, math_bcs );
+    MOL::ExtrapVelToFaces( Umf,
+                           D_DECL(u_mac[0], u_mac[1], u_mac[2]),
+                           geom, math_bcs );
 
 #else
-  
+ 
+    //
+    // Non-EB version
+    //
+
+    MultiFab Gp(grids,dmap,BL_SPACEDIM,1);
+    getGradP(Gp, prev_pres_time);
+
+ 
 #ifdef _OPENMP
 #pragma omp parallel
 #endif      
@@ -6609,32 +6594,7 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
   // HERE IS THE EB PROCEDURE
   //
   //////////////////////////////////////
- 
-  //
-  // compute slopes for construction of edge states
-  //
-  //Slopes in x-direction      
-  MultiFab xslps(grids, dmap, nspecies+3, Godunov::hypgrow(),MFInfo(), Factory());
-  xslps.setVal(0.);
-  // Slopes in y-direction
-  MultiFab yslps(grids, dmap, nspecies+3, Godunov::hypgrow(), MFInfo(), Factory());
-  yslps.setVal(0.);
-  // Slopes in z-direction
-  MultiFab zslps(grids, dmap, nspecies+3, Godunov::hypgrow(), MFInfo(), Factory());
-  zslps.setVal(0.);
 
-  const Box& domain = geom.Domain();
-
-  Vector<BCRec> math_bc(nspecies+3);
-  math_bc = fetchBCArray(State_Type,Density,nspecies+3);
-
-  godunov->ComputeSlopes(Smf, 0, D_DECL(xslps, yslps, zslps), 0,
-                         nspecies+3, math_bc, domain);
-
-  // Compute slopes for use in computing aofs
-  D_TERM(xslps.FillBoundary(geom.periodicity());,
-	       yslps.FillBoundary(geom.periodicity());,
-	       zslps.FillBoundary(geom.periodicity()););
 
   // Initialize accumulation for rho = Sum(rho.Y)
   for (int d=0; d<BL_SPACEDIM; d++) {
@@ -6643,13 +6603,14 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
 
   MultiFab edgeflux[AMREX_SPACEDIM];
   MultiFab edgestate[AMREX_SPACEDIM];
+  int nghost = 2;
 
   for (int i(0); i < AMREX_SPACEDIM; i++)
   {
     const BoxArray& ba = getEdgeBoxArray(i);
-    edgeflux[i].define(ba, dmap, nspecies+3, Godunov::hypgrow(), MFInfo(), Factory());
+    edgeflux[i].define(ba, dmap, nspecies+3, nghost, MFInfo(), Factory());
     edgeflux[i].setVal(0);
-    edgestate[i].define(ba, dmap, nspecies+3, Godunov::hypgrow(), MFInfo(), Factory());
+    edgestate[i].define(ba, dmap, nspecies+3, nghost, MFInfo(), Factory());
     edgestate[i].setVal(0);
   }
 
@@ -6661,22 +6622,12 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
     Vector<BCRec> math_bcs(nspecies);
     math_bcs = fetchBCArray(State_Type, first_spec,nspecies);
 
-    MultiFab edgestate_x(edgestate[0], amrex::make_alias, rhoYcomp, nspecies);
-    MultiFab edgeflux_x(edgeflux[0], amrex::make_alias, rhoYcomp, nspecies);
-    MultiFab edgestate_y(edgestate[1], amrex::make_alias, rhoYcomp, nspecies);
-    MultiFab edgeflux_y(edgeflux[1], amrex::make_alias, rhoYcomp, nspecies);
-#if (AMREX_SPACEDIM == 3)
-    MultiFab edgestate_z(edgestate[2], amrex::make_alias, rhoYcomp, nspecies);
-    MultiFab edgeflux_z(edgeflux[2], amrex::make_alias, rhoYcomp, nspecies);
-#endif
+     MOL::ComputeAofs( *aofs, first_spec, nspecies, Smf, rhoYcomp,
+                       D_DECL(u_mac[0],u_mac[1],u_mac[2]),
+                       D_DECL(edgestate[0],edgestate[1],edgestate[2]), rhoYcomp, false,
+                       D_DECL(edgeflux[0],edgeflux[1],edgeflux[2]), rhoYcomp,                    
+                       math_bcs, geom );
 
-
-    godunov -> ComputeConvectiveTerm( Smf, rhoYcomp, *aofs, first_spec, nspecies,
-                                      D_DECL(edgeflux_x,edgeflux_y,edgeflux_z),
-                                      D_DECL(edgestate_x,edgestate_y,edgestate_z),
-                                      D_DECL(u_mac[0],u_mac[1],u_mac[2]),
-                                      D_DECL(xslps, yslps, zslps), rhoYcomp,
-                                      math_bcs, geom, 0);
 
     EB_set_covered(*aofs, 0.);
     
@@ -6716,21 +6667,11 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
     Vector<BCRec> math_bcs(1);
     math_bcs = fetchBCArray(State_Type, Temp, 1);
 
-    MultiFab edgestate_x(edgestate[0], amrex::make_alias, Tcomp, 1);
-    MultiFab edgeflux_x(edgeflux[0], amrex::make_alias, Tcomp, 1);
-    MultiFab edgestate_y(edgestate[1], amrex::make_alias, Tcomp, 1);
-    MultiFab edgeflux_y(edgeflux[1], amrex::make_alias, Tcomp, 1);
-#if (AMREX_SPACEDIM == 3)
-    MultiFab edgestate_z(edgestate[2], amrex::make_alias, Tcomp, 1);
-    MultiFab edgeflux_z(edgeflux[2], amrex::make_alias, Tcomp, 1);
-#endif 
-
-    godunov -> ComputeConvectiveTerm( Smf, Tcomp, *aofs, Temp, 1,
-                                      D_DECL(edgeflux_x,edgeflux_y,edgeflux_z),
-                                      D_DECL(edgestate_x,edgestate_y,edgestate_z),
-                                      D_DECL(u_mac[0],u_mac[1],u_mac[2]),
-                                      D_DECL(xslps, yslps, zslps), Tcomp,
-                                      math_bcs, geom, 0);
+    MOL::ComputeAofs( *aofs, Temp, 1, Smf, Tcomp,
+                       D_DECL(u_mac[0],u_mac[1],u_mac[2]),
+                       D_DECL(edgestate[0],edgestate[1],edgestate[2]), Tcomp, false,
+                       D_DECL(edgeflux[0],edgeflux[1],edgeflux[2]), Tcomp,
+                       math_bcs, geom );
 
     EB_set_covered(*aofs, 0.);
 
@@ -6789,21 +6730,11 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
     Vector<BCRec> math_bcs(1);
     math_bcs = fetchBCArray(State_Type, RhoH, 1);
 
-    MultiFab edgestate_x(edgestate[0], amrex::make_alias, nspecies+1, 1);
-    MultiFab edgeflux_x(edgeflux[0], amrex::make_alias, nspecies+1, 1);
-    MultiFab edgestate_y(edgestate[1], amrex::make_alias, nspecies+1, 1);
-    MultiFab edgeflux_y(edgeflux[1], amrex::make_alias, nspecies+1, 1);
-#if (AMREX_SPACEDIM == 3)
-    MultiFab edgestate_z(edgestate[2], amrex::make_alias, nspecies+1, 1);
-    MultiFab edgeflux_z(edgeflux[2], amrex::make_alias, nspecies+1, 1);
-#endif 
-   
-    godunov -> ComputeConvectiveTerm( Smf, nspecies+1, *aofs, RhoH, 1,
-                                      D_DECL(edgeflux_x,edgeflux_y,edgeflux_z),
-                                      D_DECL(edgestate_x,edgestate_y,edgestate_z),
-                                      D_DECL(u_mac[0],u_mac[1],u_mac[2]),
-                                      D_DECL(xslps, yslps, zslps), nspecies+1,
-                                      math_bcs, geom, 1);
+    MOL::ComputeAofs( *aofs, RhoH, 1, Smf, nspecies+1,
+                       D_DECL(u_mac[0],u_mac[1],u_mac[2]),
+                       D_DECL(edgestate[0],edgestate[1],edgestate[2]), nspecies+1, true,
+                       D_DECL(edgeflux[0],edgeflux[1],edgeflux[2]), nspecies+1,
+                       math_bcs, geom ); 
 
     EB_set_covered(*aofs, 0.);
 
