@@ -1796,7 +1796,7 @@ PeleLM::estTimeStep ()
 #ifdef AMREX_USE_EB
   MultiFab TT(grids,dmap,BL_SPACEDIM,n_grow,MFInfo(),Factory());
   MultiFab::Copy(TT,Umf,0,0,BL_SPACEDIM,n_grow);
-  EB_interp_CC_to_Centroid(Umf,TT,0,0,BL_SPACEDIM,geom);
+//  EB_interp_CC_to_Centroid(Umf,TT,0,0,BL_SPACEDIM,geom);
 #endif
 
 #ifdef _OPENMP
@@ -8710,7 +8710,7 @@ PeleLM::calc_dpdt (Real      time,
     TT.setVal(0.);
     MultiFab::Copy(TT,Peos,0,0,1,nGrow);
     TT.FillBoundary(geom.periodicity());
-    EB_interp_CC_to_Centroid(Peos, TT, 0, 0, 1, geom);
+//    EB_interp_CC_to_Centroid(Peos, TT, 0, 0, 1, geom);
   }
 #endif
 
