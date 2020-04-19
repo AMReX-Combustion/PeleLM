@@ -6604,7 +6604,7 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
 
   MultiFab edgeflux[AMREX_SPACEDIM];
   MultiFab edgestate[AMREX_SPACEDIM];
-  int nghost = 2;
+  int nghost = 4;
 
   for (int i(0); i < AMREX_SPACEDIM; i++)
   {
@@ -6700,8 +6700,9 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
     {
       for (int d=0; d<AMREX_SPACEDIM; ++d)
       {
-        const Box& bx = S_mfi.tilebox();
+        const Box& bx = S_mfi.growntilebox();
         const Box& ebox = amrex::surroundingNodes(bx,d);
+
         eR.resize(ebox,1);
         eR.copy(edgestate[d][S_mfi],0,0,1);
         eR.invert(1.0,ebox,0,1);
@@ -6740,6 +6741,7 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
     EB_set_covered(*aofs, 0.);
 
   }
+
   
   // Load up non-overlapping bits of edge states and fluxes into mfs
 #ifdef _OPENMP
