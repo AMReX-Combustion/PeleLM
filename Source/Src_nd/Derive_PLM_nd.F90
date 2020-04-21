@@ -1594,14 +1594,14 @@ contains
       call get_imw(invmwt)
       if (.not. LeEQ1) then
 
-         do k=lo(3),hi(3)
-            do j=lo(2),hi(2)
-               do i=lo(1),hi(1)
-                  rhoinv = 1.0d0/dat(i,j,k,rho)
-                  do n = 1,nspecies
-                     Yt(n) = dat(i,j,k,fS+n-1)*rhoinv
-                  enddo
-                  rho_dummy(1) = dat(i,j,k,rho) * 1.d-3
+      do k=lo(3),hi(3)
+         do j=lo(2),hi(2)
+            do i=lo(1),hi(1)
+               rhoinv = 1.0d0/dat(i,j,k,rho)
+               do n = 1,NUM_SPECIES
+                  Yt(n) = dat(i,j,k,fS+n-1)*rhoinv
+               enddo
+               rho_dummy(1) = dat(i,j,k,rho) * 1.d-3
 
                   CALL CKMMWY(Yt,Wavg(1))
 
@@ -1614,12 +1614,12 @@ contains
                                             XI(1),        lo_chem,hi_chem,  &
                                             LAM(1),       lo_chem,hi_chem)
 
-                  do n = 1,nspecies
+                  do n = 1,NUM_SPECIES
                      e(i,j,k,n) = Wavg(1) * invmwt(n) * D(n) * 0.1d0
                   enddo
 
-                  e(i,j,k,nspecies+1) = LAM(1) * 1.0d-05
-                  e(i,j,k,nspecies+2) = MU(1)  * 0.1d0
+                  e(i,j,k,NUM_SPECIES+1) = LAM(1) * 1.0d-05
+                  e(i,j,k,NUM_SPECIES+2) = MU(1)  * 0.1d0
 
                enddo
             enddo
@@ -1639,16 +1639,16 @@ contains
             do j=lo(2),hi(2)
                do i=lo(1),hi(1)
                   rhoinv = 1.0d0/dat(i,j,k,rho)
-                  do n=1,nspecies
+                  do n=1,NUM_SPECIES
                      Yt(n) = dat(i,j,k,fS+n-1)*rhoinv
                   end do
                   CALL CKCPBS(dat(i,j,k,T),Yt,cpmix)
                   cpmix = cpmix * 1.0d-4 
-                  do n = 1,nspecies
+                  do n = 1,NUM_SPECIES
                      e(i,j,k,n) = mu_le1(i,j,k) * Yfac
                   enddo
-                  e(i,j,k,nspecies+1)    = mu_le1(i,j,k)*cpmix*Tfac
-                  e(i,j,k,nspecies+2)    = mu_le1(i,j,k)
+                  e(i,j,k,NUM_SPECIES+1)    = mu_le1(i,j,k)*cpmix*Tfac
+                  e(i,j,k,NUM_SPECIES+2)    = mu_le1(i,j,k)
                enddo
             enddo
          enddo
@@ -1762,7 +1762,7 @@ contains
       implicit none
 
 ! In/Out
-      REAL_T, intent(in), dimension(nspecies) :: Yfu, Yox
+      REAL_T, intent(in), dimension(NUM_SPECIES) :: Yfu, Yox
 
 ! Local
       REAL_T, dimension(NUM_SPECIES)  :: WtS
@@ -1809,7 +1809,7 @@ contains
       enddo
 
       ! Bilger coeffs
-      do i = 1,nelements
+      do i = 1,NUM_ELEMENTS
          beta_mix(i) = 0
          if(elem_names(i).eq.'C') beta_mix(i) = 2.0/WtE(i)
          if(elem_names(i).eq.'H') beta_mix(i) = 1.0/(2.0*WtE(i))

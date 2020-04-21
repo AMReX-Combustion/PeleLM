@@ -785,7 +785,7 @@ end subroutine plm_extern_init
       bathID = bath + 1
 
       H2ID = -1
-      do k = 1, nspecies
+      do k = 1, NUM_SPECIES
          if ( TRIM(spec_names(k)) == "H2" ) H2ID = k
       end do
 
