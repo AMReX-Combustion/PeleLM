@@ -1,7 +1,5 @@
 module probdata_module
 
-  use network, only: nspecies
-
   implicit none
 
   double precision :: T_in
