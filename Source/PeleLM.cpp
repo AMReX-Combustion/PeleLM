@@ -7504,7 +7504,14 @@ PeleLM::mac_sync ()
       const BoxArray& fine_grids            = S_new_lev.boxArray();
       const DistributionMapping& fine_dmap  = S_new_lev.DistributionMap();
       const int nghost                      = S_new_lev.nGrow();
-      MultiFab increment(fine_grids, fine_dmap, numscal, nghost,MFInfo(),Factory());
+
+#ifdef AMREX_USE_EB
+        const Geometry& cgeom      = parent->Geom(lev);
+        auto myfactory = makeEBFabFactory(cgeom,fine_grids,fine_dmap,{nghost,nghost,nghost},EBSupport::basic);
+        MultiFab increment(fine_grids, fine_dmap, numscal, nghost,MFInfo(),*myfactory);
+#else
+        MultiFab increment(fine_grids, fine_dmap, numscal, nghost);
+#endif
 
       increment.setVal(0.0,nghost);
 
