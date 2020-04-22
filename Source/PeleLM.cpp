@@ -2596,15 +2596,28 @@ PeleLM::post_init (Real stop_time)
     //
     if (nspecies > 0)
     {
+
+
+
       for (int k = 0; k <= finest_level; k++)
       {
+        
         MultiFab& S_new = getLevel(k).get_new_data(State_Type);
+
+#ifdef AMREX_USE_EB
+        const Geometry& cgeom      = parent->Geom(k);
+        auto myfactory = makeEBFabFactory(cgeom,S_new.boxArray(),S_new.DistributionMap(),{0,0,0},EBSupport::basic);
+#endif
         //
         // Don't update S_new in this strang_chem() call ...
         //
-        MultiFab S_tmp(S_new.boxArray(),S_new.DistributionMap(),S_new.nComp(),0,MFInfo(),Factory());
-
-        MultiFab Forcing_tmp(S_new.boxArray(),S_new.DistributionMap(),nspecies+1,0,MFInfo(),Factory());
+#ifdef AMREX_USE_EB
+        MultiFab S_tmp(S_new.boxArray(),S_new.DistributionMap(),S_new.nComp(),0,MFInfo(),*myfactory);
+        MultiFab Forcing_tmp(S_new.boxArray(),S_new.DistributionMap(),nspecies+1,0,MFInfo(),*myfactory);
+#else
+        MultiFab S_tmp(S_new.boxArray(),S_new.DistributionMap(),S_new.nComp(),0);
+        MultiFab Forcing_tmp(S_new.boxArray(),S_new.DistributionMap(),nspecies+1,0); 
+#endif
         Forcing_tmp.setVal(0);
 
         getLevel(k).advance_chemistry(S_new,S_tmp,dt_save[k]/2.0,Forcing_tmp,0);
@@ -6992,10 +7005,24 @@ PeleLM::mac_sync ()
 
   for (int lev=level; lev<=finest_level; lev++)
   {
+
     const MultiFab& S_new_lev = getLevel(lev).get_new_data(State_Type);
+
+#ifdef AMREX_USE_EB
+{
+    const Geometry& cgeom      = parent->Geom(lev);
+    auto myfactory = makeEBFabFactory(cgeom,S_new_lev.boxArray(),S_new_lev.DistributionMap(),{1,1,1},EBSupport::basic);
+
     S_new_sav[lev].reset(new MultiFab(S_new_lev.boxArray(),
                                       S_new_lev.DistributionMap(),
-                                      NUM_STATE,1,MFInfo(),Factory()));
+                                      NUM_STATE,1,MFInfo(),*myfactory));
+}
+#else
+    S_new_sav[lev].reset(new MultiFab(S_new_lev.boxArray(),
+                                      S_new_lev.DistributionMap(),
+                                      NUM_STATE,1);
+#endif
+
     MultiFab::Copy(*S_new_sav[lev],S_new_lev,0,0,NUM_STATE,1);
     showMF("DBGSync",*S_new_sav[lev],"sdc_Snew_BeginSync",lev,0,parent->levelSteps(level));
   }
@@ -7006,16 +7033,43 @@ PeleLM::mac_sync ()
   for (int lev=level; lev<=finest_level-1; lev++)
   {
     const MultiFab& Ssync_lev = getLevel(lev).Ssync;
+
+#ifdef AMREX_USE_EB
+{
+    const Geometry& cgeom      = parent->Geom(lev);
+    auto myfactory = makeEBFabFactory(cgeom,Ssync_lev.boxArray(),Ssync_lev.DistributionMap(),{1,1,1},EBSupport::basic);
+
     Ssync_sav[lev].reset(new MultiFab(Ssync_lev.boxArray(),
                                       Ssync_lev.DistributionMap(),
-                                      numscal,1,MFInfo(),Factory()));
+                                      numscal,1,MFInfo(),*myfactory));
+}
+#else
+    Ssync_sav[lev].reset(new MultiFab(Ssync_lev.boxArray(),
+                                      Ssync_lev.DistributionMap(),
+                                      numscal,1));
+#endif
+
     MultiFab::Copy(*Ssync_sav[lev],Ssync_lev,0,0,numscal,1);
     showMF("DBGSync",*Ssync_sav[lev],"sdc_Ssync_BeginSync",level,0,parent->levelSteps(level));
 
     const MultiFab& Vsync_lev = getLevel(lev).Vsync;
+
+#ifdef AMREX_USE_EB
+{
+    const Geometry& cgeom      = parent->Geom(lev);
+    auto myfactory = makeEBFabFactory(cgeom,Vsync_lev.boxArray(),Vsync_lev.DistributionMap(),{1,1,1},EBSupport::basic);
+
     Vsync_sav[lev].reset(new MultiFab(Vsync_lev.boxArray(),
                                       Vsync_lev.DistributionMap(),
                                       AMREX_SPACEDIM,1,MFInfo(),Factory()));
+}
+#else
+    Vsync_sav[lev].reset(new MultiFab(Vsync_lev.boxArray(),
+                                      Vsync_lev.DistributionMap(),
+                                      AMREX_SPACEDIM,1));
+#endif
+
+
     MultiFab::Copy(*Vsync_sav[lev],Vsync_lev,0,0,AMREX_SPACEDIM,1);
     showMF("DBGSync",*Vsync_sav[lev],"sdc_Vsync_BeginSync",level,0,parent->levelSteps(level));
   }
