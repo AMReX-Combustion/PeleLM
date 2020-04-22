@@ -7316,8 +7316,8 @@ PeleLM::mac_sync ()
       getDiffusivity(betanp1, curr_time, Temp, nspecies, 1); // temperature (lambda)
       compute_enthalpy_fluxes(GammaKp1,betanp1,curr_time); // Compute F[N+1], F[N=2]
 
-      MultiFab DT_pre(grids,dmap,1,0);
-      MultiFab DD_pre(grids,dmap,1,0);
+      MultiFab DT_pre(grids,dmap,1,0,MFInfo(),Factory());
+      MultiFab DD_pre(grids,dmap,1,0,MFInfo(),Factory());
       flux_divergence(DT_pre,0,SpecDiffusionFluxnp1,nspecies+2,1,-1);
       flux_divergence(DD_pre,0,SpecDiffusionFluxnp1,nspecies+1,1,-1);
 
@@ -7344,8 +7344,8 @@ PeleLM::mac_sync ()
       MultiFab Told(grids,dmap,1,0);
       MultiFab RhoCp_post(grids,dmap,1,0);
       MultiFab DeltaT(grids,dmap,1,0); DeltaT.setVal(0);
-      MultiFab DT_post(grids,dmap,1,0);
-      MultiFab DD_post(grids,dmap,1,0);
+      MultiFab DT_post(grids,dmap,1,0,MFInfo(),Factory());
+      MultiFab DD_post(grids,dmap,1,0,MFInfo(),Factory());
 
       // Build the piece of the dT source terms that does not change with iterations
       MultiFab::Copy(Trhs0,*S_new_sav[level],RhoH,0,1,0);
