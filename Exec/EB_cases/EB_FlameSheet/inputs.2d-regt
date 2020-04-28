@@ -23,7 +23,7 @@ amr.n_cell    = 128 128 128
 amr.n_cell    = 32 32 32
 
 amr.v=1
-amr.max_level =  0            # maximum level number allowed
+amr.max_level =  2            # maximum level number allowed
 amr.ref_ratio       = 2 2 2 2 # refinement ratio
 amr.regrid_int      = 2       # how often to regrid
 amr.n_error_buf     = 1 1 1 2 # number of buffer cells in error est
@@ -117,9 +117,8 @@ diffuse.v = 0
 diffuse.Rhs_in_abs_tol = 1
 
 # ------------------  INPUTS TO PROJECTION CLASS -------------------
-proj.proj_tol       = 1.0e-1  # tolerence for projections
-proj.proj_tol       = 1.0e-11  # tolerence for projections
-proj.sync_tol       = 1.0e-8  # tolerence for projections
+proj.proj_tol       = 1.0e-12  # tolerence for projections
+proj.sync_tol       = 1.0e-12  # tolerence for projections
 proj.rho_wgt_vel_proj = 0      # 0 => const den proj, 1 => rho weighted
 nodal_proj.verbose          = 0
 proj.filter_factor  = 0.0
@@ -129,8 +128,8 @@ proj.divu_minus_s_factor = 0.
 proj.proj_2 = 1
 
 # ------------------  INPUTS TO MACPROJ CLASS -------------------
-mac.mac_tol        = 1.0e-9  # tolerence for mac projections
-mac.mac_sync_tol   = 1.0e-8   # tolerence for mac SYNC projection
+mac.mac_tol        = 1.0e-14  # tolerence for mac projections
+mac.mac_sync_tol   = 1.0e-14  # tolerence for mac SYNC projection
 mac.mac_abs_tol    = 1.0e-14
 mac.use_cg_solve   = 0
 mac.do_outflow_bcs = 0
@@ -174,12 +173,12 @@ fab.format = NATIVE
 amrex.regtest_reduction=1
 
 # for getting things started with eb skip some steps
-ns.init_iter = 0
-ns.do_mac_proj = 0
+#ns.init_iter = 0
+#ns.do_mac_proj = 0
 # to turn off initial projections set to 0
-ns.do_init_proj = 0
-ns.do_sync_proj = 0
-ns.do_MLsync_proj = 0
+#ns.do_init_proj = 0
+#ns.do_sync_proj = 0
+#ns.do_MLsync_proj = 0
 
 # Embedded Boundary options
 eb2.geom_type    =  all_regular
