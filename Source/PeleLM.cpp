@@ -7020,7 +7020,7 @@ PeleLM::mac_sync ()
 #else
     S_new_sav[lev].reset(new MultiFab(S_new_lev.boxArray(),
                                       S_new_lev.DistributionMap(),
-                                      NUM_STATE,1);
+                                      NUM_STATE,1));
 #endif
 
     MultiFab::Copy(*S_new_sav[lev],S_new_lev,0,0,NUM_STATE,1);
