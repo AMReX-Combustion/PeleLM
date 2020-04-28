@@ -9,6 +9,7 @@
 #include <AMReX_BC_TYPES.H>
 #include <PeleLM_F.H>
 #include <AMReX_ArrayLim.H>
+#include "mechanism.h"
 
 module PeleLM_F
 
@@ -35,7 +36,7 @@ contains
 
   subroutine pphys_network_init() bind(C, name="pphys_network_init")                                                                                         
 
-     use network, only: network_init, nspecies
+     use fuego_chemistry, only: network_init
           
      call network_init()
             
@@ -43,7 +44,7 @@ contains
 
   subroutine pphys_network_close() bind(C, name="pphys_network_close")
 
-     use network, only: network_close
+     use fuego_chemistry, only: network_close
 
      call network_close()
 
@@ -51,31 +52,23 @@ contains
 
   subroutine pphys_transport_init(ieg) bind(C, name="pphys_transport_init")
 
-     use transport_module, only: transport_init
+     use transport_module, only: transport_init_F
 
      implicit none
      integer(c_int), intent(in   ) :: ieg
 
-     call transport_init()
+     call transport_init_F()
      use_eg = ieg
 
   end subroutine pphys_transport_init  
 
   subroutine pphys_transport_close() bind(C, name="pphys_transport_close")
 
-      use transport_module, only: transport_close
+      use transport_module, only: transport_close_F
 
-      call transport_close()
+      call transport_close_F()
 
   end subroutine pphys_transport_close
-
-!  subroutine pphys_reactor_close() bind(C, name="pphys_reactor_close")
-!
-!      use reactor_module, only: reactor_close
-!
-!      call reactor_close()
-!
-!  end subroutine pphys_reactor_close
 
 subroutine plm_extern_init(name,namlen) bind(C, name="plm_extern_init")
 
@@ -92,19 +85,17 @@ end subroutine plm_extern_init
 
   subroutine pphys_get_num_spec(nspec_out) bind(C, name="pphys_get_num_spec")
 
-      use network, only : nspecies
-
       implicit none
       integer(c_int), intent(out) :: nspec_out
 
-      nspec_out = nspecies
+      nspec_out = NUM_SPECIES
 
   end subroutine pphys_get_num_spec  
 
   subroutine pphys_get_spec_name(spec_names_out,ispec,len) &
              bind(C, name="pphys_get_spec_name")
 
-      use network, only : spec_names
+      use fuego_chemistry, only : spec_names
 
       implicit none
       integer(c_int), intent(in   ) :: ispec
@@ -124,7 +115,7 @@ end subroutine plm_extern_init
 
   subroutine pphys_get_spec_name2(name, j)
   
-    use network, only : L_spec_name
+    use fuego_chemistry, only : L_spec_name
     implicit none
 
     integer i, j
@@ -143,13 +134,13 @@ end subroutine plm_extern_init
   
   integer function pphys_getckspecname(i, coded)
   
-    use network, only : L_spec_name, nspecies
+    use fuego_chemistry, only : L_spec_name
 
     implicit none
       
     integer i
     integer coded(*)
-    integer names(L_spec_name*nspecies)
+    integer names(L_spec_name*NUM_SPECIES)
     integer j, str_len
     str_len = 0
     call cksyms(names, L_spec_name)
@@ -190,11 +181,10 @@ end subroutine plm_extern_init
 
   function pphys_numReactions() bind(C, name="pphys_numReactions") result(NR)
 
-    use network, only : nreactions
     implicit none
     integer NR
 
-    NR = nreactions
+    NR = NUM_REACTIONS
 
   end function pphys_numReactions
 
@@ -212,42 +202,41 @@ end subroutine plm_extern_init
 !
 !     Variables in Z are:  Z(1:K) = rhoY(K) [MKS]
 !                          Z(K+1) = RhoH    [MKS]
-    use network, only : nspecies
 
     implicit none
 
     integer(c_int), intent(in)   :: N ! unused
     double precision, intent(in   ) :: TIME
     double precision, intent(inout) :: TEMP
-    double precision, intent(in   ) :: Z(nspecies+1)
-    double precision, intent(out  ) :: ZP(nspecies+1)
+    double precision, intent(in   ) :: Z(NUM_SPECIES+1)
+    double precision, intent(out  ) :: ZP(NUM_SPECIES+1)
 
-    double precision WDOT_CGS(nspecies)
-    double precision Y(nspecies), CONC_CGS(nspecies), MWT(nspecies)
+    double precision WDOT_CGS(NUM_SPECIES)
+    double precision Y(NUM_SPECIES), CONC_CGS(NUM_SPECIES), MWT(NUM_SPECIES)
     double precision RHO_MKS, RINV_MKS, THFAC, HMIX_MKS, HMIX_CGS
     integer :: lierr, K
 
 
     ! RHO MKS
-    RHO_MKS  = sum(Z(1:nspecies))
+    RHO_MKS  = sum(Z(1:NUM_SPECIES))
     RINV_MKS = 1.d0 / RHO_MKS
     ! MW CGS
     call CKWT(MWT);
       
-    do K=1,nspecies
+    do K=1,NUM_SPECIES
       CONC_CGS(K) = Z(K)/MWT(K)*1.d-3
       Y(K) = Z(K) * RINV_MKS
       !print *," Y, WT ", Z(K), 1./MWT(K)
     enddo
 
-    HMIX_MKS = (Z(nspecies+1) + 0.0d0*TIME) * RINV_MKS
+    HMIX_MKS = (Z(NUM_SPECIES+1) + 0.0d0*TIME) * RINV_MKS
     HMIX_CGS = HMIX_MKS * 1.0d4
     call get_t_given_hY(HMIX_CGS, Y, TEMP, lierr);
     call CKWC(TEMP,CONC_CGS,WDOT_CGS)
 
-    ZP(nspecies+1) = 0.0d0
+    ZP(NUM_SPECIES+1) = 0.0d0
     THFAC = 1.d3
-    do k= 1, nspecies
+    do k= 1, NUM_SPECIES
       ZP(k) = WDOT_CGS(k) * MWT(k) * THFAC + 0.0d0
       !print *," RHO, C(CGS), H, T",RHO_MKS, CONC_CGS(k), HMIX_MKS, TEMP
       !print *," wdot(CGS), wdot", WDOT_CGS(k), ZP(k)
@@ -715,7 +704,6 @@ end subroutine plm_extern_init
                            bath, fuel, oxid, prod, numspec, &
                            flag_active_control)  bind(C, name="set_prob_spec")
  
-      use network,  only: nspecies
       use mod_Fvar_def, only: domnlo, domnhi
       use mod_Fvar_def, only: bathID, fuelID, oxidID, prodID
       use mod_Fvar_def, only: f_flag_active_control
@@ -740,12 +728,12 @@ end subroutine plm_extern_init
       fuelID = fuel + 1
       oxidID = oxid + 1
       prodID = prod + 1
-      if (bath .lt. 0 .or. bath .ge. nspecies) then
+      if (bath .lt. 0 .or. bath .ge. NUM_SPECIES) then
          call bl_pd_abort('no N2 species present in mechanism')
       endif
       bathID = bath + 1
 
-      if (numspec .ne. nspecies) then
+      if (numspec .ne. NUM_SPECIES) then
          call bl_pd_abort('number of species not consistent')
       endif
       

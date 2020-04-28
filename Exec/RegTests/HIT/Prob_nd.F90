@@ -7,6 +7,8 @@
 #include <Prob_F.H>
 #include <PeleLM_F.H>
 
+#include "mechanism.h"
+
 module prob_nd_module
 
   use amrex_fort_module, only : dim=>amrex_spacedim
@@ -46,7 +48,6 @@ contains
       use amrex_paralleldescriptor_module, only: amrex_pd_ioprocessor
       use mod_Fvar_def, only : pamb
       use extern_probin_module, only: const_viscosity, const_bulk_viscosity, const_conductivity, const_diffusivity, mks_unit
-      use network,   only: nspecies
       use probdata_module
 
       implicit none
@@ -72,7 +73,7 @@ contains
       integer maxlen, isioproc
       parameter (maxlen=256)
       character probin*(maxlen)
-      REAL_T :: Yt(nspecies), Density_mean, P_mean_in
+      REAL_T :: Yt(NUM_SPECIES), Density_mean, P_mean_in
       integer, parameter :: out_unit=20
 
       call bl_pd_is_ioproc(isioproc)
@@ -248,7 +249,6 @@ contains
                         delta, xlo, xhi) &
                         bind(C, name="init_data")
 
-      use network,   only: nspecies
       use PeleLM_F,  only: pphys_getP1atm_MKS, pphys_get_spec_name2
       use PeleLM_nD, only: pphys_RHOfromPTY, pphys_HMIXfromTY
       use mod_Fvar_def, only : Density, Temp, FirstSpec, RhoH, domnlo
@@ -270,7 +270,7 @@ contains
       REAL_T, dimension(p_lo(1):p_hi(1),p_lo(2):p_hi(2),p_lo(3):p_hi(3)), intent(out) :: press
 
 ! Local
-      REAL_T :: x, y, z, Yl(nspecies), Patm
+      REAL_T :: x, y, z, Yl(NUM_SPECIES), Patm
       REAL_T :: dx
       integer :: i, j, k, nspec
       double precision :: xmod, ymod, zmod
@@ -367,7 +367,7 @@ contains
                Yl(1) = 0.233d0
                Yl(2) = 0.767d0
 
-               do nspec = 1,nspecies
+               do nspec = 1,NUM_SPECIES
                   scal(i,j,k,FirstSpec+nspec-1) = Yl(nspec)
                end do
 
@@ -395,7 +395,7 @@ contains
       do k = lo(3), hi(3)
          do j = lo(2), hi(2)
             do i = lo(1), hi(1)
-               do nspec = 0,nspecies-1
+               do nspec = 0,NUM_SPECIES-1
                   scal(i,j,k,FirstSpec+nspec) = scal(i,j,k,FirstSpec+nspec)*scal(i,j,k,Density)
                enddo
                scal(i,j,k,RhoH) = scal(i,j,k,RhoH)*scal(i,j,k,Density)
