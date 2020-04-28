@@ -3,12 +3,12 @@
 #include <AMReX_BC_TYPES.H>
 #include <PeleLM_F.H>
 #include <AMReX_ArrayLim.H>
+#include "mechanism.h"
 
 module bc_fill_nd_module
 
   use amrex_fort_module, only : dim=>amrex_spacedim
   use amrex_filcc_module, only : amrex_filccn
-  use network, only : nspecies
   use mod_Fvar_def, only : domnlo
   use user_defined_fcts_nd_module, only : bcfunction
 
@@ -62,7 +62,7 @@ contains
 
 ! Local      
       REAL_T  :: x(3)
-      REAL_T  :: vel_bc(3), rho, Yl(0:nspecies-1), T, h
+      REAL_T  :: vel_bc(3), rho, Yl(0:NUM_SPECIES-1), T, h
 
       integer :: i, j, k
 
@@ -211,7 +211,7 @@ contains
 
 ! Local      
       REAL_T  :: x(3)
-      REAL_T  :: vel_bc(3), rho, Yl(0:nspecies-1), T, h
+      REAL_T  :: vel_bc(3), rho, Yl(0:NUM_SPECIES-1), T, h
 
       integer :: i, j, k
 
@@ -360,7 +360,7 @@ contains
 
 ! Local      
       REAL_T  :: x(3)
-      REAL_T  :: vel_bc(3), rho, Yl(0:nspecies-1), T, h
+      REAL_T  :: vel_bc(3), rho, Yl(0:NUM_SPECIES-1), T, h
 
       integer :: i, j, k
 
@@ -511,7 +511,7 @@ contains
 
 ! Local      
       REAL_T  :: x(3)
-      REAL_T  :: vel_bc(3), rho, Yl(0:nspecies-1), T, h
+      REAL_T  :: vel_bc(3), rho, Yl(0:NUM_SPECIES-1), T, h
 
       integer :: i, j, k
 
@@ -633,15 +633,15 @@ contains
 
 ! In/Out
       integer :: r_lo(3), r_hi(3)
-      integer :: bc(dim,2,nspecies)
+      integer :: bc(dim,2,NUM_SPECIES)
       integer :: domlo(3), domhi(3)
       REAL_T  :: delta(3), xlo(3), time
-      REAL_T, dimension(r_lo(1):r_hi(1),r_lo(2):r_hi(2),r_lo(3):r_hi(3),nspecies) :: rhoY
+      REAL_T, dimension(r_lo(1):r_hi(1),r_lo(2):r_hi(2),r_lo(3):r_hi(3),NUM_SPECIES) :: rhoY
 
 ! Local
       integer :: n
 
-      do n = 1, nspecies
+      do n = 1, NUM_SPECIES
          call chem_fill (rhoY(:,:,:,n), r_lo, r_hi, &
                          domlo, domhi, delta, xlo, time, bc(1,1,n), n-1)
       enddo
@@ -687,7 +687,7 @@ contains
 
 ! Local      
       REAL_T  :: x(3)
-      REAL_T  :: vel_bc(3), rho, Yl(0:nspecies-1), T, h
+      REAL_T  :: vel_bc(3), rho, Yl(0:NUM_SPECIES-1), T, h
 
       integer :: i, j, k
 
@@ -834,7 +834,7 @@ contains
 
 ! Local      
       REAL_T  :: x(3)
-      REAL_T  :: vel_bc(3), rho, Yl(0:nspecies-1), T, h
+      REAL_T  :: vel_bc(3), rho, Yl(0:NUM_SPECIES-1), T, h
 
       integer :: i, j, k
 
@@ -981,7 +981,7 @@ contains
 
 ! Local      
       REAL_T  :: x(3)
-      REAL_T  :: vel_bc(3), rho, Yl(0:nspecies-1), T, h
+      REAL_T  :: vel_bc(3), rho, Yl(0:NUM_SPECIES-1), T, h
 
       integer :: i, j, k
 

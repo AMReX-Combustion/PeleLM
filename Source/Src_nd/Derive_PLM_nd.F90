@@ -8,12 +8,12 @@
 #include <AMReX_BC_TYPES.H>
 #include <Prob_F.H>
 #include <AMReX_ArrayLim.H>
+#include "mechanism.h"
 
 module derive_PLM_nd
 
   use amrex_fort_module, only : dim=>amrex_spacedim
   use amrex_error_module, only : amrex_abort
-  use chemistry_module, only : nspecies, nelements
   use fuego_chemistry
 
   implicit none
@@ -26,9 +26,9 @@ module derive_PLM_nd
             dermolefrac, derconcentration, dertransportcoeff, dermolweight, &
             dhrr, dermixanddiss, dcma
 
-  REAL_T, dimension(nspecies,nelements) :: coeff_mix
-  REAL_T, dimension(nelements) :: beta_mix
-  REAL_T, dimension(nspecies)  :: fact
+  REAL_T, dimension(NUM_SPECIES,NUM_ELEMENTS) :: coeff_mix
+  REAL_T, dimension(NUM_ELEMENTS) :: beta_mix
+  REAL_T, dimension(NUM_SPECIES)  :: fact
   REAL_T :: Zfu, Zox
   logical :: init_mixture = .FALSE.
 
@@ -1321,7 +1321,7 @@ contains
 !  Local
       integer :: fS, rho, T
       integer :: nxlo, nxhi, nylo, nyhi, nzlo, nzhi
-      REAL_T, dimension(nspecies) :: Yt
+      REAL_T, dimension(NUM_SPECIES) :: Yt
       REAL_T  :: rhoinv, rhoCGS, Press
 
       integer :: i, j, k, n
@@ -1348,7 +1348,7 @@ contains
          do j=lo(2),hi(2)
             do i=lo(1),hi(1)
                rhoinv = 1.0d0 / dat(i,j,k,rho)
-               do n=1,nspecies
+               do n=1,NUM_SPECIES
                   Yt(n) = dat(i,j,k,fS+n-1) * rhoinv
                end do
                rhoCGS = dat(i,j,k,rho) * 1.0d-3 ! kg/m^3 -> g/cm^3
@@ -1396,7 +1396,7 @@ contains
          do j=lo(2),hi(2)
             do i=lo(1),hi(1)
                rhoinv = 1.0d0 / dat(i,j,k,rho)
-               do n = 1,nspecies
+               do n = 1,NUM_SPECIES
                   e(i,j,k,n) = dat(i,j,k,fS+n-1) * rhoinv
                enddo
             enddo
@@ -1430,7 +1430,7 @@ contains
 
 !  Local
       integer :: fS, rho
-      REAL_T, dimension(nspecies) :: Yt, Xt
+      REAL_T, dimension(NUM_SPECIES) :: Yt, Xt
       REAL_T  :: rhoinv
 
       integer :: i, j, k, n
@@ -1442,11 +1442,11 @@ contains
          do j=lo(2),hi(2)
             do i=lo(1),hi(1)
                rhoinv = 1.0d0 / dat(i,j,k,rho)
-               do n = 1,nspecies
+               do n = 1,NUM_SPECIES
                   Yt(n) = dat(i,j,k,fS+n-1) * rhoinv
                end do
                CALL CKYTX(Yt,Xt)
-               do n = 1,nspecies
+               do n = 1,NUM_SPECIES
                   e(i,j,k,n) = Xt(n)
                end do
             enddo
@@ -1480,7 +1480,7 @@ contains
 
 !  Local
       integer :: fS, rho, T
-      REAL_T, dimension(nspecies) :: Yt, Ct
+      REAL_T, dimension(NUM_SPECIES) :: Yt, Ct
       REAL_T  :: rhoinv, rhoCGS
 
       integer :: i, j, k, n
@@ -1494,11 +1494,11 @@ contains
             do i=lo(1),hi(1)
                rhoinv = 1.0d0 / dat(i,j,k,rho)
                rhoCGS = dat(i,j,k,rho) * 1.0d-3 ! kg/m^3 -> g/cm^3
-               do n = 1,nspecies
+               do n = 1,NUM_SPECIES
                   Yt(n) = dat(i,j,k,fS+n-1) * rhoinv
                end do
                CALL CKYTCR(rhoCGS,dat(i,j,k,T),Yt,Ct)
-               do n = 1,nspecies
+               do n = 1,NUM_SPECIES
                   e(i,j,k,n) = Ct(n) * 1.0d6 ! cm^(-3) -> m^(-3)
                end do
             enddo
@@ -1540,7 +1540,7 @@ contains
       do k=lo(3),hi(3)
          do j=lo(2),hi(2)
             do i=lo(1),hi(1)
-               do n = 1,nspecies
+               do n = 1,NUM_SPECIES
                   e(i,j,k,n) = dat(i,j,k,fS+n-1)
                enddo
             enddo
@@ -1559,7 +1559,7 @@ contains
                                  level, grid_no) &
                                  bind(C, name="dertransportcoeff")
 
-      use transport_module, only : get_transport_coeffs
+      use transport_module, only : get_transport_coeffs_F
 
       implicit none
 
@@ -1575,7 +1575,7 @@ contains
       integer, intent(in) :: level, grid_no
 
 !  Local
-      REAL_T, dimension(nspecies) :: Yt, D, invmwt
+      REAL_T, dimension(NUM_SPECIES) :: Yt, D, invmwt
       REAL_T, dimension(1)        :: rho_dummy, MU, XI, LAM, Wavg
       REAL_T                      :: rhoinv
       integer :: fS, rho, T
@@ -1596,14 +1596,14 @@ contains
          do j=lo(2),hi(2)
             do i=lo(1),hi(1)
                rhoinv = 1.0d0/dat(i,j,k,rho)
-               do n = 1,nspecies
+               do n = 1,NUM_SPECIES
                   Yt(n) = dat(i,j,k,fS+n-1)*rhoinv
                enddo
                rho_dummy(1) = dat(i,j,k,rho) * 1.d-3
 
                call CKMMWY(Yt,Wavg(1))
 
-               CALL get_transport_coeffs(lo_chem, hi_chem, &
+               CALL get_transport_coeffs_F(lo_chem, hi_chem, &
                                          Yt,           lo_chem,hi_chem,  &
                                          dat(i,j,k,T), lo_chem,hi_chem,  &
                                          rho_dummy(1), lo_chem,hi_chem,  &
@@ -1612,12 +1612,12 @@ contains
                                          XI(1),        lo_chem,hi_chem,  &
                                          LAM(1),       lo_chem,hi_chem)
 
-               do n = 1,nspecies
+               do n = 1,NUM_SPECIES
                   e(i,j,k,n) = Wavg(1) * invmwt(n) * D(n) * 0.1d0
                enddo
 
-               e(i,j,k,nspecies+1) = LAM(1) * 1.0d-05
-               e(i,j,k,nspecies+2) = MU(1)  * 0.1d0
+               e(i,j,k,NUM_SPECIES+1) = LAM(1) * 1.0d-05
+               e(i,j,k,NUM_SPECIES+2) = MU(1)  * 0.1d0
 
             enddo
          enddo
@@ -1649,7 +1649,7 @@ contains
       integer, intent(in) :: level, grid_no
 
 ! Local
-      REAL_T, dimension(nspecies) :: Yt
+      REAL_T, dimension(NUM_SPECIES) :: Yt
       integer :: fS,rho
 
       integer :: i, j, k, n
@@ -1660,7 +1660,7 @@ contains
       do k=lo(3),hi(3)
          do j=lo(2),hi(2)
             do i=lo(1),hi(1)
-               do n = 1,nspecies
+               do n = 1,NUM_SPECIES
                   Yt(n) = dat(i,j,k,fS+n-1)/dat(i,j,k,rho)
                enddo
                CALL CKMMWY(Yt,e(i,j,k,1))
@@ -1694,7 +1694,7 @@ contains
       integer, intent(in) :: level, grid_no
 
 ! Local
-      REAL_T, dimension(nspecies) :: Yt
+      REAL_T, dimension(NUM_SPECIES) :: Yt
       integer :: fS,rho, T
 
       integer :: i, j, k, n
@@ -1706,7 +1706,7 @@ contains
       do k=lo(3),hi(3)
          do j=lo(2),hi(2)
             do i=lo(1),hi(1)
-               do n = 1,nspecies
+               do n = 1,NUM_SPECIES
                   Yt(n) = dat(i,j,k,fS+n-1)/dat(i,j,k,rho)
                enddo
                CALL CKCPBS(dat(i,j,k,T),Yt,e(i,j,k,1))
@@ -1723,28 +1723,28 @@ contains
 
    subroutine init_mixture_fraction() bind(C,name='init_mixture_fraction')
 
-      use chemistry_module, only : elem_names, spec_names
+      use fuego_chemistry, only : elem_names, spec_names
 
       implicit none
 
-      REAL_T, dimension(nspecies)  :: WtS, YF, YO, XO
-      REAL_T, dimension(nelements) :: WtE
-      integer, dimension(nelements,nspecies) :: ELTinSp
+      REAL_T, dimension(NUM_SPECIES)  :: WtS, YF, YO, XO
+      REAL_T, dimension(NUM_ELEMENTS) :: WtE
+      integer, dimension(NUM_ELEMENTS,NUM_SPECIES) :: ELTinSp
 
       integer:: i, j
 
       CALL ckwt(WtS)
       CALL ckawt(WtE)
-      CALL ckncf(nelements,ELTinSP)
+      CALL ckncf(NUM_ELEMENTS,ELTinSP)
 
-      do i = 1, nspecies
-         do j = 1, nelements
+      do i = 1, NUM_SPECIES
+         do j = 1, NUM_ELEMENTS
             coeff_mix(i,j) = ELTinSP(j,i)*WtE(j)/WtS(i)
          enddo
       enddo
 
 ! TODO : should be related to probin file input !
-      do i = 1, nspecies
+      do i = 1, NUM_SPECIES
          YF(i) = 0.0d0
          XO(i) = 0.0d0
          YO(i) = 0.0d0
@@ -1755,7 +1755,7 @@ contains
 
       CALL ckxty(XO,YO)
 
-      do i = 1,nelements
+      do i = 1,NUM_ELEMENTS
          beta_mix(i) = 0
          if(elem_names(i).eq.'C') beta_mix(i) = 2.0/WtE(i)
          if(elem_names(i).eq.'H') beta_mix(i) = 1.0/(2.0*WtE(i))
@@ -1764,9 +1764,9 @@ contains
 
       Zfu = 0.0d0
       Zox = 0.0d0
-      do i=1,nspecies
+      do i=1,NUM_SPECIES
          fact(i) = 0.0d0
-         do j=1,nelements
+         do j=1,NUM_ELEMENTS
             fact(i) = fact(i) + beta_mix(j)*coeff_mix(i,j)
          enddo
          Zfu = Zfu+fact(i)*YF(i)
@@ -1816,7 +1816,7 @@ contains
             do i=lo(1), hi(1)
                rhoinv = 1.0d0 / dat(i,j,k,rho)
                e(i,j,k,1) = 0.0d0
-               do n=1,nspecies
+               do n=1,NUM_SPECIES
                   e(i,j,k,1) = e(i,j,k,1) + dat(i,j,k,fs+n-1) * rhoinv * fact(n)
                enddo
                e(i,j,k,1) = ( e(i,j,k,1) - Zox ) / ( Zfu - Zox )
@@ -1851,7 +1851,7 @@ contains
 
 ! Local
       integer :: T, rhoYd
-      REAL_T, dimension(nspecies) :: Ht
+      REAL_T, dimension(NUM_SPECIES) :: Ht
       integer :: i, j, k, n
 
       T = 1
@@ -1862,7 +1862,7 @@ contains
             do i = lo(1), hi(1)
                e(i,j,k,1) = 0.0d0
                CALL CKHMS(dat(i,j,k,T),Ht)
-               do n = 1, nspecies
+               do n = 1, NUM_SPECIES
                   Ht(n) = Ht(n) * 1.0d-4     ! erg/g -> J/kg
                   e(i,j,k,1) = e(i,j,k,1) - dat(i,j,k,rhoYd+n-1)*Ht(n)
                enddo
@@ -1882,7 +1882,7 @@ contains
                              level, grid_no) &
                              bind(C, name="dermixanddiss")
 
-      use transport_module, only : get_transport_coeffs
+      use transport_module, only : get_transport_coeffs_F
 
       implicit none
 
@@ -1899,7 +1899,7 @@ contains
 
 ! Local
       REAL_T, dimension(d_lo(1):d_hi(1),d_lo(2):d_hi(2),d_lo(3):d_hi(3)) :: mixfrac
-      REAL_T, dimension(nspecies) :: Yt, D
+      REAL_T, dimension(NUM_SPECIES) :: Yt, D
       REAL_T, dimension(3) :: grad
       REAL_T, dimension(1) :: rhoCGS, MU, XI, LAM
       REAL_T :: cpmix, rhoinv
@@ -1926,7 +1926,7 @@ contains
             do i = d_lo(1), d_hi(1)
                rhoinv = 1.0d0 / dat(i,j,k,rho)
                mixfrac(i,j,k) = 0.0d0
-               do n = 1,nspecies
+               do n = 1,NUM_SPECIES
                   mixfrac(i,j,k) = mixfrac(i,j,k) + dat(i,j,k,fS+n-1) * rhoinv * fact(n)
                enddo
                mixfrac(i,j,k) = ( mixfrac(i,j,k) - Zox ) / ( Zfu - Zox )
@@ -1943,7 +1943,7 @@ contains
                ! Compute scalar dissipation rate
                ! cpmix 
                rhoinv = 1.0d0 / dat(i,j,k,rho)
-               do n = 1, nspecies
+               do n = 1, NUM_SPECIES
                   Yt(n) = dat(i,j,k,fS+n-1) * rhoinv
                enddo
                CALL CKCPBS(dat(i,j,k,T), Yt, cpmix)
@@ -1951,7 +1951,7 @@ contains
 
                ! lambda mix 
                rhoCGS(1) = dat(i,j,k,rho) * 1.0d-3 ! kg/m^3 -> g/cm^3
-               CALL get_transport_coeffs(lo_chem, hi_chem, &
+               CALL get_transport_coeffs_F(lo_chem, hi_chem, &
                                          Yt,           lo_chem,hi_chem, &
                                          dat(i,j,k,T), lo_chem,hi_chem, &
                                          rhoCGS(1),    lo_chem,hi_chem, &
@@ -1985,7 +1985,7 @@ contains
                     level, grid_no) &
                     bind(C, name="dcma")
 
-      use chemistry_module, only : get_species_index
+      use fuego_chemistry, only : get_species_index
 
       implicit none
 
@@ -2008,19 +2008,19 @@ contains
 
       rho = 1
       fS  = 2
-      T   = 2 + nspecies
+      T   = 2 + NUM_SPECIES
 
 ! TODO : this should be specified somewhere in the probin file
       OH = get_species_index('OH')
       RO2 = get_species_index('C12H25O2')
 
       CALL  dermixfrac(e(:,:,:,1),  e_lo, e_hi, 1, &
-                       dat(:,:,:,rho:nspecies+1), d_lo, d_hi, nspecies+1, &
+                       dat(:,:,:,rho:NUM_SPECIES+1), d_lo, d_hi, NUM_SPECIES+1, &
                        lo, hi, domlo, domhi, delta, xlo, time, dt, bc, &
                        level, grid_no)
 
       CALL  dhrr(e(:,:,:,2), e_lo, e_hi, 1, &
-                 dat(:,:,:,T:ncomp), d_lo, d_hi, nspecies+1, &
+                 dat(:,:,:,T:ncomp), d_lo, d_hi, NUM_SPECIES+1, &
                  lo, hi, domlo, domhi, delta, xlo, time, dt, bc, &
                  level, grid_no)
 

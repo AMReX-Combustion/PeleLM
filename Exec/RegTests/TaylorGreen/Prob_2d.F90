@@ -7,6 +7,8 @@
 #include <Prob_F.H>
 #include <PeleLM_F.H>
 
+#include "mechanism.h"
+
 module prob_2D_module
 
   use amrex_fort_module, only : dim=>amrex_spacedim
@@ -137,7 +139,6 @@ contains
                        delta,xlo,xhi) &
                        bind(C, name="init_data")
                               
-      use network,   only: nspecies
       use PeleLM_F,  only: pphys_getP1atm_MKS, pphys_get_spec_name2
       use PeleLM_2D, only: pphys_RHOfromPTY, pphys_HMIXfromTY
       use mod_Fvar_def, only : Density, Temp, FirstSpec, RhoH
@@ -157,7 +158,7 @@ contains
 
 
       integer i, j, n
-      REAL_T x, y, Yl(nspecies), Patm
+      REAL_T x, y, Yl(NUM_SPECIES), Patm
       REAL_T :: velfact, tpi
 
       velfact = 1.0d0
@@ -174,7 +175,7 @@ contains
             Yl(1) = 0.233
             Yl(2) = 0.767
 
-            do n = 1,nspecies
+            do n = 1,NUM_SPECIES
                scal(i,j,FirstSpec+n-1) = Yl(n)
             end do
 
@@ -198,7 +199,7 @@ contains
 
       do j = lo(2), hi(2)
          do i = lo(1), hi(1)
-            do n = 0,nspecies-1
+            do n = 0,NUM_SPECIES-1
                scal(i,j,FirstSpec+n) = scal(i,j,FirstSpec+n)*scal(i,j,Density)
             enddo
             scal(i,j,RhoH) = scal(i,j,RhoH)*scal(i,j,Density)
