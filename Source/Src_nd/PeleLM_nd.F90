@@ -24,7 +24,7 @@ module PeleLM_nd
   public :: floor_spec, calc_divu_fortran, calc_gamma_pinv, &
             pphys_PfromRTY, pphys_mass_to_mole, pphys_massr_to_conc, pphys_HfromT, &
             pphys_HMIXfromTY, pphys_RHOfromPTY, pphys_CPMIXfromTY, init_data_new_mech, &
-            enth_diff_terms, spec_temp_visc, vel_visc, beta_wbar, est_divu_dt, check_divu_dt,&
+            spec_temp_visc, vel_visc, beta_wbar, est_divu_dt, check_divu_dt,&
             dqrad_fill, divu_fill, dsdt_fill, ydot_fill, rhoYdot_fill, &
             fab_minmax, repair_flux, incrwext_flx_div, flux_div, compute_ugradp, conservative_T_floor, &
             part_cnt_err, mcurve, smooth, grad_wbar, recomp_update, &
@@ -32,7 +32,7 @@ module PeleLM_nd
             FORT_AVERAGE_EDGE_STATES
 
 contains
-
+ 
 !=========================================================
 !  Floor species mass fraction at 0.0
 !=========================================================
@@ -95,7 +95,7 @@ contains
 
 ! Local
       REAL_T, dimension(1:nspecies) :: Y, H, invmtw
-      REAL_T :: cpmix, rhoInv, tmp, mmw
+      REAL_T :: cpmix, rho, rhoInv, tmp, mmw
       integer :: i, j, k, n
 
       call CKWT(invmtw)
@@ -106,11 +106,11 @@ contains
       do k=lo(3),hi(3)
          do j=lo(2),hi(2)
             do i=lo(1),hi(1)
-               rhoInv = 0.d0
+               rho = 0.d0
                do n=1,nspecies
-                  rhoInv = rhoInv + rhoY(i,j,k,n)
+                  rho = rho + rhoY(i,j,k,n)
                enddo
-               rhoInv = 1.d0 / rhoInv
+               rhoInv = 1.d0 / rho
                do n=1,nspecies
                   Y(n) = rhoInv*rhoY(i,j,k,n)
                enddo
@@ -124,12 +124,16 @@ contains
                enddo
 
                tmp = 0.d0
-               divu(i,j,k) = vtT(i,j,k)
+               
+               !write(*,*) "DEBUG IN calc_divu_fortran ",i,j,k,divu(i,j,k),vtT(i,j,k),rho,cpmix,T(i,j,k)
+               
+               divu(i,j,k) = (divu(i,j,k) + vtT(i,j,k))/(rho*cpmix*T(i,j,k))
                do n=1,nspecies
-                  tmp = tmp + (rYdot(i,j,k,n)+vtY(i,j,k,n))*invmtw(n)
-                  divu(i,j,k) = divu(i,j,k) - rYdot(i,j,k,n)*H(n)
+               !write(*,*) "DEBUG n ",n,divu(i,j,k),vtY(i,j,k,n),rYdot(i,j,k,n),invmtw(n),H(n)
+                  divu(i,j,k) = divu(i,j,k) &
+                              + (vtY(i,j,k,n) + rYdot(i,j,k,n)) &
+                              *(invmtw(n)*mmw*rhoInv - H(n)/(rho*cpmix*T(i,j,k)))
                enddo
-               divu(i,j,k) = ( divu(i,j,k)/(cpmix*T(i,j,k)) + tmp*mmw ) * rhoInv
             enddo
          enddo
       enddo
@@ -196,6 +200,7 @@ contains
                               RhoY, rY_lo, rY_hi, &
                               RhoH, rh_lo, rh_hi, &
                               T, t_lo, t_hi, &
+                              mask, m_lo, m_hi, &
                               RhoYdot, rd_lo, rd_hi)&
                               bind(C, name="pphys_RRATERHOY")
 
@@ -208,10 +213,12 @@ contains
       integer, intent(in) :: rY_lo(3), rY_hi(3)
       integer, intent(in) :: rh_lo(3), rh_hi(3)
       integer, intent(in) :: t_lo(3), t_hi(3)
+      integer, intent(in) :: m_lo(3), m_hi(3)
       integer, intent(in) :: rd_lo(3), rd_hi(3)
       REAL_T, dimension(rY_lo(1):rY_hi(1),rY_lo(2):rY_hi(2),rY_lo(3):rY_hi(3),nspecies) :: RhoY
       REAL_T, dimension(rh_lo(1):rh_hi(1),rh_lo(2):rh_hi(2),rh_lo(3):rh_hi(3)) :: RhoH
       REAL_T, dimension(t_lo(1):t_hi(1),t_lo(2):t_hi(2),t_lo(3):t_hi(3)) :: T
+      INTEGER, dimension(m_lo(1):m_hi(1),m_lo(2):m_hi(2),m_lo(3):m_hi(3)) :: mask
       REAL_T, dimension(rd_lo(1):rd_hi(1),rd_lo(2):rd_hi(2),rd_lo(3):rd_hi(3),nspecies) :: RhoYdot
 
 ! Local
@@ -225,6 +232,11 @@ contains
       do k = lo(3), hi(3)
          do j = lo(2), hi(2)
             do i = lo(1), hi(1)
+
+               if ( mask(i,j,k) == -1 ) then
+                  RhoYdot(i,j,k,:) = 0.0d0
+                  CYCLE
+               end if
 
                Zt(nspecies+1) = RhoH(i,j,k)
                do n = 1,nspecies
@@ -632,6 +644,7 @@ contains
                CALL pphys_TfromHYpt( T(i,j,k), Hmix(i,j,k), Yt, errMax, NiterMAX, res, Niter)
 
                if (Niter < 0) then
+                  write(*,*)"Error code ", Niter
                   call amrex_abort(" Something went wrong in pphys_TfromHYpt ")
                end if
 
@@ -661,7 +674,7 @@ contains
                                   bind(C, name="init_data_new_mech")
 
       use PeleLM_F,  only: pphys_getP1atm_MKS
-      use mod_Fvar_def, only : Density, Temp, FirstSpec, RhoH, pamb, Trac
+      use mod_Fvar_def, only : Density, Temp, FirstSpec, RhoH, pamb
 
       implicit none
 
@@ -679,14 +692,6 @@ contains
 ! Local
       REAL_T  :: Patm
       integer :: i, j, k, n
-
-      do k = lo(3), hi(3)
-         do j = lo(2), hi(2)
-            do i = lo(1), hi(1)
-               scal(i,j,k,Trac) = zero
-            end do
-         end do
-      end do
 
       Patm = pamb / pphys_getP1atm_MKS()
 
@@ -892,524 +897,289 @@ contains
 !  Compute enthalpy diffusion term
 !=========================================================
 
-   subroutine enth_diff_terms (lo, hi, &
-                               dlo, dhi, dx, &
-                               T, t_lo, t_hi, &
-                               RhoY, rY_lo, rY_hi, &
-                               rhoDx, rdx_lo, rdx_hi, Fx, fx_lo, fx_hi, Ax, ax_lo, ax_hi, &
-                               rhoDy, rdy_lo, rdy_hi, Fy, fy_lo, fy_hi, Ay, ay_lo, ay_hi, &
-#if ( AMREX_SPACEDIM == 3)
-                               rhoDz, rdz_lo, rdz_hi, Fz, fz_lo, fz_hi, Az, az_lo, az_hi, &
-#endif
-                               FiGHi, fg_lo, fg_hi, Tbc) &
-                               bind(C, name="enth_diff_terms")
-
-      use amrex_mempool_module
-
-      implicit none
-
-! In/Out
-      integer, intent(in) :: lo(3), hi(3), dlo(3), dhi(3)
-      REAL_T, intent(in)  :: dx(3)
-      integer, intent(in) :: t_lo(3), t_hi(3)
-      integer, intent(in) :: rY_lo(3), rY_hi(3)
-      integer, intent(in) :: rdx_lo(3), rdx_hi(3)
-      integer, intent(in) :: fx_lo(3), fx_hi(3)
-      integer, intent(in) :: ax_lo(3), ax_hi(3)
-      integer, intent(in) :: rdy_lo(3), rdy_hi(3)
-      integer, intent(in) :: fy_lo(3), fy_hi(3)
-      integer, intent(in) :: ay_lo(3), ay_hi(3)
-#if ( AMREX_SPACEDIM == 3)
-      integer, intent(in) :: rdz_lo(3), rdz_hi(3)
-      integer, intent(in) :: fz_lo(3), fz_hi(3)
-      integer, intent(in) :: az_lo(3), az_hi(3)
-#endif
-      integer, intent(in) :: fg_lo(3), fg_hi(3)
-      REAL_T, dimension(t_lo(1):t_hi(1),t_lo(2):t_hi(2),t_lo(3):t_hi(3)), intent(in) :: T
-      REAL_T, dimension(rY_lo(1):rY_hi(1),rY_lo(2):rY_hi(2),rY_lo(3):rY_hi(3),nspecies), intent(in) :: RhoY
-      REAL_T, dimension(rdx_lo(1):rdx_hi(1),rdx_lo(2):rdx_hi(2),rdx_lo(3):rdx_hi(3),nspecies+2), intent(in) :: rhoDx
-      REAL_T, dimension(fx_lo(1):fx_hi(1),fx_lo(2):fx_hi(2),fx_lo(3):fx_hi(3),nspecies+3), intent(out) :: Fx
-      REAL_T, dimension(ax_lo(1):ax_hi(1),ax_lo(2):ax_hi(2),ax_lo(3):ax_hi(3)), intent(in) :: Ax
-      REAL_T, dimension(rdy_lo(1):rdy_hi(1),rdy_lo(2):rdy_hi(2),rdy_lo(3):rdy_hi(3),nspecies+2), intent(in) :: rhoDy
-      REAL_T, dimension(fy_lo(1):fy_hi(1),fy_lo(2):fy_hi(2),fy_lo(3):fy_hi(3),nspecies+3), intent(out) :: Fy
-      REAL_T, dimension(ay_lo(1):ay_hi(1),ay_lo(2):ay_hi(2),ay_lo(3):ay_hi(3)), intent(in) :: Ay
-#if ( AMREX_SPACEDIM == 3)
-      REAL_T, dimension(rdz_lo(1):rdz_hi(1),rdz_lo(2):rdz_hi(2),rdz_lo(3):rdz_hi(3),nspecies+2), intent(in) :: rhoDz
-      REAL_T, dimension(fz_lo(1):fz_hi(1),fz_lo(2):fz_hi(2),fz_lo(3):fz_hi(3),nspecies+3), intent(out) :: Fz
-      REAL_T, dimension(az_lo(1):az_hi(1),az_lo(2):az_hi(2),az_lo(3):az_hi(3)), intent(in) :: Az
-#endif
-      REAL_T, dimension(fg_lo(1):fg_hi(1),fg_lo(2):fg_hi(2),fg_lo(3):fg_hi(3)), intent(out) :: FiGHi
-      integer, intent(in) :: Tbc(3,2)
-
-! Local
-      REAL_T, pointer, dimension(:,:,:,:) :: H, AD
-      REAL_T, pointer, dimension(:,:,:) :: rhoInv
-      REAL_T :: AxDxInv_lo, AxDxInv_hi, dxInv
-      REAL_T :: AyDyInv_lo, AyDyInv_hi, dyInv
-      REAL_T :: AzDzInv_lo, AzDzInv_hi, dzInv
-      REAL_T :: gradY
-      integer :: lob(3), hib(3)
-      logical :: fix_xlo, fix_xhi, fix_ylo, fix_yhi, fix_zlo, fix_zhi
-
-      integer :: i, j, k, d, n
-
-      fix_xlo = .false.
-      fix_xhi = .false.
-      fix_ylo = .false.
-      fix_yhi = .false.
-      fix_zlo = .false.
-      fix_zhi = .false.
-
-!     Compute species enthalpies on box grown by one
-!     init grown box in all dims then update only active dims
-      lob(:) = lo(:)
-      hib(:) = hi(:)
-      do d = 1, dim
-         lob(d) = lo(d)-1
-         hib(d) = hi(d)+1
-      enddo
-
-!     Make space for Hi, use T box, since this better be big enough as well.
-!     Note that any cells on a physical boundary with Dirichlet conditions will 
-!     actually be centered on the edge, so the stencils below must reflect this
-
-      call amrex_allocate(H, t_lo(1), t_hi(1), t_lo(2), t_hi(2), t_lo(3), t_hi(3), 1, nspecies) 
-
-      call pphys_HfromT( lob, hib, H(:,:,:,1), t_lo, t_hi, T(:,:,:), t_lo, t_hi )
-
-!     On entry, Fx(1:nspecies) = spec flux
-!     On exit:
-!     Fx(nspecies+1) = untouched
-!     Fx(nspecies+2) = sum[ (species flux).(species enthalpy) ]
-!     Fx(nspecies+3) = extensive heat conduction
-
-!     Compute lambda.Grad(T)
-      dxInv = 1.d0 / dx(1)
-      dyInv = 1.d0 / dx(2)
-#if ( AMREX_SPACEDIM == 3)
-      dzInv = 1.d0 / dx(3)
-#endif
-
-      do k=lo(3),hi(3)
-         do j=lo(2),hi(2)
-            do i=lo(1),hi(1)+1
-               Fx(i,j,k,nspecies+3) = - rhoDx(i,j,k,nspecies+2)*(T(i,j,k) - T(i-1,j,k))* dxInv * Ax(i,j,k)
-            enddo
-         enddo
-      enddo
-
-      do k=lo(3),hi(3)
-         do j=lo(2),hi(2)+1
-            do i=lo(1),hi(1)
-               Fy(i,j,k,nspecies+3) = - rhoDy(i,j,k,nspecies+2)*(T(i,j,k) - T(i,j-1,k)) * dyInv * Ay(i,j,k)
-            enddo
-         enddo
-      enddo
-
-#if ( AMREX_SPACEDIM == 3)
-      do k=lo(3),hi(3)+1
-         do j=lo(2),hi(2)
-            do i=lo(1),hi(1)
-               Fz(i,j,k,nspecies+3) = - rhoDz(i,j,k,nspecies+2)*(T(i,j,k) - T(i,j,k-1)) * dzInv * Az(i,j,k)
-            enddo
-         enddo
-      enddo
-#endif
-
-!     xlo
-      if (lo(1).eq.dlo(1)  .and.  Tbc(1,1).eq.EXT_DIR) then
-         i = dlo(1)
-         do k=lo(3),hi(3)
-            do j=lo(2),hi(2)
-               Fx(i,j,k,nspecies+3) = 2*Fx(i,j,k,nspecies+3)
-            enddo
-         enddo
-      endif
-!     xhi
-      if (hi(1)+1.eq.dhi(1)+1  .and.  Tbc(1,2).eq.EXT_DIR) then
-         i = dhi(1)+1
-         do k=lo(3),hi(3)
-            do j=lo(2),hi(2)
-               Fx(i,j,k,nspecies+3) = 2*Fx(i,j,k,nspecies+3)
-            enddo
-         enddo
-      endif
-!     ylo
-      if (lo(2).eq.dlo(2) .and. Tbc(2,1).eq.EXT_DIR) then
-         j=lo(2)
-         do k=lo(3),hi(3)
-            do i=lo(1),hi(1)
-               Fy(i,j,k,nspecies+3) = 2*Fy(i,j,k,nspecies+3)
-            enddo
-         enddo
-      endif
-!     yhi
-      if (hi(2)+1.eq.dhi(2)+1 .and. Tbc(2,2).eq.EXT_DIR) then
-         j=hi(2)+1
-         do k=lo(3),hi(3)
-            do i=lo(1),hi(1)
-               Fy(i,j,k,nspecies+3) = 2*Fy(i,j,k,nspecies+3)
-            enddo
-         enddo
-      endif
-#if ( AMREX_SPACEDIM == 3)
-!     zlo
-      if (lo(3).eq.dlo(3) .and. Tbc(3,1).eq.EXT_DIR) then
-         k=lo(3)
-         do j=lo(2),hi(2)
-            do i=lo(1),hi(1)
-               Fz(i,j,k,nspecies+3) = 2*Fz(i,j,k,nspecies+3)
-            enddo
-         enddo
-      endif
-!     zhi
-      if (hi(3)+1.eq.dhi(3)+1 .and. Tbc(3,2).eq.EXT_DIR) then
-         k=hi(3)+1
-         do j=lo(2),hi(2)
-            do i=lo(1),hi(1)
-               Fz(i,j,k,nspecies+3) = 2*Fz(i,j,k,nspecies+3)
-            enddo
-         enddo
-      endif
-#endif
-
-!     Compute enthalpy flux as hi*(Fi+(lambda/cp).Grad(Yi))
-
-      Fx(lo(1):hi(1)+1,lo(2):hi(2),lo(3):hi(3),nspecies+2) = 0.d0
-      Fy(lo(1):hi(1),lo(2):hi(2)+1,lo(3):hi(3),nspecies+2) = 0.d0
-#if ( AMREX_SPACEDIM == 3)
-      Fz(lo(1):hi(1),lo(2):hi(2),lo(3):hi(3)+1,nspecies+2) = 0.d0
-#endif
-
-      call amrex_allocate( rhoInv, lob(1), hib(1), lob(2), hib(2), lob(3), hib(3) )
-
-      rhoInv(:,:,:) = 0.0d0
-      do n = 1, nspecies
-         do k = lob(3), hib(3)
-            do j = lob(2), hib(2)
-               do i = lob(1), hib(1)
-               rhoInv(i,j,k) = rhoInv(i,j,k) + RhoY(i,j,k,n)
-               enddo
-            enddo
-         enddo
-      enddo
-
-      rhoInv(:,:,:) = 1.0D0 / rhoInv(:,:,:)
-
-      do n = 1, nspecies
-         do k = lo(3), hi(3)
-            do j = lo(2), hi(2)
-               do i = lo(1), hi(1)+1
-                  gradY = (RhoY(i,j,k,n)*rhoInv(i,j,k) - RhoY(i-1,j,k,n)*rhoInv(i-1,j,k))*dxInv
-                  Fx(i,j,k,nspecies+2) = Fx(i,j,k,nspecies+2) + (Fx(i,j,k,n) + &
-                                         rhoDx(i,j,k,nspecies+1)*gradY*Ax(i,j,k))*(H(i,j,k,n)+H(i-1,j,k,n))*0.5d0
-               enddo
-            enddo
-         enddo
-      enddo
-
-      do n = 1, nspecies
-         do k=lo(3),hi(3)
-            do j=lo(2),hi(2)+1
-               do i=lo(1),hi(1)
-                  gradY = (RhoY(i,j,k,n)*rhoInv(i,j,k) - RhoY(i,j-1,k,n)*rhoInv(i,j-1,k))*dyInv
-                  Fy(i,j,k,nspecies+2) = Fy(i,j,k,nspecies+2) + (Fy(i,j,k,n) + &
-                                         rhoDy(i,j,k,nspecies+1)*gradY*Ay(i,j,k))*(H(i,j,k,n)+H(i,j-1,k,n))*0.5d0
-               enddo
-            enddo
-         enddo
-      enddo
-
-#if ( AMREX_SPACEDIM == 3)
-      do n = 1, nspecies
-         do k=lo(3),hi(3)+1
-            do j=lo(2),hi(2)
-               do i=lo(1),hi(1)
-                  gradY = (RhoY(i,j,k,n)*rhoInv(i,j,k) - RhoY(i,j,k-1,n)*rhoInv(i,j,k-1))*dzInv
-                  Fz(i,j,k,nspecies+2) = Fz(i,j,k,nspecies+2) + (Fz(i,j,k,n) + &
-                                         rhoDz(i,j,k,nspecies+1)*gradY*Az(i,j,k))*(H(i,j,k,n)+H(i,j,k-1,n))*0.5d0
-               enddo
-            enddo
-         enddo
-      enddo
-#endif
-
-!     xlo
-      if (lo(1).eq.dlo(1)  .and.  Tbc(1,1).eq.EXT_DIR) then
-         i = dlo(1)
-         Fx(i,lo(2):hi(2),lo(3):hi(3),nspecies+2) = 0.d0
-         do n=1,nspecies
-            do k=lo(3),hi(3)
-               do j=lo(2),hi(2)
-                  gradY = 2*(RhoY(i,j,k,n)*rhoInv(i,j,k) - RhoY(i-1,j,k,n)*rhoInv(i-1,j,k))*dxInv
-                  Fx(i,j,k,nspecies+2) = Fx(i,j,k,nspecies+2) &
-                      + (Fx(i,j,k,n) + rhoDx(i,j,k,nspecies+1)*gradY*Ax(i,j,k))*H(i-1,j,k,n)
-               enddo
-            enddo
-         enddo
-      endif
-!     xhi
-      if (hi(1)+1.eq.dhi(1)+1  .and.  Tbc(1,2).eq.EXT_DIR) then
-         i = dhi(1)+1
-         Fx(i,lo(2):hi(2),lo(3):hi(3),nspecies+2) = 0.d0
-         do n=1,nspecies
-            do k=lo(3),hi(3)
-               do j=lo(2),hi(2)
-                  gradY = 2*(RhoY(i,j,k,n)*rhoInv(i,j,k) - RhoY(i-1,j,k,n)*rhoInv(i-1,j,k))*dxInv
-                  Fx(i,j,k,nspecies+2) = Fx(i,j,k,nspecies+2) &
-                      + (Fx(i,j,k,n) + rhoDx(i,j,k,nspecies+1)*gradY*Ax(i,j,k))*H(i,j,k,n)
-               enddo
-            enddo
-         enddo
-      endif
-!     ylo
-      if (lo(2).eq.dlo(2)  .and.  Tbc(2,1).eq.EXT_DIR) then
-         j = dlo(2)
-         Fy(lo(1):hi(1),j,lo(3):hi(3),nspecies+2) = 0.d0
-         do n=1,nspecies
-            do k=lo(3),hi(3)
-               do i=lo(1),hi(1)
-                  gradY = 2*(RhoY(i,j,k,n)*rhoInv(i,j,k) - RhoY(i,j-1,k,n)*rhoInv(i,j-1,k))*dyInv
-                  Fy(i,j,k,nspecies+2) = Fy(i,j,k,nspecies+2) &
-                      + (Fy(i,j,k,n) + rhoDy(i,j,k,nspecies+1)*gradY*Ay(i,j,k))*H(i,j-1,k,n)
-               enddo
-            enddo
-         enddo
-      endif
-!     yhi
-      if (hi(2)+1.eq.dhi(2)+1  .and.  Tbc(2,2).eq.EXT_DIR) then
-         j = dhi(2)+1
-         Fy(lo(1):hi(1),j,lo(3):hi(3),nspecies+2) = 0.d0
-         do n=1,nspecies
-            do k=lo(3),hi(3)
-               do i=lo(1),hi(1)
-                  gradY = 2*(RhoY(i,j,k,n)*rhoInv(i,j,k) - RhoY(i,j-1,k,n)*rhoInv(i,j-1,k))*dyInv
-                  Fy(i,j,k,nspecies+2) = Fy(i,j,k,nspecies+2) &
-                      + (Fy(i,j,k,n) + rhoDy(i,j,k,nspecies+1)*gradY*Ay(i,j,k))*H(i,j,k,n)
-               enddo
-            enddo
-         enddo
-      endif
-#if ( AMREX_SPACEDIM == 3)
-!     zlo
-      if (lo(3).eq.dlo(3)  .and.  Tbc(3,1).eq.EXT_DIR) then
-         k = dlo(3)
-         Fz(lo(1):hi(1),lo(2):hi(2),k,nspecies+2) = 0.d0
-         do n=1,nspecies
-            do j=lo(2),hi(2)
-               do i=lo(1),hi(1)
-                  gradY = 2*(RhoY(i,j,k,n)*rhoInv(i,j,k) - RhoY(i,j,k-1,n)*rhoInv(i,j,k-1))*dzInv
-                  Fz(i,j,k,nspecies+2) = Fz(i,j,k,nspecies+2) &
-                      + (Fz(i,j,k,n) + rhoDz(i,j,k,nspecies+1)*gradY*Az(i,j,k))*H(i,j,k-1,n)
-               enddo
-            enddo
-         enddo
-      endif
-!     zhi
-      if (hi(3)+1.eq.dhi(3)+1  .and.  Tbc(3,2).eq.EXT_DIR) then
-         k = dhi(3)+1
-         Fz(lo(1):hi(1),lo(2):hi(2),k,nspecies+2) = 0.d0
-         do n=1,nspecies
-            do j=lo(2),hi(2)
-               do i=lo(1),hi(1)
-                  gradY = 2*(RhoY(i,j,k,n)*rhoInv(i,j,k) - RhoY(i,j,k-1,n)*rhoInv(i,j,k-1))*dzInv
-                  Fz(i,j,k,nspecies+2) = Fz(i,j,k,nspecies+2) &
-                      + (Fz(i,j,k,n) + rhoDz(i,j,k,nspecies+1)*gradY*Az(i,j,k))*H(i,j,k,n)
-               enddo
-            enddo
-         enddo
-      endif
-#endif
-
-      call amrex_deallocate(rhoInv)
-
-!     Set FiGHi = (species flux) dot Grad(species enthalpy)
-!        compute Grad(H) on each face, and average across faces in each coordinate
-!        Fi is extensive here, so need to remove area.  Also, assume that we are 
-!        away from domain boundary, fix afterward
+!   subroutine enth_diff_terms (lo, hi, &
+!                               dlo, dhi, dx, &
+!                               T, t_lo, t_hi, &
 !
-!     FIXME: This will fail for r-z since Ax(dlo(1),:)=0
+!                               rhoDx, rdx_lo, rdx_hi, Fx, fx_lo, fx_hi, Ax, ax_lo, ax_hi, &
+!                               rhoDy, rdy_lo, rdy_hi, Fy, fy_lo, fy_hi, Ay, ay_lo, ay_hi, &
+!#if ( AMREX_SPACEDIM == 3)
+!                               rhoDz, rdz_lo, rdz_hi, Fz, fz_lo, fz_hi, Az, az_lo, az_hi, &
+!#endif
+!                               Tbc) &
+!                               bind(C, name="enth_diff_terms")
 !
-
-      !
-      ! Use AD to cut down on some divides.
-      ! Unfortunately it ups memory usage a bit.
-      !
-      call amrex_allocate( AD, 1, 6, lo(1), hi(1), lo(2), hi(2), lo(3), hi(3) )
-
-      do k=lo(3),hi(3)
-         do j=lo(2),hi(2)
-            do i=lo(1),hi(1)
-#if ( AMREX_SPACEDIM == 2)
-               AD(1,i,j,k) = merge(0.d0, 1.d0/(Ax(i  ,j,k)*dx(1)), Ax(i  ,j,k)==0.d0)
-               AD(2,i,j,k) = merge(0.d0, 1.d0/(Ax(i+1,j,k)*dx(1)), Ax(i+1,j,k)==0.d0)
-#elif ( AMREX_SPACEDIM == 3)
-               AD(1,i,j,k) = 1.d0/(Ax(i  ,j  ,k  )*dx(1))
-               AD(2,i,j,k) = 1.d0/(Ax(i+1,j  ,k  )*dx(1))
-#endif
-               AD(3,i,j,k) = 1.d0/(Ay(i  ,j  ,k  )*dx(2))
-               AD(4,i,j,k) = 1.d0/(Ay(i  ,j+1,k  )*dx(2))
-#if ( AMREX_SPACEDIM == 3)
-               AD(5,i,j,k) = 1.d0/(Az(i  ,j  ,k  )*dx(3))
-               AD(6,i,j,k) = 1.d0/(Az(i  ,j  ,k+1)*dx(3))
-#endif
-            enddo
-         enddo
-      enddo
-
-      FiGHi(lo(1):hi(1),lo(2):hi(2),lo(3):hi(3)) = 0.0D0
-
-      do n = 1, nspecies
-         do k = lo(3), hi(3)
-            do j = lo(2), hi(2)
-               do i = lo(1), hi(1)
-                  FiGHi(i,j,k) = FiGHi(i,j,k) - 0.5d0* &
-                                 ( ( H(i+1,j,k,n) - H(i,j,k,n) )*Fx(i+1,j  ,k  ,n)*AD(2,i,j,k) &
-                                 + ( H(i,j,k,n) - H(i-1,j,k,n) )*Fx(i  ,j  ,k  ,n)*AD(1,i,j,k) &
-                                 + ( H(i,j+1,k,n) - H(i,j,k,n) )*Fy(i  ,j+1,k  ,n)*AD(4,i,j,k) &
-                                 + ( H(i,j,k,n) - H(i,j-1,k,n) )*Fy(i  ,j  ,k  ,n)*AD(3,i,j,k) &
-#if ( AMREX_SPACEDIM == 3)
-                                 + ( H(i,j,k+1,n) - H(i,j,k,n) )*Fz(i  ,j  ,k+1,n)*AD(6,i,j,k) &
-                                 + ( H(i,j,k,n) - H(i,j,k-1,n) )*Fz(i  ,j  ,k  ,n)*AD(5,i,j,k) &
-#endif
-                                 )
-               enddo
-            enddo
-         enddo
-      enddo
-
-!     xlo
-      if (fix_xlo) then
-         i = lo(1)
-         FiGHi(i,lo(2):hi(2),lo(3):hi(3)) = 0.d0
-         do n = 1, nspecies
-            do k = lo(3), hi(3)
-               do j = lo(2), hi(2)
-                  FiGHi(i,j,k) = FiGHi(i,j,k) - 0.5d0* &
-                      ( ( H(i+1,j,k,n) - H(i,j,k,n) )*Fx(i+1,j  ,k  ,n)*AD(2,i,j,k) &
-                      + ( H(i,j,k,n) - H(i-1,j,k,n) )*Fx(i  ,j  ,k  ,n)*AD(1,i,j,k)*2.0d0 &
-                      + ( H(i,j+1,k,n) - H(i,j,k,n) )*Fy(i  ,j+1,k  ,n)*AD(4,i,j,k) &
-                      + ( H(i,j,k,n) - H(i,j-1,k,n) )*Fy(i  ,j  ,k  ,n)*AD(3,i,j,k) &
-#if ( AMREX_SPACEDIM == 3)
-                      + ( H(i,j,k+1,n) - H(i,j,k,n) )*Fz(i  ,j  ,k+1,n)*AD(6,i,j,k) &
-                      + ( H(i,j,k,n) - H(i,j,k-1,n) )*Fz(i  ,j  ,k  ,n)*AD(5,i,j,k) &
-#endif
-                      )
-               enddo
-            enddo
-         enddo
-      endif
-
-!     xhi
-      if (fix_xhi) then
-         i = hi(1)
-         FiGHi(i,lo(2):hi(2),lo(3):hi(3)) = 0.d0
-         do n = 1, nspecies
-            do k = lo(3), hi(3)
-               do j = lo(2), hi(2)
-                  FiGHi(i,j,k) = FiGHi(i,j,k) - 0.5d0* &
-                      ( ( H(i+1,j,k,n) - H(i,j,k,n) )*Fx(i+1,j  ,k  ,n)*AD(2,i,j,k)*2.0d0 &
-                      + ( H(i,j,k,n) - H(i-1,j,k,n) )*Fx(i  ,j  ,k  ,n)*AD(1,i,j,k) &
-                      + ( H(i,j+1,k,n) - H(i,j,k,n) )*Fy(i  ,j+1,k  ,n)*AD(4,i,j,k) &
-                      + ( H(i,j,k,n) - H(i,j-1,k,n) )*Fy(i  ,j  ,k  ,n)*AD(3,i,j,k) & 
-#if ( AMREX_SPACEDIM == 3)
-                      + ( H(i,j,k+1,n) - H(i,j,k,n) )*Fz(i  ,j  ,k+1,n)*AD(6,i,j,k) &
-                      + ( H(i,j,k,n) - H(i,j,k-1,n) )*Fz(i  ,j  ,k  ,n)*AD(5,i,j,k) &
-#endif
-                      )
-               enddo
-            enddo
-         enddo
-      endif
-
-!     ylo
-      if (fix_ylo) then
-         j = lo(2)
-         FiGHi(lo(1):hi(1),j,lo(3):hi(3)) = 0.d0
-         do n = 1, nspecies
-            do k = lo(3), hi(3)
-               do i = lo(1), hi(1)
-                  FiGHi(i,j,k) = FiGHi(i,j,k) - 0.5d0* &
-                      ( ( H(i+1,j,k,n) - H(i,j,k,n) )*Fx(i+1,j  ,k  ,n)*AD(2,i,j,k) &
-                      + ( H(i,j,k,n) - H(i-1,j,k,n) )*Fx(i  ,j  ,k  ,n)*AD(1,i,j,k) &
-                      + ( H(i,j+1,k,n) - H(i,j,k,n) )*Fy(i  ,j+1,k  ,n)*AD(4,i,j,k) &
-                      + ( H(i,j,k,n) - H(i,j-1,k,n) )*Fy(i  ,j  ,k  ,n)*AD(3,i,j,k)*2.0d0 &
-#if ( AMREX_SPACEDIM == 3)
-                      + ( H(i,j,k+1,n) - H(i,j,k,n) )*Fz(i  ,j  ,k+1,n)*AD(6,i,j,k) &
-                      + ( H(i,j,k,n) - H(i,j,k-1,n) )*Fz(i  ,j  ,k  ,n)*AD(5,i,j,k) &
-#endif
-                      )
-               enddo
-            enddo
-         enddo
-      endif
-
-!     yhi
-      if (fix_yhi) then
-         j = hi(2)
-         FiGHi(lo(1):hi(1),j,lo(3):hi(3)) = 0.d0
-         do n = 1, nspecies
-            do k = lo(3), hi(3)
-               do i = lo(1), hi(1)
-                  FiGHi(i,j,k) = FiGHi(i,j,k) - 0.5d0* &
-                      ( ( H(i+1,j,k,n) - H(i,j,k,n) )*Fx(i+1,j  ,k  ,n)*AD(2,i,j,k) &
-                      + ( H(i,j,k,n) - H(i-1,j,k,n) )*Fx(i  ,j  ,k  ,n)*AD(1,i,j,k) &
-                      + ( H(i,j+1,k,n) - H(i,j,k,n) )*Fy(i  ,j+1,k  ,n)*AD(4,i,j,k)*2.0d0 &
-                      + ( H(i,j,k,n) - H(i,j-1,k,n) )*Fy(i  ,j  ,k  ,n)*AD(3,i,j,k) &
-#if ( AMREX_SPACEDIM == 3)
-                      + ( H(i,j,k+1,n) - H(i,j,k,n) )*Fz(i  ,j  ,k+1,n)*AD(6,i,j,k) &
-                      + ( H(i,j,k,n) - H(i,j,k-1,n) )*Fz(i  ,j  ,k  ,n)*AD(5,i,j,k) &
-#endif
-                      )
-               enddo
-            enddo
-         enddo
-      endif
-
-#if ( AMREX_SPACEDIM == 3)
-!     zlo
-      if (fix_zlo) then
-         k = lo(3)
-         FiGHi(lo(1):hi(1),lo(2):hi(2),k) = 0.d0
-         do n = 1, nspecies
-            do j = lo(2), hi(2)
-               do i = lo(1), hi(1)
-                  FiGHi(i,j,k) = FiGHi(i,j,k) - 0.5d0* &
-                      ( ( H(i+1,j,k,n) - H(i,j,k,n) )*Fx(i+1,j  ,k  ,n)*AD(2,i,j,k) &
-                      + ( H(i,j,k,n) - H(i-1,j,k,n) )*Fx(i  ,j  ,k  ,n)*AD(1,i,j,k) &
-                      + ( H(i,j+1,k,n) - H(i,j,k,n) )*Fy(i  ,j+1,k  ,n)*AD(4,i,j,k) &
-                      + ( H(i,j,k,n) - H(i,j-1,k,n) )*Fy(i  ,j  ,k  ,n)*AD(3,i,j,k) & 
-                      + ( H(i,j,k+1,n) - H(i,j,k,n) )*Fz(i  ,j  ,k+1,n)*AD(6,i,j,k) &
-                      + ( H(i,j,k,n) - H(i,j,k-1,n) )*Fz(i  ,j  ,k  ,n)*AD(5,i,j,k)*2.0d0 )
-               enddo
-            enddo
-         enddo
-      endif
-
-!     zhi
-      if (fix_zhi) then
-         k = hi(3)
-         FiGHi(lo(1):hi(1),lo(2):hi(2),k) = 0.d0
-         do n = 1, nspecies
-            do j = lo(2), hi(2)
-               do i = lo(1), hi(1)
-                  FiGHi(i,j,k) = FiGHi(i,j,k) - 0.5d0* &
-                      ( ( H(i+1,j,k,n) - H(i,j,k,n) )*Fx(i+1,j  ,k  ,n)*AD(2,i,j,k) &
-                      + ( H(i,j,k,n) - H(i-1,j,k,n) )*Fx(i  ,j  ,k  ,n)*AD(1,i,j,k) &
-                      + ( H(i,j+1,k,n) - H(i,j,k,n) )*Fy(i  ,j+1,k  ,n)*AD(4,i,j,k) &
-                      + ( H(i,j,k,n) - H(i,j-1,k,n) )*Fy(i  ,j  ,k  ,n)*AD(3,i,j,k) &
-                      + ( H(i,j,k+1,n) - H(i,j,k,n) )*Fz(i  ,j  ,k+1,n)*AD(6,i,j,k)*2.0d0 &
-                      + ( H(i,j,k,n) - H(i,j,k-1,n) )*Fz(i  ,j  ,k  ,n)*AD(5,i,j,k) )
-               enddo
-            enddo
-         enddo
-      endif
-#endif
-
-      call amrex_deallocate(AD)
-      call amrex_deallocate(H)
-
-   end subroutine enth_diff_terms
+!      use amrex_mempool_module
+!
+!      implicit none
+!
+!! In/Out
+!      integer, intent(in) :: lo(3), hi(3), dlo(3), dhi(3)
+!      REAL_T, intent(in)  :: dx(3)
+!      integer, intent(in) :: t_lo(3), t_hi(3)
+!      integer, intent(in) :: rdx_lo(3), rdx_hi(3)
+!      integer, intent(in) :: fx_lo(3), fx_hi(3)
+!      integer, intent(in) :: ax_lo(3), ax_hi(3)
+!      integer, intent(in) :: rdy_lo(3), rdy_hi(3)
+!      integer, intent(in) :: fy_lo(3), fy_hi(3)
+!      integer, intent(in) :: ay_lo(3), ay_hi(3)
+!#if ( AMREX_SPACEDIM == 3)
+!      integer, intent(in) :: rdz_lo(3), rdz_hi(3)
+!      integer, intent(in) :: fz_lo(3), fz_hi(3)
+!      integer, intent(in) :: az_lo(3), az_hi(3)
+!#endif
+!      REAL_T, dimension(t_lo(1):t_hi(1),t_lo(2):t_hi(2),t_lo(3):t_hi(3)), intent(in) :: T
+!      REAL_T, dimension(rdx_lo(1):rdx_hi(1),rdx_lo(2):rdx_hi(2),rdx_lo(3):rdx_hi(3)), intent(in) :: rhoDx
+!      REAL_T, dimension(fx_lo(1):fx_hi(1),fx_lo(2):fx_hi(2),fx_lo(3):fx_hi(3),nspecies+3), intent(out) :: Fx
+!      REAL_T, dimension(ax_lo(1):ax_hi(1),ax_lo(2):ax_hi(2),ax_lo(3):ax_hi(3)), intent(in) :: Ax
+!      REAL_T, dimension(rdy_lo(1):rdy_hi(1),rdy_lo(2):rdy_hi(2),rdy_lo(3):rdy_hi(3)), intent(in) :: rhoDy
+!      REAL_T, dimension(fy_lo(1):fy_hi(1),fy_lo(2):fy_hi(2),fy_lo(3):fy_hi(3),nspecies+3), intent(out) :: Fy
+!      REAL_T, dimension(ay_lo(1):ay_hi(1),ay_lo(2):ay_hi(2),ay_lo(3):ay_hi(3)), intent(in) :: Ay
+!#if ( AMREX_SPACEDIM == 3)
+!      REAL_T, dimension(rdz_lo(1):rdz_hi(1),rdz_lo(2):rdz_hi(2),rdz_lo(3):rdz_hi(3)), intent(in) :: rhoDz
+!      REAL_T, dimension(fz_lo(1):fz_hi(1),fz_lo(2):fz_hi(2),fz_lo(3):fz_hi(3),nspecies+3), intent(out) :: Fz
+!      REAL_T, dimension(az_lo(1):az_hi(1),az_lo(2):az_hi(2),az_lo(3):az_hi(3)), intent(in) :: Az
+!#endif
+!      integer, intent(in) :: Tbc(3,2)
+!
+!! Local
+!      REAL_T, pointer, dimension(:,:,:,:) :: H
+!      REAL_T :: dxInv, dyInv, dzInv
+!      integer :: lob(3), hib(3)
+!
+!      integer :: i, j, k, d, n
+!
+!!     Compute species enthalpies on box grown by one
+!!     init grown box in all dims then update only active dims
+!      lob(:) = lo(:)
+!      hib(:) = hi(:)
+!      do d = 1, dim
+!         lob(d) = lo(d)-1
+!         hib(d) = hi(d)+1
+!      enddo
+!
+!!     Make space for Hi, use T box, since this better be big enough as well.
+!!     Note that any cells on a physical boundary with Dirichlet conditions will 
+!!     actually be centered on the edge, so the stencils below must reflect this
+!
+!      call amrex_allocate(H, t_lo(1), t_hi(1), t_lo(2), t_hi(2), t_lo(3), t_hi(3), 1, nspecies) 
+!
+!      call pphys_HfromT( lob, hib, H(:,:,:,1), t_lo, t_hi, T(:,:,:), t_lo, t_hi )
+!
+!
+!!   On entry, Fx(1:nspecies) = spec flux, Fx(nspecies+1) = rhoh flux (both untouched)
+!!   On exit:
+!!   Fx(nspecies+2) = sum[ (species flux).(species enthalpy) ]
+!!   Fx(nspecies+3) = extensive heat conduction
+!
+!!     Compute lambda.Grad(T)
+!      dxInv = 1.d0 / dx(1)
+!      dyInv = 1.d0 / dx(2)
+!#if ( AMREX_SPACEDIM == 3)
+!      dzInv = 1.d0 / dx(3)
+!#endif
+!
+!      do k=lo(3),hi(3)
+!         do j=lo(2),hi(2)
+!            do i=lo(1),hi(1)+1
+!               Fx(i,j,k,nspecies+3) = - rhoDx(i,j,k)*(T(i,j,k) - T(i-1,j,k))* dxInv * Ax(i,j,k)
+!            enddo
+!         enddo
+!      enddo
+!
+!      do k=lo(3),hi(3)
+!         do j=lo(2),hi(2)+1
+!            do i=lo(1),hi(1)
+!               Fy(i,j,k,nspecies+3) = - rhoDy(i,j,k)*(T(i,j,k) - T(i,j-1,k)) * dyInv * Ay(i,j,k)
+!            enddo
+!         enddo
+!      enddo
+!
+!#if ( AMREX_SPACEDIM == 3)
+!      do k=lo(3),hi(3)+1
+!         do j=lo(2),hi(2)
+!            do i=lo(1),hi(1)
+!               Fz(i,j,k,nspecies+3) = - rhoDz(i,j,k)*(T(i,j,k) - T(i,j,k-1)) * dzInv * Az(i,j,k)
+!            enddo
+!         enddo
+!      enddo
+!#endif
+!
+!!     xlo
+!      if (lo(1).eq.dlo(1)  .and.  Tbc(1,1).eq.EXT_DIR) then
+!         i = dlo(1)
+!         do k=lo(3),hi(3)
+!            do j=lo(2),hi(2)
+!               Fx(i,j,k,nspecies+3) = 2*Fx(i,j,k,nspecies+3)
+!            enddo
+!         enddo
+!      endif
+!!     xhi
+!      if (hi(1)+1.eq.dhi(1)+1  .and.  Tbc(1,2).eq.EXT_DIR) then
+!         i = dhi(1)+1
+!         do k=lo(3),hi(3)
+!            do j=lo(2),hi(2)
+!               Fx(i,j,k,nspecies+3) = 2*Fx(i,j,k,nspecies+3)
+!            enddo
+!         enddo
+!      endif
+!!     ylo
+!      if (lo(2).eq.dlo(2) .and. Tbc(2,1).eq.EXT_DIR) then
+!         j=lo(2)
+!         do k=lo(3),hi(3)
+!            do i=lo(1),hi(1)
+!               Fy(i,j,k,nspecies+3) = 2*Fy(i,j,k,nspecies+3)
+!            enddo
+!         enddo
+!      endif
+!!     yhi
+!      if (hi(2)+1.eq.dhi(2)+1 .and. Tbc(2,2).eq.EXT_DIR) then
+!         j=hi(2)+1
+!         do k=lo(3),hi(3)
+!            do i=lo(1),hi(1)
+!               Fy(i,j,k,nspecies+3) = 2*Fy(i,j,k,nspecies+3)
+!            enddo
+!         enddo
+!      endif
+!#if ( AMREX_SPACEDIM == 3)
+!!     zlo
+!      if (lo(3).eq.dlo(3) .and. Tbc(3,1).eq.EXT_DIR) then
+!         k=lo(3)
+!         do j=lo(2),hi(2)
+!            do i=lo(1),hi(1)
+!               Fz(i,j,k,nspecies+3) = 2*Fz(i,j,k,nspecies+3)
+!            enddo
+!         enddo
+!      endif
+!!     zhi
+!      if (hi(3)+1.eq.dhi(3)+1 .and. Tbc(3,2).eq.EXT_DIR) then
+!         k=hi(3)+1
+!         do j=lo(2),hi(2)
+!            do i=lo(1),hi(1)
+!               Fz(i,j,k,nspecies+3) = 2*Fz(i,j,k,nspecies+3)
+!            enddo
+!         enddo
+!      endif
+!#endif
+!
+!!     Compute enthalpy flux as hi*Fi
+!
+!      Fx(lo(1):hi(1)+1,lo(2):hi(2),lo(3):hi(3),nspecies+2) = 0.d0
+!      Fy(lo(1):hi(1),lo(2):hi(2)+1,lo(3):hi(3),nspecies+2) = 0.d0
+!#if ( AMREX_SPACEDIM == 3)
+!      Fz(lo(1):hi(1),lo(2):hi(2),lo(3):hi(3)+1,nspecies+2) = 0.d0
+!#endif
+!
+!      do n = 1, nspecies
+!         do k = lo(3), hi(3)
+!            do j = lo(2), hi(2)
+!               do i = lo(1), hi(1)+1
+!                  Fx(i,j,k,nspecies+2) = Fx(i,j,k,nspecies+2) + Fx(i,j,k,n)*(H(i,j,k,n)+H(i-1,j,k,n))*0.5d0
+!               enddo
+!            enddo
+!         enddo
+!      enddo
+!
+!      do n = 1, nspecies
+!         do k=lo(3),hi(3)
+!            do j=lo(2),hi(2)+1
+!               do i=lo(1),hi(1)
+!                  Fy(i,j,k,nspecies+2) = Fy(i,j,k,nspecies+2) + Fy(i,j,k,n) *(H(i,j,k,n)+H(i,j-1,k,n))*0.5d0
+!               enddo
+!            enddo
+!         enddo
+!      enddo
+!
+!#if ( AMREX_SPACEDIM == 3)
+!      do n = 1, nspecies
+!         do k=lo(3),hi(3)+1
+!            do j=lo(2),hi(2)
+!               do i=lo(1),hi(1)
+!                  Fz(i,j,k,nspecies+2) = Fz(i,j,k,nspecies+2) + Fz(i,j,k,n)*(H(i,j,k,n)+H(i,j,k-1,n))*0.5d0
+!               enddo
+!            enddo
+!         enddo
+!      enddo
+!#endif
+!
+!!     xlo
+!      if (lo(1).eq.dlo(1)  .and.  Tbc(1,1).eq.EXT_DIR) then
+!         i = dlo(1)
+!         Fx(i,lo(2):hi(2),lo(3):hi(3),nspecies+2) = 0.d0
+!         do n=1,nspecies
+!            do k=lo(3),hi(3)
+!               do j=lo(2),hi(2)
+!                  Fx(i,j,k,nspecies+2) = Fx(i,j,k,nspecies+2) + Fx(i,j,k,n)*H(i-1,j,k,n)
+!               enddo
+!            enddo
+!         enddo
+!      endif
+!!     xhi
+!      if (hi(1)+1.eq.dhi(1)+1  .and.  Tbc(1,2).eq.EXT_DIR) then
+!         i = dhi(1)+1
+!         Fx(i,lo(2):hi(2),lo(3):hi(3),nspecies+2) = 0.d0
+!         do n=1,nspecies
+!            do k=lo(3),hi(3)
+!               do j=lo(2),hi(2)
+!                  Fx(i,j,k,nspecies+2) = Fx(i,j,k,nspecies+2) + Fx(i,j,k,n)*H(i,j,k,n)
+!               enddo
+!            enddo
+!         enddo
+!      endif
+!!     ylo
+!      if (lo(2).eq.dlo(2)  .and.  Tbc(2,1).eq.EXT_DIR) then
+!         j = dlo(2)
+!         Fy(lo(1):hi(1),j,lo(3):hi(3),nspecies+2) = 0.d0
+!         do n=1,nspecies
+!            do k=lo(3),hi(3)
+!               do i=lo(1),hi(1)
+!                  Fy(i,j,k,nspecies+2) = Fy(i,j,k,nspecies+2) + Fy(i,j,k,n)*H(i,j-1,k,n)
+!               enddo
+!            enddo
+!         enddo
+!      endif
+!!     yhi
+!      if (hi(2)+1.eq.dhi(2)+1  .and.  Tbc(2,2).eq.EXT_DIR) then
+!         j = dhi(2)+1
+!         Fy(lo(1):hi(1),j,lo(3):hi(3),nspecies+2) = 0.d0
+!         do n=1,nspecies
+!            do k=lo(3),hi(3)
+!               do i=lo(1),hi(1)
+!                  Fy(i,j,k,nspecies+2) = Fy(i,j,k,nspecies+2) + Fy(i,j,k,n)*H(i,j,k,n)
+!               enddo
+!            enddo
+!         enddo
+!      endif
+!#if ( AMREX_SPACEDIM == 3)
+!!     zlo
+!      if (lo(3).eq.dlo(3)  .and.  Tbc(3,1).eq.EXT_DIR) then
+!         k = dlo(3)
+!         Fz(lo(1):hi(1),lo(2):hi(2),k,nspecies+2) = 0.d0
+!         do n=1,nspecies
+!            do j=lo(2),hi(2)
+!               do i=lo(1),hi(1)
+!                  Fz(i,j,k,nspecies+2) = Fz(i,j,k,nspecies+2) + Fz(i,j,k,n)*H(i,j,k-1,n)
+!               enddo
+!            enddo
+!         enddo
+!      endif
+!!     zhi
+!      if (hi(3)+1.eq.dhi(3)+1  .and.  Tbc(3,2).eq.EXT_DIR) then
+!         k = dhi(3)+1
+!         Fz(lo(1):hi(1),lo(2):hi(2),k,nspecies+2) = 0.d0
+!         do n=1,nspecies
+!            do j=lo(2),hi(2)
+!               do i=lo(1),hi(1)
+!                  Fz(i,j,k,nspecies+2) = Fz(i,j,k,nspecies+2) + Fz(i,j,k,n)*H(i,j,k,n)
+!               enddo
+!            enddo
+!         enddo
+!      endif
+!#endif
+!
+!      call amrex_deallocate(H)
+!
+!   end subroutine enth_diff_terms
 
 !=========================================================
 !  Fluid viscosity
@@ -1541,6 +1311,9 @@ contains
                           Rho, r_lo, r_hi,&
                           U, u_lo, u_hi,&
                           volume, v_lo, v_hi,&
+#ifdef AMREX_USE_EB
+                          volfrac, vf_lo, vf_hi,&
+#endif
                           areax, ax_lo, ax_hi,&
                           areay, ay_lo, ay_hi,&
 #if ( AMREX_SPACEDIM == 3 )
@@ -1559,6 +1332,9 @@ contains
       integer, intent(in) :: r_lo(3), r_hi(3)
       integer, intent(in) :: u_lo(3), u_hi(3)
       integer, intent(in) :: v_lo(3), v_hi(3)
+#ifdef AMREX_USE_EB
+      integer, intent(in) :: vf_lo(3), vf_hi(3)
+#endif
       integer, intent(in) :: ax_lo(3), ax_hi(3)
       integer, intent(in) :: ay_lo(3), ay_hi(3)
 #if ( AMREX_SPACEDIM == 3 )
@@ -1569,6 +1345,9 @@ contains
       REAL_T, dimension(r_lo(1):r_hi(1),r_lo(2):r_hi(2),r_lo(3):r_hi(3)), intent(in) :: Rho
       REAL_T, dimension(u_lo(1):u_hi(1),u_lo(2):u_hi(2),u_lo(3):u_hi(3), AMREX_SPACEDIM), intent(in) :: U
       REAL_T, dimension(v_lo(1):v_hi(1),v_lo(2):v_hi(2),v_lo(3):v_hi(3)), intent(in) :: volume
+#ifdef AMREX_USE_EB
+      REAL_T, dimension(vf_lo(1):vf_hi(1),vf_lo(2):vf_hi(2),vf_lo(3):vf_hi(3)), intent(in) :: volfrac
+#endif
       REAL_T, dimension(ax_lo(1):ax_hi(1),ax_lo(2):ax_hi(2),ax_lo(3):ax_hi(3)), intent(in) :: areax
       REAL_T, dimension(ay_lo(1):ay_hi(1),ay_lo(2):ay_hi(2),ay_lo(3):ay_hi(3)), intent(in) :: areay
 #if ( AMREX_SPACEDIM == 3 )
@@ -1652,7 +1431,11 @@ contains
 #if ( AMREX_SPACEDIM == 3 )
                            + (areaz(i,j,k+1) * fluxzhi - areaz(i,j,k) * fluxzlo) &
 #endif
+#ifdef AMREX_USE_EB
+                          ) / (volume(i,j,k) * volfrac(i,j,k))
+#else
                           ) / volume(i,j,k)
+#endif
                   
                   if ( denom > zero ) then
                      if ( rho(i,j,k) > rhomin ) then
@@ -1947,6 +1730,273 @@ contains
 !  Correct flux to ensure that sum of diffusicve flux is zero
 !=========================================================
 
+   subroutine repair_flux_eb (lo, hi, dlo, dhi, &
+                           flux, f_lo, f_hi,&
+                           RhoY, r_lo, r_hi,&
+                           xstate, xstatelo, xstatehi, &
+                           afrac_x, axlo, axhi, &
+                           ystate, ystatelo, ystatehi, &
+                           afrac_y, aylo, ayhi, &
+#if ( AMREX_SPACEDIM == 3 )
+                           zstate, zstatelo, zstatehi, &
+                           afrac_z, azlo, azhi, &
+#endif
+                           dir, Ybc)&
+                           bind(C, name="repair_flux_eb")
+
+      implicit none
+
+      integer :: lo(3), hi(3)
+      integer :: dlo(3), dhi(3)
+      integer :: dir, Ybc(dim,2)
+      integer :: f_lo(3), f_hi(3)
+      integer :: r_lo(3), r_hi(3)
+      REAL_T, dimension(f_lo(1):f_hi(1),f_lo(2):f_hi(2),f_lo(3):f_hi(3),nspecies) :: flux
+      REAL_T, dimension(r_lo(1):r_hi(1),r_lo(2):r_hi(2),r_lo(3):r_hi(3),nspecies) :: RhoY
+
+      integer,  intent(in   ) :: xstatelo(3), xstatehi(3)
+      integer,  intent(in   ) :: ystatelo(3), ystatehi(3)
+      integer,  intent(in   ) :: axlo(3), axhi(3)
+      integer,  intent(in   ) :: aylo(3), ayhi(3)
+#if ( AMREX_SPACEDIM == 3 )
+      integer,  intent(in   ) :: zstatelo(3), zstatehi(3)
+      integer,  intent(in   ) :: azlo(3), azhi(3)
+#endif
+
+      REAL_T,  intent(in) ::  xstate(xstatelo(1):xstatehi(1),xstatelo(2):xstatehi(2),xstatelo(3):xstatehi(3),nspecies)
+      REAL_T,  intent(in) ::  ystate(ystatelo(1):ystatehi(1),ystatelo(2):ystatehi(2),ystatelo(3):ystatehi(3),nspecies)
+      REAL_T,  intent(in) ::  afrac_x(axlo(1):axhi(1),axlo(2):axhi(2),axlo(3):axhi(3))
+      REAL_T,  intent(in) ::  afrac_y(aylo(1):ayhi(1),aylo(2):ayhi(2),aylo(3):ayhi(3))
+#if ( AMREX_SPACEDIM == 3 ) 
+      REAL_T,  intent(in) ::  zstate(zstatelo(1):zstatehi(1),zstatelo(2):zstatehi(2),zstatelo(3):zstatehi(3),nspecies)
+      REAL_T,  intent(in) ::  afrac_z(azlo(1):azhi(1),azlo(2):azhi(2),azlo(3):azhi(3))
+#endif
+      
+      integer :: i, j, k, n
+      REAL_T :: sumFlux, RhoYe(nspecies), sumRhoYe
+
+!write(*,*) ' DEBUG LO HI',lo,hi      
+!write(*,*) 'DEBUG AFRAC_X', lbound(afrac_x), ubound(afrac_x)
+!write(*,*) 'DEBUG AFRAC_Y', lbound(afrac_y), ubound(afrac_y)
+      if (dir.eq.0) then
+
+!     First, assume away from physical boundaries, then use boundary-aware version below if applicable
+
+         do k = lo(3),hi(3)
+            do j = lo(2),hi(2)
+               do i = lo(1),hi(1)
+        
+                 if ( afrac_x(i,j,k) > zero ) then
+               
+                  sumFlux = 0.d0
+                  sumRhoYe = 0.d0
+                  do n=1,nspecies
+                     sumFlux = sumFlux + flux(i,j,k,n)
+                     RhoYe(n) = xstate(i,j,k,n)
+                     sumRhoYe = sumRhoYe + RhoYe(n)
+                  end do
+                  sumRhoYe = 1.0D0/sumRhoYe
+                  do n=1,nspecies
+                     flux(i,j,k,n) = flux(i,j,k,n) - sumFlux*RhoYe(n)*sumRhoYe
+                  end do
+                  else
+                  do n=1,nspecies
+                    flux(i,j,k,n) = 0.0d0
+                  end do
+                  end if
+                  
+               end do
+            end do
+         end do
+
+!     xlo
+         if (Ybc(1,1).eq.EXT_DIR.and.lo(1).le.dlo(1)) then
+            do i = lo(1),dlo(1)
+               do k = lo(3),hi(3)
+                  do j = lo(2),hi(2)
+                     sumFlux = 0.d0
+                     sumRhoYe = 0.d0
+                     do n=1,nspecies
+                        sumFlux = sumFlux + flux(i,j,k,n)
+                        sumRhoYe = sumRhoYe + RhoY(i-1,j,k,n)
+                     enddo
+                     sumRhoYe = 1.0D0/sumRhoYe
+                     do n=1,nspecies
+                        flux(i,j,k,n) = flux(i,j,k,n) - sumFlux*RhoY(i-1,j,k,n)*sumRhoYe
+                     enddo
+                  enddo
+               enddo
+            enddo
+         endif
+!     xhi
+         if (Ybc(1,2).eq.EXT_DIR.and.hi(1).ge.dhi(1)) then
+            do i = dhi(1),hi(1)
+               do k = lo(3),hi(3)
+                  do j = lo(2),hi(2)
+                     sumFlux = 0.d0
+                     sumRhoYe = 0.d0
+                     do n=1,nspecies
+                        sumFlux = sumFlux + flux(i,j,k,n)
+                        sumRhoYe = sumRhoYe + RhoY(i,j,k,n)
+                     enddo
+                     sumRhoYe = 1.0D0/sumRhoYe
+                     do n=1,nspecies
+                        flux(i,j,k,n) = flux(i,j,k,n) - sumFlux*RhoY(i,j,k,n)*sumRhoYe
+                     enddo
+                  enddo
+               enddo
+            enddo
+         endif
+
+      else if (dir.eq.1) then
+
+!     First, assume away from physical boundaries, then replace with boundary-aware version below if applicable
+
+         do k = lo(3),hi(3)
+            do j = lo(2),hi(2)
+               do i = lo(1),hi(1)
+               
+                 if ( afrac_y(i,j,k) > zero ) then
+                   sumFlux = 0.d0
+                   sumRhoYe = 0.d0
+                   do n=1,nspecies
+                     sumFlux = sumFlux + flux(i,j,k,n)
+                     RhoYe(n) = ystate(i,j,k,n) 
+                     sumRhoYe = sumRhoYe + RhoYe(n)
+                   enddo
+                   sumRhoYe = 1.0D0/sumRhoYe
+                   do n=1,nspecies
+                     flux(i,j,k,n) = flux(i,j,k,n) - sumFlux*RhoYe(n)*sumRhoYe
+                   end do         
+                 else
+                   do n=1,nspecies
+                     flux(i,j,k,n) = 0.0d0
+                   end do
+                 end if
+                  
+               end do
+            end do
+         end do
+
+!     ylo
+         if (Ybc(2,1).eq.EXT_DIR.and.lo(2).le.dlo(2)) then
+            do j = lo(2),dlo(2)
+               do k = lo(3),hi(3)
+                  do i = lo(1),hi(1)
+                     sumFlux = 0.d0
+                     sumRhoYe = 0.d0
+                     do n=1,nspecies
+                        sumFlux = sumFlux + flux(i,j,k,n)
+                        sumRhoYe = sumRhoYe + RhoY(i,j-1,k,n)
+                     enddo
+                     sumRhoYe = 1.0D0/sumRhoYe
+                     do n=1,nspecies
+                        flux(i,j,k,n) = flux(i,j,k,n) - sumFlux*RhoY(i,j-1,k,n)*sumRhoYe
+                     enddo
+                  enddo
+               enddo
+            enddo
+         endif
+!     yhi
+         if (Ybc(2,2).eq.EXT_DIR.and.hi(2).ge.dhi(2)) then
+            do j = dhi(2),hi(2)
+               do k = lo(3),hi(3)
+                  do i = lo(1),hi(1)
+                     sumFlux = 0.d0
+                     sumRhoYe = 0.d0
+                     do n=1,nspecies
+                        sumFlux = sumFlux + flux(i,j,k,n)
+                        sumRhoYe = sumRhoYe + RhoY(i,j,k,n)
+                     enddo
+                     sumRhoYe = 1.0D0/sumRhoYe
+                     do n=1,nspecies
+                        flux(i,j,k,n) = flux(i,j,k,n) - sumFlux*RhoY(i,j,k,n)*sumRhoYe
+                     enddo
+                  enddo
+               enddo
+            enddo
+         endif
+
+#if ( AMREX_SPACEDIM == 3 )
+      else if (dir.eq.2) then
+
+!     First, assume away from physical boundaries, then replace with boundary-aware version below if applicable
+
+         do k = lo(3),hi(3)
+            do j = lo(2),hi(2)
+               do i = lo(1),hi(1)
+   
+                 if ( afrac_z(i,j,k) > zero ) then
+                   sumFlux = 0.d0
+                   sumRhoYe = 0.d0
+                   do n=1,nspecies
+                     sumFlux = sumFlux + flux(i,j,k,n)
+                     RhoYe(n) = zstate(i,j,k,n) 
+                     sumRhoYe = sumRhoYe + RhoYe(n)
+                   enddo
+                   sumRhoYe = 1.0D0/sumRhoYe
+                   do n=1,nspecies
+                     flux(i,j,k,n) = flux(i,j,k,n) - sumFlux*RhoYe(n)*sumRhoYe
+                   end do
+                  
+                 else
+                   do n=1,nspecies
+                     flux(i,j,k,n) = 0.0d0
+                   end do
+                 end if
+              
+               end do
+            end do
+         end do
+
+!     zlo
+         if (Ybc(3,1).eq.EXT_DIR.and.lo(3).le.dlo(3)) then
+            do k = lo(3),dlo(3)
+               do j = lo(2),hi(2)
+                  do i = lo(1),hi(1)
+                     sumFlux = 0.d0
+                     sumRhoYe = 0.d0
+                     do n=1,nspecies
+                        sumFlux = sumFlux + flux(i,j,k,n)
+                        sumRhoYe = sumRhoYe + RhoY(i,j,k-1,n)
+                     enddo
+                     sumRhoYe = 1.0D0/sumRhoYe
+                     do n=1,nspecies
+                        flux(i,j,k,n) = flux(i,j,k,n) - sumFlux*RhoY(i,j,k-1,n)*sumRhoYe
+                     enddo
+                  enddo
+               enddo
+            enddo
+         endif
+!     yzi
+         if (Ybc(3,2).eq.EXT_DIR.and.hi(3).ge.dhi(3)) then
+            do k = dhi(3),hi(3)
+               do j = lo(2),hi(2)
+                  do i = lo(1),hi(1)
+                     sumFlux = 0.d0
+                     sumRhoYe = 0.d0
+                     do n=1,nspecies
+                        sumFlux = sumFlux + flux(i,j,k,n)
+                        sumRhoYe = sumRhoYe + RhoY(i,j,k,n)
+                     enddo
+                     sumRhoYe = 1.0D0/sumRhoYe
+                     do n=1,nspecies
+                        flux(i,j,k,n) = flux(i,j,k,n) - sumFlux*RhoY(i,j,k,n)*sumRhoYe
+                     enddo
+                  enddo
+               enddo
+            enddo
+         endif
+#endif
+
+      endif
+
+   end subroutine repair_flux_eb
+
+!=========================================================
+!  Correct flux to ensure that sum of diffusicve flux is zero
+!=========================================================
+
    subroutine repair_flux (lo, hi, dlo, dhi, &
                            flux, f_lo, f_hi,&
                            RhoY, r_lo, r_hi, dir, Ybc)&
@@ -1971,7 +2021,7 @@ contains
 
          do k = lo(3),hi(3)
             do j = lo(2),hi(2)
-               do i = lo(1),hi(1)
+               do i = lo(1),hi(1)               
                   sumFlux = 0.d0
                   sumRhoYe = 0.d0
                   do n=1,nspecies
@@ -2150,6 +2200,7 @@ contains
 
    end subroutine repair_flux
 
+
 !=========================================================
 ! Increment old state with flux divergence
 !=========================================================
@@ -2216,12 +2267,16 @@ contains
 
    subroutine flux_div (lo, hi, &
                         update, u_lo, u_hi,&
+                        mask, m_lo, m_hi, &
                         xflux,  xf_lo, xf_hi,&
                         yflux,  yf_lo, yf_hi,&
 #if ( AMREX_SPACEDIM == 3 )
                         zflux,  zf_lo, zf_hi,&
 #endif
-                        vol,    v_lo, v_hi,&
+                        vol,    v_lo, v_hi, &
+#ifdef AMREX_USE_EB
+                        volfrac, vf_lo, vf_hi, &
+#endif
                         nc, scal) &
                         bind(C, name="flux_div")
 
@@ -2232,6 +2287,7 @@ contains
       integer, intent(in) :: lo(3), hi(3)
       integer, intent(in) :: nc
       integer, intent(in) :: u_lo(3), u_hi(3)
+      integer, intent(in) :: m_lo(3), m_hi(3)
       integer, intent(in) :: xf_lo(3), xf_hi(3)
       integer, intent(in) :: yf_lo(3), yf_hi(3)
 #if ( AMREX_SPACEDIM == 3 )
@@ -2239,24 +2295,40 @@ contains
 #endif
       integer, intent(in) :: v_lo(3), v_hi(3)
       REAL_T, dimension(u_lo(1):u_hi(1),u_lo(2):u_hi(2),u_lo(3):u_hi(3),nc) :: update
+      integer, dimension(m_lo(1):m_hi(1),m_lo(2):m_hi(2),m_lo(3):m_hi(3)) :: mask
       REAL_T, dimension(xf_lo(1):xf_hi(1),xf_lo(2):xf_hi(2),xf_lo(3):xf_hi(3),nc) :: xflux
       REAL_T, dimension(yf_lo(1):yf_hi(1),yf_lo(2):yf_hi(2),yf_lo(3):yf_hi(3),nc) :: yflux
 #if ( AMREX_SPACEDIM == 3 )
       REAL_T, dimension(zf_lo(1):zf_hi(1),zf_lo(2):zf_hi(2),zf_lo(3):zf_hi(3),nc) :: zflux
 #endif
       REAL_T, dimension(v_lo(1):v_hi(1),v_lo(2):v_hi(2),v_lo(3):v_hi(3)) :: vol
+#ifdef AMREX_USE_EB
+      integer, intent(in) :: vf_lo(3), vf_hi(3)
+      REAL_T, dimension(vf_lo(1):vf_hi(1),vf_lo(2):vf_hi(2),vf_lo(3):vf_hi(3)), intent(in) :: volfrac
+#endif
+
       REAL_T :: scal
 
       REAL_T, pointer, dimension(:,:,:) :: ivol
+      
+      REAL_T :: infinity
 
       integer :: i, j, k, n
 
+      infinity = HUGE(0.0)
+      
       call amrex_allocate(ivol,lo(1),hi(1),lo(2),hi(2),lo(3),hi(3))
 
       do k = lo(3), hi(3)
          do j = lo(2), hi(2)
             do i = lo(1), hi(1)
-               ivol(i,j,k) = scal / vol(i,j,k)
+               if ( mask(i,j,k) /= -1 ) then
+#ifdef AMREX_USE_EB
+                  ivol(i,j,k) = scal / ((vol(i,j,k) * volfrac(i,j,k)))
+#else
+                  ivol(i,j,k) = scal / vol(i,j,k)
+#endif
+               end if
             end do
          end do
       end do
@@ -2265,13 +2337,15 @@ contains
          do k = lo(3), hi(3)
             do j = lo(2), hi(2)
                do i = lo(1), hi(1)
-                  update(i,j,k,n) = &
-                      ( (xflux(i+1,j,k,n)-xflux(i,j,k,n)) &
-                      + (yflux(i,j+1,k,n)-yflux(i,j,k,n)) & 
+                  if ( mask(i,j,k) /= -1 ) then
+                     update(i,j,k,n) = &
+                        ( (xflux(i+1,j,k,n)-xflux(i,j,k,n)) &
+                        + (yflux(i,j+1,k,n)-yflux(i,j,k,n)) & 
 #if ( AMREX_SPACEDIM == 3 )
-                      + (zflux(i,j,k+1,n)-zflux(i,j,k,n)) &
+                        + (zflux(i,j,k+1,n)-zflux(i,j,k,n)) &
 #endif
-                      ) * ivol(i,j,k)
+                        ) * ivol(i,j,k)
+                  end if
                end do
             end do
          end do
@@ -3641,7 +3715,7 @@ contains
       implicit none
 
       integer :: t_lo(3), t_hi(3)
-      integer :: boxlo(3), boxhi(3)
+      REAL_T :: boxlo(3), boxhi(3)
       integer :: lo(3), hi(3), domlo(3), domhi(3)
       integer :: set, clear, level
       integer, dimension(t_lo(1):t_hi(1),t_lo(2):t_hi(2),t_lo(3):t_hi(3)) :: tag

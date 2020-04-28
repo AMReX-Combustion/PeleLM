@@ -156,7 +156,7 @@ contains
       use network,   only: nspecies
       use PeleLM_F,  only: pphys_getP1atm_MKS, pphys_get_spec_name2
       use PeleLM_nD, only: pphys_RHOfromPTY, pphys_HMIXfromTY
-      use mod_Fvar_def, only : Density, Temp, FirstSpec, RhoH, Trac, pamb
+      use mod_Fvar_def, only : Density, Temp, FirstSpec, RhoH, pamb
       use mod_Fvar_def, only : domnlo
       use probdata_module, only: T_mean
 
@@ -196,8 +196,6 @@ contains
                do n = 1,nspecies
                   scal(i,j,k,FirstSpec+n-1) = Yl(n)
                end do
-
-               scal(i,j,k,Trac) = 0.d0
 
             end do
          end do

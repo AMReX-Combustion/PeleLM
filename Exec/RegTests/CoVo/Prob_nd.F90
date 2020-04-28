@@ -165,8 +165,9 @@ contains
       use network,   only: nspecies
       use PeleLM_F,  only: pphys_getP1atm_MKS, pphys_get_spec_name2
       use PeleLM_nD, only: pphys_RHOfromPTY, pphys_HMIXfromTY
-      use mod_Fvar_def, only : Density, Temp, FirstSpec, RhoH, Trac
-      use mod_Fvar_def, only : domnlo
+      use mod_Fvar_def, only : Density, Temp, FirstSpec, RhoH, domnlo
+
+
       use probdata_module, only: meanFlowDir, meanFlowMag, &
                                  T_mean, P_mean, &
                                  xvort, yvort, rvort, forcevort
@@ -205,8 +206,6 @@ contains
                   scal(i,j,k,FirstSpec+n-1) = Yl(n)
                end do
 
-               scal(i,j,k,Trac) = 0.d0
-
                dx = x - xvort
                dy = y - yvort
                d_sq = dx*dx + dy*dy
@@ -237,6 +236,7 @@ contains
                END SELECT
 
             end do
+
          end do
       end do
 

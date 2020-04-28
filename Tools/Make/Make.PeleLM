@@ -142,7 +142,7 @@ Bdirs += $(IAMR_HOME)/Source/Src_$(DIM)d
 Bpack	+= $(foreach dir, $(Bdirs), $(dir)/Make.package)
 Blocs	+= $(foreach dir, $(Bdirs), $(dir))
 
-# BoxLib 
+# AMReX 
 Pdirs   += $(AMREX_HOME)/Src/Base
 Pdirs   += $(AMREX_HOME)/Src/AmrCore
 Pdirs   += $(AMREX_HOME)/Src/Amr
@@ -150,6 +150,11 @@ Pdirs   += $(AMREX_HOME)/Src/Boundary
 Pdirs   += $(AMREX_HOME)/Src/LinearSolvers/C_CellMG
 Pdirs   += $(AMREX_HOME)/Src/LinearSolvers/C_TensorMG
 Pdirs   += $(AMREX_HOME)/Src/LinearSolvers/MLMG
+Pdirs   += $(AMREX_HOME)/Src/LinearSolvers/Projections
+
+ifeq ($(USE_EB), TRUE)
+  Pdirs   += $(AMREX_HOME)/Src/EB
+endif
 
 Bpack	+= $(foreach dir, $(Pdirs), $(dir)/Make.package)
 Blocs	+= $(foreach dir, $(Pdirs), $(dir))
@@ -259,6 +264,6 @@ AMReX_buildInfo.cpp:
 include $(AMREX_HOME)/Tools/GNUMake/Make.rules
 
 clean::
-	$(SILENT) $(RM) extern.f90
+	$(SILENT) $(RM) extern_parameters.cpp extern_parameters_F.H extern_parameters.H extern.f90
 	$(SILENT) $(RM) AMReX_buildInfo.cpp
 

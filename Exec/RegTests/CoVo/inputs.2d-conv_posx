@@ -19,9 +19,11 @@ max_step  =  5000
 stop_time = 0.04
 
 #-------------------------AMR INPUTS----------------------------
+amr.n_cell    = 64 64 64
 amr.n_cell    = 32 32 32
 amr.n_cell    = 128 128 128
-amr.n_cell    = 64 64 64
+amr.n_cell    = 256 256 256
+amr.n_cell    = 512 512 512
 
 amr.v=1
 amr.max_level =  0            # maximum level number allowed
@@ -36,7 +38,7 @@ amr.checkpoint_files_output = 0
 amr.check_file      = chk     # root name of checkpoint file
 amr.check_int       = 5       # number of timesteps between checkpoints
 
-amr.plot_file       = plt_
+amr.plot_file       = DummyTest_plt_512_
 amr.plot_int        = 200000
 amr.derive_plot_vars=rhoRT mag_vort avg_pressure gradpx gradpy diveru
 
@@ -66,7 +68,6 @@ ns.do_divu_sync = 0
 ns.divu_relax_factor   = 0.0
 
 ns.be_cn_theta = 0.5
-ns.S_in_vel_diffusion = 1
 
 ns.do_temp = 1
 
@@ -102,7 +103,7 @@ proj.proj_tol       = 1.0e-1  # tolerence for projections
 proj.proj_tol       = 1.0e-12  # tolerence for projections
 proj.sync_tol       = 1.0e-10  # tolerence for projections
 proj.rho_wgt_vel_proj = 0      # 0 => const den proj, 1 => rho weighted
-proj.Pcode          = 0
+nodal_proj.verbose          = 0
 proj.filter_factor  = 0.0
 proj.do_outflow_bcs = 0
 proj.divu_minus_s_factor = .5

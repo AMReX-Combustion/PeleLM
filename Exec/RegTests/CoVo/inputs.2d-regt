@@ -66,7 +66,6 @@ ns.do_divu_sync = 0
 ns.divu_relax_factor   = 0.0
 
 ns.be_cn_theta = 0.5
-ns.S_in_vel_diffusion = 1
 
 ns.do_temp = 1
 
@@ -102,7 +101,7 @@ proj.proj_tol       = 1.0e-1  # tolerence for projections
 proj.proj_tol       = 1.0e-12  # tolerence for projections
 proj.sync_tol       = 1.0e-10  # tolerence for projections
 proj.rho_wgt_vel_proj = 0      # 0 => const den proj, 1 => rho weighted
-proj.Pcode          = 0
+nodal_proj.verbose          = 0
 proj.filter_factor  = 0.0
 proj.do_outflow_bcs = 0
 proj.divu_minus_s_factor = .5
@@ -149,4 +148,12 @@ cg.cg_solver=1
 #
 fab.format = NATIVE
 
-fabarray.mfiter_tile_size = 8 8 8 
+fabarray.mfiter_tile_size = 8 8 8
+
+ns.verbose = true
+
+ns.getLESVerbose = 1
+ns.do_LES = 1
+ns.LES_model = Smagorinsky
+#ns.LES_model = Sigma
+ns.smago_Cs_cst = 0.18 

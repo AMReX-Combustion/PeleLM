@@ -23,7 +23,7 @@ amr.n_cell    = 128 128 128
 amr.n_cell    = 16 16 16 
 
 amr.v=1
-amr.max_level =  2            # maximum level number allowed
+amr.max_level =  0            # maximum level number allowed
 amr.ref_ratio       = 2 2 2 2 # refinement ratio
 amr.regrid_int      = 2       # how often to regrid
 amr.n_error_buf     = 1 1 1 2 # number of buffer cells in error est
@@ -86,7 +86,6 @@ ns.do_divu_sync = 0
 ns.divu_relax_factor   = 0.0
 
 ns.be_cn_theta = 0.5
-ns.S_in_vel_diffusion = 1
 
 ns.do_temp = 1
 
@@ -122,7 +121,7 @@ proj.proj_tol       = 1.0e-1  # tolerence for projections
 proj.proj_tol       = 1.0e-11  # tolerence for projections
 proj.sync_tol       = 1.0e-8  # tolerence for projections
 proj.rho_wgt_vel_proj = 0      # 0 => const den proj, 1 => rho weighted
-proj.Pcode          = 0
+nodal_proj.verbose          = 0
 proj.filter_factor  = 0.0
 proj.do_outflow_bcs = 0
 proj.divu_minus_s_factor = .5

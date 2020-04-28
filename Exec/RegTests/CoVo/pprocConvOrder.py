@@ -45,8 +45,8 @@ USAGE = """
 def pproc(args):
 
     # User data
-    vars=["y_velocity", "x_velocity" ]
-    resolution = [32,64,128]        
+    vars=["y_velocity", "x_velocity", "avg_pressure" ]
+    resolution = [32,64,128,256]        
     pproc_type = "fcompare"
 
     # Get a local copy of post-processing executable

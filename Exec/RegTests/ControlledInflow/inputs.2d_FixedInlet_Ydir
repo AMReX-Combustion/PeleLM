@@ -88,7 +88,6 @@ ns.sdc_iterMAX = 4
 ns.num_mac_sync_iter = 2
 
 ns.be_cn_theta = 0.5
-ns.S_in_vel_diffusion = 1
 
 ns.do_temp = 1
 
@@ -125,7 +124,7 @@ diffuse.Rhs_in_abs_tol = 1
 proj.proj_tol       = 1.0e-10  # tolerence for projections
 proj.sync_tol       = 1.0e-10  # tolerence for projections
 proj.rho_wgt_vel_proj = 0      # 0 => const den proj, 1 => rho weighted
-proj.Pcode          = 0
+nodal_proj.verbose          = 0
 proj.filter_factor  = 0.0
 proj.do_outflow_bcs = 0
 proj.divu_minus_s_factor = .5

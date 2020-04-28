@@ -35,10 +35,10 @@ contains
 
   subroutine pphys_network_init() bind(C, name="pphys_network_init")                                                                                         
 
-     use network, only: network_init
-     
+     use network, only: network_init, nspecies
+          
      call network_init()
-       
+            
   end subroutine pphys_network_init 
 
   subroutine pphys_network_close() bind(C, name="pphys_network_close")
@@ -192,7 +192,7 @@ end subroutine plm_extern_init
 
     use network, only : nreactions
     implicit none
-    integer Nelt,Nspec,NR,Nfit
+    integer NR
 
     NR = nreactions
 
@@ -256,25 +256,24 @@ end subroutine plm_extern_init
   end subroutine pphys_calc_src_sdc
 
 !------------------------------------  
-
-  subroutine set_scal_numb(DensityIn, TempIn, TracIn, RhoHIn, &
+  subroutine set_scal_numb(DensityIn, TempIn, RhoHIn, &
                            FirstSpecIn, LastSpecIn) &
                            bind(C, name="set_scal_numb")
 
-    use mod_Fvar_def, only : Density, Temp, RhoH, Trac, FirstSpec, LastSpec
+    use mod_Fvar_def, only : Density, Temp, RhoH, FirstSpec, LastSpec
     
     implicit none
 
-    integer DensityIn, TempIn, TracIn, RhoHIn, FirstSpecIn, LastSpecIn
+    integer DensityIn, TempIn, RhoHIn, FirstSpecIn, LastSpecIn
+
 
 !
 ! ::: Remove SPACEDIM from the counter, since those spots contain the
 ! ::: velocity, and our INITDATA function below fills the scalar state
 ! ::: However, add one since the C++ is 0-based      
-!     
+!
     Density = DensityIn - dim + 1
     Temp = TempIn - dim + 1
-    Trac = TracIn - dim + 1
     RhoH = RhoHIn - dim + 1
     FirstSpec = FirstSpecIn - dim + 1
     LastSpec = LastSpecIn - dim + 1
@@ -354,12 +353,6 @@ end subroutine plm_extern_init
 
     REAL_T coft,time,dt
     integer myproc,step,restart,usetemp
-
-!
-! ACTIVE_CONTROL_IS_USABLE should be remove.
-! lets compile everything and put variables in mod_Fvar_def.F90
-!
-
 
     REAL_T slocal,V_new,dVmax,dVmin
     !REAL_T vslope,
@@ -704,7 +697,7 @@ end subroutine plm_extern_init
                   stalled = (2*ABS(old_T-T)/(old_T+T).le.errMAX)
                   Niter = Niter + 1
                   if (Niter.gt.NiterMAX+Discont_NiterMAX) then
-                          Niter = -2
+                          Niter = -4
                           exit
                   endif
               end do
