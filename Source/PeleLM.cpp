@@ -4902,7 +4902,7 @@ PeleLM::flux_divergence (MultiFab&        fdiv,
       MultiFab fdiv_SrcGhostCell(grids,dmap,nComp,fdiv.nGrow()+2,MFInfo(),Factory());
       fdiv_SrcGhostCell.setVal(0.);
       fdiv_SrcGhostCell.copy(fdiv, fdivComp, 0, nComp);
-      amrex::single_level_weighted_redistribute( 0, {fdiv_SrcGhostCell}, {fdiv}, *volfrac, fdivComp, nComp, {geom} );
+      amrex::single_level_weighted_redistribute( {fdiv_SrcGhostCell}, {fdiv}, *volfrac, fdivComp, nComp, {geom} );
     }
     EB_set_covered(fdiv,0.);
 #endif
@@ -5648,7 +5648,7 @@ PeleLM::advance (Real time,
       MultiFab chi_tmp(grids,dmap,1,chi.nGrow()+2,MFInfo(),Factory());
       chi_tmp.setVal(0.);
       chi_tmp.copy(chi_increment);
-      amrex::single_level_weighted_redistribute( 0, {chi_tmp}, {chi_increment}, *volfrac, 0, 1, {geom} );
+      amrex::single_level_weighted_redistribute(  {chi_tmp}, {chi_increment}, *volfrac, 0, 1, {geom} );
       EB_set_covered(chi_increment,0.0);
     }
 #endif
@@ -5670,7 +5670,7 @@ PeleLM::advance (Real time,
       //MultiFab mac_divu_tmp(grids,dmap,1,mac_divu.nGrow()+2,MFInfo(),Factory());
       //mac_divu_tmp.setVal(0.);
       //mac_divu_tmp.copy(mac_divu);
-      //amrex::single_level_weighted_redistribute( 0, {mac_divu_tmp}, {mac_divu}, *volfrac, 0, 1, {geom} );
+      //amrex::single_level_weighted_redistribute(  {mac_divu_tmp}, {mac_divu}, *volfrac, 0, 1, {geom} );
     }
 //#endif
 
@@ -6617,14 +6617,13 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
 
   MultiFab edgeflux[AMREX_SPACEDIM];
   MultiFab edgestate[AMREX_SPACEDIM];
-  int nghost = 4;
 
   for (int i(0); i < AMREX_SPACEDIM; i++)
   {
     const BoxArray& ba = getEdgeBoxArray(i);
-    edgeflux[i].define(ba, dmap, nspecies+3, nghost, MFInfo(), Factory());
+    edgeflux[i].define(ba, dmap, nspecies+3, ng, MFInfo(), Factory());
     edgeflux[i].setVal(0);
-    edgestate[i].define(ba, dmap, nspecies+3, nghost, MFInfo(), Factory());
+    edgestate[i].define(ba, dmap, nspecies+3, ng, MFInfo(), Factory());
     edgestate[i].setVal(0);
   }
 
@@ -8721,7 +8720,7 @@ PeleLM::calc_divu (Real      time,
     {
 //      MultiFab divu_tmp(grids,dmap,divu.nComp(),divu.nGrow()+2,MFInfo(),Factory());
 //      divu_tmp.copy(divu);
-//      amrex::single_level_weighted_redistribute( 0, {divu_tmp}, {divu}, *volfrac, 0, 1, {geom} );
+//      amrex::single_level_weighted_redistribute(  {divu_tmp}, {divu}, *volfrac, 0, 1, {geom} );
     }
     EB_set_covered(divu,0.);
 #endif
