@@ -4780,11 +4780,13 @@ PeleLM::compute_differential_diffusion_fluxes (const MultiFab& S,
           const Real fac = (sdc_iterMAX==1) ? dt : 0.5*dt;
           getAdvFluxReg().FineAdd(*flux[d],d,nspecies+1,RhoH,1,fac);
           getViscFluxReg().FineAdd(*flux[d],d,nspecies+2,RhoH,1,fac);
+          getViscFluxReg().FineAdd(*flux[d],d,0,first_spec,nspecies,fac);
         }
         if (updateFluxReg)
         {
           getAdvFluxReg().FineAdd(*flux[d],d,nspecies+1,RhoH,1,-0.5*dt);
           getViscFluxReg().FineAdd(*flux[d],d,nspecies+2,RhoH,1,-0.5*dt);
+          getViscFluxReg().FineAdd(*flux[d],d,0,first_spec,nspecies,-0.5*dt);
         }
       }
 
@@ -4795,11 +4797,13 @@ PeleLM::compute_differential_diffusion_fluxes (const MultiFab& S,
           const Real fac = (sdc_iterMAX==1) ? dt : 0.5*dt;
           getAdvFluxReg(level+1).CrseInit((*flux[d]),d,nspecies+1,RhoH,1,-fac,FluxRegister::ADD);
           getViscFluxReg(level+1).CrseInit((*flux[d]),d,nspecies+2,RhoH,1,-fac,FluxRegister::ADD);
+          getViscFluxReg(level+1).CrseInit((*flux[d]),d,0,first_spec,nspecies,-fac,FluxRegister::ADD);
         }
         if (updateFluxReg)
         {
           getAdvFluxReg(level+1).CrseInit((*flux[d]),d,nspecies+1,RhoH,1,0.5*dt,FluxRegister::ADD);
           getViscFluxReg(level+1).CrseInit((*flux[d]),d,nspecies+2,RhoH,1,0.5*dt,FluxRegister::ADD);
+          getViscFluxReg(level+1).CrseInit((*flux[d]),d,0,first_spec,nspecies,0.5*dt,FluxRegister::ADD);
         }
       }
     }
