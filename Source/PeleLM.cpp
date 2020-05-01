@@ -7057,7 +7057,7 @@ PeleLM::mac_sync ()
 
     Vsync_sav[lev].reset(new MultiFab(Vsync_lev.boxArray(),
                                       Vsync_lev.DistributionMap(),
-                                      AMREX_SPACEDIM,1,MFInfo(),Factory()));
+                                      AMREX_SPACEDIM,1,MFInfo(),*myfactory));
 }
 #else
     Vsync_sav[lev].reset(new MultiFab(Vsync_lev.boxArray(),
