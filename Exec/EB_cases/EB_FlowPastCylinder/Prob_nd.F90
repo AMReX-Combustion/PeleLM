@@ -7,6 +7,8 @@
 #include <Prob_F.H>
 #include <PeleLM_F.H>
 
+#include "mechanism.h"
+
 module prob_nd_module
 
   use amrex_fort_module, only : dim=>amrex_spacedim
@@ -145,7 +147,6 @@ contains
                         delta, xlo, xhi) &
                         bind(C, name="init_data")
 
-      use network,   only: nspecies
       use PeleLM_F,  only: pphys_getP1atm_MKS, pphys_get_spec_name2
       use PeleLM_nD, only: pphys_RHOfromPTY, pphys_HMIXfromTY
       use mod_Fvar_def, only : Density, Temp, FirstSpec, RhoH
@@ -167,7 +168,7 @@ contains
 
 ! Local
       integer :: i, j, k, n
-      REAL_T  :: x, y, z, Yl(nspecies), Patm
+      REAL_T  :: x, y, z, Yl(NUM_SPECIES), Patm
       REAL_T  :: dist, delta_blob, RC
 
       delta_blob = 2.0d-1
@@ -192,7 +193,7 @@ contains
             Yl(1) = 0.233d0*(1.0d0 + delta_blob*exp(-dist/(2.0d0 *RC)))
             Yl(2) = 1.0d0 - Yl(1)
 
-            do n = 1,nspecies
+            do n = 1,NUM_SPECIES
                scal(i,j,k,FirstSpec+n-1) = Yl(n)
             end do
 
@@ -218,7 +219,7 @@ contains
       do k = lo(3), hi(3)
          do j = lo(2), hi(2)
             do i = lo(1), hi(1)
-               do n = 0,nspecies-1
+               do n = 0,NUM_SPECIES-1
                   scal(i,j,k,FirstSpec+n) = scal(i,j,k,FirstSpec+n)*scal(i,j,k,Density)
                enddo
                scal(i,j,k,RhoH) = scal(i,j,k,RhoH)*scal(i,j,k,Density)
@@ -233,7 +234,6 @@ contains
 
    subroutine setupbc()bind(C, name="setupbc")
 
-      use network, only: nspecies
       use PeleLM_F, only: pphys_getP1atm_MKS
       use PeleLM_nD, only: pphys_RHOfromPTY, pphys_HMIXfromTY
       use probdata_module, only : Y_bc, T_bc, u_bc, v_bc, rho_bc, h_bc
@@ -241,7 +241,7 @@ contains
 
       implicit none
 
-      REAL_T :: Patm, Yt(nspecies)
+      REAL_T :: Patm, Yt(NUM_SPECIES)
 
       integer :: n, b_lo(3), b_hi(3)
       data  b_lo(:) / 1, 1, 1 /
@@ -253,7 +253,7 @@ contains
       Yt(1) = 0.233d0
       Yt(2) = 1.0d0 - Yt(1)
 
-      do n = 1, nspecies
+      do n = 1, NUM_SPECIES 
         Y_bc(n-1) = Yt(n)
       end do
 

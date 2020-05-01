@@ -20,11 +20,11 @@ stop_time = 0.04
 
 #-------------------------AMR INPUTS----------------------------
 amr.n_cell    = 32 32 32
-amr.n_cell    = 128 128 128
+#amr.n_cell    = 128 128 128
 amr.n_cell    = 64 64 64
 
 amr.v=1
-amr.max_level =  1            # maximum level number allowed
+amr.max_level =  2            # maximum level number allowed
 amr.ref_ratio       = 2 2 2 2 # refinement ratio
 amr.regrid_int      = 2       # how often to regrid
 amr.n_error_buf     = 4 4 4 4 # number of buffer cells in error est
@@ -167,3 +167,7 @@ ns.sdc_iterMAX = 2
 
 # Embedded Boundary options
 eb2.geom_type    =  all_regular
+
+amrex.fpe_trap_invalid = 1
+amrex.fpe_trap_zero = 1
+amrex.fpe_trap_overflow = 1

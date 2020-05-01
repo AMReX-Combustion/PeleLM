@@ -193,7 +193,7 @@ ns.hack_nochem = 1
 ns.sdc_iterMAX = 2
 
 #peleLM.dpdt_factor = 0.1
-
+peleLM.deltaT_norm_max = 1e-2
 
 #eb2.small_volfrac = 1.e-3
 
