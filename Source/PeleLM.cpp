@@ -6611,23 +6611,22 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
   // Initialize accumulation for rho = Sum(rho.Y)
   for (int d=0; d<BL_SPACEDIM; d++) {
     EdgeState[d]->setVal(0);
+    EdgeFlux[d]->setVal(0);
   }
 
   MultiFab edgeflux[AMREX_SPACEDIM];
   MultiFab edgestate[AMREX_SPACEDIM];
+  int nghost = 2; // Because this is what MOL requires
 
   for (int i(0); i < AMREX_SPACEDIM; i++)
   {
     const BoxArray& ba = getEdgeBoxArray(i);
-    edgeflux[i].define(ba, dmap, nspecies+3, ng, MFInfo(), Factory());
+    edgeflux[i].define(ba, dmap, nspecies+3, nghost, MFInfo(), Factory());
     edgeflux[i].setVal(0);
-    edgestate[i].define(ba, dmap, nspecies+3, ng, MFInfo(), Factory());
+    edgestate[i].define(ba, dmap, nspecies+3, nghost, MFInfo(), Factory());
     edgestate[i].setVal(0);
   }
 
-  
-
-  
   // Advect RhoY  
   {
     Vector<BCRec> math_bcs(nspecies);
@@ -6711,7 +6710,7 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
       for (int d=0; d<AMREX_SPACEDIM; ++d)
       {
         const Box& bx = S_mfi.tilebox();
-        const Box& ebox = amrex::surroundingNodes(amrex::grow(bx,2),d);
+        const Box& ebox = amrex::surroundingNodes(bx,d);
 
         eR.resize(ebox,1);
         eR.copy(edgestate[d][S_mfi],0,0,1);
