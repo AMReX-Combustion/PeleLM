@@ -53,6 +53,7 @@
 #include <AMReX_EBFArrayBox.H>
 #include <AMReX_MLEBABecLap.H>
 #include <AMReX_EB_utils.H>
+#include <AMReX_EBAmrUtil.H>
 #include <iamr_mol.H>
 #endif
 
@@ -9507,6 +9508,11 @@ PeleLM::errorEst (TagBoxArray& tags,
   const int*  domain_hi = geom.Domain().hiVect();
   const Real* dx        = geom.CellSize();
   const Real* prob_lo   = geom.ProbLo();
+
+  if (refine_cutcells) {
+        const MultiFab& S_new = get_new_data(State_Type);
+        amrex::TagCutCells(tags, S_new);
+  }
 
   for (int j = 0; j < err_list.size(); j++)
   {
