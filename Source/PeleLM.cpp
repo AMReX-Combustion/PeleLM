@@ -1291,11 +1291,16 @@ void
 PeleLM::define_data ()
 {
   const int nGrow       = 0;
+#ifdef AMREX_USE_EB
+  const int nGrowEdges  = 2; // We need 2 growth cells for the redistribution when using MOL EB
+#else
+  const int nGrowEdges  = 0; 
+#endif
   const int nEdgeStates = desc_lst[State_Type].nComp();
 
   mTmpData.resize(mHtoTiterMAX);
 
-  raii_fbs.push_back(std::unique_ptr<FluxBoxes>{new FluxBoxes(this, nEdgeStates, nGrow)});
+  raii_fbs.push_back(std::unique_ptr<FluxBoxes>{new FluxBoxes(this, nEdgeStates, nGrowEdges)});
   EdgeState = raii_fbs.back()->get();
 
   raii_fbs.push_back(std::unique_ptr<FluxBoxes>{new FluxBoxes(this, nEdgeStates, nGrow)});
