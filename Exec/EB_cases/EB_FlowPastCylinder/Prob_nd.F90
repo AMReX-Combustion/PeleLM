@@ -190,7 +190,7 @@ contains
 !            Yl(1) = merge(.233d0,0.1d0,dist.lt.radblob) !0.233
 !            Yl(2) = 1.0d0 - Yl(1) !0.767
 
-            Yl(1) = 0.233d0*(1.0d0 + delta_blob*exp(-dist/(2.0d0 *RC)))
+            Yl(1) = 0.233d0
             Yl(2) = 1.0d0 - Yl(1)
 
             do n = 1,NUM_SPECIES
@@ -198,7 +198,7 @@ contains
             end do
 
 !            scal(i,j,k,Temp) = merge(600.d0,300.d0,dist.lt.radblob) !T_mean
-            scal(i,j,k,Temp) = T_mean*(1.0d0 + delta_blob*exp(-dist/(2.0d0 *RC)))  
+            scal(i,j,k,Temp) = T_mean
             
            end do
          end do
