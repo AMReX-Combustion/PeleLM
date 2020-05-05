@@ -4781,7 +4781,6 @@ PeleLM::compute_differential_diffusion_fluxes (const MultiFab& S,
           getViscFluxReg().FineAdd(*flux[d],d,0,first_spec,nspecies,fac);
           getAdvFluxReg().FineAdd(*flux[d],d,nspecies+1,RhoH,1,fac);
           getViscFluxReg().FineAdd(*flux[d],d,nspecies+2,RhoH,1,fac);
-          getViscFluxReg().FineAdd(*flux[d],d,0,first_spec,nspecies,fac);
         }
         if (updateFluxReg)
         {
@@ -4799,7 +4798,6 @@ PeleLM::compute_differential_diffusion_fluxes (const MultiFab& S,
           getViscFluxReg(level+1).CrseInit((*flux[d]),d,0,first_spec,nspecies,-fac,FluxRegister::ADD);
           getAdvFluxReg(level+1).CrseInit((*flux[d]),d,nspecies+1,RhoH,1,-fac,FluxRegister::ADD);
           getViscFluxReg(level+1).CrseInit((*flux[d]),d,nspecies+2,RhoH,1,-fac,FluxRegister::ADD);
-          getViscFluxReg(level+1).CrseInit((*flux[d]),d,0,first_spec,nspecies,-fac,FluxRegister::ADD);
         }
         if (updateFluxReg)
         {
