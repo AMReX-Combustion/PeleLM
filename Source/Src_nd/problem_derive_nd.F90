@@ -1,3 +1,5 @@
+#include "mechanism.h"
+
 module problem_derive_module
 
   implicit none
@@ -15,7 +17,6 @@ contains
                             level,grid_no) &
                             bind(C, name="derUserDefined")
 
-    use chemistry_module, only : nspecies                     
     use amrex_fort_module, only : dim=>amrex_spacedim
 
     implicit none
@@ -37,7 +38,7 @@ contains
     ivel  = 1
     irho  = dim + 1
     irhoY = irho + 1
-    iTemp = irhoY + nspecies
+    iTemp = irhoY + NUM_SPECIES
 
     call bl_abort("derUserDefined: UserDefined derived variable requested derUserDefined has not been overwritten. &
                    Copy Source/Src_nd/problem_derive_nd.F90 in your run folder and whip up your function !")
