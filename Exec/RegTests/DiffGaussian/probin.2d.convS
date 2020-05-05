@@ -1,0 +1,20 @@
+ &fortin
+  meanFlowMag = 0.0 
+  meanFlowDir = 1
+  T_mean = 398.0
+  P_mean = 101325.
+  rgauss  = 0.00001
+  xgauss  = 0.00005
+  ygauss  = 0.00005
+  ampgauss  = 0.1
+  gauss_type = "Spec"
+ /
+ &heattransin
+  pamb = 101325.
+ /
+ &extern
+ const_conductivity = 0.
+ const_viscosity = 0.
+ const_bulk_viscosity = 0.
+ const_diffusivity = 0.0000001
+ /
