@@ -4781,6 +4781,7 @@ PeleLM::compute_differential_diffusion_fluxes (const MultiFab& S,
           getViscFluxReg().FineAdd(*flux[d],d,0,first_spec,nspecies,fac);
           getAdvFluxReg().FineAdd(*flux[d],d,nspecies+1,RhoH,1,fac);
           getViscFluxReg().FineAdd(*flux[d],d,nspecies+2,RhoH,1,fac);
+          getViscFluxReg().FineAdd(*flux[d],d,0,first_spec,nspecies,fac);
         }
         if (updateFluxReg)
         {
@@ -4798,6 +4799,7 @@ PeleLM::compute_differential_diffusion_fluxes (const MultiFab& S,
           getViscFluxReg(level+1).CrseInit((*flux[d]),d,0,first_spec,nspecies,-fac,FluxRegister::ADD);
           getAdvFluxReg(level+1).CrseInit((*flux[d]),d,nspecies+1,RhoH,1,-fac,FluxRegister::ADD);
           getViscFluxReg(level+1).CrseInit((*flux[d]),d,nspecies+2,RhoH,1,-fac,FluxRegister::ADD);
+          getViscFluxReg(level+1).CrseInit((*flux[d]),d,0,first_spec,nspecies,-fac,FluxRegister::ADD);
         }
         if (updateFluxReg)
         {
@@ -7244,6 +7246,7 @@ PeleLM::mac_sync ()
     //
     // Scalars.
     //
+    showMF("DBGSync",Ssync,"sdc_Ssync_BefMinusUcorr",level,mac_sync_iter,parent->levelSteps(level));
     BL_PROFILE_VAR("HT::mac_sync::Ssync", HTSSYNC);
     for (int comp=AMREX_SPACEDIM; comp<NUM_STATE; ++comp)
     {
@@ -7269,6 +7272,8 @@ PeleLM::mac_sync ()
       }
     }
     showMF("DBGSync",Ssync,"sdc_Ssync_MinusUcorr",level,mac_sync_iter,parent->levelSteps(level));
+    Ssync.setVal(0.0,Temp-AMREX_SPACEDIM,1);
+    showMF("DBGSync",Ssync,"sdc_Ssync_MinusUcorrCleanTemp",level,mac_sync_iter,parent->levelSteps(level));
 
     Ssync.mult(dt); // Turn this into an increment over dt
 
@@ -7312,6 +7317,7 @@ PeleLM::mac_sync ()
     //
     // Increment density, rho^{n+1} = rho^{n+1,p} + (delta_rho)^sync
     //
+    showMF("DBGSync",Ssync,"sdc_Sync_UpdateRho",level,parent->levelSteps(level));
     MultiFab::Add(S_new,Ssync,Density-AMREX_SPACEDIM,Density,1,0);
     make_rho_curr_time();
     BL_PROFILE_VAR_STOP(HTSSYNC);
@@ -7399,7 +7405,6 @@ PeleLM::mac_sync ()
       MultiFab DT_DD_Sum(grids,dmap,1,0);
 
       // Build the piece of the dT source terms that does not change with iterations
-      // Note that rhs is multiplied by dt in the diffuse_scalar, so here we / dt
       // Trhs0 = rho^{n+1,p}*h^{n+1,p} + dt*Ssync * dt/2*(-DT^{n+1,p}-H^{n+1,p})
       MultiFab::Copy(Trhs0,*S_new_sav[level],RhoH,0,1,0);
       MultiFab::Copy(DT_DD_Sum,DT_pre,0,0,1,0);
