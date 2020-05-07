@@ -817,7 +817,7 @@ lag the :math:`H` terms in iteration :math:`\eta`,
     = \rho^{(n+1,p)} h^{(n+1,p)} - \rho^{n+1} h^{n+1,\eta} + \frac{dt}{2} \Big( S_h^{sync} + 
     \nabla \cdot \lambda^{(n+1,p)} \nabla (\delta T^{sync}) \\
     - \nabla \cdot \Big( h_m^{n+1} \delta {\boldsymbol{\cal F}}_{m}^{sync}
-    + \delta h_m^{sync} {\boldsymbol{\cal F}}_{m}^{(k+1)} \Big)
+    + \delta h_m^{sync} {\boldsymbol{\cal F}}_{m}^{(k+1)} \Big) \Big)
 
 After each iteration, update :math:`T_{{\rm AD}}^{n+1,\eta+1} = T_{{\rm AD}}^{n+1,\eta} + \Delta T^{\eta+1}`, 
 :math:`\delta T^{sync} = T^{n+1,\eta+1} - T^{(n+1,p)}`, and 
