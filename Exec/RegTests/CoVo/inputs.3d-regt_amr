@@ -24,13 +24,13 @@ amr.n_cell    = 32 32 32
 #amr.n_cell    = 64 64 64
 
 amr.v=1
-amr.max_level =  0            # maximum level number allowed
+amr.max_level =  1            # maximum level number allowed
 amr.ref_ratio       = 2 2 2 2 # refinement ratio
 amr.regrid_int      = 2       # how often to regrid
 amr.n_error_buf     = 1 1 1 2 # number of buffer cells in error est
 amr.grid_eff        = 0.9     # what constitutes an efficient grid
 amr.grid_eff        = 0.7     # what constitutes an efficient grid
-amr.blocking_factor = 32      # block factor in grid generation
+amr.blocking_factor = 16      # block factor in grid generation
 
 amr.checkpoint_files_output = 0
 amr.check_file      = chk     # root name of checkpoint file
@@ -45,6 +45,10 @@ amr.max_grid_size   = 32
 
 amr.probin_file = probin.3d.regt # This will default to file "probin" if not set
 
+# Refinement according to the vorticity, no field_name needed
+amr.refinement_indicators = magvort
+amr.magvort.max_level = 3
+amr.magvort.vorticity_greater = 500 
 
 # ------------------  INPUTS TO PHYSICS CLASS -------------------
 ns.dt_cutoff       = 5.e-10   # level 0 timestep below which we halt
