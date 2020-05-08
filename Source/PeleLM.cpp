@@ -6715,7 +6715,12 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
     EB_set_covered_faces({D_DECL(&edgestate[0],&edgestate[1],&edgestate[2])},Rcomp,nspecies+1,typvals);
     EB_set_covered_faces({D_DECL(&edgestate[0],&edgestate[1],&edgestate[2])},Tcomp,1,typvals);
 
+
   }
+edgestate[0].FillBoundary(geom.periodicity());
+edgestate[1].FillBoundary(geom.periodicity());
+edgeflux[0].FillBoundary(geom.periodicity());
+edgeflux[1].FillBoundary(geom.periodicity());
 
   // Compute RhoH on faces, store in nspecies+1 component of edgestate[d]
 #ifdef _OPENMP
@@ -6728,10 +6733,16 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
       for (int d=0; d<AMREX_SPACEDIM; ++d)
       {
         const Box& bx = S_mfi.tilebox();
-        const Box& ebox = amrex::surroundingNodes(bx,d);
+//        const Box& ebox = amrex::surroundingNodes(bx,d);
+const Box& ebox = amrex::surroundingNodes(amrex::grow(bx,2),d);
+
+amrex::Print() << "\n DEBUG edgestate " << edgestate[d][S_mfi]  << "\n";
 
         eR.resize(ebox,1);
         eR.copy(edgestate[d][S_mfi],0,0,1);
+
+amrex::Print() << "\n DEBUG ER " << eR << "\n";
+
         eR.invert(1.0,ebox,0,1);
 
         eY.resize(ebox,nspecies);
