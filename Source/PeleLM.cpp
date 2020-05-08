@@ -7459,10 +7459,12 @@ PeleLM::mac_sync ()
         DT_DD_Sum.mult(0.5*dt);
         MultiFab::Add(Trhs,DT_DD_Sum,0,0,1,0);
         MultiFab::Add(Trhs,Trhs0,0,0,1,0);
+        showMF("DBGSync",Trhs,"sdc_Trhs_indeltaTiter",level,(mac_sync_iter+1)*1000+L,parent->levelSteps(level));
+        showMF("DBGSync",RhoCp_post,"sdc_RhoCp_post_indeltaTiter",level,(mac_sync_iter+1)*1000+L,parent->levelSteps(level));
 
         // Save current T value, guess deltaT=0
         MultiFab::Copy(Told,get_new_data(State_Type),Temp,0,1,0);
-        get_new_data(State_Type).setVal(0.0,Temp,1,0);
+        get_new_data(State_Type).setVal(0.0,Temp,1,1);
         MultiFab deltaT(get_new_data(State_Type), amrex::make_alias, Temp, 1);
 
         int rho_flagT = 0; // Do not do rho-based hacking of the diffusion problem
@@ -7470,7 +7472,7 @@ PeleLM::mac_sync ()
         const bool add_hoop_stress = false; // Only true if sigma == Xvel && Geometry::IsRZ())
         const Diffusion::SolveMode& solve_mode = Diffusion::ONEPASS;
         const bool add_old_time_divFlux = false; // rhs contains the time-explicit diff terms already
-        const Real be_cn_theta_SDC = 0.5;
+        const Real be_cn_theta_SDC = 1.0;
         const int visc_coef_comp = Temp;
 
         // Set-up our own MG solver for the deltaT
@@ -7495,6 +7497,7 @@ PeleLM::mac_sync ()
         const BCRec& bc = theBCs[Temp];
         Diffusion::setDomainBC(mlmg_lobc, mlmg_hibc, bc); // Same for all comps, by assumption
         deltaTSyncOp.setDomainBC(mlmg_lobc, mlmg_hibc);
+        deltaTSyncOp.setLevelBC(0, &deltaT);
 
         MLMG deltaTSyncSolve(deltaTSyncOp);
 
@@ -7507,6 +7510,8 @@ PeleLM::mac_sync ()
         if (deltaT_verbose) {
           Print() << "DeltaTsync solve norm = " << deltaT_iter_norm << std::endl;
         }
+
+        showMF("DBGSync",deltaT,"sdc_deltaT_indeltaTiter",level,(mac_sync_iter+1)*1000+L,parent->levelSteps(level));
 
         MultiFab::Add(get_new_data(State_Type),Told,0,Temp,1,0);
         compute_enthalpy_fluxes(SpecDiffusionFluxnp1,betanp1,curr_time); // Compute F[N+1], F[N+2]
