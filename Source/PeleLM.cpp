@@ -7270,8 +7270,6 @@ PeleLM::mac_sync ()
       }
     }
     showMF("DBGSync",Ssync,"sdc_Ssync_MinusUcorr",level,mac_sync_iter,parent->levelSteps(level));
-    Ssync.setVal(0.0,Temp-AMREX_SPACEDIM,1);
-    showMF("DBGSync",Ssync,"sdc_Ssync_MinusUcorrCleanTemp",level,mac_sync_iter,parent->levelSteps(level));
 
     Ssync.mult(dt); // Turn this into an increment over dt
 
@@ -7315,7 +7313,6 @@ PeleLM::mac_sync ()
     //
     // Increment density, rho^{n+1} = rho^{n+1,p} + (delta_rho)^sync
     //
-    showMF("DBGSync",Ssync,"sdc_Sync_UpdateRho",level,parent->levelSteps(level));
     MultiFab::Add(S_new,Ssync,Density-AMREX_SPACEDIM,Density,1,0);
     make_rho_curr_time();
     BL_PROFILE_VAR_STOP(HTSSYNC);
@@ -8010,6 +8007,8 @@ PeleLM::differential_spec_diffuse_sync (Real dt,
 
   const MultiFab& RhoHalftime = get_rho_half_time();
 
+  int sdc_theta = 1.0;
+
   for (int sigma = 0; sigma < nspecies; ++sigma)
   {
     //
@@ -8023,7 +8022,7 @@ PeleLM::differential_spec_diffuse_sync (Real dt,
     // on entry, Ssync = RHS for (delta Ytilde)^sync diffusive solve
     // on exit, Ssync = rho^{n+1} * (delta Ytilde)^sync
     // on exit, fluxSC = rhoD grad (delta Ytilde)^sync
-    diffusion->diffuse_Ssync(Ssync,ssync_ind,dt,be_cn_theta,
+    diffusion->diffuse_Ssync(Ssync,ssync_ind,dt,sdc_theta,
                              RhoHalftime,rho_flag[sigma],fluxSC,0,
                              betanp1,sigma,alpha,0);
     //
