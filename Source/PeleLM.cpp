@@ -7062,7 +7062,7 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
       // It's not really used, but it's cleaner this way.
       for (int d=0; d<AMREX_SPACEDIM; ++d) {
          const Box& ebx = amrex::surroundingNodes(bx,d);
-         edgeflux[d].setVal(0.0,ebx,nspecies+2,1);
+         edgeflux[d].setVal<RunOn::Host>(0.0,ebx,nspecies+2,1);
       }
 
 // Compute RhoH on faces, store in nspecies+1 component of edgestate[d]
@@ -7095,7 +7095,7 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
       // It's not really used, but it's cleaner this way.
       for (int d=0; d<AMREX_SPACEDIM; ++d) {
          const Box& ebx = amrex::surroundingNodes(bx,d);
-         edgestate[d].setVal(0.0,ebx,nspecies+2,1);
+         edgestate[d].setVal<RunOn::Host>(0.0,ebx,nspecies+2,1);
       }
 
 // Compute -Div(flux.Area) for RhoH, return Area-scaled (extensive) fluxes
