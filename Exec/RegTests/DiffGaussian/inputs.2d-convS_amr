@@ -42,7 +42,7 @@ amr.derive_plot_vars=rhoRT mag_vort avg_pressure gradpx gradpy diveru mass_fract
 amr.grid_log        = grdlog  # name of grid logging file
 amr.max_grid_size   = 64
 
-amr.probin_file = probin.2d.convS # This will default to file "probin" if not set
+amr.probin_file = probin.2d.Spec # This will default to file "probin" if not set
 
 amr.refinement_indicators = highO2
 amr.highO2.max_level = 2

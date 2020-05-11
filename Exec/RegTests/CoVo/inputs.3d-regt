@@ -14,14 +14,11 @@ peleLM.lo_bc = "Interior"  "Interior" "Interior"
 peleLM.hi_bc = "Interior"  "Interior" "Interior"
 
 #----------------------------TOP LEVEL INPUTS----------------------
-max_step  =  10000
 max_step  =  10
 stop_time = 0.04
 
 #-------------------------AMR INPUTS----------------------------
 amr.n_cell    = 32 32 32
-#amr.n_cell    = 128 128 128
-#amr.n_cell    = 64 64 64
 
 amr.v=1
 amr.max_level =  0            # maximum level number allowed

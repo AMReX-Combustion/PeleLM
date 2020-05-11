@@ -151,3 +151,4 @@ cg.cg_solver=1
 fab.format = NATIVE
 
 fabarray.mfiter_tile_size = 8 8 8 
+amrex.regtest_reduction=1

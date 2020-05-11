@@ -20,8 +20,6 @@ stop_time = 0.04
 
 #-------------------------AMR INPUTS----------------------------
 amr.n_cell    = 32 32 32
-#amr.n_cell    = 128 128 128
-#amr.n_cell    = 64 64 64
 
 amr.v=1
 amr.max_level =  1            # maximum level number allowed
@@ -155,6 +153,7 @@ fab.format = NATIVE
 
 fabarray.mfiter_tile_size = 8 8 8 
 
+amrex.regtest_reduction=1
 
 ns.getLESVerbose = 1
 ns.do_LES = 0
