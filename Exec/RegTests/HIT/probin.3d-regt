@@ -2,7 +2,7 @@
   T_mean = 298.0
   P_mean = 101325.
 
-  iname = 'probin.3d-regt'
+  iname = 'hit_ic_regtest.dat'
   lambda0 = 0.5
   reynolds_lambda0 = 100.0
   inres = 16
