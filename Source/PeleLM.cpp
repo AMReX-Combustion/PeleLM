@@ -6634,7 +6634,7 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
 
   MultiFab edgeflux[AMREX_SPACEDIM];
   MultiFab edgestate[AMREX_SPACEDIM];
-  int nghost = 2; // Because this is what MOL requires
+  int nghost = 4; // Because this is what MOL requires
 
   for (int i(0); i < AMREX_SPACEDIM; i++)
   {
@@ -6717,10 +6717,10 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
 
 
   }
-edgestate[0].FillBoundary(geom.periodicity());
-edgestate[1].FillBoundary(geom.periodicity());
-edgeflux[0].FillBoundary(geom.periodicity());
-edgeflux[1].FillBoundary(geom.periodicity());
+//edgestate[0].FillBoundary(geom.periodicity());
+//edgestate[1].FillBoundary(geom.periodicity());
+//edgeflux[0].FillBoundary(geom.periodicity());
+//edgeflux[1].FillBoundary(geom.periodicity());
 
   // Compute RhoH on faces, store in nspecies+1 component of edgestate[d]
 #ifdef _OPENMP
@@ -7483,7 +7483,12 @@ PeleLM::mac_sync ()
         info.setAgglomeration(1);
         info.setConsolidation(1);
         info.setMetricTerm(false);
+#ifdef AMREX_USE_EB
+        const auto& ebf = &dynamic_cast<EBFArrayBoxFactory const&>((parent->getLevel(level)).Factory());
+        MLEBABecLap deltaTSyncOp({geom}, {grids}, {dmap}, info, {ebf});
+#else
         MLABecLaplacian deltaTSyncOp({geom}, {grids}, {dmap}, info);
+#endif
         deltaTSyncOp.setMaxOrder(diffusion->maxOrder());
         deltaTSyncOp.setScalars(1.0, dt*be_cn_theta_SDC);
         deltaTSyncOp.setACoeffs(0.0, RhoCp_post);
