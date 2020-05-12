@@ -717,8 +717,10 @@ private:
   
   static bool         flag_active_control;
 
-  static int  cvode_iE;
-  static int  cvode_ncells;
+  static int  ncells_chem;
+  static bool use_typ_vals; 
+  static amrex::Real relative_tol_chem;
+  static amrex::Real absolute_tol_chem;
 
   static int nGrowAdvForcing;
 
