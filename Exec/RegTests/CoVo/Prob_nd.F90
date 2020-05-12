@@ -187,7 +187,7 @@ contains
       REAL_T, dimension(p_lo(1):p_hi(1),p_lo(2):p_hi(2),p_lo(3):p_hi(3)), intent(out) :: press
 
 ! Local
-      REAL_T :: dy, d_sq, r_sq, u_vort, v_vort 
+      REAL_T :: dy, d_sq, r_sq, u_vort, v_vort, w_vort
       REAL_T :: x, y, z, Yl(NUM_SPECIES), Patm
       REAL_T :: dx
       integer :: i, j, k, n
@@ -214,6 +214,7 @@ contains
 
                u_vort = -forcevort*dy/r_sq * exp(-d_sq/r_sq/two)
                v_vort = forcevort*dx/r_sq * exp(-d_sq/r_sq/two)
+               w_vort = zero
 
                SELECT CASE ( meanFlowDir )
                   CASE (1)
@@ -235,6 +236,10 @@ contains
                      vel(i,j,k,1) = -meanFlowMag + u_vort
                      vel(i,j,k,2) = -meanFlowMag + v_vort
                END SELECT
+
+#if (AMREX_SPACEDIM == 3)
+               vel(i,j,k,3) = w_vort
+#endif
 
             end do
 
