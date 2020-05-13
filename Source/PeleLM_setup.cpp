@@ -476,8 +476,18 @@ PeleLM::variableSetUp ()
   init_extern();
 
   /* PelePhysics */
-  amrex::Print() << " Initialization of network and transport \n";
+  amrex::Print() << " Initialization of network, reactor and transport \n";
   init_network();
+
+  int reactor_type = 2;
+#ifdef _OPENMP
+#pragma omp parallel
+#endif  
+{
+  SetTolFactODE(relative_tol_chem,absolute_tol_chem);
+  reactor_init(&reactor_type,&ncells_chem);
+}
+
 
   init_transport(use_tranlib);
 

@@ -1576,28 +1576,6 @@ PeleLM::restart (Amr&          papa,
   // Deal with typical values
   set_typical_values(true);
 
-  amrex::Print() << " Initialization of reactor\n";
-
-#ifdef _OPENMP
-#pragma omp parallel
-#endif  
-{
-#ifdef USE_SUNDIALS_PP
-  if (use_typ_vals) {
-      amrex::Print() << "Using typical values for the absolute tolerances of the ode solver.\n";
-      Vector<Real> typical_values_chem;
-      typical_values_chem.resize(nspecies+1);
-      for (int i=0; i<nspecies; ++i) {
-	      typical_values_chem[i] = typical_values[first_spec+i] * typical_values[Density];
-      }
-      typical_values_chem[nspecies] = typical_values[Temp];
-      SetTypValsODE(typical_values_chem);
-  }
-#endif
-  int reactor_type = 2;
-  reactor_init(&reactor_type,&ncells_chem, relative_tol_chem, absolute_tol_chem);
-}
-
   if (closed_chamber) {
       std::string line;
       std::string file=papa.theRestartFile();
@@ -1721,6 +1699,26 @@ PeleLM::set_typical_values(bool is_restart)
       {
         amrex::Print() << "\tY_" << spec_names[i] << ": " << typical_values[first_spec+i] <<'\n';
       }
+
+#ifdef USE_SUNDIALS_PP
+    if (use_typ_vals) {
+      amrex::Print() << "Using typical values for the absolute tolerances of the ode solver\n";
+#ifdef _OPENMP
+#pragma omp parallel
+#endif  
+      {
+      Vector<Real> typical_values_chem;
+      typical_values_chem.resize(nspecies+1);
+      for (int i=0; i<nspecies; ++i) {
+	      typical_values_chem[i] = typical_values[first_spec+i] * typical_values[Density];
+      }
+      typical_values_chem[nspecies] = typical_values[Temp];
+      SetTypValsODE(typical_values_chem);
+      ReSetTolODE();
+      }
+    }  
+#endif
+
   }
 }
 
@@ -2152,27 +2150,6 @@ MultiFab::Copy(S_new,P_new,0,RhoRT,1,1);
   // Load typical values for each state component
   //
   set_typical_values(false);
-
-  amrex::Print() << " Initialization of reactor\n";
-
-#ifdef _OPENMP
-#pragma omp parallel
-#endif  
-{
-#ifdef USE_SUNDIALS_PP
-  if (use_typ_vals) {
-      amrex::Print() << "Using typical values for the absolute tolerances of the ode solver.\n";
-      Vector<Real> typical_values_chem;
-      typical_values_chem.resize(nspecies+1);
-      for (int i=0; i<nspecies; ++i) {
-	      typical_values_chem[i] = typical_values[first_spec+i] * typical_values[Density];
-      }
-      typical_values_chem[nspecies] = typical_values[Temp];
-      SetTypValsODE(typical_values_chem);
-  }
-  int reactor_type = 2;
-  reactor_init(&reactor_type,&ncells_chem, relative_tol_chem, absolute_tol_chem);
-}
 
   //
   // Initialize divU and dSdt.
