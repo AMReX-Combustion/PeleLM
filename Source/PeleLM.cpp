@@ -1581,6 +1581,8 @@ PeleLM::restart (Amr&          papa,
 #ifdef _OPENMP
 #pragma omp parallel
 #endif  
+{
+#ifdef USE_SUNDIALS_PP
   if (use_typ_vals) {
       amrex::Print() << "Using typical values for the absolute tolerances of the ode solver.\n";
       Vector<Real> typical_values_chem;
@@ -1591,8 +1593,10 @@ PeleLM::restart (Amr&          papa,
       typical_values_chem[nspecies] = typical_values[Temp];
       SetTypValsODE(typical_values_chem);
   }
+#endif
   int reactor_type = 2;
   reactor_init(&reactor_type,&ncells_chem, relative_tol_chem, absolute_tol_chem);
+}
 
   if (closed_chamber) {
       std::string line;
@@ -2154,6 +2158,8 @@ MultiFab::Copy(S_new,P_new,0,RhoRT,1,1);
 #ifdef _OPENMP
 #pragma omp parallel
 #endif  
+{
+#ifdef USE_SUNDIALS_PP
   if (use_typ_vals) {
       amrex::Print() << "Using typical values for the absolute tolerances of the ode solver.\n";
       Vector<Real> typical_values_chem;
@@ -2166,6 +2172,7 @@ MultiFab::Copy(S_new,P_new,0,RhoRT,1,1);
   }
   int reactor_type = 2;
   reactor_init(&reactor_type,&ncells_chem, relative_tol_chem, absolute_tol_chem);
+}
 
   //
   // Initialize divU and dSdt.
