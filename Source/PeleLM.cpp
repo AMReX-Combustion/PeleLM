@@ -3318,8 +3318,7 @@ PeleLM::diffusionFJDriver(ForkJoin&                   fj,
                                  prev_time,curr_time,be_cn_theta,*rho_half_mf,rho_flag,
                                  &(fluxn[0]),&(fluxnp1[0]),fluxComp,delta_rhs,rhsComp,
                                  alpha_in,alpha_in_comp,&(betan[0]),&(betanp1[0]),betaComp,
-                                 visc_coef_shifted,visc_comp_shifted,
-			     cratio,bc,in_geom,
+                                 cratio,bc,in_geom,
                                  solve_mode,add_old_time_divFlux,is_diffusive);
 
 
@@ -3370,8 +3369,7 @@ PeleLM::diffuse_scalar_fj  (const Vector<MultiFab*>&  S_old,
                                   prev_time,curr_time,be_cn_theta,rho_mid,rho_flag,
                                   fluxn,fluxnp1,fluxComp,delta_rhs,rhsComp,
                                   alpha_in,alpha_in_comp,betan,betanp1,betaComp,
-                                  visc_coef,visc_coef_comp,
-			      cratio,bc,theGeom,
+                                  cratio,bc,theGeom,
                                   solve_mode,add_old_time_divFlux,diffuse_this_comp);
   }
   else
@@ -3715,7 +3713,7 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
                               prev_time,curr_time,be_cn_theta_SDC,RhT,rho_flagT,
                               SpecDiffusionFluxn,SpecDiffusionFluxnp1,nspecies+2,
                               &Trhs,0,&RhoCp,0,
-                              betan,betanp1,nspecies,visc_coef,visc_coef_comp,
+                              betan,betanp1,nspecies,
                               crse_ratio,theBCs[Temp],geom,
                               solve_mode,add_old_time_divFlux,diffuse_this_comp);
 
