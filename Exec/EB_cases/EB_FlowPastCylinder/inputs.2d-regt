@@ -217,3 +217,8 @@ ns.refine_cutcells = 1
 #amr.refinement_indicators = RefineBox  
 #amr.RefineBox.in_box_lo = -0.00525  -0.01125 
 #amr.RefineBox.in_box_hi = 0.01875   0.01375
+
+
+amrex.fpe_trap_invalid = 1
+amrex.fpe_trap_zero = 1
+amrex.fpe_trap_overflow = 1

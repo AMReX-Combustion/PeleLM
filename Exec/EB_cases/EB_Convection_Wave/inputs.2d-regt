@@ -1,5 +1,5 @@
 # ----------------  PROBLEM DEPENDENT INPUTS
-geometry.is_periodic = 1 1 1
+geometry.is_periodic = 0 1 1
 
 geometry.coord_sys = 0  # 0 => cart, 1 => RZ
 
@@ -14,8 +14,8 @@ geometry.prob_hi   = 0.04 0.04 0.005
 # Interior, Inflow, Outflow, Symmetry,
 # SlipWallAdiab, NoSlipWallAdiab, SlipWallIsotherm, NoSlipWallIsotherm
 
-peleLM.lo_bc = Interior  Interior Interior
-peleLM.hi_bc = Interior  Interior Interior
+peleLM.lo_bc = Inflow  Interior Interior
+peleLM.hi_bc = Outflow  Interior Interior
 
 
 #peleLM.lo_bc =  Outflow  Inflow
@@ -35,7 +35,7 @@ amr.n_cell    = 256 64
 amr.n_cell    = 256 256 16
 #amr.n_cell    = 512 512
 amr.n_cell    = 32 32
-
+#amr.n_cell    = 128 128
 
 amr.v=1
 amr.max_level =  1            # maximum level number allowed
@@ -166,7 +166,8 @@ fab.format = NATIVE
 eb2.geom_type     = sphere
 eb2.sphere_radius = 0.005
 #eb2.sphere_center =  .0055  0.0015  # don't forget probin: adv_dir !=1
-eb2.sphere_center = -0.019375000000 -0.029375000000 
+#eb2.sphere_center = -0.019375000000 -0.029375000000 
+eb2.sphere_center = .0075  -0.029375000000
 eb2.sphere_has_fluid_inside = 0
 
 #eb2.geom_type     = box
@@ -208,14 +209,15 @@ nodal_proj.verbose = 1
 
 ns.refine_cutcells = 1
 
-# Refinement according to the vorticity, no field_name needed
-#amr.refinement_indicators = volfrac
-#amr.volfrac.max_level = 3
-#amr.volfrac.value_less = 0.5
-#amr.volfrac.field_name = volFrac
 
 # Refinement according to predefined box
 #amr.refinement_indicators = RefineBox  
 #amr.RefineBox.in_box_lo = -0.00525  -0.01125 
 #amr.RefineBox.in_box_hi = 0.01875   0.01375
 
+#ShowMF_Sets = DBGSync
+#ShowMF_Dir = DebugMacSync
+
+amrex.fpe_trap_invalid = 1
+amrex.fpe_trap_zero = 1
+amrex.fpe_trap_overflow = 1
