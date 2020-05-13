@@ -186,7 +186,9 @@ contains
 
             vel(i,j,k,1) = MeanFlow
             vel(i,j,k,2) = 0.0d0
-
+#if ( AMREX_SPACEDIM == 3 )
+            vel(i,j,k,3) = 0.0d0
+#endif
 
             Yl(1) = 0.233d0*(1.0d0 + delta_blob*exp(-dist/(2.0d0 *RC)))
             Yl(2) = 1.0d0 - Yl(1)
