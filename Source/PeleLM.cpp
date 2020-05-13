@@ -6717,10 +6717,26 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
 
 
   }
-//edgestate[0].FillBoundary(geom.periodicity());
-//edgestate[1].FillBoundary(geom.periodicity());
-//edgeflux[0].FillBoundary(geom.periodicity());
-//edgeflux[1].FillBoundary(geom.periodicity());
+
+
+{
+for (MFIter S_mfi(Smf,true); S_mfi.isValid(); ++S_mfi)
+    {
+      const Box& bx = S_mfi.tilebox();
+      // Clean edge fluxes of temp otherwise sync term appears on tempe during mac_sync.
+      // It's not really used, but it's cleaner this way.
+      for (int d=0; d<AMREX_SPACEDIM; ++d) {
+         const Box& ebx = amrex::surroundingNodes(bx,d);
+         edgeflux[d].setVal(0.0,ebx,nspecies+2,1);
+      }
+}
+}
+
+
+edgestate[0].FillBoundary(geom.periodicity());
+edgestate[1].FillBoundary(geom.periodicity());
+edgeflux[0].FillBoundary(geom.periodicity());
+edgeflux[1].FillBoundary(geom.periodicity());
 
   // Compute RhoH on faces, store in nspecies+1 component of edgestate[d]
 #ifdef _OPENMP
@@ -6735,13 +6751,14 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
         const Box& bx = S_mfi.tilebox();
 //        const Box& ebox = amrex::surroundingNodes(bx,d);
 const Box& ebox = amrex::surroundingNodes(amrex::grow(bx,2),d);
+//const Box& ebox = S_mfi.nodaltilebox(d);
 
-amrex::Print() << "\n DEBUG edgestate " << edgestate[d][S_mfi]  << "\n";
+//amrex::Print() << "\n DEBUG edgestate " << edgestate[d][S_mfi]  << "\n";
 
         eR.resize(ebox,1);
         eR.copy(edgestate[d][S_mfi],0,0,1);
 
-amrex::Print() << "\n DEBUG ER " << eR << "\n";
+//amrex::Print() << "\n DEBUG ER " << eR << "\n";
 
         eR.invert(1.0,ebox,0,1);
 
@@ -6759,7 +6776,7 @@ amrex::Print() << "\n DEBUG ER " << eR << "\n";
         edgestate[d][S_mfi].mult(edgestate[d][S_mfi],ebox,0,nspecies+1,1); // Make H.Rho into estate
 
         // Copy edgestate into edgeflux. ComputeAofs() overwrites but needs edgestate to start.
-        edgeflux[d][S_mfi].copy(edgestate[d][S_mfi],ebox,nspecies+1,ebox,nspecies+1,1);
+//        edgeflux[d][S_mfi].copy(edgestate[d][S_mfi],ebox,nspecies+1,ebox,nspecies+1,1);
       }
     }
   }
@@ -6780,6 +6797,9 @@ amrex::Print() << "\n DEBUG ER " << eR << "\n";
 
   }
 
+
+
+
   
   // Load up non-overlapping bits of edge states and fluxes into mfs
 #ifdef _OPENMP
@@ -6791,15 +6811,46 @@ amrex::Print() << "\n DEBUG ER " << eR << "\n";
       for (int d=0; d<AMREX_SPACEDIM; ++d)
       {
         const Box& efbox = S_mfi.nodaltilebox(d);
-        (*EdgeState[d])[S_mfi].copy(edgestate[d][S_mfi],efbox,0,efbox,Density,nspecies+1);
-        (*EdgeState[d])[S_mfi].copy(edgestate[d][S_mfi],efbox,nspecies+1,efbox,RhoH,1);
-        (*EdgeState[d])[S_mfi].copy(edgestate[d][S_mfi],efbox,nspecies+2,efbox,Temp,1);
+
+        // For EB, we have 2 ghost-cells for EdgeState and 0 for EdgeFluxes
+        // This is why we don't do the copy with the same box infos
+        const Box& bx = S_mfi.tilebox();
+        const Box& esbox = amrex::surroundingNodes(amrex::grow(bx,2),d);
+
+        (*EdgeState[d])[S_mfi].copy(edgestate[d][S_mfi],esbox,0,esbox,Density,nspecies+1);
+        (*EdgeState[d])[S_mfi].copy(edgestate[d][S_mfi],esbox,nspecies+1,esbox,RhoH,1);
+        (*EdgeState[d])[S_mfi].copy(edgestate[d][S_mfi],esbox,nspecies+2,esbox,Temp,1);
+
         (*EdgeFlux[d])[S_mfi].copy(edgeflux[d][S_mfi],efbox,0,efbox,Density,nspecies+1);
         (*EdgeFlux[d])[S_mfi].copy(edgeflux[d][S_mfi],efbox,nspecies+1,efbox,RhoH,1);
         (*EdgeFlux[d])[S_mfi].copy(edgeflux[d][S_mfi],efbox,nspecies+2,efbox,Temp,1);
+
+//        (*EdgeState[d])[S_mfi].setVal(0,efbox);
+//        (*EdgeFlux[d])[S_mfi].setVal(0,efbox);
+
       }
+
+//        const Box& ebox = amrex::surroundingNodes(bx,d);
+//const Box& ebox = amrex::surroundingNodes(amrex::grow(bx,2),d);
+
+
+
     }
   }
+
+
+    for (MFIter S_mfi(Smf,true); S_mfi.isValid(); ++S_mfi)
+    { 
+      for (int d=0; d<AMREX_SPACEDIM; ++d)
+      { 
+        const Box& bx = S_mfi.growntilebox();
+        const Box& ebox = amrex::surroundingNodes(bx,d);
+//const Box& ebox = amrex::surroundingNodes(amrex::grow(bx,2),d);
+//        (*EdgeState[d])[S_mfi].setVal(0,ebox);
+//        (*EdgeFlux[d])[S_mfi].setVal(0,ebox);
+
+}
+}
 
   
 #else
