@@ -484,7 +484,9 @@ PeleLM::variableSetUp ()
 #pragma omp parallel
 #endif  
 {
+#ifdef USE_SUNDIALS_PP
   SetTolFactODE(relative_tol_chem,absolute_tol_chem);
+#endif
   reactor_init(&reactor_type,&ncells_chem);
 }
 
