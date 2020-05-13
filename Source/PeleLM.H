@@ -718,7 +718,7 @@ private:
   static bool         flag_active_control;
 
   static int  ncells_chem;
-  static bool use_typ_vals; 
+  static bool use_typ_vals_chem; 
   static amrex::Real relative_tol_chem;
   static amrex::Real absolute_tol_chem;
 

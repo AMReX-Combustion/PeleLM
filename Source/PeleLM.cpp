@@ -157,7 +157,7 @@ bool PeleLM::plot_reactions;
 bool PeleLM::plot_consumption;
 bool PeleLM::plot_heat_release;
 int  PeleLM::ncells_chem;
-bool PeleLM::use_typ_vals = 0;
+bool PeleLM::use_typ_vals_chem = 0;
 Real PeleLM::relative_tol_chem = 1.0e-10;
 Real PeleLM::absolute_tol_chem = 1.0e-10;
 static bool plot_rhoydot;
@@ -750,7 +750,7 @@ PeleLM::Initialize_specific ()
     pplm.query("deltaT_norm_max",deltaT_norm_max);
     pplm.query("deltaT_verbose",deltaT_verbose);
 
-    pplm.query("use_typ_vals",use_typ_vals);
+    pplm.query("use_typ_vals_chem",use_typ_vals_chem);
     pplm.query("relative_tol_chem",relative_tol_chem);
     pplm.query("absolute_tol_chem",absolute_tol_chem);
     
@@ -1701,7 +1701,7 @@ PeleLM::set_typical_values(bool is_restart)
       }
 
 #ifdef USE_SUNDIALS_PP
-    if (use_typ_vals) {
+    if (use_typ_vals_chem) {
       amrex::Print() << "Using typical values for the absolute tolerances of the ode solver\n";
 #ifdef _OPENMP
 #pragma omp parallel

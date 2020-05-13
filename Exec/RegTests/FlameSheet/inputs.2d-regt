@@ -105,9 +105,9 @@ ns.zeroBndryVisc=1
 ns.num_divu_iters =3
 
 # ------------------  INPUTS TO CVODE CHEMISTRY ----------------------
-#peleLM.use_typ_vals      = 0
+#peleLM.use_typ_vals_chem = 1
 #peleLM.relative_tol_chem = 1.0e-8
-#peleLM.absolute_tol_chem = 1.0e-8
+#peleLM.absolute_tol_chem = 1.0e-6
 cvode.solve_type = 1
 ode.analytical_jacobian = 0
 
