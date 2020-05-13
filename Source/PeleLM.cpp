@@ -6634,7 +6634,7 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
 
   MultiFab edgeflux[AMREX_SPACEDIM];
   MultiFab edgestate[AMREX_SPACEDIM];
-  int nghost = 4; // Because this is what MOL requires
+  int nghost = 2; // Because this is what MOL requires
 
   for (int i(0); i < AMREX_SPACEDIM; i++)
   {
@@ -6733,10 +6733,10 @@ for (MFIter S_mfi(Smf,true); S_mfi.isValid(); ++S_mfi)
 }
 
 
-edgestate[0].FillBoundary(geom.periodicity());
-edgestate[1].FillBoundary(geom.periodicity());
-edgeflux[0].FillBoundary(geom.periodicity());
-edgeflux[1].FillBoundary(geom.periodicity());
+//edgestate[0].FillBoundary(geom.periodicity());
+//edgestate[1].FillBoundary(geom.periodicity());
+//edgeflux[0].FillBoundary(geom.periodicity());
+//edgeflux[1].FillBoundary(geom.periodicity());
 
   // Compute RhoH on faces, store in nspecies+1 component of edgestate[d]
 #ifdef _OPENMP
@@ -6753,12 +6753,13 @@ edgeflux[1].FillBoundary(geom.periodicity());
 const Box& ebox = amrex::surroundingNodes(amrex::grow(bx,2),d);
 //const Box& ebox = S_mfi.nodaltilebox(d);
 
-//amrex::Print() << "\n DEBUG edgestate " << edgestate[d][S_mfi]  << "\n";
+
+amrex::Print() << "\n DEBUG edgestate " << edgestate[d][S_mfi]  << "\n";
 
         eR.resize(ebox,1);
         eR.copy(edgestate[d][S_mfi],0,0,1);
 
-//amrex::Print() << "\n DEBUG ER " << eR << "\n";
+amrex::Print() << "\n DEBUG ER " << eR << "\n";
 
         eR.invert(1.0,ebox,0,1);
 
