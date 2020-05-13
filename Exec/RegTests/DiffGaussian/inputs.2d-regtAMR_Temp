@@ -1,5 +1,6 @@
 # ----------------  PROBLEM DEPENDENT INPUTS
 geometry.is_periodic = 1 1
+#geometry.is_periodic = 0 0
 
 geometry.coord_sys = 0  # 0 => cart, 1 => RZ
 
@@ -14,12 +15,10 @@ peleLM.lo_bc = "Interior"  "Interior"
 peleLM.hi_bc = "Interior"  "Interior"
 
 #----------------------------TOP LEVEL INPUTS----------------------
-max_step  =  10000
-max_step  =  100
-stop_time =  1.0e8
+max_step  =  20
+stop_time = 1.0e8
 
 #-------------------------AMR INPUTS----------------------------
-amr.n_cell    = 64 64 64
 amr.n_cell    = 32 32 32
 
 amr.v=1
@@ -36,28 +35,22 @@ amr.check_file      = chk     # root name of checkpoint file
 amr.check_int       = 5       # number of timesteps between checkpoints
 
 amr.plot_file       = plt_
-amr.plot_int        = 10
-amr.derive_plot_vars=rhoRT mag_vort avg_pressure gradpx gradpy diveru mass_fractions rhominsumrhoY enthalpy
+amr.plot_int        = 20
+amr.derive_plot_vars=rhoRT mag_vort avg_pressure gradpx gradpy diveru mass_fractions
 
 amr.grid_log        = grdlog  # name of grid logging file
 amr.max_grid_size   = 64
 
-amr.probin_file = probin.2d.Spec # This will default to file "probin" if not set
-
-amr.refinement_indicators = highO2
-amr.highO2.max_level = 2
-amr.highO2.value_greater = 0.240
-amr.highO2.field_name = Y(O2)
-
+amr.probin_file = probin.2d.Temp # This will default to file "probin" if not set
 
 # ------------------  INPUTS TO PHYSICS CLASS -------------------
 ns.dt_cutoff       = 5.e-10   # level 0 timestep below which we halt
 ns.visc_tol        = 1.0e-13  # tolerence for viscous solves
 ns.visc_abs_tol    = 1.0e-13  # tolerence for viscous solves
-ns.cfl            = 0.3     # cfl number for hyperbolic system
+ns.cfl            = 0.3       # cfl number for hyperbolic system
 ns.init_shrink    = 1.0       # scale back initial timestep
 ns.change_max     = 1.1       # scale back initial timestep
-ns.init_iter      = 2        # number of init iters to def pressure
+ns.init_iter      = 3        # number of init iters to def pressure
 ns.gravity        = 0        # body force  (gravity in MKS units)
 ns.sum_interval   = 1        # timesteps between computing mass
 ns.do_reflux      = 1        # 1 => do refluxing
@@ -65,7 +58,7 @@ ns.do_mac_proj    = 1        # 1 => do MAC projection
 
 ns.do_sync_proj   = 1        # 1 => do Sync Project
 ns.do_MLsync_proj = 1
-ns.num_mac_sync_iter = 10
+ns.num_mac_sync_iter = 5
 ns.do_divu_sync = 0
 ns.divu_relax_factor   = 0.0
 
@@ -120,9 +113,9 @@ proj.divu_minus_s_factor = 0.
 proj.proj_2 = 1
 
 # ------------------  INPUTS TO MACPROJ CLASS -------------------
-mac.mac_tol        = 1.0e-13 # tolerence for mac projections
-mac.mac_sync_tol   = 1.0e-13  # tolerence for mac SYNC projection
-mac.mac_abs_tol    = 1.0e-13
+mac.mac_tol        = 1.0e-14 # tolerence for mac projections
+mac.mac_sync_tol   = 1.0e-14  # tolerence for mac SYNC projection
+mac.mac_abs_tol    = 1.0e-14
 mac.use_cg_solve   = 0
 mac.do_outflow_bcs = 0
 
@@ -160,6 +153,7 @@ cg.cg_solver=1
 fab.format = NATIVE
 
 fabarray.mfiter_tile_size = 8 8 8 
+amrex.regtest_reduction=1
 amrex.fpe_trap_invalid=1
 amrex.fpe_trap_zero=1
 amrex.fpe_trap_overflow=1

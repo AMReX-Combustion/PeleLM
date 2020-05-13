@@ -1,19 +1,22 @@
  &fortin
-  meanFlowMag = 50.0 
-  meanFlowDir = -2
   T_mean = 298.0
   P_mean = 101325.
-  rvort  = 0.07
-  xvort  = 0.5
-  yvort  = 0.5
-  forcevort  = 6.0
+
+  iname = 'hit_ic_regtest.dat'
+  lambda0 = 0.5
+  reynolds_lambda0 = 100.0
+  inres = 16
+
+  urms0= 200.0d0
+
  /
  &heattransin
   pamb = 101325.
  /
  &extern
- const_conductivity = 0.
+ const_conductivity = 0.0
  const_viscosity = 0.
  const_bulk_viscosity = 0.
  const_diffusivity = 0.
+ mks_unit = true
  /

@@ -45,7 +45,7 @@ amr.derive_plot_vars=rhoRT mag_vort avg_pressure gradpx gradpy diveru mass_fract
 amr.grid_log        = grdlog  # name of grid logging file
 amr.max_grid_size   = 64
 
-amr.probin_file = probin.2d.convT # This will default to file "probin" if not set
+amr.probin_file = probin.2d.Temp # This will default to file "probin" if not set
 
 # ------------------  INPUTS TO PHYSICS CLASS -------------------
 ns.dt_cutoff       = 5.e-10   # level 0 timestep below which we halt
