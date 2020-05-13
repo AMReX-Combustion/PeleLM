@@ -6741,8 +6741,7 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
     {
       for (int d=0; d<AMREX_SPACEDIM; ++d)
       {
-        const Box& bx = S_mfi.tilebox();
-        const Box& ebox = amrex::surroundingNodes(amrex::grow(bx,2),d);
+        const Box& ebox = S_mfi.grownnodaltilebox(d,edgestate[d].nGrow());
 
         eR.resize(ebox,1);
         eR.copy(edgestate[d][S_mfi],0,0,1);
