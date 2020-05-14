@@ -7,6 +7,8 @@
 #include <Prob_F.H>
 #include <PeleLM_F.H>
 
+#include "mechanism.h"
+
 module prob_nd_module
 
   use amrex_fort_module, only : dim=>amrex_spacedim
@@ -38,7 +40,7 @@ contains
 ! ::: 
 ! ::: -----------------------------------------------------------
 
-  subroutine amrex_probinit (init,name,namlen,problo,probhi) bind(c)
+   subroutine amrex_probinit (init,name,namlen,problo,probhi) bind(c)
   
       
       use PeleLM_F,  only: pphys_getP1atm_MKS
@@ -101,12 +103,16 @@ contains
  
       close(unit=untin)
 
+!     Set up boundary functions
+      call setupbc()
+
+
       if (isioproc.eq.1) then
          write(6,fortin)
          write(6,heattransin)
       end if
 
-  end subroutine amrex_probinit
+   end subroutine amrex_probinit
 
 ! ::: -----------------------------------------------------------
 ! ::: This routine is called at problem setup time and is used
@@ -140,8 +146,7 @@ contains
                         vel, scal, s_lo, s_hi, press, p_lo, p_hi, &
                         delta, xlo, xhi) &
                         bind(C, name="init_data")
-                              
-      use network,   only: nspecies
+
       use PeleLM_F,  only: pphys_getP1atm_MKS, pphys_get_spec_name2
       use PeleLM_nD, only: pphys_RHOfromPTY, pphys_HMIXfromTY
       use mod_Fvar_def, only : Density, Temp, FirstSpec, RhoH
@@ -149,6 +154,7 @@ contains
       use probdata_module, only: T_mean, P_mean, xblob, yblob, radblob, MeanFlow
       
       implicit none
+
 ! In/Out
       integer, intent(in) :: level, nscal
       integer, intent(in) :: lo(3), hi(3)
@@ -162,19 +168,19 @@ contains
 
 ! Local
       integer :: i, j, k, n
-      REAL_T  :: x, y, z, Yl(nspecies), Patm
-      REAL_T :: dist, delta_blob, RC
+      REAL_T  :: x, y, z, Yl(NUM_SPECIES), Patm
+      REAL_T  :: dist, delta_blob, RC
 
-delta_blob = 2.0d-1
-    RC = 0.02d-1
+      delta_blob = 2.0d-1
+      RC = 0.02d-1
 
       do k = lo(3), hi(3)
-        z = (float(k)+.5d0)*delta(3)+domnlo(3)
-        do j = lo(2), hi(2)
-          y = (float(j)+.5d0)*delta(2) +domnlo(2)
-          do i = lo(1), hi(1)
-            x = (float(i)+.5d0)*delta(1) +domnlo(1)
-          
+         z = (float(k)+.5d0)*delta(3)+domnlo(3)
+         do j = lo(2), hi(2)
+            y = (float(j)+.5d0)*delta(2) +domnlo(2)
+            do i = lo(1), hi(1)
+               x = (float(i)+.5d0)*delta(1) +domnlo(1)
+   
             dist = sqrt((x-xblob)**2 + (y-yblob)**2)
             dist = sqrt((x-xblob)**2 )
 
@@ -187,15 +193,15 @@ delta_blob = 2.0d-1
             Yl(1) = 0.233d0!*(1.0d0 + delta_blob*exp(-dist/(2.0d0 *RC)))
             Yl(2) = 1.0d0 - Yl(1)
 
-            do n = 1,nspecies
+            do n = 1,NUM_SPECIES
                scal(i,j,k,FirstSpec+n-1) = Yl(n)
             end do
 
 !            scal(i,j,k,Temp) = merge(600.d0,300.d0,dist.lt.radblob) !T_mean
-            scal(i,j,k,Temp) = T_mean*(1.0d0 + delta_blob*exp(-dist/(2.0d0 *RC)))
-
-          enddo  
-        end do
+            scal(i,j,k,Temp) = T_mean!*(1.0d0 + delta_blob*exp(-dist/(2.0d0 *RC)))  
+            
+           end do
+         end do
       end do
 
       Patm = P_mean / pphys_getP1atm_MKS()
@@ -213,7 +219,7 @@ delta_blob = 2.0d-1
       do k = lo(3), hi(3)
          do j = lo(2), hi(2)
             do i = lo(1), hi(1)
-               do n = 0,nspecies-1
+               do n = 0,NUM_SPECIES-1
                   scal(i,j,k,FirstSpec+n) = scal(i,j,k,FirstSpec+n)*scal(i,j,k,Density)
                enddo
                scal(i,j,k,RhoH) = scal(i,j,k,RhoH)*scal(i,j,k,Density)
@@ -221,10 +227,54 @@ delta_blob = 2.0d-1
          enddo
       enddo
       
-  end subroutine init_data
+   end subroutine init_data
       
 
+!------------------------------------
+
+   subroutine setupbc()bind(C, name="setupbc")
+
+      use PeleLM_F, only: pphys_getP1atm_MKS
+      use PeleLM_nD, only: pphys_RHOfromPTY, pphys_HMIXfromTY
+      use probdata_module, only : Y_bc, T_bc, u_bc, v_bc, rho_bc, h_bc
+      use probdata_module, only : bcinit, T_mean, P_mean, MeanFlow
+
+      implicit none
+
+      REAL_T :: Patm, Yt(NUM_SPECIES)
+
+      integer :: n, b_lo(3), b_hi(3)
+      data  b_lo(:) / 1, 1, 1 /
+      data  b_hi(:) / 1, 1, 1 /
+
+      Patm = P_mean / pphys_getP1atm_MKS()
 
 
+      Yt(1) = 0.233d0
+      Yt(2) = 1.0d0 - Yt(1)
+
+      do n = 1, NUM_SPECIES 
+        Y_bc(n-1) = Yt(n)
+      end do
+
+      T_bc = T_mean
+      u_bc = MeanFlow 
+      v_bc = 0.0d0 
+
+!     Set density and hmix consistent with data
+
+      call pphys_RHOfromPTY(b_lo, b_hi, &
+                            rho_bc(1), b_lo, b_hi, &
+                            T_bc(1),   b_lo, b_hi, &
+                            Y_bc(0),   b_lo, b_hi, Patm)
+      call pphys_HMIXfromTY(b_lo, b_hi, &
+                            h_bc(1), b_lo, b_hi, &
+                            T_bc(1), b_lo, b_hi, &
+                            Y_bc(0), b_lo, b_hi)
+      write(*,*) 'DEBUG BC',Y_bc, T_bc, u_bc, v_bc, rho_bc, h_bc
+
+      bcinit = .true.
+
+   end subroutine setupbc
 
 end module prob_nd_module

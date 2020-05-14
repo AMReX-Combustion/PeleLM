@@ -53,6 +53,8 @@
 #include <AMReX_EBFArrayBox.H>
 #include <AMReX_MLEBABecLap.H>
 #include <AMReX_EB_utils.H>
+#include <AMReX_EBAmrUtil.H>
+#include <iamr_mol.H>
 #endif
 
 #include <AMReX_buildInfo.H>
@@ -1290,11 +1292,16 @@ void
 PeleLM::define_data ()
 {
   const int nGrow       = 0;
+#ifdef AMREX_USE_EB
+  const int nGrowEdges  = 2; // We need 2 growth cells for the redistribution when using MOL EB
+#else
+  const int nGrowEdges  = 0; 
+#endif
   const int nEdgeStates = desc_lst[State_Type].nComp();
 
   mTmpData.resize(mHtoTiterMAX);
 
-  raii_fbs.push_back(std::unique_ptr<FluxBoxes>{new FluxBoxes(this, nEdgeStates, nGrow)});
+  raii_fbs.push_back(std::unique_ptr<FluxBoxes>{new FluxBoxes(this, nEdgeStates, nGrowEdges)});
   EdgeState = raii_fbs.back()->get();
 
   raii_fbs.push_back(std::unique_ptr<FluxBoxes>{new FluxBoxes(this, nEdgeStates, nGrow)});
@@ -1795,7 +1802,7 @@ PeleLM::estTimeStep ()
 #ifdef AMREX_USE_EB
   MultiFab TT(grids,dmap,BL_SPACEDIM,n_grow,MFInfo(),Factory());
   MultiFab::Copy(TT,Umf,0,0,BL_SPACEDIM,n_grow);
-  EB_interp_CC_to_Centroid(Umf,TT,0,0,BL_SPACEDIM,geom);
+//  EB_interp_CC_to_Centroid(Umf,TT,0,0,BL_SPACEDIM,geom);
 #endif
 
 #ifdef _OPENMP
@@ -2595,15 +2602,28 @@ PeleLM::post_init (Real stop_time)
     //
     if (nspecies > 0)
     {
+
+
+
       for (int k = 0; k <= finest_level; k++)
       {
+        
         MultiFab& S_new = getLevel(k).get_new_data(State_Type);
+
+#ifdef AMREX_USE_EB
+        const Geometry& cgeom      = parent->Geom(k);
+        auto myfactory = makeEBFabFactory(cgeom,S_new.boxArray(),S_new.DistributionMap(),{0,0,0},EBSupport::basic);
+#endif
         //
         // Don't update S_new in this strang_chem() call ...
         //
-        MultiFab S_tmp(S_new.boxArray(),S_new.DistributionMap(),S_new.nComp(),0,MFInfo(),Factory());
-
-        MultiFab Forcing_tmp(S_new.boxArray(),S_new.DistributionMap(),nspecies+1,0,MFInfo(),Factory());
+#ifdef AMREX_USE_EB
+        MultiFab S_tmp(S_new.boxArray(),S_new.DistributionMap(),S_new.nComp(),0,MFInfo(),*myfactory);
+        MultiFab Forcing_tmp(S_new.boxArray(),S_new.DistributionMap(),nspecies+1,0,MFInfo(),*myfactory);
+#else
+        MultiFab S_tmp(S_new.boxArray(),S_new.DistributionMap(),S_new.nComp(),0);
+        MultiFab Forcing_tmp(S_new.boxArray(),S_new.DistributionMap(),nspecies+1,0); 
+#endif
         Forcing_tmp.setVal(0);
 
         getLevel(k).advance_chemistry(S_new,S_tmp,dt_save[k]/2.0,Forcing_tmp,0);
@@ -3868,8 +3888,7 @@ PeleLM::adjust_spec_diffusion_fluxes (MultiFab* const * flux,
     edgstate[i].define(ba, dmap, nspecies, nghost, MFInfo(), Factory());
   }
 
-  EB_interp_CC_to_FaceCentroid(TT, D_DECL(edgstate[0],edgstate[1],edgstate[2]), 0, 0, nspecies, geom, math_bc);
-
+  EB_interp_CellCentroid_to_FaceCentroid(TT, D_DECL(edgstate[0],edgstate[1],edgstate[2]), 0, 0, nspecies, geom, math_bc);
 #endif
 
 #ifdef _OPENMP
@@ -4153,7 +4172,7 @@ PeleLM::compute_enthalpy_fluxes (MultiFab* const*       flux,
   }
 
 #ifdef AMREX_USE_EB
-  EB_interp_CC_to_FaceCentroid(Enth, D_DECL(enth_edgstate[0],enth_edgstate[1],enth_edgstate[2]), 0, 0, nspecies, geom, math_bc);
+  EB_interp_CellCentroid_to_FaceCentroid(Enth, D_DECL(enth_edgstate[0],enth_edgstate[1],enth_edgstate[2]), 0, 0, nspecies, geom, math_bc);
 #else
 
 #ifdef _OPENMP
@@ -4897,7 +4916,7 @@ PeleLM::flux_divergence (MultiFab&        fdiv,
       MultiFab fdiv_SrcGhostCell(grids,dmap,nComp,fdiv.nGrow()+2,MFInfo(),Factory());
       fdiv_SrcGhostCell.setVal(0.);
       fdiv_SrcGhostCell.copy(fdiv, fdivComp, 0, nComp);
-      amrex::single_level_weighted_redistribute( 0, {fdiv_SrcGhostCell}, {fdiv}, *volfrac, fdivComp, nComp, {geom} );
+      amrex::single_level_weighted_redistribute( {fdiv_SrcGhostCell}, {fdiv}, *volfrac, fdivComp, nComp, {geom} );
     }
     EB_set_covered(fdiv,0.);
 #endif
@@ -5322,29 +5341,6 @@ PeleLM::predict_velocity (Real  dt)
   FillPatchIterator S_fpi(*this,visc_terms,1,prev_time,State_Type,Density,NUM_SCALARS);
   MultiFab& Smf=S_fpi.get_mf();
 
-  
-#ifdef AMREX_USE_EB
-  MultiFab& Gp = getGradP();
-  Gp.FillBoundary(geom.periodicity());
-
-  const Box& domain = geom.Domain();
-  
-  Vector<BCRec> math_bc(AMREX_SPACEDIM);
-  math_bc = fetchBCArray(State_Type,Xvel,AMREX_SPACEDIM);
-
-  godunov->ComputeSlopes( Umf,0,
-                          D_DECL(m_xslopes, m_yslopes, m_zslopes),0,
-                          AMREX_SPACEDIM, math_bc, domain);
-  
-    D_TERM( m_xslopes.FillBoundary(geom.periodicity());,
-            m_yslopes.FillBoundary(geom.periodicity());,
-            m_zslopes.FillBoundary(geom.periodicity()););
-  
-#else
-  MultiFab Gp(grids,dmap,BL_SPACEDIM,1);
-  getGradP(Gp, prev_pres_time);
-#endif
-
   //
   // Compute "grid cfl number" based on cell-centered time-n velocities
   //
@@ -5364,13 +5360,20 @@ PeleLM::predict_velocity (Real  dt)
     Vector<BCRec> math_bcs(AMREX_SPACEDIM);
     math_bcs = fetchBCArray(State_Type,Xvel,AMREX_SPACEDIM);
 
-    godunov->ExtrapVelToFaces(Umf,
-                              D_DECL(u_mac[0], u_mac[1], u_mac[2]),
-                              D_DECL(m_xslopes, m_yslopes, m_zslopes),
-                              geom, math_bcs );
+    MOL::ExtrapVelToFaces( Umf,
+                           D_DECL(u_mac[0], u_mac[1], u_mac[2]),
+                           geom, math_bcs );
 
 #else
-  
+ 
+    //
+    // Non-EB version
+    //
+
+    MultiFab Gp(grids,dmap,BL_SPACEDIM,1);
+    getGradP(Gp, prev_pres_time);
+
+ 
 #ifdef _OPENMP
 #pragma omp parallel
 #endif      
@@ -5659,7 +5662,7 @@ PeleLM::advance (Real time,
       MultiFab chi_tmp(grids,dmap,1,chi.nGrow()+2,MFInfo(),Factory());
       chi_tmp.setVal(0.);
       chi_tmp.copy(chi_increment);
-      amrex::single_level_weighted_redistribute( 0, {chi_tmp}, {chi_increment}, *volfrac, 0, 1, {geom} );
+      amrex::single_level_weighted_redistribute(  {chi_tmp}, {chi_increment}, *volfrac, 0, 1, {geom} );
       EB_set_covered(chi_increment,0.0);
     }
 #endif
@@ -5681,7 +5684,7 @@ PeleLM::advance (Real time,
       //MultiFab mac_divu_tmp(grids,dmap,1,mac_divu.nGrow()+2,MFInfo(),Factory());
       //mac_divu_tmp.setVal(0.);
       //mac_divu_tmp.copy(mac_divu);
-      //amrex::single_level_weighted_redistribute( 0, {mac_divu_tmp}, {mac_divu}, *volfrac, 0, 1, {geom} );
+      //amrex::single_level_weighted_redistribute(  {mac_divu_tmp}, {mac_divu}, *volfrac, 0, 1, {geom} );
     }
 //#endif
 
@@ -6619,74 +6622,38 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
   // HERE IS THE EB PROCEDURE
   //
   //////////////////////////////////////
- 
-  //
-  // compute slopes for construction of edge states
-  //
-  //Slopes in x-direction      
-  MultiFab xslps(grids, dmap, nspecies+3, Godunov::hypgrow(),MFInfo(), Factory());
-  xslps.setVal(0.);
-  // Slopes in y-direction
-  MultiFab yslps(grids, dmap, nspecies+3, Godunov::hypgrow(), MFInfo(), Factory());
-  yslps.setVal(0.);
-  // Slopes in z-direction
-  MultiFab zslps(grids, dmap, nspecies+3, Godunov::hypgrow(), MFInfo(), Factory());
-  zslps.setVal(0.);
 
-  const Box& domain = geom.Domain();
-
-  Vector<BCRec> math_bc(nspecies+3);
-  math_bc = fetchBCArray(State_Type,Density,nspecies+3);
-
-  godunov->ComputeSlopes(Smf, 0, D_DECL(xslps, yslps, zslps), 0,
-                         nspecies+3, math_bc, domain);
-
-  // Compute slopes for use in computing aofs
-  D_TERM(xslps.FillBoundary(geom.periodicity());,
-	       yslps.FillBoundary(geom.periodicity());,
-	       zslps.FillBoundary(geom.periodicity()););
 
   // Initialize accumulation for rho = Sum(rho.Y)
   for (int d=0; d<BL_SPACEDIM; d++) {
     EdgeState[d]->setVal(0);
+    EdgeFlux[d]->setVal(0);
   }
 
   MultiFab edgeflux[AMREX_SPACEDIM];
   MultiFab edgestate[AMREX_SPACEDIM];
+  int nghost = 2; // Because this is what MOL requires
 
   for (int i(0); i < AMREX_SPACEDIM; i++)
   {
     const BoxArray& ba = getEdgeBoxArray(i);
-    edgeflux[i].define(ba, dmap, nspecies+3, Godunov::hypgrow(), MFInfo(), Factory());
+    edgeflux[i].define(ba, dmap, nspecies+3, nghost, MFInfo(), Factory());
     edgeflux[i].setVal(0);
-    edgestate[i].define(ba, dmap, nspecies+3, Godunov::hypgrow(), MFInfo(), Factory());
+    edgestate[i].define(ba, dmap, nspecies+3, nghost, MFInfo(), Factory());
     edgestate[i].setVal(0);
   }
 
-  
-
-  
   // Advect RhoY  
   {
     Vector<BCRec> math_bcs(nspecies);
     math_bcs = fetchBCArray(State_Type, first_spec,nspecies);
 
-    MultiFab edgestate_x(edgestate[0], amrex::make_alias, rhoYcomp, nspecies);
-    MultiFab edgeflux_x(edgeflux[0], amrex::make_alias, rhoYcomp, nspecies);
-    MultiFab edgestate_y(edgestate[1], amrex::make_alias, rhoYcomp, nspecies);
-    MultiFab edgeflux_y(edgeflux[1], amrex::make_alias, rhoYcomp, nspecies);
-#if (AMREX_SPACEDIM == 3)
-    MultiFab edgestate_z(edgestate[2], amrex::make_alias, rhoYcomp, nspecies);
-    MultiFab edgeflux_z(edgeflux[2], amrex::make_alias, rhoYcomp, nspecies);
-#endif
+     MOL::ComputeAofs( *aofs, first_spec, nspecies, Smf, rhoYcomp,
+                       D_DECL(u_mac[0],u_mac[1],u_mac[2]),
+                       D_DECL(edgestate[0],edgestate[1],edgestate[2]), rhoYcomp, false,
+                       D_DECL(edgeflux[0],edgeflux[1],edgeflux[2]), rhoYcomp,                    
+                       math_bcs, geom );
 
-
-    godunov -> ComputeConvectiveTerm( Smf, rhoYcomp, *aofs, first_spec, nspecies,
-                                      D_DECL(edgeflux_x,edgeflux_y,edgeflux_z),
-                                      D_DECL(edgestate_x,edgestate_y,edgestate_z),
-                                      D_DECL(u_mac[0],u_mac[1],u_mac[2]),
-                                      D_DECL(xslps, yslps, zslps), rhoYcomp,
-                                      math_bcs, geom, 0);
 
     EB_set_covered(*aofs, 0.);
     
@@ -6726,21 +6693,11 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
     Vector<BCRec> math_bcs(1);
     math_bcs = fetchBCArray(State_Type, Temp, 1);
 
-    MultiFab edgestate_x(edgestate[0], amrex::make_alias, Tcomp, 1);
-    MultiFab edgeflux_x(edgeflux[0], amrex::make_alias, Tcomp, 1);
-    MultiFab edgestate_y(edgestate[1], amrex::make_alias, Tcomp, 1);
-    MultiFab edgeflux_y(edgeflux[1], amrex::make_alias, Tcomp, 1);
-#if (AMREX_SPACEDIM == 3)
-    MultiFab edgestate_z(edgestate[2], amrex::make_alias, Tcomp, 1);
-    MultiFab edgeflux_z(edgeflux[2], amrex::make_alias, Tcomp, 1);
-#endif 
-
-    godunov -> ComputeConvectiveTerm( Smf, Tcomp, *aofs, Temp, 1,
-                                      D_DECL(edgeflux_x,edgeflux_y,edgeflux_z),
-                                      D_DECL(edgestate_x,edgestate_y,edgestate_z),
-                                      D_DECL(u_mac[0],u_mac[1],u_mac[2]),
-                                      D_DECL(xslps, yslps, zslps), Tcomp,
-                                      math_bcs, geom, 0);
+    MOL::ComputeAofs( *aofs, Temp, 1, Smf, Tcomp,
+                       D_DECL(u_mac[0],u_mac[1],u_mac[2]),
+                       D_DECL(edgestate[0],edgestate[1],edgestate[2]), Tcomp, false,
+                       D_DECL(edgeflux[0],edgeflux[1],edgeflux[2]), Tcomp,
+                       math_bcs, geom );
 
     EB_set_covered(*aofs, 0.);
 
@@ -6756,6 +6713,20 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
     EB_set_covered_faces({D_DECL(&edgestate[0],&edgestate[1],&edgestate[2])},Rcomp,nspecies+1,typvals);
     EB_set_covered_faces({D_DECL(&edgestate[0],&edgestate[1],&edgestate[2])},Tcomp,1,typvals);
 
+
+  }
+
+  {
+  for (MFIter S_mfi(Smf,true); S_mfi.isValid(); ++S_mfi)
+    {
+      const Box& bx = S_mfi.tilebox();
+      // Clean edge fluxes of temp otherwise sync term appears on tempe during mac_sync.
+      // It's not really used, but it's cleaner this way.
+      for (int d=0; d<AMREX_SPACEDIM; ++d) {
+         const Box& ebx = amrex::surroundingNodes(bx,d);
+         edgeflux[d].setVal(0.0,ebx,nspecies+2,1);
+      }
+    }
   }
 
   // Compute RhoH on faces, store in nspecies+1 component of edgestate[d]
@@ -6768,8 +6739,8 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
     {
       for (int d=0; d<AMREX_SPACEDIM; ++d)
       {
-        const Box& bx = S_mfi.tilebox();
-        const Box& ebox = amrex::surroundingNodes(bx,d);
+        const Box& ebox = S_mfi.grownnodaltilebox(d,edgestate[d].nGrow());
+
         eR.resize(ebox,1);
         eR.copy(edgestate[d][S_mfi],0,0,1);
         eR.invert(1.0,ebox,0,1);
@@ -6787,8 +6758,6 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
         edgestate[d][S_mfi].copy(eH,ebox,0,ebox,nspecies+1,1);      // Copy H into estate
         edgestate[d][S_mfi].mult(edgestate[d][S_mfi],ebox,0,nspecies+1,1); // Make H.Rho into estate
 
-        // Copy edgestate into edgeflux. ComputeAofs() overwrites but needs edgestate to start.
-        edgeflux[d][S_mfi].copy(edgestate[d][S_mfi],ebox,nspecies+1,ebox,nspecies+1,1);
       }
     }
   }
@@ -6799,25 +6768,16 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
     Vector<BCRec> math_bcs(1);
     math_bcs = fetchBCArray(State_Type, RhoH, 1);
 
-    MultiFab edgestate_x(edgestate[0], amrex::make_alias, nspecies+1, 1);
-    MultiFab edgeflux_x(edgeflux[0], amrex::make_alias, nspecies+1, 1);
-    MultiFab edgestate_y(edgestate[1], amrex::make_alias, nspecies+1, 1);
-    MultiFab edgeflux_y(edgeflux[1], amrex::make_alias, nspecies+1, 1);
-#if (AMREX_SPACEDIM == 3)
-    MultiFab edgestate_z(edgestate[2], amrex::make_alias, nspecies+1, 1);
-    MultiFab edgeflux_z(edgeflux[2], amrex::make_alias, nspecies+1, 1);
-#endif 
-   
-    godunov -> ComputeConvectiveTerm( Smf, nspecies+1, *aofs, RhoH, 1,
-                                      D_DECL(edgeflux_x,edgeflux_y,edgeflux_z),
-                                      D_DECL(edgestate_x,edgestate_y,edgestate_z),
-                                      D_DECL(u_mac[0],u_mac[1],u_mac[2]),
-                                      D_DECL(xslps, yslps, zslps), nspecies+1,
-                                      math_bcs, geom, 1);
+    MOL::ComputeAofs( *aofs, RhoH, 1, Smf, nspecies+1,
+                       D_DECL(u_mac[0],u_mac[1],u_mac[2]),
+                       D_DECL(edgestate[0],edgestate[1],edgestate[2]), nspecies+1, true,
+                       D_DECL(edgeflux[0],edgeflux[1],edgeflux[2]), nspecies+1,
+                       math_bcs, geom ); 
 
     EB_set_covered(*aofs, 0.);
 
   }
+
   
   // Load up non-overlapping bits of edge states and fluxes into mfs
 #ifdef _OPENMP
@@ -6829,12 +6789,20 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
       for (int d=0; d<AMREX_SPACEDIM; ++d)
       {
         const Box& efbox = S_mfi.nodaltilebox(d);
-        (*EdgeState[d])[S_mfi].copy(edgestate[d][S_mfi],efbox,0,efbox,Density,nspecies+1);
-        (*EdgeState[d])[S_mfi].copy(edgestate[d][S_mfi],efbox,nspecies+1,efbox,RhoH,1);
-        (*EdgeState[d])[S_mfi].copy(edgestate[d][S_mfi],efbox,nspecies+2,efbox,Temp,1);
+
+        // For EB, we have 2 ghost-cells for EdgeState and 0 for EdgeFluxes
+        // This is why we don't do the copy with the same box infos
+        const Box& bx = S_mfi.tilebox();
+        const Box& esbox = amrex::surroundingNodes(amrex::grow(bx,2),d);
+
+        (*EdgeState[d])[S_mfi].copy(edgestate[d][S_mfi],esbox,0,esbox,Density,nspecies+1);
+        (*EdgeState[d])[S_mfi].copy(edgestate[d][S_mfi],esbox,nspecies+1,esbox,RhoH,1);
+        (*EdgeState[d])[S_mfi].copy(edgestate[d][S_mfi],esbox,nspecies+2,esbox,Temp,1);
+
         (*EdgeFlux[d])[S_mfi].copy(edgeflux[d][S_mfi],efbox,0,efbox,Density,nspecies+1);
         (*EdgeFlux[d])[S_mfi].copy(edgeflux[d][S_mfi],efbox,nspecies+1,efbox,RhoH,1);
         (*EdgeFlux[d])[S_mfi].copy(edgeflux[d][S_mfi],efbox,nspecies+2,efbox,Temp,1);
+
       }
     }
   }
@@ -7083,10 +7051,24 @@ PeleLM::mac_sync ()
   // Save new pre-sync S^{n+1,p} state for my level and all the finer ones
   for (int lev=level; lev<=finest_level; lev++)
   {
+
     const MultiFab& S_new_lev = getLevel(lev).get_new_data(State_Type);
+
+#ifdef AMREX_USE_EB
+{
+    const Geometry& cgeom      = parent->Geom(lev);
+    auto myfactory = makeEBFabFactory(cgeom,S_new_lev.boxArray(),S_new_lev.DistributionMap(),{1,1,1},EBSupport::basic);
+
     S_new_sav[lev].reset(new MultiFab(S_new_lev.boxArray(),
                                       S_new_lev.DistributionMap(),
-                                      NUM_STATE,1,MFInfo(),Factory()));
+                                      NUM_STATE,1,MFInfo(),*myfactory));
+}
+#else
+    S_new_sav[lev].reset(new MultiFab(S_new_lev.boxArray(),
+                                      S_new_lev.DistributionMap(),
+                                      NUM_STATE,1));
+#endif
+
     MultiFab::Copy(*S_new_sav[lev],S_new_lev,0,0,NUM_STATE,1);
     showMF("DBGSync",*S_new_sav[lev],"sdc_Snew_BeginSync",lev,0,parent->levelSteps(level));
   }
@@ -7098,16 +7080,43 @@ PeleLM::mac_sync ()
   for (int lev=level; lev<=finest_level-1; lev++)
   {
     const MultiFab& Ssync_lev = getLevel(lev).Ssync;
+
+#ifdef AMREX_USE_EB
+{
+    const Geometry& cgeom      = parent->Geom(lev);
+    auto myfactory = makeEBFabFactory(cgeom,Ssync_lev.boxArray(),Ssync_lev.DistributionMap(),{1,1,1},EBSupport::basic);
+
     Ssync_sav[lev].reset(new MultiFab(Ssync_lev.boxArray(),
                                       Ssync_lev.DistributionMap(),
-                                      numscal,1,MFInfo(),Factory()));
+                                      numscal,1,MFInfo(),*myfactory));
+}
+#else
+    Ssync_sav[lev].reset(new MultiFab(Ssync_lev.boxArray(),
+                                      Ssync_lev.DistributionMap(),
+                                      numscal,1));
+#endif
+
     MultiFab::Copy(*Ssync_sav[lev],Ssync_lev,0,0,numscal,1);
     showMF("DBGSync",*Ssync_sav[lev],"sdc_Ssync_BeginSync",level,0,parent->levelSteps(level));
 
     const MultiFab& Vsync_lev = getLevel(lev).Vsync;
+
+#ifdef AMREX_USE_EB
+{
+    const Geometry& cgeom      = parent->Geom(lev);
+    auto myfactory = makeEBFabFactory(cgeom,Vsync_lev.boxArray(),Vsync_lev.DistributionMap(),{1,1,1},EBSupport::basic);
+
     Vsync_sav[lev].reset(new MultiFab(Vsync_lev.boxArray(),
                                       Vsync_lev.DistributionMap(),
-                                      AMREX_SPACEDIM,1,MFInfo(),Factory()));
+                                      AMREX_SPACEDIM,1,MFInfo(),*myfactory));
+}
+#else
+    Vsync_sav[lev].reset(new MultiFab(Vsync_lev.boxArray(),
+                                      Vsync_lev.DistributionMap(),
+                                      AMREX_SPACEDIM,1));
+#endif
+
+
     MultiFab::Copy(*Vsync_sav[lev],Vsync_lev,0,0,AMREX_SPACEDIM,1);
     showMF("DBGSync",*Vsync_sav[lev],"sdc_Vsync_BeginSync",level,0,parent->levelSteps(level));
   }
@@ -7360,10 +7369,11 @@ PeleLM::mac_sync ()
       compute_enthalpy_fluxes(GammaKp1,betanp1,curr_time);          // Compute F[N+1] = sum_m (H_m Gamma_m), 
                                                                     //         F[N+2] = - lambda grad T
 
-      MultiFab DT_pre(grids,dmap,1,0);
-      MultiFab DD_pre(grids,dmap,1,0);
+      MultiFab DT_pre(grids,dmap,1,0,MFInfo(),Factory());
+      MultiFab DD_pre(grids,dmap,1,0,MFInfo(),Factory());
       flux_divergence(DT_pre,0,GammaKp1,nspecies+2,1,-1);
       flux_divergence(DD_pre,0,GammaKp1,nspecies+1,1,-1);
+
 
       // Diffuse species sync to get dGamma^{sync}, then form Gamma^{postsync} = Gamma^{presync} + dGamma^{sync}
       // Before this call Ssync = \nabla \cdot \delta F_{rhoY} - \delta_ADV - Y^{n+1,p}\delta rho^{sync}
@@ -7393,9 +7403,10 @@ PeleLM::mac_sync ()
       MultiFab Told(grids,dmap,1,0);
       MultiFab RhoCp_post(grids,dmap,1,0);
       MultiFab DeltaT(grids,dmap,1,0); DeltaT.setVal(0);
-      MultiFab DT_post(grids,dmap,1,0);
-      MultiFab DD_post(grids,dmap,1,0);
-      MultiFab DT_DD_Sum(grids,dmap,1,0);
+      MultiFab DT_post(grids,dmap,1,0,MFInfo(),Factory());
+      MultiFab DD_post(grids,dmap,1,0,MFInfo(),Factory());
+      MultiFab DT_DD_Sum(grids,dmap,1,0,MFInfo(),Factory());
+
 
       // Build the piece of the dT source terms that does not change with iterations
       // Trhs0 = rho^{n+1,p}*h^{n+1,p} + dt*Ssync * dt/2*(-DT^{n+1,p}-H^{n+1,p})
@@ -7478,7 +7489,12 @@ PeleLM::mac_sync ()
         info.setAgglomeration(1);
         info.setConsolidation(1);
         info.setMetricTerm(false);
+#ifdef AMREX_USE_EB
+        const auto& ebf = &dynamic_cast<EBFArrayBoxFactory const&>((parent->getLevel(level)).Factory());
+        MLEBABecLap deltaTSyncOp({geom}, {grids}, {dmap}, info, {ebf});
+#else
         MLABecLaplacian deltaTSyncOp({geom}, {grids}, {dmap}, info);
+#endif
         deltaTSyncOp.setMaxOrder(diffusion->maxOrder());
         deltaTSyncOp.setScalars(1.0, dt*be_cn_theta_SDC);
         deltaTSyncOp.setACoeffs(0.0, RhoCp_post);
@@ -7586,7 +7602,14 @@ PeleLM::mac_sync ()
       const BoxArray& fine_grids            = S_new_lev.boxArray();
       const DistributionMapping& fine_dmap  = S_new_lev.DistributionMap();
       const int nghost                      = S_new_lev.nGrow();
-      MultiFab increment(fine_grids, fine_dmap, numscal, nghost,MFInfo(),Factory());
+
+#ifdef AMREX_USE_EB
+        const Geometry& cgeom      = parent->Geom(lev);
+        auto myfactory = makeEBFabFactory(cgeom,fine_grids,fine_dmap,{nghost,nghost,nghost},EBSupport::basic);
+        MultiFab increment(fine_grids, fine_dmap, numscal, nghost,MFInfo(),*myfactory);
+#else
+        MultiFab increment(fine_grids, fine_dmap, numscal, nghost);
+#endif
 
       increment.setVal(0.0,nghost);
 
@@ -8328,11 +8351,11 @@ PeleLM::calcViscosity (const Real time,
   }
 
   auto math_bc_T = fetchBCArray(State_Type,Temp,1);
-  EB_interp_CC_to_FaceCentroid(mf_cc, D_DECL(*mf_ec[0],*mf_ec[1],*mf_ec[2]), Tcomp, Tcomp, 1, geom, math_bc_T);
+  EB_interp_CellCentroid_to_FaceCentroid(mf_cc, D_DECL(*mf_ec[0],*mf_ec[1],*mf_ec[2]), Tcomp, Tcomp, 1, geom, math_bc_T);
   EB_set_covered_faces({D_DECL(mf_ec[0],mf_ec[1],mf_ec[2])},Tcomp,1,typvals);
 
   auto math_bc_RY = fetchBCArray(State_Type,first_spec,nspecies);
-  EB_interp_CC_to_FaceCentroid(mf_cc, D_DECL(*mf_ec[0],*mf_ec[1],*mf_ec[2]), RYcomp, RYcomp, nspecies, geom, math_bc_RY);
+  EB_interp_CellCentroid_to_FaceCentroid(mf_cc, D_DECL(*mf_ec[0],*mf_ec[1],*mf_ec[2]), RYcomp, RYcomp, nspecies, geom, math_bc_RY);
   EB_set_covered_faces({D_DECL(mf_ec[0],mf_ec[1],mf_ec[2])},RYcomp,nspecies,typvals);
 
 #ifdef _OPENMP
@@ -8467,11 +8490,11 @@ PeleLM::calcDiffusivity (const Real time)
   }
 
   auto math_bc_T = fetchBCArray(State_Type,Temp,1);
-  EB_interp_CC_to_FaceCentroid(mf_cc, D_DECL(*mf_ec[0],*mf_ec[1],*mf_ec[2]), Tcomp, Tcomp, 1, geom, math_bc_T);
+  EB_interp_CellCentroid_to_FaceCentroid(mf_cc, D_DECL(*mf_ec[0],*mf_ec[1],*mf_ec[2]), Tcomp, Tcomp, 1, geom, math_bc_T);
   EB_set_covered_faces({D_DECL(mf_ec[0],mf_ec[1],mf_ec[2])},Tcomp,1,typvals);
 
   auto math_bc_RY = fetchBCArray(State_Type,first_spec,nspecies);
-  EB_interp_CC_to_FaceCentroid(mf_cc, D_DECL(*mf_ec[0],*mf_ec[1],*mf_ec[2]), RYcomp, RYcomp, nspecies, geom, math_bc_RY);
+  EB_interp_CellCentroid_to_FaceCentroid(mf_cc, D_DECL(*mf_ec[0],*mf_ec[1],*mf_ec[2]), RYcomp, RYcomp, nspecies, geom, math_bc_RY);
   EB_set_covered_faces({D_DECL(mf_ec[0],mf_ec[1],mf_ec[2])},RYcomp,nspecies,typvals);
 
 #ifdef _OPENMP
@@ -8792,7 +8815,7 @@ PeleLM::calc_divu (Real      time,
     {
 //      MultiFab divu_tmp(grids,dmap,divu.nComp(),divu.nGrow()+2,MFInfo(),Factory());
 //      divu_tmp.copy(divu);
-//      amrex::single_level_weighted_redistribute( 0, {divu_tmp}, {divu}, *volfrac, 0, 1, {geom} );
+//      amrex::single_level_weighted_redistribute(  {divu_tmp}, {divu}, *volfrac, 0, 1, {geom} );
     }
     EB_set_covered(divu,0.);
 #endif
@@ -8844,7 +8867,7 @@ PeleLM::calc_dpdt (Real      time,
     TT.setVal(0.);
     MultiFab::Copy(TT,Peos,0,0,1,nGrow);
     TT.FillBoundary(geom.periodicity());
-    EB_interp_CC_to_Centroid(Peos, TT, 0, 0, 1, geom);
+//    EB_interp_CC_to_Centroid(Peos, TT, 0, 0, 1, geom);
   }
 #endif
 
@@ -9581,6 +9604,13 @@ PeleLM::errorEst (TagBoxArray& tags,
   const int*  domain_hi = geom.Domain().hiVect();
   const Real* dx        = geom.CellSize();
   const Real* prob_lo   = geom.ProbLo();
+
+#ifdef AMREX_USE_EB
+  if (refine_cutcells) {
+        const MultiFab& S_new = get_new_data(State_Type);
+        amrex::TagCutCells(tags, S_new);
+  }
+#endif
 
   for (int j = 0; j < err_list.size(); j++)
   {

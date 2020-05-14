@@ -110,6 +110,9 @@ SKIP_NS_SPECIFIC_CODE = TRUE
 # IAMR
 Bdirs += $(IAMR_HOME)/Source
 Bdirs += $(IAMR_HOME)/Source/Src_$(DIM)d
+ifeq ($(USE_EB), TRUE)
+   Bdirs   += $(IAMR_HOME)/Source/MOL
+endif
 
 Bpack	+= $(foreach dir, $(Bdirs), $(dir)/Make.package)
 Blocs	+= $(foreach dir, $(Bdirs), $(dir))
