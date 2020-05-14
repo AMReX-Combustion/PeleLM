@@ -3,7 +3,7 @@
 .. _sec:tutorial1:
 
 Tutorial - A simple triple flame
-===============================
+================================
 
 .. _sec:TUTO1::Intro:
 
