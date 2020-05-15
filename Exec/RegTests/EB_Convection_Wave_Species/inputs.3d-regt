@@ -18,14 +18,14 @@ peleLM.hi_bc = Outflow Interior Interior
 #peleLM.hi_bc =  Outflow  Outflow
 
 #----------------------------TOP LEVEL INPUTS----------------------
-max_step  = 200 
+max_step  = 10 
 stop_time = 10.0
 
 #-------------------------AMR INPUTS----------------------------
 amr.n_cell    = 128 64 32
 #amr.n_cell    = 512 256
 #amr.n_cell    = 256 128
-
+amr.n_cell    = 64 32 16
 
 amr.v=1
 amr.max_level =  1            # maximum level number allowed
@@ -34,6 +34,7 @@ amr.regrid_int      = 2       # how often to regrid
 amr.n_error_buf     = 1 1 1 2 # number of buffer cells in error est
 amr.grid_eff        = 0.9     # what constitutes an efficient grid
 amr.blocking_factor = 8      # block factor in grid generation
+
 
 amr.checkpoint_files_output = 0
 amr.check_file      = chk     # root name of checkpoint file
@@ -143,7 +144,7 @@ proj.v = 2
 #
 fab.format = NATIVE
 
-#fabarray.mfiter_tile_size = 8 8 8
+#fabarray.mfiter_tile_size = 1024 1024 1024
 
 # Embedded Boundary options
 eb2.geom_type     = sphere
@@ -160,7 +161,7 @@ amr.gradY.field_name = Y(O2)
 
 #eb2.geom_type = all_regular
 
-ns.hack_nochem = 1
-amrex.fpe_trap_invalid = 1
-amrex.fpe_trap_zero = 1
-amrex.fpe_trap_overflow = 1
+#For now it is commented out because there is a bug in IAMR/amrex
+#amrex.fpe_trap_invalid = 1
+#amrex.fpe_trap_zero = 1
+#amrex.fpe_trap_overflow = 1
