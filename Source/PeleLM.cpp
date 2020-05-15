@@ -6841,29 +6841,43 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
  
      (*aofs)[S_mfi].setVal(0,bx,Density,1);
 // Reality a sanity check below
-      for (int d=0; d<BL_SPACEDIM; ++d)
-      {
-        (*EdgeState[d])[S_mfi].setVal(0,bx,Density,1); 
-        (*EdgeFlux[d])[S_mfi].setVal(0,bx,Density,1); 
-      }
+//      for (int d=0; d<BL_SPACEDIM; ++d)
+//      {
+//const Box& gbx = S_mfi.nodaltilebox(d);
+//        (*EdgeState[d])[S_mfi].setVal(0,gbx,Density,1); 
+//        (*EdgeFlux[d])[S_mfi].setVal(0,gbx,Density,1); 
+//      }
 
       for (int comp=0; comp < nspecies; comp++){      
         (*aofs)[S_mfi].plus((*aofs)[S_mfi],bx,bx,first_spec+comp,Density,1);
       }
       for (int d=0; d<BL_SPACEDIM; d++)
       {
-const Box& gbx = S_mfi.nodaltilebox(d);
+//const Box& gbx = S_mfi.nodaltilebox(d);
+const Box& gbx = S_mfi.grownnodaltilebox(d,EdgeState[d]->nGrow());
+
         for (int comp=0; comp < nspecies; comp++){
 //          edgestate[d][S_mfi].plus(edgestate[d][S_mfi],comp+1,0,1);
 //          edgeflux[d][S_mfi].plus(edgeflux[d][S_mfi],comp+1,0,1);
 (*EdgeState[d])[S_mfi].plus((*EdgeState[d])[S_mfi],gbx,gbx,first_spec+comp,Density,1);
 (*EdgeFlux[d])[S_mfi].plus((*EdgeFlux[d])[S_mfi],gbx,gbx,first_spec+comp,Density,1);
 
+
         }
       }
     }
   }
-   
+  
+//    for (MFIter S_mfi(Smf,true); S_mfi.isValid(); ++S_mfi)
+//    { 
+//for (int d=0; d<BL_SPACEDIM; d++)
+//      {
+//amrex::Print() << (*EdgeState[d])[S_mfi];
+//}
+//}
+
+
+ 
   // Extrapolate Temp, then compute flux divergence and value for RhoH from face values of T,Y,Rho
   
   {
@@ -6881,30 +6895,35 @@ const Box& gbx = S_mfi.nodaltilebox(d);
 //  Set covered values of density not to zero in roder to use fab.invert
 //  Get typical values for Rho
     Vector<Real> typvals;
-    typvals.resize(nspecies+3);
-    typvals[Rcomp] = typical_values[Density];
-    typvals[Tcomp] = typical_values[Temp];
+    typvals.resize(NUM_STATE);
+    typvals[Density] = typical_values[Density];
+    typvals[Temp] = typical_values[Temp];
     for (int k = 0; k < nspecies; ++k) {
-       typvals[rhoYcomp+k] = typical_values[first_spec+k]*typical_values[Density];
+       typvals[first_spec+k] = typical_values[first_spec+k]*typical_values[Density];
     }
-    EB_set_covered_faces({D_DECL(EdgeState[0],EdgeState[1],EdgeState[2])},first_spec,nspecies+1,typvals);
+    EB_set_covered_faces({D_DECL(EdgeState[0],EdgeState[1],EdgeState[2])},first_spec,nspecies,typvals);
     EB_set_covered_faces({D_DECL(EdgeState[0],EdgeState[1],EdgeState[2])},Temp,1,typvals);
-
+    EB_set_covered_faces({D_DECL(EdgeState[0],EdgeState[1],EdgeState[2])},Density,1,typvals);
 
   }
 
-//  {
-//  for (MFIter S_mfi(Smf,true); S_mfi.isValid(); ++S_mfi)
-//    {
-//      const Box& bx = S_mfi.tilebox();
-//      // Clean edge fluxes of temp otherwise sync term appears on tempe during mac_sync.
-//      // It's not really used, but it's cleaner this way.
-//      for (int d=0; d<AMREX_SPACEDIM; ++d) {
+/*
+  {
+  for (MFIter S_mfi(Smf,true); S_mfi.isValid(); ++S_mfi)
+    {
+  //    const Box& bx = S_mfi.nodaltilebox(d);
+      // Clean edge fluxes of temp otherwise sync term appears on tempe during mac_sync.
+      // It's not really used, but it's cleaner this way.
+      for (int d=0; d<AMREX_SPACEDIM; ++d) {
 //         const Box& ebx = amrex::surroundingNodes(bx,d);
-//         edgeflux[d].setVal(0.0,ebx,nspecies+2,1);
-//      }
-//    }
-//  }
+const Box& ebx = S_mfi.nodaltilebox(d);
+  //       *EdgeState[d]->setVal(0.0,ebx,RhoH,1);
+
+(*EdgeState[d])[S_mfi].setVal(0,ebx,RhoH,1);
+      }
+    }
+  }
+*/
 
   // Compute RhoH on faces, store in nspecies+1 component of edgestate[d]
 #ifdef _OPENMP
@@ -6917,7 +6936,8 @@ const Box& gbx = S_mfi.nodaltilebox(d);
       for (int d=0; d<AMREX_SPACEDIM; ++d)
       {
 //        const Box& ebox = S_mfi.grownnodaltilebox(d,edgestate[d].nGrow());
-const Box& ebox = S_mfi.nodaltilebox(d);
+//const Box& ebox = S_mfi.nodaltilebox(d);
+const Box& ebox = S_mfi.grownnodaltilebox(d,EdgeState[d]->nGrow());
 
         eR.resize(ebox,1);
         eR.copy((*EdgeState[d])[S_mfi],Density,0,1);
