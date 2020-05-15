@@ -614,9 +614,9 @@ Once all the species equations are updated, we compute :math:`{\boldsymbol{\cal 
 which are conservatively corrected versions of :math:`\widetilde{\boldsymbol{\cal F}}_{m,{\rm AD}}^{n+1,(k+1)}`,
 and then the species mass fractions are updated too, using
 
-.. math::
-    \frac{\rho^{n+1,(k+1)}Y_{m,{\rm AD}}^{n+1,(k+1)} - (\rho Y_m)^n}{\Delta t}
+.. math:: \frac{\rho^{n+1,(k+1)}Y_{m,{\rm AD}}^{n+1,(k+1)} - (\rho Y_m)^n}{\Delta t}
     = A_m^{{n+1/2,(k+1)}} + D_{m,AD}^{n+1,(k+1)} + \frac{1}{2}(D_m^n - D_m^{n+1,(k)}) + I_{R,m}^{n+1,(k)}
+    :label: SDCspec
 
 where
 
@@ -630,10 +630,9 @@ enthalpy diffuses with a :math:`\nabla T` driving force. We define an alternativ
 We begin by following the same SDC-correction formalism used for the species, and write
 the nonlinear update for :math:`\rho h` (noting that there is no reaction source term here):
 
-.. math::
-
-    \frac{\rho^{n+1,(k+1)} h_{{\rm AD}}^{n+1,(k+1)} - (\rho h)^n}{\Delta t} = A_h^{n+1/2,(k+1)} + D_{T,AD}^{n+1,(k+1)} + H_{AD}^{n+1,(k+1)}\\
+.. math:: \frac{\rho^{n+1,(k+1)} h_{{\rm AD}}^{n+1,(k+1)} - (\rho h)^n}{\Delta t} = A_h^{n+1/2,(k+1)} + D_{T,AD}^{n+1,(k+1)} + H_{AD}^{n+1,(k+1)}\\
     + \frac{1}{2} \Big( D_T^n - D_T^{n+1,(k)} + H^n - H^{n+1,(k)} \Big)
+    :label: SDCrhoH
 
 where
 
@@ -696,7 +695,7 @@ in the evolution of :math:`\rho Y_m` using,
 If :math:`k<k_{\rm max}-1`, set :math:`k=k+1` and return to **Step 2-I**.  Otherwise, the 
 time-advancement of the thermodynamic variables is complete, and set 
 :math:`(\rho Y_m,\rho h)^{n+1} = (\rho Y_m,\rho h)^{n+1,(k+1)}`.
-If :math:`k`+1=:math:`k_{max}`, **Step 2** of our algorithm is complete.
+If :math:`k+1 = k_{max}`, **Step 2** of our algorithm is complete.
 
 
 Modifications for AMR
@@ -741,27 +740,31 @@ projection equation
 
 .. math::
 
-    D^{MAC} \frac{1}{\rho} \delta e^{\ell} = D^{MAC} \delta U^{ADV,\ell}
+    D^{MAC} \frac{1}{\rho} \delta e^{\ell} = D^{MAC} \delta U^{ADV,\ell} + \delta_{\chi}^{\ell}
 
+where :math:`\delta_{\chi}^{\ell}` is incremented iteratively to enfoce the final state to satisfy the EOS
 and compute the correction velocity
 
 .. math::
 
     U^{ADV,\ell,corr} = -\frac{1}{\rho} G^{MAC} \delta e^{\ell}
 
-which is the increment of velocity to carry advection fluxes required to correct the errors made by advancing the
+which is the increment of velocity required to carry advection fluxes needed to correct the errors made by advancing the
 coarse state with the wrong velocities.
 
-The second part of the mismatch arises because the advective and diffusive fluxes on the coarse grid were computed without explicitly accounting for the fine grid, while on the fine grid the fluxes were computed using coarse-grid Dirichlet boundary data.  We define the flux discrepancies 
+The second part of the mismatch arises because the advective and diffusive fluxes on the coarse grid were computed 
+without explicitly accounting for the fine grid, while on the fine grid the fluxes were computed using coarse-grid 
+Dirichlet boundary data.  We define the flux discrepancies on the coarser level :math:`\ell` of the pair of levels considered:
 
 .. math::
 
-    \delta \boldsymbol{\cal F} = \Delta t^{\ell} \Big(
+    \delta \boldsymbol{\cal F^{\ell}} = \Delta t^{\ell} \Big(
     -\boldsymbol{\cal F}^{\ell,n+1/2} + \frac{1}{R^{d-1}} \sum_{k=0}^{R-1} \sum_{edges}
     \boldsymbol{\cal F}^{\ell+1,n+k+1/2} \Big)
 
 where :math:`\boldsymbol{\cal F}` is the total (advective + diffusive) flux through a face on the coarse-fine
-interface prior the synchronization operations.
+interface prior the synchronization operations. Since all operations are performed on the coarse level we will drop 
+the :math:`\ell` in the following.
 
 Since mass is conserved, corrections to density, :math:`\delta \rho^{sync}` on the coarse grid associated with
 mismatched advection fluxes may be computed explicitly
@@ -769,24 +772,31 @@ mismatched advection fluxes may be computed explicitly
 .. math::
 
     \delta \rho^{sync} = -D^{MAC} \Big( \sum_m U^{ADV,corr} \rho Y_m \Big)^{n+1/2} 
-    + \sum_m \nabla \cdot \delta \boldsymbol{\cal F}_{\rho Y_m}
+    + \sum_m \nabla \cdot \delta \boldsymbol{\cal F}_{m}
 
-The post-sync new-time value of density, :math:`\rho^{n+1} = \rho^{n+1,p} + \delta \rho^{sync}`.
-Given the corrected density we can decompose the corrections for :math:`Y_m` and :math:`h` into
-:math:`\delta ( \rho Y_m ) = Y^{n+1,p} \delta \rho^{sync} + \rho^{n+1} \delta Y^{sync}`.  Computing
-:math:`\delta Y^{sync}` requires solution of a linear system, since the flux mismatch
-contains implicit diffusion fluxes from the Crank-Nicolson discretization.
+We can compute the post-sync new-time value of density, :math:`\rho^{n+1} = \rho^{n+1,p} + \delta \rho^{sync}`,
+where :math:`^p` denotes *pre*-sync quantities.
+The synchronization correction of a state variable :math:`\delta ( \rho \phi )^{sync}`
+(where :math:`\phi \in (Y_m, h)`) is obtained by subtracting the pre-sync state value :math:`( \rho \phi )^{n+1,p}` from the corrected
+one :math:`( \rho \phi )^{n+1}`, both of which expressed from an SDC iteration update (see Eq. :eq:`SDCspec` and :eq:`SDCrhoH`)
+but with the divergence of the correction velocity fluxes (:math:`U^{ADV,corr}`) 
+and fluxes mismatch (:math:`\delta \boldsymbol{\cal F}`) included in the advection and diffusion corrected operators.
+
+Given the corrected density we can decompose the sync corrections 
+:math:`\delta ( \rho \phi )^{sync} = \phi^{n+1,p} \delta \rho^{sync} + \rho^{n+1} \delta \phi^{sync}` 
+and obtain the linear system for :math:`\delta \phi^{sync}` since the fluxes mismatch contain implicit 
+diffusion fluxes from the Crank-Nicolson discretization. For species :math:`m` the implicit system reads:
 
 .. math::
 
-    \rho^{n+1} \widetilde{\delta Y^{sync}} - \frac{\Delta t}{2} \nabla \cdot 
-    \widetilde{\delta {\cal F}}(\widetilde{\delta Y^{sync}})
-    = -D^{MAC} (U^{ADV,corr} \rho Y_m)^{n+1/2} + \nabla \cdot \delta \boldsymbol{\cal F}_{\rho Y_m} - Y^{n+1,p} \delta \rho^{sync}
+    \rho^{n+1} \widetilde{\delta Y_m^{sync}} - \Delta t \nabla \cdot 
+    \widetilde{\cal F_{m}}(\widetilde{\delta Y_m^{sync}})
+    = -D^{MAC} (U^{ADV,corr} \rho Y_m)^{n+1/2} + \nabla \cdot \delta \boldsymbol{\cal F}_{m} - Y_m^{n+1,p} \delta \rho^{sync}
 
-where :math:`\widetilde{\delta {\cal F}}` is the species correction flux due to the 
-sync source, :math:`\widetilde{\delta Y^{sync}}`. However, as in the single-level algorithm, the species
-fluxes must be corrected to sum to zero.  These adjusted fluxes are then used to recompute a :math:`\delta Y^{sync}`,
-which is then used via the expression above to compute :math:`\delta (\rho Y)^{sync}`, the increment to the
+where :math:`\widetilde{\cal F_{m}}` is the species correction flux due to the sync correction, 
+:math:`\widetilde{\delta Y_m^{sync}}`. However, as in the single-level algorithm, the species
+fluxes must be corrected to sum to zero.  These adjusted fluxes are then used to recompute a :math:`\delta Y_m^{sync}`,
+which is then used via the expression above to compute :math:`\delta (\rho Y_m)^{sync}`, the increment to the
 species mass densities.
 
 In order to get the equation for the enthalpy sync correction, it will help to simplify notation a bit.
