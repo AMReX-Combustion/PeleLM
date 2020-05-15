@@ -6630,6 +6630,8 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
     EdgeFlux[d]->setVal(0);
   }
 
+#if 0
+
   MultiFab edgeflux[AMREX_SPACEDIM];
   MultiFab edgestate[AMREX_SPACEDIM];
   int nghost = 2; // Because this is what MOL requires
@@ -6643,7 +6645,6 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
     edgestate[i].setVal(0);
   }
 
-#if 0
 
 // Advect RhoY  
   {
@@ -6839,11 +6840,12 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
 // const Box& gbx = S_mfi.nodaltilebox(d);
  
      (*aofs)[S_mfi].setVal(0,bx,Density,1);
-//      for (int d=0; d<BL_SPACEDIM; ++d)
-//      {
-//        (*EdgeState[d])[S_mfi].setVal(0,bx); 
-//        (*EdgeFlux[d])[S_mfi].setVal(0,bx); 
-//      }
+// Reality a sanity check below
+      for (int d=0; d<BL_SPACEDIM; ++d)
+      {
+        (*EdgeState[d])[S_mfi].setVal(0,bx,Density,1); 
+        (*EdgeFlux[d])[S_mfi].setVal(0,bx,Density,1); 
+      }
 
       for (int comp=0; comp < nspecies; comp++){      
         (*aofs)[S_mfi].plus((*aofs)[S_mfi],bx,bx,first_spec+comp,Density,1);
@@ -6932,7 +6934,7 @@ const Box& ebox = S_mfi.nodaltilebox(d);
         getHmixGivenTY_pphys(eH, (*EdgeState[d])[S_mfi], eY, ebox, Temp, 0, 0);
 
         (*EdgeState[d])[S_mfi].copy(eH,ebox,0,ebox,RhoH,1);      // Copy H into estate
-        (*EdgeState[d])[S_mfi].mult((*EdgeState[d])[S_mfi],ebox,0,RhoH,1); // Make H.Rho into estate
+        (*EdgeState[d])[S_mfi].mult((*EdgeState[d])[S_mfi],ebox,Density,RhoH,1); // Make H.Rho into estate
 
       }
     }
