@@ -24,9 +24,18 @@ DO_2S_CONVERGENCE=FALSE
 
 #######################
 USE_SUNDIALS_PP = FALSE
-
-USE_KLU_PP = FALSE
-
+ifeq ($(USE_SUNDIALS_PP), TRUE)
+  # provide location of sundials lib if needed
+  #SUNDIALS_LIB_DIR=$(PELE_PHYSICS_HOME)/ThirdParty/sundials/instdir/lib/
+  # use KLU sparse features -- only useful if CVODE is used on CPU
+  USE_KLU_PP = TRUE
+  ifeq ($(USE_KLU_PP), TRUE)
+    # provide location of KLU lib if needed
+    #SUITESPARSE_DIR=$(PELE_PHYSICS_HOME)/ThirdParty/SuiteSparse/
+  endif
+  # Activates GPU version
+  USE_CUDA_SUNDIALS_PP = FALSE
+endif
 #######################
 
 # Enable ht.velocity_plotfile option

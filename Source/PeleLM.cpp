@@ -158,8 +158,10 @@ Real PeleLM::P1atm_MKS;
 bool PeleLM::plot_reactions;
 bool PeleLM::plot_consumption;
 bool PeleLM::plot_heat_release;
-int  PeleLM::cvode_iE;
-int  PeleLM::cvode_ncells;
+int  PeleLM::ncells_chem;
+bool PeleLM::use_typ_vals_chem = 0;
+Real PeleLM::relative_tol_chem = 1.0e-10;
+Real PeleLM::absolute_tol_chem = 1.0e-10;
 static bool plot_rhoydot;
 bool PeleLM::flag_active_control;
 Real PeleLM::new_T_threshold;
@@ -590,8 +592,7 @@ PeleLM::Initialize ()
   PeleLM::sdc_iterMAX               = 1;
   PeleLM::num_mac_sync_iter         = 1;
   PeleLM::mHtoTiterMAX              = 20;
-  PeleLM::cvode_iE                  = 2;
-  PeleLM::cvode_ncells              = 1;
+  PeleLM::ncells_chem               = 1;
 
   ParmParse pp("ns");
 
@@ -737,7 +738,7 @@ PeleLM::Initialize ()
 void
 PeleLM::Initialize_specific ()
 {
-  
+
     num_deltaT_iters_MAX    = 10;
     deltaT_norm_max         = 1.e-10;
     num_forkjoin_tasks      = 1;
@@ -750,6 +751,10 @@ PeleLM::Initialize_specific ()
     pplm.query("num_deltaT_iters_MAX",num_deltaT_iters_MAX);
     pplm.query("deltaT_norm_max",deltaT_norm_max);
     pplm.query("deltaT_verbose",deltaT_verbose);
+
+    pplm.query("use_typ_vals_chem",use_typ_vals_chem);
+    pplm.query("relative_tol_chem",relative_tol_chem);
+    pplm.query("absolute_tol_chem",absolute_tol_chem);
     
     // Get boundary conditions
     Vector<std::string> lo_bc_char(BL_SPACEDIM);
@@ -1701,6 +1706,26 @@ PeleLM::set_typical_values(bool is_restart)
       {
         amrex::Print() << "\tY_" << spec_names[i] << ": " << typical_values[first_spec+i] <<'\n';
       }
+
+#ifdef USE_SUNDIALS_PP
+    if (use_typ_vals_chem) {
+      amrex::Print() << "Using typical values for the absolute tolerances of the ode solver\n";
+#ifdef _OPENMP
+#pragma omp parallel
+#endif  
+      {
+      Vector<Real> typical_values_chem;
+      typical_values_chem.resize(nspecies+1);
+      for (int i=0; i<nspecies; ++i) {
+	      typical_values_chem[i] = typical_values[first_spec+i] * typical_values[Density];
+      }
+      typical_values_chem[nspecies] = typical_values[Temp];
+      SetTypValsODE(typical_values_chem);
+      ReSetTolODE();
+      }
+    }  
+#endif
+
   }
 }
 

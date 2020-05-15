@@ -479,10 +479,17 @@ PeleLM::variableSetUp ()
   amrex::Print() << " Initialization of network, reactor and transport \n";
   init_network();
 
+  int reactor_type = 2;
 #ifdef _OPENMP
 #pragma omp parallel
 #endif  
-  reactor_init(&cvode_iE,&cvode_ncells);
+{
+#ifdef USE_SUNDIALS_PP
+  SetTolFactODE(relative_tol_chem,absolute_tol_chem);
+#endif
+  reactor_init(&reactor_type,&ncells_chem);
+}
+
 
   init_transport(use_tranlib);
 
