@@ -7150,7 +7150,8 @@ PeleLM::mac_sync ()
       // fixme? unsure how many ghost cells...
       Ucorr[idim]= new MultiFab(edgeba,dmap,1,ng,MFInfo(),Factory());
     }
-    mac_projector->mac_sync_solve(level,dt,rh,fine_ratio,Ucorr,&chi_sync);
+    Vector<BCRec> rho_math_bc = fetchBCArray(State_Type,Density,1);
+    mac_projector->mac_sync_solve(level,dt,rh,rho_math_bc[0],fine_ratio,Ucorr,&chi_sync);
 
     BL_PROFILE_VAR_STOP(HTUCORR);
     showMF("DBGSync",chi_sync,"sdc_chi_sync_inSync",level,mac_sync_iter,parent->levelSteps(level));
