@@ -1304,7 +1304,7 @@ PeleLM::define_data ()
   raii_fbs.push_back(std::unique_ptr<FluxBoxes>{new FluxBoxes(this, nEdgeStates, nGrowEdges)});
   EdgeState = raii_fbs.back()->get();
 
-  raii_fbs.push_back(std::unique_ptr<FluxBoxes>{new FluxBoxes(this, nEdgeStates, nGrow)});
+  raii_fbs.push_back(std::unique_ptr<FluxBoxes>{new FluxBoxes(this, nEdgeStates, nGrowEdges)});
   EdgeFlux  = raii_fbs.back()->get();
     
   if (nspecies>0 && !unity_Le)
@@ -6643,7 +6643,9 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
     edgestate[i].setVal(0);
   }
 
-  // Advect RhoY  
+#if 0
+
+// Advect RhoY  
   {
     Vector<BCRec> math_bcs(nspecies);
     math_bcs = fetchBCArray(State_Type, first_spec,nspecies);
@@ -6807,7 +6809,186 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
     }
   }
 
+
+#else
+
+  // Advect RhoY  
+  {
+    Vector<BCRec> math_bcs(nspecies);
+    math_bcs = fetchBCArray(State_Type, first_spec,nspecies);
+
+     MOL::ComputeAofs( *aofs, first_spec, nspecies, Smf, rhoYcomp,
+                       D_DECL(u_mac[0],u_mac[1],u_mac[2]),
+                       D_DECL(*EdgeState[0],*EdgeState[1],*EdgeState[2]), first_spec, false,
+                       D_DECL(*EdgeFlux[0],*EdgeFlux[1],*EdgeFlux[2]), first_spec,                    
+                       math_bcs, geom );
+
+
+    EB_set_covered(*aofs, 0.);
+    
+  }
   
+  // Set flux, flux divergence, and face values for rho as sums of the corresponding RhoY quantities
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
+  {
+    for (MFIter S_mfi(Smf,true); S_mfi.isValid(); ++S_mfi)
+    {
+      const Box& bx = S_mfi.tilebox();
+// const Box& gbx = S_mfi.nodaltilebox(d);
+ 
+     (*aofs)[S_mfi].setVal(0,bx,Density,1);
+//      for (int d=0; d<BL_SPACEDIM; ++d)
+//      {
+//        (*EdgeState[d])[S_mfi].setVal(0,bx); 
+//        (*EdgeFlux[d])[S_mfi].setVal(0,bx); 
+//      }
+
+      for (int comp=0; comp < nspecies; comp++){      
+        (*aofs)[S_mfi].plus((*aofs)[S_mfi],bx,bx,first_spec+comp,Density,1);
+      }
+      for (int d=0; d<BL_SPACEDIM; d++)
+      {
+const Box& gbx = S_mfi.nodaltilebox(d);
+        for (int comp=0; comp < nspecies; comp++){
+//          edgestate[d][S_mfi].plus(edgestate[d][S_mfi],comp+1,0,1);
+//          edgeflux[d][S_mfi].plus(edgeflux[d][S_mfi],comp+1,0,1);
+(*EdgeState[d])[S_mfi].plus((*EdgeState[d])[S_mfi],gbx,gbx,first_spec+comp,Density,1);
+(*EdgeFlux[d])[S_mfi].plus((*EdgeFlux[d])[S_mfi],gbx,gbx,first_spec+comp,Density,1);
+
+        }
+      }
+    }
+  }
+   
+  // Extrapolate Temp, then compute flux divergence and value for RhoH from face values of T,Y,Rho
+  
+  {
+    Vector<BCRec> math_bcs(1);
+    math_bcs = fetchBCArray(State_Type, Temp, 1);
+
+    MOL::ComputeAofs( *aofs, Temp, 1, Smf, Tcomp,
+                       D_DECL(u_mac[0],u_mac[1],u_mac[2]),
+                       D_DECL(*EdgeState[0],*EdgeState[1],*EdgeState[2]), Temp, false,
+                       D_DECL(*EdgeFlux[0],*EdgeFlux[1],*EdgeFlux[2]), Temp,
+                       math_bcs, geom );
+
+    EB_set_covered(*aofs, 0.);
+
+//  Set covered values of density not to zero in roder to use fab.invert
+//  Get typical values for Rho
+    Vector<Real> typvals;
+    typvals.resize(nspecies+3);
+    typvals[Rcomp] = typical_values[Density];
+    typvals[Tcomp] = typical_values[Temp];
+    for (int k = 0; k < nspecies; ++k) {
+       typvals[rhoYcomp+k] = typical_values[first_spec+k]*typical_values[Density];
+    }
+    EB_set_covered_faces({D_DECL(EdgeState[0],EdgeState[1],EdgeState[2])},first_spec,nspecies+1,typvals);
+    EB_set_covered_faces({D_DECL(EdgeState[0],EdgeState[1],EdgeState[2])},Temp,1,typvals);
+
+
+  }
+
+//  {
+//  for (MFIter S_mfi(Smf,true); S_mfi.isValid(); ++S_mfi)
+//    {
+//      const Box& bx = S_mfi.tilebox();
+//      // Clean edge fluxes of temp otherwise sync term appears on tempe during mac_sync.
+//      // It's not really used, but it's cleaner this way.
+//      for (int d=0; d<AMREX_SPACEDIM; ++d) {
+//         const Box& ebx = amrex::surroundingNodes(bx,d);
+//         edgeflux[d].setVal(0.0,ebx,nspecies+2,1);
+//      }
+//    }
+//  }
+
+  // Compute RhoH on faces, store in nspecies+1 component of edgestate[d]
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
+  {
+    FArrayBox eR, eY, eH;
+    for (MFIter S_mfi(Smf,true); S_mfi.isValid(); ++S_mfi)
+    {
+      for (int d=0; d<AMREX_SPACEDIM; ++d)
+      {
+//        const Box& ebox = S_mfi.grownnodaltilebox(d,edgestate[d].nGrow());
+const Box& ebox = S_mfi.nodaltilebox(d);
+
+        eR.resize(ebox,1);
+        eR.copy((*EdgeState[d])[S_mfi],Density,0,1);
+        eR.invert(1.0,ebox,0,1);
+
+        eY.resize(ebox,nspecies);
+        eY.copy((*EdgeState[d])[S_mfi],first_spec,0,nspecies);
+
+        for (int n=0; n<nspecies; ++n) {
+          eY.mult(eR,0,n,1);
+        }
+
+        eH.resize(ebox,1);
+        getHmixGivenTY_pphys(eH, (*EdgeState[d])[S_mfi], eY, ebox, Temp, 0, 0);
+
+        (*EdgeState[d])[S_mfi].copy(eH,ebox,0,ebox,RhoH,1);      // Copy H into estate
+        (*EdgeState[d])[S_mfi].mult((*EdgeState[d])[S_mfi],ebox,0,RhoH,1); // Make H.Rho into estate
+
+      }
+    }
+  }
+
+  // Compute -Div(flux.Area) for RhoH, return Area-scaled (extensive) fluxes
+
+  {
+    Vector<BCRec> math_bcs(1);
+    math_bcs = fetchBCArray(State_Type, RhoH, 1);
+
+    MOL::ComputeAofs( *aofs, RhoH, 1, Smf, nspecies+1,
+                       D_DECL(u_mac[0],u_mac[1],u_mac[2]),
+                       D_DECL(*EdgeState[0],*EdgeState[1],*EdgeState[2]), RhoH, true,
+                       D_DECL(*EdgeFlux[0],*EdgeFlux[1],*EdgeFlux[2]), RhoH,
+                       math_bcs, geom ); 
+
+    EB_set_covered(*aofs, 0.);
+
+  }
+
+  
+  // Load up non-overlapping bits of edge states and fluxes into mfs
+/*
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
+  {
+    for (MFIter S_mfi(Smf,true); S_mfi.isValid(); ++S_mfi)
+    {
+      for (int d=0; d<AMREX_SPACEDIM; ++d)
+      {
+        const Box& efbox = S_mfi.nodaltilebox(d);
+
+        // For EB, we have 2 ghost-cells for EdgeState and 0 for EdgeFluxes
+        // This is why we don't do the copy with the same box infos
+        const Box& bx = S_mfi.tilebox();
+        const Box& esbox = amrex::surroundingNodes(amrex::grow(bx,2),d);
+
+        (*EdgeState[d])[S_mfi].copy(edgestate[d][S_mfi],esbox,0,esbox,Density,nspecies+1);
+        (*EdgeState[d])[S_mfi].copy(edgestate[d][S_mfi],esbox,nspecies+1,esbox,RhoH,1);
+        (*EdgeState[d])[S_mfi].copy(edgestate[d][S_mfi],esbox,nspecies+2,esbox,Temp,1);
+
+        (*EdgeFlux[d])[S_mfi].copy(edgeflux[d][S_mfi],efbox,0,efbox,Density,nspecies+1);
+        (*EdgeFlux[d])[S_mfi].copy(edgeflux[d][S_mfi],efbox,nspecies+1,efbox,RhoH,1);
+        (*EdgeFlux[d])[S_mfi].copy(edgeflux[d][S_mfi],efbox,nspecies+2,efbox,Temp,1);
+
+      }
+    }
+  }
+*/
+ 
+#endif
+
+
+ 
 #else
  
 
@@ -7283,7 +7464,7 @@ PeleLM::mac_sync ()
 #ifdef USE_WBAR
     // compute beta grad Wbar terms using the latest version of the post-sync state
     // Initialize containers first here, 1/2 is for C-N sync, dt mult later with everything else
-    for (int dir=0; dir<AMREX_aSPACEDIM; ++dir) {
+    for (int dir=0; dir<AMREX_SPACEDIM; ++dir) {
       (*SpecDiffusionFluxWbar[dir]).setVal(0.);
     }
     compute_Wbar_fluxes(curr_time,0.5);
