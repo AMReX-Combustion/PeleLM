@@ -505,7 +505,8 @@ the time-explicit advective fluxes for :math:`U`, :math:`\rho h`, and :math:`\rh
 .. math::
 
     \rho^{n+1/2}\frac{U^{n+1,*}-U^n}{\Delta t}
-    + \rho^{n+1/2}\left(U^{\rm ADV}\cdot\nabla U\right)^{n+1/2} = \frac{1}{2}\left(\nabla\cdot\tau^n
+    + \rho^{n+1/2}\left(U^{\rm ADV}\cdot\nabla U\right)^{n+1/2} = \\
+    \frac{1}{2}\left(\nabla\cdot\tau^n
     + \nabla\cdot\tau^{n+1,*}\right) - \nabla\pi^{n-1/2} + \frac{1}{2}(F^n + F^{n+1}),
 
 where :math:`\tau^{n+1,*} = \mu^{n+1}[\nabla U^{n+1,*} +(\nabla U^{n+1,*})^T - 2\mathcal{I}\widehat S^{n+1}/3]` and 
@@ -788,10 +789,10 @@ and obtain the linear system for :math:`\delta \phi^{sync}` since the fluxes mis
 diffusion fluxes from the Crank-Nicolson discretization. For species :math:`m` the implicit system reads:
 
 .. math::
-
     \rho^{n+1} \widetilde{\delta Y_m^{sync}} - \Delta t \nabla \cdot 
     \widetilde{\cal F_{m}}(\widetilde{\delta Y_m^{sync}})
     = -D^{MAC} (U^{ADV,corr} \rho Y_m)^{n+1/2} + \nabla \cdot \delta \boldsymbol{\cal F}_{m} - Y_m^{n+1,p} \delta \rho^{sync}
+    :label: specSyncEq
 
 where :math:`\widetilde{\cal F_{m}}` is the species correction flux due to the sync correction, 
 :math:`\widetilde{\delta Y_m^{sync}}`. However, as in the single-level algorithm, the species
@@ -799,42 +800,77 @@ fluxes must be corrected to sum to zero.  These adjusted fluxes are then used to
 which is then used via the expression above to compute :math:`\delta (\rho Y_m)^{sync}`, the increment to the
 species mass densities.
 
-In order to get the equation for the enthalpy sync correction, it will help to simplify notation a bit.
-We define :math:`S_h^{sync}` to contain all the usual sync source terms, including the divergence of the
-re-advected enthalpy flux, and the refluxed advective and diffusive fluxes (:math:`\delta \boldsymbol{\cal F}` above).
-We now write the enthalpy conservation equation for the composite system, after the sync.
+In order to get the equation for the enthalpy sync correction, we operate as for species mass fractions.
+We will present the details of the method.
+The SDC advection-diffusion udpate for *pre*-sync enthalpy is :eq:`SDCrhoH` (now including the superscript :math:`p`) 
+and its corrected counterpart reads:
+
+.. math:: \frac{\rho^{n+1} h_{{\rm AD}}^{n+1} - (\rho h)^n}{dt}
+    = A_h^{n+1/2,(k+1),*} + D_T^{n+1,(k+1),*} + H^{n+1,(k+1),*} \\
+    + \frac{1}{2} \Big( D_T^{n,*} - D_T^{n+1,(k),*} + H^{n,*} - H^{n+1,(k),*} \Big)
+    :label: SDCrhoHcorr
+
+where
+
+.. math::
+    A_h^{n+1/2,(k+1),*} = - \nabla \cdot ( \rho h (U^{ADV} + U^{ADV,corr})^{n+1/2,(k+1)} + \delta \boldsymbol{\cal F}_{Adv,h} ) \\
+                        = A_h^{n+1/2,(k+1),p} - \nabla \cdot ( \rho h ( U^{ADV,corr})^{n+1/2,(k+1)} +  \delta \boldsymbol{\cal F}_{Adv,h} ) \\
+    \\
+    D_T^{n,*}           = \nabla \cdot ( \lambda^{n} \nabla T^{n} + \delta \boldsymbol{\cal F}_{DT,h}^{n} ) = D_T^{n,p} + \nabla \cdot ( \delta \boldsymbol{\cal F}_{DT,h}^{n} ) \\
+    \\
+    D_T^{n+1,(k),*}     = \nabla \cdot ( \lambda^{n+1,(k)} \nabla T^{n+1,(k)} + \delta \boldsymbol{\cal F}_{DT,h}^{n+1,(k)} ) \\
+                        = D_T^{n+1,(k),p} + \nabla \cdot (\delta \boldsymbol{\cal F}_{DT,h}^{n+1,(k)} ) \\
+    \\
+    D_T^{n+1,(k+1),*}   = \nabla \cdot ( \lambda^{n+1,(k+1),p} \nabla (T^{n+1,(k+1),p}+\delta T^{sync}) + \delta \boldsymbol{\cal F}_{DT,h}^{n+1,(k+1)} ) \\    
+                        = D_T^{n+1,(k+1),p} + \nabla \cdot ( \lambda^{n+1,(k+1),p} \nabla \delta T^{sync} + \delta \boldsymbol{\cal F}_{DT,h}^{n+1,(k+1)}) \\
+    \\
+    H^{n,*}            = - \nabla \cdot (\sum_m h_m(T^{n}) \; {\boldsymbol{\cal F}}_m^{n} + \delta \boldsymbol{\cal F}_{DH,h}^{n} ) = H^{n,p} - \nabla \cdot (\delta \boldsymbol{\cal F}_{DH,h}^{n}) \\
+    \\
+    H^{n+1,(k),*}      = - \nabla \cdot (\sum_m h_m(T^{n+1,(k)}) \; {\boldsymbol{\cal F}}_m^{n+1,(k)} + \delta \boldsymbol{\cal F}_{DH,h}^{n+1,(k)} )\\
+                       = H^{n+1,(k),p} - \nabla \cdot ( \delta \boldsymbol{\cal F}_{DH,h}^{n+1,(k)} )\\
+    \\
+    H^{n+1,(k+1),*} = - \nabla \cdot (\sum_m h_m(T^{n+1,(k+1),p}+\delta T^{sync}) \; {\boldsymbol{\cal F}}_m^{n+1,(k+1)} + \delta \boldsymbol{\cal F}_{DH,h}^{n+1,(k+1)} )
+   
+and with :math:`\delta T^{sync} = T^{n+1,(k+1)} - T^{n+1,(k+1),p}`. 
+Subtracting the *pre*-sync eq. :eq:`SDCrhoH` (with the superscript :math:`p`) from the above 
+equation :eq:`SDCrhoHcorr` and gathering the flux mismatches and correction velocity fluxes in :math:`S_h^{sync}` we obtain: 
+
+.. math:: \frac{\delta(\rho h)^{sync}}{\Delta t} = S_h^{sync} + D_T^{n+1,(k+1)} - D_T^{n+1,(k+1),p} + H^{n+1,(k+1)} - H^{n+1,(k+1),p}
+    :label: rhoHsyncEq
+
+where
 
 .. math::
 
-    \frac{\rho^{n+1} h_{{\rm AD}}^{n+1} - (\rho h)^n}{dt}
-    = A_h^{*} + \frac{1}{2} \Big( D_T^{n+1} + D_T^n + H^{n+1} + H^n\Big)
+    S_h^{sync} = - \nabla \cdot ( \rho h ( U^{ADV,corr})^{n+1/2,(k+1)} +  \delta \boldsymbol{\cal F}_{Adv,h} ) \\
+                 + \frac{1}{2} \nabla \cdot ( \delta \boldsymbol{\cal F}_{DT,h}^{n} - \delta \boldsymbol{\cal F}_{DT,h}^{n+1,(k)} )
+                 - \frac{1}{2} \nabla \cdot ( \delta \boldsymbol{\cal F}_{DH,h}^{n} - \delta \boldsymbol{\cal F}_{DH,h}^{n+1,(k)} ) \\
+                 + \nabla \cdot (\delta \boldsymbol{\cal F}_{DT,h}^{n+1,(k+1)}) - \nabla \cdot (\delta \boldsymbol{\cal F}_{DH,h}^{n+1,(k+1)} )
 
-where the terms here are defined analagously to those in the level-advance expression above.
-We subtract the equation used to compute :math:`(\rho h)^{n+1,p}` to arrive at an equation for the sync correction
-
-.. math::
-
-    \frac{ \rho^{n+1} h_{{\rm AD}}^{n+1} - (\rho h)^{(n+1,p)}}{dt}
-    = S_h^{sync} + \frac{1}{2} \Big( D_T^{n+1} - D_T^{(n+1,p)} + H^{n+1} - H^{(n+1,p)} \Big)
-
-Now, we make the following definitions: :math:`D_T^{n+1} = \nabla \cdot \lambda^{(n+1,p)} \nabla T^{n+1}, H^{n+1} = - \nabla \cdot \sum h_m (T^{n+1}) {\boldsymbol{\cal F}}_{m,AD}^{n+1}`, and  
-:math:`{\boldsymbol{\cal F}}_{m,AD}^{n+1} = {\boldsymbol{\cal F}}_{m,AD}^{(n+1,p)} 
-+ \delta {\boldsymbol{\cal F}}_{m}`.
-Note that this suggests that we don't want to update the conductivity to :math:`\lambda^{n+1}`, but we do
-want to use :math:`h_m^{n+1}`.
-We can then identify how to form the right hand side for the enthalpy sync equation, because
+and the updated (:math:`n+1`) fluxes (without the :math:`*`) only now contain the implicit contribution, i.e:
 
 .. math::
 
-    &D_T^{n+1} - D_T^{(n+1,p)} = \nabla \cdot \lambda^{(n+1,p)} \nabla (\delta T^{sync}), \; \;\mbox{and}  \\
-    &H^{n+1} - H^{(n+1,p)} = - \nabla \cdot \Big( h_m^{n+1} \delta {\boldsymbol{\cal F}}_{m}^{sync}
-    + \delta h_m^{sync} {\boldsymbol{\cal F}}_{m}^{(n+1,p)} \Big)
+    D_T^{n+1,(k+1)}   =  D_T^{n+1,(k+1),p} + \nabla \cdot ( \lambda^{n+1,(k+1),p} \nabla \delta T^{sync} ) \\
+    H^{n+1,(k+1)}     = - \nabla \cdot (\sum_m h_m(T^{n+1,(k+1),p}+\delta T^{sync}) \; {\boldsymbol{\cal F}}_m^{n+1,(k+1)}  
 
-where :math:`\delta h_m^{sync} = h_m(T^{n+1}) - h_m(T^{(n+1,p)})`.
+To go further we note that:
 
-Just as in the level advance, we cannot compute :math:`h_{{\rm AD}}^{n+1}` directly, so we solve this iteratively based on the approximation
-:math:`h_{{\rm AD}}^{n+1,\eta+1} \approx h_{{\rm AD}}^{n+1,\eta} + C_{p}^{n+1,\eta} \Delta T^{\eta+1}`, with
-:math:`\Delta T^{\eta+1} = T_{{\rm AD}}^{n+1,\eta+1} - T_{{\rm AD}}^{n+1,\eta}`, and iteration index, :math:`\eta` = 1::math:`\,\eta_{MAX}`.
+.. math::
+
+    D_T^{n+1,(k+1)} - D_T^{n+1,(k+1),p} = \nabla \cdot ( \lambda^{n+1,(k+1),p} \nabla \delta T^{sync} ) \\ 
+    H^{n+1,(k+1)}   - H^{n+1,(k+1),p}   = - \nabla \cdot \sum_m (h_m (T^{n+1,(k+1),p} + \delta T^{sync}) \; \delta {\boldsymbol{\cal F}}_m^{sync}  \\
+                                          + \delta {h}_m^{sync} \;  {\boldsymbol{\cal F}}_m^{n+1,(k+1),p}) 
+
+where :math:`\delta h_m^{sync} = h_m(T^{n+1,(k+1)}) - h_m(T^{n+1,(k+1),p})` and :math:`\delta {\boldsymbol{\cal F}}_m^{sync}` is 
+the species flux increment due to the species sync correction appearing on the LHS of eq. :eq:`specSyncEq`. 
+Eq. :eq:`rhoHsyncEq` is the equation for the sync correction. At this point, we can drop the SDC iteration index :math:`k+1` 
+for simplicity (all :math:`k` related quantities are contained in :math:`S_h^{sync}`). 
+Note that we don't want to update the conductivity in :math:`D_T^{n+1}`, but we do want to use an updated version of :math:`h_m`. 
+
+Just as in the level advance, we cannot compute :math:`h^{n+1}` directly, so we solve this iteratively based on the approximation
+:math:`h^{n+1,\eta+1} \approx h^{n+1,\eta} + C_{p}^{n+1,\eta} \Delta T^{\eta+1}`, with
+:math:`\Delta T^{\eta+1} = T^{n+1,\eta+1} - T^{n+1,\eta}`, and iteration index, :math:`\eta` = 1::math:`\,\eta_{MAX}`.
 The sync equation is thus recast into a linear equation for :math:`\Delta T^{\eta+1}`, and we
 lag the :math:`H` terms in iteration :math:`\eta`,
 
@@ -842,13 +878,13 @@ lag the :math:`H` terms in iteration :math:`\eta`,
 
     \rho^{n+1} C_p^{n+1,\eta} \Delta T^{\eta +1}
     - dt \, \nabla \cdot \lambda^{(n+1,p)} \nabla (\Delta T^{\eta +1}) \hspace{10em}\\
-    = \rho^{(n+1,p)} h^{(n+1,p)} - \rho^{n+1} h^{n+1,\eta} + \frac{dt}{2} \Big( S_h^{sync} + 
-    \nabla \cdot \lambda^{(n+1,p)} \nabla (\delta T^{sync}) \\
-    - \nabla \cdot \Big( h_m^{n+1} \delta {\boldsymbol{\cal F}}_{m}^{sync}
-    + \delta h_m^{sync} {\boldsymbol{\cal F}}_{m}^{(k+1)} \Big) \Big)
+    = \rho^{(n+1,p)} h^{(n+1,p)} - \rho^{n+1} h^{n+1,\eta} + dt \Big( S_h^{sync} + 
+    \nabla \cdot \lambda^{(n+1,p)} \nabla (\delta T^{sync,\eta}) \\
+    - \nabla \cdot \sum_m \Big( h_m^{n+1} \delta {\boldsymbol{\cal F}}_{m}^{sync}
+    + \delta h_m^{sync} {\boldsymbol{\cal F}}_{m}^{(m+1)} \Big) \Big)
 
-After each iteration, update :math:`T_{{\rm AD}}^{n+1,\eta+1} = T_{{\rm AD}}^{n+1,\eta} + \Delta T^{\eta+1}`, 
-:math:`\delta T^{sync} = T^{n+1,\eta+1} - T^{(n+1,p)}`, and 
-re-evaluate :math:`(C_p,h_m)^{n+1,\eta+1}` using :math:`(T_{{\rm AD}}^{n+1,\eta+1}, Y_{m,{\rm AD}}^{n+1}`).  After the iterations are
-finished, set :math:`T_{{\rm AD}}^{n+1} = T_{{\rm AD}}^{(n+1,p)} + \delta T^{\eta_{MAX}}`, and compute
-:math:`h_{{\rm AD}}^{n+1} = h(T_{{\rm AD}}^{n+1},Y_{{\rm AD}}^{n+1})`.
+After each iteration, update :math:`T^{n+1,\eta+1} = T^{n+1,\eta} + \Delta T^{\eta+1}`, 
+:math:`\delta T^{sync,\eta+1} = T^{n+1,\eta+1} - T^{(n+1,p)}`, and 
+re-evaluate :math:`(C_p,h_m)^{n+1,\eta+1}` using :math:`(T^{n+1,\eta+1}, Y_m^{n+1}`).  After the iterations are
+converged, set :math:`T^{n+1} = T^{(n+1,p)} + \delta T^{sync,\eta_{MAX}}`, and compute
+:math:`h^{n+1} = h(T^{n+1},Y_m^{n+1})`.
