@@ -4807,6 +4807,10 @@ PeleLM::compute_differential_diffusion_fluxes (const MultiFab& S,
   // If updateFluxReg=T (we are in the final corrector):
   //   ADD (1/2)*h_m^(k) Gamma_m^(k)
   //
+
+#ifdef AMREX_USE_EB
+EB_set_covered_faces({D_DECL(flux[0],flux[1],flux[2])},0.);
+#endif
   
   if ( do_reflux && ( is_predictor || updateFluxReg ) )
   {
@@ -6683,52 +6687,42 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
   {
     for (MFIter S_mfi(Smf,true); S_mfi.isValid(); ++S_mfi)
     {
-const Box bx = S_mfi.tilebox();
- // this is to check efficiently if this tile contains any eb stuff
-    const EBFArrayBox& in_fab = static_cast<EBFArrayBox const&>(Smf[S_mfi]);
-    const EBCellFlagFab& flags = in_fab.getEBCellFlagFab();
+      const Box bx = S_mfi.tilebox();
+      // this is to check efficiently if this tile contains any eb stuff
+      const EBFArrayBox& in_fab = static_cast<EBFArrayBox const&>(Smf[S_mfi]);
+      const EBCellFlagFab& flags = in_fab.getEBCellFlagFab();
 
-if(flags.getType(amrex::grow(bx, 0)) == FabType::covered)
-    {
-(*aofs)[S_mfi].setVal(0,bx,Density,1);
-for (int d=0; d<AMREX_SPACEDIM; ++d)
+      if(flags.getType(amrex::grow(bx, 0)) == FabType::covered)
       {
-        const Box& ebox = S_mfi.grownnodaltilebox(d,EdgeState[d]->nGrow());
+        (*aofs)[S_mfi].setVal(0,bx,Density,1);
+        for (int d=0; d<AMREX_SPACEDIM; ++d)
+        {
+          const Box& ebox = S_mfi.grownnodaltilebox(d,EdgeState[d]->nGrow());
 
-(*EdgeState[d])[S_mfi].setVal(0,bx,0,NUM_STATE);
-(*EdgeFlux[d])[S_mfi].setVal(0,bx,0,NUM_STATE);
-}
-}
-else
-{
-
-
-
-
-//      const Box& bx = S_mfi.tilebox();
- 
-     (*aofs)[S_mfi].setVal(0,bx,Density,1);
-
-      for (int comp=0; comp < nspecies; comp++){      
-        (*aofs)[S_mfi].plus((*aofs)[S_mfi],bx,bx,first_spec+comp,Density,1);
-      }
-      for (int d=0; d<BL_SPACEDIM; d++)
-      {
-        const Box& gbx = S_mfi.grownnodaltilebox(d,EdgeState[d]->nGrow());
-
-        for (int comp=0; comp < nspecies; comp++){
-          (*EdgeState[d])[S_mfi].plus((*EdgeState[d])[S_mfi],gbx,gbx,first_spec+comp,Density,1);
-          (*EdgeFlux[d])[S_mfi].plus((*EdgeFlux[d])[S_mfi],gbx,gbx,first_spec+comp,Density,1);
-
+          (*EdgeState[d])[S_mfi].setVal(0.,ebox,0,NUM_STATE);
+          (*EdgeFlux[d])[S_mfi].setVal(0.,ebox,0,NUM_STATE);
         }
+      }
+      else
+      {
 
+        (*aofs)[S_mfi].setVal(0,bx,Density,1);
 
-amrex::Print() << "\n DEBUG PLOTTING EdgeState after RhoY " << d << " \n";
-//amrex::Print() << (*EdgeState[d])[S_mfi];
+        for (int comp=0; comp < nspecies; comp++){      
+          (*aofs)[S_mfi].plus((*aofs)[S_mfi],bx,bx,first_spec+comp,Density,1);
+        }
+        for (int d=0; d<BL_SPACEDIM; d++)
+        {
+          const Box& gbx = S_mfi.grownnodaltilebox(d,EdgeState[d]->nGrow());
+
+          for (int comp=0; comp < nspecies; comp++){
+            (*EdgeState[d])[S_mfi].plus((*EdgeState[d])[S_mfi],gbx,gbx,first_spec+comp,Density,1);
+            (*EdgeFlux[d])[S_mfi].plus((*EdgeFlux[d])[S_mfi],gbx,gbx,first_spec+comp,Density,1);
+          }
+        }
       }
     }
-  }
-}  
+  }  
 
   // Extrapolate Temp, then compute flux divergence and value for RhoH from face values of T,Y,Rho
   
@@ -6745,7 +6739,6 @@ amrex::Print() << "\n DEBUG PLOTTING EdgeState after RhoY " << d << " \n";
     EB_set_covered(*aofs, 0.);
 
   }
-
 
 {
 //  Set covered values of density not to zero in roder to use fab.invert
@@ -6764,6 +6757,7 @@ amrex::Print() << "\n DEBUG PLOTTING EdgeState after RhoY " << d << " \n";
   
 EB_set_covered_faces_ghost({D_DECL(EdgeFlux[0],EdgeFlux[1],EdgeFlux[2])},0.);
 
+
   // Compute RhoH on faces, store in nspecies+1 component of edgestate[d]
 #ifdef _OPENMP
 #pragma omp parallel
@@ -6772,53 +6766,45 @@ EB_set_covered_faces_ghost({D_DECL(EdgeFlux[0],EdgeFlux[1],EdgeFlux[2])},0.);
     FArrayBox eR, eY, eH;
     for (MFIter S_mfi(Smf,true); S_mfi.isValid(); ++S_mfi)
     {
-Box bx = S_mfi.tilebox();
- // this is to check efficiently if this tile contains any eb stuff
-    const EBFArrayBox& in_fab = static_cast<EBFArrayBox const&>(Smf[S_mfi]);
-    const EBCellFlagFab& flags = in_fab.getEBCellFlagFab();
+      Box bx = S_mfi.tilebox();
+      // this is to check efficiently if this tile contains any eb stuff
+      const EBFArrayBox& in_fab = static_cast<EBFArrayBox const&>(Smf[S_mfi]);
+      const EBCellFlagFab& flags = in_fab.getEBCellFlagFab();
 
-if(flags.getType(amrex::grow(bx, 0)) == FabType::covered)
-    {
-
-for (int d=0; d<AMREX_SPACEDIM; ++d)
+      if(flags.getType(amrex::grow(bx, 0)) == FabType::covered)
       {
-        const Box& ebox = S_mfi.grownnodaltilebox(d,EdgeState[d]->nGrow());
+        for (int d=0; d<AMREX_SPACEDIM; ++d)
+        {
+          const Box& ebox = S_mfi.grownnodaltilebox(d,EdgeState[d]->nGrow());
 
-(*EdgeState[d])[S_mfi].setVal(0,bx,0,NUM_STATE);
-(*EdgeFlux[d])[S_mfi].setVal(0,bx,0,NUM_STATE);
-}
-}
-else
-{
-
-
-      for (int d=0; d<AMREX_SPACEDIM; ++d)
-      {
-        const Box& ebox = S_mfi.grownnodaltilebox(d,EdgeState[d]->nGrow());
-amrex::Print() << "\n DEBUG PLOTTING EdgeState after Temperature " << d << " \n";
-        eR.resize(ebox,1);
-        eR.copy((*EdgeState[d])[S_mfi],ebox,Density,ebox,0,1);
-//amrex::Print() << (*EdgeState[d])[S_mfi];
-//amrex::Print() << eR;
-        eR.invert(1.0,ebox,0,1);
-
-        eY.resize(ebox,nspecies);
-        eY.copy((*EdgeState[d])[S_mfi],ebox,first_spec,ebox,0,nspecies);
-
-        for (int n=0; n<nspecies; ++n) {
-          eY.mult(eR,ebox,0,n,1);
+          (*EdgeState[d])[S_mfi].setVal(0.,ebox,0,NUM_STATE);
+          (*EdgeFlux[d])[S_mfi].setVal(0.,ebox,0,NUM_STATE);
         }
-
-        eH.resize(ebox,1);
-        getHmixGivenTY_pphys(eH, (*EdgeState[d])[S_mfi], eY, ebox, Temp, 0, 0);
-
-        (*EdgeState[d])[S_mfi].copy(eH,ebox,0,ebox,RhoH,1);      // Copy H into estate
-        (*EdgeState[d])[S_mfi].mult((*EdgeState[d])[S_mfi],ebox,Density,RhoH,1); // Make H.Rho into estate
-
       }
+      else
+      {
+        for (int d=0; d<AMREX_SPACEDIM; ++d)
+        {
+          const Box& ebox = S_mfi.grownnodaltilebox(d,EdgeState[d]->nGrow());
+          eR.resize(ebox,1);
+          eR.copy((*EdgeState[d])[S_mfi],ebox,Density,ebox,0,1);
+          eR.invert(1.0,ebox,0,1);
 
-}
+          eY.resize(ebox,nspecies);
+          eY.copy((*EdgeState[d])[S_mfi],ebox,first_spec,ebox,0,nspecies);
 
+          for (int n=0; n<nspecies; ++n) {
+            eY.mult(eR,ebox,0,n,1);
+          }
+
+          eH.resize(ebox,1);
+          getHmixGivenTY_pphys(eH, (*EdgeState[d])[S_mfi], eY, ebox, Temp, 0, 0);
+
+          (*EdgeState[d])[S_mfi].copy(eH,ebox,0,ebox,RhoH,1);      // Copy H into estate
+          (*EdgeState[d])[S_mfi].mult((*EdgeState[d])[S_mfi],ebox,Density,RhoH,1); // Make H.Rho into estate
+
+        }
+      }
     }
   }
 
@@ -7087,6 +7073,10 @@ PeleLM::mac_sync ()
 
 #ifdef AMREX_USE_EB
 {
+
+   EB_set_covered(Ssync,0.);
+   EB_set_covered(Vsync,0.);
+
     const Geometry& cgeom      = parent->Geom(lev);
     auto myfactory = makeEBFabFactory(cgeom,S_new_lev.boxArray(),S_new_lev.DistributionMap(),{1,1,1},EBSupport::basic);
 
@@ -7790,8 +7780,13 @@ PeleLM::mac_sync ()
       MultiFab::Add(S_new,Ssync,sigma,state_ind,1,0);  // + rho^{n+1} * sync_for_Q
       MultiFab::Add(S_new,DeltaSsync,0,state_ind,1,0); // + (sync_for_rho)*Q_presync.
 
+#ifdef AMREX_USE_EB
+EB_set_covered_faces_ghost({D_DECL(flux[0],flux[1],flux[2])},0.);
+#endif
+
       if (level > 0)
       {
+         
          for (int d=0; d<AMREX_SPACEDIM; ++d)
             getViscFluxReg().FineAdd(*flux[d],d,0,state_ind,1,dt);
       }
@@ -8204,6 +8199,13 @@ PeleLM::differential_spec_diffuse_sync (Real dt,
 }
 
   Rhs.clear();
+
+
+#ifdef AMREX_USE_EB
+EB_set_covered_faces({D_DECL(SpecDiffusionFluxnp1[0],SpecDiffusionFluxnp1[1],SpecDiffusionFluxnp1[2])},0.);
+EB_set_covered(Ssync,0.);
+#endif
+
   //
   // Do refluxing AFTER flux adjustment
   //
