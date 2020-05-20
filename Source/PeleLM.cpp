@@ -4809,7 +4809,7 @@ PeleLM::compute_differential_diffusion_fluxes (const MultiFab& S,
   //
 
 #ifdef AMREX_USE_EB
-EB_set_covered_faces({D_DECL(flux[0],flux[1],flux[2])},0.);
+  EB_set_covered_faces({D_DECL(flux[0],flux[1],flux[2])},0.);
 #endif
   
   if ( do_reflux && ( is_predictor || updateFluxReg ) )
@@ -6697,10 +6697,10 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
         (*aofs)[S_mfi].setVal(0,bx,Density,1);
         for (int d=0; d<AMREX_SPACEDIM; ++d)
         {
-          const Box& ebox = S_mfi.grownnodaltilebox(d,EdgeState[d]->nGrow());
+     //     const Box& ebox = S_mfi.grownnodaltilebox(d,EdgeState[d]->nGrow());
 
-          (*EdgeState[d])[S_mfi].setVal(0.,ebox,0,NUM_STATE);
-          (*EdgeFlux[d])[S_mfi].setVal(0.,ebox,0,NUM_STATE);
+          (*EdgeState[d])[S_mfi].setVal(0.,bx,0,NUM_STATE);
+          (*EdgeFlux[d])[S_mfi].setVal(0.,bx,0,NUM_STATE);
         }
       }
       else
@@ -6739,7 +6739,7 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
     EB_set_covered(*aofs, 0.);
 
   }
-
+/*
 {
 //  Set covered values of density not to zero in roder to use fab.invert
 //  Get typical values for Rho
@@ -6756,7 +6756,7 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
 }
   
 EB_set_covered_faces({D_DECL(EdgeFlux[0],EdgeFlux[1],EdgeFlux[2])},0.);
-
+*/
 
   // Compute RhoH on faces, store in nspecies+1 component of edgestate[d]
 #ifdef _OPENMP
@@ -6775,10 +6775,10 @@ EB_set_covered_faces({D_DECL(EdgeFlux[0],EdgeFlux[1],EdgeFlux[2])},0.);
       {
         for (int d=0; d<AMREX_SPACEDIM; ++d)
         {
-          const Box& ebox = S_mfi.grownnodaltilebox(d,EdgeState[d]->nGrow());
+    //      const Box& ebox = S_mfi.grownnodaltilebox(d,EdgeState[d]->nGrow());
 
-          (*EdgeState[d])[S_mfi].setVal(0.,ebox,0,NUM_STATE);
-          (*EdgeFlux[d])[S_mfi].setVal(0.,ebox,0,NUM_STATE);
+          (*EdgeState[d])[S_mfi].setVal(0.,bx,0,NUM_STATE);
+          (*EdgeFlux[d])[S_mfi].setVal(0.,bx,0,NUM_STATE);
         }
       }
       else
@@ -6823,7 +6823,8 @@ EB_set_covered_faces({D_DECL(EdgeFlux[0],EdgeFlux[1],EdgeFlux[2])},0.);
     EB_set_covered(*aofs, 0.);
 
   }
-EB_set_covered_faces({D_DECL(EdgeFlux[0],EdgeFlux[1],EdgeFlux[2])},0.);
+
+  EB_set_covered_faces({D_DECL(EdgeFlux[0],EdgeFlux[1],EdgeFlux[2])},0.);
  
 #else
  
@@ -7074,8 +7075,8 @@ PeleLM::mac_sync ()
 #ifdef AMREX_USE_EB
 {
 
-   EB_set_covered(Ssync,0.);
-   EB_set_covered(Vsync,0.);
+//   EB_set_covered(Ssync,0.);
+//   EB_set_covered(Vsync,0.);
 
     const Geometry& cgeom      = parent->Geom(lev);
     auto myfactory = makeEBFabFactory(cgeom,S_new_lev.boxArray(),S_new_lev.DistributionMap(),{1,1,1},EBSupport::basic);
@@ -7787,7 +7788,7 @@ PeleLM::mac_sync ()
       MultiFab::Add(S_new,DeltaSsync,0,state_ind,1,0); // + (sync_for_rho)*Q_presync.
 
 #ifdef AMREX_USE_EB
-EB_set_covered_faces({D_DECL(flux[0],flux[1],flux[2])},0.);
+      EB_set_covered_faces({D_DECL(flux[0],flux[1],flux[2])},0.);
 #endif
 
       if (level > 0)
@@ -8208,8 +8209,8 @@ PeleLM::differential_spec_diffuse_sync (Real dt,
 
 
 #ifdef AMREX_USE_EB
-EB_set_covered_faces({D_DECL(SpecDiffusionFluxnp1[0],SpecDiffusionFluxnp1[1],SpecDiffusionFluxnp1[2])},0.);
-EB_set_covered(Ssync,0.);
+  EB_set_covered_faces({D_DECL(SpecDiffusionFluxnp1[0],SpecDiffusionFluxnp1[1],SpecDiffusionFluxnp1[2])},0.);
+//  EB_set_covered(Ssync,0.);
 #endif
 
   //
