@@ -6750,12 +6750,12 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
     for (int k = 0; k < nspecies; ++k) {
        typvals[first_spec+k] = typical_values[first_spec+k]*typical_values[Density];
     }
-    EB_set_covered_faces_ghost({D_DECL(EdgeState[0],EdgeState[1],EdgeState[2])},first_spec,nspecies,typvals);
-    EB_set_covered_faces_ghost({D_DECL(EdgeState[0],EdgeState[1],EdgeState[2])},Temp,1,typvals);
-    EB_set_covered_faces_ghost({D_DECL(EdgeState[0],EdgeState[1],EdgeState[2])},Density,1,typvals);
+    EB_set_covered_faces({D_DECL(EdgeState[0],EdgeState[1],EdgeState[2])},first_spec,nspecies,typvals);
+    EB_set_covered_faces({D_DECL(EdgeState[0],EdgeState[1],EdgeState[2])},Temp,1,typvals);
+    EB_set_covered_faces({D_DECL(EdgeState[0],EdgeState[1],EdgeState[2])},Density,1,typvals);
 }
   
-EB_set_covered_faces_ghost({D_DECL(EdgeFlux[0],EdgeFlux[1],EdgeFlux[2])},0.);
+EB_set_covered_faces({D_DECL(EdgeFlux[0],EdgeFlux[1],EdgeFlux[2])},0.);
 
 
   // Compute RhoH on faces, store in nspecies+1 component of edgestate[d]
@@ -6823,7 +6823,7 @@ EB_set_covered_faces_ghost({D_DECL(EdgeFlux[0],EdgeFlux[1],EdgeFlux[2])},0.);
     EB_set_covered(*aofs, 0.);
 
   }
-EB_set_covered_faces_ghost({D_DECL(EdgeFlux[0],EdgeFlux[1],EdgeFlux[2])},0.);
+EB_set_covered_faces({D_DECL(EdgeFlux[0],EdgeFlux[1],EdgeFlux[2])},0.);
  
 #else
  
@@ -7342,7 +7342,13 @@ PeleLM::mac_sync ()
     //
     // Increment density, rho^{n+1} = rho^{n+1,p} + (delta_rho)^sync
     //
+#ifdef AMREX_USE_EB
+   EB_set_covered(Ssync,0.);
+#endif
+
     MultiFab::Add(S_new,Ssync,Density-AMREX_SPACEDIM,Density,1,0);
+
+
     make_rho_curr_time();
     BL_PROFILE_VAR_STOP(HTSSYNC);
 
@@ -7781,7 +7787,7 @@ PeleLM::mac_sync ()
       MultiFab::Add(S_new,DeltaSsync,0,state_ind,1,0); // + (sync_for_rho)*Q_presync.
 
 #ifdef AMREX_USE_EB
-EB_set_covered_faces_ghost({D_DECL(flux[0],flux[1],flux[2])},0.);
+EB_set_covered_faces({D_DECL(flux[0],flux[1],flux[2])},0.);
 #endif
 
       if (level > 0)
