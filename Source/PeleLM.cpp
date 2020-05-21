@@ -6739,24 +6739,6 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
     EB_set_covered(*aofs, 0.);
 
   }
-/*
-{
-//  Set covered values of density not to zero in roder to use fab.invert
-//  Get typical values for Rho
-    Vector<Real> typvals;
-    typvals.resize(NUM_STATE);
-    typvals[Density] = typical_values[Density];
-    typvals[Temp] = typical_values[Temp];
-    for (int k = 0; k < nspecies; ++k) {
-       typvals[first_spec+k] = typical_values[first_spec+k]*typical_values[Density];
-    }
-    EB_set_covered_faces({D_DECL(EdgeState[0],EdgeState[1],EdgeState[2])},first_spec,nspecies,typvals);
-    EB_set_covered_faces({D_DECL(EdgeState[0],EdgeState[1],EdgeState[2])},Temp,1,typvals);
-    EB_set_covered_faces({D_DECL(EdgeState[0],EdgeState[1],EdgeState[2])},Density,1,typvals);
-}
-  
-EB_set_covered_faces({D_DECL(EdgeFlux[0],EdgeFlux[1],EdgeFlux[2])},0.);
-*/
 
   // Compute RhoH on faces, store in nspecies+1 component of edgestate[d]
 #ifdef _OPENMP
@@ -7074,9 +7056,6 @@ PeleLM::mac_sync ()
 
 #ifdef AMREX_USE_EB
 {
-
-//   EB_set_covered(Ssync,0.);
-//   EB_set_covered(Vsync,0.);
 
     const Geometry& cgeom      = parent->Geom(lev);
     auto myfactory = makeEBFabFactory(cgeom,S_new_lev.boxArray(),S_new_lev.DistributionMap(),{1,1,1},EBSupport::basic);
@@ -8210,7 +8189,6 @@ PeleLM::differential_spec_diffuse_sync (Real dt,
 
 #ifdef AMREX_USE_EB
   EB_set_covered_faces({D_DECL(SpecDiffusionFluxnp1[0],SpecDiffusionFluxnp1[1],SpecDiffusionFluxnp1[2])},0.);
-//  EB_set_covered(Ssync,0.);
 #endif
 
   //
