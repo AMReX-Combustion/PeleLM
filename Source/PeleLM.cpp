@@ -2075,10 +2075,6 @@ PeleLM::initData ()
 // First we have to put Pnew in S_new so as to not impose NaNs for covered cells
 MultiFab::Copy(S_new,P_new,0,RhoRT,1,1);
 
-S_new.FillBoundary(geom.periodicity());
-P_new.FillBoundary(geom.periodicity());
-
-  
 
 #ifdef AMREX_USE_EB
   set_body_state(S_new);
@@ -6697,10 +6693,10 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
         (*aofs)[S_mfi].setVal(0,bx,Density,1);
         for (int d=0; d<AMREX_SPACEDIM; ++d)
         {
-     //     const Box& ebox = S_mfi.grownnodaltilebox(d,EdgeState[d]->nGrow());
+          const Box& ebox = S_mfi.nodaltilebox(d);
 
-          (*EdgeState[d])[S_mfi].setVal(0.,bx,0,NUM_STATE);
-          (*EdgeFlux[d])[S_mfi].setVal(0.,bx,0,NUM_STATE);
+          (*EdgeState[d])[S_mfi].setVal(0.,ebox,0,NUM_STATE);
+          (*EdgeFlux[d])[S_mfi].setVal(0.,ebox,0,NUM_STATE);
         }
       }
       else
@@ -6757,10 +6753,10 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
       {
         for (int d=0; d<AMREX_SPACEDIM; ++d)
         {
-    //      const Box& ebox = S_mfi.grownnodaltilebox(d,EdgeState[d]->nGrow());
+          const Box& ebox = S_mfi.nodaltilebox(d);
 
-          (*EdgeState[d])[S_mfi].setVal(0.,bx,0,NUM_STATE);
-          (*EdgeFlux[d])[S_mfi].setVal(0.,bx,0,NUM_STATE);
+          (*EdgeState[d])[S_mfi].setVal(0.,ebox,0,NUM_STATE);
+          (*EdgeFlux[d])[S_mfi].setVal(0.,ebox,0,NUM_STATE);
         }
       }
       else
@@ -6865,8 +6861,9 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
       (*aofs)[S_mfi].setVal(0,bx,Density,1);
       for (int d=0; d<AMREX_SPACEDIM; ++d)
      {
-       (*EdgeState[d])[S_mfi].setVal(0,bx);
-       (*EdgeFlux[d])[S_mfi].setVal(0,bx);
+       const Box& ebx = amrex::surroundingNodes(bx,d);
+       (*EdgeState[d])[S_mfi].setVal(0,ebx);
+       (*EdgeFlux[d])[S_mfi].setVal(0,ebx);
      }
      
       for (int comp=0; comp < nspecies; comp++){      
