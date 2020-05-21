@@ -6695,10 +6695,21 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
         {
           const Box& ebox = S_mfi.nodaltilebox(d);
 
-          (*EdgeState[d])[S_mfi].setVal(0.,ebox,0,NUM_STATE);
-          (*EdgeFlux[d])[S_mfi].setVal(0.,ebox,0,NUM_STATE);
+ //         (*EdgeState[d])[S_mfi].setVal(0.,bx,0,NUM_STATE);
+          (*EdgeFlux[d])[S_mfi].setVal(0.,bx,0,NUM_STATE);
         }
-      }
+        EB_set_covered_faces_ghost({D_DECL(EdgeFlux[0],EdgeFlux[1],EdgeFlux[2])},0.);
+//        EB_set_covered_faces_ghost({D_DECL(EdgeState[0],EdgeState[1],EdgeState[2])},0.);
+  {
+    Vector<Real> typvals;
+    typvals.resize(NUM_STATE);
+    for (int k = 0; k < nspecies; ++k) {
+       typvals[first_spec+k] = typical_values[first_spec+k]*typical_values[Density];
+    }
+    EB_set_covered_faces_ghost({D_DECL(EdgeState[0],EdgeState[1],EdgeState[2])},first_spec,nspecies,typvals); 
+  }
+
+     }
       else
       {
 
@@ -6716,6 +6727,19 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
             (*EdgeFlux[d])[S_mfi].plus((*EdgeFlux[d])[S_mfi],gbx,gbx,first_spec+comp,Density,1);
           }
         }
+        EB_set_covered_faces_ghost({D_DECL(EdgeFlux[0],EdgeFlux[1],EdgeFlux[2])},0.);
+//        EB_set_covered_faces_ghost({D_DECL(EdgeState[0],EdgeState[1],EdgeState[2])},0.);
+{
+Vector<Real> typvals;
+    typvals.resize(NUM_STATE);
+    typvals[Density] = typical_values[Density];
+    for (int k = 0; k < nspecies; ++k) {
+       typvals[first_spec+k] = typical_values[first_spec+k]*typical_values[Density];
+    }
+    EB_set_covered_faces_ghost({D_DECL(EdgeState[0],EdgeState[1],EdgeState[2])},first_spec,nspecies,typvals);
+EB_set_covered_faces_ghost({D_DECL(EdgeState[0],EdgeState[1],EdgeState[2])},Density,1,typvals);
+}
+
       }
     }
   }  
@@ -6736,6 +6760,25 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
 
   }
 
+
+
+{
+//  Set covered values of density not to zero in roder to use fab.invert
+//  Get typical values for Rho
+    Vector<Real> typvals;
+    typvals.resize(NUM_STATE);
+    typvals[Density] = typical_values[Density];
+    typvals[Temp] = typical_values[Temp];
+    for (int k = 0; k < nspecies; ++k) {
+       typvals[first_spec+k] = typical_values[first_spec+k]*typical_values[Density];
+    }
+    EB_set_covered_faces_ghost({D_DECL(EdgeState[0],EdgeState[1],EdgeState[2])},first_spec,nspecies,typvals);
+    EB_set_covered_faces_ghost({D_DECL(EdgeState[0],EdgeState[1],EdgeState[2])},Temp,1,typvals);
+    EB_set_covered_faces_ghost({D_DECL(EdgeState[0],EdgeState[1],EdgeState[2])},Density,1,typvals);
+}
+
+
+
   // Compute RhoH on faces, store in nspecies+1 component of edgestate[d]
 #ifdef _OPENMP
 #pragma omp parallel
@@ -6755,9 +6798,20 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
         {
           const Box& ebox = S_mfi.nodaltilebox(d);
 
-          (*EdgeState[d])[S_mfi].setVal(0.,ebox,0,NUM_STATE);
-          (*EdgeFlux[d])[S_mfi].setVal(0.,ebox,0,NUM_STATE);
+          (*EdgeState[d])[S_mfi].setVal(0.,bx,0,NUM_STATE);
+          (*EdgeFlux[d])[S_mfi].setVal(0.,bx,0,NUM_STATE);
         }
+        EB_set_covered_faces_ghost({D_DECL(EdgeFlux[0],EdgeFlux[1],EdgeFlux[2])},0.);
+//        EB_set_covered_faces_ghost({D_DECL(EdgeState[0],EdgeState[1],EdgeState[2])},0.);
+
+{
+Vector<Real> typvals;
+    typvals.resize(NUM_STATE);
+    typvals[RhoH] = typical_values[RhoH];
+    EB_set_covered_faces_ghost({D_DECL(EdgeState[0],EdgeState[1],EdgeState[2])},RhoH,1,typvals);
+}
+
+
       }
       else
       {
@@ -6783,8 +6837,27 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
 
         }
       }
+      EB_set_covered_faces_ghost({D_DECL(EdgeFlux[0],EdgeFlux[1],EdgeFlux[2])},0.);
+//      EB_set_covered_faces_ghost({D_DECL(EdgeState[0],EdgeState[1],EdgeState[2])},0.);
+
+{
+Vector<Real> typvals;
+    typvals.resize(NUM_STATE);
+    typvals[RhoH] = typical_values[RhoH];
+    EB_set_covered_faces_ghost({D_DECL(EdgeState[0],EdgeState[1],EdgeState[2])},RhoH,1,typvals);
+}
+
+
     }
   }
+
+
+for (int d=0; d<AMREX_SPACEDIM; ++d)
+        {
+EdgeState[d]->FillBoundary(geom.periodicity());
+EdgeFlux[d]->FillBoundary(geom.periodicity());
+}
+
 
   // Compute -Div(flux.Area) for RhoH, return Area-scaled (extensive) fluxes
 
@@ -6801,6 +6874,12 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
     EB_set_covered(*aofs, 0.);
 
   }
+
+for (int d=0; d<AMREX_SPACEDIM; ++d)
+        {
+EdgeState[d]->FillBoundary(geom.periodicity());
+EdgeFlux[d]->FillBoundary(geom.periodicity());
+}
 
   EB_set_covered_faces({D_DECL(EdgeFlux[0],EdgeFlux[1],EdgeFlux[2])},0.);
  

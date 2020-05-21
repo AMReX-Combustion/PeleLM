@@ -138,14 +138,13 @@ proj.v = 2
 #
 fab.format = NATIVE
 
-#fabarray.mfiter_tile_size = 8 8 8
+fabarray.mfiter_tile_size = 8 8 8
 
 # Embedded Boundary options
 eb2.geom_type     = sphere
 eb2.sphere_radius =  0.0060
 eb2.sphere_center = 0.02  0.00  # don't forget probin: adv_dir !=1
 eb2.sphere_has_fluid_inside = 0
-#eb2.small_volfrac = 1.0e-4
 
 # Refinement according to the vorticity, no field_name needed
 amr.refinement_indicators =  gradY
