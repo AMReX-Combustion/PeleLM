@@ -206,6 +206,7 @@ contains
       end do
 
       Patm = P_mean / pphys_getP1atm_MKS()
+      press(:,:,:) = P_mean
 
       call pphys_RHOfromPTY(lo,hi, &
                             scal(:,:,:,Density),   s_lo, s_hi, &
