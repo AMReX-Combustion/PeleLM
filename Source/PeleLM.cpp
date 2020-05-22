@@ -6943,9 +6943,8 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
       (*aofs)[S_mfi].setVal(0,bx,Density,1);
       for (int d=0; d<AMREX_SPACEDIM; ++d)
      {
-       const Box& ebx = amrex::surroundingNodes(bx,d);
-       (*EdgeState[d])[S_mfi].setVal(0,ebx);
-       (*EdgeFlux[d])[S_mfi].setVal(0,ebx);
+       (*EdgeState[d])[S_mfi].setVal(0,bx);
+       (*EdgeFlux[d])[S_mfi].setVal(0,bx);
      }
      
       for (int comp=0; comp < nspecies; comp++){      
