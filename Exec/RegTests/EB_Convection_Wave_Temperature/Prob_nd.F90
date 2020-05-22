@@ -197,7 +197,7 @@ contains
                scal(i,j,k,FirstSpec+n-1) = Yl(n)
             end do
 
-            scal(i,j,k,Temp) = T_mean!*(1.0d0 + delta_blob*exp(-dist/(2.0d0 *RC)))  
+            scal(i,j,k,Temp) = T_mean*(1.0d0 + delta_blob*exp(-dist/(2.0d0 *RC)))  
 
 
  
