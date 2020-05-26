@@ -1,7 +1,7 @@
 
 EBASE = PeleLM
 
-include $(AMREX_HOME)/Tools/GNUMake/Make.defs 
+include $(AMREX_HOME)/Tools/GNUMake/Make.defs
 
 Bdirs += $(PELELM_HOME)/Source $(PELELM_HOME)/Source/Src_nd
 
@@ -40,7 +40,7 @@ else
 endif
 
 # Reactions
-ifeq ($(USE_SUNDIALS_PP),TRUE) 
+ifeq ($(USE_SUNDIALS_PP),TRUE)
   include $(PELE_PHYSICS_HOME)/ThirdParty/Make.ThirdParty
 endif
 REACTIONS_HOME_F90 := $(REACTIONS_HOME)/F90
@@ -126,6 +126,17 @@ ifeq ($(USE_PARTICLES), TRUE)
   Bpack   += $(AMREX_HOME)/Src/Particle/Make.package
   Blocs   += $(AMREX_HOME)/Src/Particle
 
+  # Transport
+  ifeq ($(Transport_dir), Simple)
+      TRANSPORT_HOME = $(PELE_PHYSICS_HOME)/Transport/Simple
+  endif
+
+  EXTERN_CORE       += $(TRANSPORT_HOME)
+  INCLUDE_LOCATIONS += $(TRANSPORT_HOME)
+  VPATH_LOCATIONS   += $(TRANSPORT_HOME)
+  Bpack             += $(TRANSPORT_HOME)/Make.package
+  Blocs             += $(TRANSPORT_HOME)
+
 endif
 
 # IAMR
@@ -135,7 +146,7 @@ Bdirs += $(IAMR_HOME)/Source/Src_$(DIM)d
 Bpack	+= $(foreach dir, $(Bdirs), $(dir)/Make.package)
 Blocs	+= $(foreach dir, $(Bdirs), $(dir))
 
-# AMReX 
+# AMReX
 Pdirs   += $(AMREX_HOME)/Src/Base
 Pdirs   += $(AMREX_HOME)/Src/AmrCore
 Pdirs   += $(AMREX_HOME)/Src/Amr
@@ -152,7 +163,7 @@ endif
 Bpack	+= $(foreach dir, $(Pdirs), $(dir)/Make.package)
 Blocs	+= $(foreach dir, $(Pdirs), $(dir))
 
-include $(Bpack) 
+include $(Bpack)
 INCLUDE_LOCATIONS += $(Blocs)
 VPATH_LOCATIONS   += $(Blocs)
 
@@ -177,7 +188,7 @@ EXTERN_PARAMETERS := $(shell $(AMREX_HOME)/Tools/F_scripts/findparams.py $(EXTER
 extern.f90: $(EXTERN_PARAMETERS) $(EXTERN_TEMPLATE)
 	$(AMREX_HOME)/Tools/F_scripts/write_probin.py \
            -t $(EXTERN_TEMPLATE) -o extern.f90 -n extern \
-           --pa "$(EXTERN_PARAMETERS)" 
+           --pa "$(EXTERN_PARAMETERS)"
 
 # Hack in some LM-specific stuff
 
@@ -218,7 +229,7 @@ ifeq ($(USE_BGL),TRUE)
   BL_MPI_LIBS=-lxlf90 -lxlfmath
   FORTLINK:=LOWERCASE
 endif
- 
+
 ifeq ($(USE_HYPRE),TRUE)
   Bdirs   += HypreABec
   HYPRE_HOME=$(HOME)/amr/hypre
@@ -251,7 +262,7 @@ AMReX_buildInfo.cpp:
           --COMP "$(COMP)" --COMP_VERSION "$(COMP_VERSION)" \
           --FCOMP "$(FCOMP)" --FCOMP_VERSION "$(FCOMP_VERSION)" \
           --MODULES "Chemistry=$(Chemistry_Model)" \
-          --GIT "$(PELELM_HOME) $(AMREX_HOME) $(IAMR_HOME)" 
+          --GIT "$(PELELM_HOME) $(AMREX_HOME) $(IAMR_HOME)"
 
 
 include $(AMREX_HOME)/Tools/GNUMake/Make.rules
@@ -259,4 +270,3 @@ include $(AMREX_HOME)/Tools/GNUMake/Make.rules
 clean::
 	$(SILENT) $(RM) extern_parameters.cpp extern_parameters_F.H extern_parameters.H extern.f90
 	$(SILENT) $(RM) AMReX_buildInfo.cpp
-

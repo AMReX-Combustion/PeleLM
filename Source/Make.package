@@ -4,5 +4,7 @@ FEXE_headers += PeleLM_F.H
 F90EXE_sources += PeleLM_F.F90 mod_Fvar_def.F90
 
 ifeq ($(USE_PARTICLES), TRUE)
-CEXE_sources += PeleLM_particles.cpp
+#CEXE_sources += PeleLM_particles.cpp
+CEXE_sources += Particle.cpp
+CEXE_headers += Transport.H
 endif

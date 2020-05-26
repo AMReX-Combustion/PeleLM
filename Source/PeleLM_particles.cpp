@@ -4,7 +4,6 @@
 #include <string>
 #include "PeleLM.H"
 #include "PeleLM_F.H"
-#include "Spray_F.H"
 #include "SprayParticles.H"
 
 using namespace amrex;
@@ -116,11 +115,11 @@ PeleLM::particle_est_time_step (Real& est_dt)
     }
 }
 
-void 
+void
 PeleLM::read_particle_params ()
 {
     ParmParse pp("pelelm");
-    
+
     pp.query("do_spray_particles",do_spray_particles);
 
     ParmParse ppp("particles");
@@ -253,7 +252,7 @@ PeleLM::init_particles ()
     if (do_spray_particles)
     {
   	BL_ASSERT(theSprayPC() == 0);
-	
+
 	SprayPC = new SprayParticleContainer(parent,&phys_bc);
 	theSprayPC()->SetVerbose(particle_verbose);
 
@@ -262,26 +261,27 @@ PeleLM::init_particles ()
             VirtPC = new SprayParticleContainer(parent,&phys_bc);
             GhostPC = new SprayParticleContainer(parent,&phys_bc);
         }
-	
-        // fuel properties from user input file
-        import_fuel_properties(&nfuel_species, fuel_mass_frac.data(),fuel_density.data(),
-                               fuel_crit_temp.data(), fuel_latent.data(), fuel_boil_temp.data(), 
-                               fuel_cp.data(),fuel_molwt.data(),fuel_indx.data());
 
-        import_control_parameters(&is_heat_tran, &is_mass_tran, &is_mom_tran);
+        // fuel properties from user input file
+	// martin: we dont have this file anymore, right?
+        //import_fuel_properties(&nfuel_species, fuel_mass_frac.data(),fuel_density.data(),
+        //                       fuel_crit_temp.data(), fuel_latent.data(), fuel_boil_temp.data(),
+        //                       fuel_cp.data(),fuel_molwt.data(),fuel_indx.data());
+
+        //import_control_parameters(&is_heat_tran, &is_mass_tran, &is_mom_tran);
 
 	if (! particle_init_file.empty())
 	{
 	    theSprayPC()->InitFromAsciiFile(particle_init_file,NSR_SPR);
-	} 
-        else if (particle_init_uniform > 0) 
+	}
+        else if (particle_init_uniform > 0)
         {
             // Initialize uniform particle distribution
             //  {vel(DIM), temperature, diameter, density}
             //ParticleInitType<5, 0, 0, 0> pdata = {{0., 0., 300, 1e-2, 1.}, {}, {}, {}}; //2D
             ParticleInitType<6, 0, 0, 0> pdata = {{0., 0., 0., 298, 1e-6, 681.41}, {}, {}, {}}; //3D
             theSprayPC()->InitOnePerCell(Real(0.5),Real(0.5),Real(0.5),pdata);
-          
+
             if (!particle_output_file.empty())
             {
               long cnt = SprayPC->TotalNumberOfParticles();// (bool only_valid=true, bool only_local=false) const;
@@ -317,11 +317,11 @@ PeleLM::particle_post_restart (const std::string& restart_file, bool is_checkpoi
         }
 
         // fuel properties from user input file
-        import_fuel_properties(&nfuel_species, fuel_mass_frac.data(),fuel_density.data(),
-                               fuel_crit_temp.data(), fuel_latent.data(), fuel_boil_temp.data(), 
-                               fuel_cp.data(),fuel_molwt.data(),fuel_indx.data());
+        //import_fuel_properties(&nfuel_species, fuel_mass_frac.data(),fuel_density.data(),
+        //                       fuel_crit_temp.data(), fuel_latent.data(), fuel_boil_temp.data(),
+        //                       fuel_cp.data(),fuel_molwt.data(),fuel_indx.data());
 
-        import_control_parameters(&is_heat_tran, &is_mass_tran, &is_mom_tran);
+        //import_control_parameters(&is_heat_tran, &is_mass_tran, &is_mom_tran);
 
         // Make sure to call RemoveParticlesOnExit() on exit.
         //
@@ -414,10 +414,10 @@ PeleLM::particle_redistribute (int lbase, bool init_part)
     BL_PROFILE("PeleLM::particle_redistribute()");
     if (theSprayPC())
     {
-        //  
+        //
         // If we are calling with init_part = true, then we want to force the redistribute
         //    without checking whether the grids have changed.
-        //  
+        //
         if (init_part)
         {
             theSprayPC()->Redistribute(lbase);
@@ -433,11 +433,11 @@ PeleLM::particle_redistribute (int lbase, bool init_part)
         bool changed = false;
 
         int flev = parent->finestLevel();
-	
+
         while ( parent->getAmrLevels()[flev] == nullptr ) {
             flev--;
 	}
- 
+
         if (ba.size() != flev+1)
         {
             ba.resize(flev+1);
@@ -526,7 +526,7 @@ PeleLM::TimestampParticles (int ngrow)
 	    timestamp_indices.push_back(Temp);
 	    std::cout << "Temp = " << Temp << std::endl;
 	}
-	
+
 	if (!timestamp_indices.empty()) {
 	    imax = *(std::max_element(timestamp_indices.begin(), timestamp_indices.end()));
 	}
@@ -535,23 +535,23 @@ PeleLM::TimestampParticles (int ngrow)
     if ( SprayPC && !timestamp_dir.empty())
     {
 	std::string basename = timestamp_dir;
-		
+
 	if (basename[basename.length()-1] != '/') basename += '/';
-	
+
 	basename += "Timestamp";
-	
+
 	int finest_level = parent->finestLevel();
 	Real time        = state[State_Type].curTime();
 
 	for (int lev = level; lev <= finest_level; lev++)
 	{
 	    if (SprayPC->NumberOfParticlesAtLevel(lev) <= 0) continue;
-	    
+
 	    MultiFab& S_new = parent->getLevel(lev).get_new_data(State_Type);
 
 	    if (imax >= 0) {  // FillPatchIterator will fail otherwise
 		int ng = (lev == level) ? ngrow : 1;
-		FillPatchIterator fpi(parent->getLevel(lev), S_new, 
+		FillPatchIterator fpi(parent->getLevel(lev), S_new,
 				      ng, time, State_Type, 0, imax+1);
 		const MultiFab& S = fpi.get_mf();
 		SprayPC->Timestamp(basename, S    , lev, time, timestamp_indices);
@@ -559,7 +559,7 @@ PeleLM::TimestampParticles (int ngrow)
 		SprayPC->Timestamp(basename, S_new, lev, time, timestamp_indices);
 	    }
 	}
-    }	
+    }
 #endif
 }
 

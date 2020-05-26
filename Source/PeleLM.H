@@ -17,17 +17,17 @@
 #endif
 
 //
-// Note: define TEMPERATURE if you want a variable T in the 
+// Note: define TEMPERATURE if you want a variable T in the
 //       State_Type part of the state
-//       whose component index is Temp and 
-//       whose evoution equation is 
+//       whose component index is Temp and
+//       whose evoution equation is
 //       \pd (rho T)/\pd t + diver (\rho U T) = \diver k/c_p grad T
 //       define RADIATION only if TEMPERATURE is also defined and the evolution equation
 //       for T is
 //       \pd (rho T)/\pd t + diver (\rho U T) = \diver k/c_p grad T - 1/c_p diver q_rad
 //
 //       Note that component Temp is T, not rho T. This was done so
-//       that we could use the existing diffusion operator and 
+//       that we could use the existing diffusion operator and
 //       multigrid code.
 //
 
@@ -60,24 +60,24 @@ public:
   LM_Error_Value()
     :
     lmef(0), lmef_box(0), value(), min_time(), max_time(), max_level() {}
-  
+
   LM_Error_Value (amrex::Real min_time, amrex::Real max_time, int max_level);
-  
+
   LM_Error_Value (LMEF lmef, amrex::Real value, amrex::Real min_time,
                   amrex::Real max_time, int max_level);
-  
+
   LM_Error_Value (LMEF_BOX lmef_box, const amrex::RealBox& box, amrex::Real min_time,
                   amrex::Real max_time, int max_level);
-  
+
   virtual ~LM_Error_Value () {}
-  
+
   virtual amrex::ErrorRec::ErrorFunc* clone () const {
     if (BoxTag()) {
       return new LM_Error_Value(lmef_box,box,min_time,max_time,max_level);
     }
     return new LM_Error_Value(lmef,value,min_time,max_time,max_level);
   }
-  
+
   void tagCells(int* tag, const int* tlo, const int* thi,
                 const int* tagval, const int* clearval,
                 const amrex::Real* data, const int* dlo, const int* dhi,
@@ -94,13 +94,13 @@ public:
                  const amrex::Real* dx, const amrex::Real* xlo,
                  const amrex::Real* prob_lo, const amrex::Real* time,
                  const int* level) const;
-  
+
   int MaxLevel() const {return max_level;}
   amrex::Real MinTime() const {return min_time;}
   amrex::Real MaxTime() const {return max_time;}
   amrex::Real Value() const {return value;}
   bool BoxTag() const {return lmef==0 && lmef_box!=0;}
-  
+
 protected:
   LMEF lmef;
   LMEF_BOX lmef_box;
@@ -178,90 +178,106 @@ public:
   virtual void initData () override;
 
 #ifdef AMREX_PARTICLES
-    //
-    // Read particle-related inputs
-    //
-    static void read_particle_params ();
-    //
-    // Initialize particle locations and velocities (and strengths if relevant)
-    //
-    void init_particles ();
-    //
-    // Timestamp particles
-    //
-    void TimestampParticles (int ngrow); 
-    //
-    // Advance the particles by dt
-    //
-    void advance_particles (int iteration, amrex::Real time, amrex::Real dt);
-    //
-    // Default verbosity of Particle class
-    //
-    static int particle_verbose;
+// martin: this is standard in PeleC but not in PeleLM, is there a better solution
+// for PeleLM?
+//static int Density, Xmom, Eden, FirstSpec;
+//
+// Read particle-related inputs
+//
+static void readParticleParams();
+//
+// Define particle related variables
+//
+static void defineParticles();
+//
+// Initialize particle locations and velocities (and strengths if relevant)
+//
+void initParticles();
+//
+// Timestamp particles
+//
+void particleTimestamp(int ngrow);
+//
+// Default verbosity of Particle class
+//
+static int particle_verbose;
 
-    //
-    // Write particles in plotfile directories
-    //
-    void particle_plot_file(const std::string& dir);
+//
+// How to initialize at restart
+//
+void particlePostRestart(
+  const std::string& restart_file, bool is_checkpoint = true);
 
-    //
-    // How to initialize at restart
-    //
-    void particle_post_restart(const std::string& restart_file, bool is_checkpoint = true);
+//
+// Redistribute
+//
+virtual void particleRedistribute(
+  int lbase = 0, int nGrow = 0, int local = 0, bool init_part = false);
+//
+// Setup virtual particles if necessary
+//
+void setupVirtualParticles();
+//
+// Remove virtual particles if necessary
+//
+void removeVirtualParticles();
+//
+// Setup ghost particles (for finer levels) if necessary
+//
+void setupGhostParticles(int ngrow);
+//
+// Remove ghost particles (for this level) if necessary
+//
+void removeGhostParticles();
+//
+// Time step control based on particles
+//
+void particleEstTimeStep(amrex::Real& est_dt);
 
-    //
-    // Redistribute
-    //
-    virtual void particle_redistribute(int lbase = 0, bool init_part = false);
+//
+// Derived quantities associated with particles
+//
+std::unique_ptr<amrex::MultiFab>
+particleDerive(const std::string& name, amrex::Real time, int ngrow);
 
-    //
-    // Setup virtual particles if necessary
-    //
-    void setup_virtual_particles();
+//
+// Default cfl of particles in Particle class
+//
+static amrex::Real particle_cfl;
+//
+// Should we write particles into plotfiles?
+//
+static int write_particle_plotfiles;
+//
+// Should we write particle ascii files?
+//
+static int write_spray_ascii_files;
 
-    //
-    // Remove virtual particles if necessary
-    //
-    void remove_virtual_particles();
-    //
-    // Setup ghost particles (for finer levels) if necessary
-    //
-    void setup_ghost_particles(int ngrow);
+void setSprayGridInfo(
+  const int amr_iteration,
+  const int amr_ncycle,
+  int&      ghost_width,
+  int&      where_width,
+  int&      spray_n_grow,
+  int&      tmp_src_width);
 
-    //
-    // Remove ghost particles (for this level) if necessary
-    //
-    void remove_ghost_particles();
+/// A state array with ghost zones
+amrex::MultiFab Sborder;
 
-    //
-    // Time step control based on particles
-    //
-    void particle_est_time_step(amrex::Real& est_dt);
+static int particle_mass_tran;
+static int particle_heat_tran;
+static int particle_mom_tran;
+static amrex::Vector<std::string> sprayFuelNames;
+static amrex::Real sprayRefT;
 
-    //
-    // Derived quantities associated with particles
-    //
-    std::unique_ptr<amrex::MultiFab> particle_derive (const std::string& name, amrex::Real time, int ngrow);
+/// Index locations into particle state
+static int pstateVel;
+static int pstateT;
+static int pstateDia;
+static int pstateRho;
+static int pstateY;
+static int pstateNum;
 
-    //
-    // Default cfl of particles in Particle class
-    //
-    static amrex::Real particle_cfl;
-
-    //
-    // Should we write particles into plotfiles?
-    //
-    static int write_particles_in_plotfile;
-
-    void set_spray_grid_info(int& amr_iteration,
-                             int& amr_ncycle,
-                             int& ghost_width,
-                             int& where_width,
-                             int& spray_n_grow,
-                             int& tmp_src_width);
-
-    /// A state array with ghost zones
-    amrex::MultiFab Sborder;
 #endif
 
   //
@@ -315,7 +331,7 @@ public:
   static void getSpeciesNames(amrex::Vector<std::string>& spn);
 
   static int getSpeciesIdx(const std::string& spName);
-    
+
 protected:
 
   ////////////////////////////////////////////////////////////////////////////
@@ -358,7 +374,7 @@ protected:
                              const amrex::Real time) override;
 
   virtual void getViscTerms (amrex::MultiFab& visc_terms,
-                             int       src_comp, 
+                             int       src_comp,
                              int       num_comp,
                              amrex::Real      time) override;
 
@@ -386,7 +402,7 @@ protected:
                          int                 clearval,
                          int                 tagval,
                          amrex::Real         time,
-                         int                 n_error_buf, 
+                         int                 n_error_buf,
                          int                 ngrow) override;
 
   ////////////////////////////////////////////////////////////////////////////
@@ -396,7 +412,7 @@ protected:
   static void Initialize ();
   static void Initialize_specific ();
   static void Finalize ();
-    
+
 #ifdef AMREX_PARTICLES
   virtual int timestamp_num_extras () override;
   virtual void timestamp_add_extras (int lev, amrex::Real time, amrex::MultiFab& mf) override;
@@ -514,7 +530,7 @@ private:
 
   void diffuse_velocity_setup (amrex::Real        dt,
                                amrex::MultiFab*&  delta_rhs,
-                               FluxBoxes&  fb_betan, 
+                               FluxBoxes&  fb_betan,
                                FluxBoxes&  fb_betanp1);
 
   void flux_divergence (amrex::MultiFab&        fdiv,
@@ -555,14 +571,14 @@ private:
   void set_reasonable_grow_cells_for_R(amrex::Real time);
 
   void set_rho_to_species_sum (amrex::MultiFab& S,
-                               int       strtcomp, 
+                               int       strtcomp,
                                int       nghost_in = 0,
                                int       minzero = 0);
 
   void set_rho_to_species_sum (amrex::MultiFab& S_in,
                                int       s_in_start,
                                amrex::MultiFab& S_out,
-                               int       s_out_start, 
+                               int       s_out_start,
                                int       nghost_in = 0,
                                int       minzero = 0);
 
@@ -594,11 +610,11 @@ private:
                            amrex::MultiFab* const*                fluxn,
                            amrex::MultiFab* const*                fluxnp1,
                            int                                    fluxComp,
-                           amrex::MultiFab*                       delta_rhs, 
+                           amrex::MultiFab*                       delta_rhs,
                            int                                    rhsComp,
-                           const amrex::MultiFab*                 alpha, 
+                           const amrex::MultiFab*                 alpha,
                            int                                    alphaComp,
-                           const amrex::MultiFab* const*          betan, 
+                           const amrex::MultiFab* const*          betan,
                            const amrex::MultiFab* const*          betanp1,
                            int                                    betaComp,
                            const amrex::Vector<amrex::Real>&      visc_coef,
@@ -632,7 +648,7 @@ private:
                   bool                        has_alpha_in,
                   bool                        has_betan,
                   bool                        has_betanp1);
-                           
+
   //
   // Functions for interpolating from cell centers to cell edges
   //
@@ -733,9 +749,9 @@ private:
 		  const amrex::FArrayBox& H,
 		  const amrex::FArrayBox& Y,
 		  const amrex::Box&       box,
-		  int              sCompH, 
+		  int              sCompH,
 		  int              sCompY,
-		  int              sCompT,  
+		  int              sCompT,
 		  const amrex::Real&      htt_hmixTYP );
 
   ////////////////////////////////////////////////////////////////////////////
@@ -743,7 +759,7 @@ private:
   ////////////////////////////////////////////////////////////////////////////
 
   amrex::Vector<std::unique_ptr<FluxBoxes> > raii_fbs;
-    
+
   amrex::MultiFab**  EdgeState;
   amrex::MultiFab**  EdgeFlux;
   amrex::MultiFab**  SpecDiffusionFluxn;
@@ -829,7 +845,7 @@ private:
   static int         iter_debug;
   static int         mHtoTiterMAX;
   static amrex::Vector<amrex::Real> mTmpData;
-  
+
   static bool         flag_active_control;
 
   static int  cvode_iE;
