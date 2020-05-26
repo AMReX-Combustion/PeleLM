@@ -103,9 +103,9 @@ diffuse.v = 0
 diffuse.Rhs_in_abs_tol = 1
 
 # ------------------  INPUTS TO PROJECTION CLASS -------------------
-proj.proj_tol       = 1.0e-12  # tolerence for projections
-proj.proj_abs_tol   = 1.0e-12
-proj.sync_tol       = 1.0e-12  # tolerence for projections
+proj.proj_tol       = 1.0e-14  # tolerence for projections
+proj.proj_abs_tol   = 1.0e-14
+proj.sync_tol       = 1.0e-14  # tolerence for projections
 proj.rho_wgt_vel_proj = 0      # 0 => const den proj, 1 => rho weighted
 nodal_proj.verbose    = 0 
 proj.filter_factor  = 0.0
