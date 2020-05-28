@@ -6,6 +6,7 @@
 
 #include <Prob_F.H>
 #include <PeleLM_F.H>
+#include "mechanism.h"
 
 module prob_nd_module
 

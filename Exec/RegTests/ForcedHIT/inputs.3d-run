@@ -44,8 +44,8 @@ amr.probin_file = probin.3d-regt # This will default to file "probin" if not set
 
 # ------------------  INPUTS TO PHYSICS CLASS -------------------
 ns.dt_cutoff       = 5.e-10   # level 0 timestep below which we halt
-ns.visc_tol        = 1.0e-14  # tolerence for viscous solves
-ns.visc_abs_tol    = 1.0e-14  # tolerence for viscous solves
+ns.visc_tol        = 1.0e-12  # tolerence for viscous solves
+ns.visc_abs_tol    = 1.0e-12  # tolerence for viscous solves
 ns.cfl            = 0.7       # cfl number for hyperbolic system
 ns.init_shrink    = 1.0       # scale back initial timestep
 ns.init_shrink    = 0.0001       # scale back initial timestep
@@ -96,9 +96,9 @@ diffuse.v = 0
 diffuse.Rhs_in_abs_tol = 1
 
 # ------------------  INPUTS TO PROJECTION CLASS -------------------
-proj.proj_tol       = 1.0e-1  # tolerence for projections
-proj.proj_tol       = 1.0e-11  # tolerence for projections
-proj.sync_tol       = 1.0e-8  # tolerence for projections
+proj.proj_tol       = 1.0e-12  # tolerence for projections
+proj.proj_abs_tol   = 1.0e-12
+proj.sync_tol       = 1.0e-12  # tolerence for projections
 proj.rho_wgt_vel_proj = 0      # 0 => const den proj, 1 => rho weighted
 nodal_proj.verbose          = 0
 proj.filter_factor  = 0.0
@@ -107,9 +107,9 @@ proj.divu_minus_s_factor = .5
 proj.divu_minus_s_factor = 0.
 
 # ------------------  INPUTS TO MACPROJ CLASS -------------------
-mac.mac_tol        = 1.0e-9  # tolerence for mac projections
-mac.mac_sync_tol   = 1.0e-8   # tolerence for mac SYNC projection
-mac.mac_abs_tol    = 1.0e-14
+mac.mac_tol        = 1.0e-12  # tolerence for mac projections
+mac.mac_sync_tol   = 1.0e-12   # tolerence for mac SYNC projection
+mac.mac_abs_tol    = 1.0e-12
 mac.use_cg_solve   = 0
 mac.do_outflow_bcs = 0
 
