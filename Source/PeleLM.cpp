@@ -2638,27 +2638,16 @@ PeleLM::post_init (Real stop_time)
     if (nspecies > 0)
     {
 
-
-
       for (int k = 0; k <= finest_level; k++)
       {
         
         MultiFab& S_new = getLevel(k).get_new_data(State_Type);
 
-#ifdef AMREX_USE_EB
-        const Geometry& cgeom      = parent->Geom(k);
-        auto myfactory = makeEBFabFactory(cgeom,S_new.boxArray(),S_new.DistributionMap(),{0,0,0},EBSupport::basic);
-#endif
         //
         // Don't update S_new in this strang_chem() call ...
         //
-#ifdef AMREX_USE_EB
-        MultiFab S_tmp(S_new.boxArray(),S_new.DistributionMap(),S_new.nComp(),0,MFInfo(),*myfactory);
-        MultiFab Forcing_tmp(S_new.boxArray(),S_new.DistributionMap(),nspecies+1,0,MFInfo(),*myfactory);
-#else
-        MultiFab S_tmp(S_new.boxArray(),S_new.DistributionMap(),S_new.nComp(),0);
-        MultiFab Forcing_tmp(S_new.boxArray(),S_new.DistributionMap(),nspecies+1,0); 
-#endif
+	MultiFab S_tmp(S_new.boxArray(),S_new.DistributionMap(),S_new.nComp(),0,MFInfo(),getLevel(k).Factory());
+        MultiFab Forcing_tmp(S_new.boxArray(),S_new.DistributionMap(),nspecies+1,0,MFInfo(),getLevel(k).Factory());
         Forcing_tmp.setVal(0);
 
         getLevel(k).advance_chemistry(S_new,S_tmp,dt_save[k]/2.0,Forcing_tmp,0);
@@ -2768,9 +2757,9 @@ PeleLM::post_init (Real stop_time)
     }
   } // end divu_iters
 
-    //
-    // Initialize the pressure by iterating the initial timestep.
-    //
+  //
+  // Initialize the pressure by iterating the initial timestep.
+  //
   post_init_press(dt_init, nc_save, dt_save);
   //
   // Compute the initial estimate of conservation.
@@ -3683,8 +3672,8 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
 #endif
                                Tbc,curr_time);
 }
-  
-  Dnew.setVal(0);
+// Dnew.setVal(0.) done in calling fn
+  //Dnew.setVal(0);
   flux_divergence(Dnew,DComp,SpecDiffusionFluxnp1,0,nspecies,-1);
   
   //
@@ -4067,105 +4056,19 @@ PeleLM::compute_enthalpy_fluxes (MultiFab* const*       flux,
   Alpha.setVal(1.);
   op.setScalars(a, b);
   op.setACoeffs(0, Alpha);
-  
+
   // Here it is nspecies because lambda is stored after the last species (first starts at 0)
   Array<MultiFab,BL_SPACEDIM> bcoeffs = Diffusion::computeBeta(beta, nspecies);
   op.setBCoeffs(0, amrex::GetArrOfConstPtrs(bcoeffs));
 
-#ifdef _OPENMP
-#pragma omp parallel
-#endif
-  for (MFIter mfi(TT,true); mfi.isValid(); ++mfi)
-  {
-    Box bx = mfi.tilebox();
+  D_TERM( flux[0]->setVal(0., nspecies+2, 1);,
+          flux[1]->setVal(0., nspecies+2, 1);,
+          flux[2]->setVal(0., nspecies+2, 1););
 
-    // need face-centered tilebox for each direction
-    D_TERM(const Box& xbx = mfi.tilebox(IntVect::TheDimensionVector(0));,
-           const Box& ybx = mfi.tilebox(IntVect::TheDimensionVector(1));,
-           const Box& zbx = mfi.tilebox(IntVect::TheDimensionVector(2)););
- 
-    D_TERM((*flux[0])[mfi].setVal<RunOn::Host>(0., xbx, nspecies+2, 1);,
-           (*flux[1])[mfi].setVal<RunOn::Host>(0., ybx, nspecies+2, 1);,
-           (*flux[2])[mfi].setVal<RunOn::Host>(0., zbx, nspecies+2, 1););
-  }
+  // Here it is nspecies+2 because this is the heat flux (nspecies+3 in enth_diff_terms in fortran)
+  // No multiplication by dt here
+  Diffusion::computeExtensiveFluxes(mg, TT, flux, nspecies+2, 1, &geom, b);
 
-// Here it is nspecies+2 because this is the heat flux (nspecies+3 in enth_diff_terms in fortran)
-  AMREX_D_TERM(MultiFab flxx(*flux[0], amrex::make_alias, nspecies+2, 1);,
-               MultiFab flxy(*flux[1], amrex::make_alias, nspecies+2, 1);,
-               MultiFab flxz(*flux[2], amrex::make_alias, nspecies+2, 1););
-  std::array<MultiFab*,AMREX_SPACEDIM> fp{AMREX_D_DECL(&flxx,&flxy,&flxz)};
-
-  mg.getFluxes({fp},{&TT},MLLinOp::Location::FaceCentroid);
-
-
-#ifdef AMREX_USE_EB
-
-#ifdef _OPENMP
-#pragma omp parallel
-#endif
-  for (MFIter mfi(TT,true); mfi.isValid(); ++mfi)
-  {
-    Box bx = mfi.tilebox();
-
-    // need face-centered tilebox for each direction
-    D_TERM(const Box& xbx = mfi.tilebox(IntVect::TheDimensionVector(0));,
-           const Box& ybx = mfi.tilebox(IntVect::TheDimensionVector(1));,
-           const Box& zbx = mfi.tilebox(IntVect::TheDimensionVector(2)););
-
-    // this is to check efficiently if this tile contains any eb stuff
-    const EBFArrayBox& in_fab = static_cast<EBFArrayBox const&>(TT[mfi]);
-    const EBCellFlagFab& flags = in_fab.getEBCellFlagFab();
-
-    if(flags.getType(amrex::grow(bx, 0)) == FabType::covered)
-    {
-      // If tile is completely covered by EB geometry, set 
-      // value to some very large number so we know if
-      // we accidentaly use these covered vals later in calculations
-      D_TERM(flux[0]->setVal(1.2345e30, xbx, nspecies+2, 1);,
-             flux[1]->setVal(1.2345e30, ybx, nspecies+2, 1);,
-             flux[2]->setVal(1.2345e30, zbx, nspecies+2, 1););
-    }
-    else
-    {
-      // No cut cells in tile + nghost-cell witdh halo -> use non-eb routine
-      if(flags.getType(amrex::grow(bx, 0)) == FabType::regular)
-      {
-        for (int i = 0; i < BL_SPACEDIM; ++i)
-        {
-          (*flux[i])[mfi].mult<RunOn::Host>(b,nspecies+2,1);
-          (*flux[i])[mfi].mult<RunOn::Host>((area[i])[mfi],0,nspecies+2,1);
-        }
-      }
-      else
-      {
-        // Use EB routines
-        for (int i = 0; i < BL_SPACEDIM; ++i)
-        {
-          (*flux[i])[mfi].mult<RunOn::Host>(b,nspecies+2,1);
-          (*flux[i])[mfi].mult<RunOn::Host>((area[i])[mfi],0,nspecies+2,1);
-           (*flux[i])[mfi].mult<RunOn::Host>((*areafrac[i])[mfi],0,nspecies+2,1);
-        }
-      }
-    }
-  }
-#else // non-EB
-  // Remove scaling left in fluxes from solve. 
-  for (int i = 0; i < BL_SPACEDIM; ++i)
-  {
-    bool add_hoop_stress = false; // Only true if sigma == Xvel && Geometry::IsRZ())
-    if (add_hoop_stress)
-    {
-      // Below if for scaling by volume, only for R-Z case
-      (*flux[i]).mult(b/(geom.CellSize()[i]),nspecies+2,1,0);
-    }
-    else
-    {
-      MultiFab::Multiply(*flux[i],(area[i]),0,nspecies+2,1,0);
-      (*flux[i]).mult(b,nspecies+2,1,0);
-    }
-  }
-#endif
-  
   //
   // Now we have flux[nspecies+2]
   // Second step, let's compute flux[nspecies+1] = sum_m (H_m Gamma_m)
@@ -4661,96 +4564,19 @@ PeleLM::compute_differential_diffusion_fluxes (const MultiFab& S,
 
        Diffusion::computeAlpha(Alpha, scalars, a, b, 
                                rhsscale, alpha_in, alpha_in_comp+icomp,
-			       rho_flag, &rho, Rho_comp);
+                               rho_flag, &rho, Rho_comp);
        op.setScalars(scalars.first, scalars.second);
        op.setACoeffs(0, Alpha);
     }
-        
+
     {
       Array<MultiFab,BL_SPACEDIM> bcoeffs = Diffusion::computeBeta(beta, betaComp+icomp);
       op.setBCoeffs(0, amrex::GetArrOfConstPtrs(bcoeffs));
     }
-    
-    AMREX_D_TERM(MultiFab flxx(*flux[0], amrex::make_alias, fluxComp+icomp, 1);,
-                 MultiFab flxy(*flux[1], amrex::make_alias, fluxComp+icomp, 1);,
-                 MultiFab flxz(*flux[2], amrex::make_alias, fluxComp+icomp, 1););
-    std::array<MultiFab*,AMREX_SPACEDIM> fp{AMREX_D_DECL(&flxx,&flxy,&flxz)};
-    // Need fluxes at FaceCentroid for 2nd order -- Candace
-    mg.getFluxes({fp},{&Soln},MLLinOp::Location::FaceCentroid);
 
-  
-    
-#ifdef AMREX_USE_EB
-    // now dx, areas, and vol are not constant.
-    int nghost = 0;
-
-#ifdef _OPENMP
-#pragma omp parallel
-#endif
-    for (MFIter mfi(Soln,true); mfi.isValid(); ++mfi)
-    {
-      Box bx = mfi.tilebox();
-
-      // need face-centered tilebox for each direction
-      D_TERM(const Box& xbx = mfi.tilebox(IntVect::TheDimensionVector(0));,
-             const Box& ybx = mfi.tilebox(IntVect::TheDimensionVector(1));,
-             const Box& zbx = mfi.tilebox(IntVect::TheDimensionVector(2)););
-
-      // this is to check efficiently if this tile contains any eb stuff
-      const EBFArrayBox& in_fab = static_cast<EBFArrayBox const&>(Soln[mfi]);
-      const EBCellFlagFab& flags = in_fab.getEBCellFlagFab();
-
-      if(flags.getType(amrex::grow(bx, nghost)) == FabType::covered)
-      {
-        // If tile is completely covered by EB geometry, set 
-        // value to some very large number so we know if
-        // we accidentaly use these covered vals later in calculations
-        D_TERM((*flux[0])[mfi].setVal<RunOn::Host>(1.2345e30, xbx, fluxComp+icomp, 1);,
-               (*flux[1])[mfi].setVal<RunOn::Host>(1.2345e30, ybx, fluxComp+icomp, 1);,
-               (*flux[2])[mfi].setVal<RunOn::Host>(1.2345e30, zbx, fluxComp+icomp, 1););
-      }
-      else
-      {
-      // No cut cells in tile + nghost-cell witdh halo -> use non-eb routine
-      if(flags.getType(amrex::grow(bx, nghost)) == FabType::regular)
-      {
-        for (int i = 0; i < AMREX_SPACEDIM; ++i)
-        {
-          (*flux[i])[mfi].mult<RunOn::Host>(b,fluxComp+icomp,1);
-          (*flux[i])[mfi].mult<RunOn::Host>((area[i])[mfi],0,fluxComp+icomp,1);
-        }
-      }
-      else
-      {
-        // Use EB routines
-        for (int i = 0; i < AMREX_SPACEDIM; ++i)
-        {
-          (*flux[i])[mfi].mult<RunOn::Host>(b,fluxComp+icomp,1);
-          (*flux[i])[mfi].mult<RunOn::Host>((area[i])[mfi],0,fluxComp+icomp,1);
-          (*flux[i])[mfi].mult<RunOn::Host>((*areafrac[i])[mfi],0,fluxComp+icomp,1);
-        }
-      }
-      }
-    }
-#else // non-EB
-    // Remove scaling left in fluxes from solve.
-    bool add_hoop_stress = false; // Only true if sigma == Xvel && Geometry::IsRZ()), then also uses vol-scaled solver
-    for (int i = 0; i < BL_SPACEDIM; ++i)
-    {   
-      if (add_hoop_stress)
-      {
-        // Below if for scaling by volume, only for R-Z case
-        (*flux[i]).mult(b/(geom.CellSize()[i]),fluxComp+icomp,1,0);
-      }
-      else
-      {
-        MultiFab::Multiply(*flux[i],(area[i]),0,fluxComp+icomp,1,0);
-	      (*flux[i]).mult(b,fluxComp+icomp,1,0);
-      }
-    }
-#endif
+    // No multiplication by dt here.
+    Diffusion::computeExtensiveFluxes(mg, Soln, flux, fluxComp+icomp, 1, &geom, b);
   }
-  
 //VisMF::Write(*flux[0],"flux_after_getFluxes_x");
 //VisMF::Write(*flux[1],"flux_after_getFluxes_y"); 
   
@@ -6786,9 +6612,8 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
         for (int d=0; d<AMREX_SPACEDIM; ++d)
         {
           const Box& ebox = S_mfi.nodaltilebox(d);
-
-          (*EdgeState[d])[S_mfi].setVal<RunOn::Host>(0.,bx,0,NUM_STATE);
-          (*EdgeFlux[d])[S_mfi].setVal<RunOn::Host>(0.,bx,0,NUM_STATE);
+          (*EdgeState[d])[S_mfi].setVal<RunOn::Host>(0.,ebox,0,NUM_STATE);
+          (*EdgeFlux[d])[S_mfi].setVal<RunOn::Host>(0.,ebox,0,NUM_STATE);
         }
      }
       else
@@ -6882,9 +6707,8 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
         for (int d=0; d<AMREX_SPACEDIM; ++d)
         {
           const Box& ebox = S_mfi.nodaltilebox(d);
-
-          (*EdgeState[d])[S_mfi].setVal<RunOn::Host>(0.,bx,0,NUM_STATE);
-          (*EdgeFlux[d])[S_mfi].setVal<RunOn::Host>(0.,bx,0,NUM_STATE);
+          (*EdgeState[d])[S_mfi].setVal<RunOn::Host>(0.,ebx,0,NUM_STATE);
+          (*EdgeFlux[d])[S_mfi].setVal<RunOn::Host>(0.,ebx,0,NUM_STATE);
         }
       }
       else
@@ -8963,7 +8787,7 @@ PeleLM::calc_divu (Real      time,
   // DD is computed and stored in divu, and passed in to initialize the calc of divu
   bool include_Wbar_terms = true;
   compute_differential_diffusion_terms(mcViscTerms,divu,time,dt,include_Wbar_terms);
-
+ 
   do_reflux = do_reflux_hold;
 
   //
