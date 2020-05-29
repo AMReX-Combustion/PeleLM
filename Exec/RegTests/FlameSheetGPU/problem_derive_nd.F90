@@ -1,3 +1,5 @@
+#include "mechanism.h"
+
 module problem_derive_module
 
   implicit none
@@ -15,7 +17,6 @@ contains
                             level,grid_no) &
                             bind(C, name="derUserDefined")
 
-    use chemistry_module, only : nspecies                     
     use amrex_fort_module, only : dim=>amrex_spacedim
 
     implicit none
@@ -39,7 +40,7 @@ contains
     ivel  = 1
     irho  = dim + 1
     irhoY = irho + 1
-    iTemp = irhoY + nspecies
+    iTemp = irhoY + NUM_SPECIES
 
     do k=lo(3),hi(3)
       do j=lo(2),hi(2)

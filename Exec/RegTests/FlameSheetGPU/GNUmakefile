@@ -1,5 +1,3 @@
-PELELM_HOME = /global/cscratch1/sd/amfelden/PeleLM_EB/
-
 #
 # Build configuration
 #
@@ -23,10 +21,18 @@ USE_EB = FALSE
 
 #######################
 USE_SUNDIALS_PP = TRUE
-
-USE_KLU_PP = FALSE
-
-USE_CUDA_CVODE = TRUE
+ifeq ($(USE_SUNDIALS_PP), TRUE)
+  # provide location of sundials lib if needed
+  #SUNDIALS_LIB_DIR=$(PELE_PHYSICS_HOME)/ThirdParty/sundials/instdir/lib/
+  # use KLU sparse features -- only useful if CVODE is used on CPU
+  USE_KLU_PP = FALSE
+  ifeq ($(USE_KLU_PP), TRUE)
+    # provide location of KLU lib if needed
+    #SUITESPARSE_DIR=$(PELE_PHYSICS_HOME)/ThirdParty/SuiteSparse/
+  endif
+  # Activates GPU version
+  USE_CUDA_SUNDIALS_PP = TRUE
+endif
 #######################
 
 # Enable ht.velocity_plotfile option

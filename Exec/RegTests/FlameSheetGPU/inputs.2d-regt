@@ -67,8 +67,8 @@ amr.flame_tracer.field_name = Y(H)
 
 # ------------------  INPUTS TO PHYSICS CLASS -------------------
 ns.dt_cutoff       = 5.e-10   # level 0 timestep below which we halt
-ns.visc_tol        = 1.0e-14  # tolerence for viscous solves
-ns.visc_abs_tol    = 1.0e-14  # tolerence for viscous solves
+ns.visc_tol        = 1.0e-12  # tolerence for viscous solves
+ns.visc_abs_tol    = 1.0e-12  # tolerence for viscous solves
 ns.cfl            = 0.7       # cfl number for hyperbolic system
 ns.init_shrink    = 1.0       # scale back initial timestep
 ns.init_shrink    = 0.0001       # scale back initial timestep
@@ -104,6 +104,12 @@ ns.do_fillPatchUMAC=1
 ns.zeroBndryVisc=1
 ns.num_divu_iters =3
 
+# ------------------  INPUTS TO CVODE CHEMISTRY ----------------------
+#peleLM.use_typ_vals_chem = 1
+#peleLM.relative_tol_chem = 1.0e-8
+#peleLM.absolute_tol_chem = 1.0e-6
+cvode.solve_type = 1
+ode.analytical_jacobian = 0
 
 # ------------------  INPUTS TO GODUNOV CLASS ----------------------
 godunov.slope_order = 4
@@ -117,9 +123,9 @@ diffuse.v = 0
 diffuse.Rhs_in_abs_tol = 1
 
 # ------------------  INPUTS TO PROJECTION CLASS -------------------
-#proj.proj_tol       = 1.0e-1  # tolerence for projections
 proj.proj_tol       = 1.0e-12  # tolerence for projections
-#proj.sync_tol       = 1.0e-8  # tolerence for projections
+proj.proj_abs_tol   = 1.0e-12
+proj.sync_tol       = 1.0e-12  # tolerence for projections
 proj.rho_wgt_vel_proj = 0      # 0 => const den proj, 1 => rho weighted
 nodal_proj.verbose          = 0
 proj.filter_factor  = 0.0
@@ -130,8 +136,8 @@ proj.proj_2 = 1
 
 # ------------------  INPUTS TO MACPROJ CLASS -------------------
 mac.mac_tol        = 1.0e-12  # tolerence for mac projections
-mac.mac_sync_tol   = 1.0e-8   # tolerence for mac SYNC projection
-mac.mac_abs_tol    = 1.0e-14
+mac.mac_sync_tol   = 1.0e-12   # tolerence for mac SYNC projection
+mac.mac_abs_tol    = 1.0e-12
 mac.use_cg_solve   = 0
 mac.do_outflow_bcs = 0
 
@@ -160,10 +166,6 @@ ns.do_group_bndry_fills = 1
 
 cg.cg_solver=1
 
-# Select CVODE Jacobian eval: 0=FD 1=AJ
-cvode.analytical_jacobian = 0
-cvode.solve_type = 99 
-
 #
 # Select form of FAB output: default is NATIVE
 #
@@ -176,11 +178,3 @@ fab.format = NATIVE
 
 #fabarray.mfiter_tile_size = 8 8 8 
 amrex.regtest_reduction=1
-
-# for getting things started with eb skip some steps
-ns.init_iter = 0
-ns.do_mac_proj = 0
-# to turn off initial projections set to 0
-ns.do_init_proj = 0
-ns.do_sync_proj = 0
-ns.do_MLsync_proj = 0
