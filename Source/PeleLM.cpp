@@ -39,9 +39,9 @@
 #endif
 
 #include <mechanism.h>
-#ifdef USE_CUDA_CVODE
+#ifdef USE_CUDA_SUNDIALS_PP
 #include <GPU_misc.H>
-#include <actual_Creactor_GPU.h>
+#include <actual_Creactor.h>
 #else
 #ifdef USE_SUNDIALS_PP
 #include <actual_Creactor.h>
@@ -1714,6 +1714,8 @@ PeleLM::set_typical_values(bool is_restart)
       }
 
 #ifdef USE_SUNDIALS_PP
+#ifdef USE_CUDA_SUNDIALS_PP
+#else
     if (use_typ_vals_chem) {
       amrex::Print() << "Using typical values for the absolute tolerances of the ode solver\n";
 #ifdef _OPENMP
@@ -1730,6 +1732,7 @@ PeleLM::set_typical_values(bool is_restart)
       ReSetTolODE();
       }
     }  
+#endif
 #endif
 
   }
@@ -5163,7 +5166,7 @@ PeleLM::compute_rhoRT (const MultiFab& S,
       const int  sCompY = 2;
     
       sfab.resize(box,nCompY+2);
-      sfab.setVal(0,box);
+      sfab.setVal<RunOn::Host>(0,box);
       BL_ASSERT(S[mfi].box().contains(box));
       sfab.copy<RunOn::Host>(S[mfi],box,Density,box,sCompR,1);
       if (temp)
@@ -6448,7 +6451,7 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
     STemp.copy(mf_old,first_spec,0,nspecies+3); // Parallel copy.
     FTemp.copy(Force);                          // Parallel copy.
 
-#ifdef USE_CUDA_CVODE
+#ifdef USE_CUDA_SUNDIALS_PP
     //GPU
     for (MFIter Smfi(STemp,false); Smfi.isValid(); ++Smfi)
     {
@@ -6504,11 +6507,13 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
 	});
 	BL_PROFILE_VAR_STOP(GPU_MISC);
 
+   int reactor_type = 2;
+
 	/* Solve */
 	fc_pt = react(tmp_vect, tmp_src_vect,
 			tmp_vect_energy, tmp_src_vect_energy,
 			&dt_incr, &time_init,
-			&cvode_iE, &ncells, amrex::Gpu::gpuStream());
+			&reactor_type, &ncells, amrex::Gpu::gpuStream());
 	dt_incr = dt;
 
 	/* Unpacking of data */
