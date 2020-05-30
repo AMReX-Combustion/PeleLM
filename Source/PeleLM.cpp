@@ -6612,6 +6612,7 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
         for (int d=0; d<AMREX_SPACEDIM; ++d)
         {
           const Box& ebox = S_mfi.nodaltilebox(d);
+
           (*EdgeState[d])[S_mfi].setVal<RunOn::Host>(0.,ebox,0,NUM_STATE);
           (*EdgeFlux[d])[S_mfi].setVal<RunOn::Host>(0.,ebox,0,NUM_STATE);
         }
@@ -6707,8 +6708,9 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
         for (int d=0; d<AMREX_SPACEDIM; ++d)
         {
           const Box& ebox = S_mfi.nodaltilebox(d);
-          (*EdgeState[d])[S_mfi].setVal<RunOn::Host>(0.,ebx,0,NUM_STATE);
-          (*EdgeFlux[d])[S_mfi].setVal<RunOn::Host>(0.,ebx,0,NUM_STATE);
+          (*EdgeState[d])[S_mfi].setVal<RunOn::Host>(0.,ebox,0,NUM_STATE);
+          (*EdgeFlux[d])[S_mfi].setVal<RunOn::Host>(0.,ebox,0,NUM_STATE);
+
         }
       }
       else
