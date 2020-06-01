@@ -1714,8 +1714,7 @@ PeleLM::set_typical_values(bool is_restart)
       }
 
 #ifdef USE_SUNDIALS_PP
-#ifdef USE_CUDA_SUNDIALS_PP
-#else
+#ifndef USE_CUDA_SUNDIALS_PP
     if (use_typ_vals_chem) {
       amrex::Print() << "Using typical values for the absolute tolerances of the ode solver\n";
 #ifdef _OPENMP
@@ -6439,16 +6438,16 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
 #endif
                   for (int sp=0;sp<nspecies; sp++){
                       rhoY(i,j,k,sp)      = tmp_vect[sp] * 1.e+3;
-                      if (rhoY(i,j,k,sp) != rhoY(i,j,k,sp)) {
+                      if isnan(rhoY(i,j,k,sp)) {
                           amrex::Abort("NaNs !! ");
                       }
                   }
                   rhoY(i,j,k,nspecies+1)  = tmp_vect[nspecies];
-                  if (rhoY(i,j,k,nspecies+1) != rhoY(i,j,k,nspecies+1)) {
+                  if isnan(rhoY(i,j,k,nspecies+1)) {
                       amrex::Abort("NaNs !! ");
                   }
                   rhoY(i,j,k,nspecies) = tmp_vect_energy * 1.e-01;
-                  if (rhoY(i,j,k,nspecies) != rhoY(i,j,k,nspecies)) {
+                  if isnan(rhoY(i,j,k,nspecies)) {
                       amrex::Abort("NaNs !! ");
                   }
 	      }
