@@ -14,7 +14,7 @@ peleLM.hi_bc = Interior  Outflow
 
 #----------------------------TOP LEVEL INPUTS----------------------
 max_step  =  10000
-max_step  =  100
+max_step  =  20
 stop_time = 4.00
 
 #-------------------------AMR INPUTS----------------------------
@@ -33,7 +33,7 @@ amr.blocking_factor = 16      # block factor in grid generation
 
 amr.checkpoint_files_output = 0
 amr.check_file      = chk     # root name of checkpoint file
-amr.check_int       = 10       # number of timesteps between checkpoints
+amr.check_int       = 5       # number of timesteps between checkpoints
 
 amr.plot_file       = plt
 amr.plot_int        = 100
@@ -166,10 +166,6 @@ ns.do_group_bndry_fills = 1
 
 cg.cg_solver=1
 
-# Select CVODE Jacobian eval: 0=FD 1=AJ
-ode.analytical_jacobian = 0
-cvode.solve_type = 1 
-
 #
 # Select form of FAB output: default is NATIVE
 #
@@ -182,3 +178,4 @@ fab.format = NATIVE
 
 #fabarray.mfiter_tile_size = 8 8 8 
 amrex.regtest_reduction=1
+
