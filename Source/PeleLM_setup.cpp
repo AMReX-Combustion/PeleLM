@@ -480,6 +480,9 @@ PeleLM::variableSetUp ()
   init_network();
 
   int reactor_type = 2;
+#ifdef USE_CUDA_SUNDIALS_PP
+  reactor_info(&reactor_type,&ncells_chem);
+#else
 #ifdef _OPENMP
 #pragma omp parallel
 #endif  
@@ -489,7 +492,7 @@ PeleLM::variableSetUp ()
 #endif
   reactor_init(&reactor_type,&ncells_chem);
 }
-
+#endif
 
   init_transport(use_tranlib);
 

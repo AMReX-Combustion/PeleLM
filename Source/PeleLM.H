@@ -215,7 +215,20 @@ public:
   static void getSpeciesNames(amrex::Vector<std::string>& spn);
 
   static int getSpeciesIdx(const std::string& spName);
+
+  amrex::Real predict_velocity (amrex::Real dt);
     
+  void advance_chemistry (amrex::MultiFab&       mf_old,
+                          amrex::MultiFab&       mf_new,
+                          amrex::Real            dt,
+                          const amrex::MultiFab& Force,
+                          int             nCompF,
+                          bool            use_stiff_solver = true);
+
+  void compute_scalar_advection_fluxes_and_divergence (const amrex::MultiFab& Force,
+                                                       const amrex::MultiFab& divu,
+                                                       amrex::Real            dt);
+
 protected:
 
   ////////////////////////////////////////////////////////////////////////////
@@ -318,13 +331,6 @@ private:
                                      const amrex::BCRec&      bc,
 				     amrex::Real 	      time);
 
-  void advance_chemistry (amrex::MultiFab&       mf_old,
-                          amrex::MultiFab&       mf_new,
-                          amrex::Real            dt,
-                          const amrex::MultiFab& Force,
-                          int             nCompF,
-                          bool            use_stiff_solver = true);
-
 #ifdef USE_WBAR
   void calcDiffusivity_Wbar (const amrex::Real time);
 #endif
@@ -372,10 +378,6 @@ private:
                       amrex::MultiFab&       P,
                       int             pComp,
                       const amrex::MultiFab* T = 0);
-
-  void compute_scalar_advection_fluxes_and_divergence (const amrex::MultiFab& Force,
-                                                       const amrex::MultiFab& divu,
-                                                       amrex::Real            dt);
 
   void compute_vel_visc (amrex::Real      time,
                          amrex::MultiFab* beta);
@@ -432,8 +434,6 @@ private:
   void post_init_press (amrex::Real&        dt_init,
                         amrex::Vector<int>&  nc_save,
                         amrex::Vector<amrex::Real>& dt_save);
-
-  amrex::Real predict_velocity (amrex::Real dt);
 
   void set_htt_hmixTYP ();
 
