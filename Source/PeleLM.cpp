@@ -6438,16 +6438,16 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
 #endif
                   for (int sp=0;sp<nspecies; sp++){
                       rhoY(i,j,k,sp)      = tmp_vect[sp] * 1.e+3;
-                      if isnan(rhoY(i,j,k,sp)) {
+                      if (isnan(rhoY(i,j,k,sp))) {
                           amrex::Abort("NaNs !! ");
                       }
                   }
                   rhoY(i,j,k,nspecies+1)  = tmp_vect[nspecies];
-                  if isnan(rhoY(i,j,k,nspecies+1)) {
+                  if (isnan(rhoY(i,j,k,nspecies+1))) {
                       amrex::Abort("NaNs !! ");
                   }
                   rhoY(i,j,k,nspecies) = tmp_vect_energy * 1.e-01;
-                  if isnan(rhoY(i,j,k,nspecies)) {
+                  if (isnan(rhoY(i,j,k,nspecies))) {
                       amrex::Abort("NaNs !! ");
                   }
 	      }
