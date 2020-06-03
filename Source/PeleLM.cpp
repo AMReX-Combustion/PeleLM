@@ -6280,92 +6280,80 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
     {
         cudaError_t cuda_status = cudaSuccess;
 
-	const Box& bx        = Smfi.tilebox();
+        const Box& bx        = Smfi.tilebox();
         auto const& rhoY     = STemp.array(Smfi);
         auto const& fcl      = fcnCntTemp.array(Smfi);
         auto const& frcing   = FTemp.array(Smfi);
-	int ncells           = bx.numPts();
-	amrex::Print() << " nb cells ? " << ncells << '\n';
+        int ncells           = bx.numPts();
+        amrex::Print() << " nb cells ? " << ncells << '\n';
 
-	const auto ec  = Gpu::ExecutionConfig(ncells);
+        const auto ec  = Gpu::ExecutionConfig(ncells);
 
-	const auto len = amrex::length(bx);
+        const auto len = amrex::length(bx);
         const auto lo  = amrex::lbound(bx);
-	const auto hi  = amrex::ubound(bx);
+        const auto hi  = amrex::ubound(bx);
 
         Real dt_incr = dt;
         Real time_init = 0;
 
-	Real fc_pt;
+        Real fc_pt;
 
-	/* Pack the data NEED THOSE TO BE DEF ALWAYS */
-	int Ncomp = NUM_SPECIES;
-	// rhoY,T
-	Real *tmp_vect;
-	// rhoY_src_ext
-	Real *tmp_src_vect;
-	// rhoH, rhoH_src_ext
-	Real *tmp_vect_energy;
-	Real *tmp_src_vect_energy;
+        /* Pack the data NEED THOSE TO BE DEF ALWAYS */
+        int Ncomp = NUM_SPECIES;
+        // rhoY,T
+        Real *tmp_vect;
+        // rhoY_src_ext
+        Real *tmp_src_vect;
+        // rhoH, rhoH_src_ext
+        Real *tmp_vect_energy;
+        Real *tmp_src_vect_energy;
 
-	cudaMallocManaged(&tmp_vect, (Ncomp+1)*ncells*sizeof(amrex::Real));
-	cudaMallocManaged(&tmp_src_vect, Ncomp*ncells*sizeof(amrex::Real));
-	cudaMallocManaged(&tmp_vect_energy, ncells*sizeof(amrex::Real));
-	cudaMallocManaged(&tmp_src_vect_energy, ncells*sizeof(amrex::Real));
+        cudaMallocManaged(&tmp_vect, (Ncomp+1)*ncells*sizeof(amrex::Real));
+        cudaMallocManaged(&tmp_src_vect, Ncomp*ncells*sizeof(amrex::Real));
+        cudaMallocManaged(&tmp_vect_energy, ncells*sizeof(amrex::Real));
+        cudaMallocManaged(&tmp_src_vect_energy, ncells*sizeof(amrex::Real));
 
-	BL_PROFILE_VAR("gpu_flatten()", GPU_MISC);
-	amrex::launch_global<<<ec.numBlocks, ec.numThreads, ec.sharedMem, amrex::Gpu::gpuStream()>>>(
-        [=] AMREX_GPU_DEVICE () noexcept {
-	    for (int icell = blockDim.x*blockIdx.x+threadIdx.x, stride = blockDim.x*gridDim.x;
-	    icell < ncells; icell += stride) {
-	        int k =  icell /   (len.x*len.y);
-		int j = (icell - k*(len.x*len.y)) /   len.x;
-		int i = (icell - k*(len.x*len.y)) - j*len.x;
-		i += lo.x;
-		j += lo.y;
-		k += lo.z;
-		gpu_flatten(icell, i, j, k, rhoY, frcing,
-				tmp_vect, tmp_src_vect, tmp_vect_energy, tmp_src_vect_energy);
-	    }	
-	});
-	BL_PROFILE_VAR_STOP(GPU_MISC);
+        BL_PROFILE_VAR("gpu_flatten()", GPU_MISC);
+        amrex::ParallelFor(bx,
+        [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
+        {
+           int icell = (k-lo.z)*len.x*len.y + (j-lo.y)*len.x + (i-lo.x);
+           gpu_flatten(icell, i, j, k, rhoY, frcing,
+                       tmp_vect, tmp_src_vect, tmp_vect_energy, tmp_src_vect_energy);  
+        });
+        BL_PROFILE_VAR_STOP(GPU_MISC);
 
-   int reactor_type = 2;
+        int reactor_type = 2;
 
-	/* Solve */
-	fc_pt = react(tmp_vect, tmp_src_vect,
-			tmp_vect_energy, tmp_src_vect_energy,
-			&dt_incr, &time_init,
-			&reactor_type, &ncells, amrex::Gpu::gpuStream());
-	dt_incr = dt;
+        /* Solve */
+        fc_pt = react(tmp_vect, tmp_src_vect,
+                      tmp_vect_energy, tmp_src_vect_energy,
+                      &dt_incr, &time_init,
+                      &reactor_type, &ncells, amrex::Gpu::gpuStream());
+                      dt_incr = dt;
 
-	/* Unpacking of data */
-	BL_PROFILE_VAR_START(GPU_MISC);
-	amrex::launch_global<<<ec.numBlocks, ec.numThreads, ec.sharedMem, amrex::Gpu::gpuStream()>>>(
-	[=] AMREX_GPU_DEVICE () noexcept {
-	    for (int icell = blockDim.x*blockIdx.x+threadIdx.x, stride = blockDim.x*gridDim.x;
-	    icell < ncells; icell += stride) {
-	        int k =  icell /   (len.x*len.y);
-		int j = (icell - k*(len.x*len.y)) /   len.x;
-		int i = (icell - k*(len.x*len.y)) - j*len.x;
-		i += lo.x;
-		j += lo.y;
-		k += lo.z;
-		gpu_unflatten(icell, i, j, k, rhoY,
-				tmp_vect, tmp_vect_energy);
-            }
-	});
-	BL_PROFILE_VAR_STOP(GPU_MISC);
+        /* Unpacking of data */
+        BL_PROFILE_VAR_START(GPU_MISC);
+        amrex::ParallelFor(bx,
+        [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
+        {
+           int icell = (k-lo.z)*len.x*len.y + (j-lo.y)*len.x + (i-lo.x);
+           gpu_unflatten(icell, i, j, k, rhoY, fcl,
+                         tmp_vect, tmp_vect_energy, fc_pt);  
+        });
+        BL_PROFILE_VAR_STOP(GPU_MISC);
 
-	/* Clean */
-	cudaFree(tmp_vect);
-	cudaFree(tmp_src_vect);
-	cudaFree(tmp_vect_energy);
-	cudaFree(tmp_src_vect_energy);
+        /* Clean */
+        cudaFree(tmp_vect);
+        cudaFree(tmp_src_vect);
+        cudaFree(tmp_vect_energy);
+        cudaFree(tmp_src_vect_energy);
 
-	cuda_status = cudaStreamSynchronize(amrex::Gpu::gpuStream());
+        cuda_status = cudaStreamSynchronize(amrex::Gpu::gpuStream());
     }
+
 #else
+
     //CPU
 #ifdef _OPENMP
 #pragma omp parallel
