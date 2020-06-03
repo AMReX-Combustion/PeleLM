@@ -38,10 +38,14 @@
 #include <AMReX_AmrData.H>
 #endif
 
+#include <mechanism.h>
 #ifdef USE_SUNDIALS_PP
-#include <actual_Creactor.h>
+#include <reactor.h>
+#ifdef USE_CUDA_SUNDIALS_PP
+#include <GPU_misc.H>
+#endif
 #else
-#include <actual_reactor.H> 
+#include <reactor.H> 
 #endif
 
 #include <Prob_F.H>
@@ -259,15 +263,15 @@ PeleLM::compute_rhohmix (Real      time,
       const FArrayBox& sfab  = smf[mfi];
 
       tmp.resize(bx,nspecies+1);
-      tmp.copy(sfab,Density,0,nspecies+1);
+      tmp.copy<RunOn::Host>(sfab,Density,0,nspecies+1);
 
-      tmp.invert(1.0,bx,0,1);
+      tmp.invert<RunOn::Host>(1.0,bx,0,1);
       for (int k = 0; k < nspecies; k++) {
-        tmp.mult(tmp,0,k+1,1);
+        tmp.mult<RunOn::Host>(tmp,0,k+1,1);
       }
 	    
       getHmixGivenTY_pphys(rhohmix[mfi],sfab,tmp,bx,Temp,1,dComp);
-      rhohmix[mfi].mult(sfab,bx,Density,dComp,1);
+      rhohmix[mfi].mult<RunOn::Host>(sfab,bx,Density,dComp,1);
 
     }
   }
@@ -958,7 +962,7 @@ showMFsub(const std::string&   mySet,
 
     if (ShowMF_Check_Nans)
     {
-      BL_ASSERT(!sub.contains_nan(box,0,mf.nComp()));
+      BL_ASSERT(!sub.contains_nan<RunOn::Host>(box,0,mf.nComp()));
     }
     std::ofstream os;
     os.precision(15);
@@ -1164,9 +1168,9 @@ PeleLM::center_to_edge_fancy (const FArrayBox& cfab,
           if (bc_lo == HT_Edge)
           {
             ovlpFab.resize(*bli,nComp);
-            ovlpFab.copy(cfab,sComp,0,nComp);
+            ovlpFab.copy<RunOn::Host>(cfab,sComp,0,nComp);
             ovlpFab.shiftHalf(dir,inc);
-            efab.copy(ovlpFab,0,dComp,nComp);
+            efab.copy<RunOn::Host>(ovlpFab,0,dComp,nComp);
           }
         }
       }
@@ -1185,9 +1189,9 @@ PeleLM::center_to_edge_fancy (const FArrayBox& cfab,
           if (bc_hi == HT_Edge)
           {
             ovlpFab.resize(*bli,nComp);
-            ovlpFab.copy(cfab,sComp,0,nComp);
+            ovlpFab.copy<RunOn::Host>(cfab,sComp,0,nComp);
             ovlpFab.shiftHalf(dir,inc);
-            efab.copy(ovlpFab,0,dComp,nComp);
+            efab.copy<RunOn::Host>(ovlpFab,0,dComp,nComp);
           }
         }
       }
@@ -1574,8 +1578,8 @@ PeleLM::restart (Amr&          papa,
       const FArrayBox& S2 = S_new[mfi];
       for (int i=0; i<nspecies; ++i)
       {
-        ry1.mult(S1,bx,Density,i,1);
-        ry2.mult(S2,bx,Density,i,1);
+        ry1.mult<RunOn::Host>(S1,bx,Density,i,1);
+        ry2.mult<RunOn::Host>(S2,bx,Density,i,1);
       }
     }
   }
@@ -1708,6 +1712,7 @@ PeleLM::set_typical_values(bool is_restart)
       }
 
 #ifdef USE_SUNDIALS_PP
+#ifndef USE_CUDA_SUNDIALS_PP
     if (use_typ_vals_chem) {
       amrex::Print() << "Using typical values for the absolute tolerances of the ode solver\n";
 #ifdef _OPENMP
@@ -1724,6 +1729,7 @@ PeleLM::set_typical_values(bool is_restart)
       ReSetTolODE();
       }
     }  
+#endif
 #endif
 
   }
@@ -2049,7 +2055,7 @@ PeleLM::initData ()
     const Box& vbx = snewmfi.tilebox();
     RealBox    gridloc = RealBox(vbx,geom.CellSize(),geom.ProbLo());
 
-    P_new[snewmfi].setVal(0.0,snewmfi.nodaltilebox());
+    P_new[snewmfi].setVal<RunOn::Host>(0.0,snewmfi.nodaltilebox());
     
 #ifdef BL_USE_NEWMECH
     init_data_new_mech (&level, &cur_time,
@@ -2303,7 +2309,7 @@ PeleLM::init (AmrLevel& old)
     {
       const Box& vbx  = mfi.tilebox();
       const FArrayBox& pfab = mf_fpi[mfi];
-       Ydot[mfi].copy(pfab,vbx,0,vbx,0,nspecies);
+       Ydot[mfi].copy<RunOn::Host>(pfab,vbx,0,vbx,0,nspecies);
     }
   }
   
@@ -2320,7 +2326,7 @@ PeleLM::init (AmrLevel& old)
     {
       const Box& vbx  = mfi.tilebox();
       const FArrayBox& pfab = mf_fpi[mfi];
-      FuncCount[mfi].copy(pfab,vbx,0,vbx,0,1);
+      FuncCount[mfi].copy<RunOn::Host>(pfab,vbx,0,vbx,0,1);
     }
   }
   
@@ -3674,10 +3680,10 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
   // Update species after diffusion solve using input Force 
   for (MFIter mfi(*Snp1[0],true); mfi.isValid(); ++mfi) {
     const Box& tbox = mfi.tilebox();
-    (*Snp1[0])[mfi].copy(Force[mfi],tbox,0,tbox,first_spec,nspecies);
-    (*Snp1[0])[mfi].plus(Dnew[mfi],tbox,tbox,0,first_spec,nspecies);
-    (*Snp1[0])[mfi].mult(dt,tbox,first_spec,nspecies);
-    (*Snp1[0])[mfi].plus((*Sn[0])[mfi],tbox,tbox,first_spec,first_spec,nspecies);
+    (*Snp1[0])[mfi].copy<RunOn::Host>(Force[mfi],tbox,0,tbox,first_spec,nspecies);
+    (*Snp1[0])[mfi].plus<RunOn::Host>(Dnew[mfi],tbox,tbox,0,first_spec,nspecies);
+    (*Snp1[0])[mfi].mult<RunOn::Host>(dt,tbox,first_spec,nspecies);
+    (*Snp1[0])[mfi].plus<RunOn::Host>((*Sn[0])[mfi],tbox,tbox,first_spec,first_spec,nspecies);
   }
 
   // build energy fluxes based on species fluxes, Gamma_m, and cell-centered states
@@ -3701,7 +3707,7 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
   MultiFab RhoCp(grids,dmap,1,0,MFInfo(),Factory());
   MultiFab RhT(get_new_data(State_Type), amrex::make_alias, Density, 1);
 
-  Real deltaT_iter_norm;
+  Real deltaT_iter_norm = 0;
   for (int L=0; L<num_deltaT_iters_MAX && (L==0 || deltaT_iter_norm >= deltaT_norm_max); ++L)
   {
 
@@ -3716,14 +3722,14 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
         const Box& tbox = mfi.tilebox();
         rhoInv.resize(tbox,1);
         Y.resize(tbox,nspecies);
-        rhoInv.copy((*Snp1[0])[mfi],tbox,Density,tbox,0,1);
-        rhoInv.invert(1.0,tbox,0,1);
-        Y.copy((*Snp1[0])[mfi],tbox,first_spec,tbox,0,nspecies);
+        rhoInv.copy<RunOn::Host>((*Snp1[0])[mfi],tbox,Density,tbox,0,1);
+        rhoInv.invert<RunOn::Host>(1.0,tbox,0,1);
+        Y.copy<RunOn::Host>((*Snp1[0])[mfi],tbox,first_spec,tbox,0,nspecies);
         for (int n=0; n<nspecies; ++n) {
-          Y.mult(rhoInv,tbox,tbox,0,n,1);
+          Y.mult<RunOn::Host>(rhoInv,tbox,tbox,0,n,1);
         }
         getCpmixGivenTY_pphys(RhoCp[mfi],(*Snp1[0])[mfi],Y,tbox,Temp,0,0);
-        RhoCp[mfi].mult((*Snp1[0])[mfi],tbox,tbox,Density,0,1);
+        RhoCp[mfi].mult<RunOn::Host>((*Snp1[0])[mfi],tbox,tbox,Density,0,1);
       }
     }
 
@@ -3781,14 +3787,14 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
         const Box& tbox = mfi.tilebox();
         rhoInv.resize(tbox,1);
         Y.resize(tbox,nspecies);
-        rhoInv.copy((*Snp1[0])[mfi],tbox,Density,tbox,0,1);
-        rhoInv.invert(1.0,tbox,0,1);
-        Y.copy((*Snp1[0])[mfi],tbox,first_spec,tbox,0,nspecies);
+        rhoInv.copy<RunOn::Host>((*Snp1[0])[mfi],tbox,Density,tbox,0,1);
+        rhoInv.invert<RunOn::Host>(1.0,tbox,0,1);
+        Y.copy<RunOn::Host>((*Snp1[0])[mfi],tbox,first_spec,tbox,0,nspecies);
         for (int n=0; n<nspecies; ++n) {
-          Y.mult(rhoInv,tbox,tbox,0,n,1);
+          Y.mult<RunOn::Host>(rhoInv,tbox,tbox,0,n,1);
         }
         getHmixGivenTY_pphys((*Snp1[0])[mfi],(*Snp1[0])[mfi],Y,tbox,Temp,0,RhoH);   // Update RhoH
-        (*Snp1[0])[mfi].mult((*Snp1[0])[mfi],tbox,tbox,Density,RhoH,1);		// mult by rho, get rho*H
+        (*Snp1[0])[mfi].mult<RunOn::Host>((*Snp1[0])[mfi],tbox,tbox,Density,RhoH,1);		// mult by rho, get rho*H
       }
     }
 
@@ -4047,25 +4053,19 @@ PeleLM::compute_enthalpy_fluxes (MultiFab* const*       flux,
   Alpha.setVal(1.);
   op.setScalars(a, b);
   op.setACoeffs(0, Alpha);
-  
-  const MultiFab *aVec[AMREX_SPACEDIM];
-  for (int d=0; d<AMREX_SPACEDIM; ++d)
-  {
-      aVec[d] = &(area[d]);
-  }
-    
+
   // Here it is nspecies because lambda is stored after the last species (first starts at 0)
   Array<MultiFab,BL_SPACEDIM> bcoeffs = Diffusion::computeBeta(beta, nspecies);
   op.setBCoeffs(0, amrex::GetArrOfConstPtrs(bcoeffs));
-  
+
   D_TERM( flux[0]->setVal(0., nspecies+2, 1);,
-	  flux[1]->setVal(0., nspecies+2, 1);,
-	  flux[2]->setVal(0., nspecies+2, 1););
-  
+          flux[1]->setVal(0., nspecies+2, 1);,
+          flux[2]->setVal(0., nspecies+2, 1););
+
   // Here it is nspecies+2 because this is the heat flux (nspecies+3 in enth_diff_terms in fortran)
   // No multiplication by dt here
   Diffusion::computeExtensiveFluxes(mg, TT, flux, nspecies+2, 1, &geom, b);
-    
+
   //
   // Now we have flux[nspecies+2]
   // Second step, let's compute flux[nspecies+1] = sum_m (H_m Gamma_m)
@@ -4140,9 +4140,9 @@ PeleLM::compute_enthalpy_fluxes (MultiFab* const*       flux,
            const Box& ybx = mfi.nodaltilebox(1);,
            const Box& zbx = mfi.nodaltilebox(2););
 
-    D_TERM((*flux[0])[mfi].setVal(0., xbx, nspecies+1, 1);,
-           (*flux[1])[mfi].setVal(0., ybx, nspecies+1, 1);,
-           (*flux[2])[mfi].setVal(0., zbx, nspecies+1, 1););
+    D_TERM((*flux[0])[mfi].setVal<RunOn::Host>(0., xbx, nspecies+1, 1);,
+           (*flux[1])[mfi].setVal<RunOn::Host>(0., ybx, nspecies+1, 1);,
+           (*flux[2])[mfi].setVal<RunOn::Host>(0., zbx, nspecies+1, 1););
 
 #if AMREX_USE_EB
     // this is to check efficiently if this tile contains any eb stuff
@@ -4154,9 +4154,9 @@ PeleLM::compute_enthalpy_fluxes (MultiFab* const*       flux,
       // If tile is completely covered by EB geometry, set 
       // value to some very large number so we know if
       // we accidentaly use these covered vals later in calculations
-      D_TERM((*flux[0])[mfi].setVal(1.2345e30, xbx, nspecies+1, 1);,
-             (*flux[1])[mfi].setVal(1.2345e30, ybx, nspecies+1, 1);,
-             (*flux[2])[mfi].setVal(1.2345e30, zbx, nspecies+1, 1););
+      D_TERM((*flux[0])[mfi].setVal<RunOn::Host>(1.2345e30, xbx, nspecies+1, 1);,
+             (*flux[1])[mfi].setVal<RunOn::Host>(1.2345e30, ybx, nspecies+1, 1);,
+             (*flux[2])[mfi].setVal<RunOn::Host>(1.2345e30, zbx, nspecies+1, 1););
     }
     else
     {
@@ -4168,9 +4168,9 @@ PeleLM::compute_enthalpy_fluxes (MultiFab* const*       flux,
 
         for (int k = 0; k < nspecies; k++)
         {
-          fab_tmp.copy((*flux[i])[mfi],ebox,k,ebox,0,1);
-          fab_tmp.mult((enth_edgstate[i])[mfi],ebox,k,0,1);
-          (*flux[i])[mfi].plus(fab_tmp,ebox,ebox,0,nspecies+1,1);
+          fab_tmp.copy<RunOn::Host>((*flux[i])[mfi],ebox,k,ebox,0,1);
+          fab_tmp.mult<RunOn::Host>((enth_edgstate[i])[mfi],ebox,k,0,1);
+          (*flux[i])[mfi].plus<RunOn::Host>(fab_tmp,ebox,ebox,0,nspecies+1,1);
         }
 
       }
@@ -4431,7 +4431,7 @@ Real MFnorm(const MultiFab& mf,
 #pragma omp parallel
 #endif
   for (MFIter mfi(mf,true); mfi.isValid(); ++mfi)
-    normtot = std::max(normtot,mf[mfi].norm(mfi.tilebox(),p,sComp,nComp));
+    normtot = std::max(normtot,mf[mfi].norm<RunOn::Host>(mfi.tilebox(),p,sComp,nComp));
   ParallelDescriptor::ReduceRealMax(normtot);
   return normtot;
 }
@@ -4527,11 +4527,6 @@ PeleLM::compute_differential_diffusion_fluxes (const MultiFab& S,
   Diffusion::setDomainBC(mlmg_lobc, mlmg_hibc, bc); // Same for all comps, by assumption
   op.setDomainBC(mlmg_lobc, mlmg_hibc);
 
-  const MultiFab *aVec[AMREX_SPACEDIM];
-  for (int d=0; d<AMREX_SPACEDIM; ++d) {
-      aVec[d] = &(area[d]);
-  }
-  
   for (int icomp = 0; icomp < nspecies+1; ++icomp)
   {
     const int sigma = first_spec + icomp;
@@ -4566,11 +4561,11 @@ PeleLM::compute_differential_diffusion_fluxes (const MultiFab& S,
 
        Diffusion::computeAlpha(Alpha, scalars, a, b, 
                                rhsscale, alpha_in, alpha_in_comp+icomp,
-			       rho_flag, &rho, Rho_comp);
+                               rho_flag, &rho, Rho_comp);
        op.setScalars(scalars.first, scalars.second);
        op.setACoeffs(0, Alpha);
     }
-        
+
     {
       Array<MultiFab,BL_SPACEDIM> bcoeffs = Diffusion::computeBeta(beta, betaComp+icomp);
       op.setBCoeffs(0, amrex::GetArrOfConstPtrs(bcoeffs));
@@ -4714,9 +4709,9 @@ PeleLM::scalar_advection_update (Real dt,
     const int nc = last_scalar - first_scalar + 1; 
     FArrayBox& snew = S_new[mfi];
 
-    snew.copy( (*aofs)[mfi],box,first_scalar,box,first_scalar,nc);
-    snew.mult(dt,box,first_scalar,nc);
-    snew.plus(S_old[mfi],box,first_scalar,first_scalar,nc);            
+    snew.copy<RunOn::Host>( (*aofs)[mfi],box,first_scalar,box,first_scalar,nc);
+    snew.mult<RunOn::Host>(dt,box,first_scalar,nc);
+    snew.plus<RunOn::Host>(S_old[mfi],box,first_scalar,first_scalar,nc);            
   }
 
 }
@@ -4921,7 +4916,7 @@ PeleLM::set_rho_to_species_sum (MultiFab& S_in,
     const Box&       box = mfi.tilebox();
     for (int spec = s_first_spec; spec <= s_last_spec; spec++)
     {
-      S_out[mfi].plus(S_in[mfi],box,spec,s_density,1);
+      S_out[mfi].plus<RunOn::Host>(S_in[mfi],box,spec,s_density,1);
     }
   }
 
@@ -4994,27 +4989,26 @@ PeleLM::compute_rhoRT (const MultiFab& S,
       const int  sCompY = 2;
     
       sfab.resize(box,nCompY+2);
-      sfab.setVal(0,box);
+      sfab.setVal<RunOn::Host>(0,box);
       BL_ASSERT(S[mfi].box().contains(box));
-      sfab.copy(S[mfi],box,Density,box,sCompR,1);
-
+      sfab.copy<RunOn::Host>(S[mfi],box,Density,box,sCompR,1);
       if (temp)
       {
         BL_ASSERT(temp->boxArray()[i].contains(box));
-        sfab.copy((*temp)[mfi],box,0,box,sCompT,1);
+        sfab.copy<RunOn::Host>((*temp)[mfi],box,0,box,sCompT,1);
       }
       else
       {
-        sfab.copy(S[mfi],box,Temp,box,sCompT,1);
+        sfab.copy<RunOn::Host>(S[mfi],box,Temp,box,sCompT,1);
       }
-      sfab.copy(S[mfi],box,first_spec,box,sCompY,nCompY);
-
+      sfab.copy<RunOn::Host>(S[mfi],box,first_spec,box,sCompY,nCompY);
+  
       tmp.resize(box,1);
-      tmp.copy(sfab,box,sCompR,box,0,1);
-      tmp.invert(1);
- 
+      tmp.copy<RunOn::Host>(sfab,box,sCompR,box,0,1);
+      tmp.invert<RunOn::Host>(1);
+  
       for (int k = 0; k < nCompY; k++)
-        sfab.mult(tmp,box,0,sCompY+k,1);
+        sfab.mult<RunOn::Host>(tmp,box,0,sCompY+k,1);
   
       getPGivenRTY_pphys(p[mfi],sfab,sfab,sfab,box,sCompR,sCompT,sCompY,pComp);
     }
@@ -5079,7 +5073,7 @@ PeleLM::set_htt_hmixTYP ()
         {
           baf.intersections(ba[mfi.index()],isects);
           for (int i = 0; i < isects.size(); i++)
-            hmix[mfi].setVal(0,isects[i].second,0,1);
+            hmix[mfi].setVal<RunOn::Host>(0,isects[i].second,0,1);
         }
       }
       htt_hmixTYP = std::max(htt_hmixTYP,hmix.norm0(0));
@@ -5269,7 +5263,7 @@ PeleLM::predict_velocity (Real  dt)
 
       for (int d=0; d<BL_SPACEDIM; ++d) {
         const Box& ebx = U_mfi.nodaltilebox(d);
-        u_mac[d][U_mfi].copy(Uface[d],ebx,0,ebx,0,1);
+        u_mac[d][U_mfi].copy<RunOn::Host>(Uface[d],ebx,0,ebx,0,1);
       }
   }
 }
@@ -5539,9 +5533,9 @@ PeleLM::advance (Real time,
 //#ifdef AMREX_USE_EB
     {
       //MultiFab mac_divu_tmp(grids,dmap,1,mac_divu.nGrow()+2,MFInfo(),Factory());
-      //mac_divu_tmp.setVal(0.);
-      //mac_divu_tmp.copy(mac_divu);
-      //amrex::single_level_weighted_redistribute(  {mac_divu_tmp}, {mac_divu}, *volfrac, 0, 1, {geom} );
+      //mac_divu_tmp.setVal<RunOn::Host>(0.);
+      //mac_divu_tmp.copy<RunOn::Host>(mac_divu);
+      //amrex::single_level_weighted_redistribute( 0, {mac_divu_tmp}, {mac_divu}, *volfrac, 0, 1, {geom} );
     }
 //#endif
 
@@ -5593,27 +5587,28 @@ PeleLM::advance (Real time,
         getHGivenT_pphys(H,Sfab,gbox,Tcomp,0);
 
         tmp.resize(gbox,nspecies);
-        tmp.copy(r,gbox,0,gbox,0,nspecies);         // copy Rk to tmp 
-        tmp.plus(dn,gbox,gbox,0,0,nspecies);        // add Dn[spec] to tmp so now we have (Rk + Div(Fk) )
+        tmp.copy<RunOn::Host>(r,gbox,0,gbox,0,nspecies);         // copy Rk to tmp 
+        tmp.plus<RunOn::Host>(dn,gbox,gbox,0,0,nspecies);        // add Dn[spec] to tmp so now we have (Rk + Div(Fk) )
 
-        H.mult(tmp,gbox,gbox,0,0,nspecies);         // Multiply by hk, so now we have hk.( Rk + Div(Fk) )
+        H.mult<RunOn::Host>(tmp,gbox,gbox,0,0,nspecies);         // Multiply by hk, so now we have hk.( Rk + Div(Fk) )
         for (int n=0; n<nspecies; ++n) {
-          f.minus(H,gbox,gbox,n,nspecies,1);        // Build F[N] = - Sum{ hk.( Rk + Div(Fk) ) }
+          f.minus<RunOn::Host>(H,gbox,gbox,n,nspecies,1);        // Build F[N] = - Sum{ hk.( Rk + Div(Fk) ) }
         }
-        f.plus(dn,gbox,gbox,nspecies+1,nspecies,1); // Build F[N] = Dn[N+1] - Sum{ hk.( Rk + Div(Fk) ) }
-        f.plus(ddn,gbox,gbox,0,nspecies,1);         // Add DDn to F[N]
+        f.plus<RunOn::Host>(dn,gbox,gbox,nspecies+1,nspecies,1); // Build F[N] = Dn[N+1] - Sum{ hk.( Rk + Div(Fk) ) }
+        f.plus<RunOn::Host>(ddn,gbox,gbox,0,nspecies,1);         // Add DDn to F[N]
         if (closed_chamber == 1)
-          f.plus(dp0dt,gbox,nspecies,1);            // add dp0/dt to Temp forcing
-        Sfab.invert(1.0,gbox,Rcomp,1);              // S[rho] = 1/rho
+          f.plus<RunOn::Host>(dp0dt,gbox,nspecies,1);            // add dp0/dt to Temp forcing
+        Sfab.invert<RunOn::Host>(1.0,gbox,Rcomp,1);              // S[rho] = 1/rho
         for (int n=0; n<nspecies; ++n) {
-          Sfab.mult(Sfab,gbox,gbox,Rcomp,RYcomp+n,1); // S[1:nsp] = Y
+          Sfab.mult<RunOn::Host>(Sfab,gbox,gbox,Rcomp,RYcomp+n,1); // S[1:nsp] = Y
         }
         getCpmixGivenTY_pphys(RhoCpInv[mfi],Sfab,Sfab,gbox,Tcomp,RYcomp,0); // here, RhoCpInv = Cp
-        RhoCpInv[mfi].invert(1.0,gbox,0,1);                                          // here, RhoCpInv = 1/(Cp)
-        RhoCpInv[mfi].mult(Sfab,gbox,gbox,Rcomp,0,1);                                // here, RhoCpInv = 1/(rho.Cp)
-        f.mult(RhoCpInv[mfi],gbox,0,nspecies,1);    // Scale, so that F[Temp]= (Dn[Temp]- Sum{hk.(Rk+Div(Fk))})/(Rho.Cp)
-        f.copy(dn,gbox,0,gbox,0,nspecies);          // initialize RhoY forcing with Dn
-        f.plus(r,gbox,gbox,0,0,nspecies);           // add R to RhoY, so that F[i] = Dn[i] + R[i]
+        RhoCpInv[mfi].invert<RunOn::Host>(1.0,gbox,0,1);                                          // here, RhoCpInv = 1/(Cp)
+        RhoCpInv[mfi].mult<RunOn::Host>(Sfab,gbox,gbox,Rcomp,0,1);                                // here, RhoCpInv = 1/(rho.Cp)
+        f.mult<RunOn::Host>(RhoCpInv[mfi],gbox,0,nspecies,1);    // Scale, so that F[Temp]= (Dn[Temp]- Sum{hk.(Rk+Div(Fk))})/(Rho.Cp)
+        f.copy<RunOn::Host>(dn,gbox,0,gbox,0,nspecies);          // initialize RhoY forcing with Dn
+        f.plus<RunOn::Host>(r,gbox,gbox,0,0,nspecies);           // add R to RhoY, so that F[i] = Dn[i] + R[i]
+
       }
     }
     BL_PROFILE_VAR_STOP(HTADV);
@@ -5629,7 +5624,7 @@ PeleLM::advance (Real time,
 #ifdef AMREX_USE_EB    
 //    { 
 //      MultiFab Forcing_tmp(grids,dmap,Forcing.nComp(),(Forcing.nGrow())+1,MFInfo(),Factory());
-//      Forcing_tmp.copy(Forcing);
+//      Forcing_tmp.copy<RunOn::Host>(Forcing);
 //      amrex::single_level_redistribute( 0, {Forcing_tmp}, {Forcing}, 0, nspecies+1, {geom} );
 //    }
 //    EB_set_covered(Forcing,0.);
@@ -5670,19 +5665,19 @@ PeleLM::advance (Real time,
         const FArrayBox& dnp1 = Dnp1[mfi];
         const FArrayBox& ddnp1 = DDnp1[mfi];
 
-        f.copy(dn,box,0,box,0,nspecies); // copy Dn into RhoY
-        f.copy(dn,box,nspecies+1,box,nspecies,1); // copy Div(lamGradT) into RhoH
-        f.minus(dnp1,box,box,0,0,nspecies);  // subtract Dnp1 from RhoY
-        f.minus(dnp1,box,box,nspecies+1,nspecies,1); // subtract Div(lamGradT) in Dnp1 from RhoH
-        f.plus(ddn  ,box,box,0,nspecies,1); // add DDn to RhoH, no contribution for RhoY
-        f.minus(ddnp1,box,box,0,nspecies,1); // subtract DDnp1 to RhoH, no contribution for RhoY
-        f.mult(0.5,box,0,nspecies+1);
+        f.copy<RunOn::Host>(dn,box,0,box,0,nspecies); // copy Dn into RhoY
+        f.copy<RunOn::Host>(dn,box,nspecies+1,box,nspecies,1); // copy Div(lamGradT) into RhoH
+        f.minus<RunOn::Host>(dnp1,box,box,0,0,nspecies);  // subtract Dnp1 from RhoY
+        f.minus<RunOn::Host>(dnp1,box,box,nspecies+1,nspecies,1); // subtract Div(lamGradT) in Dnp1 from RhoH
+        f.plus<RunOn::Host>(ddn  ,box,box,0,nspecies,1); // add DDn to RhoH, no contribution for RhoY
+        f.minus<RunOn::Host>(ddnp1,box,box,0,nspecies,1); // subtract DDnp1 to RhoH, no contribution for RhoY
+        f.mult<RunOn::Host>(0.5,box,0,nspecies+1);
         
         if (closed_chamber == 1)
-          f.plus(dp0dt,box,nspecies,1); // add dp0/dt to enthalpy forcing
+          f.plus<RunOn::Host>(dp0dt,box,nspecies,1); // add dp0/dt to enthalpy forcing
 
-        f.plus(a,box,box,first_spec,0,nspecies+1); // add A into RhoY and RhoH              
-        f.plus(r,box,box,0,0,nspecies); // no reactions for RhoH
+        f.plus<RunOn::Host>(a,box,box,first_spec,0,nspecies+1); // add A into RhoY and RhoH              
+        f.plus<RunOn::Host>(r,box,box,0,0,nspecies); // no reactions for RhoH
                
       }
     }
@@ -5698,7 +5693,7 @@ PeleLM::advance (Real time,
 #ifdef AMREX_USE_EB    
     //{
     //  MultiFab Forcing_tmp(grids,dmap,Forcing.nComp(),(Forcing.nGrow())+2,MFInfo(),Factory());
-    //  Forcing_tmp.copy(Forcing);
+    //  Forcing_tmp.copy<RunOn::Host>(Forcing);
     //  amrex::single_level_redistribute( 0, {Forcing_tmp}, {Forcing}, 0, nspecies+1, {geom} );
     //}
     EB_set_covered(Forcing,0.);
@@ -5798,18 +5793,18 @@ PeleLM::advance (Real time,
       {
         const Box& box = mfi.tilebox();
         T.resize(box,1);
-        T.setVal(298.15,box);
-        T.copy(dat[mfi],Temp,0,1);
+        T.setVal<RunOn::Host>(298.15,box);
+        T.copy<RunOn::Host>(dat[mfi],Temp,0,1);
 
         enthi.resize(box,R.nComp());
         getHGivenT_pphys(enthi,T,box,0,0);
-        enthi.mult(R[mfi],box,0,0,R.nComp());
+        enthi.mult<RunOn::Host>(R[mfi],box,0,0,R.nComp());
         
         // Form heat release
-        (*auxDiag["HEATRELEASE"])[mfi].setVal(0,box);
+        (*auxDiag["HEATRELEASE"])[mfi].setVal<RunOn::Host>(0,box);
         for (int j=0; j<R.nComp(); ++j)
         {
-          (*auxDiag["HEATRELEASE"])[mfi].minus(enthi,box,j,0,1);
+          (*auxDiag["HEATRELEASE"])[mfi].minus<RunOn::Host>(enthi,box,j,0,1);
         }
       }
     }
@@ -5818,9 +5813,9 @@ PeleLM::advance (Real time,
   for (MFIter mfi(*auxDiag["COMMPROF"]); mfi.isValid(); ++mfi)
   {
     int rank(ParallelDescriptor::MyProc());
-    (*auxDiag["COMMPROF"])[mfi].setVal(rank, 0);
-    (*auxDiag["COMMPROF"])[mfi].setVal(DistributionMapping::ProximityMap(rank),   1);
-    (*auxDiag["COMMPROF"])[mfi].setVal(DistributionMapping::ProximityOrder(rank), 2);
+    (*auxDiag["COMMPROF"])[mfi].setVal<RunOn::Host>(rank, 0);
+    (*auxDiag["COMMPROF"])[mfi].setVal<RunOn::Host>(DistributionMapping::ProximityMap(rank),   1);
+    (*auxDiag["COMMPROF"])[mfi].setVal<RunOn::Host>(DistributionMapping::ProximityOrder(rank), 2);
   }
 #endif
 
@@ -5869,9 +5864,9 @@ PeleLM::advance (Real time,
       for (int i = 0, N = isects.size(); i < N; i++)
       {
         const Box& ovlp = isects[i].second;
-        divu_new[mfi].copy(dsdt_old[mfi],ovlp,0,ovlp,0,1);
-        divu_new[mfi].mult(dt,ovlp,0,1);
-        divu_new[mfi].plus(divu_old[mfi],ovlp,0,0,1);
+        divu_new[mfi].copy<RunOn::Host>(dsdt_old[mfi],ovlp,0,ovlp,0,1);
+        divu_new[mfi].mult<RunOn::Host>(dt,ovlp,0,1);
+        divu_new[mfi].plus<RunOn::Host>(divu_old[mfi],ovlp,0,0,1);
       }
     }
   }
@@ -6050,8 +6045,8 @@ PeleLM::adjust_p_and_divu_for_closed_chamber(MultiFab& mac_divu)
     FArrayBox& th_nph = theta_nph[mfi];
     const FArrayBox& th_old = theta_old[mfi];
     const Box& box = mfi.tilebox();
-    th_nph.plus(th_old,box,box,0,0,1);
-    th_nph.mult(0.5,box,0,1);
+    th_nph.plus<RunOn::Host>(th_old,box,box,0,0,1);
+    th_nph.mult<RunOn::Host>(0.5,box,0,1);
   }
 
   // compute number of cells
@@ -6077,8 +6072,8 @@ PeleLM::adjust_p_and_divu_for_closed_chamber(MultiFab& mac_divu)
     FArrayBox& m_du = mac_divu[mfi];
     FArrayBox& th_nph = theta_nph[mfi];
     const Box& box = mfi.tilebox();
-    th_nph.mult(Sbar/thetabar,box,0,1);
-    m_du.minus(th_nph,box,box,0,0,1);
+    th_nph.mult<RunOn::Host>(Sbar/thetabar,box,0,1);
+    m_du.minus<RunOn::Host>(th_nph,box,box,0,0,1);
   }
   BL_PROFILE_VAR_STOP(HTMAC);
 
@@ -6111,7 +6106,7 @@ PeleLM::getFuncCountDM (const BoxArray& bxba, int ngrow)
 
 // FIXME need to be tiled  
   for (MFIter mfi(fctmpnew); mfi.isValid(); ++mfi)
-    vwrk[count++] = static_cast<long>(fctmpnew[mfi].sum(0));
+    vwrk[count++] = static_cast<long>(fctmpnew[mfi].sum<RunOn::Host>(0));
 
   fctmpnew.clear();
 
@@ -6243,8 +6238,6 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
 
     DistributionMapping dm = getFuncCountDM(ba,ngrow);
 
-
-
     MultiFab diagTemp;
     MultiFab STemp(ba, dm, nspecies+3, 0);
     MultiFab fcnCntTemp(ba, dm, 1, 0);
@@ -6281,91 +6274,187 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
     STemp.copy(mf_old,first_spec,0,nspecies+3); // Parallel copy.
     FTemp.copy(Force);                          // Parallel copy.
 
+#ifdef USE_CUDA_SUNDIALS_PP
+    //GPU
+    for (MFIter Smfi(STemp,false); Smfi.isValid(); ++Smfi)
+    {
+        cudaError_t cuda_status = cudaSuccess;
+
+	const Box& bx        = Smfi.tilebox();
+        auto const& rhoY     = STemp.array(Smfi);
+        auto const& fcl      = fcnCntTemp.array(Smfi);
+        auto const& frcing   = FTemp.array(Smfi);
+	int ncells           = bx.numPts();
+	amrex::Print() << " nb cells ? " << ncells << '\n';
+
+	const auto ec  = Gpu::ExecutionConfig(ncells);
+
+	const auto len = amrex::length(bx);
+        const auto lo  = amrex::lbound(bx);
+	const auto hi  = amrex::ubound(bx);
+
+        Real dt_incr = dt;
+        Real time_init = 0;
+
+	Real fc_pt;
+
+	/* Pack the data NEED THOSE TO BE DEF ALWAYS */
+	int Ncomp = NUM_SPECIES;
+	// rhoY,T
+	Real *tmp_vect;
+	// rhoY_src_ext
+	Real *tmp_src_vect;
+	// rhoH, rhoH_src_ext
+	Real *tmp_vect_energy;
+	Real *tmp_src_vect_energy;
+
+	cudaMallocManaged(&tmp_vect, (Ncomp+1)*ncells*sizeof(amrex::Real));
+	cudaMallocManaged(&tmp_src_vect, Ncomp*ncells*sizeof(amrex::Real));
+	cudaMallocManaged(&tmp_vect_energy, ncells*sizeof(amrex::Real));
+	cudaMallocManaged(&tmp_src_vect_energy, ncells*sizeof(amrex::Real));
+
+	BL_PROFILE_VAR("gpu_flatten()", GPU_MISC);
+	amrex::launch_global<<<ec.numBlocks, ec.numThreads, ec.sharedMem, amrex::Gpu::gpuStream()>>>(
+        [=] AMREX_GPU_DEVICE () noexcept {
+	    for (int icell = blockDim.x*blockIdx.x+threadIdx.x, stride = blockDim.x*gridDim.x;
+	    icell < ncells; icell += stride) {
+	        int k =  icell /   (len.x*len.y);
+		int j = (icell - k*(len.x*len.y)) /   len.x;
+		int i = (icell - k*(len.x*len.y)) - j*len.x;
+		i += lo.x;
+		j += lo.y;
+		k += lo.z;
+		gpu_flatten(icell, i, j, k, rhoY, frcing,
+				tmp_vect, tmp_src_vect, tmp_vect_energy, tmp_src_vect_energy);
+	    }	
+	});
+	BL_PROFILE_VAR_STOP(GPU_MISC);
+
+   int reactor_type = 2;
+
+	/* Solve */
+	fc_pt = react(tmp_vect, tmp_src_vect,
+			tmp_vect_energy, tmp_src_vect_energy,
+			&dt_incr, &time_init,
+			&reactor_type, &ncells, amrex::Gpu::gpuStream());
+	dt_incr = dt;
+
+	/* Unpacking of data */
+	BL_PROFILE_VAR_START(GPU_MISC);
+	amrex::launch_global<<<ec.numBlocks, ec.numThreads, ec.sharedMem, amrex::Gpu::gpuStream()>>>(
+	[=] AMREX_GPU_DEVICE () noexcept {
+	    for (int icell = blockDim.x*blockIdx.x+threadIdx.x, stride = blockDim.x*gridDim.x;
+	    icell < ncells; icell += stride) {
+	        int k =  icell /   (len.x*len.y);
+		int j = (icell - k*(len.x*len.y)) /   len.x;
+		int i = (icell - k*(len.x*len.y)) - j*len.x;
+		i += lo.x;
+		j += lo.y;
+		k += lo.z;
+		gpu_unflatten(icell, i, j, k, rhoY,
+				tmp_vect, tmp_vect_energy);
+            }
+	});
+	BL_PROFILE_VAR_STOP(GPU_MISC);
+
+	/* Clean */
+	cudaFree(tmp_vect);
+	cudaFree(tmp_src_vect);
+	cudaFree(tmp_vect_energy);
+	cudaFree(tmp_src_vect_energy);
+
+	cuda_status = cudaStreamSynchronize(amrex::Gpu::gpuStream());
+    }
+#else
+    //CPU
 #ifdef _OPENMP
 #pragma omp parallel
 #endif
     for (MFIter Smfi(STemp,true); Smfi.isValid(); ++Smfi)
     {
-      const auto&      rhoY     = STemp.array(Smfi);
-      const Box&       bx       = Smfi.tilebox();
-      const auto&      fcl      = fcnCntTemp.array(Smfi);
-      const auto&      frcing   = FTemp.array(Smfi);
+        const Box&  bx       = Smfi.tilebox();
+        auto const& rhoY     = STemp.array(Smfi);
+        auto const& fcl      = fcnCntTemp.array(Smfi);
+        auto const& frcing   = FTemp.array(Smfi);
       
-//amrex::Print() << " NEW LOOP IN MFITER \n";
 #ifdef AMREX_USE_EB      
       const BaseFab<int>& fab_ebmask = new_ebmask[Smfi];
 #endif
 
       Real dt_incr = dt;
       Real time_init = 0;
-      double pressure = 1.0; // dummy FIXME
 
-      const auto len = amrex::length(bx);
       const auto lo  = amrex::lbound(bx);
+      const auto hi  = amrex::ubound(bx);
 
 #ifdef AMREX_USE_EB       
       const auto local_ebmask   = fab_ebmask.array();
 #endif
 
-      double tmp_vect[(nspecies+1)];
-      double tmp_src_vect[nspecies];
-      double tmp_vect_energy[1];
-      double tmp_src_vect_energy[1];
+      Real tmp_vect[NUM_SPECIES+1];
+      Real tmp_src_vect[NUM_SPECIES];
+      Real tmp_vect_energy;
+      Real tmp_src_vect_energy;
 
-      For(bx,
-      [&] AMREX_GPU_DEVICE (int i, int j, int k)
-      {
-         for (int sp=0;sp<nspecies; sp++){
-             tmp_vect[sp]       = rhoY(i,j,k,sp) * 1.e-3;
-             tmp_src_vect[sp]   = frcing(i,j,k,sp) * 1.e-3;
-         }
-         tmp_vect[nspecies]     = rhoY(i,j,k,nspecies+1);
-         tmp_vect_energy[0]     = rhoY(i,j,k,nspecies) * 10.0;
-         tmp_src_vect_energy[0] = frcing(i,j,k,nspecies) * 10.0;
 
+      for         (int k = lo.z; k <= hi.z; ++k) {
+          for         (int j = lo.y; j <= hi.y; ++j) {
+	      for         (int i = lo.x; i <= hi.x; ++i) {
+                  for (int sp=0;sp<nspecies; sp++){
+                      tmp_vect[sp]       = rhoY(i,j,k,sp) * 1.e-3;
+                      tmp_src_vect[sp]   = frcing(i,j,k,sp) * 1.e-3;
+                  }
+                  tmp_vect[nspecies]       = rhoY(i,j,k,nspecies+1);
+                  tmp_vect_energy     = rhoY(i,j,k,nspecies) * 10.0;
+                  tmp_src_vect_energy = frcing(i,j,k,nspecies) * 10.0;
+
+                  Real dt_local = dt_incr;
+                  Real p_local  = 1.0;
+          
 #ifdef AMREX_USE_EB             
-         if (local_ebmask(i,j,k) != -1 ){   // Regular & cut cells
+                  if (local_ebmask(i,j,k) != -1 ){   // Regular & cut cells
 #endif
 
-         fcl(i,j,k) = react(tmp_vect, tmp_src_vect,
-                            tmp_vect_energy, tmp_src_vect_energy,
+                      fcl(i,j,k) = react(tmp_vect, tmp_src_vect,
+                                 &tmp_vect_energy, &tmp_src_vect_energy,
 
 #ifndef USE_SUNDIALS_PP
-                            &pressure,
+                                 &p_local,
 #endif
-                            &dt_incr, &time_init);
-
+                                 &dt_local, &time_init);
+              
 #ifdef AMREX_USE_EB 
 //         } else if ( local_ebmask(i,j,k) == 0 ) {  // Cut cells
-//            for (int sp=0;sp<nspecies; sp++){                                                                                             
+//            for (int sp=0;sp<nsp; sp++){                                                                                             
 //                tmp_vect[sp] = tmp_vect[sp] + dt_incr * tmp_src_vect[sp];
 //            }
 //            tmp_vect_energy[0] = tmp_vect_energy[0] + dt_incr * tmp_src_vect_energy[0];
 //            fcl(i,j,k) = 0.0;
-         } else {   // Covered cells 
-            fcl(i,j,k) = 0.0;
-         }
+                  } else {   // Covered cells 
+                      fcl(i,j,k) = 0.0;
+                  }
 #endif
-                            
-         dt_incr = dt;
-         for (int sp=0;sp<nspecies; sp++){
-            rhoY(i,j,k,sp)      = tmp_vect[sp] * 1.e+3;
-            if (rhoY(i,j,k,sp) != rhoY(i,j,k,sp)) {
-               amrex::Abort("NaNs !! ");
-            }
-         }
-		     rhoY(i,j,k,nspecies+1)  = tmp_vect[nspecies];
-         if (rhoY(i,j,k,nspecies+1) != rhoY(i,j,k,nspecies+1)) {
-            amrex::Abort("NaNs !! ");
-         }
-         rhoY(i,j,k,nspecies) = tmp_vect_energy[0] * 1.e-01;
-         if (rhoY(i,j,k,nspecies) != rhoY(i,j,k,nspecies)) {
-            amrex::Abort("NaNs !! ");
-         }
-
-      });
+                  for (int sp=0;sp<nspecies; sp++){
+                      rhoY(i,j,k,sp)      = tmp_vect[sp] * 1.e+3;
+                      if (isnan(rhoY(i,j,k,sp))) {
+                          amrex::Abort("NaNs !! ");
+                      }
+                  }
+                  rhoY(i,j,k,nspecies+1)  = tmp_vect[nspecies];
+                  if (isnan(rhoY(i,j,k,nspecies+1))) {
+                      amrex::Abort("NaNs !! ");
+                  }
+                  rhoY(i,j,k,nspecies) = tmp_vect_energy * 1.e-01;
+                  if (isnan(rhoY(i,j,k,nspecies))) {
+                      amrex::Abort("NaNs !! ");
+                  }
+	      }
+	  }
+      }
 
     }
+
+#endif
 
     FTemp.clear();
 
@@ -6516,30 +6605,30 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
 
       if(flags.getType(amrex::grow(bx, 0)) == FabType::covered)
       {
-        (*aofs)[S_mfi].setVal(0,bx,Density,1);
+        (*aofs)[S_mfi].setVal<RunOn::Host>(0,bx,Density,1);
         for (int d=0; d<AMREX_SPACEDIM; ++d)
         {
           const Box& ebox = S_mfi.nodaltilebox(d);
 
-          (*EdgeState[d])[S_mfi].setVal(0.,ebox,0,NUM_STATE);
-          (*EdgeFlux[d])[S_mfi].setVal(0.,ebox,0,NUM_STATE);
+          (*EdgeState[d])[S_mfi].setVal<RunOn::Host>(0.,ebox,0,NUM_STATE);
+          (*EdgeFlux[d])[S_mfi].setVal<RunOn::Host>(0.,ebox,0,NUM_STATE);
         }
      }
       else
       {
 
-        (*aofs)[S_mfi].setVal(0,bx,Density,1);
+        (*aofs)[S_mfi].setVal<RunOn::Host>(0,bx,Density,1);
 
         for (int comp=0; comp < nspecies; comp++){      
-          (*aofs)[S_mfi].plus((*aofs)[S_mfi],bx,bx,first_spec+comp,Density,1);
+          (*aofs)[S_mfi].plus<RunOn::Host>((*aofs)[S_mfi],bx,bx,first_spec+comp,Density,1);
         }
         for (int d=0; d<BL_SPACEDIM; d++)
         {
           const Box& gbx = S_mfi.grownnodaltilebox(d,EdgeState[d]->nGrow());
 
           for (int comp=0; comp < nspecies; comp++){
-            (*EdgeState[d])[S_mfi].plus((*EdgeState[d])[S_mfi],gbx,gbx,first_spec+comp,Density,1);
-            (*EdgeFlux[d])[S_mfi].plus((*EdgeFlux[d])[S_mfi],gbx,gbx,first_spec+comp,Density,1);
+            (*EdgeState[d])[S_mfi].plus<RunOn::Host>((*EdgeState[d])[S_mfi],gbx,gbx,first_spec+comp,Density,1);
+            (*EdgeFlux[d])[S_mfi].plus<RunOn::Host>((*EdgeFlux[d])[S_mfi],gbx,gbx,first_spec+comp,Density,1);
           }
         }
       }
@@ -6616,9 +6705,9 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
         for (int d=0; d<AMREX_SPACEDIM; ++d)
         {
           const Box& ebox = S_mfi.nodaltilebox(d);
+          (*EdgeState[d])[S_mfi].setVal<RunOn::Host>(0.,ebox,0,NUM_STATE);
+          (*EdgeFlux[d])[S_mfi].setVal<RunOn::Host>(0.,ebox,0,NUM_STATE);
 
-          (*EdgeState[d])[S_mfi].setVal(0.,ebox,0,NUM_STATE);
-          (*EdgeFlux[d])[S_mfi].setVal(0.,ebox,0,NUM_STATE);
         }
       }
       else
@@ -6627,11 +6716,11 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
         {
           const Box& ebox = S_mfi.grownnodaltilebox(d,EdgeState[d]->nGrow());
           eR.resize(ebox,1);
-          eR.copy((*EdgeState[d])[S_mfi],ebox,Density,ebox,0,1);
-          eR.invert(1.0,ebox,0,1);
+          eR.copy<RunOn::Host>((*EdgeState[d])[S_mfi],ebox,Density,ebox,0,1);
+          eR.invert<RunOn::Host>(1.0,ebox,0,1);
 
           eY.resize(ebox,nspecies);
-          eY.copy((*EdgeState[d])[S_mfi],ebox,first_spec,ebox,0,nspecies);
+          eY.copy<RunOn::Host>((*EdgeState[d])[S_mfi],ebox,first_spec,ebox,0,nspecies);
 
           for (int n=0; n<nspecies; ++n) {
             eY.mult(eR,ebox,0,n,1);
@@ -6640,8 +6729,8 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
           eH.resize(ebox,1);
           getHmixGivenTY_pphys(eH, (*EdgeState[d])[S_mfi], eY, ebox, Temp, 0, 0);
 
-          (*EdgeState[d])[S_mfi].copy(eH,ebox,0,ebox,RhoH,1);      // Copy H into estate
-          (*EdgeState[d])[S_mfi].mult((*EdgeState[d])[S_mfi],ebox,Density,RhoH,1); // Make H.Rho into estate
+          (*EdgeState[d])[S_mfi].copy<RunOn::Host>(eH,ebox,0,ebox,RhoH,1);      // Copy H into estate
+          (*EdgeState[d])[S_mfi].mult<RunOn::Host>((*EdgeState[d])[S_mfi],ebox,Density,RhoH,1); // Make H.Rho into estate
 
         }
       }
@@ -6750,8 +6839,8 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
 
         edgeflux[d].resize(ebx,nspecies+3);
         edgestate[d].resize(ebx,nspecies+3); // comps: 0:rho, 1:nspecies: rho*Y, nspecies+1: rho*H, nspecies+2: Temp
-        edgeflux[d].setVal(0,ebx);
-        edgestate[d].setVal(0,ebx);
+        edgeflux[d].setVal<RunOn::Host>(0,ebx);
+        edgestate[d].setVal<RunOn::Host>(0,ebx);
       }
 
 // Advect RhoY
@@ -6766,21 +6855,21 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
                              (*aofs)[S_mfi], first_spec, advectionType, state_bc, FPU, volume[S_mfi]);
 
 // Set flux, flux divergence, and face values for rho as sums of the corresponding RhoY quantities
-      (*aofs)[S_mfi].setVal(0,bx,Density,1);
+      (*aofs)[S_mfi].setVal<RunOn::Host>(0,bx,Density,1);
       for (int d=0; d<AMREX_SPACEDIM; ++d)
-     {
-       (*EdgeState[d])[S_mfi].setVal(0,bx);
-       (*EdgeFlux[d])[S_mfi].setVal(0,bx);
-     }
+      {
+        (*EdgeState[d])[S_mfi].setVal<RunOn::Host>(0,bx);
+        (*EdgeFlux[d])[S_mfi].setVal<RunOn::Host>(0,bx);
+      }
      
       for (int comp=0; comp < nspecies; comp++){      
-        (*aofs)[S_mfi].plus((*aofs)[S_mfi],bx,bx,first_spec+comp,Density,1);
+        (*aofs)[S_mfi].plus<RunOn::Host>((*aofs)[S_mfi],bx,bx,first_spec+comp,Density,1);
       }
       for (int d=0; d<AMREX_SPACEDIM; d++)
       {
         for (int comp=0; comp < nspecies; comp++){
-          edgestate[d].plus(edgestate[d],comp+1,0,1);
-          edgeflux[d].plus(edgeflux[d],comp+1,0,1);
+          edgestate[d].plus<RunOn::Host>(edgestate[d],comp+1,0,1);
+          edgeflux[d].plus<RunOn::Host>(edgeflux[d],comp+1,0,1);
         }
       }
       
@@ -6801,7 +6890,7 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
       // It's not really used, but it's cleaner this way.
       for (int d=0; d<AMREX_SPACEDIM; ++d) {
          const Box& ebx = amrex::surroundingNodes(bx,d);
-         edgeflux[d].setVal(0.0,ebx,nspecies+2,1);
+         edgeflux[d].setVal<RunOn::Host>(0.0,ebx,nspecies+2,1);
       }
 
 // Compute RhoH on faces, store in nspecies+1 component of edgestate[d]
@@ -6810,32 +6899,31 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
 
         const Box& ebox = amrex::surroundingNodes(bx,d);
         eR.resize(ebox,1);
-        eR.copy(edgestate[d],0,0,1);
-        eR.invert(1.0,ebox,0,1);
+        eR.copy<RunOn::Host>(edgestate[d],0,0,1);
+        eR.invert<RunOn::Host>(1.0,ebox,0,1);
   
         eY.resize(ebox,nspecies);
-        eY.copy(edgestate[d],1,0,nspecies);
+        eY.copy<RunOn::Host>(edgestate[d],1,0,nspecies);
 
         for (int n=0; n<nspecies; ++n) {
-          eY.mult(eR,0,n,1);
+          eY.mult<RunOn::Host>(eR,0,n,1);
         }
-        
-        
+
         eH.resize(ebox,1);
         getHmixGivenTY_pphys(eH, edgestate[d], eY, ebox, nspecies+2, 0, 0);
                 
-        edgestate[d].copy(eH,ebox,0,ebox,nspecies+1,1);      // Copy H into estate
-        edgestate[d].mult(edgestate[d],ebox,0,nspecies+1,1); // Make H.Rho into estate
+        edgestate[d].copy<RunOn::Host>(eH,ebox,0,ebox,nspecies+1,1);      // Copy H into estate
+        edgestate[d].mult<RunOn::Host>(edgestate[d],ebox,0,nspecies+1,1); // Make H.Rho into estate
         
         // Copy edgestate into edgeflux. ComputeAofs() overwrites but needs edgestate to start.
-        edgeflux[d].copy(edgestate[d],ebox,nspecies+1,ebox,nspecies+1,1);
+        edgeflux[d].copy<RunOn::Host>(edgestate[d],ebox,nspecies+1,ebox,nspecies+1,1);
       }
 
       // Clean edgestate of temp otherwise sync term appears on tempe during mac_sync.
       // It's not really used, but it's cleaner this way.
       for (int d=0; d<AMREX_SPACEDIM; ++d) {
          const Box& ebx = amrex::surroundingNodes(bx,d);
-         edgestate[d].setVal(0.0,ebx,nspecies+2,1);
+         edgestate[d].setVal<RunOn::Host>(0.0,ebx,nspecies+2,1);
       }
 
 // Compute -Div(flux.Area) for RhoH, return Area-scaled (extensive) fluxes
@@ -6853,12 +6941,12 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
       for (int d=0; d<AMREX_SPACEDIM; ++d)
       {
         const Box& efbox = S_mfi.nodaltilebox(d);
-        (*EdgeState[d])[S_mfi].copy(edgestate[d],efbox,0,efbox,Density,nspecies+1);
-        (*EdgeState[d])[S_mfi].copy(edgestate[d],efbox,nspecies+1,efbox,RhoH,1);
-        (*EdgeState[d])[S_mfi].copy(edgestate[d],efbox,nspecies+2,efbox,Temp,1);
-        (*EdgeFlux[d])[S_mfi].copy(edgeflux[d],efbox,0,efbox,Density,nspecies+1);
-        (*EdgeFlux[d])[S_mfi].copy(edgeflux[d],efbox,nspecies+1,efbox,RhoH,1);
-        (*EdgeFlux[d])[S_mfi].copy(edgeflux[d],efbox,nspecies+2,efbox,Temp,1);
+        (*EdgeState[d])[S_mfi].copy<RunOn::Host>(edgestate[d],efbox,0,efbox,Density,nspecies+1);
+        (*EdgeState[d])[S_mfi].copy<RunOn::Host>(edgestate[d],efbox,nspecies+1,efbox,RhoH,1);
+        (*EdgeState[d])[S_mfi].copy<RunOn::Host>(edgestate[d],efbox,nspecies+2,efbox,Temp,1);
+        (*EdgeFlux[d])[S_mfi].copy<RunOn::Host>(edgeflux[d],efbox,0,efbox,Density,nspecies+1);
+        (*EdgeFlux[d])[S_mfi].copy<RunOn::Host>(edgeflux[d],efbox,nspecies+1,efbox,RhoH,1);
+        (*EdgeFlux[d])[S_mfi].copy<RunOn::Host>(edgeflux[d],efbox,nspecies+2,efbox,Temp,1);
       }
     }
   }
@@ -7156,7 +7244,7 @@ PeleLM::mac_sync ()
     // compute beta grad Wbar terms using the latest version of the post-sync state
     // Initialize containers first here, 1/2 is for C-N sync, dt mult later with everything else
     for (int dir=0; dir<AMREX_SPACEDIM; ++dir) {
-      (*SpecDiffusionFluxWbar[dir]).setVal(0.);
+      (*SpecDiffusionFluxWbar[dir]).setVal<RunOn::Host>(0.);
     }
     compute_Wbar_fluxes(curr_time,0.5);
 #endif
@@ -7314,7 +7402,7 @@ PeleLM::mac_sync ()
 
       Print() << "Starting deltaT iters in mac_sync... " << std::endl;
 
-      Real deltaT_iter_norm;
+      Real deltaT_iter_norm = 0;
       for (int L=0; L<num_deltaT_iters_MAX && (L==0 || deltaT_iter_norm >= deltaT_norm_max); ++L)
       {
 
@@ -7328,14 +7416,14 @@ PeleLM::mac_sync ()
             const Box& tbox = mfi.tilebox();
             rhoInv.resize(tbox,1);
             Y.resize(tbox,nspecies);
-            rhoInv.copy(S_new[mfi],tbox,Density,tbox,0,1);
-            rhoInv.invert(1.0,tbox,0,1);
-            Y.copy(S_new[mfi],tbox,first_spec,tbox,0,nspecies);
+            rhoInv.copy<RunOn::Host>(S_new[mfi],tbox,Density,tbox,0,1);
+            rhoInv.invert<RunOn::Host>(1.0,tbox,0,1);
+            Y.copy<RunOn::Host>(S_new[mfi],tbox,first_spec,tbox,0,nspecies);
             for (int n=0; n<nspecies; ++n) {
-              Y.mult(rhoInv,tbox,tbox,0,n,1);
+              Y.mult<RunOn::Host>(rhoInv,tbox,tbox,0,n,1);
             }
             getCpmixGivenTY_pphys(RhoCp_post[mfi],S_new[mfi],Y,tbox,Temp,0,0);
-            RhoCp_post[mfi].mult(S_new[mfi],tbox,tbox,Density,0,1);
+            RhoCp_post[mfi].mult<RunOn::Host>(S_new[mfi],tbox,tbox,Density,0,1);
           }
         }
 
@@ -7429,14 +7517,14 @@ PeleLM::mac_sync ()
             const Box& tbox = mfi.tilebox();
             rhoInv.resize(tbox,1);
             Y.resize(tbox,nspecies);
-            rhoInv.copy(get_new_data(State_Type)[mfi],tbox,Density,tbox,0,1);
-            rhoInv.invert(1.0,tbox,0,1);
-            Y.copy(S_new[mfi],tbox,first_spec,tbox,0,nspecies);
+            rhoInv.copy<RunOn::Host>(get_new_data(State_Type)[mfi],tbox,Density,tbox,0,1);
+            rhoInv.invert<RunOn::Host>(1.0,tbox,0,1);
+            Y.copy<RunOn::Host>(S_new[mfi],tbox,first_spec,tbox,0,nspecies);
             for (int n=0; n<nspecies; ++n) {
-              Y.mult(rhoInv,tbox,tbox,0,n,1);
+              Y.mult<RunOn::Host>(rhoInv,tbox,tbox,0,n,1);
             }
             getHmixGivenTY_pphys(get_new_data(State_Type)[mfi],get_new_data(State_Type)[mfi],Y,tbox,Temp,0,RhoH);
-            get_new_data(State_Type)[mfi].mult(get_new_data(State_Type)[mfi],tbox,tbox,Density,RhoH,1);
+            get_new_data(State_Type)[mfi].mult<RunOn::Host>(get_new_data(State_Type)[mfi],tbox,tbox,Density,RhoH,1);
           }
         }
 
@@ -7524,8 +7612,8 @@ PeleLM::mac_sync ()
           for (MFIter mfi(increment,true); mfi.isValid(); ++mfi)
           {
             const Box& box = mfi.tilebox();
-            increment[mfi].plus(increment[mfi],box,istate-AMREX_SPACEDIM,
-                                Density-AMREX_SPACEDIM,1);
+            increment[mfi].plus<RunOn::Host>(increment[mfi],box,istate-AMREX_SPACEDIM,
+                                             Density-AMREX_SPACEDIM,1);
           }
         }
       }
@@ -7535,7 +7623,7 @@ PeleLM::mac_sync ()
       for (MFIter mfi(increment,true); mfi.isValid(); ++mfi)
       {
         const Box& box = mfi.tilebox();
-        S_new_lev[mfi].plus(increment[mfi],box,0,Density,numscal);
+        S_new_lev[mfi].plus<RunOn::Host>(increment[mfi],box,0,Density,numscal);
       }
       showMF("DBGSync",increment,"sdc_increment_inSync",level,mac_sync_iter,parent->levelSteps(level));
 
@@ -7755,14 +7843,14 @@ PeleLM::compute_Wbar_fluxes(Real time,
     const Box& box = mfi.growntilebox(); 
     FArrayBox& rho_and_spec = rho_and_species[mfi];
     FArrayBox& Umf = mf[mfi];
-    rho_and_spec.copy(Umf,box,0,box,0,nspecies+1);
+    rho_and_spec.copy<RunOn::Host>(Umf,box,0,box,0,nspecies+1);
 
     tmp.resize(box,1);
-    tmp.copy(rho_and_spec,0,0,1);
-    tmp.invert(1,box);
+    tmp.copy<RunOn::Host>(rho_and_spec,0,0,1);
+    tmp.invert<RunOn::Host>(1,box);
 
     for (int comp = 0; comp < nspecies; ++comp) 
-      rho_and_spec.mult(tmp,box,0,comp+1,1);
+      rho_and_spec.mult<RunOn::Host>(tmp,box,0,comp+1,1);
   }
 }
 
@@ -7815,19 +7903,19 @@ PeleLM::compute_Wbar_fluxes(Real time,
         const Box& box = mfi.growntilebox(); 
         FArrayBox& Umf = mfc[mfi];
         FArrayBox& rho_and_spec = rho_and_species_crse[mfi];
-        rho_and_spec.copy(Umf,box,0,box,0,nspecies+1);
+        rho_and_spec.copy<RunOn::Host>(Umf,box,0,box,0,nspecies+1);
         tmp.resize(box,1);
-        tmp.copy(rho_and_spec,box,0,box,0,1);
-        tmp.invert(1,box);
+        tmp.copy<RunOn::Host>(rho_and_spec,box,0,box,0,1);
+        tmp.invert<RunOn::Host>(1,box);
 	
         for (int comp = 0; comp < nspecies; ++comp) 
-          rho_and_spec.mult(tmp,box,0,comp+1,1);
+          rho_and_spec.mult<RunOn::Host>(tmp,box,0,comp+1,1);
       }
     }
     BoxArray cgrids = grids;
     cgrids.coarsen(crse_ratio);
     BndryRegister crse_br(cgrids,dmap,0,1,nGrowCrse,1);
-    crse_br.setVal(1.e200);
+    crse_br.setVal<RunOn::Host>(1.e200);
     MultiFab Wbar_crse(rho_and_species_crse.boxArray(),
                        rho_and_species_crse.DistributionMap(),
                        1,nGrowCrse,MFInfo(),Factory());
@@ -7839,7 +7927,7 @@ PeleLM::compute_Wbar_fluxes(Real time,
       const Box& box = mfi.growntilebox();
       getMwmixGivenY_pphys(Wbar_crse[mfi],rho_and_species_crse[mfi],box,1,0);
     }	  
-    crse_br.copyFrom(Wbar_crse,nGrowCrse,0,0,1);
+    crse_br.copy<RunOn::Host>From(Wbar_crse,nGrowCrse,0,0,1);
     bndry->setBndryValues(crse_br,0,Wbar,0,0,1,crse_ratio,bc);
   }
 
@@ -8036,12 +8124,12 @@ PeleLM::differential_spec_diffuse_sync (Real dt,
       const Box& ebox = amrex::surroundingNodes(box,d);
       efab[d].resize(ebox,nspecies);
             
-      efab[d].copy((*SpecDiffusionFluxnp1[d])[mfi],ebox,0,ebox,0,nspecies);
-      efab[d].mult(sdc_theta,ebox,0,nspecies);
+      efab[d].copy<RunOn::Host>((*SpecDiffusionFluxnp1[d])[mfi],ebox,0,ebox,0,nspecies);
+      efab[d].mult<RunOn::Host>(sdc_theta,ebox,0,nspecies);
     }
 
     update.resize(box,nspecies);
-    update.setVal(0);
+    update.setVal<RunOn::Host>(0);
 
     // is this right? - I'm not sure what the scaling on SpecDiffusionFluxnp1 is
     Real scale = -dt;
@@ -8064,10 +8152,10 @@ PeleLM::differential_spec_diffuse_sync (Real dt,
                &nspecies,&scale);
 
     // add RHS from diffusion solve
-    update.plus(Rhs[iGrid],box,0,0,nspecies);
+    update.plus<RunOn::Host>(Rhs[iGrid],box,0,0,nspecies);
 
     // Ssync = "RHS from diffusion solve" + (dt) * div (delta gamma)
-    Ssync[mfi].copy(update,box,0,box,first_spec-AMREX_SPACEDIM,nspecies);
+    Ssync[mfi].copy<RunOn::Host>(update,box,0,box,first_spec-AMREX_SPACEDIM,nspecies);
   }
 }
 
@@ -8146,9 +8234,9 @@ PeleLM::reflux ()
     {
       const Box& box = mfi.tilebox();
 
-      D_TERM(Vsync[mfi].divide(RhoHalftime[mfi],box,0,Xvel,1);,
-             Vsync[mfi].divide(RhoHalftime[mfi],box,0,Yvel,1);,
-             Vsync[mfi].divide(RhoHalftime[mfi],box,0,Zvel,1););
+      D_TERM(Vsync[mfi].divide<RunOn::Host>(RhoHalftime[mfi],box,0,Xvel,1);,
+             Vsync[mfi].divide<RunOn::Host>(RhoHalftime[mfi],box,0,Yvel,1);,
+             Vsync[mfi].divide<RunOn::Host>(RhoHalftime[mfi],box,0,Zvel,1););
     }
   }
 
@@ -8164,8 +8252,8 @@ PeleLM::reflux ()
     {
       const Box& bx = mfi.tilebox();
       tmp.resize(bx,1);
-      tmp.copy(RhoHalftime[mfi],0,0,1);
-      tmp.invert(1);
+      tmp.copy<RunOn::Host>(RhoHalftime[mfi],0,0,1);
+      tmp.invert<RunOn::Host>(1);
 
       for (int istate = AMREX_SPACEDIM; istate < NUM_STATE; istate++)
       {
@@ -8173,7 +8261,7 @@ PeleLM::reflux ()
         {
           const int sigma = istate -  AMREX_SPACEDIM;
 
-          Ssync[mfi].mult(tmp,bx,0,sigma,1);
+          Ssync[mfi].mult<RunOn::Host>(tmp,bx,0,sigma,1);
         }
       }
     }
@@ -8205,8 +8293,8 @@ PeleLM::reflux ()
 
       for (int i = 0, N = isects.size(); i < N; i++)
       {
-        Vsync[mfi].setVal(0,isects[i].second,0,BL_SPACEDIM);
-        Ssync[mfi].setVal(0,isects[i].second,0,NUM_STATE-BL_SPACEDIM);
+        Vsync[mfi].setVal<RunOn::Host>(0,isects[i].second,0,BL_SPACEDIM);
+        Ssync[mfi].setVal<RunOn::Host>(0,isects[i].second,0,NUM_STATE-BL_SPACEDIM);
       }
     }
   }
@@ -8314,7 +8402,7 @@ PeleLM::calcViscosity (const Real time,
         center_to_edge_fancy(bcen,bfac,grow(vbox,amrex::BASISV(dir)),ebox,0,0,1,geom.Domain(),bc_lo,bc_hi);
 
         const Box& ntb = mfi.nodaltilebox(dir);
-        (*visc[dir])[mfi].copy(bfac,ntb,0,ntb,0,1);
+        (*visc[dir])[mfi].copy<RunOn::Host>(bfac,ntb,0,ntb,0,1);
       }
     }
   }
@@ -8426,9 +8514,9 @@ PeleLM::calcDiffusivity (const Real time)
                        &nc_diff, &P1atm_MKS, &dotemp, &vflag, &p_amb);
 
         FArrayBox& dfab = (*diff[dir])[mfi];
-        dfab.setVal(0,box,0,dfab.nComp());
-        dfab.copy(tmp,0,first_spec-offset,nspecies); // Put rhoD into spec slots
-        dfab.copy(tmp,nspecies,Temp-offset-1,1); // Put lambda into T slot: note that the -1 is to put T next to Yk instead of RhoH
+        dfab.setVal<RunOn::Host>(0,box,0,dfab.nComp());
+        dfab.copy<RunOn::Host>(tmp,0,first_spec-offset,nspecies); // Put rhoD into spec slots
+        dfab.copy<RunOn::Host>(tmp,nspecies,Temp-offset-1,1); // Put lambda into T slot: note that the -1 is to put T next to Yk instead of RhoH
         
       }
     }
@@ -8452,7 +8540,7 @@ PeleLM::calcDiffusivity (const Real time)
       const int nc_bcen = nspecies+2; 
       int       dotemp  = 1;
       bcen.resize(gbox,nc_bcen);
-      bcen.setVal(0);
+      bcen.setVal<RunOn::Host>(0);
 
       spec_temp_visc(BL_TO_FORTRAN_BOX(gbox),
                      BL_TO_FORTRAN_N_ANYD(sfab,Tcomp),
@@ -8470,8 +8558,8 @@ PeleLM::calcDiffusivity (const Real time)
         center_to_edge_fancy(bcen,bfac,grow(vbox,amrex::BASISV(dir)),ebox,0,0,nspecies+1,geom.Domain(),bc_lo,bc_hi);
 
         const Box& ntb = mfi.nodaltilebox(dir);
-        (*diff[dir])[mfi].copy(bfac,ntb,0,ntb,first_spec-offset,nspecies); // Put rhoD into spec slots
-        (*diff[dir])[mfi].copy(bfac,ntb,nspecies,ntb,Temp-offset-1,1); // Put lambda into T slot: note that the -1 is to put T next to Yk instead of RhoH
+        (*diff[dir])[mfi].copy<RunOn::Host>(bfac,ntb,0,ntb,first_spec-offset,nspecies); // Put rhoD into spec slots
+        (*diff[dir])[mfi].copy<RunOn::Host>(bfac,ntb,nspecies,ntb,Temp-offset-1,1); // Put lambda into T slot: note that the -1 is to put T next to Yk instead of RhoH
       }
     }
   }
@@ -8720,7 +8808,7 @@ PeleLM::calc_divu (Real      time,
 #ifdef AMREX_USE_EB    
     {
 //      MultiFab divu_tmp(grids,dmap,divu.nComp(),divu.nGrow()+2,MFInfo(),Factory());
-//      divu_tmp.copy(divu);
+//      divu_tmp.copy<RunOn::Host>(divu);
 //      amrex::single_level_weighted_redistribute(  {divu_tmp}, {divu}, *volfrac, 0, 1, {geom} );
     }
     EB_set_covered(divu,0.);
@@ -8784,11 +8872,11 @@ PeleLM::calc_dpdt (Real      time,
   {
     const Box& vbox = mfi.tilebox();
 
-    dpdt[mfi].copy(Peos[mfi],vbox,0,vbox,0,1);
-    dpdt[mfi].plus(-p_amb,vbox);
-    dpdt[mfi].mult(1.0/dt,vbox,0,1);
-    dpdt[mfi].divide(Peos[mfi],vbox,0,0,1);
-    dpdt[mfi].mult(dpdt_factor,vbox,0,1);
+    dpdt[mfi].copy<RunOn::Host>(Peos[mfi],vbox,0,vbox,0,1);
+    dpdt[mfi].plus<RunOn::Host>(-p_amb,vbox);
+    dpdt[mfi].mult<RunOn::Host>(1.0/dt,vbox,0,1);
+    dpdt[mfi].divide<RunOn::Host>(Peos[mfi],vbox,0,0,1);
+    dpdt[mfi].mult<RunOn::Host>(dpdt_factor,vbox,0,1);
   }
 
   Peos.clear();
@@ -8902,16 +8990,16 @@ PeleLM::RhoH_to_Temp (FArrayBox& S,
   Y.resize(box,nspecies);
 
   // copy in rho, rhoH, and rhoY
-  rhoInv.copy(S,box,Density,   box,0,1);
-  H.copy     (S,box,RhoH,      box,0,1);
-  Y.copy     (S,box,first_spec,box,0,nspecies);
+  rhoInv.copy<RunOn::Host>(S,box,Density,   box,0,1);
+  H.copy<RunOn::Host>     (S,box,RhoH,      box,0,1);
+  Y.copy<RunOn::Host>     (S,box,first_spec,box,0,nspecies);
 
   // invert rho, then multiply 1/rho by rhoH and rhoY to get H and Y
-  rhoInv.invert(1,box,0,1);
-  H.mult(rhoInv,box,0,0,1);
+  rhoInv.invert<RunOn::Host>(1,box,0,1);
+  H.mult<RunOn::Host>(rhoInv,box,0,0,1);
   for (int i=0; i<nspecies; i++)
   {
-    Y.mult(rhoInv,box,0,i,1);
+    Y.mult<RunOn::Host>(rhoInv,box,0,i,1);
   }
   
   //{

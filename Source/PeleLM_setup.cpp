@@ -41,9 +41,9 @@
 #include <NS_error_F.H>
 
 #ifdef USE_SUNDIALS_PP
-#include <actual_Creactor.h>
+#include <reactor.h>
 #else
-#include <actual_reactor.H> 
+#include <reactor.H> 
 #endif
 
 using namespace amrex;
@@ -480,6 +480,9 @@ PeleLM::variableSetUp ()
   init_network();
 
   int reactor_type = 2;
+#ifdef USE_CUDA_SUNDIALS_PP
+  reactor_info(&reactor_type,&ncells_chem);
+#else
 #ifdef _OPENMP
 #pragma omp parallel
 #endif  
@@ -489,7 +492,7 @@ PeleLM::variableSetUp ()
 #endif
   reactor_init(&reactor_type,&ncells_chem);
 }
-
+#endif
 
   init_transport(use_tranlib);
 
