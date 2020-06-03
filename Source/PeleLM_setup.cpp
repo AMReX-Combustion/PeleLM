@@ -41,9 +41,9 @@
 #include <NS_error_F.H>
 
 #ifdef USE_SUNDIALS_PP
-#include <actual_Creactor.h>
+#include <reactor.h>
 #else
-#include <actual_reactor.H> 
+#include <reactor.H> 
 #endif
 
 using namespace amrex;

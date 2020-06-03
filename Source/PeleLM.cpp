@@ -39,15 +39,13 @@
 #endif
 
 #include <mechanism.h>
+#ifdef USE_SUNDIALS_PP
+#include <reactor.h>
 #ifdef USE_CUDA_SUNDIALS_PP
 #include <GPU_misc.H>
-#include <actual_Creactor.h>
-#else
-#ifdef USE_SUNDIALS_PP
-#include <actual_Creactor.h>
-#else
-#include <actual_reactor.H> 
 #endif
+#else
+#include <reactor.H> 
 #endif
 
 #include <Prob_F.H>
