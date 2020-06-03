@@ -9441,8 +9441,7 @@ PeleLM::writePlotFile (const std::string& dir,
     MultiFab::Copy(plotMF,*volfrac,0,cnt,1,nGrow);
 
     // set covered values for ease of viewing
-    // EM_DEBUG problem here if eb.regular
-    //EB_set_covered(plotMF, 0.0);
+    EB_set_covered(plotMF, 0.0);
 #endif
 
   //
