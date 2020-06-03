@@ -25,24 +25,22 @@ gpu_flatten(int icell, int i, int j, int k,
         tmp_src_vect_energy[icell] = frcExt(i,j,k,NUM_SPECIES) * 10.0; 
 }
 
-
 AMREX_GPU_HOST_DEVICE
 inline
 void
-gpu_unflatten(int icell, int i, int j, int k,  
-		amrex::Array4<amrex::Real> const& rhoY,
-                amrex::Real * tmp_vect,
-                amrex::Real * tmp_vect_energy) noexcept
+gpu_unflatten(int icell, int i, int j, int k,
+              amrex::Array4<amrex::Real> const& rhoY,
+              amrex::Array4<amrex::Real> const& fcl,
+              amrex::Real *tmp_vect,
+              amrex::Real *tmp_vect_energy,
+              amrex::Real fc_pt) noexcept
 {
-        amrex::Real * TV_cell  = tmp_vect + icell * (NUM_SPECIES+1);
-	for (int n = 0; n < NUM_SPECIES; n++) {
-		rhoY(i,j,k,n) = TV_cell[n] * 1.e+3;
-	}
-        rhoY(i,j,k,NUM_SPECIES+1) = TV_cell[NUM_SPECIES];  
-        rhoY(i,j,k,NUM_SPECIES) = tmp_vect_energy[icell] * 1.e-01;
+   amrex::Real * TV_cell  = tmp_vect + icell * (NUM_SPECIES+1);
+   for (int n = 0; n < NUM_SPECIES; n++) {
+      rhoY(i,j,k,n) = TV_cell[n] * 1.e+3;
+   }
+   rhoY(i,j,k,NUM_SPECIES+1) = TV_cell[NUM_SPECIES];  
+   rhoY(i,j,k,NUM_SPECIES) = tmp_vect_energy[icell] * 1.e-01;
+   fcl(i,j,k) = fc_pt;
 }
-
-
-
-
 #endif
