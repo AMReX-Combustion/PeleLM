@@ -7276,15 +7276,16 @@ PeleLM::mac_sync ()
       // \rho^{n+1,p}*h^{n+1,p} - \rho^{n+1}*h^{n+1,\eta} + dt*Ssync + dt/2*(DT^{n+1,\eta} - DT^{n+1,p} + H^{n+1,\eta} - H^{n+1,p})
 
       // Here Ssync contains refluxed enthalpy fluxes (from -lambda.Grad(T) and hm.Gamma_m)  FIXME: Make sure it does
-      MultiFab Trhs0(grids,dmap,1,0);
-      MultiFab Trhs(grids,dmap,1,0);
-      MultiFab Told(grids,dmap,1,0);
-      MultiFab RhoCp_post(grids,dmap,1,0);
-      MultiFab DeltaT(grids,dmap,1,0); DeltaT.setVal(0);
+      MultiFab Trhs0(grids,dmap,1,0,MFInfo(),Factory());
+      MultiFab Trhs(grids,dmap,1,0,MFInfo(),Factory());
+      MultiFab Told(grids,dmap,1,0,MFInfo(),Factory());
+      MultiFab RhoCp_post(grids,dmap,1,0,MFInfo(),Factory());
+      MultiFab DeltaT(grids,dmap,1,0,MFInfo(),Factory());
       MultiFab DT_post(grids,dmap,1,0,MFInfo(),Factory());
       MultiFab DD_post(grids,dmap,1,0,MFInfo(),Factory());
       MultiFab DT_DD_Sum(grids,dmap,1,0,MFInfo(),Factory());
 
+      DeltaT.setVal(0);
 
       // Build the piece of the dT source terms that does not change with iterations
       // Trhs0 = rho^{n+1,p}*h^{n+1,p} + dt*Ssync * dt/2*(-DT^{n+1,p}-H^{n+1,p})
@@ -7398,7 +7399,10 @@ PeleLM::mac_sync ()
         deltaTSyncSolve.setVerbose(0);
 
         const Real S_tol     = visc_tol;
-        const Real S_tol_abs = visc_tol * Trhs.norm0(0);
+	// Ignore EB covered cells when computing Trhs.norm. In certain cases, including
+	// covered cells can result in a very large S_tol_abs that tricks MLMG into
+	// thinking the system is sufficiently solved when it's not
+        const Real S_tol_abs = visc_tol * Trhs.norm0(0,0,false,true);
 
         deltaTSyncSolve.solve({&deltaT}, {&Trhs}, S_tol, S_tol_abs); 
 
