@@ -6248,16 +6248,6 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
     new_ebmask.define(ba, dm,  1, 0);
     
     new_ebmask.copy(ebmask);
-
-//amrex::Print() << "\n THE DM \n";    
-//amrex::Print() << dm;
-//
-//amrex::Print() << "\n NOW THE DM of EBMASK \n";
-//amrex::Print() << ebmask.DistributionMap();
-//
-//amrex::Print() << "\n NOW THE DM of NEW_EBMASK \n";
-//amrex::Print() << new_ebmask.DistributionMap();
-
 #endif
     
     const bool do_diag = plot_reactions && amrex::intersect(ba,auxDiag["REACTIONS"]->boxArray()).size() != 0;
@@ -6330,7 +6320,7 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
                       tmp_vect_energy, tmp_src_vect_energy,
                       &dt_incr, &time_init,
                       &reactor_type, &ncells, amrex::Gpu::gpuStream());
-                      dt_incr = dt;
+        dt_incr = dt;
 
         /* Unpacking of data */
         BL_PROFILE_VAR_START(GPU_MISC);
@@ -6360,86 +6350,79 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
 #endif
     for (MFIter Smfi(STemp,true); Smfi.isValid(); ++Smfi)
     {
-        const Box&  bx       = Smfi.tilebox();
-        auto const& rhoY     = STemp.array(Smfi);
-        auto const& fcl      = fcnCntTemp.array(Smfi);
-        auto const& frcing   = FTemp.array(Smfi);
-      
+       const Box&  bx       = Smfi.tilebox();
+       auto const& rhoY     = STemp.array(Smfi);
+       auto const& fcl      = fcnCntTemp.array(Smfi);
+       auto const& frcing   = FTemp.array(Smfi);
+
 #ifdef AMREX_USE_EB      
-      const BaseFab<int>& fab_ebmask = new_ebmask[Smfi];
+       const BaseFab<int>& fab_ebmask = new_ebmask[Smfi];
 #endif
 
-      Real dt_incr = dt;
-      Real time_init = 0;
+       Real dt_incr = dt;
+       Real time_init = 0;
 
-      const auto lo  = amrex::lbound(bx);
-      const auto hi  = amrex::ubound(bx);
+       const auto lo  = amrex::lbound(bx);
+       const auto hi  = amrex::ubound(bx);
 
 #ifdef AMREX_USE_EB       
-      const auto local_ebmask   = fab_ebmask.array();
+       const auto local_ebmask   = fab_ebmask.array();
 #endif
 
-      Real tmp_vect[NUM_SPECIES+1];
-      Real tmp_src_vect[NUM_SPECIES];
-      Real tmp_vect_energy;
-      Real tmp_src_vect_energy;
+       Real tmp_vect[NUM_SPECIES+1];
+       Real tmp_src_vect[NUM_SPECIES];
+       Real tmp_vect_energy;
+       Real tmp_src_vect_energy;
 
 
-      for         (int k = lo.z; k <= hi.z; ++k) {
-          for         (int j = lo.y; j <= hi.y; ++j) {
-	      for         (int i = lo.x; i <= hi.x; ++i) {
-                  for (int sp=0;sp<nspecies; sp++){
-                      tmp_vect[sp]       = rhoY(i,j,k,sp) * 1.e-3;
-                      tmp_src_vect[sp]   = frcing(i,j,k,sp) * 1.e-3;
-                  }
-                  tmp_vect[nspecies]       = rhoY(i,j,k,nspecies+1);
-                  tmp_vect_energy     = rhoY(i,j,k,nspecies) * 10.0;
-                  tmp_src_vect_energy = frcing(i,j,k,nspecies) * 10.0;
+       for          (int k = lo.z; k <= hi.z; ++k) {
+          for       (int j = lo.y; j <= hi.y; ++j) {
+             for    (int i = lo.x; i <= hi.x; ++i) {
+                for (int sp=0;sp<nspecies; sp++){
+                   tmp_vect[sp]       = rhoY(i,j,k,sp) * 1.e-3;
+                   tmp_src_vect[sp]   = frcing(i,j,k,sp) * 1.e-3;
+                }
+                tmp_vect[nspecies]       = rhoY(i,j,k,nspecies+1);
+                tmp_vect_energy     = rhoY(i,j,k,nspecies) * 10.0;
+                tmp_src_vect_energy = frcing(i,j,k,nspecies) * 10.0;
 
-                  Real dt_local = dt_incr;
-                  Real p_local  = 1.0;
+                Real dt_local = dt_incr;
+                Real p_local  = 1.0;
           
 #ifdef AMREX_USE_EB             
-                  if (local_ebmask(i,j,k) != -1 ){   // Regular & cut cells
+                if (local_ebmask(i,j,k) != -1 ){   // Regular & cut cells
 #endif
 
-                      fcl(i,j,k) = react(tmp_vect, tmp_src_vect,
-                                 &tmp_vect_energy, &tmp_src_vect_energy,
+                   fcl(i,j,k) = react(tmp_vect, tmp_src_vect,
+                                      &tmp_vect_energy, &tmp_src_vect_energy,
 
 #ifndef USE_SUNDIALS_PP
-                                 &p_local,
+                                      &p_local,
 #endif
-                                 &dt_local, &time_init);
+                                      &dt_local, &time_init);
               
 #ifdef AMREX_USE_EB 
-//         } else if ( local_ebmask(i,j,k) == 0 ) {  // Cut cells
-//            for (int sp=0;sp<nsp; sp++){                                                                                             
-//                tmp_vect[sp] = tmp_vect[sp] + dt_incr * tmp_src_vect[sp];
-//            }
-//            tmp_vect_energy[0] = tmp_vect_energy[0] + dt_incr * tmp_src_vect_energy[0];
-//            fcl(i,j,k) = 0.0;
-                  } else {   // Covered cells 
-                      fcl(i,j,k) = 0.0;
-                  }
+                } else {   // Covered cells 
+                   fcl(i,j,k) = 0.0;
+                }
 #endif
-                  for (int sp=0;sp<nspecies; sp++){
-                      rhoY(i,j,k,sp)      = tmp_vect[sp] * 1.e+3;
-                      if (isnan(rhoY(i,j,k,sp))) {
-                          amrex::Abort("NaNs !! ");
-                      }
-                  }
-                  rhoY(i,j,k,nspecies+1)  = tmp_vect[nspecies];
-                  if (isnan(rhoY(i,j,k,nspecies+1))) {
+                for (int sp=0;sp<nspecies; sp++){
+                   rhoY(i,j,k,sp)      = tmp_vect[sp] * 1.e+3;
+                   if (isnan(rhoY(i,j,k,sp))) {
                       amrex::Abort("NaNs !! ");
-                  }
-                  rhoY(i,j,k,nspecies) = tmp_vect_energy * 1.e-01;
-                  if (isnan(rhoY(i,j,k,nspecies))) {
-                      amrex::Abort("NaNs !! ");
-                  }
-	      }
-	  }
-      }
-
+                   }
+                }
+                rhoY(i,j,k,nspecies+1)  = tmp_vect[nspecies];
+                if (isnan(rhoY(i,j,k,nspecies+1))) {
+                   amrex::Abort("NaNs !! ");
+                }
+                rhoY(i,j,k,nspecies) = tmp_vect_energy * 1.e-01;
+                if (isnan(rhoY(i,j,k,nspecies))) {
+                   amrex::Abort("NaNs !! ");
+                }
+             }
+          }
+       }
     }
 
 #endif
@@ -6500,7 +6483,7 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
     ParallelDescriptor::ReduceRealMax(mx,IOProc);
 
     amrex::Print() << "PeleLM::advance_chemistry(): lev: " << level << ", time: ["
-		   << mn << " ... " << mx << "]\n";
+                   << mn << " ... " << mx << "]\n";
   }
 }
 
