@@ -229,7 +229,9 @@ public:
                                                        const amrex::MultiFab& divu,
                                                        amrex::Real            dt);
 
+#if !defined(AMREX_USE_CUDA)
 protected:
+#endif
 
   ////////////////////////////////////////////////////////////////////////////
   //    Overriding Virtual Functions in NavierStokesBase                    //
@@ -316,7 +318,9 @@ protected:
   static void read_particle_params ();
 #endif
 
+#if !defined(AMREX_USE_CUDA)
 private:
+#endif
 
   // enum YdotAction { HT_EstimateYdotNew, HT_ImproveYdotOld, HT_LeaveYdotAlone };
   // enum Solver_Status {HT_InProgress, HT_Stalled, HT_Solved};
