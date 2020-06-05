@@ -24,13 +24,6 @@ extern "C" {
 //                 const amrex::Real* dt, amrex::Real* diag, 
 //                         const int* do_diag, const int* do_stiff);
 
-   void pphys_RRATERHOY(const int* lo, const int* hi,
-                        const BL_FORT_FAB_ARG_ANYD(RhoY),
-                        const BL_FORT_FAB_ARG_ANYD(RhoH),
-                        const BL_FORT_FAB_ARG_ANYD(T),
-                        const BL_FORT_IFAB_ARG_ANYD(mask),
-                              BL_FORT_FAB_ARG_ANYD(RhoYdot));
-
    void pphys_PfromRTY(const int* lo, const int* hi,
                              BL_FORT_FAB_ARG_ANYD(P),
                        const BL_FORT_FAB_ARG_ANYD(R),
@@ -95,9 +88,6 @@ extern "C" {
    int pphys_numReactions();
 
    void pphys_set_verbose_vode ();
-
-   void pphys_calc_src_sdc(int* n, amrex::Real* time,  amrex::Real* temp,
-                           amrex::Real* Z, amrex::Real* ZP);
 
    void active_control(const amrex::Real* fuelmass,
                        const amrex::Real* time,

@@ -193,69 +193,6 @@ contains
    end subroutine calc_gamma_pinv
 
 !=========================================================
-!  Compute reaction rate rhoY source terms
-!=========================================================
-
-   subroutine pphys_RRATERHOY(lo, hi, &
-                              RhoY, rY_lo, rY_hi, &
-                              RhoH, rh_lo, rh_hi, &
-                              T, t_lo, t_hi, &
-                              mask, m_lo, m_hi, &
-                              RhoYdot, rd_lo, rd_hi)&
-                              bind(C, name="pphys_RRATERHOY")
-
-      use PeleLM_F,       only : pphys_calc_src_sdc
-
-      implicit none
-
-! In/Out
-      integer, intent(in) :: lo(3), hi(3)
-      integer, intent(in) :: rY_lo(3), rY_hi(3)
-      integer, intent(in) :: rh_lo(3), rh_hi(3)
-      integer, intent(in) :: t_lo(3), t_hi(3)
-      integer, intent(in) :: m_lo(3), m_hi(3)
-      integer, intent(in) :: rd_lo(3), rd_hi(3)
-      REAL_T, dimension(rY_lo(1):rY_hi(1),rY_lo(2):rY_hi(2),rY_lo(3):rY_hi(3),NUM_SPECIES) :: RhoY
-      REAL_T, dimension(rh_lo(1):rh_hi(1),rh_lo(2):rh_hi(2),rh_lo(3):rh_hi(3)) :: RhoH
-      REAL_T, dimension(t_lo(1):t_hi(1),t_lo(2):t_hi(2),t_lo(3):t_hi(3)) :: T
-      INTEGER, dimension(m_lo(1):m_hi(1),m_lo(2):m_hi(2),m_lo(3):m_hi(3)) :: mask
-      REAL_T, dimension(rd_lo(1):rd_hi(1),rd_lo(2):rd_hi(2),rd_lo(3):rd_hi(3),NUM_SPECIES) :: RhoYdot
-
-! Local
-      REAL_T  :: Zt(NUM_SPECIES+1), Zdott(NUM_SPECIES+1)
-      REAL_T  :: Temperature, TIME
-
-      integer :: i, j, k, n
-
-      TIME = 0.0d0
-
-      do k = lo(3), hi(3)
-         do j = lo(2), hi(2)
-            do i = lo(1), hi(1)
-
-               if ( mask(i,j,k) == -1 ) then
-                  RhoYdot(i,j,k,:) = 0.0d0
-                  CYCLE
-               end if
-
-               Zt(NUM_SPECIES+1) = RhoH(i,j,k)
-               do n = 1,NUM_SPECIES
-                  Zt(n) = RhoY(i,j,k,n)
-               end do
-               Temperature = T(i,j,k)
-
-               call pphys_calc_src_sdc(NUM_SPECIES,TIME,Temperature,Zt,Zdott)
-
-               do n = 1,NUM_SPECIES
-                  RhoYdot(i,j,k,n) = Zdott(n)
-               end do
-            end do
-         end do
-      end do
-
-   end subroutine pphys_RRATERHOY
-
-!=========================================================
 !  Compute P from rho, rhoY and T
 !=========================================================
 
