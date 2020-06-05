@@ -33,6 +33,8 @@
 #include <AMReX_MLMG.H>
 #include <NS_util.H>
 
+#include <PeleLM_K.H>
+
 #if defined(BL_USE_NEWMECH) || defined(BL_USE_VELOCITY)
 #include <AMReX_DataServices.H>
 #include <AMReX_AmrData.H>
@@ -316,39 +318,6 @@ PeleLM::init_extern ()
   }
 
   plm_extern_init(probin_file_name.dataPtr(),&probin_file_length);
-}
-
-void
-PeleLM::reactionRateRhoY_pphys(FArrayBox&       RhoYdot,
-                             const FArrayBox& RhoY,
-                             const FArrayBox& RhoH,
-                             const FArrayBox& T,
-                             const amrex::BaseFab<int>& mask,
-                             const Box&       box,
-                             int              sCompRhoY,
-                             int              sCompRhoH,
-                             int              sCompT,
-                             int              sCompRhoYdot) const
-{
-    BL_ASSERT(RhoYdot.nComp() >= sCompRhoYdot + nspecies);
-    BL_ASSERT(RhoY.nComp() >= sCompRhoY + nspecies);
-    BL_ASSERT(RhoH.nComp() > sCompRhoH);
-    BL_ASSERT(T.nComp() > sCompT);
-
-    const Box& mabx = RhoY.box();
-    const Box& mbbx = RhoH.box();
-    const Box& mcbx = T.box();
-    const Box& mobx = RhoYdot.box();
-    
-    const Box& ovlp = box & mabx & mbbx & mcbx & mobx;
-    if( ! ovlp.ok() ) return;
-    
-    pphys_RRATERHOY(BL_TO_FORTRAN_BOX(ovlp),
-                    BL_TO_FORTRAN_N_ANYD(RhoY,sCompRhoY),
-                    BL_TO_FORTRAN_N_ANYD(RhoH,sCompRhoH),
-                    BL_TO_FORTRAN_N_ANYD(T,sCompT),
-                    BL_TO_FORTRAN_N_ANYD(mask,0),
-                    BL_TO_FORTRAN_N_ANYD(RhoYdot,sCompRhoYdot) );
 }
 
 void
@@ -2225,67 +2194,66 @@ PeleLM::compute_instantaneous_reaction_rates (MultiFab&       R,
                                               int             nGrow,
                                               HowToFillGrow   how)
 {
-  if (hack_nochem) 
-  {
-    R.setVal(0);
-    R.setBndry(0,0,nspecies);
-    return;
-  }
+   if (hack_nochem)
+   {
+      R.setVal(0.0);
+      R.setBndry(0,0,nspecies);
+      return;
+   }
 
-  const Real strt_time = ParallelDescriptor::second();
+   const Real strt_time = ParallelDescriptor::second();
 
-  BL_ASSERT((nGrow==0)  ||  (how == HT_ZERO_GROW_CELLS) || (how == HT_EXTRAP_GROW_CELLS));
+   BL_ASSERT((nGrow==0)  ||  (how == HT_ZERO_GROW_CELLS) || (how == HT_EXTRAP_GROW_CELLS));
 
-  if ((nGrow>0) && (how == HT_ZERO_GROW_CELLS))
-  {
-    R.setBndry(0,0,nspecies);
-  }
-    
-  const int sCompRhoH    = RhoH;
-  const int sCompRhoY    = first_spec;
-  const int sCompT       = Temp;
-  const int sCompRhoYdot = 0;
+   if ((nGrow>0) && (how == HT_ZERO_GROW_CELLS))
+   {
+       R.setBndry(0,0,nspecies);
+   }
 
-  amrex::FabArray<amrex::BaseFab<int>> mask;
-  mask.define(grids, dmap, 1, 0);
-  mask.setVal(1.0);
+   amrex::FabArray<amrex::BaseFab<int>> maskMF;
+   maskMF.define(grids, dmap, 1, 0);
+   maskMF.setVal(1.0);
 #ifdef AMREX_USE_EB
-  mask.copy(ebmask);
+   maskMF.copy(ebmask);
 #endif
-    
+
 #ifdef _OPENMP
-#pragma omp parallel
+#pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
-  for (MFIter mfi(S,true); mfi.isValid(); ++mfi)
-  {
-    const FArrayBox& rhoY = S[mfi];
-    const FArrayBox& rhoH = S[mfi];
-    const FArrayBox& T    = S[mfi];
-    const Box& box = mfi.tilebox();
-    FArrayBox& rhoYdot = R[mfi];
-    const BaseFab<int>& fab_mask = mask[mfi];
+   for (MFIter mfi(S,TilingIfNotGPU()); mfi.isValid(); ++mfi)
+   {
+      const Box& bx = mfi.tilebox();
+      auto const& rhoY    = S.array(mfi,first_spec);
+      auto const& rhoH    = S.array(mfi,RhoH);
+      auto const& mask    = maskMF.array(mfi);
+      auto const& rhoYdot = R.array(mfi);
 
-    reactionRateRhoY_pphys(rhoYdot,rhoY,rhoH,T,fab_mask,box,sCompRhoY,sCompRhoH,sCompT,sCompRhoYdot);
+      amrex::ParallelFor(bx,
+      [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+      {
+         reactionRateRhoY( i, j, k,
+                           rhoY, rhoH, mask,
+                           rhoYdot );
+      });
+   }
 
-  }
+   if ((nGrow>0) && (how == HT_EXTRAP_GROW_CELLS))
+   {
+      R.FillBoundary(0,nspecies, geom.periodicity());
+      BL_ASSERT(R.nGrow() == 1);
+      Extrapolater::FirstOrderExtrap(R, geom, 0, nspecies);
+   }
 
-  if ((nGrow>0) && (how == HT_EXTRAP_GROW_CELLS))
-  {
-    R.FillBoundary(0,nspecies, geom.periodicity());
-    BL_ASSERT(R.nGrow() == 1);
-    Extrapolater::FirstOrderExtrap(R, geom, 0, nspecies);
-  }
+   if (verbose > 1)
+   {
+      const int IOProc   = ParallelDescriptor::IOProcessorNumber();
+      Real      run_time = ParallelDescriptor::second() - strt_time;
 
-  if (verbose > 1)
-  {
-    const int IOProc   = ParallelDescriptor::IOProcessorNumber();
-    Real      run_time = ParallelDescriptor::second() - strt_time;
+      ParallelDescriptor::ReduceRealMax(run_time,IOProc);
 
-    ParallelDescriptor::ReduceRealMax(run_time,IOProc);
-
-    amrex::Print() << "PeleLM::compute_instantaneous_reaction_rates(): lev: " << level 
-		   << ", time: " << run_time << '\n';
-  }
+      amrex::Print() << "PeleLM::compute_instantaneous_reaction_rates(): lev: " << level
+                     << ", time: " << run_time << '\n';
+   }
 } 
 
 void
