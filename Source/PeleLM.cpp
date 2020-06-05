@@ -2210,6 +2210,9 @@ PeleLM::compute_instantaneous_reaction_rates (MultiFab&       R,
        R.setBndry(0,0,nspecies);
    }
 
+// TODO: the mask is not used right now.
+//       we need something that's zero in covered and 1 otherwise to avoid an if test
+//       in the kernel.
    amrex::FabArray<amrex::BaseFab<int>> maskMF;
    maskMF.define(grids, dmap, 1, 0);
    maskMF.setVal(1.0);
