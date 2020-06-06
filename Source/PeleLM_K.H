@@ -14,7 +14,7 @@ reactionRateRhoY(int i, int j, int k,
                  amrex::Array4<const amrex::Real> const& rhoY,
                  amrex::Array4<const amrex::Real> const& rhoH,
                  amrex::Array4<int>         const& mask,
-                 amrex::Array4<amrex::Real> const& rhoYdot) noexcept
+                 amrex::Array4<      amrex::Real> const& rhoYdot) noexcept
 {
    using namespace amrex::literals;
 
@@ -41,7 +41,28 @@ reactionRateRhoY(int i, int j, int k,
    for (int n = 0; n < NUM_SPECIES; n++) {   
       rhoYdot(i,j,k,n) = wdot[n] * 1000.0_rt;        // MKS -> CGS convertion
    }
+}
 
-//   printf("rho: %6.4f, T: %8.6f, wdot: %10.8f \n",rho,T,rhoYdot(i,j,k,0));  
+AMREX_GPU_HOST_DEVICE
+inline
+void
+getPGivenRTY(int i, int j, int k,
+             amrex::Array4<const amrex::Real> const& rho,
+             amrex::Array4<const amrex::Real> const& rhoY,
+             amrex::Array4<const amrex::Real> const& T,
+             amrex::Array4<      amrex::Real> const& P) noexcept
+{
+   using namespace amrex::literals;
+
+   amrex::Real rhoinv  = 1.0_rt / rho(i,j,k);
+   amrex::Real rho_cgs = rho(i,j,k) * 0.001_rt;
+
+   amrex::Real y[NUM_SPECIES];
+   for (int n = 0; n < NUM_SPECIES; n++) {
+      y[n] = rhoY(i,j,k,n) * rhoinv;
+   }
+
+   EOS::TRY2P(rho_cgs, T(i,j,k), y, P(i,j,k));
+   P(i,j,k) = P(i,j,k) * 0.1_rt;                      // MKS -> CGS convertion
 }
 #endif

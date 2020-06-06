@@ -379,9 +379,8 @@ private:
                         int              dComp);
 
   void compute_rhoRT (const amrex::MultiFab& S,
-                      amrex::MultiFab&       P,
-                      int             pComp,
-                      const amrex::MultiFab* T = 0);
+                            amrex::MultiFab& P,
+                                   int       pComp);
 
   void compute_vel_visc (amrex::Real      time,
                          amrex::MultiFab* beta);
@@ -558,16 +557,6 @@ private:
                           int              sCompRhoH,
                           int              sCompT,
                           int              sCompRhoYdot) const;
-
-  void getPGivenRTY_pphys(amrex::FArrayBox&       p,
-                         const amrex::FArrayBox& Rho,
-                         const amrex::FArrayBox& T,
-                         const amrex::FArrayBox& Y,
-                         const amrex::Box&       box,
-                         int              sCompR,
-                         int              sCompT,
-                         int              sCompY,
-                         int              sCompP) const;
 
   void getMwmixGivenY_pphys(amrex::FArrayBox&       mwmix,
                          const amrex::FArrayBox& Y,

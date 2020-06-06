@@ -321,34 +321,6 @@ PeleLM::init_extern ()
 }
 
 void
-PeleLM::getPGivenRTY_pphys(FArrayBox&       p,
-			    const FArrayBox& Rho,
-			    const FArrayBox& T,
-			    const FArrayBox& Y,
-			    const Box&       box,
-			    int              sCompR,
-			    int              sCompT,
-			    int              sCompY,
-			    int              sCompP) const
-{
-    BL_ASSERT(p.nComp() > sCompP);
-    BL_ASSERT(Rho.nComp() > sCompR);
-    BL_ASSERT(T.nComp() > sCompT);
-    BL_ASSERT(Y.nComp() >= sCompY+nspecies);
-    
-    BL_ASSERT(p.box().contains(box));
-    BL_ASSERT(Rho.box().contains(box));
-    BL_ASSERT(T.box().contains(box));
-    BL_ASSERT(Y.box().contains(box));
-    
-    pphys_PfromRTY(BL_TO_FORTRAN_BOX(box),
-		             BL_TO_FORTRAN_N_ANYD(p,sCompP),
-		             BL_TO_FORTRAN_N_ANYD(Rho,sCompR),
-		             BL_TO_FORTRAN_N_ANYD(T,sCompT),
-		             BL_TO_FORTRAN_N_ANYD(Y,sCompY));
-}
-
-void
 PeleLM::getHmixGivenTY_pphys(FArrayBox&       hmix,
 			      const FArrayBox& T,
 			      const FArrayBox& Y,
@@ -4934,69 +4906,45 @@ PeleLM::temperature_stats (MultiFab& S)
 
 void
 PeleLM::compute_rhoRT (const MultiFab& S,
-                       MultiFab&       p, 
-                       int             pComp,
-                       const MultiFab* temp)
+                             MultiFab& Press,
+                             int       pComp)
 {
-  BL_ASSERT(pComp<p.nComp());
+   BL_ASSERT(pComp<Press.nComp());
 
-  const Real strt_time = ParallelDescriptor::second();
-
-  int nCompY = last_spec - first_spec + 1;
+   const Real strt_time = ParallelDescriptor::second();
 
 #ifdef _OPENMP
-#pragma omp parallel
+#pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
-  {
-    FArrayBox sfab, tmp;
-  
-    for (MFIter mfi(S,true); mfi.isValid(); ++mfi)
-    {
-      const int  i      = mfi.index();
-      //const Box& box    = sgrids[i];
-      const Box& box = mfi.tilebox();
-      const int  sCompR = 0;
-      const int  sCompT = 1;
-      const int  sCompY = 2;
-    
-      sfab.resize(box,nCompY+2);
-      sfab.setVal<RunOn::Host>(0,box);
-      BL_ASSERT(S[mfi].box().contains(box));
-      sfab.copy<RunOn::Host>(S[mfi],box,Density,box,sCompR,1);
-      if (temp)
+   {
+      for (MFIter mfi(S,TilingIfNotGPU()); mfi.isValid(); ++mfi)
       {
-        BL_ASSERT(temp->boxArray()[i].contains(box));
-        sfab.copy<RunOn::Host>((*temp)[mfi],box,0,box,sCompT,1);
-      }
-      else
-      {
-        sfab.copy<RunOn::Host>(S[mfi],box,Temp,box,sCompT,1);
-      }
-      sfab.copy<RunOn::Host>(S[mfi],box,first_spec,box,sCompY,nCompY);
-  
-      tmp.resize(box,1);
-      tmp.copy<RunOn::Host>(sfab,box,sCompR,box,0,1);
-      tmp.invert<RunOn::Host>(1);
-  
-      for (int k = 0; k < nCompY; k++)
-        sfab.mult<RunOn::Host>(tmp,box,0,sCompY+k,1);
-  
-      getPGivenRTY_pphys(p[mfi],sfab,sfab,sfab,box,sCompR,sCompT,sCompY,pComp);
-    }
-  }
-  
-  if (verbose > 1)
-  {
-    const int IOProc   = ParallelDescriptor::IOProcessorNumber();
-    Real      run_time = ParallelDescriptor::second() - strt_time;
+         const Box& bx = mfi.tilebox();
+         auto const& rho     = S.array(mfi,Density);
+         auto const& rhoY    = S.array(mfi,first_spec);
+         auto const& T       = S.array(mfi,Temp);
+         auto const& P       = Press.array(mfi, pComp);
 
-    ParallelDescriptor::ReduceRealMax(run_time,IOProc);
+         amrex::ParallelFor(bx,
+         [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+         {
+            getPGivenRTY( i, j, k, rho, rhoY, T, P );
+         });
+      }
+   }
+   
+   if (verbose > 1)
+   {
+     const int IOProc   = ParallelDescriptor::IOProcessorNumber();
+     Real      run_time = ParallelDescriptor::second() - strt_time;
 
-    amrex::Print() << "PeleLM::compute_rhoRT(): lev: " << level 
-		   << ", time: " << run_time << '\n';
-  }
+     ParallelDescriptor::ReduceRealMax(run_time,IOProc);
+
+     amrex::Print() << "PeleLM::compute_rhoRT(): lev: " << level
+                    << ", time: " << run_time << '\n';
+   }
 }
-			   
+
 //
 // Setup for the advance function.
 //

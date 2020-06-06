@@ -27,7 +27,7 @@ module PeleLM_F
   public :: set_scal_numb, &
             set_ht_adim_common, get_pamb, &
             set_common, active_control, &
-            pphys_calc_src_sdc, pphys_getP1atm_MKS, &
+            pphys_getP1atm_MKS, &
             pphys_get_spec_name2, pphys_TfromHYpt, set_prob_spec
 
 contains

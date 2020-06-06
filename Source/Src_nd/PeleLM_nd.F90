@@ -22,7 +22,7 @@ module PeleLM_nd
   private
 
   public :: floor_spec, calc_divu_fortran, calc_gamma_pinv, &
-            pphys_PfromRTY, pphys_mass_to_mole, pphys_massr_to_conc, pphys_HfromT, &
+            pphys_mass_to_mole, pphys_massr_to_conc, pphys_HfromT, &
             pphys_HMIXfromTY, pphys_RHOfromPTY, pphys_CPMIXfromTY, init_data_new_mech, &
             spec_temp_visc, vel_visc, beta_wbar, est_divu_dt, check_divu_dt,&
             dqrad_fill, divu_fill, dsdt_fill, ydot_fill, rhoYdot_fill, &
@@ -191,58 +191,6 @@ contains
       enddo
 
    end subroutine calc_gamma_pinv
-
-!=========================================================
-!  Compute P from rho, rhoY and T
-!=========================================================
-
-   subroutine pphys_PfromRTY(lo, hi, &
-                             P, p_lo, p_hi, &
-                             Rho, r_lo, r_hi, &
-                             T, t_lo, t_hi, &
-                             Y, y_lo, y_hi)&
-                             bind(C, name="pphys_PfromRTY")
-
-      implicit none
-
-! In/Out
-      integer, intent(in) :: lo(3), hi(3)
-      integer, intent(in) :: p_lo(3), p_hi(3)
-      integer, intent(in) :: r_lo(3), r_hi(3)
-      integer, intent(in) :: t_lo(3), t_hi(3)
-      integer, intent(in) :: y_lo(3), y_hi(3)
-      REAL_T, dimension(p_lo(1):p_hi(1),p_lo(2):p_hi(2),p_lo(3):p_hi(3)) :: P
-      REAL_T, dimension(r_lo(1):r_hi(1),r_lo(2):r_hi(2),r_lo(3):r_hi(3)) :: Rho
-      REAL_T, dimension(y_lo(1):y_hi(1),y_lo(2):y_hi(2),y_lo(3):y_hi(3),NUM_SPECIES) :: Y
-      REAL_T, dimension(t_lo(1):t_hi(1),t_lo(2):t_hi(2),t_lo(3):t_hi(3)) :: T
-
-! Local
-      REAL_T :: Yt(NUM_SPECIES), RHOt, SCAL, SCAL1
-      integer :: i, j, k, n
-
-!     NOTE: SCAL converts result from assumed cgs to MKS (1 dyne/cm^2 = .1 Pa)
-!           SCAL1 converts density (1 kg/m^3 = 1.e-3 g/cm^3)
-      SCAL = 1.d-1
-      SCAL1 = SCAL**3
-
-      do k=lo(3),hi(3)
-         do j=lo(2),hi(2)
-            do i=lo(1),hi(1)
-
-                do n = 1, NUM_SPECIES
-                   Yt(n) = Y(i,j,k,n)
-                end do
-
-                RHOt = RHO(i,j,k) * SCAL1
-                CALL CKPY(RHOt,T(i,j,k),Yt,P(i,j,k))
-
-                P(i,j,k) = P(i,j,k) * SCAL
-
-            end do
-         end do
-      end do
-
-   end subroutine pphys_PfromRTY
 
 !=========================================================
 !  Compute Xm from Ym
