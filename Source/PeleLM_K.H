@@ -31,15 +31,15 @@ reactionRateRhoY(int i, int j, int k,
 
    // Get T from Y/H. Was done like that before.
    amrex::Real T;
-   amrex::Real H = rhoH(i,j,k) * rhoinv * 1.0e4_rt;  // Include MKS -> CGS convertion
+   amrex::Real H = rhoH(i,j,k) * rhoinv * 1.0e4_rt;      // Include MKS -> CGS convertion
    EOS::HY2T(H, y, T);
 
    // Get wdot. Don't like the temporary wdot there ...
-   rho = rho * 0.001_rt;                             // rho MKS -> CGS
+   rho = rho * 0.001_rt;                                 // rho MKS -> CGS
    amrex::Real wdot[NUM_SPECIES];
    EOS::RTY2WDOT(rho, T, y, wdot);
    for (int n = 0; n < NUM_SPECIES; n++) {   
-      rhoYdot(i,j,k,n) = wdot[n] * 1000.0_rt;        // MKS -> CGS convertion
+      rhoYdot(i,j,k,n) = wdot[n] * 1000.0_rt;            // MKS -> CGS convertion
    }
 }
 
@@ -63,6 +63,28 @@ getPGivenRTY(int i, int j, int k,
    }
 
    EOS::TRY2P(rho_cgs, T(i,j,k), y, P(i,j,k));
-   P(i,j,k) = P(i,j,k) * 0.1_rt;                      // MKS -> CGS convertion
+   P(i,j,k) = P(i,j,k) * 0.1_rt;                         // MKS -> CGS convertion
+}
+
+// This kernel returns directly rhoHmix
+AMREX_GPU_HOST_DEVICE
+inline
+void
+getRHmixGivenTY(int i, int j, int k,
+                amrex::Array4<const amrex::Real> const& rho,
+                amrex::Array4<const amrex::Real> const& rhoY,
+                amrex::Array4<const amrex::Real> const& T,
+                amrex::Array4<      amrex::Real> const& Hmix) noexcept
+{
+   using namespace amrex::literals;
+
+   amrex::Real rhoinv  = 1.0_rt / rho(i,j,k);
+   amrex::Real y[NUM_SPECIES];
+   for (int n = 0; n < NUM_SPECIES; n++) {
+      y[n] = rhoY(i,j,k,n) * rhoinv;
+   }
+
+   EOS::TY2H(T(i,j,k), y, Hmix(i,j,k));
+   Hmix(i,j,k) = Hmix(i,j,k) * 1.0e-4_rt * rho(i,j,k);   // MKS -> CGS convertion
 }
 #endif

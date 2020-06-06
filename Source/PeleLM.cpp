@@ -248,45 +248,40 @@ PeleLM::compute_rhohmix (Real      time,
                          MultiFab& rhohmix,
                          int       dComp)
 {
-  const Real strt_time = ParallelDescriptor::second();
-  const TimeLevel whichTime = which_time(State_Type,time);
-  BL_ASSERT(whichTime == AmrOldTime || whichTime == AmrNewTime);
-  const MultiFab& smf = (whichTime == AmrOldTime) ? get_old_data(State_Type): get_new_data(State_Type);
+   const Real strt_time = ParallelDescriptor::second();
+   const TimeLevel whichTime = which_time(State_Type,time);
+   BL_ASSERT(whichTime == AmrOldTime || whichTime == AmrNewTime);
+   const MultiFab& S = (whichTime == AmrOldTime) ? get_old_data(State_Type): get_new_data(State_Type);
 
 #ifdef _OPENMP
-#pragma omp parallel
+#pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
-  {
-    FArrayBox tmp;
+   {
+      for (MFIter mfi(rhohmix, TilingIfNotGPU()); mfi.isValid(); ++mfi)
+      {
+         const Box& bx = mfi.tilebox();
+         auto const& rho     = S.array(mfi,Density);
+         auto const& rhoY    = S.array(mfi,first_spec);
+         auto const& T       = S.array(mfi,Temp);
+         auto const& rhoHm   = rhohmix.array(mfi,dComp);
 
-    for (MFIter mfi(rhohmix, true); mfi.isValid(); ++mfi)
-    {
-      const Box& bx = mfi.tilebox();
-      const FArrayBox& sfab  = smf[mfi];
-
-      tmp.resize(bx,nspecies+1);
-      tmp.copy<RunOn::Host>(sfab,Density,0,nspecies+1);
-
-      tmp.invert<RunOn::Host>(1.0,bx,0,1);
-      for (int k = 0; k < nspecies; k++) {
-        tmp.mult<RunOn::Host>(tmp,0,k+1,1);
+         amrex::ParallelFor(bx,
+         [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+         {
+            getRHmixGivenTY( i, j, k, rho, rhoY, T, rhoHm );
+         });
       }
-	    
-      getHmixGivenTY_pphys(rhohmix[mfi],sfab,tmp,bx,Temp,1,dComp);
-      rhohmix[mfi].mult<RunOn::Host>(sfab,bx,Density,dComp,1);
+   }
 
-    }
-  }
+   if (verbose > 1)
+   {
+      const int IOProc   = ParallelDescriptor::IOProcessorNumber();
+      Real      run_time = ParallelDescriptor::second() - strt_time;
 
-  if (verbose)
-  {
-    const int IOProc   = ParallelDescriptor::IOProcessorNumber();
-    Real      run_time = ParallelDescriptor::second() - strt_time;
+      ParallelDescriptor::ReduceRealMax(run_time,IOProc);
 
-    ParallelDescriptor::ReduceRealMax(run_time,IOProc);
-
-    amrex::Print() << "PeleLM::compute_rhohmix(): lev: " << level << ", time: " << run_time << '\n';
-  }
+      amrex::Print() << "PeleLM::compute_rhohmix(): lev: " << level << ", time: " << run_time << '\n';
+   }
 }
 
 void
@@ -318,29 +313,6 @@ PeleLM::init_extern ()
   }
 
   plm_extern_init(probin_file_name.dataPtr(),&probin_file_length);
-}
-
-void
-PeleLM::getHmixGivenTY_pphys(FArrayBox&       hmix,
-			      const FArrayBox& T,
-			      const FArrayBox& Y,
-			      const Box&       box,
-			      int              sCompT,
-			      int              sCompY,
-			      int              sCompH) const
-{
-    BL_ASSERT(hmix.nComp() > sCompH);
-    BL_ASSERT(T.nComp() > sCompT);
-    BL_ASSERT(Y.nComp() >= sCompY+nspecies);
-    
-    BL_ASSERT(hmix.box().contains(box));
-    BL_ASSERT(T.box().contains(box));
-    BL_ASSERT(Y.box().contains(box));
-    
-    pphys_HMIXfromTY(BL_TO_FORTRAN_BOX(box),
-		               BL_TO_FORTRAN_N_ANYD(hmix,sCompH),
-		               BL_TO_FORTRAN_N_ANYD(T,sCompT),
-		               BL_TO_FORTRAN_N_ANYD(Y,sCompY));
 }
 
 void
@@ -3720,25 +3692,24 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
     flux_divergence(DDnew,0,SpecDiffusionFluxnp1,nspecies+1,1,-1);
     
 #ifdef _OPENMP
-#pragma omp parallel
+#pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
     {
-      // Update (RhoH)^{k+1,L+1}
-      FArrayBox rhoInv, Y;
-      for (MFIter mfi(*Snp1[0],true); mfi.isValid(); ++mfi)
-      {
-        const Box& tbox = mfi.tilebox();
-        rhoInv.resize(tbox,1);
-        Y.resize(tbox,nspecies);
-        rhoInv.copy<RunOn::Host>((*Snp1[0])[mfi],tbox,Density,tbox,0,1);
-        rhoInv.invert<RunOn::Host>(1.0,tbox,0,1);
-        Y.copy<RunOn::Host>((*Snp1[0])[mfi],tbox,first_spec,tbox,0,nspecies);
-        for (int n=0; n<nspecies; ++n) {
-          Y.mult<RunOn::Host>(rhoInv,tbox,tbox,0,n,1);
-        }
-        getHmixGivenTY_pphys((*Snp1[0])[mfi],(*Snp1[0])[mfi],Y,tbox,Temp,0,RhoH);   // Update RhoH
-        (*Snp1[0])[mfi].mult<RunOn::Host>((*Snp1[0])[mfi],tbox,tbox,Density,RhoH,1);		// mult by rho, get rho*H
-      }
+       // Update (RhoH)^{k+1,L+1}
+       for (MFIter mfi(*Snp1[0],TilingIfNotGPU()); mfi.isValid(); ++mfi)
+       {
+          const Box& bx = mfi.tilebox();
+          auto const& rho     = Snp1[0]->array(mfi,Density);  
+          auto const& rhoY    = Snp1[0]->array(mfi,first_spec);
+          auto const& T       = Snp1[0]->array(mfi,Temp);
+          auto const& rhoHm   = Snp1[0]->array(mfi,RhoH);
+
+          amrex::ParallelFor(bx,
+          [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+          {
+             getRHmixGivenTY( i, j, k, rho, rhoY, T, rhoHm );
+          });
+       }
     }
 
     if (L==(num_deltaT_iters_MAX-1) && deltaT_iter_norm >= deltaT_norm_max) {
@@ -6579,52 +6550,43 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
 
   // Compute RhoH on faces, store in nspecies+1 component of edgestate[d]
 #ifdef _OPENMP
-#pragma omp parallel
+#pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
   {
-    FArrayBox eR, eY, eH;
-    for (MFIter S_mfi(Smf,true); S_mfi.isValid(); ++S_mfi)
-    {
-      Box bx = S_mfi.tilebox();
-      // this is to check efficiently if this tile contains any eb stuff
-      const EBFArrayBox& in_fab = static_cast<EBFArrayBox const&>(Smf[S_mfi]);
-      const EBCellFlagFab& flags = in_fab.getEBCellFlagFab();
+     for (MFIter S_mfi(Smf,TilingIfNotGPU()); S_mfi.isValid(); ++S_mfi)
+     {
+        Box bx = S_mfi.tilebox();
+        // this is to check efficiently if this tile contains any eb stuff
+        const EBFArrayBox& in_fab = static_cast<EBFArrayBox const&>(Smf[S_mfi]);
+        const EBCellFlagFab& flags = in_fab.getEBCellFlagFab();
 
-      if(flags.getType(amrex::grow(bx, 0)) == FabType::covered)
-      {
-        for (int d=0; d<AMREX_SPACEDIM; ++d)
+        if(flags.getType(amrex::grow(bx, 0)) == FabType::covered)
         {
-          const Box& ebox = S_mfi.nodaltilebox(d);
-          (*EdgeState[d])[S_mfi].setVal<RunOn::Host>(0.,ebox,0,NUM_STATE);
-          (*EdgeFlux[d])[S_mfi].setVal<RunOn::Host>(0.,ebox,0,NUM_STATE);
-
+           for (int d=0; d<AMREX_SPACEDIM; ++d)
+           {
+              const Box& ebox = S_mfi.nodaltilebox(d);
+              (*EdgeState[d])[S_mfi].setVal<RunOn::Host>(0.,ebox,0,NUM_STATE);
+              (*EdgeFlux[d])[S_mfi].setVal<RunOn::Host>(0.,ebox,0,NUM_STATE);
+           }
         }
-      }
-      else
-      {
-        for (int d=0; d<AMREX_SPACEDIM; ++d)
+        else
         {
-          const Box& ebox = S_mfi.grownnodaltilebox(d,EdgeState[d]->nGrow());
-          eR.resize(ebox,1);
-          eR.copy<RunOn::Host>((*EdgeState[d])[S_mfi],ebox,Density,ebox,0,1);
-          eR.invert<RunOn::Host>(1.0,ebox,0,1);
+           for (int d=0; d<AMREX_SPACEDIM; ++d)
+           {
+              const Box& ebox = S_mfi.grownnodaltilebox(d,EdgeState[d]->nGrow());
+              auto const& rho     = EdgeState[d]->array(S_mfi,Density);  
+              auto const& rhoY    = EdgeState[d]->array(S_mfi,first_spec);
+              auto const& T       = EdgeState[d]->array(S_mfi,Temp);
+              auto const& rhoHm   = EdgeState[d]->array(S_mfi,RhoH);
 
-          eY.resize(ebox,nspecies);
-          eY.copy<RunOn::Host>((*EdgeState[d])[S_mfi],ebox,first_spec,ebox,0,nspecies);
-
-          for (int n=0; n<nspecies; ++n) {
-            eY.mult(eR,ebox,0,n,1);
-          }
-
-          eH.resize(ebox,1);
-          getHmixGivenTY_pphys(eH, (*EdgeState[d])[S_mfi], eY, ebox, Temp, 0, 0);
-
-          (*EdgeState[d])[S_mfi].copy<RunOn::Host>(eH,ebox,0,ebox,RhoH,1);      // Copy H into estate
-          (*EdgeState[d])[S_mfi].mult<RunOn::Host>((*EdgeState[d])[S_mfi],ebox,Density,RhoH,1); // Make H.Rho into estate
-
+              amrex::ParallelFor(ebox,
+              [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+              {
+                 getRHmixGivenTY( i, j, k, rho, rhoY, T, rhoHm );
+              });
+           }
         }
-      }
-    }
+     }
   }
 
   {
@@ -6709,13 +6671,13 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
   }
 
 #ifdef _OPENMP
-#pragma omp parallel
+#pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
   {
-    FArrayBox edgeflux[AMREX_SPACEDIM], edgestate[AMREX_SPACEDIM], eR, eY, eH;
+    FArrayBox edgeflux[AMREX_SPACEDIM], edgestate[AMREX_SPACEDIM];
     Vector<int> state_bc;
  
-    for (MFIter S_mfi(Smf,true); S_mfi.isValid(); ++S_mfi)
+    for (MFIter S_mfi(Smf,TilingIfNotGPU()); S_mfi.isValid(); ++S_mfi)
     {
       const Box& bx = S_mfi.tilebox();
       const FArrayBox& Sfab = Smf[S_mfi];
@@ -6776,44 +6738,25 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
                              Sfab, Tcomp, 1, force, nspecies, divu, 0,
                              (*aofs)[S_mfi], Temp, advectionType, state_bc, FPU, volume[S_mfi]);
 
-      // Clean edge fluxes of temp otherwise sync term appears on tempe during mac_sync.
-      // It's not really used, but it's cleaner this way.
-      for (int d=0; d<AMREX_SPACEDIM; ++d) {
-         const Box& ebx = amrex::surroundingNodes(bx,d);
-         edgeflux[d].setVal<RunOn::Host>(0.0,ebx,nspecies+2,1);
-      }
-
-// Compute RhoH on faces, store in nspecies+1 component of edgestate[d]
+      // Compute RhoH on faces, store in nspecies+1 component of edgestate[d]
       for (int d=0; d<AMREX_SPACEDIM; ++d)
       {
-
-        const Box& ebox = amrex::surroundingNodes(bx,d);
-        eR.resize(ebox,1);
-        eR.copy<RunOn::Host>(edgestate[d],0,0,1);
-        eR.invert<RunOn::Host>(1.0,ebox,0,1);
-  
-        eY.resize(ebox,nspecies);
-        eY.copy<RunOn::Host>(edgestate[d],1,0,nspecies);
-
-        for (int n=0; n<nspecies; ++n) {
-          eY.mult<RunOn::Host>(eR,0,n,1);
-        }
-
-        eH.resize(ebox,1);
-        getHmixGivenTY_pphys(eH, edgestate[d], eY, ebox, nspecies+2, 0, 0);
-                
-        edgestate[d].copy<RunOn::Host>(eH,ebox,0,ebox,nspecies+1,1);      // Copy H into estate
-        edgestate[d].mult<RunOn::Host>(edgestate[d],ebox,0,nspecies+1,1); // Make H.Rho into estate
-        
-        // Copy edgestate into edgeflux. ComputeAofs() overwrites but needs edgestate to start.
-        edgeflux[d].copy<RunOn::Host>(edgestate[d],ebox,nspecies+1,ebox,nspecies+1,1);
-      }
-
-      // Clean edgestate of temp otherwise sync term appears on tempe during mac_sync.
-      // It's not really used, but it's cleaner this way.
-      for (int d=0; d<AMREX_SPACEDIM; ++d) {
          const Box& ebx = amrex::surroundingNodes(bx,d);
-         edgestate[d].setVal<RunOn::Host>(0.0,ebx,nspecies+2,1);
+         auto const& rho     = edgestate[d].array(0);  
+         auto const& rhoY    = edgestate[d].array(1);
+         auto const& T       = edgestate[d].array(NUM_SPECIES+2);
+         auto const& T_F     = edgeflux[d].array(NUM_SPECIES+2);
+         auto const& rhoHm   = edgestate[d].array(NUM_SPECIES+1);
+         auto const& rhoHm_F = edgeflux[d].array(NUM_SPECIES+1);
+
+         amrex::ParallelFor(ebx,
+         [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+         {
+            getRHmixGivenTY( i, j, k, rho, rhoY, T, rhoHm );
+            rhoHmF(i,j,k) = rhoHm(i,j,k);                      // Copy RhoH edgestate into edgeflux
+            T(i,j,k)      = 0.0;                               // Clean edgestate of Temp 
+            T_F(i,j,k)    = 0.0;                               // Clean edgeflux of Temp
+         });
       }
 
 // Compute -Div(flux.Area) for RhoH, return Area-scaled (extensive) fluxes
@@ -7427,25 +7370,24 @@ PeleLM::mac_sync ()
         flux_divergence(DD_post,0,SpecDiffusionFluxnp1,nspecies+1,1,-1);
 
 #ifdef _OPENMP
-#pragma omp parallel
+#pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
         {
-          // Update (RhoH)^{postsync,L}
-          FArrayBox rhoInv, Y;
-          for (MFIter mfi(S_new,true); mfi.isValid(); ++mfi)
-          {
-            const Box& tbox = mfi.tilebox();
-            rhoInv.resize(tbox,1);
-            Y.resize(tbox,nspecies);
-            rhoInv.copy<RunOn::Host>(get_new_data(State_Type)[mfi],tbox,Density,tbox,0,1);
-            rhoInv.invert<RunOn::Host>(1.0,tbox,0,1);
-            Y.copy<RunOn::Host>(S_new[mfi],tbox,first_spec,tbox,0,nspecies);
-            for (int n=0; n<nspecies; ++n) {
-              Y.mult<RunOn::Host>(rhoInv,tbox,tbox,0,n,1);
-            }
-            getHmixGivenTY_pphys(get_new_data(State_Type)[mfi],get_new_data(State_Type)[mfi],Y,tbox,Temp,0,RhoH);
-            get_new_data(State_Type)[mfi].mult<RunOn::Host>(get_new_data(State_Type)[mfi],tbox,tbox,Density,RhoH,1);
-          }
+           // Update (RhoH)^{postsync,L}
+           for (MFIter mfi(S_new,TilingIfNotGPU()); mfi.isValid(); ++mfi)
+           {
+              const Box& bx = mfi.tilebox();
+              auto const& rho     = S_new.array(mfi,Density);  
+              auto const& rhoY    = S_new.array(mfi,first_spec);
+              auto const& T       = S_new.array(mfi,Temp);
+              auto const& rhoHm   = S_new.array(mfi,RhoH);
+
+              amrex::ParallelFor(bx,
+              [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+              {
+                 getRHmixGivenTY( i, j, k, rho, rhoY, T, rhoHm );
+              });
+           }
         }
 
         if (L==(num_deltaT_iters_MAX-1) && deltaT_iter_norm >= deltaT_norm_max) {
