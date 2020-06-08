@@ -184,7 +184,7 @@ The mixture-averaged transport coefficients discussed above (:math:`\mu`, :math:
 
 The following choices are currently implemented in `PeleLM`
 
-* The viscosity, :math:`\mu`, is estimated based on one step of the conjugate gradient method, using temperature dependent ratios of collisions integralsi (EGZE3).
+* The viscosity, :math:`\mu`, is estimated based on one step of the conjugate gradient method, using temperature dependent ratios of collisions integrals (EGZE3).
 
 * The conductivity, :math:`\lambda`, is based on an empirical mixture formula (EGZL1):
 
@@ -720,7 +720,11 @@ to ensure that the coarse data is consistent with the volume integral of the fin
 fluxes across of the coarse-fine interface are those of the fine solution.  The latter of these two operations can be
 quite complex, as it must correct coarse-grid errors committed by each of the operators used to perform the original
 advance.  It may also be non-local, in that cells far away from the coarse-fine interface may need to
-incorporate flux increments due to the mismatched coarse and fine solutions.
+incorporate flux increments due to the mismatched coarse and fine solutions. Formally, the synchronzation is a bilevel correction
+that should be computed as a sequence of two-level solves. However, this would lead to the same amound of work
+that was required to create the original (pre-sync) data. We assume that the corrections computed for the synchronization are smooth 
+enough to be well represented by an increment on the coaser of the two-levels, and interpolated to the finer grid. Note that the transport
+coefficients are not updated to account for the state changes during the synchronization.
 
 Generically, the synchronization procedure in `PeleLM` follows that described for the `IAMR` code, but with
 modifications to explicitly enforce that the sum of the species diffusion correction fluxes is zero, that the
@@ -866,7 +870,9 @@ where :math:`\delta h_m^{sync} = h_m(T^{n+1,(k+1)}) - h_m(T^{n+1,(k+1),p})` and 
 the species flux increment due to the species sync correction appearing on the LHS of eq. :eq:`specSyncEq`. 
 Eq. :eq:`rhoHsyncEq` is the equation for the sync correction. At this point, we can drop the SDC iteration index :math:`k+1` 
 for simplicity (all :math:`k` related quantities are contained in :math:`S_h^{sync}`). 
-Note that we don't want to update the conductivity in :math:`D_T^{n+1}`, but we do want to use an updated version of :math:`h_m`. 
+Note that the evaluation of the transport properties is relatively expensive, such that we don't want to update 
+the conductivity in :math:`D_T^{n+1}` since a lagged (pre-sync) version is sufficient for second-order accuracy. 
+However we do want to use an updated version of :math:`h_m`. 
 
 Just as in the level advance, we cannot compute :math:`h^{n+1}` directly, so we solve this iteratively based on the approximation
 :math:`h^{n+1,\eta+1} \approx h^{n+1,\eta} + C_{p}^{n+1,\eta} \Delta T^{\eta+1}`, with
@@ -883,8 +889,8 @@ lag the :math:`H` terms in iteration :math:`\eta`,
     - \nabla \cdot \sum_m \Big( h_m^{n+1} \delta {\boldsymbol{\cal F}}_{m}^{sync}
     + \delta h_m^{sync} {\boldsymbol{\cal F}}_{m}^{(m+1)} \Big) \Big)
 
-After each iteration, update :math:`T^{n+1,\eta+1} = T^{n+1,\eta} + \Delta T^{\eta+1}`, 
+After each :math:\eta iteration, update :math:`T^{n+1,\eta+1} = T^{n+1,\eta} + \Delta T^{\eta+1}`, 
 :math:`\delta T^{sync,\eta+1} = T^{n+1,\eta+1} - T^{(n+1,p)}`, and 
-re-evaluate :math:`(C_p,h_m)^{n+1,\eta+1}` using :math:`(T^{n+1,\eta+1}, Y_m^{n+1}`).  After the iterations are
-converged, set :math:`T^{n+1} = T^{(n+1,p)} + \delta T^{sync,\eta_{MAX}}`, and compute
-:math:`h^{n+1} = h(T^{n+1},Y_m^{n+1})`.
+re-evaluate :math:`(C_p,h_m)^{n+1,\eta+1}` using :math:`(T^{n+1,\eta+1}, Y_m^{n+1}`).  Iterations are continued 
+ until the norm of :math:`\Delta T^{\eta+1}` drops below a tolerance threshold. 
+ Then set :math:`T^{n+1} = T^{(n+1,p)} + \delta T^{sync,\eta_{MAX}}`, and compute :math:`h^{n+1} = h(T^{n+1},Y_m^{n+1})`.
