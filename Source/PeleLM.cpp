@@ -265,8 +265,8 @@ PeleLM::compute_rhohmix (Real      time,
          auto const& T       = S.array(mfi,Temp);
          auto const& rhoHm   = rhohmix.array(mfi,dComp);
 
-         amrex::ParallelFor(bx,
-         [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+         amrex::ParallelFor(bx, [rho, rhoY, T, rhoHm]
+         AMREX_GPU_DEVICE (int i, int j, int k) noexcept
          {
             getRHmixGivenTY( i, j, k, rho, rhoY, T, rhoHm );
          });
@@ -2157,8 +2157,8 @@ PeleLM::compute_instantaneous_reaction_rates (MultiFab&       R,
       auto const& mask    = maskMF.array(mfi);
       auto const& rhoYdot = R.array(mfi);
 
-      amrex::ParallelFor(bx,
-      [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+      amrex::ParallelFor(bx, [rhoY, rhoH, mask, rhoYdot]
+      AMREX_GPU_DEVICE (int i, int j, int k) noexcept
       {
          reactionRateRhoY( i, j, k,
                            rhoY, rhoH, mask,
@@ -3686,8 +3686,8 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
           auto const& T       = Snp1[0]->array(mfi,Temp);
           auto const& rhoHm   = Snp1[0]->array(mfi,RhoH);
 
-          amrex::ParallelFor(bx,
-          [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+          amrex::ParallelFor(bx, [rho, rhoY, T, rhoHm]
+          AMREX_GPU_DEVICE (int i, int j, int k) noexcept
           {
              getRHmixGivenTY( i, j, k, rho, rhoY, T, rhoHm );
           });
@@ -3967,23 +3967,27 @@ PeleLM::compute_enthalpy_fluxes (MultiFab* const*       flux,
   // Second step, let's compute flux[nspecies+1] = sum_m (H_m Gamma_m)
   
 
-  // First we want to gather h_i from T and then interpolate it to face centroids
-  MultiFab Enth(grids,dmap,nspecies,ngrow,MFInfo(),Factory());
+   // First we want to gather h_i from T and then interpolate it to face centroids
+   MultiFab Enth(grids,dmap,nspecies,ngrow,MFInfo(),Factory());
 
 #ifdef _OPENMP
-#pragma omp parallel
+#pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
-  {
-    for (MFIter mfi(TT,true); mfi.isValid(); ++mfi)
-    {
-      Box bx = mfi.tilebox();
-      Box gbox = grow(bx,1);
-      FArrayBox& Tfab = TT[mfi];
-      FArrayBox& Hfab = Enth[mfi];
+   {
+      for (MFIter mfi(TT,TilingIfNotGPU()); mfi.isValid(); ++mfi)
+      {
+         const Box& bx  = mfi.tilebox();
+         const Box gbx  = grow(bx,1);
+         auto const& T  = TT.array(mfi);
+         auto const& Hi = Enth.array(mfi,0);
 
-      getHGivenT_pphys(Hfab,Tfab,gbox,0,0);
-    }
-  }
+         amrex::ParallelFor(gbx, [T, Hi]
+         AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+         {
+            getHGivenT( i, j, k, T, Hi );
+         });
+      }
+   }
 
   Vector<BCRec> math_bc(nspecies);
   math_bc = fetchBCArray(State_Type,first_spec,nspecies);
@@ -4878,8 +4882,8 @@ PeleLM::compute_rhoRT (const MultiFab& S,
          auto const& T       = S.array(mfi,Temp);
          auto const& P       = Press.array(mfi, pComp);
 
-         amrex::ParallelFor(bx,
-         [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+         amrex::ParallelFor(bx, [rho, rhoY, T, P]
+         AMREX_GPU_DEVICE (int i, int j, int k) noexcept
          {
             getPGivenRTY( i, j, k, rho, rhoY, T, P );
          });
@@ -6561,8 +6565,8 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
               auto const& T       = EdgeState[d]->array(S_mfi,Temp);
               auto const& rhoHm   = EdgeState[d]->array(S_mfi,RhoH);
 
-              amrex::ParallelFor(ebox,
-              [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+              amrex::ParallelFor(ebox, [rho, rhoY, T, rhoHm]
+              AMREX_GPU_DEVICE (int i, int j, int k) noexcept
               {
                  getRHmixGivenTY( i, j, k, rho, rhoY, T, rhoHm );
               });
@@ -6731,8 +6735,8 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
          auto const& rhoHm   = edgestate[d].array(NUM_SPECIES+1);
          auto const& rhoHm_F = edgeflux[d].array(NUM_SPECIES+1);
 
-         amrex::ParallelFor(ebx,
-         [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+         amrex::ParallelFor(ebx, [ rho, rhoY, T, rhoHm, T_F, rhoHm_F]
+         AMREX_GPU_DEVICE (int i, int j, int k) noexcept
          {
             getRHmixGivenTY( i, j, k, rho, rhoY, T, rhoHm );
             rhoHm_F(i,j,k) = rhoHm(i,j,k);                     // Copy RhoH edgestate into edgeflux
@@ -7364,8 +7368,8 @@ PeleLM::mac_sync ()
               auto const& T       = S_new.array(mfi,Temp);
               auto const& rhoHm   = S_new.array(mfi,RhoH);
 
-              amrex::ParallelFor(bx,
-              [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+              amrex::ParallelFor(bx, [rho, rhoY, T, rhoHm]
+              AMREX_GPU_DEVICE (int i, int j, int k) noexcept
               {
                  getRHmixGivenTY( i, j, k, rho, rhoY, T, rhoHm );
               });
@@ -7695,8 +7699,8 @@ PeleLM::compute_Wbar_fluxes(Real time,
       auto const& rho     = mf.array(mfi,0);
       auto const& rhoY    = mf.array(mfi,1);
       auto const& Wbar_ar = Wbar.array(mfi); 
-      amrex::ParallelFor(gbx,
-      [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+      amrex::ParallelFor(gbx, [rho, rhoY, Wbar_ar]
+      AMREX_GPU_DEVICE (int i, int j, int k) noexcept
       {
          getMwmixGivenRY(i, j, k, rho, rhoY, Wbar_ar);
       });
@@ -7743,8 +7747,8 @@ PeleLM::compute_Wbar_fluxes(Real time,
          auto const& rho     = mfc.array(mfi,0);
          auto const& rhoY    = mfc.array(mfi,1);
          auto const& Wbar_ar = Wbar_crse.array(mfi); 
-         amrex::ParallelFor(gbx,
-         [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+         amrex::ParallelFor(gbx, [rho, rhoY, Wbar_ar]
+         AMREX_GPU_DEVICE (int i, int j, int k) noexcept
          {
             getMwmixGivenRY(i, j, k, rho, rhoY, Wbar_ar);
          });
