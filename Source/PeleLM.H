@@ -558,12 +558,6 @@ private:
                           int              sCompT,
                           int              sCompRhoYdot) const;
 
-  void getMwmixGivenY_pphys(amrex::FArrayBox&       mwmix,
-                         const amrex::FArrayBox& Y,
-                         const amrex::Box&       box,
-                         int              sCompY,
-                         int              sCompMw) const;
-
   void getHmixGivenTY_pphys (amrex::FArrayBox&       hmix,
                          const amrex::FArrayBox& T,
                          const amrex::FArrayBox& Y,

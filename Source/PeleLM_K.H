@@ -87,4 +87,23 @@ getRHmixGivenTY(int i, int j, int k,
    EOS::TY2H(T(i,j,k), y, Hmix(i,j,k));
    Hmix(i,j,k) = Hmix(i,j,k) * 1.0e-4_rt * rho(i,j,k);   // MKS -> CGS convertion
 }
+
+AMREX_GPU_HOST_DEVICE
+inline
+void
+getMwmixGivenRY(int i, int j, int k,
+                amrex::Array4<const amrex::Real> const& rho,
+                amrex::Array4<const amrex::Real> const& rhoY,
+                amrex::Array4<      amrex::Real> const& Mwmix) noexcept
+{
+   using namespace amrex::literals;
+
+   amrex::Real rhoinv  = 1.0_rt / rho(i,j,k);
+   amrex::Real y[NUM_SPECIES];
+   for (int n = 0; n < NUM_SPECIES; n++) {
+      y[n] = rhoY(i,j,k,n) * rhoinv;
+   }
+
+   EOS::Y2Wbar(y, Mwmix(i,j,k));
+}
 #endif

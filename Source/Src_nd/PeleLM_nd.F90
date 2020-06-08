@@ -404,46 +404,6 @@ contains
    end subroutine pphys_HfromT
 
 !=========================================================
-!  Compute mixture mean molecular weight from Y
-!=========================================================
-
-   subroutine pphys_MWMIXfromY(lo, hi, &
-                               MWmix, m_lo, m_hi, &
-                               Y, y_lo, y_hi)&
-                               bind(C, name="pphys_MWMIXfromY")
-
-      implicit none
-
-! In/Out
-      integer, intent(in) :: lo(3), hi(3)
-      integer, intent(in) :: m_lo(3), m_hi(3)
-      integer, intent(in) :: y_lo(3), y_hi(3)
-      REAL_T, dimension(m_lo(1):m_hi(1),m_lo(2):m_hi(2),m_lo(3):m_hi(3)) :: MWmix
-      REAL_T, dimension(y_lo(1):y_hi(1),y_lo(2):y_hi(2),y_lo(3):y_hi(3),NUM_SPECIES) :: Y
-
-! Local
-      REAL_T  :: Yt(NUM_SPECIES)
-      integer :: i, j, k, n
-
-!     Returns mean molecular weight in kg/kmole
-
-      do k=lo(3),hi(3)
-         do j=lo(2),hi(2)
-            do i=lo(1),hi(1)
-
-               do n = 1, NUM_SPECIES
-                  Yt(n) = Y(i,j,k,n)
-               end do
-
-               CALL CKMMWY(Yt,MWMIX(i,j,k))
-
-            end do
-         end do
-      end do
-
-   end subroutine pphys_MWMIXfromY
-
-!=========================================================
 !  Compute mixture mean heat capacity
 !=========================================================
 

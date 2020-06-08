@@ -33,10 +33,6 @@ extern "C" {
                            BL_FORT_FAB_ARG_ANYD(H),
                      const BL_FORT_FAB_ARG_ANYD(T));
 
-   void pphys_MWMIXfromY(const int* lo, const int* hi,
-                               BL_FORT_FAB_ARG_ANYD(MWMIX),
-                         const BL_FORT_FAB_ARG_ANYD(Y));
-
    void pphys_CPMIXfromTY(const int* lo, const int* hi,
                                 BL_FORT_FAB_ARG_ANYD(CPMIX),
                           const BL_FORT_FAB_ARG_ANYD(T),

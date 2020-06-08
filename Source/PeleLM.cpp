@@ -334,24 +334,6 @@ PeleLM::getHGivenT_pphys(FArrayBox&       h,
 }
 
 void
-PeleLM::getMwmixGivenY_pphys(FArrayBox&       mwmix,
-			      const FArrayBox& Y,
-			      const Box&       box,
-			      int              sCompY,
-			      int              sCompMw) const
-{
-    BL_ASSERT(mwmix.nComp() > sCompMw);
-    BL_ASSERT(Y.nComp() >= sCompY+nspecies);
-
-    BL_ASSERT(mwmix.box().contains(box));
-    BL_ASSERT(Y.box().contains(box));
-    
-    pphys_MWMIXfromY(BL_TO_FORTRAN_BOX(box),
-		               BL_TO_FORTRAN_N_ANYD(mwmix,sCompMw),
-		               BL_TO_FORTRAN_N_ANYD(Y,sCompY));
-}
-
-void
 PeleLM::getCpmixGivenTY_pphys(FArrayBox&       cpmix,
 			       const FArrayBox& T,
 			       const FArrayBox& Y,
@@ -7685,152 +7667,124 @@ void
 PeleLM::compute_Wbar_fluxes(Real time,
                             Real inc)
 {
-  BL_PROFILE("HT::compute_Wbar_fluxes()");
+   BL_PROFILE("HT::compute_Wbar_fluxes()");
 
-  // allocate edge-beta for Wbar
-  FluxBoxes fb_betaWbar(this, nspecies, 0);
-  MultiFab** betaWbar =fb_betaWbar.get();
+   // allocate edge-beta for Wbar
+   FluxBoxes fb_betaWbar(this, nspecies, 0);
+   MultiFab** betaWbar =fb_betaWbar.get();
 
-  // average transport coefficients for Wbar to edges
-  getDiffusivity_Wbar(betaWbar,time);
+   // average transport coefficients for Wbar to edges
+   getDiffusivity_Wbar(betaWbar,time);
 
-  int nGrowOp = 1;
+   int nGrowOp = 1;
 
-  MultiFab rho_and_species(grids,dmap,nspecies+1,nGrowOp,MFInfo(),Factory());
+   // Define Wbar
+   MultiFab Wbar;
+   Wbar.define(grids,dmap,1,nGrowOp);
 
-  FillPatchIterator fpi(*this,rho_and_species,nGrowOp,time,State_Type,Density,nspecies+1);
-  MultiFab& mf= fpi.get_mf();
-  
+   // Get fillpatched rho and rhoY
+   FillPatchIterator fpi(*this,Wbar,nGrowOp,time,State_Type,Density,nspecies+1);
+   MultiFab& mf= fpi.get_mf();
+
 #ifdef _OPENMP
-#pragma omp parallel
+#pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
-{
-  FArrayBox tmp;
-  for (MFIter mfi(mf,true); mfi.isValid();++mfi)
-  {
-    const Box& box = mfi.growntilebox(); 
-    FArrayBox& rho_and_spec = rho_and_species[mfi];
-    FArrayBox& Umf = mf[mfi];
-    rho_and_spec.copy<RunOn::Host>(Umf,box,0,box,0,nspecies+1);
-
-    tmp.resize(box,1);
-    tmp.copy<RunOn::Host>(rho_and_spec,0,0,1);
-    tmp.invert<RunOn::Host>(1,box);
-
-    for (int comp = 0; comp < nspecies; ++comp) 
-      rho_and_spec.mult<RunOn::Host>(tmp,box,0,comp+1,1);
-  }
-}
-
-  // add in grad wbar term
-  MultiFab Wbar;
-
-  Wbar.define(grids,dmap,1,nGrowOp);
-#ifdef _OPENMP
-#pragma omp parallel
-#endif
-  for (MFIter mfi(rho_and_species,true); mfi.isValid(); ++mfi)
-  {
-    const Box& gbox = mfi.growntilebox(); // amrex::grow(mfi.tilebox(),nGrowOp);
-    getMwmixGivenY_pphys(Wbar[mfi],rho_and_species[mfi],gbox,1,0);
-  }
-
-  //
-  // Here, we'll use the same LinOp as Y for filling grow cells.
-  //
-  const Real* dx    = geom.CellSize();
-  const BCRec& bc = get_desc_lst()[State_Type].getBC(first_spec);
-  ViscBndry*     bndry   = new ViscBndry(grids,dmap,1,geom);
-  ABecLaplacian* visc_op = new ABecLaplacian(bndry,dx);
-
-  visc_op->maxOrder(diffusion->maxOrder());
-
-  MultiFab rho_and_species_crse;
-  const int nGrowCrse = InterpBndryData::IBD_max_order_DEF - 1;
-
-  if (level == 0)
-  {
-    bndry->setBndryValues(Wbar,0,0,1,bc);
-  }
-  else
-  {
-    PeleLM& coarser = *(PeleLM*) &(parent->getLevel(level-1));
-
-    rho_and_species_crse.define(coarser.grids,coarser.dmap,nspecies+1,nGrowCrse);
-
-    FillPatchIterator fpic(coarser,rho_and_species_crse,nGrowCrse,time,State_Type,Density,nspecies+1);
-    MultiFab& mfc = fpic.get_mf();
-  
-#ifdef _OPENMP
-#pragma omp parallel
-#endif
-    {
-      FArrayBox tmp;
-      for (MFIter mfi(mfc,true); mfi.isValid();++mfi)
+   for (MFIter mfi(mf,TilingIfNotGPU()); mfi.isValid(); ++mfi)
+   {
+      const Box& gbx = mfi.growntilebox(); 
+      auto const& rho     = mf.array(mfi,0);
+      auto const& rhoY    = mf.array(mfi,1);
+      auto const& Wbar_ar = Wbar.array(mfi); 
+      amrex::ParallelFor(gbx,
+      [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
       {
-        const Box& box = mfi.growntilebox(); 
-        FArrayBox& Umf = mfc[mfi];
-        FArrayBox& rho_and_spec = rho_and_species_crse[mfi];
-        rho_and_spec.copy<RunOn::Host>(Umf,box,0,box,0,nspecies+1);
-        tmp.resize(box,1);
-        tmp.copy<RunOn::Host>(rho_and_spec,box,0,box,0,1);
-        tmp.invert<RunOn::Host>(1,box);
-	
-        for (int comp = 0; comp < nspecies; ++comp) 
-          rho_and_spec.mult<RunOn::Host>(tmp,box,0,comp+1,1);
-      }
-    }
-    BoxArray cgrids = grids;
-    cgrids.coarsen(crse_ratio);
-    BndryRegister crse_br(cgrids,dmap,0,1,nGrowCrse,1);
-    crse_br.setVal<RunOn::Host>(1.e200);
-    MultiFab Wbar_crse(rho_and_species_crse.boxArray(),
-                       rho_and_species_crse.DistributionMap(),
-                       1,nGrowCrse,MFInfo(),Factory());
+         getMwmixGivenRY(i, j, k, rho, rhoY, Wbar_ar);
+      });
+   }
+
+   //
+   // Here, we'll use the same LinOp as Y for filling grow cells.
+   //
+   const Real* dx    = geom.CellSize();
+   const BCRec& bc = get_desc_lst()[State_Type].getBC(first_spec);
+   ViscBndry*     bndry   = new ViscBndry(grids,dmap,1,geom);
+   ABecLaplacian* visc_op = new ABecLaplacian(bndry,dx);
+
+   visc_op->maxOrder(diffusion->maxOrder());
+
+   const int nGrowCrse = InterpBndryData::IBD_max_order_DEF - 1;
+
+   if (level == 0)
+   {
+      bndry->setBndryValues(Wbar,0,0,1,bc);
+   }
+   else
+   {
+      PeleLM& coarser = *(PeleLM*) &(parent->getLevel(level-1));
+
+      // Define Wbar coarse
+      Wbar_crse(coarser.grids, coarser.dmap, 1, nGrowCrse);
+
+      // Get fillpatched coarse rho and rhoY
+      FillPatchIterator fpic(coarser,Wbar_crse,nGrowCrse,time,State_Type,Density,nspecies+1);
+      MultiFab& mfc = fpic.get_mf();
+  
+      BoxArray cgrids = grids;
+      cgrids.coarsen(crse_ratio);
+      BndryRegister crse_br(cgrids,dmap,0,1,nGrowCrse,1);
+      crse_br.setVal<RunOn::Host>(1.e200);
+
 #ifdef _OPENMP
-#pragma omp parallel
+#pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
-    for (MFIter mfi(rho_and_species_crse,true); mfi.isValid(); ++mfi)
-    {
-      const Box& box = mfi.growntilebox();
-      getMwmixGivenY_pphys(Wbar_crse[mfi],rho_and_species_crse[mfi],box,1,0);
-    }	  
-    crse_br.copy<RunOn::Host>From(Wbar_crse,nGrowCrse,0,0,1);
-    bndry->setBndryValues(crse_br,0,Wbar,0,0,1,crse_ratio,bc);
-  }
+      for (MFIter mfi(mfc,TilingIfNotGPU()); mfi.isValid(); ++mfi)
+      {
+         const Box& gbx = mfi.growntilebox(); 
+         auto const& rho     = mfc.array(mfi,0);
+         auto const& rhoY    = mfc.array(mfi,1);
+         auto const& Wbar_ar = Wbar_crse.array(mfi); 
+         amrex::ParallelFor(gbx,
+         [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+         {
+            getMwmixGivenRY(i, j, k, rho, rhoY, Wbar_ar);
+         });
+      }
+      crse_br.copy<RunOn::Host>From(Wbar_crse,nGrowCrse,0,0,1);
+      bndry->setBndryValues(crse_br,0,Wbar,0,0,1,crse_ratio,bc);
+   }
 
-  visc_op->setScalars(0,1);
-  visc_op->bCoefficients(1);
-  visc_op->applyBC(Wbar,0,1,0,LinOp::Inhomogeneous_BC);
+   visc_op->setScalars(0,1);
+   visc_op->bCoefficients(1);
+   visc_op->applyBC(Wbar,0,1,0,LinOp::Inhomogeneous_BC);
 
-  delete visc_op;
+   delete visc_op;
 
 #ifdef _OPENMP
 #pragma omp parallel
 #endif   
-  for (MFIter mfi(Wbar,true); mfi.isValid(); ++mfi)
-  {
-    
-    const FArrayBox& wbar = Wbar[mfi];
-    const Real       mult = -1.0;
+   for (MFIter mfi(Wbar,true); mfi.isValid(); ++mfi)
+   {
+     
+      const FArrayBox& wbar = Wbar[mfi];
+      const Real       mult = -1.0;
 
-    for (int d=0; d<AMREX_SPACEDIM; ++d) 
-    {
-      const Box&        vbox = mfi.nodaltilebox(d);
-      const FArrayBox& rhoDe = (*betaWbar[d])[mfi];
-      FArrayBox&    fluxfab  = (*SpecDiffusionFluxWbar[d])[mfi];
-
-      for (int ispec=0; ispec<nspecies; ++ispec)
+      for (int d=0; d<AMREX_SPACEDIM; ++d) 
       {
-        grad_wbar(BL_TO_FORTRAN_BOX(vbox),
-                  BL_TO_FORTRAN_ANYD(wbar),
-                  BL_TO_FORTRAN_ANYD(rhoDe),
-                  BL_TO_FORTRAN_N_ANYD(fluxfab,ispec),
-                  BL_TO_FORTRAN_ANYD(area[d][mfi]),
-                  &dx[d], &d, &mult, &inc);
+         const Box&        vbox = mfi.nodaltilebox(d);
+         const FArrayBox& rhoDe = (*betaWbar[d])[mfi];
+         FArrayBox&    fluxfab  = (*SpecDiffusionFluxWbar[d])[mfi];
+
+         for (int ispec=0; ispec<nspecies; ++ispec)
+         {
+           grad_wbar(BL_TO_FORTRAN_BOX(vbox),
+                     BL_TO_FORTRAN_ANYD(wbar),
+                     BL_TO_FORTRAN_ANYD(rhoDe),
+                     BL_TO_FORTRAN_N_ANYD(fluxfab,ispec),
+                     BL_TO_FORTRAN_ANYD(area[d][mfi]),
+                     &dx[d], &d, &mult, &inc);
+         }
       }
-    }
-  }
+   }
 }
 
 #endif
