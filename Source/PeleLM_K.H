@@ -39,7 +39,7 @@ reactionRateRhoY(int i, int j, int k,
    amrex::Real wdot[NUM_SPECIES];
    EOS::RTY2WDOT(rho, T, y, wdot);
    for (int n = 0; n < NUM_SPECIES; n++) {   
-      rhoYdot(i,j,k,n) = wdot[n] * 1000.0_rt;            // MKS -> CGS convertion
+      rhoYdot(i,j,k,n) = wdot[n] * 1000.0_rt;            // CGS -> MKS convertion
    }
 }
 
@@ -63,7 +63,7 @@ getPGivenRTY(int i, int j, int k,
    }
 
    EOS::TRY2P(rho_cgs, T(i,j,k), y, P(i,j,k));
-   P(i,j,k) = P(i,j,k) * 0.1_rt;                         // MKS -> CGS convertion
+   P(i,j,k) = P(i,j,k) * 0.1_rt;                         // CGS -> MKS convertion
 }
 
 // This kernel returns directly rhoHmix
@@ -85,7 +85,7 @@ getRHmixGivenTY(int i, int j, int k,
    }
 
    EOS::TY2H(T(i,j,k), y, Hmix(i,j,k));
-   Hmix(i,j,k) = Hmix(i,j,k) * 1.0e-4_rt * rho(i,j,k);   // MKS -> CGS convertion
+   Hmix(i,j,k) = Hmix(i,j,k) * 1.0e-4_rt * rho(i,j,k);   // CGS -> MKS convertion
 }
 
 AMREX_GPU_HOST_DEVICE
@@ -104,6 +104,24 @@ getMwmixGivenRY(int i, int j, int k,
       y[n] = rhoY(i,j,k,n) * rhoinv;
    }
 
-   EOS::Y2Wbar(y, Mwmix(i,j,k));
+   EOS::Y2WBAR(y, Mwmix(i,j,k));
+   Mwmix(i,j,k) = Mwmix(i,j,k) * 0.001_rt;            // CGS -> MKS convertion
+}
+
+AMREX_GPU_HOST_DEVICE
+inline
+void
+getHGivenT(int i, int j, int k,
+           amrex::Array4<const amrex::Real> const& T,
+           amrex::Array4<      amrex::Real> const& Hi) noexcept
+{
+   using namespace amrex::literals;
+
+   amrex::Real hi_spec[NUM_SPECIES];
+   EOS::T2Hi(T(i,j,k), hi_spec);
+   for (int n = 0; n < NUM_SPECIES; n++) {   
+      Hi(i,j,k,n) = hi_spec[n] * 0.0001_rt;            // CGS -> MKS convertion
+   }
+   
 }
 #endif
