@@ -5432,8 +5432,7 @@ PeleLM::advance (Real time,
     //          = ( D[N+1] + Sum{ hk.( R_k + D[k] ) } ) / (rho.Cp)
     //
     BL_PROFILE_VAR("HT::advance::advection", HTADV);    
-    Forcing.setVal(0);
-    MultiFab RhoCpInv(grids,dmap,1,nGrowAdvForcing);
+    Forcing.setVal(0.0);
 
     int sComp = std::min(RhoH, std::min((int)Density, std::min((int)first_spec,(int)Temp) ) );
     int eComp = std::max(RhoH, std::max((int)Density, std::max((int)last_spec, (int)Temp) ) );
@@ -5441,51 +5440,31 @@ PeleLM::advance (Real time,
 
     FillPatchIterator S_fpi(*this,get_old_data(State_Type),nGrowAdvForcing,prev_time,State_Type,sComp,nComp);
     MultiFab& Smf=S_fpi.get_mf();
+
     int Rcomp = Density - sComp;
     int RYcomp = first_spec - sComp;
     int Tcomp = Temp - sComp;
     
 #ifdef _OPENMP
-#pragma omp parallel
+#pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
+    for (MFIter mfi(Smf,TilingIfNotGPU()); mfi.isValid(); ++mfi)
     {
-      FArrayBox H, Y, Tnew, tmp;
-      for (MFIter mfi(Smf,true); mfi.isValid(); ++mfi)
-      {
-        FArrayBox& Sfab = Smf[mfi];
-        FArrayBox& f = Forcing[mfi];
-        FArrayBox& dn = Dn[mfi];
-        FArrayBox& ddn = DDn[mfi];
-        const FArrayBox& r = get_new_data(RhoYdot_Type)[mfi];
-        const Box& gbox = mfi.growntilebox();
+       const Box& gbx = mfi.growntilebox();  
+       auto const& rho     = Smf.array(mfi,Rcomp); 
+       auto const& rhoY    = Smf.array(mfi,RYcomp);
+       auto const& T       = Smf.array(mfi,Tcomp);
+       auto const& dn      = Dn.array(mfi,0);
+       auto const& ddn     = DDn.array(mfi);
+       auto const& r       = get_new_data(RhoYdot_Type).array(mfi,0);
+       auto const& fY      = Forcing.array(mfi,0);
+       auto const& fT      = Forcing.array(mfi,NUM_SPECIES);
 
-        H.resize(gbox,nspecies);
-        getHGivenT_pphys(H,Sfab,gbox,Tcomp,0);
-
-        tmp.resize(gbox,nspecies);
-        tmp.copy<RunOn::Host>(r,gbox,0,gbox,0,nspecies);         // copy Rk to tmp 
-        tmp.plus<RunOn::Host>(dn,gbox,gbox,0,0,nspecies);        // add Dn[spec] to tmp so now we have (Rk + Div(Fk) )
-
-        H.mult<RunOn::Host>(tmp,gbox,gbox,0,0,nspecies);         // Multiply by hk, so now we have hk.( Rk + Div(Fk) )
-        for (int n=0; n<nspecies; ++n) {
-          f.minus<RunOn::Host>(H,gbox,gbox,n,nspecies,1);        // Build F[N] = - Sum{ hk.( Rk + Div(Fk) ) }
-        }
-        f.plus<RunOn::Host>(dn,gbox,gbox,nspecies+1,nspecies,1); // Build F[N] = Dn[N+1] - Sum{ hk.( Rk + Div(Fk) ) }
-        f.plus<RunOn::Host>(ddn,gbox,gbox,0,nspecies,1);         // Add DDn to F[N]
-        if (closed_chamber == 1)
-          f.plus<RunOn::Host>(dp0dt,gbox,nspecies,1);            // add dp0/dt to Temp forcing
-        Sfab.invert<RunOn::Host>(1.0,gbox,Rcomp,1);              // S[rho] = 1/rho
-        for (int n=0; n<nspecies; ++n) {
-          Sfab.mult<RunOn::Host>(Sfab,gbox,gbox,Rcomp,RYcomp+n,1); // S[1:nsp] = Y
-        }
-        getCpmixGivenTY_pphys(RhoCpInv[mfi],Sfab,Sfab,gbox,Tcomp,RYcomp,0); // here, RhoCpInv = Cp
-        RhoCpInv[mfi].invert<RunOn::Host>(1.0,gbox,0,1);                                          // here, RhoCpInv = 1/(Cp)
-        RhoCpInv[mfi].mult<RunOn::Host>(Sfab,gbox,gbox,Rcomp,0,1);                                // here, RhoCpInv = 1/(rho.Cp)
-        f.mult<RunOn::Host>(RhoCpInv[mfi],gbox,0,nspecies,1);    // Scale, so that F[Temp]= (Dn[Temp]- Sum{hk.(Rk+Div(Fk))})/(Rho.Cp)
-        f.copy<RunOn::Host>(dn,gbox,0,gbox,0,nspecies);          // initialize RhoY forcing with Dn
-        f.plus<RunOn::Host>(r,gbox,gbox,0,0,nspecies);           // add R to RhoY, so that F[i] = Dn[i] + R[i]
-
-      }
+       amrex::ParallelFor(gbx, [rho, rhoY, T, dn, ddn, r, fY, fT]
+       AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+       {
+          buildAdvectionForcing( i, j, k, rho, rhoY, T, dn, ddn, r, dp0dt, closed_chamber, fY, fT );
+       });
     }
     BL_PROFILE_VAR_STOP(HTADV);
 
