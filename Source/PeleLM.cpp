@@ -6753,7 +6753,7 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
          [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
          {
             getRHmixGivenTY( i, j, k, rho, rhoY, T, rhoHm );
-            rhoHmF(i,j,k) = rhoHm(i,j,k);                      // Copy RhoH edgestate into edgeflux
+            rhoHm_F(i,j,k) = rhoHm(i,j,k);                     // Copy RhoH edgestate into edgeflux
             T(i,j,k)      = 0.0;                               // Clean edgestate of Temp 
             T_F(i,j,k)    = 0.0;                               // Clean edgeflux of Temp
          });
