@@ -38,7 +38,7 @@ RemoveParticlesOnExit()
 }
 } // namespace
 
-int PeleLM::do_spray_particles = 0;
+int PeleLM::do_spray_particles = 1; // martin: why does reading and setting not work properly?
 int PeleLM::particle_verbose = 0;
 Real PeleLM::particle_cfl = 0.05;
 
@@ -139,6 +139,10 @@ PeleLM::readParticleParams()
     sprayLatent[i] = latent[i];
     sprayCp[i] = spraycp[i];
   }
+
+  amrex::Print() << "Spray nfuel " << nfuel << '\n';
+  amrex::Print() << "Spray fuel names " << fuel_names[0] << '\n';
+
   // Must use same reference temperature for all fuels
   // TODO: This means the reference temperature must be the same for all fuel
   // species

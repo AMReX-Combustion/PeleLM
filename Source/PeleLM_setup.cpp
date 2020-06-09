@@ -1,8 +1,8 @@
 //
-// Note: define TEMPERATURE if you want variables T and rho*h, h = c_p*T,in the 
+// Note: define TEMPERATURE if you want variables T and rho*h, h = c_p*T,in the
 //       State_Type part of the state
 //       whose component indices are Temp and RhoH
-//       whose evoution equations are 
+//       whose evoution equations are
 //       \pd (rho h)/\pd t + diver (\rho U h) = div k grad T
 //       rho DT/dt = div k/c_p grad T
 //       define RADIATION only if TEMPERATURE is also defined and the evolution equations
@@ -13,7 +13,7 @@
 //       The equation for temperature is used solely for computing div k grad T
 //
 //       Note: The reasons for using an auxiliary T equations are two fold:
-//             1) solving the C-N difference equations for 
+//             1) solving the C-N difference equations for
 //                \pd (rho h)/\pd t + diver (\rho U h) = div k/c_p grad h
 //                does not easily fit into our framework as of 10/31/96
 //             2) the boundary condition for rho h at a wall is ill defined
@@ -43,7 +43,7 @@
 #ifdef USE_SUNDIALS_PP
 #include <actual_Creactor.h>
 #else
-#include <actual_reactor.H> 
+#include <actual_reactor.H>
 #endif
 
 using namespace amrex;
@@ -71,7 +71,7 @@ static
 int
 norm_vel_bc[] =
 {
-  // 
+  //
 INT_DIR, EXT_DIR, FOEXTRAP, REFLECT_ODD, REFLECT_ODD, REFLECT_ODD, REFLECT_ODD, REFLECT_ODD
 };
 
@@ -122,7 +122,7 @@ static
 int
 dsdt_bc[] =
 {
-  INT_DIR, EXT_DIR, EXT_DIR, REFLECT_EVEN, REFLECT_EVEN, REFLECT_EVEN, EXT_DIR, EXT_DIR 
+  INT_DIR, EXT_DIR, EXT_DIR, REFLECT_EVEN, REFLECT_EVEN, REFLECT_EVEN, EXT_DIR, EXT_DIR
 };
 
 static
@@ -387,7 +387,7 @@ public:
   // Destructor.
   //
   virtual ~ChemBndryFunc ()  override {}
-    
+
   virtual StateDescriptor::BndryFunc* clone () const override
     {
       //
@@ -441,7 +441,7 @@ protected:
           return i;
       return -1;
     }
-    
+
 private:
 
   ChemBndryFunc_FortBndryFunc   m_func = nullptr;
@@ -481,7 +481,7 @@ PeleLM::variableSetUp ()
 
 #ifdef _OPENMP
 #pragma omp parallel
-#endif  
+#endif
   reactor_init(&cvode_iE,&cvode_ncells);
 
   init_transport(use_tranlib);
@@ -503,7 +503,7 @@ PeleLM::variableSetUp ()
   NUM_STATE = ++counter;
   NUM_SCALARS = NUM_STATE - Density;
 
-  getSpeciesNames(spec_names); 
+  getSpeciesNames(spec_names);
 
   amrex::Print() << nreactions << " Reactions in mechanism \n";
   amrex::Print() << nspecies << " Chemical species interpreted:\n { ";
@@ -530,7 +530,7 @@ PeleLM::variableSetUp ()
   //
   std::string speciesScaleFile; ppns.query("speciesScaleFile",speciesScaleFile);
 
-  // Fill spec_scalY that is not used anywhere anymore: FIXME 
+  // Fill spec_scalY that is not used anywhere anymore: FIXME
   //if (! speciesScaleFile.empty())
   //{
   //  amrex::Print() << "  Setting scale values for chemical species\n\n";
@@ -551,18 +551,18 @@ PeleLM::variableSetUp ()
 
   int dm = BL_SPACEDIM;
   int flag_active_control = 0;
-  
+
   if (PeleLM::flag_active_control){
     flag_active_control = 1;}
   else {flag_active_control = 0;}
-  
+
   set_prob_spec(dm,DefaultGeometry().ProbLo(),DefaultGeometry().ProbHi(),
                 &bathID, &fuelID, &oxidID, &prodID, &nspecies,flag_active_control);
   //
   // Get a species to use as a flame tracker.
   //
   std::string flameTracName = fuelName;
-  ppns.query("flameTracName",flameTracName);    
+  ppns.query("flameTracName",flameTracName);
   //
   // **************  DEFINE VELOCITY VARIABLES  ********************
   //
@@ -629,7 +629,7 @@ PeleLM::variableSetUp ()
                           bc,
                           ChemBndryFunc(chem_fill,spec_names[i]),
                           &cell_cons_interp);
-          
+
 
   }
 
@@ -726,7 +726,7 @@ PeleLM::variableSetUp ()
   // Stick Dsdt_Type on the end of the descriptor list.
   //
   Dsdt_Type = desc_lst.size();
-	    
+
   ngrow = 0;
   desc_lst.addDescriptor(Dsdt_Type,IndexType::TheCellType(),StateDescriptor::Point,ngrow,1,
                          &cell_cons_interp);
@@ -739,6 +739,9 @@ PeleLM::variableSetUp ()
   desc_lst.addDescriptor(FuncCount_Type, IndexType::TheCellType(),StateDescriptor::Point,0, 1, &cell_cons_interp);
   desc_lst.setComponent(FuncCount_Type, 0, "FuncCount", bc, BndryFunc(dqrad_fill));
   rhoydotSetUp();
+  #ifdef AMREX_PARTICLES
+  spraydotSetUp();
+  #endif
   //
   // rho_temp
   //
@@ -758,7 +761,7 @@ PeleLM::variableSetUp ()
   derive_lst.add("molweight",IndexType::TheCellType(),1,DeriveFunc3D(dermolweight),the_same_box);
   derive_lst.addComponent("molweight",desc_lst,State_Type,Density,1);
   derive_lst.addComponent("molweight",desc_lst,State_Type,first_spec,nspecies);
-  
+
   //
   // Mixture heat capacity
   //
@@ -766,7 +769,7 @@ PeleLM::variableSetUp ()
   derive_lst.addComponent("cpmix",desc_lst,State_Type,Density,1);
   derive_lst.addComponent("cpmix",desc_lst,State_Type,Temp,1);
   derive_lst.addComponent("cpmix",desc_lst,State_Type,first_spec,nspecies);
-  
+
   //
   // Group Species Rho.Y (for ploting in plot file)
   //
@@ -776,7 +779,7 @@ PeleLM::variableSetUp ()
   derive_lst.add("rhoY",IndexType::TheCellType(),nspecies,
                  var_names_rhoY,derRhoY,the_same_box);
   derive_lst.addComponent("rhoY",desc_lst,State_Type,first_spec,nspecies);
-  
+
   //
   // Individual Species mass fractions (for error tag with tracer)
   //
@@ -926,8 +929,17 @@ PeleLM::variableSetUp ()
 
   std::string curv_str = "mean_progress_curvature";
   derive_lst.add(curv_str,IndexType::TheCellType(),1,&DeriveRec::GrowBoxByOne);
-    
+
 #ifdef AMREX_PARTICLES
+
+  // Set index locations for particle state vector
+  pstateVel = 0;
+  pstateT = pstateVel + AMREX_SPACEDIM;
+  pstateDia = pstateT + 1;
+  pstateRho = pstateDia + 1;
+  pstateY = pstateRho + 1;
+  pstateNum = pstateY + SPRAY_FUEL_NUM;
+
   //
   // The particle count at this level.
   //
@@ -991,7 +1003,7 @@ PeleLM::variableSetUp ()
     Real min_time =  0; ppr.query("start_time",min_time);
     Real max_time = -1; ppr.query("end_time",max_time);
     int max_level = -1;  ppr.query("max_level",max_level);
-    
+
     if (ppr.countval("value_greater")) {
       Real value; ppr.get("value_greater",value);
       std::string field; ppr.get("field_name",field);
@@ -1117,10 +1129,10 @@ PeleLM::rhoydotSetUp()
   desc_lst.addDescriptor(RhoYdot_Type,IndexType::TheCellType(),
                          StateDescriptor::Point,ngrow,nrhoydot,
                          &lincc_interp);
-	
+
   //const StateDescriptor& d_cell = desc_lst[State_Type];
 
-  BCRec bc;	
+  BCRec bc;
   set_rhoydot_bc(bc,phys_bc);
   for (int i = 0; i < nrhoydot; i++)
   {
@@ -1130,4 +1142,65 @@ PeleLM::rhoydotSetUp()
   }
 }
 
+#ifdef AMREX_PARTICLES
+void
+PeleLM::spraydotSetUp()
+{
+  spraydot_Type = desc_lst.size();
+  const int ngrow = 1;
+  //const int num_species = getChemSolve().numSpecies();
+  int num_species;
+  pphys_get_num_spec(&num_species);
 
+  const int nspraydot = num_species+6; //species + density + momentum + temp + enth
+
+  amrex::Print() << "spraydot_Type, nspraydot = " << spraydot_Type << ' ' << nspraydot << '\n';
+
+  desc_lst.addDescriptor(spraydot_Type,IndexType::TheCellType(),
+                         StateDescriptor::Point,ngrow,nspraydot,
+                         &lincc_interp);
+
+  //const StateDescriptor& d_cell = desc_lst[State_Type];
+  //const Vector<std::string>& names   = getChemSolve().speciesNames();
+  Vector<std::string> names;
+  PeleLM::getSpeciesNames(names);
+
+
+  //BCRec bc;
+  //set_spraydot_bc(bc,phys_bc);
+
+  // std::string name = "I_R_spray_rhoU";
+  //
+  // desc_lst.setComponent(spraydot_Type, 0, name.c_str(), bc,
+	// 		BndryFunc(FORT_RHOYDOTFILL), &lincc_interp, 0, 0);
+  //
+  // name = "I_R_spray_rhoV";
+  // desc_lst.setComponent(spraydot_Type, 1, name.c_str(), bc,
+	// 		BndryFunc(FORT_RHOYDOTFILL), &lincc_interp, 1, 1);
+  //
+  // name = "I_R_spray_rhoW";
+  // desc_lst.setComponent(spraydot_Type, 2, name.c_str(), bc,
+	// 		BndryFunc(FORT_RHOYDOTFILL), &lincc_interp, 2, 2);
+  //
+  // name = "I_R_spray_rho";
+  // desc_lst.setComponent(spraydot_Type, 3, name.c_str(), bc,
+	// 		BndryFunc(FORT_RHOYDOTFILL), &lincc_interp, 3, 3);
+  //
+  // for (int i = 0; i < num_species; i++)
+  // {
+  //   name = "I_R_spray_Y("+names[i]+")]";
+  //   desc_lst.setComponent(spraydot_Type, i+4, name.c_str(), bc,
+  //                         BndryFunc(FORT_RHOYDOTFILL), &lincc_interp, 4, 4+num_species-1);
+  // }
+  //
+  // name = "I_R_spray_rhoh";
+  // desc_lst.setComponent(spraydot_Type, num_species+4, name.c_str(), bc,
+  // 			BndryFunc(FORT_RHOYDOTFILL), &lincc_interp, num_species+4, num_species+4);
+  //
+  // name = "I_R_spray_temp";
+  // desc_lst.setComponent(spraydot_Type, num_species+5, name.c_str(), bc,
+  // 			BndryFunc(FORT_RHOYDOTFILL), &lincc_interp, num_species+5, num_species+5);
+
+}
+
+#endif

@@ -124,6 +124,9 @@ int  PeleLM::RhoH;
 int  PeleLM::do_diffuse_sync;
 int  PeleLM::do_reflux_visc;
 int  PeleLM::RhoYdot_Type;
+#ifdef AMREX_PARTICLES
+int  PeleLM::spraydot_Type;
+#endif
 int  PeleLM::FuncCount_Type;
 int  PeleLM::divu_ceiling;
 Real PeleLM::divu_dt_factor;
@@ -159,6 +162,9 @@ bool PeleLM::plot_heat_release;
 int  PeleLM::cvode_iE;
 int  PeleLM::cvode_ncells;
 static bool plot_rhoydot;
+#ifdef AMREX_PARTICLES
+static bool plot_spraydot;
+#endif
 bool PeleLM::flag_active_control;
 Real PeleLM::new_T_threshold;
 int  PeleLM::nGrowAdvForcing=1;
@@ -557,6 +563,9 @@ PeleLM::Initialize ()
   PeleLM::do_diffuse_sync           = 1;
   PeleLM::do_reflux_visc            = 1;
   PeleLM::RhoYdot_Type                 = -1;
+#ifdef AMREX_PARTICLES
+  PeleLM::spraydot_Type             = -1;
+#endif
   PeleLM::FuncCount_Type            = -1;
   PeleLM::divu_ceiling              = 0;
   PeleLM::divu_dt_factor            = .5;
@@ -722,7 +731,7 @@ PeleLM::Initialize ()
   }
 
 #ifdef AMREX_PARTICLES
-  read_particle_params();
+  readParticleParams();
 #endif
 
   if (verbose)
@@ -1288,6 +1297,11 @@ PeleLM::PeleLM (Amr&            papa,
 
   define_data();
 
+#ifdef AMREX_PARTICLES
+  const int NUM_GROW = 2; // mr: not sure if that's right here, check!
+  Sborder.define(grids,dmap,NUM_STATE,NUM_GROW,MFInfo(),Factory());
+#endif
+
 }
 
 PeleLM::~PeleLM ()
@@ -1555,6 +1569,10 @@ PeleLM::restart (Amr&          papa,
   {
     MultiFab& rYdot_old = get_old_data(RhoYdot_Type);
     MultiFab& rYdot_new = get_new_data(RhoYdot_Type);
+#ifdef AMREX_PARTICLES
+    MultiFab& spraydot_old = get_old_data(spraydot_Type);
+    MultiFab& spraydot_new = get_new_data(spraydot_Type);
+#endif
     MultiFab& S_old = get_old_data(State_Type);
     MultiFab& S_new = get_new_data(State_Type);
 
@@ -2167,7 +2185,16 @@ MultiFab::Copy(S_new,P_new,0,RhoRT,1,1);
   old_intersect_new          = grids;
 
 #ifdef AMREX_PARTICLES
-  NavierStokesBase::initParticleData();
+  //NavierStokesBase::initParticleData();
+  amrex::Print() << "initData: initializing particles" << '\n';
+  if (level == 0) {
+    initParticles();
+  } else {
+    // TODO: Determine how many ghost cells to use here
+    int nGrow = 0;
+    particleRedistribute(level - 1, nGrow, 0, false);
+  }
+  amrex::Print() << "initData: done initializing particles" << '\n';
 #endif
 }
 
@@ -2399,6 +2426,43 @@ PeleLM::post_timestep (int crse_iteration)
                            0, Ndiag, parent->refRatio(i-1));
     }
   }
+
+  #ifdef AMREX_PARTICLES
+
+    const int finest_level = parent->finestLevel();
+    const int ncycle       = parent->nCycle(level);
+
+    if (do_spray_particles)
+    {
+        //
+        // Remove virtual particles at this level if we have any.
+        //
+      removeVirtualParticles();
+
+        //
+        // Remove Ghost particles on the final iteration
+        //
+        //amrex::Print() << "Removing ghost particles \n";
+      if (crse_iteration == parent->nCycle(level))
+      {
+      //  amrex::Print() << "Removing ghost particles \n";
+        removeGhostParticles();
+      }
+
+      //
+      // Sync up if we're level 0 or if we have particles that may have moved
+      // off the next finest level and need to be added to our own level.
+      //
+      if ((crse_iteration < ncycle and level < finest_level) || level == 0)
+      {
+        Print() << "Redistrubuting particles\n";
+        //theSprayPC()->Redistribute(level,theSprayPC()->finestLevel(),crse_iteration);
+        int nGrow = 0;
+        theSprayPC()->Redistribute(level, theSprayPC()->finestLevel(), nGrow);
+      }
+    }
+  #endif
+
 }
 
 void
@@ -2511,6 +2575,45 @@ PeleLM::checkPoint (const std::string& dir,
           }
       }
   }
+
+#ifdef AMREX_PARTICLES
+   amrex::Print() << "Doing particle output\n";
+   amrex::Print() << "do_spray_particles "<< do_spray_particles <<"\n";
+
+   const std::string ascii_spray_particle_file("Spray");
+
+   bool is_checkpoint = true;
+
+   Vector<std::string> real_comp_names;
+   Vector<std::string>  int_comp_names;
+   real_comp_names.push_back("xvel");
+   real_comp_names.push_back("yvel");
+#if (BL_SPACEDIM > 2)
+   real_comp_names.push_back("zvel");
+#endif
+   real_comp_names.push_back("temperature");
+   real_comp_names.push_back("diam");
+   real_comp_names.push_back("density");
+   AMREX_ASSERT(real_comp_names.size()==NSR_SPR);
+
+  if (PeleLM::theSprayPC())
+  {
+       PeleLM::theSprayPC()->Checkpoint(dir,"Spray",
+                                       is_checkpoint,real_comp_names,int_comp_names);
+
+       // Here we write ascii information every time we write a checkpoint file
+       if (level == 0)
+       {
+         if (do_spray_particles==1) {
+           amrex::Print() << "Doing particle ascii writing\n";
+           theSprayPC()->Checkpoint(dir, ascii_spray_particle_file);
+           std::string fname = "spray" + dir.substr (3,6) + "p3d";
+           theSprayPC()->WriteAsciiFile(fname);
+         }
+       }
+  }
+#endif
+
 }
 
 void
@@ -5219,6 +5322,65 @@ PeleLM::set_htt_hmixTYP ()
   }
 }
 
+#ifdef AMREX_PARTICLES
+void
+PeleLM::set_spray_grid_info(int& amr_iteration,
+                           int& amr_ncycle,
+                           int& ghost_width,
+                           int& where_width,
+                           int& spray_n_grow,
+                           int& tmp_src_width)
+{
+  // A particle in cell (i) can affect cell values in (i-1) to (i+1)
+  int stencil_deposition_width = 1;
+
+  // A particle in cell (i) may need information from cell values in (i-1) to (i+1)
+  //   to update its position (typically via interpolation of the acceleration from the grid)
+  int stencil_interpolation_width = 1;
+
+  // A particle that starts in cell (i + amr_ncycle) can reach
+  //   cell (i) in amr_ncycle number of steps .. after "amr_iteration" steps
+  //   the particle has to be within (i + amr_ncycle+1-amr_iteration) to reach cell (i)
+  //   in the remaining (amr_ncycle-amr_iteration) steps
+
+  // *** ghost_width ***  is used
+  //   *) to set how many cells are used to hold ghost particles i.e copies of particles
+  //      that live on (level-1) can affect the grid over all of the amr_ncycle steps.
+  //      We define ghost cells at the coarser level to cover all iterations so
+  //      we can't reduce this number as amr_iteration increases.
+
+  ghost_width = amr_ncycle + stencil_deposition_width;
+
+  // *** where_width ***  is used
+  //   *) to set how many cells the Where call in moveKickDrift tests = max of
+  //     {ghost_width + (1-amr_iteration) - 1}:
+  //      the minus 1 arises because this occurs *after* the move} and
+  //     {amr_iteration}:
+  //     the number of cells out that a cell initially in the fine grid may
+  //     have moved and we don't want to just lose it (we will redistribute it when we're done}
+
+  where_width =  std::max(ghost_width + (1-amr_iteration) - 1, amr_iteration);
+
+  // *** spray_n_grow *** is used
+  //   *) to determine how many ghost cells we need to fill in the MultiFab from
+  //      which the particle interpolates its acceleration
+  //   *) to set how many cells the Where call in moveKickDrift tests = (grav.nGrow()-2).
+  //   *) the (1-iteration) arises because the ghost particles are created on the coarser
+  //      level which means in iteration 2 the ghost particles may have moved 1 additional cell along
+
+  spray_n_grow = ghost_width + (1-amr_iteration) + (amr_iteration-1) +
+                     stencil_interpolation_width ;
+
+  // *** tmp_src_width ***  is used
+  //   *) to set how many ghost cells are needed in the tmp_src_ptr MultiFab that we
+  //      define inside moveKickDrift and moveKick.   This needs to be big enough
+  //      to hold the contribution from all the particles within ghost_width so that
+  //      we don't have to test on whether the particles are trying to write out of bounds
+
+  tmp_src_width = ghost_width + stencil_deposition_width;
+}
+#endif
+
 void
 PeleLM::advance_setup (Real time,
                        Real dt,
@@ -5602,12 +5764,74 @@ PeleLM::advance (Real time,
 
   is_predictor = false;
 
+#ifdef AMREX_PARTICLES
+  int nGrow_Sborder = 2; //mr: set to 1 for now, is this ok?
+  bool fill_Sborder = false;
+
+  fill_Sborder = true;
+  int ghost_width = 0;
+  int where_width = 0;
+  int spray_n_grow = 0;
+  int tmp_src_width = 0;
+  set_spray_grid_info(iteration,ncycle,ghost_width,where_width,spray_n_grow,tmp_src_width);
+
+  if (do_spray_particles)
+  {
+    int nGrow_Sborder = 2; // mr: set to 1, correct?
+    nGrow_Sborder = std::max(nGrow_Sborder, spray_n_grow);
+  }
+
+  Print() << "nGrow_Sborder " << nGrow_Sborder << std::endl;
+  Print() << "spray_n_grow " << spray_n_grow << std::endl;
+
+  if (fill_Sborder)
+  {
+    FillPatch(*this, Sborder, nGrow_Sborder, time, State_Type, 0, NUM_STATE);
+  }
+
+  //nGrow_Sborder = 4; // FIXME: Why is this hardwired?
+  if (fill_Sborder &&  Sborder.nGrow() < nGrow_Sborder) {
+    Print() << "PeleC::do_sdc_iteration thinks Sborder needs " << nGrow_Sborder
+            << " grow cells, but Sborder defined with only " << Sborder.nGrow() << std::endl;
+    Abort();
+  }
+#endif
+
   BL_PROFILE_VAR_NS("HT::advance::velocity_adv", HTVEL);
   for (int sdc_iter=1; sdc_iter<=sdc_iterMAX; ++sdc_iter)
   {
 
     if (sdc_iter == sdc_iterMAX)
       updateFluxReg = true;
+
+#ifdef AMREX_PARTICLES
+  if (sdc_iter == 1)
+  {
+    setupVirtualParticles();
+
+    int finest_level = parent->finestLevel();
+
+    //particle_redistribute(level,false);
+
+    if (level < finest_level)
+      setupGhostParticles(ghost_width);
+
+    MultiFab& spraydot = get_old_data(spraydot_Type);
+    spraydot.setVal(0.);
+
+    // valid particles
+    theSprayPC()->moveKickDrift(Sborder,spraydot, level, dt, time, false, false, tmp_src_width, true, where_width, Density, 0, Temp, RhoH, first_spec);
+
+    // Only need the coarsest virtual particles here.
+    if (level < finest_level)
+      theVirtPC()->moveKickDrift(Sborder,spraydot, level, dt, time, true, false, tmp_src_width, true, where_width, Density, 0, Temp, RhoH, first_spec);
+
+    // Miiiight need all Ghosts
+    if (theGhostPC() != 0)
+      theGhostPC()->moveKickDrift(Sborder,spraydot, level, dt, time, false, true, tmp_src_width, true, where_width, Density, 0, Temp, RhoH, first_spec);
+
+  }
+#endif
 
     if (sdc_iter > 1)
     {

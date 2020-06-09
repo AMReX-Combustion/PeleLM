@@ -234,6 +234,13 @@ void removeGhostParticles();
 //
 void particleEstTimeStep(amrex::Real& est_dt);
 
+void set_spray_grid_info(int& amr_iteration,
+                         int& amr_ncycle,
+                         int& ghost_width,
+                         int& where_width,
+                         int& spray_n_grow,
+                         int& tmp_src_width);
+
 //
 // Derived quantities associated with particles
 //
@@ -323,6 +330,10 @@ static int pstateNum;
   static void variableSetUp ();
 
   static void rhoydotSetUp ();
+
+#ifdef AMREX_PARTICLES
+  static void spraydotSetUp ();
+#endif
   //
   // Cleanup data descriptors at end of run.
   //
@@ -799,6 +810,9 @@ private:
   static int         unity_Le;
   static int         FuncCount_Type;
   static int         RhoYdot_Type;
+#ifdef AMREX_PARTICLES
+  static int         spraydot_Type;
+#endif
   static int         divu_ceiling;
   static amrex::Real min_rho_divu_ceiling;
   static amrex::Real divu_dt_factor;
