@@ -5592,6 +5592,8 @@ PeleLM::advance (Real time,
     }
   }
 
+  MultiFab Enth(grids, dmap, NUM_SPECIES, 0); 
+
   if (plot_heat_release)
   {
 #ifdef _OPENMP
@@ -5602,9 +5604,8 @@ PeleLM::advance (Real time,
         for (MFIter mfi((*auxDiag["HEATRELEASE"]),TilingIfNotGPU()); mfi.isValid(); ++mfi)
         {
            const Box& bx = mfi.tilebox();
-           Enthfab.resize(bx,NUM_SPECIES);
            auto const& T   = get_new_data(State_Type).array(mfi,Temp);
-           auto const& Hi  = Enthfab.array(0);
+           auto const& Hi  = Enth.array(mfi,0);
            auto const& r   = get_new_data(RhoYdot_Type).array(mfi);
            auto const& HRR = (*auxDiag["HEATRELEASE"]).array(mfi);
 
@@ -6685,7 +6686,7 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
          });
       }
 
-      // TODO: Need to wait for the kernel above to finish. Is there another way ?
+      // TODO: remove cudaStreamSynchronize when all GPU
 #ifdef AMREX_USE_CUDA
       cuda_status = cudaStreamSynchronize(amrex::Gpu::gpuStream());
 #endif
