@@ -6811,21 +6811,10 @@ PeleLM::mac_sync ()
 
     const MultiFab& S_new_lev = getLevel(lev).get_new_data(State_Type);
 
-#ifdef AMREX_USE_EB
-{
-
-    const Geometry& cgeom      = parent->Geom(lev);
-    auto myfactory = makeEBFabFactory(cgeom,S_new_lev.boxArray(),S_new_lev.DistributionMap(),{1,1,1},EBSupport::basic);
 
     S_new_sav[lev].reset(new MultiFab(S_new_lev.boxArray(),
                                       S_new_lev.DistributionMap(),
-                                      NUM_STATE,1,MFInfo(),*myfactory));
-}
-#else
-    S_new_sav[lev].reset(new MultiFab(S_new_lev.boxArray(),
-                                      S_new_lev.DistributionMap(),
-                                      NUM_STATE,1));
-#endif
+                                      NUM_STATE,1,MFInfo(),getLevel(lev).Factory()));
 
     MultiFab::Copy(*S_new_sav[lev],S_new_lev,0,0,NUM_STATE,1);
     showMF("DBGSync",*S_new_sav[lev],"sdc_Snew_BeginSync",lev,0,parent->levelSteps(level));
@@ -6839,41 +6828,18 @@ PeleLM::mac_sync ()
   {
     const MultiFab& Ssync_lev = getLevel(lev).Ssync;
 
-#ifdef AMREX_USE_EB
-{
-    const Geometry& cgeom      = parent->Geom(lev);
-    auto myfactory = makeEBFabFactory(cgeom,Ssync_lev.boxArray(),Ssync_lev.DistributionMap(),{1,1,1},EBSupport::basic);
-
     Ssync_sav[lev].reset(new MultiFab(Ssync_lev.boxArray(),
                                       Ssync_lev.DistributionMap(),
-                                      numscal,1,MFInfo(),*myfactory));
-}
-#else
-    Ssync_sav[lev].reset(new MultiFab(Ssync_lev.boxArray(),
-                                      Ssync_lev.DistributionMap(),
-                                      numscal,1));
-#endif
+                                      numscal,1,MFInfo(),getLevel(lev).Factory()));
 
     MultiFab::Copy(*Ssync_sav[lev],Ssync_lev,0,0,numscal,1);
     showMF("DBGSync",*Ssync_sav[lev],"sdc_Ssync_BeginSync",level,0,parent->levelSteps(level));
 
     const MultiFab& Vsync_lev = getLevel(lev).Vsync;
 
-#ifdef AMREX_USE_EB
-{
-    const Geometry& cgeom      = parent->Geom(lev);
-    auto myfactory = makeEBFabFactory(cgeom,Vsync_lev.boxArray(),Vsync_lev.DistributionMap(),{1,1,1},EBSupport::basic);
-
     Vsync_sav[lev].reset(new MultiFab(Vsync_lev.boxArray(),
                                       Vsync_lev.DistributionMap(),
-                                      AMREX_SPACEDIM,1,MFInfo(),*myfactory));
-}
-#else
-    Vsync_sav[lev].reset(new MultiFab(Vsync_lev.boxArray(),
-                                      Vsync_lev.DistributionMap(),
-                                      AMREX_SPACEDIM,1));
-#endif
-
+                                      AMREX_SPACEDIM,1,MFInfo(),getLevel(lev).Factory()));
 
     MultiFab::Copy(*Vsync_sav[lev],Vsync_lev,0,0,AMREX_SPACEDIM,1);
     showMF("DBGSync",*Vsync_sav[lev],"sdc_Vsync_BeginSync",level,0,parent->levelSteps(level));
@@ -7163,15 +7129,16 @@ PeleLM::mac_sync ()
       // \rho^{n+1,p}*h^{n+1,p} - \rho^{n+1}*h^{n+1,\eta} + dt*Ssync + dt/2*(DT^{n+1,\eta} - DT^{n+1,p} + H^{n+1,\eta} - H^{n+1,p})
 
       // Here Ssync contains refluxed enthalpy fluxes (from -lambda.Grad(T) and hm.Gamma_m)  FIXME: Make sure it does
-      MultiFab Trhs0(grids,dmap,1,0);
-      MultiFab Trhs(grids,dmap,1,0);
-      MultiFab Told(grids,dmap,1,0);
-      MultiFab RhoCp_post(grids,dmap,1,0);
-      MultiFab DeltaT(grids,dmap,1,0); DeltaT.setVal(0);
+      MultiFab Trhs0(grids,dmap,1,0,MFInfo(),Factory());
+      MultiFab Trhs(grids,dmap,1,0,MFInfo(),Factory());
+      MultiFab Told(grids,dmap,1,0,MFInfo(),Factory());
+      MultiFab RhoCp_post(grids,dmap,1,0,MFInfo(),Factory());
+      MultiFab DeltaT(grids,dmap,1,0,MFInfo(),Factory());
       MultiFab DT_post(grids,dmap,1,0,MFInfo(),Factory());
       MultiFab DD_post(grids,dmap,1,0,MFInfo(),Factory());
       MultiFab DT_DD_Sum(grids,dmap,1,0,MFInfo(),Factory());
 
+      DeltaT.setVal(0);
 
       // Build the piece of the dT source terms that does not change with iterations
       // Trhs0 = rho^{n+1,p}*h^{n+1,p} + dt*Ssync * dt/2*(-DT^{n+1,p}-H^{n+1,p})
@@ -7283,7 +7250,10 @@ PeleLM::mac_sync ()
         deltaTSyncSolve.setVerbose(0);
 
         const Real S_tol     = visc_tol;
-        const Real S_tol_abs = visc_tol * Trhs.norm0(0);
+	// Ignore EB covered cells when computing Trhs.norm. In certain cases, including
+	// covered cells can result in a very large S_tol_abs that tricks MLMG into
+	// thinking the system is sufficiently solved when it's not
+        const Real S_tol_abs = visc_tol * Trhs.norm0(0,0,false,true);
 
         deltaTSyncSolve.solve({&deltaT}, {&Trhs}, S_tol, S_tol_abs); 
 
@@ -7384,13 +7354,7 @@ PeleLM::mac_sync ()
       const DistributionMapping& fine_dmap  = S_new_lev.DistributionMap();
       const int nghost                      = S_new_lev.nGrow();
 
-#ifdef AMREX_USE_EB
-        const Geometry& cgeom      = parent->Geom(lev);
-        auto myfactory = makeEBFabFactory(cgeom,fine_grids,fine_dmap,{nghost,nghost,nghost},EBSupport::basic);
-        MultiFab increment(fine_grids, fine_dmap, numscal, nghost,MFInfo(),*myfactory);
-#else
-        MultiFab increment(fine_grids, fine_dmap, numscal, nghost);
-#endif
+      MultiFab increment(fine_grids, fine_dmap, numscal, nghost,MFInfo(),getLevel(lev).Factory());
 
       increment.setVal(0.0,nghost);
 
@@ -9211,8 +9175,7 @@ PeleLM::writePlotFile (const std::string& dir,
     MultiFab::Copy(plotMF,*volfrac,0,cnt,1,nGrow);
 
     // set covered values for ease of viewing
-    // EM_DEBUG problem here if eb.regular
-    //EB_set_covered(plotMF, 0.0);
+    EB_set_covered(plotMF, 0.0);
 #endif
 
   //
