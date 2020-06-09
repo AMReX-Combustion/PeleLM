@@ -2080,8 +2080,7 @@ PeleLM::compute_instantaneous_reaction_rates (MultiFab&       R,
 {
    if (hack_nochem)
    {
-      R.setVal(0.0);
-      R.setBndry(0,0,nspecies);
+      R.setVal(0.0,0,nspecies,R.nGrow());
       return;
    }
 
@@ -2498,7 +2497,7 @@ PeleLM::post_init (Real stop_time)
         //
         // Don't update S_new in this strang_chem() call ...
         //
-	MultiFab S_tmp(S_new.boxArray(),S_new.DistributionMap(),S_new.nComp(),0,MFInfo(),getLevel(k).Factory());
+        MultiFab S_tmp(S_new.boxArray(),S_new.DistributionMap(),S_new.nComp(),0,MFInfo(),getLevel(k).Factory());
         MultiFab Forcing_tmp(S_new.boxArray(),S_new.DistributionMap(),nspecies+1,0,MFInfo(),getLevel(k).Factory());
         Forcing_tmp.setVal(0);
 
@@ -5600,12 +5599,14 @@ PeleLM::advance (Real time,
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
      {
-        FArrayBox Enthfab;
+        FArrayBox EnthFab;
         for (MFIter mfi((*auxDiag["HEATRELEASE"]),TilingIfNotGPU()); mfi.isValid(); ++mfi)
         {
            const Box& bx = mfi.tilebox();
+           EnthFab.resize(bx,NUM_SPECIES); 
+           Elixir  Enthi   = EnthFab.elixir();
            auto const& T   = get_new_data(State_Type).array(mfi,Temp);
-           auto const& Hi  = Enth.array(mfi,0);
+           auto const& Hi  = EnthFab.array();
            auto const& r   = get_new_data(RhoYdot_Type).array(mfi);
            auto const& HRR = (*auxDiag["HEATRELEASE"]).array(mfi);
 
@@ -6173,7 +6174,7 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
 #endif
 
        Real dt_incr = dt;
-       Real time_init = 0;
+       Real time_init = 0.0;
 
        const auto lo  = amrex::lbound(bx);
        const auto hi  = amrex::ubound(bx);
