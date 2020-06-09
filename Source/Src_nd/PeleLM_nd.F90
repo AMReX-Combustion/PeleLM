@@ -22,7 +22,7 @@ module PeleLM_nd
   private
 
   public :: floor_spec, calc_divu_fortran, calc_gamma_pinv, &
-            pphys_mass_to_mole, pphys_massr_to_conc, pphys_HfromT, &
+            pphys_mass_to_mole, pphys_massr_to_conc, &
             pphys_HMIXfromTY, pphys_RHOfromPTY, pphys_CPMIXfromTY, init_data_new_mech, &
             spec_temp_visc, vel_visc, beta_wbar, est_divu_dt, check_divu_dt,&
             dqrad_fill, divu_fill, dsdt_fill, ydot_fill, rhoYdot_fill, &
@@ -364,44 +364,6 @@ contains
       end do
 
    end subroutine pphys_RHOfromPTY
-
-!=========================================================
-!  Compute species H from T
-!=========================================================
-
-   subroutine pphys_HfromT(lo, hi, &
-                           H, h_lo, h_hi, &
-                           T, t_lo, t_hi)&
-                           bind(C, name="pphys_HfromT")
-
-      implicit none
-
-! In/Out
-      integer, intent(in) :: lo(3), hi(3)
-      integer, intent(in) :: h_lo(3), h_hi(3)
-      integer, intent(in) :: t_lo(3), t_hi(3)
-      REAL_T, dimension(h_lo(1):h_hi(1),h_lo(2):h_hi(2),h_lo(3):h_hi(3),NUM_SPECIES) :: H
-      REAL_T, dimension(t_lo(1):t_hi(1),t_lo(2):t_hi(2),t_lo(3):t_hi(3)) :: T
-
-! Local
-      REAL_T  :: SCAL, Ht(NUM_SPECIES)
-      integer :: i, j, k, n
-
-!     NOTE: SCAL converts result from assumed cgs to MKS (1 erg/g = 1.e-4 J/kg)
-      SCAL = 1.0d-4
-
-      do k=lo(3),hi(3)
-         do j=lo(2),hi(2)
-            do i=lo(1),hi(1)
-               CALL CKHMS(T(i,j,k),Ht)
-               do n = 1, NUM_SPECIES
-                  H(i,j,k,n) = Ht(n) * SCAL
-               end do
-            end do
-         end do
-      end do
-
-   end subroutine pphys_HfromT
 
 !=========================================================
 !  Compute mixture mean heat capacity

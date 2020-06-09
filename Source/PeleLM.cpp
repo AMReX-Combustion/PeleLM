@@ -316,24 +316,6 @@ PeleLM::init_extern ()
 }
 
 void
-PeleLM::getHGivenT_pphys(FArrayBox&       h,
-			  const FArrayBox& T,
-			  const Box&       box,
-			  int              sCompT,
-			  int              sCompH) const
-{
-    BL_ASSERT(h.nComp() >= sCompH + nspecies);
-    BL_ASSERT(T.nComp() > sCompT);
-
-    BL_ASSERT(h.box().contains(box));
-    BL_ASSERT(T.box().contains(box));
-    
-    pphys_HfromT(BL_TO_FORTRAN_BOX(box),
-		           BL_TO_FORTRAN_N_ANYD(h,sCompH),
-		           BL_TO_FORTRAN_N_ANYD(T,sCompT));
-}
-
-void
 PeleLM::getCpmixGivenTY_pphys(FArrayBox&       cpmix,
 			       const FArrayBox& T,
 			       const FArrayBox& Y,
@@ -5636,34 +5618,33 @@ PeleLM::advance (Real time,
 
   if (plot_heat_release)
   {
-    const MultiFab& R = get_new_data(RhoYdot_Type);
-    const MultiFab& dat = get_new_data(State_Type);
 #ifdef _OPENMP
-#pragma omp parallel
+#pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
-    {
-      FArrayBox enthi, T;
-
-      for (MFIter mfi(R,true); mfi.isValid(); ++mfi)
-      {
-        const Box& box = mfi.tilebox();
-        T.resize(box,1);
-        T.setVal<RunOn::Host>(298.15,box);
-        T.copy<RunOn::Host>(dat[mfi],Temp,0,1);
-
-        enthi.resize(box,R.nComp());
-        getHGivenT_pphys(enthi,T,box,0,0);
-        enthi.mult<RunOn::Host>(R[mfi],box,0,0,R.nComp());
-        
-        // Form heat release
-        (*auxDiag["HEATRELEASE"])[mfi].setVal<RunOn::Host>(0,box);
-        for (int j=0; j<R.nComp(); ++j)
+     {
+        FArrayBox Enthfab;
+        for (MFIter mfi((*auxDiag["HEATRELEASE"]),TilingIfNotGPU()); mfi.isValid(); ++mfi)
         {
-          (*auxDiag["HEATRELEASE"])[mfi].minus<RunOn::Host>(enthi,box,j,0,1);
+           const Box& bx = mfi.tilebox();
+           Enthfab.resize(bx,NUM_SPECIES);
+           auto const& T   = get_new_data(State_Type).array(mfi,Temp);
+           auto const& Hi  = Enthfab.array(0);
+           auto const& r   = get_new_data(RhoYdot_Type).array(mfi);
+           auto const& HRR = (*auxDiag["HEATRELEASE"]).array(mfi);
+
+           amrex::ParallelFor(bx, [T, Hi, HRR, r]
+           AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+           {
+              getHGivenT( i, j, k, T, Hi );
+              HRR(i,j,k) = 0.0;
+              for (int n = 0; n < NUM_SPECIES; n++) {
+                 HRR(i,j,k) -= Hi(i,j,k,n) * r(i,j,k,n);
+              } 
+           });
         }
-      }
-    }
+     }
   }
+
 #ifdef BL_COMM_PROFILING
   for (MFIter mfi(*auxDiag["COMMPROF"]); mfi.isValid(); ++mfi)
   {
