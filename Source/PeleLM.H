@@ -566,14 +566,6 @@ private:
                          int              sCompY,
                          int              sCompH) const;
 
-  void getCpmixGivenTY_pphys (amrex::FArrayBox&       cpmix,
-                          const amrex::FArrayBox& T,
-                          const amrex::FArrayBox& Y,
-                          const amrex::Box&       box,
-                          int              sCompT,
-                          int              sCompY,
-                          int              sCompCp) const;
-
   static int getTGivenHY_pphys (amrex::FArrayBox&       T,
                      const amrex::FArrayBox& H,
                      const amrex::FArrayBox& Y,

@@ -169,4 +169,25 @@ buildAdvectionForcing(int i, int j, int k,
    forceT(i,j,k) *= rhoinv * cpmixinv;
 
 }
+
+AMREX_GPU_HOST_DEVICE
+inline
+void
+getCpmixGivenRYT(int i, int j, int k,
+                 amrex::Array4<const amrex::Real> const& rho,
+                 amrex::Array4<const amrex::Real> const& rhoY,
+                 amrex::Array4<const amrex::Real> const& T,
+                 amrex::Array4<      amrex::Real> const& cpmix) noexcept
+{
+   using namespace amrex::literals;
+
+   amrex::Real rhoinv  = 1.0_rt / rho(i,j,k);
+   amrex::Real y[NUM_SPECIES];
+   for (int n = 0; n < NUM_SPECIES; n++) {
+      y[n] = rhoY(i,j,k,n) * rhoinv;
+   }
+
+   EOS::TY2Cp(T(i,j,k), y, cpmix(i,j,k));
+   cpmix(i,j,k) *= 0.0001_rt;                         // CGS -> MKS convertion
+}
 #endif

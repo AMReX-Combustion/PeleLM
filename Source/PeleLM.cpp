@@ -315,30 +315,6 @@ PeleLM::init_extern ()
   plm_extern_init(probin_file_name.dataPtr(),&probin_file_length);
 }
 
-void
-PeleLM::getCpmixGivenTY_pphys(FArrayBox&       cpmix,
-			       const FArrayBox& T,
-			       const FArrayBox& Y,
-			       const Box&       box,
-			       int              sCompT,
-			       int              sCompY,
-			       int              sCompCp) const
-{
-    BL_ASSERT(cpmix.nComp() > sCompCp);
-    BL_ASSERT(T.nComp() > sCompT);
-    BL_ASSERT(Y.nComp() >= sCompY+nspecies);
-
-    BL_ASSERT(cpmix.box().contains(box));
-    BL_ASSERT(T.box().contains(box));
-    BL_ASSERT(Y.box().contains(box));
-    
-    pphys_CPMIXfromTY(BL_TO_FORTRAN_BOX(box),
-                      BL_TO_FORTRAN_N_ANYD(cpmix,sCompCp),
-                      BL_TO_FORTRAN_N_ANYD(T,sCompT),
-                      BL_TO_FORTRAN_N_ANYD(Y,sCompY));
-}
-
-
 int 
 PeleLM::getTGivenHY_pphys(FArrayBox&     T,
                         const FArrayBox& H,
@@ -3591,26 +3567,23 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
   {
 
 #ifdef _OPENMP
-#pragma omp parallel
+#pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
-    {
-      // Update RhoCp
-      FArrayBox rhoInv, Y;
-      for (MFIter mfi(*Snp1[0],true); mfi.isValid(); ++mfi)
-      {
-        const Box& tbox = mfi.tilebox();
-        rhoInv.resize(tbox,1);
-        Y.resize(tbox,nspecies);
-        rhoInv.copy<RunOn::Host>((*Snp1[0])[mfi],tbox,Density,tbox,0,1);
-        rhoInv.invert<RunOn::Host>(1.0,tbox,0,1);
-        Y.copy<RunOn::Host>((*Snp1[0])[mfi],tbox,first_spec,tbox,0,nspecies);
-        for (int n=0; n<nspecies; ++n) {
-          Y.mult<RunOn::Host>(rhoInv,tbox,tbox,0,n,1);
-        }
-        getCpmixGivenTY_pphys(RhoCp[mfi],(*Snp1[0])[mfi],Y,tbox,Temp,0,0);
-        RhoCp[mfi].mult<RunOn::Host>((*Snp1[0])[mfi],tbox,tbox,Density,0,1);
-      }
-    }
+     for (MFIter mfi(*Snp1[0],TilingIfNotGPU()); mfi.isValid(); ++mfi)
+     {
+        const Box& bx = mfi.tilebox();
+        auto const& rho     = Snp1[0]->array(mfi,Density);
+        auto const& rhoY    = Snp1[0]->array(mfi,first_spec);
+        auto const& T       = Snp1[0]->array(mfi,Temp);
+        auto const& RhoCpm  = RhoCp.array(mfi);
+
+        amrex::ParallelFor(bx, [rho, rhoY, T, RhoCpm]
+        AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+        {
+           getCpmixGivenRYT( i, j, k, rho, rhoY, T, RhoCpm );
+           RhoCpm(i,j,k) *= rho(i,j,k);
+        });
+     }
 
     MultiFab::Copy(    Trhs,get_old_data(State_Type),RhoH,0,1,0);
     MultiFab::Subtract(Trhs,get_new_data(State_Type),RhoH,0,1,0);
@@ -3619,6 +3592,7 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
     MultiFab::Add(Trhs,Force,nspecies,0,1,0);                     //      + (Dn[N+1]-Dnp1[N+1]+DDn-DDnp1)/2 + A    
     MultiFab::Add(Trhs,Dnew,DComp+nspecies+1,0,1,0);              //      +  Dnew[N+1]
     MultiFab::Add(Trhs,DDnew,0,0,1,0);                            //      +  DDnew
+
     
     // Save current T value, guess deltaT=0
     MultiFab::Copy(Told,*Snp1[0],Temp,0,1,1); // Save a copy of T^{k+1,L}
@@ -5441,11 +5415,13 @@ PeleLM::advance (Real time,
        auto const& r       = get_new_data(RhoYdot_Type).array(mfi,0);
        auto const& fY      = Forcing.array(mfi,0);
        auto const& fT      = Forcing.array(mfi,NUM_SPECIES);
+       Real        dp0dt_d = dp0dt;
+       int     closed_ch_d = closed_chamber;
 
-       amrex::ParallelFor(gbx, [rho, rhoY, T, dn, ddn, r, fY, fT]
+       amrex::ParallelFor(gbx, [rho, rhoY, T, dn, ddn, r, fY, fT, dp0dt_d, closed_ch_d]
        AMREX_GPU_DEVICE (int i, int j, int k) noexcept
        {
-          buildAdvectionForcing( i, j, k, rho, rhoY, T, dn, ddn, r, dp0dt, closed_chamber, fY, fT );
+          buildAdvectionForcing( i, j, k, rho, rhoY, T, dn, ddn, r, dp0dt_d, closed_ch_d, fY, fT );
        });
     }
     BL_PROFILE_VAR_STOP(HTADV);
@@ -5506,7 +5482,7 @@ PeleLM::advance (Real time,
         f.copy<RunOn::Host>(dn,box,nspecies+1,box,nspecies,1); // copy Div(lamGradT) into RhoH
         f.minus<RunOn::Host>(dnp1,box,box,0,0,nspecies);  // subtract Dnp1 from RhoY
         f.minus<RunOn::Host>(dnp1,box,box,nspecies+1,nspecies,1); // subtract Div(lamGradT) in Dnp1 from RhoH
-        f.plus<RunOn::Host>(ddn  ,box,box,0,nspecies,1); // add DDn to RhoH, no contribution for RhoY
+        f.plus<RunOn::Host>(ddn,box,box,0,nspecies,1); // add DDn to RhoH, no contribution for RhoY
         f.minus<RunOn::Host>(ddnp1,box,box,0,nspecies,1); // subtract DDnp1 to RhoH, no contribution for RhoY
         f.mult<RunOn::Host>(0.5,box,0,nspecies+1);
         
@@ -7219,24 +7195,22 @@ PeleLM::mac_sync ()
       {
 
 #ifdef _OPENMP
-#pragma omp parallel
+#pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
-        { // Get rhoCp_post
-          FArrayBox rhoInv, Y;
-          for (MFIter mfi(S_new,true); mfi.isValid(); ++mfi)
-          {
-            const Box& tbox = mfi.tilebox();
-            rhoInv.resize(tbox,1);
-            Y.resize(tbox,nspecies);
-            rhoInv.copy<RunOn::Host>(S_new[mfi],tbox,Density,tbox,0,1);
-            rhoInv.invert<RunOn::Host>(1.0,tbox,0,1);
-            Y.copy<RunOn::Host>(S_new[mfi],tbox,first_spec,tbox,0,nspecies);
-            for (int n=0; n<nspecies; ++n) {
-              Y.mult<RunOn::Host>(rhoInv,tbox,tbox,0,n,1);
-            }
-            getCpmixGivenTY_pphys(RhoCp_post[mfi],S_new[mfi],Y,tbox,Temp,0,0);
-            RhoCp_post[mfi].mult<RunOn::Host>(S_new[mfi],tbox,tbox,Density,0,1);
-          }
+        for (MFIter mfi(S_new,TilingIfNotGPU()); mfi.isValid(); ++mfi)
+        {
+           const Box& bx = mfi.tilebox();
+           auto const& rho     = S_new.array(mfi,Density);
+           auto const& rhoY    = S_new.array(mfi,first_spec);
+           auto const& T       = S_new.array(mfi,Temp);
+           auto const& RhoCpm  = RhoCp_post.array(mfi);
+
+           amrex::ParallelFor(bx, [rho, rhoY, T, RhoCpm]
+           AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+           {
+              getCpmixGivenRYT( i, j, k, rho, rhoY, T, RhoCpm );
+              RhoCpm(i,j,k) *= rho(i,j,k);
+           });
         }
 
         // Build Trhs
