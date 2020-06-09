@@ -6606,6 +6606,10 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
       const FArrayBox& divu = DivU[S_mfi];
       const FArrayBox& force = Force[S_mfi];
 
+#ifdef AMREX_USE_CUDA
+      cudaError_t cuda_status = cudaSuccess;
+#endif
+
       for (int d=0; d<AMREX_SPACEDIM; ++d)
       {
 
@@ -6671,7 +6675,7 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
          auto const& rhoHm   = edgestate[d].array(NUM_SPECIES+1);
          auto const& rhoHm_F = edgeflux[d].array(NUM_SPECIES+1);
 
-         amrex::ParallelFor(ebx, [ rho, rhoY, T, rhoHm, T_F, rhoHm_F]
+         amrex::ParallelFor(ebx, [ rho, rhoY, T, rhoHm, T_F, rhoHm_F ]
          AMREX_GPU_DEVICE (int i, int j, int k) noexcept
          {
             getRHmixGivenTY( i, j, k, rho, rhoY, T, rhoHm );
@@ -6680,6 +6684,11 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
             T_F(i,j,k)    = 0.0;                               // Clean edgeflux of Temp
          });
       }
+
+      // TODO: Need to wait for the kernel above to finish. Is there another way ?
+#ifdef AMREX_USE_CUDA
+      cuda_status = cudaStreamSynchronize(amrex::Gpu::gpuStream());
+#endif
 
 // Compute -Div(flux.Area) for RhoH, return Area-scaled (extensive) fluxes
  
