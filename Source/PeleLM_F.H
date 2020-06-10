@@ -238,9 +238,6 @@ extern "C" {
 #endif
                   const int* nc, const amrex::Real* scale);
 
-   void floor_spec(const int* lo,  const int* hi, 
-                   BL_FORT_FAB_ARG_ANYD(spec));
-
    void set_common (const amrex::Real* time, const int* iteration);
 
    void compute_ugradp (const BL_FORT_FAB_ARG_ANYD(p),

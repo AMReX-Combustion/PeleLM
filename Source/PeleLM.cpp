@@ -5162,15 +5162,18 @@ PeleLM::advance (Real time,
   if (floor_species == 1)
   {
 #ifdef _OPENMP
-#pragma omp parallel
+#pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
-    for (MFIter mfi(S_old,true); mfi.isValid(); ++mfi)
-    {
-      const Box& box = mfi.tilebox();            
-      FArrayBox& species = S_old[mfi];
-      floor_spec(BL_TO_FORTRAN_BOX(box), 
-                 BL_TO_FORTRAN_N_ANYD(species,first_spec));
-    }
+     for (MFIter mfi(S_old,TilingIfNotGPU()); mfi.isValid(); ++mfi)
+     {
+        const Box& bx = mfi.tilebox();            
+        auto const& rhoY    = S_old.array(mfi,first_spec);  
+        amrex::ParallelFor(bx, [rhoY]
+        AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+        {
+           fabMinMax( i, j, k, NUM_SPECIES, 0.0, Real_MAX, rhoY);
+        });
+     }
   }
   BL_PROFILE_VAR_STOP(HTDIFF);
 
@@ -5480,7 +5483,7 @@ PeleLM::advance (Real time,
     advance_chemistry(S_old,S_new,dt,Forcing,0);
     
 #ifdef AMREX_USE_EB
-  set_body_state(S_new);
+    set_body_state(S_new);
 #endif
     
     RhoH_to_Temp(S_new);
@@ -5491,15 +5494,18 @@ PeleLM::advance (Real time,
     if (floor_species == 1)
     {
 #ifdef _OPENMP
-#pragma omp parallel
+#pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
-      for (MFIter mfi(S_new,true); mfi.isValid(); ++mfi)
-      {
-        const Box& box = mfi.tilebox();            
-        FArrayBox& species = S_new[mfi];
-        floor_spec(BL_TO_FORTRAN_BOX(box), 
-                   BL_TO_FORTRAN_N_ANYD(species,first_spec));
-      }
+       for (MFIter mfi(S_new,TilingIfNotGPU()); mfi.isValid(); ++mfi)
+       {
+          const Box& bx = mfi.tilebox();            
+          auto const& rhoY    = S_new.array(mfi,first_spec);  
+          amrex::ParallelFor(bx, [rhoY]
+          AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+          {
+             fabMinMax( i, j, k, NUM_SPECIES, 0.0, Real_MAX, rhoY);
+          });
+       }
     }
     BL_PROFILE_VAR_STOP(HTDIFF);
 

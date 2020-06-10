@@ -21,8 +21,7 @@ module PeleLM_nd
 
   private
 
-  public :: floor_spec, &
-            pphys_HMIXfromTY, pphys_RHOfromPTY, pphys_CPMIXfromTY, init_data_new_mech, &
+  public :: pphys_HMIXfromTY, pphys_RHOfromPTY, pphys_CPMIXfromTY, init_data_new_mech, &
             spec_temp_visc, vel_visc, beta_wbar, est_divu_dt, check_divu_dt,&
             dqrad_fill, divu_fill, dsdt_fill, ydot_fill, rhoYdot_fill, &
             repair_flux, incrwext_flx_div, flux_div, compute_ugradp, conservative_T_floor, &
@@ -32,36 +31,6 @@ module PeleLM_nd
 
 contains
  
-!=========================================================
-!  Floor species mass fraction at 0.0
-!=========================================================
-
-   subroutine floor_spec(lo, hi, &
-                         spec, s_lo, s_hi) &
-                         bind(C, name="floor_spec")
-
-      implicit none
-
-! In/Out
-      integer, intent(in) :: lo(3), hi(3)
-      integer, intent(in) :: s_lo(3), s_hi(3)
-      REAL_T, intent(inout), dimension(s_lo(1):s_hi(1),s_lo(2):s_hi(2),s_lo(3):s_hi(3),NUM_SPECIES) :: spec
-
-! Local
-      integer :: i, j, k, n
-
-      do n = 1, NUM_SPECIES
-         do k = lo(3), hi(3)
-            do j = lo(2), hi(2)
-               do i = lo(1), hi(1)
-                  spec(i,j,k,n) = max(0.d0,spec(i,j,k,n))
-               end do
-            enddo
-         enddo
-      enddo
-
-   end subroutine floor_spec
-
 !=========================================================
 !  Compute mixture enthalpy from T and Y
 !=========================================================
