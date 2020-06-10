@@ -22,7 +22,6 @@ module PeleLM_nd
   private
 
   public :: floor_spec, calc_gamma_pinv, &
-            pphys_mass_to_mole, pphys_massr_to_conc, &
             pphys_HMIXfromTY, pphys_RHOfromPTY, pphys_CPMIXfromTY, init_data_new_mech, &
             spec_temp_visc, vel_visc, beta_wbar, est_divu_dt, check_divu_dt,&
             dqrad_fill, divu_fill, dsdt_fill, ydot_fill, rhoYdot_fill, &
@@ -114,89 +113,6 @@ contains
       enddo
 
    end subroutine calc_gamma_pinv
-
-!=========================================================
-!  Compute Xm from Ym
-!=========================================================
-
-   subroutine pphys_mass_to_mole(lo, hi, &
-                                 Y, y_lo, y_hi, &
-                                 X, x_lo, x_hi) &
-                                 bind(C, name="pphys_mass_to_mole")
-
-      implicit none
-
-! In/Out
-      integer, intent(in) :: lo(3), hi(3)
-      integer, intent(in) :: y_lo(3), y_hi(3)
-      integer, intent(in) :: x_lo(3), x_hi(3)
-      REAL_T, dimension(y_lo(1):y_hi(1),y_lo(2):y_hi(2),y_lo(3):y_hi(3),NUM_SPECIES) :: Y
-      REAL_T, dimension(x_lo(1):x_hi(1),x_lo(2):x_hi(2),x_lo(3):x_hi(3),NUM_SPECIES) :: X
-
-! Local
-      REAL_T  :: Xt(NUM_SPECIES), Yt(NUM_SPECIES)
-      integer :: i, j, k,n
-
-      do k=lo(3),hi(3)
-         do j=lo(2),hi(2)
-            do i=lo(1),hi(1)
-               do n = 1, NUM_SPECIES
-                  Yt(n) = Y(i,j,k,n)
-               end do
-               CALL CKYTX(Yt,Xt)
-               do n = 1, NUM_SPECIES
-                  X(i,j,k,n) = Xt(n)
-               end do
-            end do
-         end do
-      end do
-      
-   end subroutine pphys_mass_to_mole
-
-!=========================================================
-!  Compute Cm from Ym
-!=========================================================
-
-   subroutine pphys_massr_to_conc(lo, hi, &
-                                  Y, y_lo, y_hi, &
-                                  T, t_lo, t_hi, &
-                                  Rho, r_lo, r_hi, &
-                                  C, c_lo, c_hi)&
-                                  bind(C, name="pphys_massr_to_conc")
-
-      implicit none
-
-! In/Out
-      integer, intent(in) :: lo(3), hi(3)
-      integer, intent(in) :: y_lo(3), y_hi(3)
-      integer, intent(in) :: t_lo(3), t_hi(3)
-      integer, intent(in) :: r_lo(3), r_hi(3)
-      integer, intent(in) :: c_lo(3), c_hi(3)
-      REAL_T, dimension(y_lo(1):y_hi(1),y_lo(2):y_hi(2),y_lo(3):y_hi(3),NUM_SPECIES) :: Y
-      REAL_T, dimension(t_lo(1):t_hi(1),t_lo(2):t_hi(2),t_lo(3):t_hi(3)) :: T
-      REAL_T, dimension(r_lo(1):r_hi(1),r_lo(2):r_hi(2),r_lo(3):r_hi(3)) :: Rho
-      REAL_T, dimension(c_lo(1):c_hi(1),c_lo(2):c_hi(2),c_lo(3):c_hi(3),NUM_SPECIES) :: C
-
-! Local
-      REAL_T  :: Yt(NUM_SPECIES), Ct(NUM_SPECIES), rhoScl
-      integer :: i, j, k, n
-
-      do k=lo(3),hi(3)
-         do j=lo(2),hi(2)
-            do i=lo(1),hi(1)
-               do n = 1, NUM_SPECIES
-                  Yt(n) = Y(i,j,k,n)
-               end do
-               rhoScl = RHO(i,j,k)*1.e-3
-               CALL CKYTCR(rhoScl,T(i,j,k),Yt,Ct)
-               do n = 1,NUM_SPECIES
-                  C(i,j,k,n) = Ct(n)*1.e6
-               end do
-            end do
-         end do
-      end do
-
-   end subroutine pphys_massr_to_conc
 
 !=========================================================
 !  Compute mixture enthalpy from T and Y
