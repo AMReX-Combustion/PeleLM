@@ -21,7 +21,7 @@ module PeleLM_nd
 
   private
 
-  public :: floor_spec, calc_gamma_pinv, &
+  public :: floor_spec, &
             pphys_HMIXfromTY, pphys_RHOfromPTY, pphys_CPMIXfromTY, init_data_new_mech, &
             spec_temp_visc, vel_visc, beta_wbar, est_divu_dt, check_divu_dt,&
             dqrad_fill, divu_fill, dsdt_fill, ydot_fill, rhoYdot_fill, &
@@ -61,58 +61,6 @@ contains
       enddo
 
    end subroutine floor_spec
-
-!=========================================================
-!  Compute theta = 1.0 / (\gamma * P )
-!=========================================================
-
-   subroutine calc_gamma_pinv(lo, hi, &
-                              theta, th_lo, th_hi, &
-                              rhoY, r_lo, r_hi, &
-                              T, t_lo, t_hi, &
-                              Pamb_in)&
-                              bind(C, name="calc_gamma_pinv")
-
-      implicit none
-
-! In/Out
-      integer, intent(in) :: lo(3),hi(3)
-      integer, intent(in) :: th_lo(3), th_hi(3)
-      integer, intent(in) :: r_lo(3), r_hi(3)
-      integer, intent(in) :: t_lo(3), t_hi(3)
-      REAL_T, dimension(th_lo(1):th_hi(1),th_lo(2):th_hi(2),th_lo(3):th_hi(3)) :: theta
-      REAL_T, dimension(r_lo(1):r_hi(1),r_lo(2):r_hi(2),r_lo(3):r_hi(3),NUM_SPECIES) :: rhoY
-      REAL_T, dimension(t_lo(1):t_hi(1),t_lo(2):t_hi(2),t_lo(3):t_hi(3)) :: T
-      REAL_T  :: Pamb_in
-
-! Local
-      REAL_T, dimension(1:NUM_SPECIES) :: Y
-      REAL_T :: cpmix, cvmix, rhoInv
-      integer :: i, j, k, n
-
-      do k=lo(3),hi(3)
-         do j=lo(2),hi(2)
-            do i=lo(1),hi(1)
-               rhoInv = 0.d0
-               do n=1,NUM_SPECIES
-                  rhoInv = rhoInv + rhoY(i,j,k,n)
-               enddo
-               rhoInv = 1.d0 / rhoInv
-               do n=1,NUM_SPECIES
-                  Y(n) = rhoInv*rhoY(i,j,k,n)
-               enddo
-               CALL CKCPBS(T(i,j,k),Y,cpmix)
-               cpmix = cpmix*1.d-4
-               CALL CKCVBS(T(i,j,k),Y,cvmix)
-               cvmix = cvmix*1.d-4
-
-               theta(i,j,k) = cvmix / (cpmix*Pamb_in)
-
-            enddo
-         enddo
-      enddo
-
-   end subroutine calc_gamma_pinv
 
 !=========================================================
 !  Compute mixture enthalpy from T and Y

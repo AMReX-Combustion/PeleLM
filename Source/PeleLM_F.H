@@ -238,12 +238,6 @@ extern "C" {
 #endif
                   const int* nc, const amrex::Real* scale);
 
-   void calc_gamma_pinv(const int* lo,  const int* hi,
-                              BL_FORT_FAB_ARG_ANYD(theta),
-                        const BL_FORT_FAB_ARG_ANYD(rhoY),
-                        const BL_FORT_FAB_ARG_ANYD(T),
-                        const amrex::Real* Pamb_in); 
-
    void floor_spec(const int* lo,  const int* hi, 
                    BL_FORT_FAB_ARG_ANYD(spec));
 
