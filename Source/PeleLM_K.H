@@ -271,4 +271,33 @@ fabMinMax(int i, int j, int k,
       fab(i,j,k,n) = amrex::max( fmin, amrex::min( fmax, fab(i,j,k,n) ) );
    }
 }
+
+AMREX_GPU_HOST_DEVICE
+inline
+amrex::Real
+getGammaInv(int i, int j, int k,
+         amrex::Array4<const amrex::Real> const& rhoY,
+         amrex::Array4<const amrex::Real> const& T) noexcept
+{
+   using namespace amrex::literals;
+
+   // Get rho & Y from rhoY
+   amrex::Real rho = 0.0_rt, rhoinv;
+   for (int n = 0; n < NUM_SPECIES; n++) {
+      rho += rhoY(i,j,k,n);
+   }
+   rhoinv = 1.0_rt / rho;
+   amrex::Real y[NUM_SPECIES];
+   for (int n = 0; n < NUM_SPECIES; n++) {
+      y[n] = rhoY(i,j,k,n) * rhoinv;
+   }
+
+   amrex::Real cpmix, cvmix;
+   EOS::TY2Cp(T(i,j,k), y, cpmix);
+   EOS::TY2Cv(T(i,j,k), y, cvmix);
+   
+   amrex::Real gammainv = cvmix / cpmix;
+
+   return gammainv;
+}
 #endif

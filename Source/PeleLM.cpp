@@ -2314,7 +2314,6 @@ PeleLM::post_regrid (int lbase,
    //
    if (!do_set_rho_to_species_sum) return;
 
-   const int nGrow   = 0;
    int       minzero = 0;           // Flag to clip the species mass density to zero before summing it up to build rho.
    if (parent->levelSteps(0)>0 && level>lbase) {
       MultiFab& Snew = get_new_data(State_Type);
@@ -2331,7 +2330,7 @@ PeleLM::post_regrid (int lbase,
                amrex::ParallelFor(bx, [rhoY]
                AMREX_GPU_DEVICE (int i, int j, int k) noexcept
                {
-                  fabMinMax( i, j, k, 0.0, Real_MAX, NUM_SPECIES, rhoY);
+                  fabMinMax( i, j, k, NUM_SPECIES, 0.0, Real_MAX, rhoY);
                });
             }
             amrex::ParallelFor(bx, [rho, rhoY]
@@ -5753,95 +5752,78 @@ PeleLM::advance (Real time,
 Real
 PeleLM::adjust_p_and_divu_for_closed_chamber(MultiFab& mac_divu)
 {
-  MultiFab& S_new = get_new_data(State_Type);
-  MultiFab& S_old = get_old_data(State_Type);
+   MultiFab& S_new = get_new_data(State_Type);
+   MultiFab& S_old = get_old_data(State_Type);
 
-  const Real prev_time = state[State_Type].prevTime();
-  const Real cur_time  = state[State_Type].curTime();
-  const Real dt = cur_time - prev_time;
+   const Real prev_time = state[State_Type].prevTime();
+   const Real cur_time  = state[State_Type].curTime();
+   const Real dt = cur_time - prev_time;
 
-  // used for closed chamber algorithm
-  MultiFab theta_old(grids,dmap,1,nGrowAdvForcing);
-  MultiFab theta_nph(grids,dmap,1,nGrowAdvForcing);
+   // used for closed chamber algorithm
+   MultiFab theta_halft(grids,dmap,1,nGrowAdvForcing);
 
-  // compute old, new, and time-centered theta = 1 / (gamma P)
+   // compute old, new, and time-centered theta = 1 / (gamma P)
 #ifdef _OPENMP
-#pragma omp parallel
+#pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
-  for (MFIter mfi(S_old,true); mfi.isValid(); ++mfi)
-  {
-    const Box& box = mfi.tilebox();            
-    FArrayBox& thetafab = theta_old[mfi];
-    const FArrayBox& rhoY = S_old[mfi];
-    const FArrayBox& T = S_old[mfi];
-    calc_gamma_pinv(BL_TO_FORTRAN_BOX(box),
-                        BL_TO_FORTRAN_ANYD(thetafab),
-                        BL_TO_FORTRAN_N_ANYD(rhoY,first_spec),
-                        BL_TO_FORTRAN_N_ANYD(T,Temp),
-                        &p_amb_old);
-  }
+   for (MFIter mfi(S_old,TilingIfNotGPU()); mfi.isValid(); ++mfi)
+   {
+      const Box& bx = mfi.tilebox();            
+      auto const& rhoY_o  = S_old.array(mfi,first_spec);
+      auto const& rhoY_n  = S_new.array(mfi,first_spec);
+      auto const& T_o     = S_old.array(mfi,Temp);
+      auto const& T_n     = S_new.array(mfi,Temp);
+      auto const& theta   = theta_halft.array(mfi);
+      amrex::Real pamb_o  = p_amb_old;
+      amrex::Real pamb_n  = p_amb_new;
 
+      amrex::ParallelFor(bx, [rhoY_o, rhoY_n, T_o, T_n, theta, pamb_o, pamb_n]
+      AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+      {
+         amrex::Real gammaInv_o = getGammaInv( i, j, k, rhoY_o, T_o );
+         amrex::Real gammaInv_n = getGammaInv( i, j, k, rhoY_n, T_n );
+         theta(i,j,k) = 0.5 * ( gammaInv_o/pamb_o + gammaInv_n/pamb_n );
+      });
+   }
+
+   // compute number of cells
+   Real num_cells = grids.numPts();
+
+   // compute the average of mac_divu theta
+   Real Sbar = mac_divu.sum() / num_cells;
+   thetabar = theta_halft.sum() / num_cells;
+
+   // subtract mean from mac_divu and theta_nph
+   mac_divu.plus(-Sbar,0,1);
+   theta_halft.plus(-thetabar,0,1);
+
+   p_amb_new = p_amb_old + dt*(Sbar/thetabar);
+   dp0dt = Sbar/thetabar;
+
+   // update mac rhs by adding delta_theta * (Sbar / thetabar)
 #ifdef _OPENMP
-#pragma omp parallel
+#pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
-  for (MFIter mfi(S_new,true); mfi.isValid(); ++mfi)
-  {
-    const Box& box = mfi.tilebox();            
-    FArrayBox& thetafab = theta_nph[mfi];
-    const FArrayBox& rhoY = S_new[mfi];
-    const FArrayBox& T = S_new[mfi];
-    calc_gamma_pinv(BL_TO_FORTRAN_BOX(box),
-                        BL_TO_FORTRAN_ANYD(thetafab),
-                        BL_TO_FORTRAN_N_ANYD(rhoY,first_spec),
-                        BL_TO_FORTRAN_N_ANYD(T,Temp),
-                        &p_amb_new);
-  }
+   for (MFIter mfi(mac_divu,TilingIfNotGPU()); mfi.isValid(); ++mfi)
+   {
+      const Box& bx = mfi.tilebox();
+      auto const& m_divu  = mac_divu.array(mfi);
+      auto const& theta   = theta_halft.array(mfi);
+      amrex::Real scaling = Sbar/thetabar;
 
-#ifdef _OPENMP
-#pragma omp parallel
-#endif
-  for (MFIter mfi(theta_nph,true); mfi.isValid(); ++mfi)
-  {
-    FArrayBox& th_nph = theta_nph[mfi];
-    const FArrayBox& th_old = theta_old[mfi];
-    const Box& box = mfi.tilebox();
-    th_nph.plus<RunOn::Host>(th_old,box,box,0,0,1);
-    th_nph.mult<RunOn::Host>(0.5,box,0,1);
-  }
+      amrex::ParallelFor(bx, [m_divu, theta, scaling]
+      AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+      {
+         m_divu(i,j,k) -= theta(i,j,k) * scaling;
+      });
+   }
+   BL_PROFILE_VAR_STOP(HTMAC);
 
-  // compute number of cells
-  Real num_cells = grids.numPts();
+   amrex::Print() << "level 0: prev_time, p_amb_old, p_amb_new, delta = " 
+                  << prev_time << " " << p_amb_old << " " << p_amb_new << " "
+                  << p_amb_new-p_amb_old << std::endl;
 
-  // compute the average of mac_divu theta
-  Real Sbar = mac_divu.sum() / num_cells;
-  thetabar = theta_nph.sum() / num_cells;
-
-  // subtract mean from mac_divu and theta_nph
-  mac_divu.plus(-Sbar,0,1);
-  theta_nph.plus(-thetabar,0,1);
-
-  p_amb_new = p_amb_old + dt*(Sbar/thetabar);
-  dp0dt = Sbar/thetabar;
-
-  // update mac rhs by adding delta_theta * (Sbar / thetabar)
-#ifdef _OPENMP
-#pragma omp parallel
-#endif
-  for (MFIter mfi(mac_divu,true); mfi.isValid(); ++mfi)
-  {
-    FArrayBox& m_du = mac_divu[mfi];
-    FArrayBox& th_nph = theta_nph[mfi];
-    const Box& box = mfi.tilebox();
-    th_nph.mult<RunOn::Host>(Sbar/thetabar,box,0,1);
-    m_du.minus<RunOn::Host>(th_nph,box,box,0,0,1);
-  }
-  BL_PROFILE_VAR_STOP(HTMAC);
-
-  amrex::Print() << "level 0: prev_time, p_amb_old, p_amb_new, delta = " 
-                 << prev_time << " " << p_amb_old << " " << p_amb_new << " "
-                 << p_amb_new-p_amb_old << std::endl;
-
-  return Sbar;
+   return Sbar;
 }
 
 DistributionMapping
@@ -8628,7 +8610,7 @@ PeleLM::RhoH_to_Temp (MultiFab& S,
          amrex::ParallelFor(bx, [tempmin, tempmax, T]
          AMREX_GPU_DEVICE (int i, int j, int k) noexcept
          {
-            fabMinMax( i, j, k, tempmin, tempmax, 1, T);
+            fabMinMax( i, j, k, 1, tempmin, tempmax, T);
          });
       }
    }
