@@ -27,7 +27,7 @@ module PeleLM_F
   public :: set_scal_numb, &
             set_ht_adim_common, get_pamb, &
             set_common, active_control, &
-            pphys_calc_src_sdc, pphys_getP1atm_MKS, &
+            pphys_getP1atm_MKS, &
             pphys_get_spec_name2, pphys_TfromHYpt, set_prob_spec
 
 contains
@@ -197,52 +197,6 @@ end subroutine plm_extern_init
     verbose = 5
 
   end subroutine pphys_set_verbose_vode
-
-  subroutine pphys_calc_src_sdc(N, TIME, TEMP, Z, ZP) bind(C, name="pphys_calc_src_sdc")
-!
-!     Variables in Z are:  Z(1:K) = rhoY(K) [MKS]
-!                          Z(K+1) = RhoH    [MKS]
-
-    implicit none
-
-    integer(c_int), intent(in)   :: N ! unused
-    double precision, intent(in   ) :: TIME
-    double precision, intent(inout) :: TEMP
-    double precision, intent(in   ) :: Z(NUM_SPECIES+1)
-    double precision, intent(out  ) :: ZP(NUM_SPECIES+1)
-
-    double precision WDOT_CGS(NUM_SPECIES)
-    double precision Y(NUM_SPECIES), CONC_CGS(NUM_SPECIES), MWT(NUM_SPECIES)
-    double precision RHO_MKS, RINV_MKS, THFAC, HMIX_MKS, HMIX_CGS
-    integer :: lierr, K
-
-
-    ! RHO MKS
-    RHO_MKS  = sum(Z(1:NUM_SPECIES))
-    RINV_MKS = 1.d0 / RHO_MKS
-    ! MW CGS
-    call CKWT(MWT);
-      
-    do K=1,NUM_SPECIES
-      CONC_CGS(K) = Z(K)/MWT(K)*1.d-3
-      Y(K) = Z(K) * RINV_MKS
-      !print *," Y, WT ", Z(K), 1./MWT(K)
-    enddo
-
-    HMIX_MKS = (Z(NUM_SPECIES+1) + 0.0d0*TIME) * RINV_MKS
-    HMIX_CGS = HMIX_MKS * 1.0d4
-    call get_t_given_hY(HMIX_CGS, Y, TEMP, lierr);
-    call CKWC(TEMP,CONC_CGS,WDOT_CGS)
-
-    ZP(NUM_SPECIES+1) = 0.0d0
-    THFAC = 1.d3
-    do k= 1, NUM_SPECIES
-      ZP(k) = WDOT_CGS(k) * MWT(k) * THFAC + 0.0d0
-      !print *," RHO, C(CGS), H, T",RHO_MKS, CONC_CGS(k), HMIX_MKS, TEMP
-      !print *," wdot(CGS), wdot", WDOT_CGS(k), ZP(k)
-    end do
-      
-  end subroutine pphys_calc_src_sdc
 
 !------------------------------------  
   subroutine set_scal_numb(DensityIn, TempIn, RhoHIn, &

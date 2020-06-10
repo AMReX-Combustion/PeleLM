@@ -39,6 +39,7 @@
 #include <PeleLM_F.H>
 #include <AMReX_Utility.H>
 #include <NS_error_F.H>
+#include <EOS.H>
 
 #ifdef USE_SUNDIALS_PP
 #include <reactor.h>
@@ -493,6 +494,8 @@ PeleLM::variableSetUp ()
   reactor_init(&reactor_type,&ncells_chem);
 }
 #endif
+
+  EOS::init();
 
   init_transport(use_tranlib);
 

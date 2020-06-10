@@ -229,7 +229,9 @@ public:
                                                        const amrex::MultiFab& divu,
                                                        amrex::Real            dt);
 
+#if !defined(AMREX_USE_CUDA)
 protected:
+#endif
 
   ////////////////////////////////////////////////////////////////////////////
   //    Overriding Virtual Functions in NavierStokesBase                    //
@@ -316,7 +318,9 @@ protected:
   static void read_particle_params ();
 #endif
 
+#if !defined(AMREX_USE_CUDA)
 private:
+#endif
 
   // enum YdotAction { HT_EstimateYdotNew, HT_ImproveYdotOld, HT_LeaveYdotAlone };
   // enum Solver_Status {HT_InProgress, HT_Stalled, HT_Solved};
@@ -375,9 +379,8 @@ private:
                         int              dComp);
 
   void compute_rhoRT (const amrex::MultiFab& S,
-                      amrex::MultiFab&       P,
-                      int             pComp,
-                      const amrex::MultiFab* T = 0);
+                            amrex::MultiFab& P,
+                                   int       pComp);
 
   void compute_vel_visc (amrex::Real      time,
                          amrex::MultiFab* beta);
@@ -555,22 +558,6 @@ private:
                           int              sCompT,
                           int              sCompRhoYdot) const;
 
-  void getPGivenRTY_pphys(amrex::FArrayBox&       p,
-                         const amrex::FArrayBox& Rho,
-                         const amrex::FArrayBox& T,
-                         const amrex::FArrayBox& Y,
-                         const amrex::Box&       box,
-                         int              sCompR,
-                         int              sCompT,
-                         int              sCompY,
-                         int              sCompP) const;
-
-  void getMwmixGivenY_pphys(amrex::FArrayBox&       mwmix,
-                         const amrex::FArrayBox& Y,
-                         const amrex::Box&       box,
-                         int              sCompY,
-                         int              sCompMw) const;
-
   void getHmixGivenTY_pphys (amrex::FArrayBox&       hmix,
                          const amrex::FArrayBox& T,
                          const amrex::FArrayBox& Y,
@@ -578,20 +565,6 @@ private:
                          int              sCompT,
                          int              sCompY,
                          int              sCompH) const;
-
-  void getHGivenT_pphys (amrex::FArrayBox&       h,
-                     const amrex::FArrayBox& T,
-                     const amrex::Box&       box,
-                     int              sCompT,
-                     int              sCompH) const;
-
-  void getCpmixGivenTY_pphys (amrex::FArrayBox&       cpmix,
-                          const amrex::FArrayBox& T,
-                          const amrex::FArrayBox& Y,
-                          const amrex::Box&       box,
-                          int              sCompT,
-                          int              sCompY,
-                          int              sCompCp) const;
 
   static int getTGivenHY_pphys (amrex::FArrayBox&       T,
                      const amrex::FArrayBox& H,

@@ -22,7 +22,7 @@ module PeleLM_nd
   private
 
   public :: floor_spec, calc_divu_fortran, calc_gamma_pinv, &
-            pphys_PfromRTY, pphys_mass_to_mole, pphys_massr_to_conc, pphys_HfromT, &
+            pphys_mass_to_mole, pphys_massr_to_conc, &
             pphys_HMIXfromTY, pphys_RHOfromPTY, pphys_CPMIXfromTY, init_data_new_mech, &
             spec_temp_visc, vel_visc, beta_wbar, est_divu_dt, check_divu_dt,&
             dqrad_fill, divu_fill, dsdt_fill, ydot_fill, rhoYdot_fill, &
@@ -191,121 +191,6 @@ contains
       enddo
 
    end subroutine calc_gamma_pinv
-
-!=========================================================
-!  Compute reaction rate rhoY source terms
-!=========================================================
-
-   subroutine pphys_RRATERHOY(lo, hi, &
-                              RhoY, rY_lo, rY_hi, &
-                              RhoH, rh_lo, rh_hi, &
-                              T, t_lo, t_hi, &
-                              mask, m_lo, m_hi, &
-                              RhoYdot, rd_lo, rd_hi)&
-                              bind(C, name="pphys_RRATERHOY")
-
-      use PeleLM_F,       only : pphys_calc_src_sdc
-
-      implicit none
-
-! In/Out
-      integer, intent(in) :: lo(3), hi(3)
-      integer, intent(in) :: rY_lo(3), rY_hi(3)
-      integer, intent(in) :: rh_lo(3), rh_hi(3)
-      integer, intent(in) :: t_lo(3), t_hi(3)
-      integer, intent(in) :: m_lo(3), m_hi(3)
-      integer, intent(in) :: rd_lo(3), rd_hi(3)
-      REAL_T, dimension(rY_lo(1):rY_hi(1),rY_lo(2):rY_hi(2),rY_lo(3):rY_hi(3),NUM_SPECIES) :: RhoY
-      REAL_T, dimension(rh_lo(1):rh_hi(1),rh_lo(2):rh_hi(2),rh_lo(3):rh_hi(3)) :: RhoH
-      REAL_T, dimension(t_lo(1):t_hi(1),t_lo(2):t_hi(2),t_lo(3):t_hi(3)) :: T
-      INTEGER, dimension(m_lo(1):m_hi(1),m_lo(2):m_hi(2),m_lo(3):m_hi(3)) :: mask
-      REAL_T, dimension(rd_lo(1):rd_hi(1),rd_lo(2):rd_hi(2),rd_lo(3):rd_hi(3),NUM_SPECIES) :: RhoYdot
-
-! Local
-      REAL_T  :: Zt(NUM_SPECIES+1), Zdott(NUM_SPECIES+1)
-      REAL_T  :: Temperature, TIME
-
-      integer :: i, j, k, n
-
-      TIME = 0.0d0
-
-      do k = lo(3), hi(3)
-         do j = lo(2), hi(2)
-            do i = lo(1), hi(1)
-
-               if ( mask(i,j,k) == -1 ) then
-                  RhoYdot(i,j,k,:) = 0.0d0
-                  CYCLE
-               end if
-
-               Zt(NUM_SPECIES+1) = RhoH(i,j,k)
-               do n = 1,NUM_SPECIES
-                  Zt(n) = RhoY(i,j,k,n)
-               end do
-               Temperature = T(i,j,k)
-
-               call pphys_calc_src_sdc(NUM_SPECIES,TIME,Temperature,Zt,Zdott)
-
-               do n = 1,NUM_SPECIES
-                  RhoYdot(i,j,k,n) = Zdott(n)
-               end do
-            end do
-         end do
-      end do
-
-   end subroutine pphys_RRATERHOY
-
-!=========================================================
-!  Compute P from rho, rhoY and T
-!=========================================================
-
-   subroutine pphys_PfromRTY(lo, hi, &
-                             P, p_lo, p_hi, &
-                             Rho, r_lo, r_hi, &
-                             T, t_lo, t_hi, &
-                             Y, y_lo, y_hi)&
-                             bind(C, name="pphys_PfromRTY")
-
-      implicit none
-
-! In/Out
-      integer, intent(in) :: lo(3), hi(3)
-      integer, intent(in) :: p_lo(3), p_hi(3)
-      integer, intent(in) :: r_lo(3), r_hi(3)
-      integer, intent(in) :: t_lo(3), t_hi(3)
-      integer, intent(in) :: y_lo(3), y_hi(3)
-      REAL_T, dimension(p_lo(1):p_hi(1),p_lo(2):p_hi(2),p_lo(3):p_hi(3)) :: P
-      REAL_T, dimension(r_lo(1):r_hi(1),r_lo(2):r_hi(2),r_lo(3):r_hi(3)) :: Rho
-      REAL_T, dimension(y_lo(1):y_hi(1),y_lo(2):y_hi(2),y_lo(3):y_hi(3),NUM_SPECIES) :: Y
-      REAL_T, dimension(t_lo(1):t_hi(1),t_lo(2):t_hi(2),t_lo(3):t_hi(3)) :: T
-
-! Local
-      REAL_T :: Yt(NUM_SPECIES), RHOt, SCAL, SCAL1
-      integer :: i, j, k, n
-
-!     NOTE: SCAL converts result from assumed cgs to MKS (1 dyne/cm^2 = .1 Pa)
-!           SCAL1 converts density (1 kg/m^3 = 1.e-3 g/cm^3)
-      SCAL = 1.d-1
-      SCAL1 = SCAL**3
-
-      do k=lo(3),hi(3)
-         do j=lo(2),hi(2)
-            do i=lo(1),hi(1)
-
-                do n = 1, NUM_SPECIES
-                   Yt(n) = Y(i,j,k,n)
-                end do
-
-                RHOt = RHO(i,j,k) * SCAL1
-                CALL CKPY(RHOt,T(i,j,k),Yt,P(i,j,k))
-
-                P(i,j,k) = P(i,j,k) * SCAL
-
-            end do
-         end do
-      end do
-
-   end subroutine pphys_PfromRTY
 
 !=========================================================
 !  Compute Xm from Ym
@@ -479,84 +364,6 @@ contains
       end do
 
    end subroutine pphys_RHOfromPTY
-
-!=========================================================
-!  Compute species H from T
-!=========================================================
-
-   subroutine pphys_HfromT(lo, hi, &
-                           H, h_lo, h_hi, &
-                           T, t_lo, t_hi)&
-                           bind(C, name="pphys_HfromT")
-
-      implicit none
-
-! In/Out
-      integer, intent(in) :: lo(3), hi(3)
-      integer, intent(in) :: h_lo(3), h_hi(3)
-      integer, intent(in) :: t_lo(3), t_hi(3)
-      REAL_T, dimension(h_lo(1):h_hi(1),h_lo(2):h_hi(2),h_lo(3):h_hi(3),NUM_SPECIES) :: H
-      REAL_T, dimension(t_lo(1):t_hi(1),t_lo(2):t_hi(2),t_lo(3):t_hi(3)) :: T
-
-! Local
-      REAL_T  :: SCAL, Ht(NUM_SPECIES)
-      integer :: i, j, k, n
-
-!     NOTE: SCAL converts result from assumed cgs to MKS (1 erg/g = 1.e-4 J/kg)
-      SCAL = 1.0d-4
-
-      do k=lo(3),hi(3)
-         do j=lo(2),hi(2)
-            do i=lo(1),hi(1)
-               CALL CKHMS(T(i,j,k),Ht)
-               do n = 1, NUM_SPECIES
-                  H(i,j,k,n) = Ht(n) * SCAL
-               end do
-            end do
-         end do
-      end do
-
-   end subroutine pphys_HfromT
-
-!=========================================================
-!  Compute mixture mean molecular weight from Y
-!=========================================================
-
-   subroutine pphys_MWMIXfromY(lo, hi, &
-                               MWmix, m_lo, m_hi, &
-                               Y, y_lo, y_hi)&
-                               bind(C, name="pphys_MWMIXfromY")
-
-      implicit none
-
-! In/Out
-      integer, intent(in) :: lo(3), hi(3)
-      integer, intent(in) :: m_lo(3), m_hi(3)
-      integer, intent(in) :: y_lo(3), y_hi(3)
-      REAL_T, dimension(m_lo(1):m_hi(1),m_lo(2):m_hi(2),m_lo(3):m_hi(3)) :: MWmix
-      REAL_T, dimension(y_lo(1):y_hi(1),y_lo(2):y_hi(2),y_lo(3):y_hi(3),NUM_SPECIES) :: Y
-
-! Local
-      REAL_T  :: Yt(NUM_SPECIES)
-      integer :: i, j, k, n
-
-!     Returns mean molecular weight in kg/kmole
-
-      do k=lo(3),hi(3)
-         do j=lo(2),hi(2)
-            do i=lo(1),hi(1)
-
-               do n = 1, NUM_SPECIES
-                  Yt(n) = Y(i,j,k,n)
-               end do
-
-               CALL CKMMWY(Yt,MWMIX(i,j,k))
-
-            end do
-         end do
-      end do
-
-   end subroutine pphys_MWMIXfromY
 
 !=========================================================
 !  Compute mixture mean heat capacity
