@@ -2337,8 +2337,8 @@ PeleLM::post_regrid (int lbase,
             AMREX_GPU_DEVICE (int i, int j, int k) noexcept
             {
                rho(i,j,k) = 0.0;
-               for (int n = 0; n <= NUM_SPECIES; n++) {
-                  rho(i,j,k) += rho(i,j,k,n);
+               for (int n = 0; n < NUM_SPECIES; n++) {
+                  rho(i,j,k) += rhoY(i,j,k,n);
                }
             });
          }
@@ -5461,36 +5461,51 @@ PeleLM::advance (Real time,
 #endif
 
     differential_diffusion_update(Forcing,0,Dhat,0,DDhat);
-    // 
-    // Compute R (F = A + 0.5(Dn - Dnp1 + DDn - DDnp1) + Dhat + DDhat )
-    // 
+
     BL_PROFILE_VAR_START(HTREAC);
-    
+
+    /////////////////////
+    // Compute R (F = A + 0.5(Dn - Dnp1 + DDn - DDnp1) + Dhat + DDhat )
+    // hack: for advance_chemistry, use same Forcing used for species eqn (just subtract S_old and the omegaDot term)
+    /////////////////////
 #ifdef _OPENMP
-#pragma omp parallel
+#pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
-// ----- hack: for advance_chemistry, use same Forcing used for species eqn (just subtract S_old and the omegaDot term)
-    MultiFab::Copy(Forcing,S_new,first_spec,0,nspecies+1,0);
-    MultiFab::Subtract(Forcing,S_old,first_spec,0,nspecies+1,0);		// remove S_old term
-    Forcing.mult(1/dt);
-    MultiFab::Subtract(Forcing,get_new_data(RhoYdot_Type),0,0,nspecies,0);	// remove omegaDot term
+    {
+       for (MFIter mfi(S_new, TilingIfNotGPU()); mfi.isValid(); ++mfi)
+       {
+          const Box& bx = mfi.tilebox();
+          auto const& sold    = S_old.array(mfi,first_spec);
+          auto const& snew    = S_new.array(mfi,first_spec);
+          auto const& r       = get_new_data(RhoYdot_Type).array(mfi);
+          auto const& force   = Forcing.array(mfi);
+          amrex::Real dtinv   = 1.0/dt;
+          amrex::ParallelFor(bx, [sold, snew, r, force, dtinv]
+          AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+          {
+             for (int n = 0; n < NUM_SPECIES; n++) {
+                force(i,j,k,n) = ( snew(i,j,k,n) - sold(i,j,k,n) ) * dtinv - r(i,j,k,n);
+             }
+             force(i,j,k,NUM_SPECIES) = ( snew(i,j,k,NUM_SPECIES) - sold(i,j,k,NUM_SPECIES) ) * dtinv;
+          });
+       }
+    }
 
     showMF("mysdc",Forcing,"sdc_F_befAdvChem",level,sdc_iter,parent->levelSteps(level));
     showMF("mysdc",S_old,"sdc_Sold_befAdvChem",level,sdc_iter,parent->levelSteps(level));
     showMF("mysdc",S_new,"sdc_Snew_befAdvChem",level,sdc_iter,parent->levelSteps(level));
 
-// EM DEBUG: HERE DO WE NEED TO INTERPOLATE TO CENTROID BEFORE ADVANCING CHEMISTRY ?
     advance_chemistry(S_old,S_new,dt,Forcing,0);
-    
+
 #ifdef AMREX_USE_EB
     set_body_state(S_new);
 #endif
-    
+
     RhoH_to_Temp(S_new);
 
     BL_PROFILE_VAR_STOP(HTREAC);
     BL_PROFILE_VAR_START(HTDIFF);
-    
+
     if (floor_species == 1)
     {
 #ifdef _OPENMP
@@ -5511,7 +5526,7 @@ PeleLM::advance (Real time,
 
     showMF("mysdc",S_new,"sdc_Snew_end_sdc",level,sdc_iter,parent->levelSteps(level));
     showMF("mysdc",S_old,"sdc_Sold_end_sdc",level,sdc_iter,parent->levelSteps(level));
-    
+
     temperature_stats(S_new);
     if (verbose) amrex::Print() << "DONE WITH R (SDC corrector " << sdc_iter << ")\n";
 
