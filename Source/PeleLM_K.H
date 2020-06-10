@@ -38,7 +38,7 @@ reactionRateRhoY(int i, int j, int k,
    rho = rho * 0.001_rt;                                 // rho MKS -> CGS
    amrex::Real wdot[NUM_SPECIES];
    EOS::RTY2WDOT(rho, T, y, wdot);
-   for (int n = 0; n < NUM_SPECIES; n++) {   
+   for (int n = 0; n < NUM_SPECIES; n++) {
       rhoYdot(i,j,k,n) = wdot[n] * 1000.0_rt;            // CGS -> MKS conversion
    }
 }
@@ -119,7 +119,7 @@ getHGivenT(int i, int j, int k,
 
    amrex::Real hi_spec[NUM_SPECIES];
    EOS::T2Hi(T(i,j,k), hi_spec);
-   for (int n = 0; n < NUM_SPECIES; n++) {   
+   for (int n = 0; n < NUM_SPECIES; n++) {
       Hi(i,j,k,n) = hi_spec[n] * 0.0001_rt;            // CGS -> MKS conversion
    }
    
@@ -152,13 +152,13 @@ buildAdvectionForcing(int i, int j, int k,
 
    forceT(i,j,k) = dn(i,j,k,NUM_SPECIES+1) + ddn(i,j,k);
 
-   for (int n = 0; n < NUM_SPECIES; n++) {   
+   for (int n = 0; n < NUM_SPECIES; n++) {
       y[n] = rhoY(i,j,k,n) * rhoinv;                                 // get y
       forceY(i,j,k,n) = r(i,j,k,n) + dn(i,j,k,n);                    // forceY = Rk + Dnk
       forceT(i,j,k) -= forceY(i,j,k,n) * hi_spec[n] * 0.0001_rt;     // forceT -= Sum{ hk. (Rk + Dnk) } with CGS -> MKS conversion of hk
    }
 
-   for (int n = 0; n < NUM_SPECIES; n++) {   
+   for (int n = 0; n < NUM_SPECIES; n++) {
    }
 
    if ( closed_chamber == 1 ) forceT(i,j,k) += dp0dt;                // Add dp0/dt
@@ -190,4 +190,70 @@ getCpmixGivenRYT(int i, int j, int k,
    EOS::TY2Cp(T(i,j,k), y, cpmix(i,j,k));
    cpmix(i,j,k) *= 0.0001_rt;                         // CGS -> MKS conversion
 }
+
+AMREX_GPU_HOST_DEVICE
+inline
+void
+getTGivenHY(int i, int j, int k,
+            amrex::Array4<const amrex::Real> const& rho,
+            amrex::Array4<const amrex::Real> const& rhoY,
+            amrex::Array4<const amrex::Real> const& rhoH,
+            amrex::Array4<      amrex::Real> const& T) noexcept
+{
+   using namespace amrex::literals;
+
+   amrex::Real rhoinv  = 1.0_rt / rho(i,j,k);
+   amrex::Real y[NUM_SPECIES];
+   for (int n = 0; n < NUM_SPECIES; n++) {
+      y[n] = rhoY(i,j,k,n) * rhoinv;
+   }
+   amrex::Real H = rhoH(i,j,k) * rhoinv * 1.0e4_rt;   // MKS -> CGS conversion
+
+   EOS::HY2T(H, y, T(i,j,k));
+}
+
+AMREX_GPU_HOST_DEVICE
+inline
+void
+compute_divu(int i, int j, int k,
+             amrex::Array4<const amrex::Real> const& rhoY,
+             amrex::Array4<const amrex::Real> const& T,
+             amrex::Array4<const amrex::Real> const& viscTermT,
+             amrex::Array4<const amrex::Real> const& viscTermY,
+             amrex::Array4<const amrex::Real> const& rhoYdot,
+             amrex::Array4<      amrex::Real> const& divu) noexcept
+{
+   using namespace amrex::literals;
+
+   amrex::Real mwtinv[NUM_SPECIES];
+   EOS::inv_molecular_weight(mwtinv);
+
+   // Get rho & Y from rhoY
+   amrex::Real rho = 0.0_rt, rhoinv;
+   for (int n = 0; n < NUM_SPECIES; n++) {
+      rho += rhoY(i,j,k,n);
+   }
+   rhoinv = 1.0_rt / rho;
+   amrex::Real y[NUM_SPECIES];
+   for (int n = 0; n < NUM_SPECIES; n++) {
+      y[n] = rhoY(i,j,k,n) * rhoinv;
+   }
+
+   amrex::Real cpmix, Wbar, hi[NUM_SPECIES];;
+   EOS::TY2Cp(T(i,j,k), y, cpmix);
+   EOS::Y2WBAR(y, Wbar);
+   EOS::T2Hi(T(i,j,k), hi);
+   cpmix *= 1.0e-4_rt;                                // CGS -> MKS conversion
+   for (int n = 0; n < NUM_SPECIES; n++) {
+      hi[n] *= 1.0e-4_rt;                             // CGS -> MKS conversion
+   }
+
+   amrex::Real denominv = 1.0_rt / ( rho * cpmix * T(i,j,k) );
+   divu(i,j,k) = ( divu(i,j,k) + viscTermT(i,j,k) ) * denominv;
+   for (int n = 0; n < NUM_SPECIES; n++) {
+      divu(i,j,k) +=  ( viscTermY(i,j,k,n) + rhoYdot(i,j,k,n) )
+                    * ( mwtinv[n] * Wbar * rhoinv - hi[n] * denominv );
+   }
+}
+
 #endif

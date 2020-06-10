@@ -8471,85 +8471,75 @@ PeleLM::calc_divu (Real      time,
                    Real      dt,
                    MultiFab& divu)
 {
-  BL_PROFILE("HT::calc_divu()");
+   BL_PROFILE("HT::calc_divu()");
 
-  const int nGrow = 0;
-  int vtCompT = nspecies + 1;
-  int vtCompY = 0;
-  MultiFab mcViscTerms(grids,dmap,nspecies+2,nGrow,MFInfo(),Factory());
+   const int nGrow = 0;
+   int vtCompT = nspecies + 1;
+   int vtCompY = 0;
+   MultiFab mcViscTerms(grids,dmap,nspecies+2,nGrow,MFInfo(),Factory());
 
-  // we don't want to update flux registers due to fluxes in divu computation
-  bool do_reflux_hold = do_reflux;
-  do_reflux = false;
+   // we don't want to update flux registers due to fluxes in divu computation
+   bool do_reflux_hold = do_reflux;
+   do_reflux = false;
 
-  // DD is computed and stored in divu, and passed in to initialize the calc of divu
-  bool include_Wbar_terms = true;
-  compute_differential_diffusion_terms(mcViscTerms,divu,time,dt,include_Wbar_terms);
+   // DD is computed and stored in divu, and passed in to initialize the calc of divu
+   bool include_Wbar_terms = true;
+   compute_differential_diffusion_terms(mcViscTerms,divu,time,dt,include_Wbar_terms);
  
-  do_reflux = do_reflux_hold;
+   do_reflux = do_reflux_hold;
 
-  //
-  // if we are in the initial projection (time=0, dt=-1), set RhoYdot=0
-  // if we are in a divu_iter (time=0, dt>0), use I_R
-  // if we are in an init_iter or regular time step (time=dt, dt>0), use instananeous
-  MultiFab   RhoYdotTmp;
-  MultiFab&  S       = get_data(State_Type,time);
-  const bool use_IR  = (time == 0 && dt > 0);
+   // if we are in the initial projection (time=0, dt=-1), set RhoYdot=0
+   // if we are in a divu_iter (time=0, dt>0), use I_R
+   // if we are in an init_iter or regular time step (time=dt, dt>0), use instananeous
+   MultiFab   RhoYdotTmp;
+   MultiFab&  S       = get_data(State_Type,time);
+   const bool use_IR  = (time == 0 && dt > 0);
 
-  MultiFab& RhoYdot = (use_IR) ? get_new_data(RhoYdot_Type) : RhoYdotTmp;
+   MultiFab& RhoYdot = (use_IR) ? get_new_data(RhoYdot_Type) : RhoYdotTmp;
 
-  if (!use_IR)
-  {
-    if (time == 0)
-    {
-      // initial projection, set omegadot to zero
-      RhoYdot.define(grids,dmap,nspecies,0,MFInfo(),Factory());
-      RhoYdot.setVal(0);
-    }
-    else if (dt > 0)
-    {
-      // init_iter or regular time step, use instantaneous omegadot
-      RhoYdot.define(grids,dmap,nspecies,0,MFInfo(),Factory());
-      compute_instantaneous_reaction_rates(RhoYdot,S,time,nGrow);
-    }
-    else
-    {
-      amrex::Abort("bad divu_logic - shouldn't be here");
-    }
-  }
+   if (!use_IR)
+   {
+     if (time == 0)
+     {
+       // initial projection, set omegadot to zero
+       RhoYdot.define(grids,dmap,nspecies,0,MFInfo(),Factory());
+       RhoYdot.setVal(0.0);
+     }
+     else if (dt > 0)
+     {
+       // init_iter or regular time step, use instantaneous omegadot
+       RhoYdot.define(grids,dmap,nspecies,0,MFInfo(),Factory());
+       compute_instantaneous_reaction_rates(RhoYdot,S,time,nGrow);
+     }
+     else
+     {
+       amrex::Abort("bad divu_logic - shouldn't be here");
+     }
+   }
 
 #ifdef _OPENMP
-#pragma omp parallel
+#pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
-  for (MFIter mfi(S,true); mfi.isValid(); ++mfi)
-  {
-    const Box& box = mfi.tilebox();            
-    FArrayBox& du = divu[mfi];
-    const FArrayBox& vtY = mcViscTerms[mfi];
-    const FArrayBox& vtT = mcViscTerms[mfi];
-    const FArrayBox& rhoY = S[mfi];
-    const FArrayBox& rYdot = RhoYdot[mfi];
-    const FArrayBox& T = S[mfi];
-    calc_divu_fortran(BL_TO_FORTRAN_BOX(box),
-                      BL_TO_FORTRAN_ANYD(du),
-                      BL_TO_FORTRAN_ANYD(rYdot),
-                      BL_TO_FORTRAN_N_ANYD(vtY,vtCompY),
-                      BL_TO_FORTRAN_N_ANYD(vtT,vtCompT),
-                      BL_TO_FORTRAN_N_ANYD(rhoY,first_spec),
-                      BL_TO_FORTRAN_N_ANYD(T,Temp));
+   for (MFIter mfi(S,TilingIfNotGPU()); mfi.isValid(); ++mfi)
+   {
+      const Box& bx = mfi.tilebox();
+      auto const& rhoY    = S.array(mfi,first_spec);
+      auto const& T       = S.array(mfi,Temp);
+      auto const& vtT     = mcViscTerms.array(mfi,vtCompT);
+      auto const& vtY     = mcViscTerms.array(mfi,vtCompY);
+      auto const& rhoYdot = RhoYdot.array(mfi);
+      auto const& du      = divu.array(mfi);
 
-  }
+      amrex::ParallelFor(bx, [ rhoY, T, vtT, vtY, rhoYdot, du]
+      AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+      {
+         compute_divu( i, j, k, rhoY, T, vtT, vtY, rhoYdot, du );
+      });
+   }
   
 #ifdef AMREX_USE_EB    
-    {
-//      MultiFab divu_tmp(grids,dmap,divu.nComp(),divu.nGrow()+2,MFInfo(),Factory());
-//      divu_tmp.copy<RunOn::Host>(divu);
-//      amrex::single_level_weighted_redistribute(  {divu_tmp}, {divu}, *volfrac, 0, 1, {geom} );
-    }
-    EB_set_covered(divu,0.);
+   EB_set_covered(divu,0.);
 #endif
-  
-  
 }
 
 //
