@@ -4549,25 +4549,30 @@ PeleLM::scalar_advection_update (Real dt,
                                  int  first_scalar,
                                  int  last_scalar)
 {
-  //
-  // Careful: If here, the sign of aofs is flipped (wrt the usual NS treatment).
-  //
-  MultiFab&       S_new = get_new_data(State_Type);
-  const MultiFab& S_old = get_old_data(State_Type);
+   //
+   // Careful: If here, the sign of aofs is flipped (wrt the usual NS treatment).
+   //
+   MultiFab&       S_new = get_new_data(State_Type);
+   const MultiFab& S_old = get_old_data(State_Type);
 
 #ifdef _OPENMP
-#pragma omp parallel
+#pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif  
-  for (MFIter mfi(S_new,true); mfi.isValid(); ++mfi)
-  {
-    const Box& box   = mfi.tilebox();
-    const int nc = last_scalar - first_scalar + 1; 
-    FArrayBox& snew = S_new[mfi];
+   for (MFIter mfi(S_new,TilingIfNotGPU()); mfi.isValid(); ++mfi)
+   {
+      const Box& bx   = mfi.tilebox();
+      auto const& snew   = S_new.array(mfi);
+      auto const& sold   = S_old.array(mfi);
+      auto const& adv    = aofs->array(mfi);
 
-    snew.copy<RunOn::Host>( (*aofs)[mfi],box,first_scalar,box,first_scalar,nc);
-    snew.mult<RunOn::Host>(dt,box,first_scalar,nc);
-    snew.plus<RunOn::Host>(S_old[mfi],box,first_scalar,first_scalar,nc);            
-  }
+      amrex::ParallelFor(bx, [snew, sold, adv, dt, first_scalar, last_scalar]
+      AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+      {
+         for (int n = first_scalar; n <= last_scalar; n++) {
+            snew(i,j,k,n) = sold(i,j,k,n) + dt * adv(i,j,k,n);
+         }
+      });
+   }
 
 }
 
