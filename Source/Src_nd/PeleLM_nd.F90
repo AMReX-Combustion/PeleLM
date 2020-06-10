@@ -26,7 +26,7 @@ module PeleLM_nd
             pphys_HMIXfromTY, pphys_RHOfromPTY, pphys_CPMIXfromTY, init_data_new_mech, &
             spec_temp_visc, vel_visc, beta_wbar, est_divu_dt, check_divu_dt,&
             dqrad_fill, divu_fill, dsdt_fill, ydot_fill, rhoYdot_fill, &
-            fab_minmax, repair_flux, incrwext_flx_div, flux_div, compute_ugradp, conservative_T_floor, &
+            repair_flux, incrwext_flx_div, flux_div, compute_ugradp, conservative_T_floor, &
             part_cnt_err, mcurve, smooth, grad_wbar, recomp_update, &
             valgt_error, vallt_error, magvort_error, diffgt_error, &
             FORT_AVERAGE_EDGE_STATES
@@ -1136,37 +1136,6 @@ contains
       call fillEdges( rydot, ryd_lo, ryd_hi, domlo, domhi, bc)
 
    end subroutine rhoYdot_fill
-
-!=========================================================
-!  Clip fab min/max
-!=========================================================
-
-   subroutine fab_minmax(lo, hi, &
-                         fab, f_lo, f_hi,&
-                         fmin, fmax, nc) &
-                         bind(C, name="fab_minmax")
-
-      implicit none
-
-      integer :: lo(3), hi(3)
-      integer :: nc
-      integer :: f_lo(3), f_hi(3)
-      REAL_T, dimension(f_lo(1):f_hi(1),f_lo(2):f_hi(2),f_lo(3):f_hi(3),nc) :: fab
-      REAL_T  :: fmin, fmax
-
-      integer :: i, j, k, n
-
-      do n = 1,nc
-         do k = lo(3), hi(3)
-            do j = lo(2), hi(2)
-               do i = lo(1), hi(1)
-                  fab(i,j,k,n) = MAX( fmin, MIN( fmax, fab(i,j,k,n) ) )
-               end do
-            end do
-         end do
-      end do
-
-   end subroutine fab_minmax
 
 !=========================================================
 !  Correct flux to ensure that sum of diffusicve flux is zero

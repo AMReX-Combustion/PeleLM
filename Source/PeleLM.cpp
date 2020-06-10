@@ -749,23 +749,6 @@ PeleLM::Finalize ()
 }
 
 static
-void
-FabMinMax (FArrayBox& fab,
-           const Box& box,
-           Real       fmin,
-           Real       fmax,
-           int        sComp,
-           int        nComp)
-{
-  BL_ASSERT(fab.box().contains(box));
-  BL_ASSERT(sComp + nComp <= fab.nComp());
-
-  fab_minmax(BL_TO_FORTRAN_BOX(box),
-             BL_TO_FORTRAN_ANYD(fab),
-             &fmin, &fmax, &nComp);
-}
-
-static
 Box
 getStrip(const Geometry& geom)
 {
@@ -8631,6 +8614,25 @@ PeleLM::RhoH_to_Temp (MultiFab& S,
     max_iters = std::max(max_iters, RhoH_to_Temp(S[mfi],box,dominmax));
   }
 
+   if (dominmax) {
+#ifdef _OPENMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+      for (MFIter mfi(S,TilingIfNotGPU()); mfi.isValid(); ++mfi)
+      {
+         const Box& bx = mfi.tilebox();
+         auto const& T = S.array(mfi,Temp);
+         amrex::Real tempmin = htt_tempmin;
+         amrex::Real tempmax = htt_tempmax;
+
+         amrex::ParallelFor(bx, [tempmin, tempmax, T]
+         AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+         {
+            fabMinMax( i, j, k, tempmin, tempmax, 1, T);
+         });
+      }
+   }
+
   if (verbose > 1)
   {
     const int IOProc   = ParallelDescriptor::IOProcessorNumber();
@@ -8706,13 +8708,10 @@ PeleLM::RhoH_to_Temp (FArrayBox& S,
   //  os.close(); 
   //}
 
-  // we index into Temperature component in S.  H and Y begin with the 0th component
-  int iters = RhoH_to_Temp_DoIt(S,H,Y,box,0,0,Temp,htt_hmixTYP);
+   // we index into Temperature component in S.  H and Y begin with the 0th component
+   int iters = RhoH_to_Temp_DoIt(S,H,Y,box,0,0,Temp,htt_hmixTYP);
 
-  if (dominmax)
-    FabMinMax(S, box, htt_tempmin, htt_tempmax, Temp, 1);    
-
-  return iters;
+   return iters;
 }
 
 void
