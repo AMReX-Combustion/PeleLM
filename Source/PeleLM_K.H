@@ -256,4 +256,19 @@ compute_divu(int i, int j, int k,
    }
 }
 
+AMREX_GPU_HOST_DEVICE
+inline
+void
+fabMinMax(int i, int j, int k,
+          int           ncomp,  
+          amrex::Real   fmin,
+          amrex::Real   fmax,
+          amrex::Array4<amrex::Real> const& fab) noexcept
+{
+   using namespace amrex::literals;
+
+   for (int n = 0; n < ncomp; n++) {
+      fab(i,j,k,n) = amrex::max( fmin, amrex::min( fmax, fab(i,j,k,n) ) );
+   }
+}
 #endif

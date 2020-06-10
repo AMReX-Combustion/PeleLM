@@ -442,18 +442,6 @@ private:
 
   void set_reasonable_grow_cells_for_R(amrex::Real time);
 
-  void set_rho_to_species_sum (amrex::MultiFab& S,
-                               int       strtcomp, 
-                               int       nghost_in = 0,
-                               int       minzero = 0);
-
-  void set_rho_to_species_sum (amrex::MultiFab& S_in,
-                               int       s_in_start,
-                               amrex::MultiFab& S_out,
-                               int       s_out_start, 
-                               int       nghost_in = 0,
-                               int       minzero = 0);
-
   void setThermoPress(amrex::Real time);
 
   void set_typical_values(bool restart);

@@ -2324,17 +2324,45 @@ void
 PeleLM::post_regrid (int lbase,
                      int new_finest)
 {
-  NavierStokesBase::post_regrid(lbase, new_finest);
-  //
-  // FIXME: This may be necessary regardless, unless the interpolation
-  //        to fine from coarse data preserves rho=sum(rho.Y)
-  //
-  if (do_set_rho_to_species_sum)
-  {
-    const int nGrow = 0;
-    if (parent->levelSteps(0)>0 && level>lbase)
-      set_rho_to_species_sum(get_new_data(State_Type),0,nGrow,0);
-  }
+   NavierStokesBase::post_regrid(lbase, new_finest);
+   //
+   // FIXME: This may be necessary regardless, unless the interpolation
+   //        to fine from coarse data preserves rho=sum(rho.Y)
+   //
+   if (!do_set_rho_to_species_sum) return;
+
+   const int nGrow   = 0;
+   int       minzero = 0;           // Flag to clip the species mass density to zero before summing it up to build rho.
+   if (parent->levelSteps(0)>0 && level>lbase) {
+      MultiFab& Snew = get_new_data(State_Type);
+#ifdef _OPENMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+      {
+         for (MFIter mfi(Snew,TilingIfNotGPU()); mfi.isValid(); ++mfi)
+         {
+            const Box& bx = mfi.tilebox();
+            auto const& rho     = Snew.array(mfi,Density);
+            auto const& rhoY    = Snew.array(mfi,first_spec);
+            if (minzero) {
+               amrex::ParallelFor(bx, [rhoY]
+               AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+               {
+                  fabMinMax( i, j, k, 0.0, Real_MAX, NUM_SPECIES, rhoY);
+               });
+            }
+            amrex::ParallelFor(bx, [rho, rhoY]
+            AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+            {
+               rho(i,j,k) = 0.0;
+               for (int n = 0; n <= NUM_SPECIES; n++) {
+                  rho(i,j,k) += rho(i,j,k,n);
+               }
+            });
+         }
+      }
+   }
+   make_rho_curr_time();
 }
 
 void
@@ -4711,76 +4739,6 @@ PeleLM::compute_differential_diffusion_terms (MultiFab& D,
     Extrapolater::FirstOrderExtrap(D, geom, 0, nc);
     Extrapolater::FirstOrderExtrap(DD, geom, 0, 1);
   }
-}
-
-void
-PeleLM::set_rho_to_species_sum (MultiFab& S,
-                                int       strtcomp, 
-                                int       nghost_in,
-                                int       minzero)
-{
-  set_rho_to_species_sum(S, strtcomp, S, strtcomp, nghost_in, minzero);
-}
-
-//
-// This function
-//       sets the density component in S_out to the sum of 
-//       the species components in S_in
-// if minzero = 1, the species components are first "max-ed" w/ zero
-//  thus changing S_in values    
-//
-// s_in_strt is the state component corresponding to the
-// 0-th component of S_in. It is otherwise assumed that 
-// that the components of S_in "align" with those in S_out.
-//
-void
-PeleLM::set_rho_to_species_sum (MultiFab& S_in, 
-                                int       s_in_strt,
-                                MultiFab& S_out,
-                                int       s_out_strt,  
-                                int       nghost_in,
-                                int       minzero)
-
-{
-  const BoxArray& sgrids = S_in.boxArray();
-
-  BL_ASSERT(sgrids == S_out.boxArray());
-
-  const int s_first_spec = first_spec - s_in_strt;
-  const int s_last_spec  = last_spec  - s_in_strt;
-  const int s_num_spec   = last_spec - first_spec + 1;
-  const int s_density    = Density-s_out_strt;
-  const int nghost       = std::min(S_in.nGrow(), std::min(S_out.nGrow(), nghost_in));
-
-  if (minzero)
-  {
-#ifdef _OPENMP
-#pragma omp parallel
-#endif
-    for (MFIter mfi(S_in,true); mfi.isValid(); ++mfi)
-    {
-      const Box&  box = mfi.tilebox();
-      FabMinMax(S_in[mfi], box, 0.0, Real_MAX, s_first_spec, s_num_spec);
-    }
-  }
-
-  BL_ASSERT(s_density >= 0);
-
-  S_out.setVal(0, s_density, 1, nghost);
-  
-#ifdef _OPENMP
-#pragma omp parallel
-#endif
-  for (MFIter mfi(S_in,true); mfi.isValid(); ++mfi)
-  {
-    const Box&       box = mfi.tilebox();
-    for (int spec = s_first_spec; spec <= s_last_spec; spec++)
-    {
-      S_out[mfi].plus<RunOn::Host>(S_in[mfi],box,spec,s_density,1);
-    }
-  }
-
-  make_rho_curr_time();
 }
 
 void
@@ -7370,21 +7328,26 @@ PeleLM::mac_sync ()
 
       if (do_set_rho_to_species_sum)
       {
-        increment.setVal(0.0,Density-AMREX_SPACEDIM,1,0);
-
-        for (int istate = first_spec; istate <= last_spec; istate++)
-        {
 #ifdef _OPENMP
-#pragma omp parallel
+#pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
-          for (MFIter mfi(increment,true); mfi.isValid(); ++mfi)
-          {
-            const Box& box = mfi.tilebox();
-            increment[mfi].plus<RunOn::Host>(increment[mfi],box,istate-AMREX_SPACEDIM,
-                                             Density-AMREX_SPACEDIM,1);
-          }
-        }
+         for (MFIter mfi(increment,TilingIfNotGPU()); mfi.isValid(); ++mfi)
+         {
+            const Box& bx = mfi.tilebox();
+            auto const& rhoincr  = increment.array(mfi,Density-AMREX_SPACEDIM);
+            auto const& rhoYincr = increment.array(mfi,first_spec-AMREX_SPACEDIM);
+
+            amrex::ParallelFor(bx, [rhoincr, rhoYincr]
+            AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+            {
+               rhoincr(i,j,k) = 0.0;   
+               for (int n = 0; n <= NUM_SPECIES; n++) { 
+                  rhoincr(i,j,k) += rhoYincr(i,j,k,n);
+               }
+            });
+         }
       }
+// TODO : find a way to merge these two kernels.   
 #ifdef _OPENMP
 #pragma omp parallel
 #endif
