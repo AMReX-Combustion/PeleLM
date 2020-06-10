@@ -21,7 +21,7 @@ module PeleLM_nd
 
   private
 
-  public :: floor_spec, calc_divu_fortran, calc_gamma_pinv, &
+  public :: floor_spec, calc_gamma_pinv, &
             pphys_mass_to_mole, pphys_massr_to_conc, &
             pphys_HMIXfromTY, pphys_RHOfromPTY, pphys_CPMIXfromTY, init_data_new_mech, &
             spec_temp_visc, vel_visc, beta_wbar, est_divu_dt, check_divu_dt,&
@@ -62,83 +62,6 @@ contains
       enddo
 
    end subroutine floor_spec
-
-!=========================================================
-!  Compute DivU by gathering its components
-!=========================================================
-
-   subroutine calc_divu_fortran( lo, hi, &
-                                 divu, d_lo, d_hi, &
-                                 rYdot, rd_lo, rd_hi, &
-                                 vtY, v_lo, v_hi, &
-                                 vtT, vT_lo, vT_hi, &
-                                 rhoY, rY_lo, rY_hi, &
-                                 T, t_lo, t_hi) &
-                                 bind(C, name="calc_divu_fortran")
-
-      implicit none
-
-! In/Out
-      integer, intent(in) :: lo(3),hi(3)
-      integer, intent(in) :: d_lo(3), d_hi(3)
-      integer, intent(in) :: rd_lo(3), rd_hi(3)
-      integer, intent(in) :: v_lo(3), v_hi(3)
-      integer, intent(in) :: vT_lo(3), vT_hi(3)
-      integer, intent(in) :: rY_lo(3), rY_hi(3)
-      integer, intent(in) :: t_lo(3), t_hi(3)
-      REAL_T, dimension(d_lo(1):d_hi(1),d_lo(2):d_hi(2),d_lo(3):d_hi(3)) :: divu
-      REAL_T, dimension(rd_lo(1):rd_hi(1),rd_lo(2):rd_hi(2),rd_lo(3):rd_hi(3),NUM_SPECIES) :: rYdot
-      REAL_T, dimension(v_lo(1):v_hi(1),v_lo(2):v_hi(2),v_lo(3):v_hi(3),NUM_SPECIES) :: vtY
-      REAL_T, dimension(vT_lo(1):vT_hi(1),vT_lo(2):vT_hi(2),vT_lo(3):vT_hi(3)) :: vtT
-      REAL_T, dimension(rY_lo(1):rY_hi(1),rY_lo(2):rY_hi(2),rY_lo(3):rY_hi(3),NUM_SPECIES) :: rhoY
-      REAL_T, dimension(t_lo(1):t_hi(1),t_lo(2):t_hi(2),t_lo(3):t_hi(3)) :: T
-
-! Local
-      REAL_T, dimension(1:NUM_SPECIES) :: Y, H, invmtw
-      REAL_T :: cpmix, rho, rhoInv, tmp, mmw
-      integer :: i, j, k, n
-
-      call CKWT(invmtw)
-      do n = 1,NUM_SPECIES
-         invmtw(n) = one / invmtw(n)
-      end do
-
-      do k=lo(3),hi(3)
-         do j=lo(2),hi(2)
-            do i=lo(1),hi(1)
-               rho = 0.d0
-               do n=1,NUM_SPECIES
-                  rho = rho + rhoY(i,j,k,n)
-               enddo
-               rhoInv = 1.d0 / rho
-               do n=1,NUM_SPECIES
-                  Y(n) = rhoInv*rhoY(i,j,k,n)
-               enddo
-               CALL CKCPBS(T(i,j,k),Y,cpmix)
-               CALL CKHMS(T(i,j,k),H)
-               CALL CKMMWY(Y,mmw)
-
-               cpmix = cpmix*1.d-4
-               do n=1,NUM_SPECIES
-                  H(n) = H(n)*1.d-4
-               enddo
-
-               tmp = 0.d0
-               
-               !write(*,*) "DEBUG IN calc_divu_fortran ",i,j,k,divu(i,j,k),vtT(i,j,k),rho,cpmix,T(i,j,k)
-               
-               divu(i,j,k) = (divu(i,j,k) + vtT(i,j,k))/(rho*cpmix*T(i,j,k))
-               do n=1,NUM_SPECIES
-               !write(*,*) "DEBUG n ",n,divu(i,j,k),vtY(i,j,k,n),rYdot(i,j,k,n),invmtw(n),H(n)
-                  divu(i,j,k) = divu(i,j,k) &
-                              + (vtY(i,j,k,n) + rYdot(i,j,k,n)) &
-                              *(invmtw(n)*mmw*rhoInv - H(n)/(rho*cpmix*T(i,j,k)))
-               enddo
-            enddo
-         enddo
-      enddo
-
-   end subroutine calc_divu_fortran
 
 !=========================================================
 !  Compute theta = 1.0 / (\gamma * P )
