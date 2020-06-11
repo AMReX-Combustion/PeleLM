@@ -317,7 +317,7 @@ getRhoGivenTYP(int i, int j, int k,
    for (int n = 0; n < NUM_SPECIES; n++) {
       y[n] = Y(i,j,k,n);                       // TODO: need to find a way not to do that
    }
-   EOS::TYP2R(T(i,j,k), y, P_cgs, rho_cgs);
+   EOS::PYT2R(P_cgs, y, T(i,j,k), rho_cgs);
    rho(i,j,k) = rho_cgs * 1.0e3_rt;            // CGS -> MKS conversion
 }
 #endif
