@@ -300,4 +300,24 @@ getGammaInv(int i, int j, int k,
 
    return gammainv;
 }
+
+AMREX_GPU_HOST_DEVICE
+inline
+void
+getRhoGivenTYP(int i, int j, int k,
+               amrex::Array4<const amrex::Real> const& T,
+               amrex::Array4<const amrex::Real> const& Y,
+               const amrex::Real                const& Patm,      
+               amrex::Array4<      amrex::Real> const& rho) noexcept
+{
+   using namespace amrex::literals;
+
+   amrex::Real rho_cgs, P_cgs, y[NUM_SPECIES];
+   P_cgs = Patm * EOS::PATM;
+   for (int n = 0; n < NUM_SPECIES; n++) {
+      y[n] = Y(i,j,k,n);                       // TODO: need to find a way not to do that
+   }
+   EOS::TYP2R(T(i,j,k), y, P_cgs, rho_cgs);
+   rho(i,j,k) = rho_cgs * 1.0e3_rt;            // CGS -> MKS conversion
+}
 #endif
