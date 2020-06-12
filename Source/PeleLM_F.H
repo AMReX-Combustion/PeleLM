@@ -162,19 +162,6 @@ extern "C" {
                         BL_FORT_FAB_ARG_ANYD(RD_Wbar),
                   const BL_FORT_FAB_ARG_ANYD(Y));
 
-   void spec_temp_visc(const int* lo, const int* hi,
-                       const BL_FORT_FAB_ARG_ANYD(T),
-                       const BL_FORT_FAB_ARG_ANYD(Y),
-                             BL_FORT_FAB_ARG_ANYD(beta),
-                       const int* nCompD, const amrex::Real* P1ATM_MKS,
-                       const int* do_temp, const int* do_VelVisc, 
-                       const amrex::Real* Pamb_in);
-
-   void fab_minmax (const int* lo, const int* hi,
-                    BL_FORT_FAB_ARG_ANYD(fabdat),
-                    const amrex::Real* min, const amrex::Real* max, const int* nc);
-
-
    void repair_flux_eb(const int* lo,  const int* hi,
                     const int* dlo, const int* dhi,
                     BL_FORT_FAB_ARG_ANYD(flux),
