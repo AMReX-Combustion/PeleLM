@@ -40,6 +40,7 @@
 #include <AMReX_Utility.H>
 #include <NS_error_F.H>
 #include <EOS.H>
+#include <Transport.H>
 
 #ifdef USE_SUNDIALS_PP
 #include <reactor.h>
@@ -496,6 +497,7 @@ PeleLM::variableSetUp ()
 #endif
 
   EOS::init();
+  transport_init();
 
   init_transport(use_tranlib);
 
