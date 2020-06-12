@@ -5,6 +5,7 @@
 #include <AMReX_FArrayBox.H>
 #include <mechanism.h>
 #include <EOS.H>
+#include <Transport.H>
 #include <cmath>
 
 AMREX_GPU_HOST_DEVICE
@@ -307,7 +308,7 @@ void
 getRhoGivenTYP(int i, int j, int k,
                amrex::Array4<const amrex::Real> const& T,
                amrex::Array4<const amrex::Real> const& Y,
-               const amrex::Real                const& Patm,      
+               amrex::Real                      const& Patm,
                amrex::Array4<      amrex::Real> const& rho) noexcept
 {
    using namespace amrex::literals;
@@ -320,4 +321,91 @@ getRhoGivenTYP(int i, int j, int k,
    EOS::PYT2R(P_cgs, y, T(i,j,k), rho_cgs);
    rho(i,j,k) = rho_cgs * 1.0e3_rt;            // CGS -> MKS conversion
 }
+
+AMREX_GPU_HOST_DEVICE
+inline
+void
+getTransportCoeff(int i, int j, int k,
+                  amrex::Array4<const amrex::Real> const& rhoY,
+                  amrex::Array4<      amrex::Real> const& T,
+                  amrex::Array4<      amrex::Real> const& rhoDi,
+                  amrex::Array4<      amrex::Real> const& lambda,
+                  amrex::Array4<      amrex::Real> const& mu) noexcept
+{
+   using namespace amrex::literals;
+
+   amrex::Real mwtinv[NUM_SPECIES];
+   EOS::inv_molecular_weight(mwtinv);
+
+   // Get rho & Y from rhoY
+   amrex::Real rho = 0.0_rt, rhoinv;
+   for (int n = 0; n < NUM_SPECIES; n++) {
+      rho += rhoY(i,j,k,n);
+   }
+   rhoinv = 1.0_rt / rho;
+   amrex::Real y[NUM_SPECIES];
+   for (int n = 0; n < NUM_SPECIES; n++) {
+      y[n] = rhoY(i,j,k,n) * rhoinv;
+   }
+
+   amrex::Real Wbar;
+   EOS::Y2WBAR(y, Wbar);
+
+   rho *= 1.0e-3_rt;                          // MKS -> CGS conversion
+   amrex::Real rhoDi_cgs[NUM_SPECIES], lambda_cgs, mu_cgs, dummy_xi;
+
+   bool get_xi = false, get_mu = true, get_lam = true, get_Ddiag = true;
+   transport(get_xi, get_mu, get_lam, get_Ddiag, T(i,j,k),
+             rho, y, rhoDi_cgs, mu_cgs, dummy_xi, lambda_cgs);
+
+   // Do CGS -> MKS conversions
+   for (int n = 0; n < NUM_SPECIES; n++) {
+      rhoDi(i,j,k,n) = rhoDi_cgs[n] * Wbar * mwtinv[n] * 1.0e-1_rt;
+   }
+   lambda(i,j,k) = lambda_cgs * 1.0e-5_rt;
+   mu(i,j,k) = mu_cgs * 1.0e-1_rt;
+}
+
+AMREX_GPU_HOST_DEVICE
+inline
+void
+getTransportCoeffUnityLe(int i, int j, int k,
+                         amrex::Real                      const& ScInv,
+                         amrex::Real                      const& PrInv,
+                         amrex::Array4<const amrex::Real> const& rhoY,
+                         amrex::Array4<      amrex::Real> const& T,
+                         amrex::Array4<      amrex::Real> const& rhoDi,
+                         amrex::Array4<      amrex::Real> const& lambda,
+                         amrex::Array4<      amrex::Real> const& mu) noexcept
+{
+   using namespace amrex::literals;
+
+   // Get rho & Y from rhoY
+   amrex::Real rho = 0.0_rt, rhoinv;
+   for (int n = 0; n < NUM_SPECIES; n++) {
+      rho += rhoY(i,j,k,n);
+   }
+   rhoinv = 1.0_rt / rho;
+   amrex::Real y[NUM_SPECIES];
+   for (int n = 0; n < NUM_SPECIES; n++) {
+      y[n] = rhoY(i,j,k,n) * rhoinv;
+   }
+
+   rho *= 1.0e-3_rt;                                     // MKS -> CGS conversion
+   amrex::Real rhoDi_cgs[NUM_SPECIES], lambda_cgs, mu_cgs, dummy_xi;
+
+   bool get_xi = false, get_mu = true, get_lam = false, get_Ddiag = false;
+   transport(get_xi, get_mu, get_lam, get_Ddiag, T(i,j,k),
+             rho, y, rhoDi_cgs, mu_cgs, dummy_xi, lambda_cgs);
+
+   mu(i,j,k) = mu_cgs * 1.0e-1_rt;                       // CGS -> MKS conversions
+   for (int n = 0; n < NUM_SPECIES; n++) {
+      rhoDi(i,j,k,n) = mu_cgs * 1.0e-1_rt * ScInv;       // Constant Schmidt number
+   }
+
+   amrex::Real cpmix;
+   EOS::TY2Cp(T(i,j,k), y, cpmix);
+   lambda(i,j,k) = mu_cgs * 1.0e-1_rt * PrInv / cpmix;   // Constant Prandtl number
+}
+
 #endif
