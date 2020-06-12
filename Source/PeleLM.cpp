@@ -8123,141 +8123,74 @@ PeleLM::calcViscosity (const Real time,
 void
 PeleLM::calcDiffusivity (const Real time)
 {
-  BL_PROFILE("HT::calcDiffusivity()");
+   BL_PROFILE("HT::calcDiffusivity()");
 
-  const TimeLevel whichTime = which_time(State_Type, time);
-  BL_ASSERT(whichTime == AmrOldTime || whichTime == AmrNewTime);
+   const TimeLevel whichTime = which_time(State_Type, time);
+   BL_ASSERT(whichTime == AmrOldTime || whichTime == AmrNewTime);
 
-  MultiFab **diff = (whichTime == AmrOldTime) ? diffn : diffnp1;
-  MultiFab& S = (whichTime == AmrOldTime) ? get_old_data(State_Type) : get_new_data(State_Type);
+   MultiFab& diff = (whichTime == AmrOldTime) ? *diffn_cc : *diffnp1_cc;
+   MultiFab& S = (whichTime == AmrOldTime) ? get_old_data(State_Type) : get_new_data(State_Type);
 
-  int offset = AMREX_SPACEDIM + 1; // No diffusion coeff for vels or rho
-  int nc_diff = nspecies+2;      // rhoD + lambda + mu
+   int offset = AMREX_SPACEDIM + 1; // No diffusion coeff for vels or rho
+   int nc_diff = NUM_SPECIES+2;      // rhoD + lambda + mu
 
-  // for open chambers, ambient pressure is constant in time
-  Real p_amb = p_amb_old;
+   // for open chambers, ambient pressure is constant in time
+   Real p_amb = p_amb_old;
 
-  if (closed_chamber == 1)
-  {
-    // for closed chambers, use piecewise-linear interpolation
-    // we need level 0 prev and tnp1 for closed chamber algorithm
-    AmrLevel& amr_lev = parent->getLevel(0);
-    StateData& state_data = amr_lev.get_state_data(0);
-    const Real lev_0_prevtime = state_data.prevTime();
-    const Real lev_0_curtime = state_data.curTime();
+   if (closed_chamber == 1)
+   {
+     // for closed chambers, use piecewise-linear interpolation
+     // we need level 0 prev and tnp1 for closed chamber algorithm
+     AmrLevel& amr_lev = parent->getLevel(0);
+     StateData& state_data = amr_lev.get_state_data(0);
+     const Real lev_0_prevtime = state_data.prevTime();
+     const Real lev_0_curtime = state_data.curTime();
 
-    // linearly interpolate from level 0 ambient pressure
-    p_amb = (lev_0_curtime - time )/(lev_0_curtime-lev_0_prevtime) * p_amb_old +
-            (time - lev_0_prevtime)/(lev_0_curtime-lev_0_prevtime) * p_amb_new;
-  }
+     // linearly interpolate from level 0 ambient pressure
+     p_amb = (lev_0_curtime - time )/(lev_0_curtime-lev_0_prevtime) * p_amb_old +
+             (time - lev_0_prevtime)/(lev_0_curtime-lev_0_prevtime) * p_amb_new;
+   }
 
-  int sComp = amrex::min((int)first_spec, (int)Temp);
-  int eComp = amrex::max((int)last_spec,  (int)Temp);
-  int nComp = eComp - sComp + 1;
-  int nGrow = 1;
-  FillPatchIterator fpi(*this,S,nGrow,time,State_Type,sComp,nComp);
-  MultiFab& mf_cc = fpi.get_mf();
-  int Tcomp  = Temp       - sComp;
-  int RYcomp = first_spec - sComp;
+   // Index management
+   int sComp = amrex::min((int)first_spec, (int)Temp);
+   int eComp = amrex::max((int)last_spec,  (int)Temp);
+   int nComp = eComp - sComp + 1;
+   int nGrow = 1;
+   int Tcomp  = Temp       - sComp;
+   int RYcomp = first_spec - sComp;
 
-#ifdef AMREX_USE_EB
-  FluxBoxes fb(this,nComp,0);
-  MultiFab **mf_ec = fb.get();
-
-//Get typical values for T and rhoY
-  Vector<Real> typvals;
-  typvals.resize(nComp);
-  typvals[Tcomp] = typical_values[Temp];
-  for (int k = 0; k < nspecies; ++k) {
-     typvals[RYcomp+k] = typical_values[first_spec+k]*typical_values[Density];
-  }
-
-  auto math_bc_T = fetchBCArray(State_Type,Temp,1);
-  EB_interp_CellCentroid_to_FaceCentroid(mf_cc, D_DECL(*mf_ec[0],*mf_ec[1],*mf_ec[2]), Tcomp, Tcomp, 1, geom, math_bc_T);
-  EB_set_covered_faces({D_DECL(mf_ec[0],mf_ec[1],mf_ec[2])},Tcomp,1,typvals);
-
-  auto math_bc_RY = fetchBCArray(State_Type,first_spec,nspecies);
-  EB_interp_CellCentroid_to_FaceCentroid(mf_cc, D_DECL(*mf_ec[0],*mf_ec[1],*mf_ec[2]), RYcomp, RYcomp, nspecies, geom, math_bc_RY);
-  EB_set_covered_faces({D_DECL(mf_ec[0],mf_ec[1],mf_ec[2])},RYcomp,nspecies,typvals);
+   // Fillpatch the state   
+   FillPatchIterator fpi(*this,S,nGrow,time,State_Type,sComp,nComp);
+   MultiFab& S_cc = fpi.get_mf();
 
 #ifdef _OPENMP
-#pragma omp parallel
+#pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
-  {
-    FArrayBox tmp;
-    for (int dir=0; dir<AMREX_SPACEDIM; ++dir)
-    {
-      for (MFIter mfi(*mf_ec[dir],true); mfi.isValid();++mfi)
-      {
-        const Box& box  = mfi.tilebox();
-        tmp.resize(box,nc_diff);
-        FArrayBox& sfab = (*mf_ec[dir])[mfi];
+   for (MFIter mfi(S_cc, TilingIfNotGPU()); mfi.isValid(); ++mfi)
+   {
+      const Box& gbx = mfi.growntilebox();
+      auto const& rhoY    = S_cc.array(mfi,RYcomp);
+      auto const& T       = S_cc.array(mfi,Tcomp);
+      auto const& rhoD    = diff.array(mfi,0);
+      auto const& lambda  = diff.array(mfi,NUM_SPECIES);
+      auto const& mu      = diff.array(mfi,NUM_SPECIES+1);
 
-        int  vflag  = false;
-        int dotemp  = 1;
-
-        spec_temp_visc(BL_TO_FORTRAN_BOX(box),
-                       BL_TO_FORTRAN_N_ANYD(sfab,Tcomp),
-                       BL_TO_FORTRAN_N_ANYD(sfab,RYcomp),
-                       BL_TO_FORTRAN_N_ANYD(tmp,0),
-                       &nc_diff, &P1atm_MKS, &dotemp, &vflag, &p_amb);
-
-        FArrayBox& dfab = (*diff[dir])[mfi];
-        dfab.setVal<RunOn::Host>(0,box,0,dfab.nComp());
-        dfab.copy<RunOn::Host>(tmp,0,first_spec-offset,nspecies); // Put rhoD into spec slots
-        dfab.copy<RunOn::Host>(tmp,nspecies,Temp-offset-1,1); // Put lambda into T slot: note that the -1 is to put T next to Yk instead of RhoH
-        
+      if ( unity_Le ) {
+         amrex::Real ScInv = 1.0/schmidt;
+         amrex::Real PrInv = 1.0/prandtl;
+         amrex::ParallelFor(gbx, [rhoY, T, rhoD, lambda, mu, ScInv, PrInv] 
+         AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+         {
+            getTransportCoeffUnityLe( i, j, k, ScInv, PrInv, rhoY, T, rhoD, lambda, mu);
+         });
+      } else {
+         amrex::ParallelFor(gbx, [rhoY, T, rhoD, lambda, mu]
+         AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+         {
+            getTransportCoeff( i, j, k, rhoY, T, rhoD, lambda, mu);
+         });
       }
-    }
-  }
-  EB_set_covered_faces({D_DECL(diff[0],diff[1],diff[2])},0.0);
-#else
-
-#ifdef _OPENMP
-#pragma omp parallel
-#endif
-  {
-    FArrayBox bcen, bfac;
-    for (MFIter mfi(mf_cc,true); mfi.isValid();++mfi)
-    {
-      FArrayBox& sfab =  mf_cc[mfi];
-      const Box& vbox = mfi.tilebox();
-      const Box  gbox = grow(vbox,1);
-
-      const int  vflag   = false;
-      // rhoD + lambda + mu
-      const int nc_bcen = nspecies+2; 
-      int       dotemp  = 1;
-      bcen.resize(gbox,nc_bcen);
-      bcen.setVal<RunOn::Host>(0);
-
-      spec_temp_visc(BL_TO_FORTRAN_BOX(gbox),
-                     BL_TO_FORTRAN_N_ANYD(sfab,Tcomp),
-                     BL_TO_FORTRAN_N_ANYD(sfab,RYcomp),
-                     BL_TO_FORTRAN_N_ANYD(bcen,0),
-                     &nc_bcen, &P1atm_MKS, &dotemp, &vflag, &p_amb);
-
-      for (int dir = 0; dir < AMREX_SPACEDIM; dir++)
-      {
-        const Box ebox = surroundingNodes(vbox,dir);
-        bfac.resize(ebox,nspecies+1);
-
-        FPLoc bc_lo = fpi_phys_loc(get_desc_lst()[State_Type].getBC(Temp).lo(dir));
-        FPLoc bc_hi = fpi_phys_loc(get_desc_lst()[State_Type].getBC(Temp).hi(dir));
-        center_to_edge_fancy(bcen,bfac,grow(vbox,amrex::BASISV(dir)),ebox,0,0,nspecies+1,geom.Domain(),bc_lo,bc_hi);
-
-        const Box& ntb = mfi.nodaltilebox(dir);
-        (*diff[dir])[mfi].copy<RunOn::Host>(bfac,ntb,0,ntb,first_spec-offset,nspecies); // Put rhoD into spec slots
-        (*diff[dir])[mfi].copy<RunOn::Host>(bfac,ntb,nspecies,ntb,Temp-offset-1,1); // Put lambda into T slot: note that the -1 is to put T next to Yk instead of RhoH
-      }
-    }
-  }
-
-#endif
-
-  if (zeroBndryVisc > 0) {
-    zeroBoundaryVisc(diff,time,first_spec,0,nc_diff);
-  }
+   }
 }
 
 #ifdef USE_WBAR
@@ -8322,34 +8255,54 @@ PeleLM::getDiffusivity (MultiFab* diffusivity[AMREX_SPACEDIM],
                         const int dst_comp,
                         const int ncomp)
 {
-    BL_ASSERT(state_comp > Density);
-    
-    //
-    // Pick correct diffusivity component
-    //
-      
-    int diff_comp_loc;
-    if (state_comp == Temp)
-    {
-       diff_comp_loc = state_comp - Density - 2;
-    }
-    else
-    {
-       diff_comp_loc = state_comp - Density - 1;
-    }
+   BL_PROFILE("HT::getDiffusivity()");
+   BL_ASSERT(state_comp > Density);
+   
+   //
+   // Select time level to work with (N or N+1)
+   //
+   const TimeLevel whichTime = which_time(State_Type,time);
+   BL_ASSERT(whichTime == AmrOldTime || whichTime == AmrNewTime);
 
-    //
-    // Select time level to work with (N or N+1)
-    //
-    const TimeLevel whichTime = which_time(State_Type,time);
-    BL_ASSERT(whichTime == AmrOldTime || whichTime == AmrNewTime);
+   MultiFab* diff      = (whichTime == AmrOldTime) ? diffn_cc : diffnp1_cc;
 
-    MultiFab **diff = (whichTime == AmrOldTime ? diffn : diffnp1);
+   const int offset    = AMREX_SPACEDIM + 1;          // No diffusion coeff for vels or rho
+   int       diff_comp = state_comp - offset;
 
-    for (int dir = 0; dir < AMREX_SPACEDIM; dir++)
-    {
-        MultiFab::Copy(*diffusivity[dir],*diff[dir],diff_comp_loc,dst_comp,ncomp,0);
-    }
+#ifdef AMREX_USE_EB
+   // EB : use EB CCentroid -> FCentroid
+   auto math_bc = fetchBCArray(State_Type,state_comp,ncomp);
+   EB_interp_CellCentroid_to_FaceCentroid(diff, D_DECL(*diffusivity[0],*diffusivity[1],*diffusivity[2]), 
+                                          diff_comp, dst_comp, ncomp, geom, math_bc);
+   EB_set_covered_faces({D_DECL(*diffusivity[0],*diffusivity[1],*diffusivity[2])},0.0);
+#else
+   // NON-EB : simply use center_to_edge_fancy
+
+#ifdef _OPENMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+   {
+      for (MFIter mfi(*diff,TilingIfNotGPU()); mfi.isValid();++mfi)
+      {
+         const Box& bx = mfi.tilebox();
+         
+         for (int dir = 0; dir < AMREX_SPACEDIM; dir++)
+         {
+            const Box ebox = surroundingNodes(bx,dir);
+            FPLoc bc_lo = fpi_phys_loc(get_desc_lst()[State_Type].getBC(Temp).lo(dir));
+            FPLoc bc_hi = fpi_phys_loc(get_desc_lst()[State_Type].getBC(Temp).hi(dir));
+            center_to_edge_fancy((*diff)[mfi],(*diffusivity[dir])[mfi], amrex::grow(bx,amrex::BASISV(dir)), ebox, diff_comp, 
+                                 dst_comp, ncomp, geom.Domain(), bc_lo, bc_hi); 
+
+         }
+      }
+   }
+
+#endif
+
+   if (zeroBndryVisc > 0) {
+      zeroBoundaryVisc(diffusivity,time,state_comp,dst_comp,ncomp);
+   }
 }
 
 #ifdef USE_WBAR
