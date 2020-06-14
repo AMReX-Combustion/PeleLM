@@ -108,6 +108,32 @@ void pelelm_drhomry (const Box& bx, FArrayBox& derfab, int dcomp, int /*ncomp*/,
     });
 }
 
+//
+// Compute sum of rhoY_dot
+//
+
+void pelelm_dsrhoydot (const Box& bx, FArrayBox& derfab, int dcomp, int /*ncomp*/,
+                  const FArrayBox& datfab, const Geometry& /*geomdata*/,
+                  Real /*time*/, const int* /*bcrec*/, int /*level*/)
+
+{
+    auto const in_dat = datfab.array();
+    auto       der = derfab.array();
+
+    amrex::ParallelFor(bx, 1,
+    [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
+    {
+        der(i,j,k,n) = 0.;
+    });
+
+    int nspec_comp = in_dat.nComp();  //here we get the correct number of species
+
+    amrex::ParallelFor(bx, nspec_comp,
+    [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
+    {
+        der(i,j,k,0) = der(i,j,k,0) + in_dat(i,j,k,n);
+    });
+}
 
 
 

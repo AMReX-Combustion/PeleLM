@@ -22,7 +22,7 @@ module derive_PLM_nd
 
   public :: dermgvort, dermgdivu, & 
             deravgpres, dergrdpx, dergrdpy, dergrdpz, &
-            dsrhoydot, drhort, &
+            drhort, &
             dermolefrac, derconcentration, dertransportcoeff, dermolweight, &
             dhrr, dermixanddiss, dcma
 
@@ -1103,66 +1103,6 @@ contains
                        lo, hi, 2, delta(3))
 
    end subroutine dergrdpz
-
-!=========================================================
-!  Compute sum of rhoY_dot
-!=========================================================
-
-   subroutine dsrhoydot (e,   e_lo, e_hi, nv, &
-                         dat, d_lo, d_hi, ncomp, &
-                         lo, hi, domlo, domhi, delta, xlo, time, dt, bc, &
-                         level, grid_no) &
-                         bind(C, name="dsrhoydot")
-
-      implicit none
-
-!  In/Out
-      integer, intent(in) :: lo(3), hi(3)
-      integer, intent(in) :: e_lo(3), e_hi(3), nv
-      integer, intent(in) :: d_lo(3), d_hi(3), ncomp
-      integer, intent(in) :: domlo(3), domhi(3)
-      integer, intent(in) :: bc(3,2,ncomp)
-      REAL_T, intent(in)  :: delta(3), xlo(3), time, dt
-      REAL_T, intent(out),dimension(e_lo(1):e_hi(1),e_lo(2):e_hi(2),e_lo(3):e_hi(3),nv) :: e
-      REAL_T, intent(in), dimension(d_lo(1):d_hi(1),d_lo(2):d_hi(2),d_lo(3):d_hi(3),ncomp) :: dat
-      integer, intent(in) :: level, grid_no
-
-!  Local
-      integer :: nxlo, nxhi, nylo, nyhi, nzlo,nzhi
-
-      integer :: i, j, k, n
-
-      nxlo = max(0,domlo(1)-lo(1))
-      nxhi = max(0,hi(1)-domhi(1))
-      nylo = max(0,domlo(2)-lo(2))
-      nyhi = max(0,hi(2)-domhi(2))
-      nzlo = max(0,domlo(3)-lo(3))
-      nzhi = max(0,hi(3)-domhi(3))
-
-      if (nxlo+nxhi+nylo+nyhi+nzlo+nzhi .gt. 0) then
-         CALL amrex_abort("dsrhoydot: outside domain")
-      endif
-
-      do k = lo(3),hi(3)
-         do j = lo(2), hi(2)
-            do i = lo(1), hi(1)
-               e(i,j,k,1) = 0.0d0
-            enddo
-         enddo
-      enddo
-
-! TODO: weird loop nesting ?
-      do n=1,ncomp
-         do k=lo(3),hi(3)
-            do j = lo(2), hi(2)
-               do i = lo(1), hi(1)
-                  e(i,j,k,1) = e(i,j,k,1)+dat(i,j,k,n)
-               enddo
-            enddo
-         enddo
-      enddo
-
-   end subroutine dsrhoydot
 
 !=========================================================
 !  Compute rho*R*T

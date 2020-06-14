@@ -24,4 +24,8 @@ void pelelm_drhomry (const amrex::Box& bx, amrex::FArrayBox& derfab, int dcomp, 
                          const amrex::FArrayBox& datafab, const amrex::Geometry& geomdata,
                          amrex::Real time, const int* bcrec, int level);
 
+void pelelm_dsrhoydot (const amrex::Box& bx, amrex::FArrayBox& derfab, int dcomp, int ncomp,
+                         const amrex::FArrayBox& datafab, const amrex::Geometry& geomdata,
+                         amrex::Real time, const int* bcrec, int level);
+
 #endif

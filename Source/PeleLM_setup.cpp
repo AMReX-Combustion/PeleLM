@@ -872,7 +872,7 @@ PeleLM::variableSetUp ()
   //
   // Sum rhoYdot
   //
-  derive_lst.add("sumRhoYdot",IndexType::TheCellType(),1,dsrhoydot,the_same_box);
+  derive_lst.add("sumRhoYdot",IndexType::TheCellType(),1,pelelm_dsrhoydot,the_same_box);
   for (int i = 0; i < nspecies; i++)
   {
     derive_lst.addComponent("sumRhoYdot",desc_lst,RhoYdot_Type,i,1);
