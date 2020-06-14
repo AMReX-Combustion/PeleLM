@@ -41,6 +41,9 @@
 #include <NS_error_F.H>
 #include <EOS.H>
 
+#include <PeleLM_derive.H>
+
+
 #ifdef USE_SUNDIALS_PP
 #include <reactor.h>
 #else
@@ -755,7 +758,7 @@ PeleLM::variableSetUp ()
   //
   // rho_temp
   //
-  derive_lst.add("rho_temp",IndexType::TheCellType(),1,dermprho,the_same_box);
+  derive_lst.add("rho_temp",IndexType::TheCellType(),1,pelelm_dermprho,the_same_box);
   derive_lst.addComponent("rho_temp",desc_lst,State_Type,Density,1);
   derive_lst.addComponent("rho_temp",desc_lst,State_Type,Temp,1);
   //
