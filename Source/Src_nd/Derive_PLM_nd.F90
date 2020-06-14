@@ -20,7 +20,7 @@ module derive_PLM_nd
 
   private
 
-  public :: dermgvort, dermgdivu, derdvrho, & !dermprho, &
+  public :: dermgvort, dermgdivu, & 
             deravgpres, dergrdpx, dergrdpy, dergrdpz, &
             drhomry, dsrhoydot, dermassfrac, drhort, &
             dermolefrac, derconcentration, dertransportcoeff, dermolweight, &
@@ -874,77 +874,6 @@ contains
 
    end subroutine dermgdivu
 
-!=========================================================
-!  Compute C / rho
-!=========================================================
-
-   subroutine derdvrho (e,   e_lo, e_hi, nv, &
-                        dat, d_lo, d_hi, ncomp, &
-                        lo, hi, domlo, domhi, delta, xlo, time, dt, bc, &
-                        level, grid_no) &
-                        bind(C, name="derdvrho")
-
-      implicit none
-
-!  In/Out
-      integer, intent(in) :: lo(3), hi(3)
-      integer, intent(in) :: e_lo(3), e_hi(3), nv
-      integer, intent(in) :: d_lo(3), d_hi(3), ncomp
-      integer, intent(in) :: domlo(3), domhi(3)
-      integer, intent(in) :: bc(3,2,ncomp)
-      REAL_T, intent(in)  :: delta(3), xlo(3), time, dt
-      REAL_T, intent(out),dimension(e_lo(1):e_hi(1),e_lo(2):e_hi(2),e_lo(3):e_hi(3),nv) :: e
-      REAL_T, intent(in), dimension(d_lo(1):d_hi(1),d_lo(2):d_hi(2),d_lo(3):d_hi(3),ncomp) :: dat
-      integer, intent(in) :: level, grid_no
-
-!  Local
-      integer :: i, j, k
-
-      do k = lo(3), hi(3)
-         do j = lo(2), hi(2)
-            do i = lo(1), hi(1)
-               e(i,j,k,1) = dat(i,j,k,2)/dat(i,j,k,1)
-            end do
-         end do
-      end do
-
-   end subroutine derdvrho
-
-!=========================================================
-!  Compute rho * C 
-!=========================================================
-
-!   subroutine dermprho (e,   e_lo, e_hi, nv, &
-!                        dat, d_lo, d_hi, ncomp, &
-!                        lo, hi, domlo, domhi, delta, xlo, time, dt, bc, &
-!                        level, grid_no) &
-!                        bind(C, name="dermprho")
-!
-!      implicit none
-!
-!!  In/Out
-!      integer, intent(in) :: lo(3), hi(3)
-!      integer, intent(in) :: e_lo(3), e_hi(3), nv
-!      integer, intent(in) :: d_lo(3), d_hi(3), ncomp
-!      integer, intent(in) :: domlo(3), domhi(3)
-!      integer, intent(in) :: bc(3,2,ncomp)
-!      REAL_T, intent(in)  :: delta(3), xlo(3), time, dt
-!      REAL_T, intent(out),dimension(e_lo(1):e_hi(1),e_lo(2):e_hi(2),e_lo(3):e_hi(3),nv) :: e
-!      REAL_T, intent(in), dimension(d_lo(1):d_hi(1),d_lo(2):d_hi(2),d_lo(3):d_hi(3),ncomp) :: dat
-!      integer, intent(in) :: level, grid_no
-!
-!!  Local
-!      integer :: i, j, k
-!
-!      do k = lo(3), hi(3)
-!         do j = lo(2), hi(2)
-!            do i = lo(1), hi(1)
-!               e(i,j,k,1) = dat(i,j,k,2)*dat(i,j,k,1)
-!            end do
-!         end do
-!      end do
-!
-!   end subroutine dermprho
 
 !=========================================================
 !  Compute cell-centered pressure as average of the 
@@ -1507,47 +1436,6 @@ contains
 
    end subroutine derconcentration
 
-!=========================================================
-!  Extract species mass rhoY_n
-!=========================================================
-
-   subroutine derRhoY (e,   e_lo, e_hi, nv, &
-                       dat, d_lo, d_hi, ncomp, &
-                       lo, hi, domlo, domhi, delta, xlo, time, dt, bc, &
-                       level, grid_no) &
-                       bind(C, name="derRhoY")
-
-      implicit none
-
-!  In/Out
-      integer, intent(in) :: lo(3), hi(3)
-      integer, intent(in) :: e_lo(3), e_hi(3), nv
-      integer, intent(in) :: d_lo(3), d_hi(3), ncomp
-      integer, intent(in) :: domlo(3), domhi(3)
-      integer, intent(in) :: bc(3,2,ncomp)
-      REAL_T, intent(in)  :: delta(3), xlo(3), time, dt
-      REAL_T, intent(out),dimension(e_lo(1):e_hi(1),e_lo(2):e_hi(2),e_lo(3):e_hi(3),nv) :: e
-      REAL_T, intent(in), dimension(d_lo(1):d_hi(1),d_lo(2):d_hi(2),d_lo(3):d_hi(3),ncomp) :: dat
-      integer, intent(in) :: level, grid_no
-
-!  Local
-      integer :: fS
-
-      integer :: i, j, k, n
-
-      fS  = 1
-
-      do k=lo(3),hi(3)
-         do j=lo(2),hi(2)
-            do i=lo(1),hi(1)
-               do n = 1,NUM_SPECIES
-                  e(i,j,k,n) = dat(i,j,k,fS+n-1)
-               enddo
-            enddo
-         enddo
-      enddo
-
-   end subroutine derRhoY
 
 !=========================================================
 !  Compute transport coefficients: D_n, \lambda, \mu

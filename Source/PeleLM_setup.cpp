@@ -764,7 +764,7 @@ PeleLM::variableSetUp ()
   //
   // enthalpy
   //
-  derive_lst.add("enthalpy",IndexType::TheCellType(),1,derdvrho,the_same_box);
+  derive_lst.add("enthalpy",IndexType::TheCellType(),1,pelelm_derdvrho,the_same_box);
   derive_lst.addComponent("enthalpy",desc_lst,State_Type,Density,1);
   derive_lst.addComponent("enthalpy",desc_lst,State_Type,RhoH,1);
 
@@ -790,7 +790,7 @@ PeleLM::variableSetUp ()
   for (int i = 0; i < nspecies; i++)
     var_names_rhoY[i] = "rho.Y("+spec_names[i]+")";
   derive_lst.add("rhoY",IndexType::TheCellType(),nspecies,
-                 var_names_rhoY,derRhoY,the_same_box);
+                 var_names_rhoY,pelelm_derRhoY,the_same_box);
   derive_lst.addComponent("rhoY",desc_lst,State_Type,first_spec,nspecies);
   
   //
@@ -799,7 +799,7 @@ PeleLM::variableSetUp ()
   for (int i = 0; i < nspecies; i++)
   {
     const std::string chname = "Y("+spec_names[i]+")";
-    derive_lst.add(chname,IndexType::TheCellType(),1,derdvrho,the_same_box);
+    derive_lst.add(chname,IndexType::TheCellType(),1,pelelm_derdvrho,the_same_box);
     derive_lst.addComponent(chname,desc_lst,State_Type,Density,1);
     derive_lst.addComponent(chname,desc_lst,State_Type,first_spec + i,1);
   }
