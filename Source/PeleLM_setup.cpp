@@ -861,7 +861,7 @@ PeleLM::variableSetUp ()
     //
     // rho-sum rhoY.
     //
-    derive_lst.add("rhominsumrhoY",IndexType::TheCellType(),1,drhomry,the_same_box);
+    derive_lst.add("rhominsumrhoY",IndexType::TheCellType(),1,pelelm_drhomry,the_same_box);
     derive_lst.addComponent("rhominsumrhoY",desc_lst,State_Type,Density,1);
     for (int i = 0; i < nspecies; i++)
     {
