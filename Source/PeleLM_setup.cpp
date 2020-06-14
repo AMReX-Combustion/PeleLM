@@ -810,7 +810,7 @@ PeleLM::variableSetUp ()
   for (int i = 0; i < nspecies; i++)
     var_names_massfrac[i] = "Y("+spec_names[i]+")";
   derive_lst.add("mass_fractions",IndexType::TheCellType(),nspecies,
-                 var_names_massfrac,dermassfrac,the_same_box);
+                 var_names_massfrac,pelelm_dermassfrac,the_same_box);
   derive_lst.addComponent("mass_fractions",desc_lst,State_Type,Density,1);
   derive_lst.addComponent("mass_fractions",desc_lst,State_Type,first_spec,nspecies);
 

@@ -59,7 +59,24 @@ void pelelm_derRhoY (const Box& bx, FArrayBox& derfab, int dcomp, int ncomp,
     });
 }
 
+//
+// Extract species mass rhoY_n
+//
 
+void pelelm_dermassfrac (const Box& bx, FArrayBox& derfab, int dcomp, int ncomp,
+                  const FArrayBox& datfab, const Geometry& /*geomdata*/,
+                  Real /*time*/, const int* /*bcrec*/, int /*level*/)
+
+{
+    auto const in_dat = datfab.array();
+    auto       der = derfab.array();
+    amrex::ParallelFor(bx, ncomp,
+    [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
+    {
+        amrex::Real rhoinv = 1.0 / in_dat(i,j,k,0);
+        der(i,j,k,n) = in_dat(i,j,k,n+1) * rhoinv;
+    });
+}
 
 
 

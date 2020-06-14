@@ -22,7 +22,7 @@ module derive_PLM_nd
 
   public :: dermgvort, dermgdivu, & 
             deravgpres, dergrdpx, dergrdpy, dergrdpz, &
-            drhomry, dsrhoydot, dermassfrac, drhort, &
+            drhomry, dsrhoydot, drhort, &
             dermolefrac, derconcentration, dertransportcoeff, dermolweight, &
             dhrr, dermixanddiss, dcma
 
@@ -1289,50 +1289,6 @@ contains
 
    end subroutine drhort
 
-!=========================================================
-!  Compute species mass fractions Y_n
-!=========================================================
-
-   subroutine dermassfrac (e,   e_lo, e_hi, nv, &
-                           dat, d_lo, d_hi, ncomp, &
-                           lo, hi, domlo, domhi, delta, xlo, time, dt, bc, &
-                           level, grid_no) &
-                           bind(C, name="dermassfrac")
-
-      implicit none
-
-!  In/Out
-      integer, intent(in) :: lo(3), hi(3)
-      integer, intent(in) :: e_lo(3), e_hi(3), nv
-      integer, intent(in) :: d_lo(3), d_hi(3), ncomp
-      integer, intent(in) :: domlo(3), domhi(3)
-      integer, intent(in) :: bc(3,2,ncomp)
-      REAL_T, intent(in)  :: delta(3), xlo(3), time, dt
-      REAL_T, intent(out),dimension(e_lo(1):e_hi(1),e_lo(2):e_hi(2),e_lo(3):e_hi(3),nv) :: e
-      REAL_T, intent(in), dimension(d_lo(1):d_hi(1),d_lo(2):d_hi(2),d_lo(3):d_hi(3),ncomp) :: dat
-      integer, intent(in) :: level, grid_no
-
-!  Local
-      integer :: fS, rho
-      REAL_T  :: rhoinv
-
-      integer :: i, j, k, n
-
-      rho = 1
-      fS  = 2
-
-      do k=lo(3),hi(3)
-         do j=lo(2),hi(2)
-            do i=lo(1),hi(1)
-               rhoinv = 1.0d0 / dat(i,j,k,rho)
-               do n = 1,NUM_SPECIES
-                  e(i,j,k,n) = dat(i,j,k,fS+n-1) * rhoinv
-               enddo
-            enddo
-         enddo
-      enddo
-
-   end subroutine dermassfrac
 
 !=========================================================
 !  Compute species mole fractions X_n
