@@ -439,4 +439,39 @@ getBetaWbar(int i, int j, int k,
 }
 #endif
 
+AMREX_GPU_HOST_DEVICE
+inline
+void
+getVelViscosity(int i, int j, int k,
+                amrex::Array4<const amrex::Real> const& rhoY,
+                amrex::Array4<      amrex::Real> const& T,
+                amrex::Array4<      amrex::Real> const& mu) noexcept
+{
+   using namespace amrex::literals;
+
+   amrex::Real mwtinv[NUM_SPECIES];
+   EOS::inv_molecular_weight(mwtinv);
+
+   // Get rho & Y from rhoY
+   amrex::Real rho = 0.0_rt, rhoinv;
+   for (int n = 0; n < NUM_SPECIES; n++) {
+      rho += rhoY(i,j,k,n);
+   }
+   rhoinv = 1.0_rt / rho;
+   amrex::Real y[NUM_SPECIES];
+   for (int n = 0; n < NUM_SPECIES; n++) {
+      y[n] = rhoY(i,j,k,n) * rhoinv;
+   }
+
+   rho *= 1.0e-3_rt;                          // MKS -> CGS conversion
+   amrex::Real dummy_rhoDi[NUM_SPECIES], dummy_lambda, mu_cgs, dummy_xi;
+
+   bool get_xi = false, get_mu = true, get_lam = false, get_Ddiag = false;
+   transport(get_xi, get_mu, get_lam, get_Ddiag, T(i,j,k),
+             rho, y, dummy_rhoDi, mu_cgs, dummy_xi, dummy_lambda);
+
+   // Do CGS -> MKS conversions
+   mu(i,j,k) = mu_cgs * 1.0e-1_rt;
+}
+
 #endif
