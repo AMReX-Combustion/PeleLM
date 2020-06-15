@@ -887,7 +887,7 @@ PeleLM::variableSetUp ()
   //
   // average pressure
   //
-  derive_lst.add("avg_pressure",IndexType::TheCellType(),1,DeriveFunc3D(deravgpres),the_nodes);
+  derive_lst.add("avg_pressure",IndexType::TheCellType(),1,pelelm_deravgpres,the_nodes);
   derive_lst.addComponent("avg_pressure",desc_lst,Press_Type,Pressure,1);
   //
   // Pressure gradient in X direction.

@@ -136,7 +136,38 @@ void pelelm_dsrhoydot (const Box& bx, FArrayBox& derfab, int dcomp, int /*ncomp*
 }
 
 
+//
+//  Compute cell-centered pressure as average of the 
+//  surrounding nodal values 
+//
 
+void pelelm_deravgpres (const Box& bx, FArrayBox& derfab, int dcomp, int /*ncomp*/,
+                  const FArrayBox& datfab, const Geometry& /*geomdata*/,
+                  Real /*time*/, const int* /*bcrec*/, int /*level*/)
+
+{
+    auto const in_dat = datfab.array();
+    auto       der = derfab.array();
+
+#if (AMREX_SPACEDIM >= 2 )
+     Real factor = 0.25;
+#elif (AMREX_SPACEDIM == 3 )
+     Real factor = 0.125;
+#endif
+
+    amrex::ParallelFor(bx, 1,
+    [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
+    {
+        der(i,j,k,n) =  factor * (  in_dat(i+1,j,k,n)     + in_dat(i,j,k,n)  
+                                  + in_dat(i+1,j+1,k,n)   + in_dat(i,j+1,k,n) 
+#if (AMREX_SPACEDIM == 3 )
+                                  + in_dat(i+1,j,k+1,n)   + in_dat(i,j,k+1,n)  
+                                  + in_dat(i+1,j+1,k+1,n) + in_dat(i,j+1,k+1,n) 
+#endif
+                                 );
+    });
+
+}
 
 
 

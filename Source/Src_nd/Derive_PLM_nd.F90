@@ -21,7 +21,7 @@ module derive_PLM_nd
   private
 
   public :: dermgvort, dermgdivu, & 
-            deravgpres, dergrdpx, dergrdpy, dergrdpz, &
+            dergrdpx, dergrdpy, dergrdpz, &
             drhort, &
             dermolefrac, derconcentration, dertransportcoeff, dermolweight, &
             dhrr, dermixanddiss, dcma
@@ -874,60 +874,6 @@ contains
 
    end subroutine dermgdivu
 
-
-!=========================================================
-!  Compute cell-centered pressure as average of the 
-!  surrounding nodal values 
-!=========================================================
-
-   subroutine deravgpres (e,   e_lo, e_hi, nv, &
-                          dat, d_lo, d_hi, ncomp, &
-                          lo, hi, domlo, domhi, delta, xlo, time, dt, bc, &
-                          level, grid_no) &
-                          bind(C, name="deravgpres")
-
-      implicit none
-
-!  In/Out
-      integer, intent(in) :: lo(3), hi(3)
-      integer, intent(in) :: e_lo(3), e_hi(3), nv
-      integer, intent(in) :: d_lo(3), d_hi(3), ncomp
-      integer, intent(in) :: domlo(3), domhi(3)
-      integer, intent(in) :: bc(3,2,ncomp)
-      REAL_T, intent(in)  :: delta(3), xlo(3), time, dt
-      REAL_T, intent(out),dimension(e_lo(1):e_hi(1),e_lo(2):e_hi(2),e_lo(3):e_hi(3),nv) :: e
-      REAL_T, intent(in), dimension(d_lo(1):d_hi(1),d_lo(2):d_hi(2),d_lo(3):d_hi(3),ncomp) :: dat
-      integer, intent(in) :: level, grid_no
-
-!  Local
-      REAL_T  :: factor
-      integer :: i, j, k
-
-      factor = 0.5d0
-#if (AMREX_SPACEDIM >= 2 )
-      factor = 0.25d0
-#if (AMREX_SPACEDIM == 3 )
-      factor = 0.125d0
-#endif
-#endif
-
-      do k = lo(3), hi(3)
-         do j = lo(2), hi(2)
-            do i = lo(1), hi(1)
-               e(i,j,k,1) =  factor * (  dat(i+1,j,k,1)     + dat(i,j,k,1)  &
-#if (AMREX_SPACEDIM >= 2 )
-                                       + dat(i+1,j+1,k,1)   + dat(i,j+1,k,1) &
-#if (AMREX_SPACEDIM == 3 )
-                                       + dat(i+1,j,k+1,1)   + dat(i,j,k+1,1)  &
-                                       + dat(i+1,j+1,k+1,1) + dat(i,j+1,k+1,1) &
-#endif
-#endif
-                                      )
-            end do
-         end do
-      end do
-
-   end subroutine deravgpres
 
 !=========================================================
 !  Compute node centered pressure gradient in direction dir
