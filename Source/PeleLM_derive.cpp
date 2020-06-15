@@ -155,14 +155,14 @@ void pelelm_deravgpres (const Box& bx, FArrayBox& derfab, int dcomp, int /*ncomp
     Real factor = 0.125;
 #endif
 
-    amrex::ParallelFor(bx, 1,
-    [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
+    amrex::ParallelFor(bx,
+    [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
     {
-        der(i,j,k,n) =  factor * (  in_dat(i+1,j,k,n)     + in_dat(i,j,k,n)  
-                                  + in_dat(i+1,j+1,k,n)   + in_dat(i,j+1,k,n) 
+        der(i,j,k,dcomp) =  factor * (  in_dat(i+1,j,k)     + in_dat(i,j,k)  
+                                      + in_dat(i+1,j+1,k)   + in_dat(i,j+1,k) 
 #if (AMREX_SPACEDIM == 3 )
-                                  + in_dat(i+1,j,k+1,n)   + in_dat(i,j,k+1,n)  
-                                  + in_dat(i+1,j+1,k+1,n) + in_dat(i,j+1,k+1,n) 
+                                      + in_dat(i+1,j,k+1)   + in_dat(i,j,k+1)  
+                                      + in_dat(i+1,j+1,k+1) + in_dat(i,j+1,k+1) 
 #endif
                                  );
     });
@@ -189,15 +189,15 @@ void pelelm_dergrdpx (const Box& bx, FArrayBox& derfab, int dcomp, int /*ncomp*/
     Real factor = 0.25*dxinv[0];
 #endif
 
-    amrex::ParallelFor(bx, 1, 
-    [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
+    amrex::ParallelFor(bx,
+    [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
     {   
 
 #if (AMREX_SPACEDIM == 2 )
-        der(i,j,k,n) = factor*(in_dat(i+1,j,k,n)-in_dat(i,j,k,n)+in_dat(i+1,j+1,k,n)-in_dat(i,j+1,k,n));
+        der(i,j,k,dcomp) = factor*(in_dat(i+1,j,k)-in_dat(i,j,k)+in_dat(i+1,j+1,k)-in_dat(i,j+1,k));
 #elif (AMREX_SPACEDIM == 3 )
-        der(i,j,k,n) = factor*( in_dat(i+1,j,k,n)-in_dat(i,j,k,n)+in_dat(i+1,j+1,k,n)-in_dat(i,j+1,k,n) + 
-                                in_dat(i+1,j,k+1,n)-in_dat(i,j,k+1,n)+in_dat(i+1,j+1,k+1,n)-in_dat(i,j+1,k+1,n));
+        der(i,j,k,dcomp) = factor*( in_dat(i+1,j,k)-in_dat(i,j,k)+in_dat(i+1,j+1,k)-in_dat(i,j+1,k) + 
+                                    in_dat(i+1,j,k+1)-in_dat(i,j,k+1)+in_dat(i+1,j+1,k+1)-in_dat(i,j+1,k+1));
 #endif 
 
     });
@@ -223,15 +223,15 @@ void pelelm_dergrdpy (const Box& bx, FArrayBox& derfab, int dcomp, int /*ncomp*/
     Real factor = 0.25*dxinv[1];
 #endif
 
-    amrex::ParallelFor(bx, 1, 
-    [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
+    amrex::ParallelFor(bx,
+    [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
     {
 
 #if (AMREX_SPACEDIM == 2 )
-        der(i,j,k,n) = factor*(in_dat(i,j+1,k,n)-in_dat(i,j,k,n)+in_dat(i+1,j+1,k,n)-in_dat(i+1,j,k,n));
+        der(i,j,k,dcomp) = factor*(in_dat(i,j+1,k)-in_dat(i,j,k)+in_dat(i+1,j+1,k)-in_dat(i+1,j,k));
 #elif (AMREX_SPACEDIM == 3 )
-        der(i,j,k,n) = factor*( in_dat(i,j+1,k,n)-in_dat(i,j,k,n)+in_dat(i+1,j+1,k,n)-in_dat(i+1,j,k,n) + 
-                                in_dat(i,j+1,k+1,n)-in_dat(i,j,k+1,n)+in_dat(i+1,j+1,k+1,n)-in_dat(i+1,j,k+1,n));
+        der(i,j,k,dcomp) = factor*( in_dat(i,j+1,k)-in_dat(i,j,k)+in_dat(i+1,j+1,k)-in_dat(i+1,j,k) + 
+                                    in_dat(i,j+1,k+1)-in_dat(i,j,k+1)+in_dat(i+1,j+1,k+1)-in_dat(i+1,j,k+1));
 #endif
 
     });
@@ -254,12 +254,12 @@ void pelelm_dergrdpz (const Box& bx, FArrayBox& derfab, int dcomp, int /*ncomp*/
     const auto dxinv = geomdata.InvCellSizeArray();
     Real factor = 0.25*dxinv[2];
 
-    amrex::ParallelFor(bx, 1,
-    [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
+    amrex::ParallelFor(bx,
+    [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
     {
 
-        der(i,j,k,n) = factor*( in_dat(i,  j,k+1,n)-in_dat(i,  j,k,n)+in_dat(i,  j+1,k+1,n)-in_dat(i,  j+1,k,n) + 
-                                in_dat(i+1,j,k+1,n)-in_dat(i+1,j,k,n)+in_dat(i+1,j+1,k+1,n)-in_dat(i+1,j+1,k,n));
+        der(i,j,k,dcomp) = factor*( in_dat(i,  j,k+1)-in_dat(i,  j,k)+in_dat(i,  j+1,k+1)-in_dat(i,  j+1,k) + 
+                                    in_dat(i+1,j,k+1)-in_dat(i+1,j,k)+in_dat(i+1,j+1,k+1)-in_dat(i+1,j+1,k));
 
     });
 
