@@ -22,10 +22,10 @@ module PeleLM_nd
   private
 
   public :: pphys_HMIXfromTY, pphys_RHOfromPTY, pphys_CPMIXfromTY, init_data_new_mech, &
-            vel_visc, beta_wbar, est_divu_dt, check_divu_dt,&
+            vel_visc, est_divu_dt, check_divu_dt,&
             dqrad_fill, divu_fill, dsdt_fill, ydot_fill, rhoYdot_fill, &
             repair_flux, incrwext_flx_div, flux_div, compute_ugradp, conservative_T_floor, &
-            part_cnt_err, mcurve, smooth, grad_wbar, recomp_update, &
+            part_cnt_err, mcurve, smooth, recomp_update, &
             valgt_error, vallt_error, magvort_error, diffgt_error, &
             FORT_AVERAGE_EDGE_STATES
 
@@ -350,56 +350,6 @@ contains
       end if
 
    end subroutine vel_visc
-
-!=========================================================
-!  Beta for Wbar diffusion
-!=========================================================
-
-   subroutine beta_wbar (lo, hi, &
-                         RD, RD_lo, RD_hi, &
-                         RDW, RDW_lo, RDW_hi, &
-                         Y, Y_lo, Y_hi) &
-                         bind(C, name="beta_wbar")
-
-      use fuego_chemistry, only : CKMMWY
-
-      implicit none
-
-      integer, intent(in) ::     lo(3),    hi(3)
-      integer, intent(in) ::  RD_lo(3), RD_hi(3)
-      integer, intent(in) :: RDW_lo(3),RDW_hi(3)
-      integer, intent(in) ::   Y_lo(3),  Y_hi(3)
-      REAL_T, dimension(RD_lo(1):RD_hi(1),RD_lo(2):RD_hi(2),RD_lo(3):RD_hi(3),*), intent(in) :: RD
-      REAL_T, dimension(RDW_lo(1):RDW_hi(1),RDW_lo(2):RDW_hi(2),RDW_lo(3):RDW_hi(3),*), intent(out) :: RDW
-      REAL_T, dimension(Y_lo(1):Y_hi(1),Y_lo(2):Y_hi(2),Y_lo(3):Y_hi(3),NUM_SPECIES), intent(in) :: Y
-
-      integer :: i, j, k, n
-      REAL_T :: Yt(NUM_SPECIES), RHO, Wavg
-
-      do k=lo(3),hi(3)
-         do j=lo(2),hi(2)
-            do i=lo(1),hi(1)
-
-               RHO = 0.d0
-               do n=1,NUM_SPECIES
-                  RHO = RHO + Y(i,j,k,n)
-               enddo
-
-               do n=1,NUM_SPECIES
-                  Yt(n) = Y(i,j,k,n) / RHO
-               enddo
-
-               CALL CKMMWY(Yt,Wavg)
-
-               do n=1,NUM_SPECIES
-                  RDW(i,j,k,n) = RD(i,j,k,n) * Yt(n) / Wavg
-               enddo
-
-            enddo
-         enddo
-      enddo
-
-   end subroutine beta_wbar
 
 !=========================================================
 !  Estimate dt based on divU
@@ -2443,126 +2393,6 @@ contains
       end do
 
    end subroutine smooth
-
-!=========================================================
-!  Compute gradient of Wbar
-!=========================================================
-
-   subroutine grad_wbar ( lo, hi, &
-                          Wbar, w_lo, w_hi,&
-                          rDe, r_lo, r_hi,&
-                          flux, f_lo, f_hi,&
-                          area, a_lo, a_hi,&
-                          dx, dir, mult, inc) &
-                          bind(C, name="grad_wbar")
-
-      implicit none
-
-      integer :: lo(3), hi(3)
-      integer :: w_lo(3), w_hi(3)
-      integer :: r_lo(3), r_hi(3)
-      integer :: f_lo(3), f_hi(3)
-      integer :: a_lo(3), a_hi(3)
-      integer :: dir
-      REAL_T, dimension(w_lo(1):w_hi(1),w_lo(2):w_hi(2),w_lo(3):w_hi(3)) :: Wbar
-      REAL_T, dimension(r_lo(1):r_hi(1),r_lo(2):r_hi(2),r_lo(3):r_hi(3)) :: rDe
-      REAL_T, dimension(f_lo(1):f_hi(1),f_lo(2):f_hi(2),f_lo(3):f_hi(3)) :: flux
-      REAL_T, dimension(a_lo(1):a_hi(1),a_lo(2):a_hi(2),a_lo(3):a_hi(3)) :: area
-      REAL_T  :: dx, mult, inc
-
-      REAL_T  :: Wgr, fac
-      integer :: i, j, k
-
-      fac = mult / dx
-
-      if (inc == 0) then
-
-!     compute grad wbar fluxes
-
-         if (dir==0) then
-            do k = lo(3), hi(3)
-               do j = lo(2), hi(2)
-                  do i = lo(1), hi(1)
-                     Wgr =   fac*(Wbar(i,j,k) - Wbar(i-1,j,k))
-                     flux(i,j,k) = rDe(i,j,k) * Wgr * area(i,j,k)
-                  enddo
-               enddo
-            enddo
-
-         else if (dir==1) then
-
-            do k = lo(3), hi(3)
-               do j = lo(2), hi(2)
-                  do i = lo(1), hi(1)
-                     Wgr =   fac*(Wbar(i,j,k) - Wbar(i,j-1,k))
-                     flux(i,j,k) = rDe(i,j,k) * Wgr * area(i,j,k)
-                  enddo
-               enddo
-            enddo
-
-#if ( AMREX_SPACEDIM == 3 )
-         else if (dir==2) then
-
-            do k = lo(3), hi(3)
-               do j = lo(2), hi(2)
-                  do i = lo(1), hi(1)
-                     Wgr =   fac*(Wbar(i,j,k) - Wbar(i,j,k-1))
-                     flux(i,j,k) = rDe(i,j,k) * Wgr * area(i,j,k)
-                  enddo
-               enddo
-            enddo
-#endif
-
-         else
-            call amrex_abort('Bad dir in grad_wbar')
-         endif
-
-      else
-
-!     increment grad wbar fluxes by a factor of inc (can be negative)
-
-         if (dir==0) then
-
-            do k = lo(3), hi(3)
-               do j = lo(2), hi(2)
-                  do i = lo(1), hi(1)
-                     Wgr =   fac*(Wbar(i,j,k) - Wbar(i-1,j,k))
-                     flux(i,j,k) = flux(i,j,k) + inc * rDe(i,j,k) * Wgr * area(i,j,k)
-                  enddo
-               enddo
-            enddo
-
-         else if (dir==1) then
-
-            do k = lo(3), hi(3)
-               do j = lo(2), hi(2)
-                  do i = lo(1), hi(1)
-                     Wgr =   fac*(Wbar(i,j,k) - Wbar(i,j-1,k))
-                     flux(i,j,k) = flux(i,j,k) + inc * rDe(i,j,k) * Wgr * area(i,j,k)
-                  enddo
-               enddo
-            enddo
-
-#if ( AMREX_SPACEDIM == 3 )
-         else if (dir==2) then
-
-            do k = lo(3), hi(3)
-               do j = lo(2), hi(2)
-                  do i = lo(1), hi(1)
-                     Wgr =   fac*(Wbar(i,j,k) - Wbar(i,j,k-1))
-                     flux(i,j,k) = flux(i,j,k) + inc * rDe(i,j,k) * Wgr * area(i,j,k)
-                  enddo
-               enddo
-            enddo
-#endif
-
-         else
-            call amrex_abort('Bad dir in grad_wbar')
-         endif
-
-      end if
-
-   end subroutine grad_wbar
 
 !=========================================================
 !  Recompute cell update from fluxes

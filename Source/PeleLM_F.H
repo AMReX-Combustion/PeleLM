@@ -157,11 +157,6 @@ extern "C" {
                  const BL_FORT_FAB_ARG_ANYD(Y),
                        BL_FORT_FAB_ARG_ANYD(mu));
 
-   void beta_wbar(const int* lo, const int* hi,
-                  const BL_FORT_FAB_ARG_ANYD(RD),
-                        BL_FORT_FAB_ARG_ANYD(RD_Wbar),
-                  const BL_FORT_FAB_ARG_ANYD(Y));
-
    void repair_flux_eb(const int* lo,  const int* hi,
                     const int* dlo, const int* dhi,
                     BL_FORT_FAB_ARG_ANYD(flux),
@@ -270,14 +265,6 @@ extern "C" {
    void smooth(const int* lo, const int* hi,
                      BL_FORT_FAB_ARG_ANYD(i),
                const BL_FORT_FAB_ARG_ANYD(o));
-
-   void grad_wbar(const int* lo, const int* hi,
-                  const BL_FORT_FAB_ARG_ANYD(Wbar),
-                  const BL_FORT_FAB_ARG_ANYD(rDe),
-                        BL_FORT_FAB_ARG_ANYD(flx),
-                  const BL_FORT_FAB_ARG_ANYD(a),
-                  const amrex::Real* delta, const int* dir,
-                  const amrex::Real* mult, const amrex::Real* inc);
 
    void valgt_error(BL_FORT_IFAB_ARG_ANYD(tag),
                     const int* tagval, const int* clearval,
