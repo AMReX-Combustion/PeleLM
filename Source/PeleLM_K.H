@@ -408,4 +408,35 @@ getTransportCoeffUnityLe(int i, int j, int k,
    lambda(i,j,k) = mu_cgs * 1.0e-1_rt * PrInv / cpmix;   // Constant Prandtl number
 }
 
+#ifdef USE_WBAR
+AMREX_GPU_HOST_DEVICE
+inline
+void
+getBetaWbar(int i, int j, int k,
+            amrex::Array4<const amrex::Real> const& rhoY,
+            amrex::Array4<      amrex::Real> const& rhoDi,
+            amrex::Array4<      amrex::Real> const& DWbar) noexcept
+{
+   using namespace amrex::literals;
+
+   // Get rho & Y from rhoY
+   amrex::Real rho = 0.0_rt, rhoinv;
+   for (int n = 0; n < NUM_SPECIES; n++) {
+      rho += rhoY(i,j,k,n);
+   }
+   rhoinv = 1.0_rt / rho;
+   amrex::Real y[NUM_SPECIES];
+   for (int n = 0; n < NUM_SPECIES; n++) {
+      y[n] = rhoY(i,j,k,n) * rhoinv;
+   }
+
+   amrex::Real Wbar;
+   EOS::Y2WBAR(y, Wbar);
+
+   for (int n = 0; n < NUM_SPECIES; n++) {
+      DWbar(i,j,k,n) = rhoDi(i,j,k,n) * y[n] / Wbar;
+   }
+}
+#endif
+
 #endif
