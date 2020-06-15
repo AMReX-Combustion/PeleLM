@@ -22,7 +22,7 @@ module PeleLM_nd
   private
 
   public :: pphys_HMIXfromTY, pphys_RHOfromPTY, pphys_CPMIXfromTY, init_data_new_mech, &
-            vel_visc, est_divu_dt, check_divu_dt,&
+            est_divu_dt, check_divu_dt,&
             dqrad_fill, divu_fill, dsdt_fill, ydot_fill, rhoYdot_fill, &
             repair_flux, incrwext_flx_div, flux_div, compute_ugradp, conservative_T_floor, &
             part_cnt_err, mcurve, smooth, recomp_update, &
@@ -280,76 +280,6 @@ contains
       enddo
  
    end subroutine init_data_new_mech
-
-!=========================================================
-!  Fluid viscosity
-!=========================================================
-
-   subroutine vel_visc (lo, hi, &
-                        T, t_lo, t_hi, &
-                        RhoY, rY_lo, rY_hi, &
-                        mu, mu_lo, mu_hi) &
-                        bind(C, name="vel_visc")
-
-      use transport_module, only: get_visco_coeffs_F
-      use mod_Fvar_def, only : LeEQ1
-
-      implicit none
-
-! In/Out
-      integer, intent(in) :: lo(3), hi(3)
-      integer, intent(in) :: t_lo(3), t_hi(3)
-      integer, intent(in) :: rY_lo(3), rY_hi(3)
-      integer, intent(in) :: mu_lo(3), mu_hi(3)
-      REAL_T, dimension(t_lo(1):t_hi(1),t_lo(2):t_hi(2),t_lo(3):t_hi(3)), intent(in) :: T
-      REAL_T, dimension(rY_lo(1):rY_hi(1),rY_lo(2):rY_hi(2),rY_lo(3):rY_hi(3),NUM_SPECIES), intent(in) :: RhoY
-      REAL_T, dimension(mu_lo(1):mu_hi(1),mu_lo(2):mu_hi(2),mu_lo(3):mu_hi(3)), intent(out) :: mu
-
-! Local
-      REAL_T  :: Yt(lo(1):hi(1),NUM_SPECIES), RHO_MKS, RHO_MKS_inv
-      integer :: i, j, k, n
-
-      integer :: bl(3), bh(3)
-
-      bl = 1
-      bh = 1
-      bl(1) = lo(1)
-      bh(1) = hi(1)
-
-      if (.not. LeEQ1) then
-         do k = lo(3), hi(3)
-            do j = lo(2), hi(2)
-               do i=lo(1), hi(1)
-                  RHO_MKS = 0.d0
-                  do n = 1, NUM_SPECIES
-                     RHO_MKS = RHO_MKS + RhoY(i,j,k,n)
-                  end do
-                  RHO_MKS_inv = 1.d0 / RHO_MKS
-                  do n = 1, NUM_SPECIES
-                     Yt(i,n) = RhoY(i,j,k,n) * RHO_MKS_inv
-                  end do
-               enddo
-
-               call get_visco_coeffs_F(bl, bh, &
-                                     Yt, bl, bh, &
-                                     T(lo(1),j,k), bl, bh, &
-                                     mu(lo(1),j,k), bl, bh)
-
-               mu(lo(1):hi(1),j,k) = mu(lo(1):hi(1),j,k) * 1.0d-1
-
-            end do
-         end do
-      else 
-         do k = lo(3), hi(3)
-            do j = lo(2), hi(2)
-               do i = lo(1), hi(1)
-                  mu(i,j,k) = 1.85e-5*(T(i,j,k)/298.0)**.7
-               end do
-            end do
-         end do
-      end if
-
-   end subroutine vel_visc
 
 !=========================================================
 !  Estimate dt based on divU

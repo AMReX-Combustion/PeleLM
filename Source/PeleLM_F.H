@@ -152,11 +152,6 @@ extern "C" {
    void set_ht_adim_common(const amrex::Real* thickFacVal,
                            const amrex::Real* Pr, const amrex::Real* Sc, const int* unityLe);
 
-   void vel_visc(const int* lo, const int* hi,
-                 const BL_FORT_FAB_ARG_ANYD(T),
-                 const BL_FORT_FAB_ARG_ANYD(Y),
-                       BL_FORT_FAB_ARG_ANYD(mu));
-
    void repair_flux_eb(const int* lo,  const int* hi,
                     const int* dlo, const int* dhi,
                     BL_FORT_FAB_ARG_ANYD(flux),
