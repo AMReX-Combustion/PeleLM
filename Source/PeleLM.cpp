@@ -8034,117 +8034,43 @@ PeleLM::calcViscosity (const Real time,
                        const int  iteration,
                        const int  ncycle)
 {
-  const TimeLevel whichTime = which_time(State_Type, time);
-  BL_ASSERT(whichTime == AmrOldTime || whichTime == AmrNewTime);
+   BL_PROFILE("HT::calcViscosity()");
 
-  MultiFab **visc = (whichTime == AmrOldTime ? viscn : viscnp1);
-  MultiFab& S = (whichTime == AmrOldTime) ? get_old_data(State_Type) : get_new_data(State_Type);
+   const TimeLevel whichTime = which_time(State_Type, time);
+   BL_ASSERT(whichTime == AmrOldTime || whichTime == AmrNewTime);
+
+   MultiFab& visc = (whichTime == AmrOldTime ? *viscn_cc : *viscnp1_cc);
+   MultiFab& S = (whichTime == AmrOldTime) ? get_old_data(State_Type) : get_new_data(State_Type);
   
-  int sComp = amrex::min((int)first_spec,(int)Temp);
-  int eComp = amrex::max((int)last_spec, (int)Temp);
-  int nComp = eComp - sComp + 1;
-  int nGrow = 1;
-  FillPatchIterator fpi(*this,S,nGrow,time,State_Type,sComp,nComp);
-  MultiFab& mf_cc = fpi.get_mf();
-  int Tcomp =  Temp       - sComp;
-  int RYcomp = first_spec - sComp;
+   // Index management
+   int sComp = amrex::min((int)first_spec,(int)Temp);
+   int eComp = amrex::max((int)last_spec, (int)Temp);
+   int nComp = eComp - sComp + 1;
+   int nGrow = 1;
+   int Tcomp =  Temp       - sComp;
+   int RYcomp = first_spec - sComp;
 
-  FluxBoxes fb(this,nComp,0);
-  MultiFab **mf_ec = fb.get();
-
-#ifdef AMREX_USE_EB
-//Get typical values for T and rhoY
-  Vector<Real> typvals;
-  typvals.resize(nComp);
-  typvals[Tcomp] = typical_values[Temp];
-  for (int k = 0; k < nspecies; ++k) {
-     typvals[RYcomp+k] = typical_values[first_spec+k]*typical_values[Density];
-  }
-
-  auto math_bc_T = fetchBCArray(State_Type,Temp,1);
-  EB_interp_CellCentroid_to_FaceCentroid(mf_cc, D_DECL(*mf_ec[0],*mf_ec[1],*mf_ec[2]), Tcomp, Tcomp, 1, geom, math_bc_T);
-  EB_set_covered_faces({D_DECL(mf_ec[0],mf_ec[1],mf_ec[2])},Tcomp,1,typvals);
-
-  auto math_bc_RY = fetchBCArray(State_Type,first_spec,nspecies);
-  EB_interp_CellCentroid_to_FaceCentroid(mf_cc, D_DECL(*mf_ec[0],*mf_ec[1],*mf_ec[2]), RYcomp, RYcomp, nspecies, geom, math_bc_RY);
-  EB_set_covered_faces({D_DECL(mf_ec[0],mf_ec[1],mf_ec[2])},RYcomp,nspecies,typvals);
+   // Fillpatch the state   
+   FillPatchIterator fpi(*this,S,nGrow,time,State_Type,sComp,nComp);
+   MultiFab& S_cc = fpi.get_mf();
 
 #ifdef _OPENMP
-#pragma omp parallel
+#pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
-  {
-    for (int dir=0; dir<AMREX_SPACEDIM; ++dir)
-    {
-      for (MFIter mfi(*mf_ec[dir],true); mfi.isValid();++mfi)
+   for (MFIter mfi(S_cc, TilingIfNotGPU()); mfi.isValid(); ++mfi)
+   {
+      const Box& gbx = mfi.growntilebox();
+      auto const& rhoY    = S_cc.array(mfi,RYcomp);
+      auto const& T       = S_cc.array(mfi,Tcomp);
+      auto const& mu      = visc.array(mfi);
+
+      amrex::ParallelFor(gbx, [rhoY, T, mu]
+      AMREX_GPU_DEVICE (int i, int j, int k) noexcept
       {
-        const Box& box  = mfi.tilebox();
-        FArrayBox& sfab = (*mf_ec[dir])[mfi];
-        FArrayBox& vfab = (*visc[dir])[mfi];
-
-        vel_visc(BL_TO_FORTRAN_BOX(box),
-                 BL_TO_FORTRAN_N_ANYD(sfab,Tcomp),
-                 BL_TO_FORTRAN_N_ANYD(sfab,RYcomp),
-                 BL_TO_FORTRAN_N_ANYD(vfab,0));
-      }
-    }
-  }
-  EB_set_covered_faces({D_DECL(visc[0],visc[1],visc[2])},0.0);
-#else
-
-#ifdef _OPENMP
-#pragma omp parallel
-#endif
-  {
-    FArrayBox tmp, bcen, bfac;
-    for (MFIter mfi(mf_cc,true); mfi.isValid();++mfi)
-    {
-      FArrayBox& sfab =  mf_cc[mfi];
-      const Box& vbox = mfi.validbox();
-      const Box  gbox = grow(vbox,1);
-
-      bcen.resize(gbox,1);
-
-      vel_visc(BL_TO_FORTRAN_BOX(gbox),
-               BL_TO_FORTRAN_N_ANYD(sfab,Tcomp),
-               BL_TO_FORTRAN_N_ANYD(sfab,RYcomp),
-               BL_TO_FORTRAN_N_ANYD(bcen,0));
-
-      for (int dir = 0; dir < BL_SPACEDIM; dir++)
-      {
-        const Box ebox = surroundingNodes(vbox,dir);
-        bfac.resize(ebox,1);
-        
-        FPLoc bc_lo = fpi_phys_loc(get_desc_lst()[State_Type].getBC(Temp).lo(dir));
-        FPLoc bc_hi = fpi_phys_loc(get_desc_lst()[State_Type].getBC(Temp).hi(dir));
-        center_to_edge_fancy(bcen,bfac,grow(vbox,amrex::BASISV(dir)),ebox,0,0,1,geom.Domain(),bc_lo,bc_hi);
-
-        const Box& ntb = mfi.nodaltilebox(dir);
-        (*visc[dir])[mfi].copy<RunOn::Host>(bfac,ntb,0,ntb,0,1);
-      }
-    }
-  }
-#endif
-
-
-// WARNING: maybe something specific to EB has to be done here
-
-
-  if (do_LES){
-
-    FluxBoxes mu_LES(this,1,0);
-    MultiFab** mu_LES_mf = mu_LES.get();
-    for (int dir=0; dir<AMREX_SPACEDIM; dir++) {
-      mu_LES_mf[dir]->setVal(0., 0, mu_LES_mf[dir]->nComp(), mu_LES_mf[dir]->nGrow());
-    }
-
-    NavierStokesBase::calc_mut_LES(mu_LES_mf,time);
-
-    for (int dir=0; dir<AMREX_SPACEDIM; dir++) {
-      MultiFab::Add(*visc[dir], *mu_LES_mf[dir], 0, 0, 1, 0);
-
-     }
-
+         getVelViscosity( i, j, k, rhoY, T, mu);
+      });
    }
+
 
 }
 
@@ -8262,20 +8188,64 @@ PeleLM::calcDiffusivity_Wbar (const Real time)
 #endif
 
 void
-PeleLM::getViscosity (MultiFab* viscosity[BL_SPACEDIM],
+PeleLM::getViscosity (MultiFab* viscosity[AMREX_SPACEDIM],
                       const Real time)
 {
-    //
-    // Select time level to work with (N or N+1)
-    //
-    const TimeLevel whichTime = which_time(State_Type,time);
-    BL_ASSERT(whichTime == AmrOldTime || whichTime == AmrNewTime);
+   //
+   // Select time level to work with (N or N+1)
+   //
+   const TimeLevel whichTime = which_time(State_Type,time);
+   BL_ASSERT(whichTime == AmrOldTime || whichTime == AmrNewTime);
 
-    MultiFab **visc = (whichTime == AmrOldTime ? viscn : viscnp1);
-    for (int dir = 0; dir < BL_SPACEDIM; dir++)
-    {
-        MultiFab::Copy(*viscosity[dir],*visc[dir],0,0,1,0);
-    }
+   MultiFab* visc      = (whichTime == AmrOldTime) ? viscn_cc : viscnp1_cc;
+
+#ifdef AMREX_USE_EB
+   // EB : use EB CCentroid -> FCentroid
+   auto math_bc = fetchBCArray(State_Type,0,1);
+   EB_interp_CellCentroid_to_FaceCentroid(visc, D_DECL(*viscosity[0],*viscosity[1],*viscosity[2]), 
+                                          0, 0, 1, geom, math_bc);
+   EB_set_covered_faces({D_DECL(*viscosity[0],*viscosity[1],*viscosity[2])},0.0);
+
+#else
+   // NON-EB : simply use center_to_edge_fancy
+
+#ifdef _OPENMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+   {
+      for (MFIter mfi(*visc,TilingIfNotGPU()); mfi.isValid();++mfi)
+      {
+         const Box& bx = mfi.tilebox();
+         for (int dir = 0; dir < AMREX_SPACEDIM; dir++)
+         {
+            const Box ebox = mfi.nodaltilebox(dir);
+            FPLoc bc_lo = fpi_phys_loc(get_desc_lst()[State_Type].getBC(Temp).lo(dir));
+            FPLoc bc_hi = fpi_phys_loc(get_desc_lst()[State_Type].getBC(Temp).hi(dir));
+            center_to_edge_fancy((*visc)[mfi],(*viscosity[dir])[mfi], 
+                                 amrex::grow(bx,amrex::BASISV(dir)), 
+                                 ebox, 0, 0, 1, geom.Domain(), bc_lo, bc_hi); 
+
+         }
+      }
+   }
+#endif
+
+// WARNING: maybe something specific to EB has to be done here
+
+   if (do_LES){
+      FluxBoxes mu_LES(this,1,0);
+      MultiFab** mu_LES_mf = mu_LES.get();
+      for (int dir=0; dir<AMREX_SPACEDIM; dir++) {
+         mu_LES_mf[dir]->setVal(0., 0, mu_LES_mf[dir]->nComp(), mu_LES_mf[dir]->nGrow());
+      }
+
+      NavierStokesBase::calc_mut_LES(mu_LES_mf,time);
+
+      for (int dir=0; dir<AMREX_SPACEDIM; dir++) {
+         MultiFab::Add(*viscosity[dir], *mu_LES_mf[dir], 0, 0, 1, 0);
+     }
+   }
+
 }
 
 void
@@ -8315,7 +8285,6 @@ PeleLM::getDiffusivity (MultiFab* diffusivity[AMREX_SPACEDIM],
       for (MFIter mfi(*diff,TilingIfNotGPU()); mfi.isValid();++mfi)
       {
          const Box& bx = mfi.tilebox();
-         
          for (int dir = 0; dir < AMREX_SPACEDIM; dir++)
          {
             const Box ebox = surroundingNodes(bx,dir);
