@@ -5134,13 +5134,12 @@ PeleLM::advance (Real time,
   //         initialized here to the time N values just to
   //         have something reasonable.
   //
-  const int num_diff = NUM_STATE-BL_SPACEDIM-1;    
+  const int num_diff = NUM_STATE-AMREX_SPACEDIM-1;
   calcViscosity(prev_time,dt,iteration,ncycle);
   calcDiffusivity(prev_time);
-  for (int d=0; d<AMREX_SPACEDIM; ++d) {
-    MultiFab::Copy(*viscnp1[d], *viscn[d], 0, 0, 1, viscn[d]->nGrow());
-    MultiFab::Copy(*diffnp1[d], *diffn[d], 0, 0, num_diff, diffn[d]->nGrow());
-  }
+
+  MultiFab::Copy(*viscnp1_cc, *viscn_cc, 0, 0, 1, viscn_cc->nGrow());
+  MultiFab::Copy(*diffnp1_cc, *diffn_cc, 0, 0, num_diff, diffn_cc->nGrow());
   
   if (level==0 && reset_typical_vals_int>0)
   {
