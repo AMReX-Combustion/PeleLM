@@ -36,22 +36,6 @@
                       const amrex::Real* dx,
                       const amrex::Real* xlo, const amrex::Real* xhi);
 
-     void drhomry (BL_FORT_FAB_ARG_ANYD(der),const int* nvar,
-                   const BL_FORT_FAB_ARG_ANYD(data),const int* ncomp,
-                   const int* lo, const int* hi,
-                   const int* domain_lo, const int* domain_hi,
-                   const amrex::Real* delta, const amrex::Real* xlo,
-                   const amrex::Real* time, const amrex::Real* dt, const int* bcrec,
-                   const int* level, const int* grid_no) ;
-
-     void dsrhoydot (BL_FORT_FAB_ARG_ANYD(der),const int* nvar,
-                     const BL_FORT_FAB_ARG_ANYD(data),const int* ncomp,
-                     const int* lo, const int* hi,
-                     const int* domain_lo, const int* domain_hi,
-                     const amrex::Real* delta, const amrex::Real* xlo,
-                     const amrex::Real* time, const amrex::Real* dt, const int* bcrec,
-                     const int* level, const int* grid_no) ;
-
      void drhort (BL_FORT_FAB_ARG_ANYD(der),const int* nvar,
                   const BL_FORT_FAB_ARG_ANYD(data),const int* ncomp,
                   const int* lo, const int* hi,
@@ -59,22 +43,6 @@
                   const amrex::Real* delta, const amrex::Real* xlo,
                   const amrex::Real* time, const amrex::Real* dt, const int* bcrec,
                   const int* level, const int* grid_no) ;
-
-     void derRhoY (BL_FORT_FAB_ARG_ANYD(der),const int* nvar,
-                   const BL_FORT_FAB_ARG_ANYD(data),const int* ncomp,
-                   const int* lo, const int* hi,
-                   const int* domain_lo, const int* domain_hi,
-                   const amrex::Real* delta, const amrex::Real* xlo,
-                   const amrex::Real* time, const amrex::Real* dt, const int* bcrec,
-                   const int* level, const int* grid_no) ;
-
-     void dermassfrac (BL_FORT_FAB_ARG_ANYD(der),const int* nvar,
-                       const BL_FORT_FAB_ARG_ANYD(data),const int* ncomp,
-                       const int* lo, const int* hi,
-                       const int* domain_lo, const int* domain_hi,
-                       const amrex::Real* delta, const amrex::Real* xlo,
-                       const amrex::Real* time, const amrex::Real* dt, const int* bcrec,
-                       const int* level, const int* grid_no) ;
 
      void dermolefrac (BL_FORT_FAB_ARG_ANYD(der),const int* nvar,
                        const BL_FORT_FAB_ARG_ANYD(data),const int* ncomp,
