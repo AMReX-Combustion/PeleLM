@@ -104,7 +104,7 @@ void pelelm_drhomry (const Box& bx, FArrayBox& derfab, int dcomp, int /*ncomp*/,
     amrex::ParallelFor(bx, nspec_comp,
     [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
     {
-        der(i,j,k,0) = der(i,j,k,0) - in_dat(i,j,k,n+1);
+        der(i,j,k,0) -= in_dat(i,j,k,n+1);
     });
 }
 
@@ -131,7 +131,7 @@ void pelelm_dsrhoydot (const Box& bx, FArrayBox& derfab, int dcomp, int /*ncomp*
     amrex::ParallelFor(bx, nspec_comp,
     [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
     {
-        der(i,j,k,0) = der(i,j,k,0) + in_dat(i,j,k,n);
+        der(i,j,k,0) += in_dat(i,j,k,n);
     });
 }
 
