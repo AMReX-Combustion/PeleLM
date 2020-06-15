@@ -23,6 +23,7 @@ USE_SUNDIALS_PP = TRUE
 ifeq ($(USE_SUNDIALS_PP), TRUE)
   # use KLU sparse features -- only useful if CVODE is used on CPU
   USE_KLU_PP = FALSE
+  USE_CUDA_SUNDIALS_PP=TRUE
 endif
 
 # Enable ht.velocity_plotfile option
