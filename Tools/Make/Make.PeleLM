@@ -1,8 +1,8 @@
 EBASE = PeleLM
 
-ifeq ($(USE_SUNDIALS_PP),TRUE) 
-  include $(PELE_PHYSICS_HOME)/ThirdParty/Make.ThirdParty
-endif
+#ifeq ($(USE_SUNDIALS_PP),TRUE) 
+#  include $(PELE_PHYSICS_HOME)/ThirdParty/Make.ThirdParty
+#endif
 include $(AMREX_HOME)/Tools/GNUMake/Make.defs 
 #$(info LIBRARIES_BeginPeleMake="$(LIBRARIES)")
 
