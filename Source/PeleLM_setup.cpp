@@ -892,19 +892,19 @@ PeleLM::variableSetUp ()
   //
   // Pressure gradient in X direction.
   //
-  derive_lst.add("gradpx",IndexType::TheCellType(),1,DeriveFunc3D(dergrdpx),the_nodes);
+  derive_lst.add("gradpx",IndexType::TheCellType(),1,pelelm_dergrdpx,the_nodes);
   derive_lst.addComponent("gradpx",desc_lst,Press_Type,Pressure,1);
   //
   // Pressure gradient in Y direction.
   //
-  derive_lst.add("gradpy",IndexType::TheCellType(),1,DeriveFunc3D(dergrdpy),the_nodes);
+  derive_lst.add("gradpy",IndexType::TheCellType(),1,pelelm_dergrdpy,the_nodes);
   derive_lst.addComponent("gradpy",desc_lst,Press_Type,Pressure,1);
 
 #if (AMREX_SPACEDIM == 3)
   //
   // Pressure gradient in Z direction.
   //
-  derive_lst.add("gradpz",IndexType::TheCellType(),1,DeriveFunc3D(dergrdpz),the_nodes);
+  derive_lst.add("gradpz",IndexType::TheCellType(),1,pelelm_dergrdpz,the_nodes);
   derive_lst.addComponent("gradpz",desc_lst,Press_Type,Pressure,1);
 #endif
   //

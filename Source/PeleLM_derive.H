@@ -32,6 +32,20 @@ void pelelm_deravgpres (const amrex::Box& bx, amrex::FArrayBox& derfab, int dcom
                         const amrex::FArrayBox& datafab, const amrex::Geometry& geomdata,
                         amrex::Real time, const int* bcrec, int level);
 
+void pelelm_dergrdpx (const amrex::Box& bx, amrex::FArrayBox& derfab, int dcomp, int ncomp,
+                        const amrex::FArrayBox& datafab, const amrex::Geometry& geomdata,
+                        amrex::Real time, const int* bcrec, int level);
+
+void pelelm_dergrdpy (const amrex::Box& bx, amrex::FArrayBox& derfab, int dcomp, int ncomp,
+                        const amrex::FArrayBox& datafab, const amrex::Geometry& geomdata,
+                        amrex::Real time, const int* bcrec, int level);
+
+#if (AMREX_SPACEDIM == 3)
+void pelelm_dergrdpz (const amrex::Box& bx, amrex::FArrayBox& derfab, int dcomp, int ncomp,
+                        const amrex::FArrayBox& datafab, const amrex::Geometry& geomdata,
+                        amrex::Real time, const int* bcrec, int level);
+#endif
+
 
 
 

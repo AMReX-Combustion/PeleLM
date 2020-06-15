@@ -149,10 +149,10 @@ void pelelm_deravgpres (const Box& bx, FArrayBox& derfab, int dcomp, int /*ncomp
     auto const in_dat = datfab.array();
     auto       der = derfab.array();
 
-#if (AMREX_SPACEDIM >= 2 )
-     Real factor = 0.25;
+#if (AMREX_SPACEDIM == 2 )
+    Real factor = 0.25;
 #elif (AMREX_SPACEDIM == 3 )
-     Real factor = 0.125;
+    Real factor = 0.125;
 #endif
 
     amrex::ParallelFor(bx, 1,
@@ -170,6 +170,98 @@ void pelelm_deravgpres (const Box& bx, FArrayBox& derfab, int dcomp, int /*ncomp
 }
 
 
+//
+//   Compute node centered pressure gradient in direction x
+//
+
+void pelelm_dergrdpx (const Box& bx, FArrayBox& derfab, int dcomp, int /*ncomp*/,
+                  const FArrayBox& datfab, const Geometry& geomdata,
+                  Real /*time*/, const int* /*bcrec*/, int /*level*/)
+
+{   
+    auto const in_dat = datfab.array();
+    auto       der = derfab.array();
+
+    const auto dxinv = geomdata.InvCellSizeArray();    
+#if (AMREX_SPACEDIM == 2 )
+    Real factor = 0.5*dxinv[0];
+#elif (AMREX_SPACEDIM == 3 )
+    Real factor = 0.25*dxinv[0];
+#endif
+
+    amrex::ParallelFor(bx, 1, 
+    [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
+    {   
+
+#if (AMREX_SPACEDIM == 2 )
+        der(i,j,k,n) = factor*(in_dat(i+1,j,k,n)-in_dat(i,j,k,n)+in_dat(i+1,j+1,k,n)-in_dat(i,j+1,k,n));
+#elif (AMREX_SPACEDIM == 3 )
+        der(i,j,k,n) = factor*( in_dat(i+1,j,k,n)-in_dat(i,j,k,n)+in_dat(i+1,j+1,k,n)-in_dat(i,j+1,k,n) + 
+                                in_dat(i+1,j,k+1,n)-in_dat(i,j,k+1,n)+in_dat(i+1,j+1,k+1,n)-in_dat(i,j+1,k+1,n));
+#endif 
+
+    });
+
+}
+
+//
+//   Compute node centered pressure gradient in direction y
+//
+
+void pelelm_dergrdpy (const Box& bx, FArrayBox& derfab, int dcomp, int /*ncomp*/,
+                  const FArrayBox& datfab, const Geometry& geomdata,
+                  Real /*time*/, const int* /*bcrec*/, int /*level*/)
+
+{
+    auto const in_dat = datfab.array();
+    auto       der = derfab.array();
+
+    const auto dxinv = geomdata.InvCellSizeArray();
+#if (AMREX_SPACEDIM == 2 )
+    Real factor = 0.5*dxinv[1];
+#elif (AMREX_SPACEDIM == 3 )
+    Real factor = 0.25*dxinv[1];
+#endif
+
+    amrex::ParallelFor(bx, 1, 
+    [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
+    {
+
+#if (AMREX_SPACEDIM == 2 )
+        der(i,j,k,n) = factor*(in_dat(i,j+1,k,n)-in_dat(i,j,k,n)+in_dat(i+1,j+1,k,n)-in_dat(i+1,j,k,n));
+#elif (AMREX_SPACEDIM == 3 )
+        der(i,j,k,n) = factor*( in_dat(i,j+1,k,n)-in_dat(i,j,k,n)+in_dat(i+1,j+1,k,n)-in_dat(i+1,j,k,n) + 
+                                in_dat(i,j+1,k+1,n)-in_dat(i,j,k+1,n)+in_dat(i+1,j+1,k+1,n)-in_dat(i+1,j,k+1,n));
+#endif
+
+    });
+
+}
 
 
+//
+//   Compute node centered pressure gradient in direction z
+//
+
+void pelelm_dergrdpz (const Box& bx, FArrayBox& derfab, int dcomp, int /*ncomp*/,
+                  const FArrayBox& datfab, const Geometry& geomdata,
+                  Real /*time*/, const int* /*bcrec*/, int /*level*/)
+
+{
+    auto const in_dat = datfab.array();
+    auto       der = derfab.array();
+
+    const auto dxinv = geomdata.InvCellSizeArray();
+    Real factor = 0.25*dxinv[2];
+
+    amrex::ParallelFor(bx, 1,
+    [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
+    {
+
+        der(i,j,k,n) = factor*( in_dat(i,  j,k+1,n)-in_dat(i,  j,k,n)+in_dat(i,  j+1,k+1,n)-in_dat(i,  j+1,k,n) + 
+                                in_dat(i+1,j,k+1,n)-in_dat(i+1,j,k,n)+in_dat(i+1,j+1,k+1,n)-in_dat(i+1,j+1,k,n));
+
+    });
+
+}
 
