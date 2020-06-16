@@ -1,5 +1,12 @@
 EBASE = PeleLM
 
+CudeArch ?= UNSET
+ifeq ($(USE_CUDA),TRUE)
+  ifeq ($(CudaArch),UNSET)
+    $(error Must set CudaArch.  Run deviceQuery and if CUDA Capability is 6.1, CudaArch=sm_61. Cori:sm_70, Garuda:sm_75, Godzilla:sm_61)
+  endif
+endif
+
 ifeq ($(USE_SUNDIALS_PP),TRUE) 
   include $(PELE_PHYSICS_HOME)/ThirdParty/Make.ThirdParty
 endif
@@ -244,10 +251,10 @@ clean::
 	$(SILENT) $(RM) AMReX_buildInfo.cpp
 
 ThirdParty:
-	cd $(PELE_PHYSICS_HOME)/ThirdParty; make USE_CUDA=$(USE_CUDA) USE_KLU=$(USE_KLU_PP) DEBUG=$(DEBUG) COMP=$(HOSTCC) NVCC=$(COMP)
+	cd $(PELE_PHYSICS_HOME)/ThirdParty; make USE_CUDA=$(USE_CUDA) CUDA_ARCH=$(CudaArch) USE_KLU=$(USE_KLU_PP) DEBUG=$(DEBUG) COMP=$(HOSTCC) NVCC=$(COMP)
 
 ThirdPartyClean:
-	cd $(PELE_PHYSICS_HOME)/ThirdParty; make USE_CUDA=$(USE_CUDA) USE_KLU=$(USE_KLU_PP) DEBUG=$(DEBUG) COMP=$(HOSTCC) NVCC=$(COMP) clean
+	cd $(PELE_PHYSICS_HOME)/ThirdParty; make USE_CUDA=$(USE_CUDA) CUDA_ARCH=$(CudaArch) USE_KLU=$(USE_KLU_PP) DEBUG=$(DEBUG) COMP=$(HOSTCC) NVCC=$(COMP) clean
 
 ThirdPartyRealclean:
-	cd $(PELE_PHYSICS_HOME)/ThirdParty; make USE_CUDA=$(USE_CUDA) USE_KLU=$(USE_KLU_PP) DEBUG=$(DEBUG) COMP=$(HOSTCC) NVCC=$(COMP) realclean
+	cd $(PELE_PHYSICS_HOME)/ThirdParty; make USE_CUDA=$(USE_CUDA) CUDA_ARCH=$(CudaArch) USE_KLU=$(USE_KLU_PP) DEBUG=$(DEBUG) COMP=$(HOSTCC) NVCC=$(COMP) realclean
