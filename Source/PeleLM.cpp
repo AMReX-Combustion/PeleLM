@@ -8217,12 +8217,12 @@ PeleLM::getViscosity (MultiFab* viscosity[AMREX_SPACEDIM],
          const Box& bx = mfi.tilebox();
          for (int dir = 0; dir < AMREX_SPACEDIM; dir++)
          {
-            const Box ebox = mfi.nodaltilebox(dir);
+            const Box ebx = mfi.nodaltilebox(dir);
             FPLoc bc_lo = fpi_phys_loc(get_desc_lst()[State_Type].getBC(Temp).lo(dir));
             FPLoc bc_hi = fpi_phys_loc(get_desc_lst()[State_Type].getBC(Temp).hi(dir));
             center_to_edge_fancy((*visc)[mfi],(*viscosity[dir])[mfi], 
                                  amrex::grow(bx,amrex::BASISV(dir)), 
-                                 ebox, 0, 0, 1, geom.Domain(), bc_lo, bc_hi); 
+                                 ebx, 0, 0, 1, geom.Domain(), bc_lo, bc_hi); 
 
          }
       }
@@ -8286,10 +8286,10 @@ PeleLM::getDiffusivity (MultiFab* diffusivity[AMREX_SPACEDIM],
          const Box& bx = mfi.tilebox();
          for (int dir = 0; dir < AMREX_SPACEDIM; dir++)
          {
-            const Box ebox = surroundingNodes(bx,dir);
+            const Box& ebx = mfi.nodaltilebox(dir);
             FPLoc bc_lo = fpi_phys_loc(get_desc_lst()[State_Type].getBC(Temp).lo(dir));
             FPLoc bc_hi = fpi_phys_loc(get_desc_lst()[State_Type].getBC(Temp).hi(dir));
-            center_to_edge_fancy((*diff)[mfi],(*diffusivity[dir])[mfi], amrex::grow(bx,amrex::BASISV(dir)), ebox, diff_comp, 
+            center_to_edge_fancy((*diff)[mfi],(*diffusivity[dir])[mfi], amrex::grow(bx,amrex::BASISV(dir)), ebx, diff_comp, 
                                  dst_comp, ncomp, geom.Domain(), bc_lo, bc_hi); 
 
          }
@@ -8330,9 +8330,9 @@ PeleLM::getDiffusivity_Wbar (MultiFab*  betaWbar[AMREX_SPACEDIM],
 
      for (int dir = 0; dir < AMREX_SPACEDIM; dir++)
      {
+        const Box& ebx = mfi.nodaltilebox(dir);
         FPLoc bc_lo = fpi_phys_loc(get_desc_lst()[State_Type].getBC(first_spec).lo(dir));
         FPLoc bc_hi = fpi_phys_loc(get_desc_lst()[State_Type].getBC(first_spec).hi(dir));
-        const Box& ebx = mfi.nodaltilebox(dir);
         center_to_edge_fancy(diff[mfi],(*betaWbar[dir])[mfi], amrex::grow(bx,amrex::BASISV(dir)), ebx, 0,
                              0, NUM_SPECIES, geom.Domain(), bc_lo, bc_hi);
      }
