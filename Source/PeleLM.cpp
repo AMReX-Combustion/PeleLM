@@ -7326,7 +7326,7 @@ PeleLM::mac_sync ()
             AMREX_GPU_DEVICE (int i, int j, int k) noexcept
             {
                rhoincr(i,j,k) = 0.0;   
-               for (int n = 0; n <= NUM_SPECIES; n++) { 
+               for (int n = 0; n < NUM_SPECIES; n++) { 
                   rhoincr(i,j,k) += rhoYincr(i,j,k,n);
                }
             });
