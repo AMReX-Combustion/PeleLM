@@ -1,4 +1,4 @@
-CEXE_sources += PeleLM_setup.cpp PeleLM.cpp
-CEXE_headers += PeleLM.H  ArrayViewEXT.H BoxLib_Data_Dump.H PeleLM_K.H
+CEXE_sources += PeleLM_setup.cpp PeleLM.cpp PeleLM_derive.cpp
+CEXE_headers += PeleLM.H  ArrayViewEXT.H BoxLib_Data_Dump.H PeleLM_K.H PeleLM_derive.H
 FEXE_headers += PeleLM_F.H
 F90EXE_sources += PeleLM_F.F90 mod_Fvar_def.F90

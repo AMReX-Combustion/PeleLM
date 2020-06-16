@@ -42,6 +42,9 @@
 #include <EOS.H>
 #include <Transport.H>
 
+#include <PeleLM_derive.H>
+
+
 #ifdef USE_SUNDIALS_PP
 #include <reactor.h>
 #else
@@ -757,13 +760,13 @@ PeleLM::variableSetUp ()
   //
   // rho_temp
   //
-  derive_lst.add("rho_temp",IndexType::TheCellType(),1,dermprho,the_same_box);
+  derive_lst.add("rho_temp",IndexType::TheCellType(),1,pelelm_dermprho,the_same_box);
   derive_lst.addComponent("rho_temp",desc_lst,State_Type,Density,1);
   derive_lst.addComponent("rho_temp",desc_lst,State_Type,Temp,1);
   //
   // enthalpy
   //
-  derive_lst.add("enthalpy",IndexType::TheCellType(),1,derdvrho,the_same_box);
+  derive_lst.add("enthalpy",IndexType::TheCellType(),1,pelelm_derdvrho,the_same_box);
   derive_lst.addComponent("enthalpy",desc_lst,State_Type,Density,1);
   derive_lst.addComponent("enthalpy",desc_lst,State_Type,RhoH,1);
 
@@ -789,7 +792,7 @@ PeleLM::variableSetUp ()
   for (int i = 0; i < nspecies; i++)
     var_names_rhoY[i] = "rho.Y("+spec_names[i]+")";
   derive_lst.add("rhoY",IndexType::TheCellType(),nspecies,
-                 var_names_rhoY,derRhoY,the_same_box);
+                 var_names_rhoY,pelelm_derRhoY,the_same_box);
   derive_lst.addComponent("rhoY",desc_lst,State_Type,first_spec,nspecies);
   
   //
@@ -798,7 +801,7 @@ PeleLM::variableSetUp ()
   for (int i = 0; i < nspecies; i++)
   {
     const std::string chname = "Y("+spec_names[i]+")";
-    derive_lst.add(chname,IndexType::TheCellType(),1,derdvrho,the_same_box);
+    derive_lst.add(chname,IndexType::TheCellType(),1,pelelm_derdvrho,the_same_box);
     derive_lst.addComponent(chname,desc_lst,State_Type,Density,1);
     derive_lst.addComponent(chname,desc_lst,State_Type,first_spec + i,1);
   }
@@ -809,7 +812,7 @@ PeleLM::variableSetUp ()
   for (int i = 0; i < nspecies; i++)
     var_names_massfrac[i] = "Y("+spec_names[i]+")";
   derive_lst.add("mass_fractions",IndexType::TheCellType(),nspecies,
-                 var_names_massfrac,dermassfrac,the_same_box);
+                 var_names_massfrac,pelelm_dermassfrac,the_same_box);
   derive_lst.addComponent("mass_fractions",desc_lst,State_Type,Density,1);
   derive_lst.addComponent("mass_fractions",desc_lst,State_Type,first_spec,nspecies);
 
@@ -860,7 +863,7 @@ PeleLM::variableSetUp ()
     //
     // rho-sum rhoY.
     //
-    derive_lst.add("rhominsumrhoY",IndexType::TheCellType(),1,drhomry,the_same_box);
+    derive_lst.add("rhominsumrhoY",IndexType::TheCellType(),1,pelelm_drhomry,the_same_box);
     derive_lst.addComponent("rhominsumrhoY",desc_lst,State_Type,Density,1);
     for (int i = 0; i < nspecies; i++)
     {
@@ -871,7 +874,7 @@ PeleLM::variableSetUp ()
   //
   // Sum rhoYdot
   //
-  derive_lst.add("sumRhoYdot",IndexType::TheCellType(),1,dsrhoydot,the_same_box);
+  derive_lst.add("sumRhoYdot",IndexType::TheCellType(),1,pelelm_dsrhoydot,the_same_box);
   for (int i = 0; i < nspecies; i++)
   {
     derive_lst.addComponent("sumRhoYdot",desc_lst,RhoYdot_Type,i,1);
@@ -886,24 +889,24 @@ PeleLM::variableSetUp ()
   //
   // average pressure
   //
-  derive_lst.add("avg_pressure",IndexType::TheCellType(),1,DeriveFunc3D(deravgpres),the_nodes);
+  derive_lst.add("avg_pressure",IndexType::TheCellType(),1,pelelm_deravgpres,the_nodes);
   derive_lst.addComponent("avg_pressure",desc_lst,Press_Type,Pressure,1);
   //
   // Pressure gradient in X direction.
   //
-  derive_lst.add("gradpx",IndexType::TheCellType(),1,DeriveFunc3D(dergrdpx),the_nodes);
+  derive_lst.add("gradpx",IndexType::TheCellType(),1,pelelm_dergrdpx,the_nodes);
   derive_lst.addComponent("gradpx",desc_lst,Press_Type,Pressure,1);
   //
   // Pressure gradient in Y direction.
   //
-  derive_lst.add("gradpy",IndexType::TheCellType(),1,DeriveFunc3D(dergrdpy),the_nodes);
+  derive_lst.add("gradpy",IndexType::TheCellType(),1,pelelm_dergrdpy,the_nodes);
   derive_lst.addComponent("gradpy",desc_lst,Press_Type,Pressure,1);
 
 #if (AMREX_SPACEDIM == 3)
   //
   // Pressure gradient in Z direction.
   //
-  derive_lst.add("gradpz",IndexType::TheCellType(),1,DeriveFunc3D(dergrdpz),the_nodes);
+  derive_lst.add("gradpz",IndexType::TheCellType(),1,pelelm_dergrdpz,the_nodes);
   derive_lst.addComponent("gradpz",desc_lst,Press_Type,Pressure,1);
 #endif
   //
