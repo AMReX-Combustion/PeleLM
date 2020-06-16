@@ -28,7 +28,7 @@ module PeleLM_F
             set_ht_adim_common, get_pamb, &
             set_common, active_control, &
             pphys_getP1atm_MKS, &
-            pphys_get_spec_name2, pphys_TfromHYpt, set_prob_spec
+            pphys_TfromHYpt, set_prob_spec
 
 contains
 
@@ -113,25 +113,6 @@ end subroutine plm_extern_init
 
   end subroutine pphys_get_spec_name  
 
-  subroutine pphys_get_spec_name2(name, j)
-  
-    use fuego_chemistry, only : L_spec_name
-    implicit none
-
-    integer i, j
-    integer coded(L_spec_name), len
-    character*(L_spec_name) name
-
-    len = pphys_getckspecname(j, coded)
-    do i = 1, L_spec_name
-      name(i:i) = ' '
-    end do
-    do i = 1, len
-      name(i:i) = char(coded(i))
-    end do
-    
-  end subroutine pphys_get_spec_name2
-  
   integer function pphys_getckspecname(i, coded)
   
     use fuego_chemistry, only : L_spec_name

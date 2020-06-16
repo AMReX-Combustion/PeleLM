@@ -40,6 +40,7 @@
 #include <AMReX_Utility.H>
 #include <NS_error_F.H>
 #include <EOS.H>
+#include <Transport.H>
 
 #include <PeleLM_derive.H>
 
@@ -499,6 +500,7 @@ PeleLM::variableSetUp ()
 #endif
 
   EOS::init();
+  transport_init();
 
   init_transport(use_tranlib);
 

@@ -152,29 +152,6 @@ extern "C" {
    void set_ht_adim_common(const amrex::Real* thickFacVal,
                            const amrex::Real* Pr, const amrex::Real* Sc, const int* unityLe);
 
-   void vel_visc(const int* lo, const int* hi,
-                 const BL_FORT_FAB_ARG_ANYD(T),
-                 const BL_FORT_FAB_ARG_ANYD(Y),
-                       BL_FORT_FAB_ARG_ANYD(mu));
-
-   void beta_wbar(const int* lo, const int* hi,
-                  const BL_FORT_FAB_ARG_ANYD(RD),
-                        BL_FORT_FAB_ARG_ANYD(RD_Wbar),
-                  const BL_FORT_FAB_ARG_ANYD(Y));
-
-   void spec_temp_visc(const int* lo, const int* hi,
-                       const BL_FORT_FAB_ARG_ANYD(T),
-                       const BL_FORT_FAB_ARG_ANYD(Y),
-                             BL_FORT_FAB_ARG_ANYD(beta),
-                       const int* nCompD, const amrex::Real* P1ATM_MKS,
-                       const int* do_temp, const int* do_VelVisc, 
-                       const amrex::Real* Pamb_in);
-
-   void fab_minmax (const int* lo, const int* hi,
-                    BL_FORT_FAB_ARG_ANYD(fabdat),
-                    const amrex::Real* min, const amrex::Real* max, const int* nc);
-
-
    void repair_flux_eb(const int* lo,  const int* hi,
                     const int* dlo, const int* dhi,
                     BL_FORT_FAB_ARG_ANYD(flux),
@@ -238,23 +215,6 @@ extern "C" {
 #endif
                   const int* nc, const amrex::Real* scale);
 
-   void calc_divu_fortran(const int* lo,  const int* hi,
-                                BL_FORT_FAB_ARG_ANYD(divu),
-                          const BL_FORT_FAB_ARG_ANYD(rYdot),  
-                          const BL_FORT_FAB_ARG_ANYD(vtY),  
-                          const BL_FORT_FAB_ARG_ANYD(vtT),  
-                          const BL_FORT_FAB_ARG_ANYD(rhoY),  
-                          const BL_FORT_FAB_ARG_ANYD(T));
-
-   void calc_gamma_pinv(const int* lo,  const int* hi,
-                              BL_FORT_FAB_ARG_ANYD(theta),
-                        const BL_FORT_FAB_ARG_ANYD(rhoY),
-                        const BL_FORT_FAB_ARG_ANYD(T),
-                        const amrex::Real* Pamb_in); 
-
-   void floor_spec(const int* lo,  const int* hi, 
-                   BL_FORT_FAB_ARG_ANYD(spec));
-
    void set_common (const amrex::Real* time, const int* iteration);
 
    void compute_ugradp (const BL_FORT_FAB_ARG_ANYD(p),
@@ -300,14 +260,6 @@ extern "C" {
    void smooth(const int* lo, const int* hi,
                      BL_FORT_FAB_ARG_ANYD(i),
                const BL_FORT_FAB_ARG_ANYD(o));
-
-   void grad_wbar(const int* lo, const int* hi,
-                  const BL_FORT_FAB_ARG_ANYD(Wbar),
-                  const BL_FORT_FAB_ARG_ANYD(rDe),
-                        BL_FORT_FAB_ARG_ANYD(flx),
-                  const BL_FORT_FAB_ARG_ANYD(a),
-                  const amrex::Real* delta, const int* dir,
-                  const amrex::Real* mult, const amrex::Real* inc);
 
    void valgt_error(BL_FORT_IFAB_ARG_ANYD(tag),
                     const int* tagval, const int* clearval,

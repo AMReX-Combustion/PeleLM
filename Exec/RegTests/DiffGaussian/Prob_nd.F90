@@ -167,7 +167,7 @@ contains
                         delta, xlo, xhi) &
                         bind(C, name="init_data")
 
-      use PeleLM_F,  only: pphys_getP1atm_MKS, pphys_get_spec_name2
+      use PeleLM_F,  only: pphys_getP1atm_MKS
       use PeleLM_nD, only: pphys_RHOfromPTY, pphys_HMIXfromTY
       use mod_Fvar_def, only : Density, Temp, FirstSpec, RhoH, domnlo
 
