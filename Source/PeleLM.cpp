@@ -8267,6 +8267,7 @@ PeleLM::getDiffusivity (MultiFab* diffusivity[AMREX_SPACEDIM],
 
    const int offset    = AMREX_SPACEDIM + 1;          // No diffusion coeff for vels or rho
    int       diff_comp = state_comp - offset;
+   if (state_comp == Temp) diff_comp -= 1;            // Because RhoH is squeezed in between.
 
 #ifdef AMREX_USE_EB
    // EB : use EB CCentroid -> FCentroid
