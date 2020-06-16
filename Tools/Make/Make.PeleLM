@@ -243,11 +243,17 @@ clean::
 	$(SILENT) $(RM) extern_parameters.cpp extern_parameters_F.H extern_parameters.H extern.f90
 	$(SILENT) $(RM) AMReX_buildInfo.cpp
 
-ThirdParty:
+ifeq ($(USE_SUNDIALS_PP),TRUE)
+  ThirdParty:
 	cd $(PELE_PHYSICS_HOME)/ThirdParty; make USE_CUDA=$(USE_CUDA) USE_KLU=$(USE_KLU_PP) DEBUG=$(DEBUG) COMP=$(HOSTCC) NVCC=$(COMP)
 
-ThirdPartyClean:
+  ThirdPartyClean:
 	cd $(PELE_PHYSICS_HOME)/ThirdParty; make USE_CUDA=$(USE_CUDA) USE_KLU=$(USE_KLU_PP) DEBUG=$(DEBUG) COMP=$(HOSTCC) NVCC=$(COMP) clean
 
-ThirdPartyRealclean:
+  ThirdPartyRealclean:
 	cd $(PELE_PHYSICS_HOME)/ThirdParty; make USE_CUDA=$(USE_CUDA) USE_KLU=$(USE_KLU_PP) DEBUG=$(DEBUG) COMP=$(HOSTCC) NVCC=$(COMP) realclean
+else
+  ThirdParty:
+  ThirdPartyClean:
+  ThirdPartyRealclean:
+endif
