@@ -6108,12 +6108,14 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
 
     //CPU
 #ifdef _OPENMP
-#pragma omp parallel
+#pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
-    for (MFIter Smfi(STemp,true); Smfi.isValid(); ++Smfi)
+    for (MFIter Smfi(STemp,TilingIfNotGPU()); Smfi.isValid(); ++Smfi)
     {
        const Box&  bx       = Smfi.tilebox();
-       auto const& rhoY     = STemp.array(Smfi);
+       auto const& rhoY     = STemp.array(Smfi,0);
+       auto const& T        = STemp.array(Smfi,NUM_SPECIES+1);
+       auto const& rhoH     = STemp.array(Smfi,NUM_SPECIES);
        auto const& fcl      = fcnCntTemp.array(Smfi);
        auto const& frcing   = FTemp.array(Smfi);
 
@@ -6122,7 +6124,6 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
 #endif
 
        Real dt_incr = dt;
-       Real time_init = 0.0;
 
        const auto lo  = amrex::lbound(bx);
        const auto hi  = amrex::ubound(bx);
@@ -6144,12 +6145,13 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
                    tmp_vect[sp]       = rhoY(i,j,k,sp) * 1.e-3;
                    tmp_src_vect[sp]   = frcing(i,j,k,sp) * 1.e-3;
                 }
-                tmp_vect[nspecies]       = rhoY(i,j,k,nspecies+1);
-                tmp_vect_energy     = rhoY(i,j,k,nspecies) * 10.0;
-                tmp_src_vect_energy = frcing(i,j,k,nspecies) * 10.0;
+                tmp_vect[nspecies]    = T(i,j,k);
+                tmp_vect_energy       = rhoH(i,j,k) * 10.0;
+                tmp_src_vect_energy   = frcing(i,j,k,nspecies) * 10.0;
 
-                Real dt_local = dt_incr;
-                Real p_local  = 1.0;
+                Real dt_local  = dt_incr;
+                Real p_local   = 1.0;
+                Real time_init = 0.0;
           
 #ifdef AMREX_USE_EB             
                 if (local_ebmask(i,j,k) != -1 ){   // Regular & cut cells
@@ -6174,12 +6176,12 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
                       amrex::Abort("NaNs !! ");
                    }
                 }
-                rhoY(i,j,k,nspecies+1)  = tmp_vect[nspecies];
-                if (isnan(rhoY(i,j,k,nspecies+1))) {
+                T(i,j,k)  = tmp_vect[NUM_SPECIES];
+                if (isnan(T(i,j,k))) {
                    amrex::Abort("NaNs !! ");
                 }
-                rhoY(i,j,k,nspecies) = tmp_vect_energy * 1.e-01;
-                if (isnan(rhoY(i,j,k,nspecies))) {
+                rhoH(i,j,k) = tmp_vect_energy * 1.e-01;
+                if (isnan(rhoH(i,j,k))) {
                    amrex::Abort("NaNs !! ");
                 }
              }
@@ -6191,7 +6193,7 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
 
     FTemp.clear();
 
-    mf_new.copy(STemp,0,first_spec,nspecies+3); // Parallel copy.
+    mf_new.copy(STemp,0,first_spec,NUM_SPECIES+3); // Parallel copy.
 
     STemp.clear();
 
