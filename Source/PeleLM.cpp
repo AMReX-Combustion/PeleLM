@@ -38,10 +38,11 @@
 #include <AMReX_AmrData.H>
 #endif
 
+#include <mechanism.h>
 #ifdef USE_SUNDIALS_PP
-#include <actual_Creactor.h>
+#include <reactor.h>
 #else
-#include <actual_reactor.H> 
+#include <reactor.H>
 #endif
 
 #include <Prob_F.H>

@@ -750,7 +750,7 @@ contains
     integer :: i, j, k, n, nc, ncs
     REAL_T  :: Patm, Yl(NUM_SPECIES)
     REAL_T  :: Yt(lo(1):hi(1),NUM_SPECIES), invmwt(NUM_SPECIES), Wavg(lo(1):hi(1))
-    REAL_T  :: Tfac, Yfac, cpmix(1), RHO_MKS, RHO_MKS_inv, RHO_CGS(lo(1):hi(1))
+    REAL_T  :: Tfac, Yfac, cpmix, RHO_MKS, RHO_MKS_inv, RHO_CGS(lo(1):hi(1))
     REAL_T  :: D(lo(1):hi(1),NUM_SPECIES), mu(lo(1):hi(1)), lambda(lo(1):hi(1)), xi(lo(1):hi(1))
     REAL_T, dimension(lo(1):hi(1),lo(2):hi(2),lo(3):hi(3)) :: mu_le1
 

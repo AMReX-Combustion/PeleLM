@@ -56,7 +56,6 @@ contains
       use probdata_module, only : flame_dir
       use derive_PLM_nd  , only : init_mixture_fraction
       use PeleLM_F       , only : parse_composition
-      use network        , only : nspecies
 
 
       implicit none
@@ -82,7 +81,7 @@ contains
       integer maxlen, isioproc
       parameter (maxlen=256)
       character probin*(maxlen)
-      REAL_T, dimension(nspecies) :: Yfu, Yox
+      REAL_T, dimension(NUM_SPECIES) :: Yfu, Yox
 
       call bl_pd_is_ioproc(isioproc)
 

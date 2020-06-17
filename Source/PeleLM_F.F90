@@ -160,7 +160,7 @@ end subroutine plm_extern_init
 
   subroutine parse_composition(compo_string, compo_vec)
   
-    use network, only : nspecies, spec_names
+    use fuego_chemistry, only : nspecies, spec_names
     use amrex_error_module, only : amrex_abort
 
     implicit none

@@ -1561,6 +1561,8 @@ contains
                                  bind(C, name="dertransportcoeff")
 
       use transport_module, only : get_transport_coeffs_F
+      use PeleLM_nd,        only : vel_visc
+      use mod_Fvar_def,     only : Pr, Sc, LeEQ1, thickFac
 
       implicit none
 
@@ -1578,7 +1580,8 @@ contains
 !  Local
       REAL_T, dimension(NUM_SPECIES) :: Yt, D, invmwt
       REAL_T, dimension(1)        :: rho_dummy, MU, XI, LAM, Wavg
-      REAL_T                      :: rhoinv
+      REAL_T                      :: rhoinv, cpmix, Tfac, Yfac
+      REAL_T, dimension(lo(1):hi(1),lo(2):hi(2),lo(3):hi(3)) :: mu_le1
       integer :: fS, rho, T
       integer :: lo_chem(3), hi_chem(3)
 
