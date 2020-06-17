@@ -8258,7 +8258,7 @@ PeleLM::getDiffusivity (MultiFab* diffusivity[AMREX_SPACEDIM],
 {
    BL_PROFILE("HT::getDiffusivity()");
    BL_ASSERT(state_comp > Density);
-   BL_ASSERT(diffusivity[0].nComp() >= dst_comp+ncomp);
+   BL_ASSERT(diffusivity[0]->nComp() >= dst_comp+ncomp);
    BL_ASSERT( ( state_comp == first_spec && ncomp == NUM_SPECIES ) ||
               ( state_comp == Temp && ncomp == 1 ) );
    
