@@ -8473,66 +8473,69 @@ PeleLM::calc_dpdt (Real      time,
                    MultiFab& dpdt,
                    MultiFab* umac)
 {
-  BL_PROFILE("HT::calc_dpdt()");
+   BL_PROFILE("PeleLM::calc_dpdt()");
 
-  // for open chambers, ambient pressure is constant in time
-  Real p_amb = p_amb_old;
+   // for open chambers, ambient pressure is constant in time
+   Real p_amb = p_amb_old;
 
-  if (closed_chamber == 1)
-  {
-    // for closed chambers, use piecewise-linear interpolation
-    // we need level 0 prev and tnp1 for closed chamber algorithm
-    AmrLevel& amr_lev = parent->getLevel(0);
-    StateData& state_data = amr_lev.get_state_data(0);
-    const Real lev_0_prevtime = state_data.prevTime();
-    const Real lev_0_curtime = state_data.curTime();
+   if (closed_chamber == 1)
+   {
+     // for closed chambers, use piecewise-linear interpolation
+     // we need level 0 prev and tnp1 for closed chamber algorithm
+     AmrLevel& amr_lev = parent->getLevel(0);
+     StateData& state_data = amr_lev.get_state_data(0);
+     const Real lev_0_prevtime = state_data.prevTime();
+     const Real lev_0_curtime = state_data.curTime();
 
-    // linearly interpolate from level 0 ambient pressure
-    p_amb = (lev_0_curtime - time )/(lev_0_curtime-lev_0_prevtime) * p_amb_old +
-            (time - lev_0_prevtime)/(lev_0_curtime-lev_0_prevtime) * p_amb_new;
-  }
+     // linearly interpolate from level 0 ambient pressure
+     p_amb = (lev_0_curtime - time )/(lev_0_curtime-lev_0_prevtime) * p_amb_old +
+             (time - lev_0_prevtime)/(lev_0_curtime-lev_0_prevtime) * p_amb_new;
+   }
   
-  if (dt <= 0.0 || dpdt_factor <= 0)
-  {
-    dpdt.setVal(0);
-    return;
-  }
+   if (dt <= 0.0 || dpdt_factor <= 0)
+   {
+     dpdt.setVal(0);
+     return;
+   }
 
-  int nGrow = dpdt.nGrow();
-  FillPatchIterator S_fpi(*this,get_new_data(State_Type),nGrow,time,State_Type,RhoRT,1);
-  MultiFab& Peos=S_fpi.get_mf();
+   int nGrow = dpdt.nGrow();
+   FillPatchIterator S_fpi(*this,get_new_data(State_Type),nGrow,time,State_Type,RhoRT,1);
+   MultiFab& Peos=S_fpi.get_mf();
  
 #ifdef AMREX_USE_EB
-  {
-    MultiFab TT(grids,dmap,1,nGrow,MFInfo(),Factory());
-    TT.setVal(0.);
-    MultiFab::Copy(TT,Peos,0,0,1,nGrow);
-    TT.FillBoundary(geom.periodicity());
-//    EB_interp_CC_to_Centroid(Peos, TT, 0, 0, 1, geom);
-  }
+   {
+     MultiFab TT(grids,dmap,1,nGrow,MFInfo(),Factory());
+     TT.setVal(0.);
+     MultiFab::Copy(TT,Peos,0,0,1,nGrow);
+     TT.FillBoundary(geom.periodicity());
+//     EB_interp_CC_to_Centroid(Peos, TT, 0, 0, 1, geom);
+   }
 #endif
 
 #ifdef _OPENMP
-#pragma omp parallel
+#pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
-  for (MFIter mfi(dpdt,true); mfi.isValid(); ++mfi)
-  {
-    const Box& vbox = mfi.tilebox();
+   for (MFIter mfi(dpdt,TilingIfNotGPU()); mfi.isValid(); ++mfi)
+   {
+      const Box& bx = mfi.tilebox();
+      auto const& dPdt  = dpdt.array(mfi);
+      auto const& P     = Peos.array(mfi);
+      Real dpdt_fac     = dpdt_factor;
 
-    dpdt[mfi].copy<RunOn::Host>(Peos[mfi],vbox,0,vbox,0,1);
-    dpdt[mfi].plus<RunOn::Host>(-p_amb,vbox);
-    dpdt[mfi].mult<RunOn::Host>(1.0/dt,vbox,0,1);
-    dpdt[mfi].divide<RunOn::Host>(Peos[mfi],vbox,0,0,1);
-    dpdt[mfi].mult<RunOn::Host>(dpdt_factor,vbox,0,1);
-  }
+      amrex::ParallelFor(bx, [dPdt, P, p_amb, dt, dpdt_fac]
+      AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+      {
+         dPdt(i,j,k) = (P(i,j,k) - p_amb) / ( dt * P(i,j,k) ) * dpdt_fac;
+      });
+   }
 
-  Peos.clear();
+   Peos.clear();
 
-  if (nGrow > 0) {
-    dpdt.FillBoundary(0,1, geom.periodicity());
-    BL_ASSERT(dpdt.nGrow() == 1);
-    Extrapolater::FirstOrderExtrap(dpdt, geom, 0, 1);
-  }
+   if (nGrow > 0) {
+     dpdt.FillBoundary(0,1, geom.periodicity());
+     BL_ASSERT(dpdt.nGrow() == 1);
+     Extrapolater::FirstOrderExtrap(dpdt, geom, 0, 1);
+   }
 }
 
 //
