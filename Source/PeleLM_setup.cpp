@@ -834,7 +834,7 @@ PeleLM::variableSetUp ()
   for (int i = 0; i < nspecies; i++)
     var_names_conc[i] = "C("+spec_names[i]+")";
   derive_lst.add("concentration",IndexType::TheCellType(),nspecies,
-                 var_names_conc,derconcentration,the_same_box);
+                 var_names_conc,pelelm_derconcentration,the_same_box);
   derive_lst.addComponent("concentration",desc_lst,State_Type,Density,1);
   derive_lst.addComponent("concentration",desc_lst,State_Type,Temp,1);
   derive_lst.addComponent("concentration",desc_lst,State_Type,

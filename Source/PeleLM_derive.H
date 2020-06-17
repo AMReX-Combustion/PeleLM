@@ -58,7 +58,9 @@ void pelelm_dergrdpz (const amrex::Box& bx, amrex::FArrayBox& derfab, int dcomp,
                         amrex::Real time, const int* bcrec, int level);
 #endif
 
-
+void pelelm_derconcentration (const amrex::Box& bx, amrex::FArrayBox& derfab, int dcomp, int ncomp,
+                        const amrex::FArrayBox& datafab, const amrex::Geometry& geomdata,
+                        amrex::Real time, const int* bcrec, int level);
 
 
 #endif
