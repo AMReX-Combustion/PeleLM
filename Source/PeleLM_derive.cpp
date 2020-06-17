@@ -1,5 +1,6 @@
 #include "PeleLM.H"
 #include "PeleLM_derive.H"
+#include <EOS.H>
 
 using namespace amrex;
 
@@ -78,6 +79,57 @@ void pelelm_dermassfrac (const Box& bx, FArrayBox& derfab, int dcomp, int ncomp,
     });
 }
 
+//
+// Extract species mole fractions X_n
+//
+
+void pelelm_dermolefrac (const Box& bx, FArrayBox& derfab, int dcomp, int ncomp,
+                  const FArrayBox& datfab, const Geometry& /*geomdata*/,
+                  Real /*time*/, const int* /*bcrec*/, int /*level*/)
+
+{
+    auto const in_dat = datfab.array();
+    auto       der = derfab.array();
+ 
+    FArrayBox Ytfab;
+    Ytfab.resize(bx,ncomp);
+    Elixir  Ytfabi   = Ytfab.elixir();
+    auto const& Ytf  = Ytfab.array();
+
+    amrex::ParallelFor(bx, ncomp,
+    [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
+    {
+        amrex::Real rhoinv = 1.0 / in_dat(i,j,k,0);
+        Ytf(i,j,k,n) = in_dat(i,j,k,n+1) * rhoinv;
+    });
+
+    FArrayBox Xtfab;
+    Xtfab.resize(bx,ncomp);
+    Elixir  Xtfabi   = Xtfab.elixir();
+    auto const& Xtf  = Xtfab.array();
+
+    amrex::ParallelFor(bx,
+    [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+    {  
+      amrex::Real Yt[ncomp];
+      amrex::Real Xt[ncomp];
+      for (int n = 0; n < ncomp; n++) {
+        Yt[n] = Ytf(i,j,k,n) ;
+      }
+      EOS::Y2X(Yt,Xt); 
+     
+      for (int n = 0; n < ncomp; n++) {
+        Xtf(i,j,k,n) = Xt[n] ;
+      }
+    });
+
+    amrex::ParallelFor(bx, ncomp,
+    [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
+    {
+        der(i,j,k,n) = Xtf(i,j,k,n);
+    });
+
+}
 
 //
 // Compute rho - Sum_n(rhoY_n)
