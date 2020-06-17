@@ -109,6 +109,35 @@ void pelelm_dermolefrac (const Box& bx, FArrayBox& derfab, int dcomp, int ncomp,
 }
 
 //
+// Compute the mixture mean molecular weight
+//
+
+void pelelm_dermolweight (const Box& bx, FArrayBox& derfab, int dcomp, int /*ncomp*/,
+                  const FArrayBox& datfab, const Geometry& /*geomdata*/,
+                  Real /*time*/, const int* /*bcrec*/, int /*level*/)
+
+{   
+    auto const in_dat = datfab.array();
+    auto       der = derfab.array();
+    int nspec_comp = in_dat.nComp() - 1;  //here we get back the correct number of species
+
+    amrex::ParallelFor(bx, 
+    [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+    {   
+        amrex::Real Yt[nspec_comp];
+        amrex::Real Wbar;
+        amrex::Real rhoinv = 1.0 / in_dat(i,j,k,0);
+        for (int n = 0; n < nspec_comp; n++) {
+          Yt[n] = in_dat(i,j,k,n+1) * rhoinv;
+        } 
+        EOS::Y2WBAR(Yt,Wbar);
+        der(i,j,k) = Wbar;
+    });
+
+}
+
+
+//
 // Compute rho - Sum_n(rhoY_n)
 //
 

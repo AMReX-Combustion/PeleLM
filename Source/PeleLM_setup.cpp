@@ -773,7 +773,7 @@ PeleLM::variableSetUp ()
   //
   // Molecular Weight
   //
-  derive_lst.add("molweight",IndexType::TheCellType(),1,DeriveFunc3D(dermolweight),the_same_box);
+  derive_lst.add("molweight",IndexType::TheCellType(),1,pelelm_dermolweight,the_same_box);
   derive_lst.addComponent("molweight",desc_lst,State_Type,Density,1);
   derive_lst.addComponent("molweight",desc_lst,State_Type,first_spec,nspecies);
   
