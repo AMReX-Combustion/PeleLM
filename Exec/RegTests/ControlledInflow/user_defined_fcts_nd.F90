@@ -4,6 +4,8 @@
 #include <PeleLM_F.H>
 #include <AMReX_ArrayLim.H>
 
+#include "mechanism.h"
+
 module user_defined_fcts_nd_module
 
   use amrex_fort_module, only : dim=>amrex_spacedim
@@ -26,7 +28,6 @@ contains
                           vel, rho, Yl, T, h)&
                           bind(C, name="bcfunction")
 
-      use network,   only: nspecies
       use mod_Fvar_def, only : dv_control, tbase_control, V_in, f_flag_active_control
       use probdata_module, only : bcinit, rho_bc, Y_bc, T_bc, h_bc, u_bc, v_bc, w_bc, flame_dir
 
@@ -52,7 +53,7 @@ contains
       end if
 
       rho = rho_bc(1)
-      do n = 0, nspecies-1
+      do n = 0, NUM_SPECIES-1
         Yl(n) = Y_bc(n)
       end do
       T = T_bc(1)

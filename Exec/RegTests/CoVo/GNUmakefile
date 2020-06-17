@@ -9,9 +9,9 @@ PELELM_HOME ?= ${TOP}/PeleLM
 
 DIM             = 2
 COMP            = gnu
-DEBUG           = FALSE
+DEBUG           = TRUE
 USE_MPI         = TRUE
-USE_OMP         = TRUE
+USE_OMP         = FALSE
 PRECISION       = DOUBLE
 VERBOSE         = FALSE
 

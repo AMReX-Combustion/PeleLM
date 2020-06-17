@@ -1,0 +1,18 @@
+ &fortin
+  T_mean = 298.0
+  P_mean = 101325.
+  xblob = -0.00
+  yblob = 0.
+  radblob = 0.0
+  MeanFlow = 3.0d0
+ /
+ &heattransin
+  pamb = 101325.
+ /
+ &extern
+ const_conductivity = 0.0001
+ const_viscosity = 2.0e-05
+ const_bulk_viscosity = 0.
+ const_diffusivity = 0.0001
+ mks_unit = true
+ /

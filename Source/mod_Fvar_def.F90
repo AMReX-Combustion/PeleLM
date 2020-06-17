@@ -16,7 +16,7 @@ module mod_Fvar_def
   
   REAL_T  :: pamb = 101325.d0
   
-  integer :: Density, Temp, RhoH, Trac, FirstSpec, LastSpec
+  integer :: Density, Temp, RhoH, FirstSpec, LastSpec
   
   ! From timedata.H
   
