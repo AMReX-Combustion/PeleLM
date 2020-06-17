@@ -91,42 +91,19 @@ void pelelm_dermolefrac (const Box& bx, FArrayBox& derfab, int dcomp, int ncomp,
     auto const in_dat = datfab.array();
     auto       der = derfab.array();
  
-    FArrayBox Ytfab;
-    Ytfab.resize(bx,ncomp);
-    Elixir  Ytfabi   = Ytfab.elixir();
-    auto const& Ytf  = Ytfab.array();
-
-    amrex::ParallelFor(bx, ncomp,
-    [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
-    {
-        amrex::Real rhoinv = 1.0 / in_dat(i,j,k,0);
-        Ytf(i,j,k,n) = in_dat(i,j,k,n+1) * rhoinv;
-    });
-
-    FArrayBox Xtfab;
-    Xtfab.resize(bx,ncomp);
-    Elixir  Xtfabi   = Xtfab.elixir();
-    auto const& Xtf  = Xtfab.array();
-
-    amrex::ParallelFor(bx,
+    amrex::ParallelFor(bx, 
     [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
-    {  
-      amrex::Real Yt[ncomp];
-      amrex::Real Xt[ncomp];
-      for (int n = 0; n < ncomp; n++) {
-        Yt[n] = Ytf(i,j,k,n) ;
-      }
-      EOS::Y2X(Yt,Xt); 
-     
-      for (int n = 0; n < ncomp; n++) {
-        Xtf(i,j,k,n) = Xt[n] ;
-      }
-    });
-
-    amrex::ParallelFor(bx, ncomp,
-    [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
     {
-        der(i,j,k,n) = Xtf(i,j,k,n);
+        amrex::Real Yt[ncomp];
+        amrex::Real Xt[ncomp];
+        amrex::Real rhoinv = 1.0 / in_dat(i,j,k,0);
+        for (int n = 0; n < ncomp; n++) {
+          Yt[n] = in_dat(i,j,k,n+1) * rhoinv;
+        } 
+        EOS::Y2X(Yt,Xt);
+        for (int n = 0; n < ncomp; n++) {
+          der(i,j,k,n) = Xt[n];
+        }
     });
 
 }
