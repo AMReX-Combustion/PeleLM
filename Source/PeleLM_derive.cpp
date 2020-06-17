@@ -136,6 +136,34 @@ void pelelm_dermolweight (const Box& bx, FArrayBox& derfab, int dcomp, int /*nco
 
 }
 
+//
+// Compute the mixture mean heat capacity at cst pressure
+//
+
+void pelelm_dercpmix (const Box& bx, FArrayBox& derfab, int dcomp, int /*ncomp*/,
+                  const FArrayBox& datfab, const Geometry& /*geomdata*/,
+                  Real /*time*/, const int* /*bcrec*/, int /*level*/)
+
+{
+    auto const in_dat = datfab.array();
+    auto       der = derfab.array();
+    int nspec_comp = in_dat.nComp() - 2;  //here we get back the correct number of species
+
+    amrex::ParallelFor(bx,
+    [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+    {
+        amrex::Real Yt[nspec_comp];
+        amrex::Real Temp, Cpmix;
+        amrex::Real rhoinv = 1.0 / in_dat(i,j,k,0);
+        for (int n = 0; n < nspec_comp; n++) {
+          Yt[n] = in_dat(i,j,k,n+2) * rhoinv;
+        }
+        Temp = in_dat(i,j,k,1);
+        EOS::TY2Cp(Temp,Yt,Cpmix);
+        der(i,j,k) = Cpmix * 1.0e-4; // CGS -> MKS ;
+    });
+
+}
 
 //
 // Compute rho - Sum_n(rhoY_n)

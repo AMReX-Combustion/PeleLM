@@ -28,6 +28,10 @@ void pelelm_dermolweight (const amrex::Box& bx, amrex::FArrayBox& derfab, int dc
                          const amrex::FArrayBox& datafab, const amrex::Geometry& geomdata,
                          amrex::Real time, const int* bcrec, int level);
 
+void pelelm_dercpmix (const amrex::Box& bx, amrex::FArrayBox& derfab, int dcomp, int ncomp,
+                         const amrex::FArrayBox& datafab, const amrex::Geometry& geomdata,
+                         amrex::Real time, const int* bcrec, int level);
+
 void pelelm_drhomry (const amrex::Box& bx, amrex::FArrayBox& derfab, int dcomp, int ncomp,
                      const amrex::FArrayBox& datafab, const amrex::Geometry& geomdata,
                      amrex::Real time, const int* bcrec, int level);

@@ -780,7 +780,7 @@ PeleLM::variableSetUp ()
   //
   // Mixture heat capacity
   //
-  derive_lst.add("cpmix",IndexType::TheCellType(),1,dercpmix,the_same_box);
+  derive_lst.add("cpmix",IndexType::TheCellType(),1,pelelm_dercpmix,the_same_box);
   derive_lst.addComponent("cpmix",desc_lst,State_Type,Density,1);
   derive_lst.addComponent("cpmix",desc_lst,State_Type,Temp,1);
   derive_lst.addComponent("cpmix",desc_lst,State_Type,first_spec,nspecies);
