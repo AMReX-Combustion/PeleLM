@@ -7912,121 +7912,131 @@ PeleLM::differential_spec_diffuse_sync (Real dt,
 void
 PeleLM::reflux ()
 {
-  BL_PROFILE("HT::reflux()");
-  // no need to reflux if this is the finest level
-  if (level == parent->finestLevel()) return;
+   BL_PROFILE("PeleLM::reflux()");
 
-  const Real strt_time = ParallelDescriptor::second();
+   // no need to reflux if this is the finest level
+   if (level == parent->finestLevel()) return;
 
-  BL_ASSERT(do_reflux);
+   const Real strt_time = ParallelDescriptor::second();
 
-  //
-  // First do refluxing step.
-  //
-  FluxRegister& fr_adv  = getAdvFluxReg(level+1);
-  FluxRegister& fr_visc = getViscFluxReg(level+1);
-  const Real    dt_crse = parent->dtLevel(level);
-  const Real    scale   = 1.0/dt_crse;
-  //
-  // It is important, for do_mom_diff == 0, to do the viscous
-  //   refluxing first, since this will be divided by rho_half
-  //   before the advective refluxing is added.  In the case of
-  //   do_mom_diff == 1, both components of the refluxing will
-  //   be divided by rho^(n+1) in NavierStokesBase::level_sync.
-  //
-  // take divergence of diffusive flux registers into cell-centered RHS
-  fr_visc.Reflux(Vsync,volume,scale,0,0,AMREX_SPACEDIM,geom);
-  if (do_reflux_visc)
-    fr_visc.Reflux(Ssync,volume,scale,AMREX_SPACEDIM,0,NUM_STATE-AMREX_SPACEDIM,geom);
+   BL_ASSERT(do_reflux);
 
-  showMF("DBGSync",Ssync,"sdc_Ssync_inReflux_AftVisc",level,parent->levelSteps(level));
+   //
+   // First do refluxing step.
+   //
+   FluxRegister& fr_adv  = getAdvFluxReg(level+1);
+   FluxRegister& fr_visc = getViscFluxReg(level+1);
+   const Real    dt_crse = parent->dtLevel(level);
+   const Real    scale   = 1.0/dt_crse;
+   //
+   // It is important, for do_mom_diff == 0, to do the viscous
+   //   refluxing first, since this will be divided by rho_half
+   //   before the advective refluxing is added.  In the case of
+   //   do_mom_diff == 1, both components of the refluxing will
+   //   be divided by rho^(n+1) in NavierStokesBase::level_sync.
+   //
+   // take divergence of diffusive flux registers into cell-centered RHS
+   fr_visc.Reflux(Vsync,volume,scale,0,0,AMREX_SPACEDIM,geom);
+   if (do_reflux_visc)
+     fr_visc.Reflux(Ssync,volume,scale,AMREX_SPACEDIM,0,NUM_STATE-AMREX_SPACEDIM,geom);
 
-  const MultiFab& RhoHalftime = get_rho_half_time();
+   showMF("DBGSync",Ssync,"sdc_Ssync_inReflux_AftVisc",level,parent->levelSteps(level));
 
-  if (do_mom_diff == 0) 
-  {
+   const MultiFab& RhoHalftime = get_rho_half_time();
+
+   if (do_mom_diff == 0) {
 #ifdef _OPENMP
-#pragma omp parallel
+#pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
-    for (MFIter mfi(Vsync,true); mfi.isValid(); ++mfi)
-    {
-      const Box& box = mfi.tilebox();
+      for (MFIter mfi(Vsync,TilingIfNotGPU()); mfi.isValid(); ++mfi)
+      {
+         const Box& bx = mfi.tilebox();
+         auto const& vsync   = Vsync.array(mfi);
+         auto const& rhohalf = RhoHalftime.array(mfi);
 
-      D_TERM(Vsync[mfi].divide<RunOn::Host>(RhoHalftime[mfi],box,0,Xvel,1);,
-             Vsync[mfi].divide<RunOn::Host>(RhoHalftime[mfi],box,0,Yvel,1);,
-             Vsync[mfi].divide<RunOn::Host>(RhoHalftime[mfi],box,0,Zvel,1););
-    }
-  }
+         amrex::ParallelFor(bx, AMREX_SPACEDIM, [vsync, rhohalf]
+         AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
+         {
+            vsync(i,j,k,n) /= rhohalf(i,j,k);
+         });
+      }
+   }
 
+   // for any variables that used non-conservative advective differencing,
+   // divide the sync by rhohalf
 #ifdef _OPENMP
-#pragma omp parallel
+#pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
-  {
-    FArrayBox tmp;
-
-    // for any variables that used non-conservative advective differencing,
-    // divide the sync by rhohalf
-    for (MFIter mfi(Ssync,true); mfi.isValid(); ++mfi)
-    {
+   for (MFIter mfi(Ssync,TilingIfNotGPU()); mfi.isValid(); ++mfi)
+   {
       const Box& bx = mfi.tilebox();
-      tmp.resize(bx,1);
-      tmp.copy<RunOn::Host>(RhoHalftime[mfi],0,0,1);
-      tmp.invert<RunOn::Host>(1);
-
+      auto const& rhohalf = RhoHalftime.array(mfi);
+      auto const& ssync   = Ssync.array(mfi);
       for (int istate = AMREX_SPACEDIM; istate < NUM_STATE; istate++)
       {
-        if (advectionType[istate] == NonConservative)
-        {
-          const int sigma = istate -  AMREX_SPACEDIM;
-
-          Ssync[mfi].mult<RunOn::Host>(tmp,bx,0,sigma,1);
-        }
+         if (advectionType[istate] == NonConservative)
+         {
+            const int sigma = istate - AMREX_SPACEDIM;
+            amrex::ParallelFor(bx, [ssync, rhohalf, sigma]
+            AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+            {
+               ssync(i,j,k,sigma) /= rhohalf(i,j,k);
+            });
+         }
       }
-    }
+   }
 
-    tmp.clear();
-  }
-  // take divergence of advective flux registers into cell-centered RHS
-  fr_adv.Reflux(Vsync,volume,scale,0,0,AMREX_SPACEDIM,geom);
-  fr_adv.Reflux(Ssync,volume,scale,AMREX_SPACEDIM,0,NUM_STATE-AMREX_SPACEDIM,geom);
-  showMF("DBGSync",Ssync,"sdc_Ssync_inReflux_AftAdvReflux",level,parent->levelSteps(level));
+   // take divergence of advective flux registers into cell-centered RHS
+   fr_adv.Reflux(Vsync,volume,scale,0,0,AMREX_SPACEDIM,geom);
+   fr_adv.Reflux(Ssync,volume,scale,AMREX_SPACEDIM,0,NUM_STATE-AMREX_SPACEDIM,geom);
+   showMF("DBGSync",Ssync,"sdc_Ssync_inReflux_AftAdvReflux",level,parent->levelSteps(level));
 
-  BoxArray baf = getLevel(level+1).boxArray();
-
-  baf.coarsen(fine_ratio);
-  //
-  // This is necessary in order to zero out the contribution to any
-  // coarse grid cells which underlie fine grid cells.
-  //
+   //
+   // This is necessary in order to zero out the contribution to any
+   // coarse grid cells which underlie fine grid cells.
+   //
+   BoxArray baf = getLevel(level+1).boxArray();
+   baf.coarsen(fine_ratio);
 #ifdef _OPENMP
-#pragma omp parallel
+#pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
-  {
-    std::vector< std::pair<int,Box> > isects;
-
-    for (MFIter mfi(Vsync,true); mfi.isValid(); ++mfi)
-    {
-      const Box& box = mfi.growntilebox(); 
-      baf.intersections(box,isects);
-
-      for (int i = 0, N = isects.size(); i < N; i++)
+   {
+      std::vector< std::pair<int,Box> > isects;
+      for (MFIter mfi(Vsync,TilingIfNotGPU()); mfi.isValid(); ++mfi)
       {
-        Vsync[mfi].setVal<RunOn::Host>(0,isects[i].second,0,BL_SPACEDIM);
-        Ssync[mfi].setVal<RunOn::Host>(0,isects[i].second,0,NUM_STATE-BL_SPACEDIM);
+         const Box& bx = mfi.growntilebox();
+         auto const& vsync   = Vsync.array(mfi);
+         auto const& ssync   = Ssync.array(mfi);
+         int nstate          = NUM_STATE;
+
+         baf.intersections(bx,isects);
+
+         for (int i = 0, N = isects.size(); i < N; i++)
+         {
+            amrex::ParallelFor(isects[i].second, [vsync, ssync, nstate]
+            AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+            {
+               for (int n = 0; n < AMREX_SPACEDIM; n++) {
+                  vsync(i,j,k,n) = 0.0;
+               }
+               for (int n = 0; n < nstate-AMREX_SPACEDIM; n++) {
+                  ssync(i,j,k,n) = 0.0;
+               }
+            });
+         }
       }
-    }
-  }
-  showMF("DBGSync",Ssync,"sdc_Ssync_inReflux_AftZerosFine",level,parent->levelSteps(level));
+   }
+   showMF("DBGSync",Ssync,"sdc_Ssync_inReflux_AftZerosFine",level,parent->levelSteps(level));
 
-  if (verbose > 1)
-  {
-    const int IOProc   = ParallelDescriptor::IOProcessorNumber();
-    Real      run_time = ParallelDescriptor::second() - strt_time;
+   if (verbose > 1)
+   {
+      const int IOProc   = ParallelDescriptor::IOProcessorNumber();
+      Real      run_time = ParallelDescriptor::second() - strt_time;
 
-    ParallelDescriptor::ReduceRealMax(run_time,IOProc);
+      ParallelDescriptor::ReduceRealMax(run_time,IOProc);
 
-    amrex::Print() << "PeleLM::Reflux(): lev: " << level << ", time: " << run_time << '\n';
-  }
+      amrex::Print() << "PeleLM::Reflux(): lev: " << level << ", time: " << run_time << '\n';
+   }
 }
 
 void
