@@ -7,6 +7,8 @@
 #include <Prob_F.H>
 #include <PeleLM_F.H>
 
+#include "mechanism.h"
+
 module prob_nd_module
 
   use amrex_fort_module, only : dim=>amrex_spacedim
@@ -162,11 +164,11 @@ contains
                         delta, xlo, xhi) &
                         bind(C, name="init_data")
 
-      use network,   only: nspecies
       use PeleLM_F,  only: pphys_getP1atm_MKS, pphys_get_spec_name2
       use PeleLM_nD, only: pphys_RHOfromPTY, pphys_HMIXfromTY
-      use mod_Fvar_def, only : Density, Temp, FirstSpec, RhoH, Trac
-      use mod_Fvar_def, only : domnlo
+      use mod_Fvar_def, only : Density, Temp, FirstSpec, RhoH, domnlo
+
+
       use probdata_module, only: meanFlowDir, meanFlowMag, &
                                  T_mean, P_mean, &
                                  xvort, yvort, rvort, forcevort
@@ -185,8 +187,8 @@ contains
       REAL_T, dimension(p_lo(1):p_hi(1),p_lo(2):p_hi(2),p_lo(3):p_hi(3)), intent(out) :: press
 
 ! Local
-      REAL_T :: dy, d_sq, r_sq, u_vort, v_vort 
-      REAL_T :: x, y, z, Yl(nspecies), Patm
+      REAL_T :: dy, d_sq, r_sq, u_vort, v_vort, w_vort
+      REAL_T :: x, y, z, Yl(NUM_SPECIES), Patm
       REAL_T :: dx
       integer :: i, j, k, n
 
@@ -201,11 +203,9 @@ contains
                Yl(1) = 0.233d0
                Yl(2) = 0.767d0
 
-               do n = 1,nspecies
+               do n = 1,NUM_SPECIES
                   scal(i,j,k,FirstSpec+n-1) = Yl(n)
                end do
-
-               scal(i,j,k,Trac) = 0.d0
 
                dx = x - xvort
                dy = y - yvort
@@ -214,6 +214,7 @@ contains
 
                u_vort = -forcevort*dy/r_sq * exp(-d_sq/r_sq/two)
                v_vort = forcevort*dx/r_sq * exp(-d_sq/r_sq/two)
+               w_vort = zero
 
                SELECT CASE ( meanFlowDir )
                   CASE (1)
@@ -236,7 +237,12 @@ contains
                      vel(i,j,k,2) = -meanFlowMag + v_vort
                END SELECT
 
+#if (AMREX_SPACEDIM == 3)
+               vel(i,j,k,3) = w_vort
+#endif
+
             end do
+
          end do
       end do
 
@@ -255,7 +261,7 @@ contains
       do k = lo(3), hi(3)
          do j = lo(2), hi(2)
             do i = lo(1), hi(1)
-               do n = 0,nspecies-1
+               do n = 0,NUM_SPECIES-1
                   scal(i,j,k,FirstSpec+n) = scal(i,j,k,FirstSpec+n)*scal(i,j,k,Density)
                enddo
                scal(i,j,k,RhoH) = scal(i,j,k,RhoH)*scal(i,j,k,Density)

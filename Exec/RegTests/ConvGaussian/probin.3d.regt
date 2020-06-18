@@ -1,0 +1,21 @@
+ &fortin
+  meanFlowMag = 50.0 
+  meanFlowDir = 1
+  T_mean = 298.0
+  P_mean = 101325.
+  rvort  = 0.07
+  xvort  = 0.5
+  yvort  = 0.5
+  forcevort  = 6.0
+ /
+ &heattransin
+  pamb = 101325.
+  dpdt_factor = 1.0
+  closed_chamber = 1
+ /
+ &extern
+ const_conductivity = 0.0
+ const_viscosity = 0.
+ const_bulk_viscosity = 0.
+ const_diffusivity = 0.
+ /

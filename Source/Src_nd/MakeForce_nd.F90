@@ -54,7 +54,7 @@ contains
       REAL_T  :: forcemax(scomp:scomp+ncomp-1)
       REAL_T  :: hx, hy, hz
       integer :: isioproc, count
-      integer :: nXvel, nYvel, nZvel, nRho, nTrac, nRhoScal
+      integer :: nXvel, nYvel, nZvel, nRho, nRhoScal
 
       integer :: i, j, k, n
 
@@ -73,7 +73,6 @@ contains
       nYvel  = 1
       nZvel  = dim-1
       nRho   = dim
-      nTrac  = dim+1
 
       nRhoScal   = nRho-dim
 
@@ -201,15 +200,6 @@ contains
          do n = max(scomp,nRho), scomp+ncomp-1
             if ( n == nRho) then
                ! Density
-               do k = f_lo(3), f_hi(3)
-                  do j = f_lo(2), f_hi(2)
-                     do i = f_lo(1), f_hi(1)
-                        force(i,j,k,n) = zero
-                     enddo
-                  enddo
-               enddo
-            else if ( n == nTrac ) then
-               ! Tracer
                do k = f_lo(3), f_hi(3)
                   do j = f_lo(2), f_hi(2)
                      do i = f_lo(1), f_hi(1)

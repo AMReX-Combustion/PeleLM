@@ -7,6 +7,7 @@
 #include <Prob_F.H>
 #include <PeleLM_F.H>
 
+#include "mechanism.h"
 
 module prob_nd_module
 
@@ -509,10 +510,9 @@ contains
                         delta, xlo, xhi) &
                         bind(C, name="init_data")
 
-      use network,   only: nspecies
       use PeleLM_F,  only: pphys_getP1atm_MKS, pphys_get_spec_name2
       use PeleLM_nD, only: pphys_RHOfromPTY, pphys_HMIXfromTY
-      use mod_Fvar_def, only : Density, Temp, FirstSpec, RhoH, pamb, Trac
+      use mod_Fvar_def, only : Density, Temp, FirstSpec, RhoH, pamb
       use mod_Fvar_def, only : domnlo
       use probdata_module, only : T_in
 
@@ -531,7 +531,7 @@ contains
 
 ! Local
       integer :: i, j, k, n
-      REAL_T  :: x, y, z, Yl(nspecies), Patm
+      REAL_T  :: x, y, z, Yl(NUM_SPECIES), Patm
 
       do k = lo(3), hi(3)
          z = (float(k)+.5d0)*delta(3)+domnlo(3)
@@ -544,11 +544,9 @@ contains
                Yl(1) = 0.233d0
                Yl(2) = 0.767d0
 
-               do n = 1,nspecies
+               do n = 1,NUM_SPECIES
                  scal(i,j,k,FirstSpec+n-1) = Yl(n)
                end do
-
-               scal(i,j,k,Trac) = 0.d0
 
                vel(i,j,k,1) = 0.d0
                vel(i,j,k,2) = 0.d0
@@ -573,7 +571,7 @@ contains
       do k = lo(3), hi(3)
          do j = lo(2), hi(2)
             do i = lo(1), hi(1)
-               do n = 0,nspecies-1
+               do n = 0,NUM_SPECIES-1
                   scal(i,j,k,FirstSpec+n) = scal(i,j,k,FirstSpec+n)*scal(i,j,k,Density)
                enddo
                scal(i,j,k,RhoH) = scal(i,j,k,RhoH)*scal(i,j,k,Density)
