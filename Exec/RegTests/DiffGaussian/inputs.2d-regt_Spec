@@ -96,6 +96,12 @@ ns.num_divu_iters =3
 #ShowMF_Sets = DBGSync
 #ShowMF_Dir  = DebugSync
 
+# ----------------  INPUTS TO CONSTANT TRANSPORT -------------------
+transport.const_viscosity = 0.0
+transport.const_bulk_viscosity = 0.0
+transport.const_conductivity = 0.0
+transport.const_diffusivity = 0.00000001
+
 # ------------------  INPUTS TO GODUNOV CLASS ----------------------
 godunov.slope_order = 4
 

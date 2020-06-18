@@ -12,9 +12,3 @@
  &heattransin
   pamb = 101325.
  /
- &extern
- const_conductivity = 0.
- const_viscosity = 0.
- const_bulk_viscosity = 0.
- const_diffusivity = 0.0000001
- /
