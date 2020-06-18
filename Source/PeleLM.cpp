@@ -8393,12 +8393,6 @@ PeleLM::zeroBoundaryVisc (MultiFab*  beta[BL_SPACEDIM],
 }
 
 void
-PeleLM::compute_vel_visc (Real      time,
-                          MultiFab* beta)
-{
-}
-
-void
 PeleLM::calc_divu (Real      time,
                    Real      dt,
                    MultiFab& divu)
