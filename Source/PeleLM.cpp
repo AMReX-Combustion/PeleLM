@@ -40,7 +40,6 @@
 #include <AMReX_AmrData.H>
 #endif
 
-#include <mechanism.h>
 #ifdef USE_SUNDIALS_PP
 #include <reactor.h>
 #ifdef USE_CUDA_SUNDIALS_PP

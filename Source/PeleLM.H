@@ -7,6 +7,8 @@
 
 #include <AMReX_ForkJoin.H>
 
+#include <mechanism.h>
+
 #include <list>
 #include <map>
 #include <utility>
