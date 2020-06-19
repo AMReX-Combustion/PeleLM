@@ -310,6 +310,7 @@ protected:
 
   static void Initialize ();
   static void Initialize_specific ();
+  static void init_mixture_fraction ();
   static void Finalize ();
     
 #ifdef AMREX_PARTICLES
@@ -446,6 +447,7 @@ private:
 
   void set_typical_values(bool restart);
   void reset_typical_values(const amrex::MultiFab& S);
+
 
   void temperature_stats (amrex::MultiFab& S);
 
@@ -648,6 +650,10 @@ private:
   static amrex::Real prandtl;
   static amrex::Real schmidt;
   static amrex::Real constant_thick_val;
+  // Mixture fraction machinery
+  static amrex::Real Zfu;
+  static amrex::Real Zox;
+  static bool        mixture_fraction_ready;
   static int         do_diffuse_sync;
   static int         do_reflux_visc;
   static int         do_set_rho_to_species_sum;
