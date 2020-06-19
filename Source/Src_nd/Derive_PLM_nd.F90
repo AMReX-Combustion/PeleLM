@@ -22,7 +22,7 @@ module derive_PLM_nd
 
   public :: dermgvort, dermgdivu, & 
             drhort, &
-            dermolefrac, derconcentration, dertransportcoeff, dermolweight, &
+            dermolefrac, derconcentration, dermolweight, &
             dhrr, dermixanddiss, dcma
 
   REAL_T, dimension(NUM_SPECIES,NUM_ELEMENTS) :: coeff_mix
@@ -1042,82 +1042,6 @@ contains
 
    end subroutine derconcentration
 
-
-!=========================================================
-!  Compute transport coefficients: D_n, \lambda, \mu
-!=========================================================
-
-   subroutine dertransportcoeff (e,   e_lo, e_hi, nv, &
-                                 dat, d_lo, d_hi, ncomp, &
-                                 lo, hi, domlo, domhi, delta, xlo, time, dt, bc, &
-                                 level, grid_no) &
-                                 bind(C, name="dertransportcoeff")
-
-      use transport_module, only : get_transport_coeffs_F
-
-      implicit none
-
-!  In/Out
-      integer, intent(in) :: lo(3), hi(3)
-      integer, intent(in) :: e_lo(3), e_hi(3), nv
-      integer, intent(in) :: d_lo(3), d_hi(3), ncomp
-      integer, intent(in) :: domlo(3), domhi(3)
-      integer, intent(in) :: bc(3,2,ncomp)
-      REAL_T, intent(in)  :: delta(3), xlo(3), time, dt
-      REAL_T, intent(out),dimension(e_lo(1):e_hi(1),e_lo(2):e_hi(2),e_lo(3):e_hi(3),nv) :: e
-      REAL_T, intent(in), dimension(d_lo(1):d_hi(1),d_lo(2):d_hi(2),d_lo(3):d_hi(3),ncomp) :: dat
-      integer, intent(in) :: level, grid_no
-
-!  Local
-      REAL_T, dimension(NUM_SPECIES) :: Yt, D, invmwt
-      REAL_T, dimension(1)        :: rho_dummy, MU, XI, LAM, Wavg
-      REAL_T                      :: rhoinv
-      integer :: fS, rho, T
-      integer :: lo_chem(3), hi_chem(3)
-
-      data lo_chem /1,1,1/
-      data hi_chem /1,1,1/
-
-      integer :: i, j, k, n
-
-      rho = 1
-      T   = 2
-      fS  = 3
-
-      call get_imw(invmwt)
-
-      do k=lo(3),hi(3)
-         do j=lo(2),hi(2)
-            do i=lo(1),hi(1)
-               rhoinv = 1.0d0/dat(i,j,k,rho)
-               do n = 1,NUM_SPECIES
-                  Yt(n) = dat(i,j,k,fS+n-1)*rhoinv
-               enddo
-               rho_dummy(1) = dat(i,j,k,rho) * 1.d-3
-
-               call CKMMWY(Yt,Wavg(1))
-
-               CALL get_transport_coeffs_F(lo_chem, hi_chem, &
-                                         Yt,           lo_chem,hi_chem,  &
-                                         dat(i,j,k,T), lo_chem,hi_chem,  &
-                                         rho_dummy(1), lo_chem,hi_chem,  &
-                                         D,            lo_chem,hi_chem,  &
-                                         MU(1),        lo_chem,hi_chem,  &
-                                         XI(1),        lo_chem,hi_chem,  &
-                                         LAM(1),       lo_chem,hi_chem)
-
-               do n = 1,NUM_SPECIES
-                  e(i,j,k,n) = Wavg(1) * invmwt(n) * D(n) * 0.1d0
-               enddo
-
-               e(i,j,k,NUM_SPECIES+1) = LAM(1) * 1.0d-05
-               e(i,j,k,NUM_SPECIES+2) = MU(1)  * 0.1d0
-
-            enddo
-         enddo
-      enddo
-
-   end subroutine dertransportcoeff
 
 !=========================================================
 !  Compute the mixture mean molecular weight
