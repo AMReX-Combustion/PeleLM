@@ -1,5 +1,6 @@
 #include "PeleLM.H"
 #include "PeleLM_derive.H"
+#include <EOS.H>
 
 using namespace amrex;
 
@@ -78,6 +79,92 @@ void pelelm_dermassfrac (const Box& bx, FArrayBox& derfab, int dcomp, int ncomp,
     });
 }
 
+//
+// Extract species mole fractions X_n
+//
+
+void pelelm_dermolefrac (const Box& bx, FArrayBox& derfab, int dcomp, int ncomp,
+                  const FArrayBox& datfab, const Geometry& /*geomdata*/,
+                  Real /*time*/, const int* /*bcrec*/, int /*level*/)
+
+{
+    auto const in_dat = datfab.array();
+    auto       der = derfab.array();
+ 
+    amrex::ParallelFor(bx, 
+    [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+    {
+        amrex::Real Yt[ncomp];
+        amrex::Real Xt[ncomp];
+        amrex::Real rhoinv = 1.0 / in_dat(i,j,k,0);
+        for (int n = 0; n < ncomp; n++) {
+          Yt[n] = in_dat(i,j,k,n+1) * rhoinv;
+        } 
+        EOS::Y2X(Yt,Xt);
+        for (int n = 0; n < ncomp; n++) {
+          der(i,j,k,n) = Xt[n];
+        }
+    });
+
+}
+
+//
+// Compute the mixture mean molecular weight
+//
+
+void pelelm_dermolweight (const Box& bx, FArrayBox& derfab, int dcomp, int /*ncomp*/,
+                  const FArrayBox& datfab, const Geometry& /*geomdata*/,
+                  Real /*time*/, const int* /*bcrec*/, int /*level*/)
+
+{   
+    auto const in_dat = datfab.array();
+    auto       der = derfab.array();
+    int nspec_comp = in_dat.nComp() - 1;  //here we get back the correct number of species
+
+    amrex::ParallelFor(bx, 
+    [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+    {   
+        amrex::Real Yt[nspec_comp];
+        amrex::Real Wbar;
+        amrex::Real rhoinv = 1.0 / in_dat(i,j,k,0);
+        for (int n = 0; n < nspec_comp; n++) {
+          Yt[n] = in_dat(i,j,k,n+1) * rhoinv;
+        } 
+        EOS::Y2WBAR(Yt,Wbar);
+        der(i,j,k) = Wbar;
+    });
+
+}
+
+//
+// Compute the mixture mean heat capacity at cst pressure
+//
+
+void pelelm_dercpmix (const Box& bx, FArrayBox& derfab, int dcomp, int /*ncomp*/,
+                  const FArrayBox& datfab, const Geometry& /*geomdata*/,
+                  Real /*time*/, const int* /*bcrec*/, int /*level*/)
+
+{
+    auto const in_dat = datfab.array();
+    auto       der = derfab.array();
+    int nspec_comp = in_dat.nComp() - 2;  //here we get back the correct number of species
+
+    amrex::ParallelFor(bx,
+    [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+    {
+        amrex::Real Yt[nspec_comp];
+        amrex::Real Temp;
+        amrex::Real Cpmix;
+        amrex::Real rhoinv = 1.0 / in_dat(i,j,k,0);
+        for (int n = 0; n < nspec_comp; n++) {
+          Yt[n] = in_dat(i,j,k,n+2) * rhoinv;
+        }
+        Temp = in_dat(i,j,k,1);
+        EOS::TY2Cp(Temp,Yt,Cpmix);
+        der(i,j,k) = Cpmix * 1.0e-4; // CGS -> MKS ;
+    });
+
+}
 
 //
 // Compute rho - Sum_n(rhoY_n)
@@ -264,4 +351,47 @@ void pelelm_dergrdpz (const Box& bx, FArrayBox& derfab, int dcomp, int /*ncomp*/
     });
 
 }
+
+
+
+//
+// Compute species concentrations C_n
+//
+
+void pelelm_derconcentration (const Box& bx, FArrayBox& derfab, int dcomp, int ncomp,
+                  const FArrayBox& datfab, const Geometry& /*geomdata*/,
+                  Real /*time*/, const int* /*bcrec*/, int /*level*/)
+
+{   
+    auto const in_dat = datfab.array();
+    auto       der = derfab.array();
+    int nspec_comp = in_dat.nComp() - 2;  //here we get back the correct number of species
+    
+    amrex::ParallelFor(bx, 
+    [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+    {   
+        amrex::Real Yt[nspec_comp];
+        amrex::Real Ct[nspec_comp];
+        amrex::Real Temp;
+        amrex::Real Rho;
+        amrex::Real rhoinv = 1.0 / in_dat(i,j,k,0);
+        for (int n = 0; n < nspec_comp; n++) {
+          Yt[n] = in_dat(i,j,k,n+2) * rhoinv;
+        }
+        Temp = in_dat(i,j,k,1);
+        Rho = in_dat(i,j,k,0) * 1.0e-3; // ! kg/m^3 -> g/cm^3
+
+        EOS::RTY2C(Rho,Temp,Yt,Ct);
+
+        for (int n = 0; n < ncomp; n++) {
+          der(i,j,k,n) = Ct[n] * 1.0e6; // cm^(-3) -> m^(-3) 
+        }
+    });
+
+}
+
+
+
+
+
 
