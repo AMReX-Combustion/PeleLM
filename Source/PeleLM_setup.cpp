@@ -849,7 +849,7 @@ PeleLM::variableSetUp ()
   var_names_transp_coeff[nspecies] = "Lambda";
   var_names_transp_coeff[nspecies+1] = "Mu";
   derive_lst.add("cc_transport_coeffs",IndexType::TheCellType(),nspecies+2,
-                 var_names_transp_coeff,dertransportcoeff,the_same_box);
+                 var_names_transp_coeff,pelelm_dertransportcoeff,the_same_box);
   derive_lst.addComponent("cc_transport_coeffs",desc_lst,State_Type,Density,1);
   derive_lst.addComponent("cc_transport_coeffs",desc_lst,State_Type,Temp,1);
   derive_lst.addComponent("cc_transport_coeffs",desc_lst,State_Type,
