@@ -1136,115 +1136,6 @@ contains
    end subroutine dercpmix
 
 !=========================================================
-!  Init Bilger's element based mixture fraction
-!=========================================================
-
-   subroutine init_mixture_fraction() bind(C,name='init_mixture_fraction')
-
-      use fuego_chemistry, only : elem_names, spec_names
-
-      implicit none
-
-      REAL_T, dimension(NUM_SPECIES)  :: WtS, YF, YO, XO
-      REAL_T, dimension(NUM_ELEMENTS) :: WtE
-      integer, dimension(NUM_ELEMENTS,NUM_SPECIES) :: ELTinSp
-
-      integer:: i, j
-
-      CALL ckwt(WtS)
-      CALL ckawt(WtE)
-      CALL ckncf(NUM_ELEMENTS,ELTinSP)
-
-      do i = 1, NUM_SPECIES
-         do j = 1, NUM_ELEMENTS
-            coeff_mix(i,j) = ELTinSP(j,i)*WtE(j)/WtS(i)
-         enddo
-      enddo
-
-! TODO : should be related to probin file input !
-      do i = 1, NUM_SPECIES
-         YF(i) = 0.0d0
-         XO(i) = 0.0d0
-         YO(i) = 0.0d0
-         if(spec_names(i).eq.'NC12H26') YF(i)=1.0
-         if(spec_names(i).eq.'O2') XO(i)=0.15
-         if(spec_names(i).eq.'N2') XO(i)=0.85
-      enddo
-
-      CALL ckxty(XO,YO)
-
-      do i = 1,NUM_ELEMENTS
-         beta_mix(i) = 0
-         if(elem_names(i).eq.'C') beta_mix(i) = 2.0/WtE(i)
-         if(elem_names(i).eq.'H') beta_mix(i) = 1.0/(2.0*WtE(i))
-         if(elem_names(i).eq.'O') beta_mix(i) = -1.0/WtE(i)
-      enddo
-
-      Zfu = 0.0d0
-      Zox = 0.0d0
-      do i=1,NUM_SPECIES
-         fact(i) = 0.0d0
-         do j=1,NUM_ELEMENTS
-            fact(i) = fact(i) + beta_mix(j)*coeff_mix(i,j)
-         enddo
-         Zfu = Zfu+fact(i)*YF(i)
-         Zox = Zox+fact(i)*YO(i)
-      enddo
-
-      init_mixture = .TRUE.
-
-   end subroutine init_mixture_fraction
-
-!=========================================================
-!  Compute Bilger's element based mixture fraction
-!=========================================================
-
-   subroutine dermixfrac (e,   e_lo, e_hi, nv, &
-                          dat, d_lo, d_hi, ncomp, &
-                          lo, hi, domlo, domhi, delta, xlo, time, dt, bc, &
-                          level, grid_no) &
-                          bind(C, name="dermixfrac")
-
-      implicit none
-
-! In/Out
-      integer, intent(in) :: lo(3), hi(3)
-      integer, intent(in) :: e_lo(3), e_hi(3), nv
-      integer, intent(in) :: d_lo(3), d_hi(3), ncomp
-      integer, intent(in) :: domlo(3), domhi(3)
-      integer, intent(in) :: bc(3,2,ncomp)
-      REAL_T, intent(in)  :: delta(3), xlo(3), time, dt
-      REAL_T, intent(out),dimension(e_lo(1):e_hi(1),e_lo(2):e_hi(2),e_lo(3):e_hi(3),nv) :: e
-      REAL_T, intent(in), dimension(d_lo(1):d_hi(1),d_lo(2):d_hi(2),d_lo(3):d_hi(3),ncomp) :: dat
-      integer, intent(in) :: level, grid_no
-
-! Local
-      REAL_T :: rhoinv
-      integer :: fS,rho
-
-      integer :: i, j, k, n
-
-      rho = 1
-      fS  = 2
-
-      if(.not.init_mixture) CALL init_mixture_fraction()
-
-      do k=lo(3), hi(3)
-         do j=lo(2), hi(2)
-            do i=lo(1), hi(1)
-               rhoinv = 1.0d0 / dat(i,j,k,rho)
-               e(i,j,k,1) = 0.0d0
-               do n=1,NUM_SPECIES
-                  e(i,j,k,1) = e(i,j,k,1) + dat(i,j,k,fs+n-1) * rhoinv * fact(n)
-               enddo
-               e(i,j,k,1) = ( e(i,j,k,1) - Zox ) / ( Zfu - Zox )
-            enddo
-         enddo
-      enddo
-
-   end subroutine dermixfrac
-
-!=========================================================
 !  Compute the heat release rate -Sum_n(rhoYn_dot * Hn(T))
 !=========================================================
 
@@ -1329,7 +1220,7 @@ contains
 
       integer :: i, j, k, n
 
-      if(.not.init_mixture) CALL init_mixture_fraction()
+      !if(.not.init_mixture) CALL init_mixture_fraction()
 
       rho = 1
       T   = 2
@@ -1432,10 +1323,10 @@ contains
       OH = get_species_index('OH')
       RO2 = get_species_index('C12H25O2')
 
-      CALL  dermixfrac(e(:,:,:,1),  e_lo, e_hi, 1, &
-                       dat(:,:,:,rho:NUM_SPECIES+1), d_lo, d_hi, NUM_SPECIES+1, &
-                       lo, hi, domlo, domhi, delta, xlo, time, dt, bc, &
-                       level, grid_no)
+      !CALL  dermixfrac(e(:,:,:,1),  e_lo, e_hi, 1, &
+      !                 dat(:,:,:,rho:NUM_SPECIES+1), d_lo, d_hi, NUM_SPECIES+1, &
+      !                 lo, hi, domlo, domhi, delta, xlo, time, dt, bc, &
+      !                 level, grid_no)
 
       CALL  dhrr(e(:,:,:,2), e_lo, e_hi, 1, &
                  dat(:,:,:,T:ncomp), d_lo, d_hi, NUM_SPECIES+1, &
