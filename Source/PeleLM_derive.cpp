@@ -1,5 +1,8 @@
 #include "PeleLM.H"
+#include "PeleLM_K.H"
 #include "PeleLM_derive.H"
+
+#include <mechanism.h>
 
 using namespace amrex;
 
@@ -261,6 +264,30 @@ void pelelm_dergrdpz (const Box& bx, FArrayBox& derfab, int dcomp, int /*ncomp*/
         der(i,j,k,dcomp) = factor*( in_dat(i,  j,k+1)-in_dat(i,  j,k)+in_dat(i,  j+1,k+1)-in_dat(i,  j+1,k) + 
                                     in_dat(i+1,j,k+1)-in_dat(i+1,j,k)+in_dat(i+1,j+1,k+1)-in_dat(i+1,j+1,k));
 
+    });
+
+}
+
+//
+//  Compute transport coefficient: D_n, \lambda, \mus
+//
+
+void pelelm_dertransportcoeff (const Box& bx, FArrayBox& derfab, int dcomp, int ncomp,
+                  const FArrayBox& datfab, const Geometry& geomdata,
+                  Real time, const int* bcrec, int level)
+
+{
+    auto const density = datfab.array(0);
+    auto const T       = datfab.array(1);
+    auto const rhoY    = datfab.array(2);
+    auto       rhoD    = derfab.array(0);
+    auto       lambda  = derfab.array(NUM_SPECIES);
+    auto       mu      = derfab.array(NUM_SPECIES+1);
+
+    amrex::ParallelFor(bx,
+    [density, T, rhoY, rhoD, lambda, mu] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+    {
+        getTransportCoeff( i, j, k, rhoY, T, rhoD, lambda, mu);
     });
 
 }
