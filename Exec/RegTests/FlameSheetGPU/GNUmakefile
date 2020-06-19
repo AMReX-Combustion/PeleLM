@@ -31,7 +31,7 @@ ifeq ($(USE_SUNDIALS_PP), TRUE)
     #SUITESPARSE_DIR=$(PELE_PHYSICS_HOME)/ThirdParty/SuiteSparse/
   endif
   # Activates GPU version
-  USE_CUDA_SUNDIALS_PP = TRUE
+  USE_CUDA_SUNDIALS_PP = FALSE
 endif
 #######################
 
@@ -68,7 +68,7 @@ Eos_dir     := Fuego
 Reactions_dir := Fuego
 
 # This sets the transport directory in $(PELE_PHYSICS_HOME)/Transport
-Transport_dir := EGLib
+Transport_dir := Simple
 
 Blocs   := .
 
