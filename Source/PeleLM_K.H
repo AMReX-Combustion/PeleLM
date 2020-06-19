@@ -327,7 +327,7 @@ inline
 void
 getTransportCoeff(int i, int j, int k,
                   amrex::Array4<const amrex::Real> const& rhoY,
-                  amrex::Array4<      amrex::Real> const& T,
+                  amrex::Array4<const amrex::Real> const& T,
                   amrex::Array4<      amrex::Real> const& rhoDi,
                   amrex::Array4<      amrex::Real> const& lambda,
                   amrex::Array4<      amrex::Real> const& mu) noexcept
@@ -353,9 +353,10 @@ getTransportCoeff(int i, int j, int k,
 
    rho *= 1.0e-3_rt;                          // MKS -> CGS conversion
    amrex::Real rhoDi_cgs[NUM_SPECIES], lambda_cgs, mu_cgs, dummy_xi;
+   amrex::Real Tloc = T(i,j,k);
 
    bool get_xi = false, get_mu = true, get_lam = true, get_Ddiag = true;
-   transport(get_xi, get_mu, get_lam, get_Ddiag, T(i,j,k),
+   transport(get_xi, get_mu, get_lam, get_Ddiag, Tloc,
              rho, y, rhoDi_cgs, mu_cgs, dummy_xi, lambda_cgs);
 
    // Do CGS -> MKS conversions
