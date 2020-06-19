@@ -153,7 +153,8 @@ void pelelm_dercpmix (const Box& bx, FArrayBox& derfab, int dcomp, int /*ncomp*/
     [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
     {
         amrex::Real Yt[nspec_comp];
-        amrex::Real Temp, Cpmix;
+        amrex::Real Temp;
+        amrex::Real Cpmix;
         amrex::Real rhoinv = 1.0 / in_dat(i,j,k,0);
         for (int n = 0; n < nspec_comp; n++) {
           Yt[n] = in_dat(i,j,k,n+2) * rhoinv;
@@ -369,8 +370,10 @@ void pelelm_derconcentration (const Box& bx, FArrayBox& derfab, int dcomp, int n
     amrex::ParallelFor(bx, 
     [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
     {   
-        amrex::Real Yt[nspec_comp], Ct[nspec_comp];
-        amrex::Real Temp, Rho;
+        amrex::Real Yt[nspec_comp];
+        amrex::Real Ct[nspec_comp];
+        amrex::Real Temp;
+        amrex::Real Rho;
         amrex::Real rhoinv = 1.0 / in_dat(i,j,k,0);
         for (int n = 0; n < nspec_comp; n++) {
           Yt[n] = in_dat(i,j,k,n+2) * rhoinv;
