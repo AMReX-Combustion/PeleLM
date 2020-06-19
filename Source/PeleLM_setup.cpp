@@ -962,6 +962,10 @@ PeleLM::variableSetUp ()
   //err_list.add("total_particle_count",1,ErrorRec::Special,part_cnt_err);
 #endif
 
+  derive_lst.add("mixfrac_only",IndexType::TheCellType(),1,pelelm_dermixfrac,the_same_box);
+  derive_lst.addComponent("mixfrac_only",desc_lst,State_Type,Density,1);
+  derive_lst.addComponent("mixfrac_only",desc_lst,State_Type,first_spec,NUM_SPECIES);
+
   Vector<std::string> mix_and_diss(2);
   mix_and_diss[0] = "mixture_fraction";
   mix_and_diss[1] = "Scalar_diss";
