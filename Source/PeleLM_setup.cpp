@@ -440,7 +440,7 @@ protected:
   static int getStateID (const std::string& stateName)
     {
       Vector<std::string> names;
-      PeleLM::getSpeciesNames(names);
+      EOS::speciesNames(names);
       for (int i=0; i<names.size(); i++)
         if (names[i] == stateName)
           return i;
@@ -502,8 +502,6 @@ PeleLM::variableSetUp ()
   EOS::init();
   transport_init();
 
-  init_transport(use_tranlib);
-
   BCRec bc;
   //
   // Set state variable Id's (Density and velocities set already).
@@ -521,7 +519,7 @@ PeleLM::variableSetUp ()
   NUM_STATE = ++counter;
   NUM_SCALARS = NUM_STATE - Density;
 
-  getSpeciesNames(spec_names); 
+  EOS::speciesNames(spec_names);
 
   amrex::Print() << nreactions << " Reactions in mechanism \n";
   amrex::Print() << nspecies << " Chemical species interpreted:\n { ";
