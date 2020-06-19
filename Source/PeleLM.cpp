@@ -149,6 +149,8 @@ Real PeleLM::rgas;
 Real PeleLM::prandtl;
 Real PeleLM::schmidt;
 Real PeleLM::constant_thick_val;
+Array<Real, 4> PeleLM::Beta_mix;
+Array<Real, NUM_SPECIES> PeleLM::spec_Bilger_fact;
 Real PeleLM::Zfu;
 Real PeleLM::Zox;
 bool PeleLM::mixture_fraction_ready;
@@ -404,6 +406,8 @@ PeleLM::Initialize ()
   PeleLM::schmidt                   = .7;
   PeleLM::constant_thick_val        = -1;
 
+  PeleLM::Beta_mix = {0};
+  PeleLM::spec_Bilger_fact = {0};
   PeleLM::Zfu = -1;
   PeleLM::Zox = -1;
   PeleLM::mixture_fraction_ready    = false;
@@ -1429,12 +1433,11 @@ PeleLM::restart (Amr&          papa,
 void
 PeleLM::init_mixture_fraction()
 {
+      // Get fuel and oxy tank composition
       Vector<std::string> specNames;
       EOS::speciesNames(specNames);
-      // ugly but will do for now
       amrex::Real YF[NUM_SPECIES], YO[NUM_SPECIES];
       for (int i=0; i<NUM_SPECIES; ++i) {
-	 Print() << i << " " << specNames[i] << "\n";		
          YF[i] = 0.0;
          YO[i] = 0.0;  
          if (!specNames[i].compare("O2"))  YO[i] = 0.233;
@@ -1442,8 +1445,7 @@ PeleLM::init_mixture_fraction()
          if (!specNames[i].compare("CH4")) YF[i] = 1.0;
       }
 
-      // What matter is CHON
-      amrex::Real Beta_mix[4];
+      // Only interested in CHON -in that order. Compute Bilger weights
       amrex::Real atwCHON[4];
       EOS::atomic_weightsCHON(atwCHON);
       Beta_mix[0] = 2.0/atwCHON[0];
@@ -1451,19 +1453,21 @@ PeleLM::init_mixture_fraction()
       Beta_mix[2] = -1.0/atwCHON[2];
       Beta_mix[3] = 0.0;
 
-      // elemental compo of each spec. Order is CHON
+      // Compute each species weight for the Bilger formulation based on elemental compo
+      // Only interested in CHON -in that order.
       int ecompCHON[NUM_SPECIES*4];
-      amrex::Real fact[NUM_SPECIES];
+      amrex::Real mwt[NUM_SPECIES];
       EOS::element_compositionCHON(ecompCHON);
+      EOS::molecular_weight(mwt);
       Zfu = 0.0;
       Zox = 0.0;
       for (int i=0; i<NUM_SPECIES; ++i) {
-         fact[i] = 0.0;
+         spec_Bilger_fact[i] = 0.0;
          for (int k = 0; k < 4; k++) {
-            fact[i] += Beta_mix[k]*ecompCHON[i*4 + k];
+            spec_Bilger_fact[i] += Beta_mix[k] * (ecompCHON[i*4 + k]*atwCHON[k]/mwt[i]);
          }
-         Zfu += Zfu+fact[i]*YF[i];
-         Zox += Zox+fact[i]*YO[i];
+         Zfu += Zfu + spec_Bilger_fact[i]*YF[i];
+         Zox += Zox + spec_Bilger_fact[i]*YO[i];
       }
 
       mixture_fraction_ready = true;

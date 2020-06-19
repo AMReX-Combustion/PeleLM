@@ -651,6 +651,8 @@ private:
   static amrex::Real schmidt;
   static amrex::Real constant_thick_val;
   // Mixture fraction machinery
+  static amrex::Array<amrex::Real, 4> Beta_mix;
+  static amrex::Array<amrex::Real, NUM_SPECIES> spec_Bilger_fact;
   static amrex::Real Zfu;
   static amrex::Real Zox;
   static bool        mixture_fraction_ready;
