@@ -292,3 +292,31 @@ void pelelm_dertransportcoeff (const Box& bx, FArrayBox& derfab, int dcomp, int 
 
 }
 
+void pelelm_dermixfrac (const Box& bx, FArrayBox& derfab, int dcomp, int ncomp,
+                  const FArrayBox& datfab, const Geometry& geomdata,
+                  Real time, const int* bcrec, int level)
+
+{
+    if (!mixture_fraction_ready) amrex::Abort("Mixture fraction not initialized");
+
+    auto const density   = datfab.array(0);
+    auto const rhoY      = datfab.array(2);
+    auto       mixt_frac = derfab.array(0);
+
+    // TODO probably better way to do this ?
+    amrex::Real fact_lcl[NUM_SPECIES];
+    for (int n=0; n<NUM_SPECIES; ++n) {
+        fact_lcl[n] = spec_Bilger_fact[n];
+    }
+
+    amrex::ParallelFor(bx,
+    [density, rhoY, mixt_frac] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+    {
+        mixt_frac(i,j,k) = 0.0;
+        for (int n=0; n<NUM_SPECIES; ++n) {
+            mixt_frac(i,j,k) = mixt_frac(i,j,k) + ( rhoY(i,j,k,n) * fact_lcl[n] ) / density(i,j,k);
+        }
+         mixt_frac(i,j,k) = ( mixt_frac(i,j,k) - Zox ) / ( Zfu - Zox ) ;
+        
+    });
+}

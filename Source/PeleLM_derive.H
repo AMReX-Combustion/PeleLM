@@ -50,6 +50,17 @@ void pelelm_dertransportcoeff (const amrex::Box& bx, amrex::FArrayBox& derfab, i
                         const amrex::FArrayBox& datafab, const amrex::Geometry& geomdata,
                         amrex::Real time, const int* bcrec, int level);
 
+void pelelm_dermixanddiss (const amrex::Box& bx, amrex::FArrayBox& derfab, int dcomp, int ncomp,
+                        const amrex::FArrayBox& datafab, const amrex::Geometry& geomdata,
+                        amrex::Real time, const int* bcrec, int level);
+
+void pelelm_dermixfrac (const amrex::Box& bx, amrex::FArrayBox& derfab, int dcomp, int ncomp,
+                        const amrex::FArrayBox& datafab, const amrex::Geometry& geomdata,
+                        amrex::Real time, const int* bcrec, int level);
+
+void pelelm_dhrr (const amrex::Box& bx, amrex::FArrayBox& derfab, int dcomp, int ncomp,
+                        const amrex::FArrayBox& datafab, const amrex::Geometry& geomdata,
+                        amrex::Real time, const int* bcrec, int level);
 
 
 #endif
