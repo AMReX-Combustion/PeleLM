@@ -231,6 +231,13 @@ public:
                                                        const amrex::MultiFab& divu,
                                                        amrex::Real            dt);
 
+  // Mixture fraction machinery
+  static amrex::Array<amrex::Real, 4> Beta_mix;
+  static amrex::Array<amrex::Real, NUM_SPECIES> spec_Bilger_fact;
+  static amrex::Real Zfu;
+  static amrex::Real Zox;
+  static bool        mixture_fraction_ready;
+
 #if !defined(AMREX_USE_CUDA)
 protected:
 #endif
@@ -652,12 +659,6 @@ private:
   static amrex::Real prandtl;
   static amrex::Real schmidt;
   static amrex::Real constant_thick_val;
-  // Mixture fraction machinery
-  static amrex::Array<amrex::Real, 4> Beta_mix;
-  static amrex::Array<amrex::Real, NUM_SPECIES> spec_Bilger_fact;
-  static amrex::Real Zfu;
-  static amrex::Real Zox;
-  static bool        mixture_fraction_ready;
   static int         do_diffuse_sync;
   static int         do_reflux_visc;
   static int         do_set_rho_to_species_sum;
