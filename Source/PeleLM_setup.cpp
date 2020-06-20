@@ -969,7 +969,7 @@ PeleLM::variableSetUp ()
   Vector<std::string> mix_and_diss(2);
   mix_and_diss[0] = "mixture_fraction";
   mix_and_diss[1] = "Scalar_diss";
-  derive_lst.add("mixfrac",IndexType::TheCellType(),2,mix_and_diss,dermixanddiss,grow_box_by_one,&lincc_interp);
+  derive_lst.add("mixfrac",IndexType::TheCellType(),2,mix_and_diss,pelelm_dermixanddiss,grow_box_by_one,&lincc_interp);
   derive_lst.addComponent("mixfrac",desc_lst,State_Type,Density,1);
   derive_lst.addComponent("mixfrac",desc_lst,State_Type,Temp,1);
   derive_lst.addComponent("mixfrac",desc_lst,State_Type,first_spec,nspecies);

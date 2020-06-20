@@ -23,7 +23,7 @@ module derive_PLM_nd
   public :: dermgvort, dermgdivu, & 
             drhort, &
             dermolefrac, derconcentration, dermolweight, &
-            dhrr, dermixanddiss, dcma
+            dhrr, dcma
 
   REAL_T, dimension(NUM_SPECIES,NUM_ELEMENTS) :: coeff_mix
   REAL_T, dimension(NUM_ELEMENTS) :: beta_mix
@@ -1180,109 +1180,6 @@ contains
       enddo
 
    end subroutine dhrr
-
-!=========================================================
-!  Compute both mixt. fraction and scalar diss. rate
-!=========================================================
-
-   subroutine dermixanddiss (e,   e_lo, e_hi, nv, &
-                             dat, d_lo, d_hi, ncomp, &
-                             lo, hi, domlo, domhi, delta, xlo, time, dt, bc, &
-                             level, grid_no) &
-                             bind(C, name="dermixanddiss")
-
-      use transport_module, only : get_transport_coeffs_F
-
-      implicit none
-
-! In/Out
-      integer, intent(in) :: lo(3), hi(3)
-      integer, intent(in) :: e_lo(3), e_hi(3), nv
-      integer, intent(in) :: d_lo(3), d_hi(3), ncomp
-      integer, intent(in) :: domlo(3), domhi(3)
-      integer, intent(in) :: bc(3,2,ncomp)
-      REAL_T, intent(in)  :: delta(3), xlo(3), time, dt
-      REAL_T, intent(out),dimension(e_lo(1):e_hi(1),e_lo(2):e_hi(2),e_lo(3):e_hi(3),nv) :: e
-      REAL_T, intent(in), dimension(d_lo(1):d_hi(1),d_lo(2):d_hi(2),d_lo(3):d_hi(3),ncomp) :: dat
-      integer, intent(in) :: level, grid_no
-
-! Local
-      REAL_T, dimension(d_lo(1):d_hi(1),d_lo(2):d_hi(2),d_lo(3):d_hi(3)) :: mixfrac
-      REAL_T, dimension(NUM_SPECIES) :: Yt, D
-      REAL_T, dimension(3) :: grad
-      REAL_T, dimension(1) :: rhoCGS, MU, XI, LAM
-      REAL_T :: cpmix, rhoinv
-      integer :: rho, T, fS
-
-      integer :: lo_chem(3), hi_chem(3)
-      data lo_chem /1,1,1/
-      data hi_chem /1,1,1/
-
-      integer :: i, j, k, n
-
-      !if(.not.init_mixture) CALL init_mixture_fraction()
-
-      rho = 1
-      T   = 2
-      fS  = 3
-
-      grad(1) = 0.0d0; grad(2) = 0.0d0; grad(3) = 0.0d0
-
-!     Grown box will be given for mixture fraction because derivative
-!     needs to be calculated
-      do k = d_lo(3), d_hi(3)
-         do j = d_lo(2), d_hi(2)
-            do i = d_lo(1), d_hi(1)
-               rhoinv = 1.0d0 / dat(i,j,k,rho)
-               mixfrac(i,j,k) = 0.0d0
-               do n = 1,NUM_SPECIES
-                  mixfrac(i,j,k) = mixfrac(i,j,k) + dat(i,j,k,fS+n-1) * rhoinv * fact(n)
-               enddo
-               mixfrac(i,j,k) = ( mixfrac(i,j,k) - Zox ) / ( Zfu - Zox )
-            enddo
-         enddo
-      enddo
-
-      do k = lo(3), hi(3)
-         do j = lo(2), hi(2)
-            do i = lo(1), hi(1)
-               ! Fill mixture fraction array
-               e(i,j,k,1) = mixfrac(i,j,k)
-
-               ! Compute scalar dissipation rate
-               ! cpmix 
-               rhoinv = 1.0d0 / dat(i,j,k,rho)
-               do n = 1, NUM_SPECIES
-                  Yt(n) = dat(i,j,k,fS+n-1) * rhoinv
-               enddo
-               CALL CKCPBS(dat(i,j,k,T), Yt, cpmix)
-               cpmix = cpmix * 1.0d-4 ! erg/g.K -> J/kg.K
-
-               ! lambda mix 
-               rhoCGS(1) = dat(i,j,k,rho) * 1.0d-3 ! kg/m^3 -> g/cm^3
-               CALL get_transport_coeffs_F(lo_chem, hi_chem, &
-                                         Yt,           lo_chem,hi_chem, &
-                                         dat(i,j,k,T), lo_chem,hi_chem, &
-                                         rhoCGS(1),    lo_chem,hi_chem, &
-                                         D,            lo_chem,hi_chem, &
-                                         MU(1),        lo_chem,hi_chem, &
-                                         XI(1),        lo_chem,hi_chem, &
-                                         LAM(1),       lo_chem,hi_chem)
-               LAM(1) = LAM(1) * 1.0d-05 ! erg/(s.cm.K) -> J/(s.m.K)
-
-               ! grad mixt. fraction
-               grad(1) = 0.5*(mixfrac(i+1,j,k)-mixfrac(i-1,j,k))/delta(1)
-               grad(2) = 0.5*(mixfrac(i,j+1,k)-mixfrac(i,j-1,k))/delta(2)
-               if ( delta(3) > 0.0d0 ) grad(3) = 0.5*(mixfrac(i,j,k+1)-mixfrac(i,j,k-1))/delta(3)
-
-               ! Gather
-               e(i,j,k,2) = grad(1)**2.0d0 + grad(2)**2.0d0 + grad(3)**2.0d0
-               e(i,j,k,2) = 2.0d0 * e(i,j,k,2) * LAM(1) * rhoinv / cpmix
-            enddo
-         enddo
-      enddo
-
-   end subroutine dermixanddiss
 
 !=========================================================
 !  Compute CMA
