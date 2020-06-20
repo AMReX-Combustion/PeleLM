@@ -504,4 +504,39 @@ getConductivity(int i, int j, int k,
    lambda(i,j,k) = lambda_cgs * 1.0e-5_rt;
 }
 
+// ---------- POINTWISE VERSIONS --------------
+
+AMREX_GPU_HOST_DEVICE
+inline
+void
+getConductivity_ptw(int i, int j, int k,
+                amrex::Array4<const amrex::Real> const& rhoY,
+                amrex::Array4<const amrex::Real> const& T,
+                amrex::Real   lambda) noexcept
+{
+   using namespace amrex::literals;
+
+   // Get rho & Y from rhoY
+   amrex::Real rho = 0.0_rt, rhoinv;
+   for (int n = 0; n < NUM_SPECIES; n++) {
+      rho += rhoY(i,j,k,n);
+   }
+   rhoinv = 1.0_rt / rho;
+   amrex::Real y[NUM_SPECIES];
+   for (int n = 0; n < NUM_SPECIES; n++) {
+      y[n] = rhoY(i,j,k,n) * rhoinv;
+   }
+
+   rho *= 1.0e-3_rt;                          // MKS -> CGS conversion
+   amrex::Real dummy_rhoDi[NUM_SPECIES], dummy_mu, lambda_cgs, dummy_xi;
+   amrex::Real Tloc = T(i,j,k);
+
+   bool get_xi = false, get_mu = false, get_lam = true, get_Ddiag = false;
+   transport(get_xi, get_mu, get_lam, get_Ddiag, Tloc,
+             rho, y, dummy_rhoDi, dummy_mu, dummy_xi, lambda_cgs);
+
+   // Do CGS -> MKS conversions
+   lambda = lambda_cgs * 1.0e-5_rt;
+}
+
 #endif

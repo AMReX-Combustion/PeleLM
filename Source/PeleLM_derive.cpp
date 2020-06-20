@@ -323,10 +323,10 @@ void pelelm_dermixanddiss (const Box& bx, FArrayBox& derfab, int /*dcomp*/, int 
         fact_lcl[n] = PeleLM::spec_Bilger_fact[n];
     }
 
+    // Compute Z first
     amrex::ParallelFor(bx,
-    [density, temp, rhoY, mixt_frac, fact_lcl, Zox_lcl, Zfu_lcl] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+    [density, rhoY, mixt_frac, fact_lcl, Zox_lcl, Zfu_lcl] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
     {
-
         // Get Y from rhoY
         amrex::Real rhoinv;
         rhoinv = 1.0 / density(i,j,k);
@@ -340,13 +340,24 @@ void pelelm_dermixanddiss (const Box& bx, FArrayBox& derfab, int /*dcomp*/, int 
             mixt_frac(i,j,k) = mixt_frac(i,j,k) + y[n] * fact_lcl[n];
         }
         mixt_frac(i,j,k) = ( mixt_frac(i,j,k) - Zox_lcl ) / ( Zfu_lcl - Zox_lcl ) ;
+    }
+
+    amrex::ParallelFor(bx,
+    [density, temp, rhoY, mixt_frac, scalar_dis, factor] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+    {
+        // Get Y from rhoY
+        amrex::Real rhoinv;
+        rhoinv = 1.0 / density(i,j,k);
+        amrex::Real y[NUM_SPECIES];
+        for (int n = 0; n < NUM_SPECIES; n++) {
+            y[n] = rhoY(i,j,k,n) * rhoinv;
+        }
 
         amrex::Real lambda;
-        getConductivity(i, j, k, rhoY, temp, lambda);
+        getConductivity_ptw(i, j, k, rhoY, temp, lambda);
 
         amrex::Real cpmix;
         EOS::TY2Cp(temp(i,j,k), y, cpmix);
-
         cpmix *= 0.0001;                         // CGS -> MKS conversion
 
         //grad mixt. fraction
