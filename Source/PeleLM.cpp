@@ -605,7 +605,6 @@ PeleLM::Initialize_specific ()
     pplm.getarr("lo_bc",lo_bc_char,0,BL_SPACEDIM);
     pplm.getarr("hi_bc",hi_bc_char,0,BL_SPACEDIM);
 
-    init_mixture_fraction();
 
     Vector<int> lo_bc(BL_SPACEDIM), hi_bc(BL_SPACEDIM);
     bool flag_closed_chamber = false;
@@ -1427,6 +1426,7 @@ PeleLM::restart (Amr&          papa,
       isp >> p_amb_old;
       p_amb_new = p_amb_old;
   }
+  init_mixture_fraction();
 }
 
 void
@@ -1465,8 +1465,8 @@ PeleLM::init_mixture_fraction()
          for (int k = 0; k < 4; k++) {
             spec_Bilger_fact[i] += Beta_mix[k] * (ecompCHON[i*4 + k]*atwCHON[k]/mwt[i]);
          }
-         Zfu += Zfu + spec_Bilger_fact[i]*YF[i];
-         Zox += Zox + spec_Bilger_fact[i]*YO[i];
+         Zfu += spec_Bilger_fact[i]*YF[i];
+         Zox += spec_Bilger_fact[i]*YO[i];
       }
 
       mixture_fraction_ready = true;
@@ -2031,6 +2031,11 @@ MultiFab::Copy(S_new,P_new,0,RhoRT,1,1);
   // Load typical values for each state component
   //
   set_typical_values(false);
+  
+  //
+  // Initialize mixture fraction data.
+  //
+  init_mixture_fraction();
 
   //
   // Initialize divU and dSdt.
