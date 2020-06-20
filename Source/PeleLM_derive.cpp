@@ -293,6 +293,76 @@ void pelelm_dertransportcoeff (const Box& bx, FArrayBox& derfab, int /*dcomp*/, 
 }
 
 //
+//  Compute both mixt. fraction and scalar diss. rate
+//
+void pelelm_dermixanddiss (const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+                  const FArrayBox& datfab, const Geometry& geomdata,
+                  Real /*time*/, const int* /*bcrec*/, int /*level*/)
+
+{
+    if (!PeleLM::mixture_fraction_ready) amrex::Abort("Mixture fraction not initialized");
+
+    auto const density    = datfab.array(0);
+    auto const temp       = datfab.array(1);
+    auto const rhoY       = datfab.array(2);
+    auto       mixt_frac  = derfab.array(0);
+    auto       scalar_dis = derfab.array(1);
+
+    const auto dxinv = geomdata.InvCellSizeArray();    
+#if (AMREX_SPACEDIM == 2 )
+    Real factor = 0.5*dxinv[0];
+#elif (AMREX_SPACEDIM == 3 )
+    Real factor = 0.25*dxinv[0];
+#endif
+
+    // TODO probably better way to do this ?
+    amrex::Real Zox_lcl = PeleLM::Zox;
+    amrex::Real Zfu_lcl = PeleLM::Zfu;
+    amrex::Real fact_lcl[NUM_SPECIES];
+    for (int n=0; n<NUM_SPECIES; ++n) {
+        fact_lcl[n] = PeleLM::spec_Bilger_fact[n];
+    }
+
+    amrex::ParallelFor(bx,
+    [density, temp, rhoY, mixt_frac, fact_lcl, Zox_lcl, Zfu_lcl] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+    {
+
+        // Get Y from rhoY
+        amrex::Real rhoinv;
+        rhoinv = 1.0 / density(i,j,k);
+        amrex::Real y[NUM_SPECIES];
+        for (int n = 0; n < NUM_SPECIES; n++) {
+            y[n] = rhoY(i,j,k,n) * rhoinv;
+        }
+
+        mixt_frac(i,j,k) = 0.0;
+        for (int n=0; n<NUM_SPECIES; ++n) {
+            mixt_frac(i,j,k) = mixt_frac(i,j,k) + y[n] * fact_lcl[n];
+        }
+        mixt_frac(i,j,k) = ( mixt_frac(i,j,k) - Zox_lcl ) / ( Zfu_lcl - Zox_lcl ) ;
+
+        amrex::Real lambda;
+        getConductivity(i, j, k, rhoY, temp, lambda);
+
+        amrex::Real cpmix;
+        EOS::TY2Cp(temp(i,j,k), y, cpmix);
+
+        cpmix *= 0.0001;                         // CGS -> MKS conversion
+
+        //grad mixt. fraction
+        amrex::Real grad[3];
+        grad[1] = factor * ( mixt_frac(i+1,j,k)-mixt_frac(i-1,j,k) );
+        grad[2] = factor * ( mixt_frac(i,j+1,k)-mixt_frac(i,j-1,k) );
+#if (AMREX_SPACEDIM == 3 )
+        grad(3) = factor * ( mixt_frac(i,j,k+1)-mixt_frac(i,j,k-1) );
+#endif
+        scalar_dis(i,j,k) = grad[1]*grad[1] + grad[2]*grad[2] + grad[3]*grad[3];
+        scalar_dis(i,j,k) = 2.0 * scalar_dis(i,j,k) * lambda * rhoinv / cpmix;
+    });
+
+}
+
+//
 //  Compute Bilger's element based mixture fraction
 //
 
