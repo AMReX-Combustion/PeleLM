@@ -4697,75 +4697,74 @@ PeleLM::compute_differential_diffusion_terms (MultiFab& D,
                                               Real      dt,
                                               bool      include_Wbar_terms)
 {
-  BL_PROFILE("HT:::compute_differential_diffusion_terms()");
-  // 
-  // Sets vt for species, RhoH and Temp together
-  // Uses state at time to explicitly compute fluxes, and resets internal
-  //  data for fluxes, etc
-  //
-  BL_ASSERT(D.boxArray() == grids);
-  BL_ASSERT(D.nComp() >= nspecies+2); // room for spec+RhoH+Temp
+   BL_PROFILE("PeleLM:::compute_differential_diffusion_terms()");
+   //
+   // Sets vt for species, RhoH and Temp together
+   // Uses state at time to explicitly compute fluxes, and resets internal
+   //  data for fluxes, etc
+   //
+   BL_ASSERT(D.boxArray() == grids);
+   BL_ASSERT(D.nComp() >= NUM_SPECIES+2); // room for spec+RhoH+Temp
 
-  if (hack_nospecdiff)
-  {
-    amrex::Error("compute_differential_diffusion_terms: hack_nospecdiff not implemented");
-  }
+   if (hack_nospecdiff)
+   {
+     amrex::Error("compute_differential_diffusion_terms: hack_nospecdiff not implemented");
+   }
 
-  const TimeLevel whichTime = which_time(State_Type,time);
-  BL_ASSERT(whichTime == AmrOldTime || whichTime == AmrNewTime);    
-  MultiFab* const * flux = (whichTime == AmrOldTime) ? SpecDiffusionFluxn : SpecDiffusionFluxnp1;
+   const TimeLevel whichTime = which_time(State_Type,time);
+   BL_ASSERT(whichTime == AmrOldTime || whichTime == AmrNewTime);
+   MultiFab* const * flux = (whichTime == AmrOldTime) ? SpecDiffusionFluxn : SpecDiffusionFluxnp1;
 #ifdef USE_WBAR
-  MultiFab* const * fluxWbar = SpecDiffusionFluxWbar;
+   MultiFab* const * fluxWbar = SpecDiffusionFluxWbar;
 #endif
-  //
-  // Compute/adjust species fluxes/heat flux/conduction, save in class data
-  int ng = 1;
-  int sComp = std::min((int)Density, std::min((int)first_spec,(int)Temp) );
-  int eComp = std::max((int)Density, std::max((int)last_spec,(int)Temp) );
-  int nComp = eComp - sComp + 1;
-  FillPatch(*this,get_new_data(State_Type),ng,time,State_Type,sComp,nComp,sComp);
-  std::unique_ptr<MultiFab> Scrse;
-  if (level > 0) {
-    auto& crselev = getLevel(level-1);
-    Scrse.reset(new MultiFab(crselev.boxArray(), crselev.DistributionMap(), NUM_STATE, ng));
-    FillPatch(crselev,*Scrse,ng,time,State_Type,Density,nspecies+2,Density);
-  }
 
-  FluxBoxes fb_diff;
-  MultiFab **beta = fb_diff.define(this,nspecies+1);
-  getDiffusivity(beta, time, first_spec, 0, nspecies); // species (rhoD)
-  getDiffusivity(beta, time, Temp, nspecies, 1); // temperature (lambda)
+   //
+   // Compute/adjust species fluxes/heat flux/conduction, save in class data
+   int nGrow = 1;
+   int sComp = std::min((int)Density, std::min((int)first_spec,(int)Temp) );
+   int eComp = std::max((int)Density, std::max((int)last_spec,(int)Temp) );
+   int nComp = eComp - sComp + 1;
+   FillPatch(*this,get_new_data(State_Type),nGrow,time,State_Type,sComp,nComp,sComp);
+   std::unique_ptr<MultiFab> Scrse;
+   if (level > 0) {
+     auto& crselev = getLevel(level-1);
+     Scrse.reset(new MultiFab(crselev.boxArray(), crselev.DistributionMap(), NUM_STATE, nGrow));
+     FillPatch(crselev,*Scrse,nGrow,time,State_Type,Density,NUM_SPECIES+2,Density);
+   }
 
-  compute_differential_diffusion_fluxes(get_new_data(State_Type),Scrse.get(),flux,beta,dt,time,include_Wbar_terms);
+   FluxBoxes fb_diff;
+   MultiFab **beta = fb_diff.define(this,NUM_SPECIES+1);    // Local transport coeff face-centroid container
+   getDiffusivity(beta, time, first_spec, 0, NUM_SPECIES);  // species (rhoD)
+   getDiffusivity(beta, time, Temp, NUM_SPECIES, 1);        // temperature (lambda)
 
-  // Compute "D":
-  // D[0:nspecies-1] = -Div( Fk )
-  // D[  nspecies  ] =  Div( (lambda/cp) Grad(h) )  ! Unused currently
-  // D[ nspecies+1 ] = Div( lambda    Grad(T) )
-  //
-  D.setVal(0);
-  DD.setVal(0);
+   compute_differential_diffusion_fluxes(get_new_data(State_Type),Scrse.get(),flux,beta,dt,time,include_Wbar_terms);
 
+   D.setVal(0.0);
+   DD.setVal(0.0);
 
-  flux_divergence(D,0,flux,0,nspecies,-1);  
-  flux_divergence(D,nspecies+1,flux,nspecies+2,1,-1);
+   // Compute "D":
+   // D[0:NUM_SPECIES-1] = -Div( Fk )
+   // D[ NUM_SPECIES+1 ] = Div( lambda Grad(T) )
+   flux_divergence(D,0,flux,0,NUM_SPECIES,-1.0);
+   flux_divergence(D,NUM_SPECIES+1,flux,NUM_SPECIES+2,1,-1.0);
 
-  // compute -Sum{ Div( hk . Fk ) } a.k.a. the "diffdiff" terms
-  flux_divergence(DD,0,flux,nspecies+1,1,-1);
+   // Compute "DD":
+   // DD = -Sum{ Div( hk . Fk ) } a.k.a. the "diffdiff" terms
+   flux_divergence(DD,0,flux,NUM_SPECIES+1,1,-1.0);
 
-  if (D.nGrow() > 0 && DD.nGrow() > 0)
-  {
-    const int nc = nspecies+2;
+   if (D.nGrow() > 0 && DD.nGrow() > 0)
+   {
+     const int nc = NUM_SPECIES+2;
 
-    D.FillBoundary(0,nc, geom.periodicity());
-    DD.FillBoundary(0,1, geom.periodicity());
+     D.FillBoundary(0,nc, geom.periodicity());
+     DD.FillBoundary(0,1, geom.periodicity());
 
-    BL_ASSERT(D.nGrow() == 1);
-    BL_ASSERT(DD.nGrow() == 1);
-	
-    Extrapolater::FirstOrderExtrap(D, geom, 0, nc);
-    Extrapolater::FirstOrderExtrap(DD, geom, 0, 1);
-  }
+     BL_ASSERT(D.nGrow() == 1);
+     BL_ASSERT(DD.nGrow() == 1);
+
+     Extrapolater::FirstOrderExtrap(D, geom, 0, nc);
+     Extrapolater::FirstOrderExtrap(DD, geom, 0, 1);
+   }
 }
 
 void
