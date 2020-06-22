@@ -4594,55 +4594,100 @@ PeleLM::flux_divergence (MultiFab&        fdiv,
                          int              nComp,
                          Real             scale) const
 {
-  BL_ASSERT(fdiv.nComp() >= fdivComp+nComp);
+   BL_ASSERT(fdiv.nComp() >= fdivComp+nComp);
 
-  amrex::FabArray<amrex::BaseFab<int>>  mask;
-  mask.define(grids, dmap,  1, 0);
-#ifdef AMREX_USE_EB
-  mask.copy(ebmask);
-#else
-  mask.setVal(1.0);
-#endif
+//////////////////////////////////////////////////////
+// Version using AMReX computeDivergence function
+// Will be updated later once more options are available in AMReX
+//////////////////////////////////////////////////////
+//   // Need aliases for the fluxes and divergence
+//   Array<MultiFab const*, AMREX_SPACEDIM> flux_alias;
+//   AMREX_D_TERM(flux_alias[0] = new MultiFab(*f[0], amrex::make_alias, fluxComp, nComp);,
+//                flux_alias[1] = new MultiFab(*f[1], amrex::make_alias, fluxComp, nComp);,
+//                flux_alias[2] = new MultiFab(*f[2], amrex::make_alias, fluxComp, nComp););
+//
+//   MultiFab div_alias(fdiv, amrex::make_alias, fdivComp, nComp);
+//
+//#ifdef AMREX_USE_EB
+//   EB_computeDivergence(div_alias, flux_alias, geom, true);
+//#else
+//   computeDivergence(div_alias, flux_alias, geom);
+//#endif
+//   div_alias.mult(scale,0,nComp,0);
 
+
+//////////////////////////////////////////////////////
+//  PeleLM divergence function
 #ifdef _OPENMP
-#pragma omp parallel
+#pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
-  for (MFIter mfi(fdiv,true); mfi.isValid(); ++mfi)
-  {
-    const Box& box = mfi.tilebox();
-    FArrayBox& fab = fdiv[mfi];
-    const BaseFab<int>& fab_mask = mask[mfi];
-#ifdef AMREX_USE_EB    
-    const FArrayBox& vfrac = (*volfrac)[mfi];
+   for (MFIter mfi(fdiv,TilingIfNotGPU()); mfi.isValid(); ++mfi)
+   {
+      const Box& bx = mfi.tilebox();
+      D_TERM(auto const& fluxX = f[0]->array(mfi,fluxComp);,
+             auto const& fluxY = f[1]->array(mfi,fluxComp);,
+             auto const& fluxZ = f[2]->array(mfi,fluxComp););
+      auto const& divergence   = fdiv.array(mfi,fdivComp);
+      auto const& vol          = volume.const_array(mfi);
+
+#ifdef AMREX_USE_EB
+      auto const& flagfab = Factory.getMultiEBCellFlagFab()[mfi];
+      auto const& flag    = flagfab.const_array();
 #endif
 
-    flux_div( BL_TO_FORTRAN_BOX(box),
-              BL_TO_FORTRAN_N_ANYD(fab,fdivComp),
-              BL_TO_FORTRAN_N_ANYD(fab_mask,0),
-              BL_TO_FORTRAN_N_ANYD((*f[0])[mfi],fluxComp),
-              BL_TO_FORTRAN_N_ANYD((*f[1])[mfi],fluxComp),
-#if ( AMREX_SPACEDIM == 3 )
-              BL_TO_FORTRAN_N_ANYD((*f[2])[mfi],fluxComp),
-#endif
-              BL_TO_FORTRAN_ANYD(volume[mfi]),
 #ifdef AMREX_USE_EB
-              BL_TO_FORTRAN_ANYD(vfrac),
+      if (flagfab.getType(bx) == FabType::covered) {              // Covered boxes
+         amrex::ParallelFor(bx, nComp, [divergence]
+         AMREX_GPU_DEVICE( int i, int j, int k, int n) noexcept
+         {
+            divergence(i,j,k,n) = 0.0;
+         });
+      } else if (flagfab.getType(bx) != FabType::regular ) {     // EB containing boxes 
+         auto vfrac = Factory.getVolFrac().const_array(mfi);
+         amrex::ParallelFor(bx, [nComp, flag, vfrac, divergence, D_DECL(fluxX, fluxY, fluxZ), vol, scale]
+         AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+         {
+            if ( flag(i,j,k).isCovered() ) {
+               for (int n = 0; n < nComp; n++) {
+                  divergence(i,j,k,n) = 0.0;
+               }
+            } else if ( flag(i,j,k).isRegular() ) {
+               fluxDivergence( i, j, k, nComp,
+                               D_DECL(fluxX, fluxY, fluxZ),
+                               vol, scale, divergence);
+            } else {
+               Real vfracinv = 1.0/vfrac(i,j,k);
+               fluxDivergence( i, j, k, nComp,
+                               D_DECL(fluxX, fluxY, fluxZ),
+                               vol, scale, divergence);
+               for (int n = 0; n < nComp; n++) {
+                  divergence(i,j,k,n) *= vfracinv;
+               }
+            }
+         });
+      } else {                                                   // Regular boxes
 #endif
-              &nComp, &scale);
-        
-  }
-  
-#ifdef AMREX_USE_EB    
-    {
+         amrex::ParallelFor(bx, [nComp, divergence, D_DECL(fluxX, fluxY, fluxZ), vol, scale]
+         AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+         {
+            fluxDivergence( i, j, k, nComp,
+                            D_DECL(fluxX, fluxY, fluxZ),
+                            vol, scale, divergence);
+         });
+#ifdef AMREX_USE_EB
+      }
+#endif
+   }
+
+#ifdef AMREX_USE_EB
+   {
       MultiFab fdiv_SrcGhostCell(grids,dmap,nComp,fdiv.nGrow()+2,MFInfo(),Factory());
       fdiv_SrcGhostCell.setVal(0.);
       fdiv_SrcGhostCell.copy(fdiv, fdivComp, 0, nComp);
       amrex::single_level_weighted_redistribute( {fdiv_SrcGhostCell}, {fdiv}, *volfrac, fdivComp, nComp, {geom} );
-    }
-    EB_set_covered(fdiv,0.);
+   }
+   EB_set_covered(fdiv,0.);
 #endif
-  
-  
 }
 
 void
