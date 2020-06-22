@@ -14,6 +14,7 @@ void
 reactionRateRhoY(int i, int j, int k,
                  amrex::Array4<const amrex::Real> const& rhoY,
                  amrex::Array4<const amrex::Real> const& rhoH,
+                 amrex::Array4<const amrex::Real> const& T,
                  amrex::Array4<int>         const& mask,
                  amrex::Array4<      amrex::Real> const& rhoYdot) noexcept
 {
@@ -31,14 +32,14 @@ reactionRateRhoY(int i, int j, int k,
    }
 
    // Get T from Y/H. Was done like that before.
-   amrex::Real T;
+   amrex::Real Tloc = T(i,j,k);
    amrex::Real H = rhoH(i,j,k) * rhoinv * 1.0e4_rt;      // Include MKS -> CGS conversion
-   EOS::HY2T(H, y, T);
+   EOS::HY2T(H, y, Tloc);
 
    // Get wdot. Don't like the temporary wdot there ...
    rho = rho * 0.001_rt;                                 // rho MKS -> CGS
    amrex::Real wdot[NUM_SPECIES];
-   EOS::RTY2WDOT(rho, T, y, wdot);
+   EOS::RTY2WDOT(rho, Tloc, y, wdot);
    for (int n = 0; n < NUM_SPECIES; n++) {
       rhoYdot(i,j,k,n) = wdot[n] * 1000.0_rt;            // CGS -> MKS conversion
    }

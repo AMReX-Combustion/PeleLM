@@ -2094,14 +2094,14 @@ PeleLM::compute_instantaneous_reaction_rates (MultiFab&       R,
       const Box& bx = mfi.tilebox();
       auto const& rhoY    = S.array(mfi,first_spec);
       auto const& rhoH    = S.array(mfi,RhoH);
+      auto const& T       = S.array(mfi,Temp);
       auto const& mask    = maskMF.array(mfi);
       auto const& rhoYdot = R.array(mfi);
 
-      amrex::ParallelFor(bx, [rhoY, rhoH, mask, rhoYdot]
+      amrex::ParallelFor(bx, [rhoY, rhoH, T, mask, rhoYdot]
       AMREX_GPU_DEVICE (int i, int j, int k) noexcept
       {
-         reactionRateRhoY( i, j, k,
-                           rhoY, rhoH, mask,
+         reactionRateRhoY( i, j, k, rhoY, rhoH, T, mask,
                            rhoYdot );
       });
    }
@@ -6633,8 +6633,9 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
       (*aofs)[S_mfi].setVal<RunOn::Host>(0,bx,Density,1);
       for (int d=0; d<AMREX_SPACEDIM; ++d)
       {
-        (*EdgeState[d])[S_mfi].setVal<RunOn::Host>(0,bx);
-        (*EdgeFlux[d])[S_mfi].setVal<RunOn::Host>(0,bx);
+        const Box& ebx = S_mfi.nodaltilebox(d);
+        (*EdgeState[d])[S_mfi].setVal<RunOn::Host>(0,ebx);
+        (*EdgeFlux[d])[S_mfi].setVal<RunOn::Host>(0,ebx);
       }
      
       for (int comp=0; comp < nspecies; comp++){      
