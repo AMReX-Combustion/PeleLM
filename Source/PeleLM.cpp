@@ -1388,42 +1388,43 @@ PeleLM::restart (Amr&          papa,
                  bool          bReadSpecial)
 {
 
-  NavierStokesBase::restart(papa,is,bReadSpecial);
+   NavierStokesBase::restart(papa,is,bReadSpecial);
 
-  define_data();
+   define_data();
 
-  bool running_sdc_from_strang_chk = false;
+   bool running_sdc_from_strang_chk = false;
 
-  if (running_sdc_from_strang_chk)
-  {
-    MultiFab& rYdot_old = get_old_data(RhoYdot_Type);
-    MultiFab& rYdot_new = get_new_data(RhoYdot_Type);
-    MultiFab& S_old = get_old_data(State_Type);
-    MultiFab& S_new = get_new_data(State_Type);
-
+   if (running_sdc_from_strang_chk)
+   {
+      MultiFab& rYdot_old = get_old_data(RhoYdot_Type);
+      MultiFab& rYdot_new = get_new_data(RhoYdot_Type);
+      MultiFab& S_old = get_old_data(State_Type);
+      MultiFab& S_new = get_new_data(State_Type);
 
 #ifdef _OPENMP
-#pragma omp parallel
+#pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
-    for (MFIter mfi(rYdot_old,true); mfi.isValid(); ++mfi)
-    {
-      const Box& bx = mfi.tilebox();
-      FArrayBox& ry1 = rYdot_old[mfi];
-      FArrayBox& ry2 = rYdot_new[mfi];
-      const FArrayBox& S1 = S_old[mfi];
-      const FArrayBox& S2 = S_new[mfi];
-      for (int i=0; i<nspecies; ++i)
+      for (MFIter mfi(rYdot_old,TilingIfNotGPU()); mfi.isValid(); ++mfi)
       {
-        ry1.mult<RunOn::Host>(S1,bx,Density,i,1);
-        ry2.mult<RunOn::Host>(S2,bx,Density,i,1);
+         const Box& bx = mfi.tilebox();
+         auto const& R_old   = rYdot_old.array(mfi);
+         auto const& R_new   = rYdot_new.array(mfi);
+         auto const& rho_old = S_old.array(mfi,Density);
+         auto const& rho_new = S_new.array(mfi,Density);
+
+         amrex::ParallelFor(bx, NUM_SPECIES, [rho_old, rho_new, R_old, R_new]
+         AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
+         {
+            R_old(i,j,k,n) *= rho_old(i,j,k);
+            R_new(i,j,k,n) *= rho_new(i,j,k);
+         });
       }
-    }
-  }
+   }
 
-  // Deal with typical values
-  set_typical_values(true);
+   // Deal with typical values
+   set_typical_values(true);
 
-  if (closed_chamber) {
+   if (closed_chamber) {
       std::string line;
       std::string file=papa.theRestartFile();
 
@@ -1438,7 +1439,7 @@ PeleLM::restart (Amr&          papa,
 
       isp >> p_amb_old;
       p_amb_new = p_amb_old;
-  }
+   }
 }
 
 void
