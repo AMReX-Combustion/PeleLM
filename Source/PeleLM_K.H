@@ -491,7 +491,7 @@ fluxDivergence(int i, int j, int k,
    amrex::Real factor = scaling / vol(i,j,k);
 
    for (int n = 0; n < ncomp; n++) {
-      div(i,j,k,n) = D_DECL (  ( fluxX(i+1,j,k,n) - fluxX(i,j,k,n) ),
+      div(i,j,k,n) = D_TERM (  ( fluxX(i+1,j,k,n) - fluxX(i,j,k,n) ),
                              + ( fluxY(i,j+1,k,n) - fluxY(i,j,k,n) ),
                              + ( fluxZ(i,j,k+1,n) - fluxZ(i,j,k,n) ));
       div(i,j,k,n) *= factor;
