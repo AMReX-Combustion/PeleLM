@@ -1048,41 +1048,41 @@ PeleLM::variableCleanUp ()
 
 PeleLM::PeleLM ()
 {
-  if (!init_once_done)
-    init_once();
+   if (!init_once_done)
+      init_once();
 
-  if (!do_temp)
-    amrex::Abort("do_temp MUST be true");
+   if (!do_temp)
+      amrex::Abort("do_temp MUST be true");
 
-  if (!have_divu)
-    amrex::Abort("have_divu MUST be true");
+   if (!have_divu)
+      amrex::Abort("have_divu MUST be true");
 
-  if (!have_dsdt)
-    amrex::Abort("have_dsdt MUST be true");
+   if (!have_dsdt)
+      amrex::Abort("have_dsdt MUST be true");
 
-  // p_amb_old and p_amb_new contain the old-time and new-time
-  // pressure at level 0.  For closed chamber problems they change over time.
-  // set p_amb_old and new if they haven't been set yet
-  // to the value in mod_Fvar_def.F90 set in PROB_F.F90
-  // only the coarse level advance and the level 0-1 mac_sync 
-  // can modify these later
-  if (p_amb_old == -1.0)
-  {
-    get_pamb(&p_amb_old);
-  }
-  if (p_amb_new == -1.0)
-  {
-    get_pamb(&p_amb_new);
-  }
+   // p_amb_old and p_amb_new contain the old-time and new-time
+   // pressure at level 0.  For closed chamber problems they change over time.
+   // set p_amb_old and new if they haven't been set yet
+   // to the value in mod_Fvar_def.F90 set in PROB_F.F90
+   // only the coarse level advance and the level 0-1 mac_sync 
+   // can modify these later
+   if (p_amb_old == -1.0)
+   {
+      get_pamb(&p_amb_old);
+   }
+   if (p_amb_new == -1.0)
+   {
+      get_pamb(&p_amb_new);
+   }
 
-  updateFluxReg = false;
+   updateFluxReg = false;
 
-  EdgeState              = 0;
-  EdgeFlux               = 0;
-  SpecDiffusionFluxn     = 0;
-  SpecDiffusionFluxnp1   = 0;
+   EdgeState              = 0;
+   EdgeFlux               = 0;
+   SpecDiffusionFluxn     = 0;
+   SpecDiffusionFluxnp1   = 0;
 #ifdef USE_WBAR
-  SpecDiffusionFluxWbar  = 0;
+   SpecDiffusionFluxWbar  = 0;
 #endif
 }
 
