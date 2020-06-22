@@ -1136,250 +1136,244 @@ PeleLM::~PeleLM ()
 void
 PeleLM::define_data ()
 {
-  const int nGrow       = 0;
+   const int nGrow       = 0;
 #ifdef AMREX_USE_EB
-  const int nGrowEdges  = 2; // We need 2 growth cells for the redistribution when using MOL EB
+   const int nGrowEdges  = 2; // We need 2 growth cells for the redistribution when using MOL EB
 #else
-  const int nGrowEdges  = 0; 
+   const int nGrowEdges  = 0; 
 #endif
-  const int nEdgeStates = desc_lst[State_Type].nComp();
+   const int nEdgeStates = desc_lst[State_Type].nComp();
 
-  mTmpData.resize(mHtoTiterMAX);
+   mTmpData.resize(mHtoTiterMAX);
 
-  raii_fbs.push_back(std::unique_ptr<FluxBoxes>{new FluxBoxes(this, nEdgeStates, nGrowEdges)});
-  EdgeState = raii_fbs.back()->get();
+   raii_fbs.push_back(std::unique_ptr<FluxBoxes>{new FluxBoxes(this, nEdgeStates, nGrowEdges)});
+   EdgeState = raii_fbs.back()->get();
 
-  raii_fbs.push_back(std::unique_ptr<FluxBoxes>{new FluxBoxes(this, nEdgeStates, nGrowEdges)});
-  EdgeFlux  = raii_fbs.back()->get();
-    
-  if (nspecies>0 && !unity_Le)
-  {
-    raii_fbs.push_back(std::unique_ptr<FluxBoxes>{new FluxBoxes(this, nspecies+3, nGrow)});
-    SpecDiffusionFluxn   = raii_fbs.back()->get();
+   raii_fbs.push_back(std::unique_ptr<FluxBoxes>{new FluxBoxes(this, nEdgeStates, nGrowEdges)});
+   EdgeFlux  = raii_fbs.back()->get();
+     
+   if (nspecies>0 && !unity_Le)
+   {
+     raii_fbs.push_back(std::unique_ptr<FluxBoxes>{new FluxBoxes(this, NUM_SPECIES+3, nGrow)});
+     SpecDiffusionFluxn   = raii_fbs.back()->get();
 
-    raii_fbs.push_back(std::unique_ptr<FluxBoxes>{new FluxBoxes(this, nspecies+3, nGrow)});
-    SpecDiffusionFluxnp1 = raii_fbs.back()->get();
+     raii_fbs.push_back(std::unique_ptr<FluxBoxes>{new FluxBoxes(this, NUM_SPECIES+3, nGrow)});
+     SpecDiffusionFluxnp1 = raii_fbs.back()->get();
 
 #ifdef USE_WBAR
-    raii_fbs.push_back(std::unique_ptr<FluxBoxes>{new FluxBoxes(this, nspecies, nGrow)});
-    SpecDiffusionFluxWbar = raii_fbs.back()->get();
+     raii_fbs.push_back(std::unique_ptr<FluxBoxes>{new FluxBoxes(this, NUM_SPECIES, nGrow)});
+     SpecDiffusionFluxWbar = raii_fbs.back()->get();
 #endif
+   }
 
-  }
-
-  for (const auto& kv : auxDiag_names)
-  {
+   for (const auto& kv : auxDiag_names)
+   {
       auxDiag[kv.first] = std::unique_ptr<MultiFab>(new MultiFab(grids,dmap,kv.second.size(),0));
-      auxDiag[kv.first]->setVal(0);
-  }
+      auxDiag[kv.first]->setVal(0.0);
+   }
 
-  // HACK for debugging
-  if (level==0)
-    stripBox = getStrip(geom);
+   // HACK for debugging
+   if (level==0)
+      stripBox = getStrip(geom);
 
 #ifdef USE_WBAR
-  // this will hold the transport coefficients for Wbar
-  diffWbar_cc.define(grids,dmap,nspecies,1);
+   // this will hold the transport coefficients for Wbar
+   diffWbar_cc.define(grids,dmap,NUM_SPECIES,1);
 #endif
 }
 
 void
 PeleLM::init_once ()
 {
-  //
-  // Computes the static variables unique to PeleLM.
-  // Check that (some) things are set up correctly.
-  //
-  int dummy_State_Type;
+   //
+   // Computes the static variables unique to PeleLM.
+   // Check that (some) things are set up correctly.
+   //
+   int dummy_State_Type;
 
-  int tTemp = -1;
-  int have_temp = isStateVariable("temp", dummy_State_Type, tTemp);
-  AMREX_ALWAYS_ASSERT(tTemp == Temp);
+   int tTemp = -1;
+   int have_temp = isStateVariable("temp", dummy_State_Type, tTemp);
+   AMREX_ALWAYS_ASSERT(tTemp == Temp);
 
-  have_temp = have_temp && State_Type == dummy_State_Type;
-  int tRhoH = -1;
-  have_temp = have_temp && isStateVariable("rhoh", dummy_State_Type, tRhoH);
-  AMREX_ALWAYS_ASSERT(tRhoH == RhoH);
-  have_temp = have_temp && State_Type == dummy_State_Type;
+   have_temp = have_temp && State_Type == dummy_State_Type;
+   int tRhoH = -1;
+   have_temp = have_temp && isStateVariable("rhoh", dummy_State_Type, tRhoH);
+   AMREX_ALWAYS_ASSERT(tRhoH == RhoH);
+   have_temp = have_temp && State_Type == dummy_State_Type;
 
-  int tRhoRT = -1;
-  have_rhort = isStateVariable("RhoRT", dummy_State_Type, tRhoRT);
-  AMREX_ALWAYS_ASSERT(tRhoRT == RhoRT);
-  have_rhort = have_rhort && State_Type == dummy_State_Type;
+   int tRhoRT = -1;
+   have_rhort = isStateVariable("RhoRT", dummy_State_Type, tRhoRT);
+   AMREX_ALWAYS_ASSERT(tRhoRT == RhoRT);
+   have_rhort = have_rhort && State_Type == dummy_State_Type;
 
-  if (!have_temp)
-    amrex::Abort("PeleLM::init_once(): RhoH & Temp must both be the state");
-    
-  if (Temp < RhoH)
-    amrex::Abort("PeleLM::init_once(): must have RhoH < Temp");
-  //
-  // Temperature must be non-conservative, rho*h must be conservative.
-  //
-  if (advectionType[Temp] == Conservative)
-    amrex::Abort("PeleLM::init_once(): Temp must be non-conservative");
+   if (!have_temp)
+     amrex::Abort("PeleLM::init_once(): RhoH & Temp must both be the state");
+     
+   if (Temp < RhoH)
+     amrex::Abort("PeleLM::init_once(): must have RhoH < Temp");
+   //
+   // Temperature must be non-conservative, rho*h must be conservative.
+   //
+   if (advectionType[Temp] == Conservative)
+     amrex::Abort("PeleLM::init_once(): Temp must be non-conservative");
 
-  if (advectionType[RhoH] != Conservative)
-    amrex::Abort("PeleLM::init_once(): RhoH must be conservative");
-  //
-  // Species checks.
-  //
-  BL_ASSERT(Temp > RhoH && RhoH > Density);
-  //
-  // Here we want to count relative to Density instead of relative
-  // to RhoH, so we can put RhoH after the species instead of before.  
-  // This logic should work in both cases.
-  //
-  // Got to make sure nspecies is initialized though
-  last_spec  = first_spec + nspecies - 1;
-    
-  for (int i = first_spec; i <= last_spec; i++)
-    if (advectionType[i] != Conservative)
-      amrex::Error("PeleLM::init_once: species must be conservative");
-    
-  int diffuse_spec = is_diffusive[first_spec];
-  for (int i = first_spec+1; i <= last_spec; i++)
-    if (is_diffusive[i] != diffuse_spec)
-      amrex::Error("PeleLM::init_once: Le != 1; diffuse");
-  //
-  // Load integer pointers into Fortran common, reqd for proper ICs.
-  //
-  const int density = (int)Density;
+   if (advectionType[RhoH] != Conservative)
+     amrex::Abort("PeleLM::init_once(): RhoH must be conservative");
+   //
+   // Species checks.
+   //
+   BL_ASSERT(Temp > RhoH && RhoH > Density);
+   //
+   // Here we want to count relative to Density instead of relative
+   // to RhoH, so we can put RhoH after the species instead of before.  
+   // This logic should work in both cases.
+   last_spec  = first_spec + NUM_SPECIES - 1;
+     
+   for (int i = first_spec; i <= last_spec; i++)
+      if (advectionType[i] != Conservative)
+         amrex::Error("PeleLM::init_once: species must be conservative");
+     
+   int diffuse_spec = is_diffusive[first_spec];
+   for (int i = first_spec+1; i <= last_spec; i++)
+      if (is_diffusive[i] != diffuse_spec)
+         amrex::Error("PeleLM::init_once: Le != 1; diffuse");
+   //
+   // Load integer pointers into Fortran common, reqd for proper ICs.
+   //
+   const int density = (int)Density;
 
-  set_scal_numb(&density, &Temp, &RhoH, &first_spec, &last_spec);
-  //
-  // Load constants from Fortran module to thickenig factor, etc.
-  //
-    
-  set_ht_adim_common( &constant_thick_val,
-                      &prandtl,  &schmidt, &unity_Le);
+   set_scal_numb(&density, &Temp, &RhoH, &first_spec, &last_spec);
+   //
+   // Load constants from Fortran module to thickenig factor, etc.
+   //
+   set_ht_adim_common( &constant_thick_val, &prandtl, &schmidt, &unity_Le);
 
-  //
-  // make space for typical values
-  //
-  typical_values.resize(NUM_STATE,-1); // -ve means don't use for anything
-  typical_values[RhoH] = typical_RhoH_value_default;
+   //
+   // make space for typical values
+   //
+   typical_values.resize(NUM_STATE,-1); // -ve means don't use for anything
+   typical_values[RhoH] = typical_RhoH_value_default;
 
-  Vector<std::string> speciesNames;
-  PeleLM::getSpeciesNames(speciesNames);
-  ParmParse pp("ht");
-  for (int i=0; i<nspecies; ++i) {
-    const std::string ppStr = std::string("typValY_") + speciesNames[i];
-    if (pp.countval(ppStr.c_str())>0) {
-      pp.get(ppStr.c_str(),typical_values_FileVals[speciesNames[i]]);
-    }
-  }
-  Vector<std::string> otherKeys = {"Temp", "RhoH", "Vel"};
-  for (int i=0; i<otherKeys.size(); ++i) {
-    const std::string ppStr(std::string("typVal_")+otherKeys[i]);
-    if (pp.countval(ppStr.c_str())>0) {
-      pp.get(ppStr.c_str(),typical_values_FileVals[otherKeys[i]]);
-    }
-  }
-  //
-  // Get universal gas constant from Fortran.
-  //
-  rgas = pphys_getRuniversal();
-  P1atm_MKS = pphys_getP1atm_MKS();
+   Vector<std::string> speciesNames;
+   PeleLM::getSpeciesNames(speciesNames);
+   ParmParse pp("peleLM");
+   for (int i=0; i<NUM_SPECIES; ++i) {
+      const std::string ppStr = std::string("typValY_") + speciesNames[i];
+      if (pp.countval(ppStr.c_str())>0) {
+         pp.get(ppStr.c_str(),typical_values_FileVals[speciesNames[i]]);
+      }
+   }
+   Vector<std::string> otherKeys = {"Temp", "RhoH", "Vel"};
+   for (int i=0; i<otherKeys.size(); ++i) {
+      const std::string ppStr(std::string("typVal_")+otherKeys[i]);
+      if (pp.countval(ppStr.c_str())>0) {
+         pp.get(ppStr.c_str(),typical_values_FileVals[otherKeys[i]]);
+      }
+   }
+   //
+   // Get universal gas constant from Fortran.
+   //
+   rgas = pphys_getRuniversal();
+   P1atm_MKS = pphys_getP1atm_MKS();
 
-  if (rgas <= 0.0)
-  {
-    std::cerr << "PeleLM::init_once(): bad rgas: " << rgas << '\n';
-    amrex::Abort();
-  }
-  if (P1atm_MKS <= 0.0)
-  {
-    std::cerr << "PeleLM::init_once(): bad P1atm_MKS: " << P1atm_MKS << '\n';
-    amrex::Abort();
-  }
-  //
-  // Chemistry.
-  //
-  int ydot_good = RhoYdot_Type >= 0 && RhoYdot_Type <  desc_lst.size()
-                                    && RhoYdot_Type != Divu_Type
-                                    && RhoYdot_Type != Dsdt_Type
-                                    && RhoYdot_Type != State_Type;
+   if (rgas <= 0.0)
+   {
+     std::cerr << "PeleLM::init_once(): bad rgas: " << rgas << '\n';
+     amrex::Abort();
+   }
+   if (P1atm_MKS <= 0.0)
+   {
+     std::cerr << "PeleLM::init_once(): bad P1atm_MKS: " << P1atm_MKS << '\n';
+     amrex::Abort();
+   }
+   //
+   // Chemistry.
+   //
+   int ydot_good = RhoYdot_Type >= 0 && RhoYdot_Type <  desc_lst.size()
+                                     && RhoYdot_Type != Divu_Type
+                                     && RhoYdot_Type != Dsdt_Type
+                                     && RhoYdot_Type != State_Type;
 
 
-  //
-  // This is the minimum number of boxes per MPI proc that I want
-  // when chopping up chemistry work.
-  //
-  pp.query("chem_box_chop_threshold",chem_box_chop_threshold);
+   //
+   // This is the minimum number of boxes per MPI proc that I want
+   // when chopping up chemistry work.
+   //
+   pp.query("chem_box_chop_threshold",chem_box_chop_threshold);
 
-  if (chem_box_chop_threshold <= 0)
-  {
+   if (chem_box_chop_threshold <= 0)
+   {
 #ifdef BL_USE_OMP
-    chem_box_chop_threshold = 8;
+     chem_box_chop_threshold = 8;
 #else
-    chem_box_chop_threshold = 4;
+     chem_box_chop_threshold = 4;
 #endif
-  }
-    
-  if (!ydot_good)
-    amrex::Error("PeleLM::init_once(): need RhoYdot_Type if do_chemistry");
+   }
 
-  if (desc_lst[RhoYdot_Type].nComp() < nspecies)
-    amrex::Error("PeleLM::init_once(): RhoYdot_Type needs nspecies components");
-  //
-  // Enforce Le = 1, unless !unity_Le
-  //
-  if (unity_Le && (schmidt != prandtl) )
-  {
-    if (verbose)
-      amrex::Print() << "**************** WARNING ***************\n"
-		     << "PeleLM::init_once() : currently must have"
-		     << "equal Schmidt and Prandtl numbers unless !unity_Le.\n"
-		     << "Setting Schmidt = Prandtl\n"
-		     << "**************** WARNING ***************\n";
-    
-    schmidt = prandtl;
-  }
-  //
-  // We are done.
-  //
-  num_state_type = desc_lst.size();
+   if (!ydot_good)
+      amrex::Error("PeleLM::init_once(): need RhoYdot_Type if do_chemistry");
 
-  if (verbose)
-    amrex::Print() << "PeleLM::init_once(): num_state_type = " << num_state_type << '\n';
+   if (desc_lst[RhoYdot_Type].nComp() < NUM_SPECIES)
+      amrex::Error("PeleLM::init_once(): RhoYdot_Type needs NUM_SPECIES components");
+   //
+   // Enforce Le = 1, unless !unity_Le
+   //
+   if (unity_Le && (schmidt != prandtl) )
+   {
+      if (verbose)
+        amrex::Print() << "**************** WARNING ***************\n"
+                       << "PeleLM::init_once() : currently must have"
+                       << "equal Schmidt and Prandtl numbers unless !unity_Le.\n"
+                       << "Setting Schmidt = Prandtl\n"
+                       << "**************** WARNING ***************\n";
+      schmidt = prandtl;
+   }
+   //
+   // We are done.
+   //
+   num_state_type = desc_lst.size();
 
-  pp.query("plot_reactions",plot_reactions);
-  if (plot_reactions)
-  {
-    auxDiag_names["REACTIONS"].resize(nreactions);
-    amrex::Print() << "nreactions "<< nreactions << '\n';
-    for (int i = 0; i < auxDiag_names["REACTIONS"].size(); ++i)
-      auxDiag_names["REACTIONS"][i] = amrex::Concatenate("R",i+1);
-    amrex::Print() << "***** Make sure to increase amr.regrid_int !!!!!" << '\n';
-  }
+   if (verbose)
+      amrex::Print() << "PeleLM::init_once(): num_state_type = " << num_state_type << '\n';
 
-  pp.query("plot_consumption",plot_consumption);
-  pp.query("plot_auxDiags",plot_consumption); // This is for backward comptibility - FIXME
-  if (plot_consumption && consumptionName.size()>0)
-  {
-    auxDiag_names["CONSUMPTION"].resize(consumptionName.size());
-    for (int j=0; j<consumptionName.size(); ++j)
-    {
-      auxDiag_names["CONSUMPTION"][j] = consumptionName[j] + "_ConsumptionRate";
-    }
-  }
+   pp.query("plot_reactions",plot_reactions);
+   if (plot_reactions)
+   {
+      auxDiag_names["REACTIONS"].resize(nreactions);
+      amrex::Print() << "nreactions "<< nreactions << '\n';
+      for (int i = 0; i < auxDiag_names["REACTIONS"].size(); ++i)
+         auxDiag_names["REACTIONS"][i] = amrex::Concatenate("R",i+1);
+      amrex::Print() << "***** Make sure to increase amr.regrid_int !!!!!" << '\n';
+   }
 
-  pp.query("plot_heat_release",plot_heat_release);
-  if (plot_heat_release)
-  {
-    auxDiag_names["HEATRELEASE"].resize(1);
-    auxDiag_names["HEATRELEASE"][0] = "HeatRelease";
-  }
-    
-  pp.query("new_T_threshold",new_T_threshold);
+   pp.query("plot_consumption",plot_consumption);
+   pp.query("plot_auxDiags",plot_consumption); // This is for backward comptibility - FIXME
+   if (plot_consumption && consumptionName.size()>0)
+   {
+      auxDiag_names["CONSUMPTION"].resize(consumptionName.size());
+      for (int j=0; j<consumptionName.size(); ++j)
+      {
+         auxDiag_names["CONSUMPTION"][j] = consumptionName[j] + "_ConsumptionRate";
+      }
+   }
+
+   pp.query("plot_heat_release",plot_heat_release);
+   if (plot_heat_release)
+   {
+      auxDiag_names["HEATRELEASE"].resize(1);
+      auxDiag_names["HEATRELEASE"][0] = "HeatRelease";
+   }
+
+   pp.query("new_T_threshold",new_T_threshold);
 
 #ifdef BL_COMM_PROFILING
-  auxDiag_names["COMMPROF"].resize(3);
-  auxDiag_names["COMMPROF"][0] = "mpiRank";
-  auxDiag_names["COMMPROF"][1] = "proximityRank";
-  auxDiag_names["COMMPROF"][2] = "proximityOrder";
+   auxDiag_names["COMMPROF"].resize(3);
+   auxDiag_names["COMMPROF"][0] = "mpiRank";
+   auxDiag_names["COMMPROF"][1] = "proximityRank";
+   auxDiag_names["COMMPROF"][2] = "proximityOrder";
 #endif
 
-  init_once_done = 1;
+   init_once_done = 1;
 }
 
 void
