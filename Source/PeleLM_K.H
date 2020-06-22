@@ -474,4 +474,27 @@ getVelViscosity(int i, int j, int k,
    mu(i,j,k) = mu_cgs * 1.0e-1_rt;
 }
 
+AMREX_GPU_HOST_DEVICE
+inline
+void
+fluxDivergence(int i, int j, int k,
+               int ncomp,
+               D_DECL(amrex::Array4<const amrex::Real>     const& fluxX,
+                      amrex::Array4<const amrex::Real>     const& fluxY,
+                      amrex::Array4<const amrex::Real>     const& fluxZ),
+               amrex::Array4<const        amrex::Real>     const& vol,
+               const amrex::Real                                & scaling,
+               amrex::Array4<      amrex::Real>            const& div) noexcept
+{
+   using namespace amrex::literals;
+
+   amrex::Real factor = scaling / vol(i,j,k);
+
+   for (int n = 0; n < ncomp; n++) {
+      div(i,j,k,n) = D_DECL (  ( fluxX(i+1,j,k,n) - fluxX(i,j,k,n) ),
+                             + ( fluxY(i,j+1,k,n) - fluxY(i,j,k,n) ),
+                             + ( fluxZ(i,j,k+1,n) - fluxZ(i,j,k,n) ));
+      div(i,j,k,n) *= factor;
+   }
+}
 #endif
