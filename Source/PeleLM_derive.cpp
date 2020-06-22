@@ -121,10 +121,9 @@ void pelelm_dermolweight (const Box& bx, FArrayBox& derfab, int dcomp, int /*nco
                   Real /*time*/, const int* /*bcrec*/, int /*level*/)
 
 {   
+    AMREX_ASSERT(in_dat.nComp()==NUM_SPECIES+1);
     auto const in_dat = datfab.array();
     auto       der = derfab.array();
-    int nspec_comp = in_dat.nComp() - 1;  //here we get back the correct number of species
-    AMREX_ASSERT(nspec_comp==NUM_SPECIES);
 
     amrex::ParallelFor(bx, 
     [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
@@ -150,10 +149,9 @@ void pelelm_dercpmix (const Box& bx, FArrayBox& derfab, int dcomp, int /*ncomp*/
                   Real /*time*/, const int* /*bcrec*/, int /*level*/)
 
 {
+    AMREX_ASSERT(in_dat.nComp()==NUM_SPECIES+2);
     auto const in_dat = datfab.array();
     auto       der = derfab.array();
-    int nspec_comp = in_dat.nComp() - 2;  //here we get back the correct number of species
-    AMREX_ASSERT(nspec_comp==NUM_SPECIES);
 
     amrex::ParallelFor(bx,
     [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
@@ -181,19 +179,17 @@ void pelelm_drhomry (const Box& bx, FArrayBox& derfab, int dcomp, int /*ncomp*/,
                   Real /*time*/, const int* /*bcrec*/, int /*level*/)
 
 {
+    AMREX_ASSERT(in_dat.nComp()==NUM_SPECIES+1);
     auto const in_dat = datfab.array();
     auto       der = derfab.array();
 
     // we put the density in the component 0 of der array
-    amrex::ParallelFor(bx, 1,
-    [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
+    amrex::ParallelFor(bx,
+    [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
     {
-        der(i,j,k,n) = in_dat(i,j,k,n);
+        der(i,j,k,0) = in_dat(i,j,k,0);
     });
     
-    int nspec_comp = in_dat.nComp() - 1;  //here we get back the correct number of species
-    AMREX_ASSERT(nspec_comp==NUM_SPECIES);
-
     // we substract to rho with every rhoY(n)
     amrex::ParallelFor(bx, NUM_SPECIES,
     [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
@@ -211,17 +207,15 @@ void pelelm_dsrhoydot (const Box& bx, FArrayBox& derfab, int dcomp, int /*ncomp*
                   Real /*time*/, const int* /*bcrec*/, int /*level*/)
 
 {
+    AMREX_ASSERT(in_dat.nComp()==NUM_SPECIES);
     auto const in_dat = datfab.array();
     auto       der = derfab.array();
 
-    amrex::ParallelFor(bx, 1,
-    [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
+    amrex::ParallelFor(bx,
+    [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
     {
-        der(i,j,k,n) = 0.;
+        der(i,j,k,0) = 0.;
     });
-
-    int nspec_comp = in_dat.nComp();  //here we get the correct number of species
-    AMREX_ASSERT(nspec_comp==NUM_SPECIES);
 
     amrex::ParallelFor(bx, NUM_SPECIES,
     [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
@@ -371,10 +365,9 @@ void pelelm_derconcentration (const Box& bx, FArrayBox& derfab, int dcomp, int n
                   Real /*time*/, const int* /*bcrec*/, int /*level*/)
 
 {   
+    AMREX_ASSERT(ncomp==NUM_SPECIES+2);
     auto const in_dat = datfab.array();
     auto       der = derfab.array();
-    int nspec_comp = in_dat.nComp() - 2;  //here we get back the correct number of species
-    AMREX_ASSERT(nspec_comp==NUM_SPECIES);
     
     amrex::ParallelFor(bx, 
     [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
@@ -392,7 +385,7 @@ void pelelm_derconcentration (const Box& bx, FArrayBox& derfab, int dcomp, int n
 
         EOS::RTY2C(Rho,Temp,Yt,Ct);
 
-        for (int n = 0; n < ncomp; n++) {
+        for (int n = 0; n < NUM_SPECIES; n++) {
           der(i,j,k,n) = Ct[n] * 1.0e6; // cm^(-3) -> m^(-3) 
         }
     });
