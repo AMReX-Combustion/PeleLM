@@ -5084,13 +5084,13 @@ PeleLM::predict_velocity (Real  dt)
 void
 PeleLM::set_reasonable_grow_cells_for_R (Real time)
 {
-  //
-  // Ensure reasonable grow cells for R.
-  //
-  MultiFab& React = get_data(RhoYdot_Type, time);
-  React.FillBoundary(0,nspecies, geom.periodicity());
-  BL_ASSERT(React.nGrow() == 1);
-  Extrapolater::FirstOrderExtrap(React, geom, 0, nspecies); //FIXME: Is this in the wrong order?
+   //
+   // Ensure reasonable grow cells for R.
+   //
+   MultiFab& React = get_data(RhoYdot_Type, time);
+   React.FillBoundary(0,NUM_SPECIES, geom.periodicity());
+   BL_ASSERT(React.nGrow() == 1);
+   Extrapolater::FirstOrderExtrap(React, geom, 0, NUM_SPECIES); //FIXME: Is this in the wrong order?
 }
 
 Real
