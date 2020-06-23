@@ -4884,31 +4884,30 @@ PeleLM::advance_setup (Real time,
                        int  iteration,
                        int  ncycle)
 {
-  NavierStokesBase::advance_setup(time, dt, iteration, ncycle);
+   NavierStokesBase::advance_setup(time, dt, iteration, ncycle);
 
-  for (int k = 0; k < num_state_type; k++)
-  {
-    MultiFab& nstate = get_new_data(k);
-    MultiFab& ostate = get_old_data(k);
+   for (int k = 0; k < num_state_type; k++)
+   {
+      MultiFab& nstate = get_new_data(k);
+      MultiFab& ostate = get_old_data(k);
+      MultiFab::Copy(nstate,ostate,0,0,nstate.nComp(),nstate.nGrow());
+   }
+   if (level == 0)
+      set_htt_hmixTYP();
 
-    MultiFab::Copy(nstate,ostate,0,0,nstate.nComp(),nstate.nGrow());
-  }
-  if (level == 0)
-    set_htt_hmixTYP();
+   make_rho_curr_time();
 
-  make_rho_curr_time();
-  
-  RhoH_to_Temp(get_old_data(State_Type));
+   RhoH_to_Temp(get_old_data(State_Type));
 
 #ifdef USE_WBAR
-  calcDiffusivity_Wbar(time);
+   calcDiffusivity_Wbar(time);
 #endif
 
-  if (plot_reactions && level == 0)
-  {
-    for (int i = parent->finestLevel(); i >= 0; --i)
-      getLevel(i).auxDiag["REACTIONS"]->setVal(0);
-  }
+   if (plot_reactions && level == 0)
+   {
+      for (int i = parent->finestLevel(); i >= 0; --i)
+         getLevel(i).auxDiag["REACTIONS"]->setVal(0);
+   }
 }
 
 void
