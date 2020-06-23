@@ -6082,7 +6082,6 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
         auto const& fcl      = fcnCntTemp.array(Smfi);
         auto const& frcing   = FTemp.array(Smfi);
         int ncells           = bx.numPts();
-        amrex::Print() << " nb cells ? " << ncells << '\n';
 
         const auto ec  = Gpu::ExecutionConfig(ncells);
 
