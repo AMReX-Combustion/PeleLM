@@ -4926,158 +4926,160 @@ PeleLM::setThermoPress(Real time)
 Real
 PeleLM::predict_velocity (Real  dt)
 {
-  if (verbose) {
-    amrex::Print() << "... predict edge velocities\n";
-  }
-  //
-  // Get simulation parameters.
-  //
-  const int   nComp          = AMREX_SPACEDIM;
-  const Real* dx             = geom.CellSize();
-  const Real  prev_time      = state[State_Type].prevTime();
-  const Real  prev_pres_time = state[Press_Type].prevTime();
-  const Real  strt_time      = ParallelDescriptor::second();
-  //
-  // Compute viscous terms at level n.
-  // Ensure reasonable values in 1 grow cell.  Here, do extrap for
-  // c-f/phys boundary, since we have no interpolator fn, also,
-  // preserve extrap for corners at periodic/non-periodic intersections.
-  //
+   if (verbose) {
+      amrex::Print() << "... predict edge velocities\n";
+   }
+   //
+   // Get simulation parameters.
+   //
+   const int   nComp          = AMREX_SPACEDIM;
+   const Real* dx             = geom.CellSize();
+   const Real  prev_time      = state[State_Type].prevTime();
+   const Real  prev_pres_time = state[Press_Type].prevTime();
+   const Real  strt_time      = ParallelDescriptor::second();
+   //
+   // Compute viscous terms at level n.
+   // Ensure reasonable values in 1 grow cell.  Here, do extrap for
+   // c-f/phys boundary, since we have no interpolator fn, also,
+   // preserve extrap for corners at periodic/non-periodic intersections.
+   //
 
 #ifdef AMREX_USE_EB 
-  MultiFab visc_terms(grids,dmap,nComp,1,MFInfo(), Factory());
+   MultiFab visc_terms(grids,dmap,nComp,1,MFInfo(), Factory());
 #else
-  MultiFab visc_terms(grids,dmap,nComp,1);
+   MultiFab visc_terms(grids,dmap,nComp,1);
 #endif
   
-  if (be_cn_theta != 1.0)
-  {
-    getViscTerms(visc_terms,Xvel,nComp,prev_time);
-  }
-  else
-  {
-    visc_terms.setVal(0);
-  }
+   if (be_cn_theta != 1.0)
+   {
+      getViscTerms(visc_terms,Xvel,nComp,prev_time);
+   }
+   else
+   {
+      visc_terms.setVal(0.0);
+   }
 
-  FillPatchIterator U_fpi(*this,visc_terms,Godunov::hypgrow(),prev_time,State_Type,Xvel,BL_SPACEDIM);
-  MultiFab& Umf=U_fpi.get_mf();
+   FillPatchIterator U_fpi(*this,visc_terms,Godunov::hypgrow(),prev_time,State_Type,Xvel,AMREX_SPACEDIM);
+   MultiFab& Umf=U_fpi.get_mf();
   
-  // Floor small values of states to be extrapolated
+   // Floor small values of velocities to be extrapolated
 #ifdef _OPENMP
-#pragma omp parallel
+#pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
-  for (MFIter mfi(Umf,true); mfi.isValid(); ++mfi)
-  {
-    Box gbx=mfi.growntilebox(Godunov::hypgrow());
-    auto fab = Umf.array(mfi);
-    AMREX_HOST_DEVICE_FOR_4D ( gbx, BL_SPACEDIM, i, j, k, n,
-    {
-      auto& val = fab(i,j,k,n);
-      val = std::abs(val) > 1.e-20 ? val : 0;
-    });
-  }
+   for (MFIter mfi(Umf,TilingIfNotGPU()); mfi.isValid(); ++mfi)
+   {
+      const Box& gbx=mfi.growntilebox(Godunov::hypgrow());
+      auto const &Vel = Umf.array(mfi);
+        
+      amrex::ParallelFor(gbx, AMREX_SPACEDIM, [Vel]  
+      AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
+      {
+        auto& val = Vel(i,j,k,n);
+        val = std::abs(val) > 1.e-20 ? val : 0.0;
+      });
+   }
 
-  FillPatchIterator S_fpi(*this,visc_terms,1,prev_time,State_Type,Density,NUM_SCALARS);
-  MultiFab& Smf=S_fpi.get_mf();
+   FillPatchIterator S_fpi(*this,visc_terms,1,prev_time,State_Type,Density,NUM_SCALARS);
+   MultiFab& Smf=S_fpi.get_mf();
 
-  //
-  // Compute "grid cfl number" based on cell-centered time-n velocities
-  //
-  auto umax = VectorMaxAbs({&Umf},FabArrayBase::mfiter_tile_size,0,BL_SPACEDIM,Umf.nGrow());
-  Real cflmax = dt*umax[0]/dx[0];
-  for (int d=1; d<BL_SPACEDIM; ++d) {
-    // if d=0, then, given the initialization of cflmax, the next line would be
-    //   cflmax = std::max(dt*umax[0]/dx[0],dt*umax[0]/dx[0]) = dt*umax[0]/dx[0];
-    // -- Candace
-    cflmax = std::max(cflmax,dt*umax[d]/dx[d]);
-  }
-  Real tempdt = std::min(change_max,cfl/cflmax);
-
+   //
+   // Compute "grid cfl number" based on cell-centered time-n velocities
+   //
+   auto umax = VectorMaxAbs({&Umf},FabArrayBase::mfiter_tile_size,0,AMREX_SPACEDIM,Umf.nGrow());
+   Real cflmax = dt*umax[0]/dx[0];
+   for (int d=1; d<AMREX_SPACEDIM; ++d) {
+     // if d=0, then, given the initialization of cflmax, the next line would be
+     //   cflmax = std::max(dt*umax[0]/dx[0],dt*umax[0]/dx[0]) = dt*umax[0]/dx[0];
+     // -- Candace
+     cflmax = std::max(cflmax,dt*umax[d]/dx[d]);
+   }
+   Real tempdt = std::min(change_max,cfl/cflmax);
   
 #if AMREX_USE_EB
+   Vector<BCRec> math_bcs(AMREX_SPACEDIM);
+   math_bcs = fetchBCArray(State_Type,Xvel,AMREX_SPACEDIM);
 
-    Vector<BCRec> math_bcs(AMREX_SPACEDIM);
-    math_bcs = fetchBCArray(State_Type,Xvel,AMREX_SPACEDIM);
-
-    MOL::ExtrapVelToFaces( Umf,
-                           D_DECL(u_mac[0], u_mac[1], u_mac[2]),
-                           geom, math_bcs );
+   MOL::ExtrapVelToFaces( Umf,
+                          D_DECL(u_mac[0], u_mac[1], u_mac[2]),
+                          geom, math_bcs );
 
 #else
- 
-    //
-    // Non-EB version
-    //
+   //
+   // Non-EB version
+   //
 
-    MultiFab Gp(grids,dmap,BL_SPACEDIM,1);
-    getGradP(Gp, prev_pres_time);
-
+   MultiFab Gp(grids,dmap,AMREX_SPACEDIM,1);
+   getGradP(Gp, prev_pres_time);
  
 #ifdef _OPENMP
-#pragma omp parallel
+#pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif      
-  {
-    FArrayBox tforces, Uface[BL_SPACEDIM];
-    Vector<int> bndry[BL_SPACEDIM];
-
-    for (MFIter U_mfi(Umf,true); U_mfi.isValid(); ++U_mfi)
-    {
-      Box bx=U_mfi.tilebox();
-      FArrayBox& Ufab = Umf[U_mfi];
-      for (int d=0; d<BL_SPACEDIM; ++d) {
-        Uface[d].resize(surroundingNodes(bx,d),1);
+{
+   FArrayBox tforces, Uface[AMREX_SPACEDIM];
+   Vector<int> bndry[AMREX_SPACEDIM];
+   for (MFIter mfi(Umf,TilingIfNotGPU()); mfi.isValid(); ++mfi)
+   {
+      const Box& bx = mfi.tilebox();
+      FArrayBox& Ufab = Umf[mfi];
+      for (int d=0; d<AMREX_SPACEDIM; ++d) {
+         Uface[d].resize(surroundingNodes(bx,d),1);
       }
+      D_TERM(Elixir  UfaceXi = Uface[0].elixir();,
+             Elixir  UfaceYi = Uface[1].elixir();,
+             Elixir  UfaceZi = Uface[2].elixir(););
 
       if (getForceVerbose)
         amrex::Print() << "---\nA - Predict velocity:\n Calling getForce..." << '\n';
-      getForce(tforces,bx,1,Xvel,BL_SPACEDIM,prev_time,Ufab,Smf[U_mfi],0);
+      getForce(tforces,bx,1,Xvel,AMREX_SPACEDIM,prev_time,Ufab,Smf[mfi],0);
+      Elixir Forcei = tforces.elixir();
 
       //
       // Compute the total forcing.
       //
-      godunov->Sum_tf_gp_visc(tforces,0,visc_terms[U_mfi],0,Gp[U_mfi],0,rho_ptime[U_mfi],0);
+      godunov->Sum_tf_gp_visc(tforces,0,visc_terms[mfi],0,Gp[mfi],0,rho_ptime[mfi],0);
 
       D_TERM(bndry[0] = fetchBCArray(State_Type,bx,0,1);,
              bndry[1] = fetchBCArray(State_Type,bx,1,1);,
              bndry[2] = fetchBCArray(State_Type,bx,2,1););
 
-	//  1. compute slopes
-	//  2. trace state to cell edges
+      //  1. compute slopes
+      //  2. trace state to cell edges
       godunov->ExtrapVelToFaces(bx, dx, dt,
                                 D_DECL(Uface[0], Uface[1], Uface[2]),
                                 D_DECL(bndry[0], bndry[1], bndry[2]),
                                 Ufab, tforces);
 
 
-      for (int d=0; d<BL_SPACEDIM; ++d) {
-        const Box& ebx = U_mfi.nodaltilebox(d);
-        u_mac[d][U_mfi].copy<RunOn::Host>(Uface[d],ebx,0,ebx,0,1);
+      for (int d=0; d<AMREX_SPACEDIM; ++d) {
+         const Box& ebx = mfi.nodaltilebox(d);
+         auto const& Umac = u_mac[d].array(mfi); 
+         auto const& Uf   = Uface[d].array(); 
+         amrex::ParallelFor(ebx, [Umac, Uf]  
+         AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+         {
+           Umac(i,j,k) = Uf(i,j,k);
+         });
       }
-  }
+   }
 }
-
 #endif
 
+   D_TERM( showMF("mac",u_mac[0],"pv_umac0",level);,
+           showMF("mac",u_mac[1],"pv_umac1",level);,
+           showMF("mac",u_mac[2],"pv_umac2",level););
 
-  showMF("mac",u_mac[0],"pv_umac0",level);
-  showMF("mac",u_mac[1],"pv_umac1",level);
-#if BL_SPACEDIM==3
-  showMF("mac",u_mac[2],"pv_umac2",level);
-#endif
+   if (verbose > 1)
+   {
+      const int IOProc   = ParallelDescriptor::IOProcessorNumber();
+      Real      run_time = ParallelDescriptor::second() - strt_time;
 
+      ParallelDescriptor::ReduceRealMax(run_time,IOProc);
 
-  if (verbose > 1)
-  {
-    const int IOProc   = ParallelDescriptor::IOProcessorNumber();
-    Real      run_time = ParallelDescriptor::second() - strt_time;
+      Print() << "PeleLM::predict_velocity(): lev: " << level 
+              << ", time: " << run_time << '\n';
+   }
 
-    ParallelDescriptor::ReduceRealMax(run_time,IOProc);
-
-    Print() << "PeleLM::predict_velocity(): lev: " << level 
-            << ", time: " << run_time << '\n';
-  }
-
-  return dt*tempdt;
+   return dt*tempdt;
 }
 
 void
