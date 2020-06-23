@@ -382,9 +382,6 @@ private:
                             amrex::MultiFab& P,
                                    int       pComp);
 
-  void compute_vel_visc (amrex::Real      time,
-                         amrex::MultiFab* beta);
-
 #ifdef USE_WBAR
   void compute_Wbar_fluxes(amrex::Real time,
                            amrex::Real inc);
@@ -441,18 +438,6 @@ private:
   void set_htt_hmixTYP ();
 
   void set_reasonable_grow_cells_for_R(amrex::Real time);
-
-  void set_rho_to_species_sum (amrex::MultiFab& S,
-                               int       strtcomp, 
-                               int       nghost_in = 0,
-                               int       minzero = 0);
-
-  void set_rho_to_species_sum (amrex::MultiFab& S_in,
-                               int       s_in_start,
-                               amrex::MultiFab& S_out,
-                               int       s_out_start, 
-                               int       nghost_in = 0,
-                               int       minzero = 0);
 
   void setThermoPress(amrex::Real time);
 
@@ -606,10 +591,10 @@ private:
   amrex::MultiFab**  EdgeFlux;
   amrex::MultiFab**  SpecDiffusionFluxn;
   amrex::MultiFab**  SpecDiffusionFluxnp1;
+
 #ifdef USE_WBAR
   amrex::MultiFab**  SpecDiffusionFluxWbar;
-  FluxBoxes fb_diffWbar;
-  amrex::MultiFab **diffWbar;
+  amrex::MultiFab diffWbar_cc;
 #endif
 
   static bool                     plot_reactions;

@@ -9,7 +9,7 @@ PELELM_HOME ?= ${TOP}/PeleLM
 
 DIM             = 2
 COMP            = gnu
-DEBUG           = FALSE
+DEBUG           = TRUE
 USE_MPI         = TRUE
 USE_OMP         = FALSE
 PRECISION       = DOUBLE
@@ -71,7 +71,7 @@ Eos_dir     := Fuego
 Reactions_dir := Fuego
 
 # This sets the transport directory in $(PELE_PHYSICS_HOME)/Transport
-Transport_dir := EGLib
+Transport_dir := Simple
 
 Blocs   := .
 

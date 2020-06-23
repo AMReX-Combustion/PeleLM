@@ -152,29 +152,6 @@ extern "C" {
    void set_ht_adim_common(const amrex::Real* thickFacVal,
                            const amrex::Real* Pr, const amrex::Real* Sc, const int* unityLe);
 
-   void vel_visc(const int* lo, const int* hi,
-                 const BL_FORT_FAB_ARG_ANYD(T),
-                 const BL_FORT_FAB_ARG_ANYD(Y),
-                       BL_FORT_FAB_ARG_ANYD(mu));
-
-   void beta_wbar(const int* lo, const int* hi,
-                  const BL_FORT_FAB_ARG_ANYD(RD),
-                        BL_FORT_FAB_ARG_ANYD(RD_Wbar),
-                  const BL_FORT_FAB_ARG_ANYD(Y));
-
-   void spec_temp_visc(const int* lo, const int* hi,
-                       const BL_FORT_FAB_ARG_ANYD(T),
-                       const BL_FORT_FAB_ARG_ANYD(Y),
-                             BL_FORT_FAB_ARG_ANYD(beta),
-                       const int* nCompD, const amrex::Real* P1ATM_MKS,
-                       const int* do_temp, const int* do_VelVisc, 
-                       const amrex::Real* Pamb_in);
-
-   void fab_minmax (const int* lo, const int* hi,
-                    BL_FORT_FAB_ARG_ANYD(fabdat),
-                    const amrex::Real* min, const amrex::Real* max, const int* nc);
-
-
    void repair_flux_eb(const int* lo,  const int* hi,
                     const int* dlo, const int* dhi,
                     BL_FORT_FAB_ARG_ANYD(flux),
@@ -194,66 +171,6 @@ extern "C" {
                           BL_FORT_FAB_ARG_ANYD(flux),
                     const BL_FORT_FAB_ARG_ANYD(RY),
                     const int* dir, const int* bc);
-
-
-//   void enth_diff_terms(const int* lo, const int* hi, 
-//                        const int* dlo, const int* dhi, const amrex::Real* dx,
-//                        const BL_FORT_FAB_ARG_ANYD(T),
-//
-//                        const BL_FORT_FAB_ARG_ANYD(rDx),
-//                        const BL_FORT_FAB_ARG_ANYD(Fix),
-//                        const BL_FORT_FAB_ARG_ANYD(ax),
-//                        const BL_FORT_FAB_ARG_ANYD(rDy),
-//                        const BL_FORT_FAB_ARG_ANYD(Fiy),
-//                        const BL_FORT_FAB_ARG_ANYD(ay),
-//#if AMREX_SPACEDIM == 3
-//                        const BL_FORT_FAB_ARG_ANYD(rDz),
-//                        const BL_FORT_FAB_ARG_ANYD(Fiz),
-//                        const BL_FORT_FAB_ARG_ANYD(az),
-//#endif
-//                        const int* Tbc);
-
-   void incrwext_flx_div (const int* lo, const int* hi,
-                          const BL_FORT_FAB_ARG_ANYD(xflux),
-                          const BL_FORT_FAB_ARG_ANYD(yflux),
-#if AMREX_SPACEDIM == 3
-                          const BL_FORT_FAB_ARG_ANYD(zflux),
-#endif
-                          const BL_FORT_FAB_ARG_ANYD(sto),
-                                BL_FORT_FAB_ARG_ANYD(stn),
-                          const BL_FORT_FAB_ARG_ANYD(vol),
-                          const int* nc, const amrex::Real* dt);
-
-   void flux_div (const int* lo, const int* hi,
-                        BL_FORT_FAB_ARG_ANYD(update), 
-                  const BL_FORT_IFAB_ARG_ANYD(mask),
-                  const BL_FORT_FAB_ARG_ANYD(xflux),
-                  const BL_FORT_FAB_ARG_ANYD(yflux),
-#if AMREX_SPACEDIM == 3
-                  const BL_FORT_FAB_ARG_ANYD(zflux),
-#endif
-                  const BL_FORT_FAB_ARG_ANYD(vol),
-#ifdef AMREX_USE_EB
-                  const BL_FORT_FAB_ARG_ANYD(volfrac),
-#endif
-                  const int* nc, const amrex::Real* scale);
-
-   void calc_divu_fortran(const int* lo,  const int* hi,
-                                BL_FORT_FAB_ARG_ANYD(divu),
-                          const BL_FORT_FAB_ARG_ANYD(rYdot),  
-                          const BL_FORT_FAB_ARG_ANYD(vtY),  
-                          const BL_FORT_FAB_ARG_ANYD(vtT),  
-                          const BL_FORT_FAB_ARG_ANYD(rhoY),  
-                          const BL_FORT_FAB_ARG_ANYD(T));
-
-   void calc_gamma_pinv(const int* lo,  const int* hi,
-                              BL_FORT_FAB_ARG_ANYD(theta),
-                        const BL_FORT_FAB_ARG_ANYD(rhoY),
-                        const BL_FORT_FAB_ARG_ANYD(T),
-                        const amrex::Real* Pamb_in); 
-
-   void floor_spec(const int* lo,  const int* hi, 
-                   BL_FORT_FAB_ARG_ANYD(spec));
 
    void set_common (const amrex::Real* time, const int* iteration);
 
@@ -300,14 +217,6 @@ extern "C" {
    void smooth(const int* lo, const int* hi,
                      BL_FORT_FAB_ARG_ANYD(i),
                const BL_FORT_FAB_ARG_ANYD(o));
-
-   void grad_wbar(const int* lo, const int* hi,
-                  const BL_FORT_FAB_ARG_ANYD(Wbar),
-                  const BL_FORT_FAB_ARG_ANYD(rDe),
-                        BL_FORT_FAB_ARG_ANYD(flx),
-                  const BL_FORT_FAB_ARG_ANYD(a),
-                  const amrex::Real* delta, const int* dir,
-                  const amrex::Real* mult, const amrex::Real* inc);
 
    void valgt_error(BL_FORT_IFAB_ARG_ANYD(tag),
                     const int* tagval, const int* clearval,

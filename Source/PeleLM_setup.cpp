@@ -40,6 +40,7 @@
 #include <AMReX_Utility.H>
 #include <NS_error_F.H>
 #include <EOS.H>
+#include <Transport.H>
 
 #include <PeleLM_derive.H>
 
@@ -499,6 +500,7 @@ PeleLM::variableSetUp ()
 #endif
 
   EOS::init();
+  transport_init();
 
   init_transport(use_tranlib);
 
@@ -771,14 +773,14 @@ PeleLM::variableSetUp ()
   //
   // Molecular Weight
   //
-  derive_lst.add("molweight",IndexType::TheCellType(),1,DeriveFunc3D(dermolweight),the_same_box);
+  derive_lst.add("molweight",IndexType::TheCellType(),1,pelelm_dermolweight,the_same_box);
   derive_lst.addComponent("molweight",desc_lst,State_Type,Density,1);
   derive_lst.addComponent("molweight",desc_lst,State_Type,first_spec,nspecies);
   
   //
   // Mixture heat capacity
   //
-  derive_lst.add("cpmix",IndexType::TheCellType(),1,dercpmix,the_same_box);
+  derive_lst.add("cpmix",IndexType::TheCellType(),1,pelelm_dercpmix,the_same_box);
   derive_lst.addComponent("cpmix",desc_lst,State_Type,Density,1);
   derive_lst.addComponent("cpmix",desc_lst,State_Type,Temp,1);
   derive_lst.addComponent("cpmix",desc_lst,State_Type,first_spec,nspecies);
@@ -821,7 +823,7 @@ PeleLM::variableSetUp ()
   for (int i = 0; i < nspecies; i++)
     var_names_molefrac[i] = "X("+spec_names[i]+")";
   derive_lst.add("mole_fractions",IndexType::TheCellType(),nspecies,
-                 var_names_molefrac,dermolefrac,the_same_box);
+                 var_names_molefrac,pelelm_dermolefrac,the_same_box);
   derive_lst.addComponent("mole_fractions",desc_lst,State_Type,Density,1);
   derive_lst.addComponent("mole_fractions",desc_lst,State_Type,first_spec,nspecies);
 
@@ -832,7 +834,7 @@ PeleLM::variableSetUp ()
   for (int i = 0; i < nspecies; i++)
     var_names_conc[i] = "C("+spec_names[i]+")";
   derive_lst.add("concentration",IndexType::TheCellType(),nspecies,
-                 var_names_conc,derconcentration,the_same_box);
+                 var_names_conc,pelelm_derconcentration,the_same_box);
   derive_lst.addComponent("concentration",desc_lst,State_Type,Density,1);
   derive_lst.addComponent("concentration",desc_lst,State_Type,Temp,1);
   derive_lst.addComponent("concentration",desc_lst,State_Type,
