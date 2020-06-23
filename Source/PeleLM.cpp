@@ -7096,11 +7096,6 @@ PeleLM::mac_sync ()
       MultiFab::Copy(DT_post,DT_pre,0,0,1,0);
       MultiFab::Copy(DD_post,DD_pre,0,0,1,0);
 
-      // Re-package the area MFs for passing into diffuse_scalar
-      const MultiFab *a[AMREX_SPACEDIM];
-      for (int d=0; d<AMREX_SPACEDIM; ++d) {
-        a[d] = &(area[d]);
-      }
       const int nlev = 1;
       Vector<MultiFab*> Sn(nlev,0), Snp1(nlev,0);
       Sn[0]   = &(get_old_data(State_Type));
