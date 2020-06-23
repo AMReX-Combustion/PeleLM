@@ -505,7 +505,9 @@ getConductivity(int i, int j, int k,
    lambda(i,j,k) = lambda_cgs * 1.0e-5_rt;
 }
 
-
+AMREX_GPU_HOST_DEVICE
+inline
+void
 fluxDivergence(int i, int j, int k,
                int ncomp,
                D_DECL(amrex::Array4<const amrex::Real>     const& fluxX,
