@@ -244,16 +244,16 @@ clean::
 	$(SILENT) $(RM) AMReX_buildInfo.cpp
 
 ifeq ($(USE_SUNDIALS_PP),TRUE)
-  ThirdParty:
+  TPL:
 	cd $(PELE_PHYSICS_HOME)/ThirdParty; make USE_CUDA=$(USE_CUDA) USE_KLU=$(USE_KLU_PP) DEBUG=$(DEBUG) COMP=$(HOSTCC) NVCC=$(COMP)
 
-  ThirdPartyClean:
+  TPLclean:
 	cd $(PELE_PHYSICS_HOME)/ThirdParty; make USE_CUDA=$(USE_CUDA) USE_KLU=$(USE_KLU_PP) DEBUG=$(DEBUG) COMP=$(HOSTCC) NVCC=$(COMP) clean
 
-  ThirdPartyRealclean:
+  TPLrealclean:
 	cd $(PELE_PHYSICS_HOME)/ThirdParty; make USE_CUDA=$(USE_CUDA) USE_KLU=$(USE_KLU_PP) DEBUG=$(DEBUG) COMP=$(HOSTCC) NVCC=$(COMP) realclean
 else
-  ThirdParty:
-  ThirdPartyClean:
-  ThirdPartyRealclean:
+  TPL:
+  TPLclean:
+  TPLrealclean:
 endif
