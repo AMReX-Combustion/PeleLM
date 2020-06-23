@@ -498,4 +498,31 @@ fluxDivergence(int i, int j, int k,
       div(i,j,k,n) *= factor;
    }
 }
+
+AMREX_GPU_HOST_DEVICE
+inline
+void
+buildDiffusionForcing(int i, int j, int k,
+                      amrex::Array4<const amrex::Real> const& dn,
+                      amrex::Array4<const amrex::Real> const& ddn,
+                      amrex::Array4<const amrex::Real> const& dnp1k,
+                      amrex::Array4<const amrex::Real> const& ddnp1k,
+                      amrex::Array4<const amrex::Real> const& r,
+                      amrex::Array4<const amrex::Real> const& a,
+                      amrex::Real                      const& dp0dt,
+                      int                              const& closed_chamber,
+                      amrex::Array4<      amrex::Real> const& forceY,
+                      amrex::Array4<      amrex::Real> const& forceT) noexcept
+{
+   using namespace amrex::literals;
+
+   for (int n = 0; n < NUM_SPECIES; n++) {
+      forceY(i,j,k,n) = a(i,j,k,n) + 0.5_rt * ( dn(i,j,k,n) - dnp1k(i,j,k,n) ) + r(i,j,k,n);
+   }
+   forceT(i,j,k) = a(i,j,k,NUM_SPECIES) + 0.5_rt * (  dn(i,j,k,NUM_SPECIES+1) + ddn(i,j,k) 
+                             - dnp1k(i,j,k,NUM_SPECIES+1) - ddnp1k(i,j,k) );
+
+   if ( closed_chamber == 1 ) forceT(i,j,k) += dp0dt;
+}
+
 #endif
