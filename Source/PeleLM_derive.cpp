@@ -51,7 +51,6 @@ void pelelm_derRhoY (const Box& bx, FArrayBox& derfab, int dcomp, int ncomp,
                   Real /*time*/, const int* /*bcrec*/, int /*level*/)
 
 {
-    amrex::Print()<< dcomp << "  (dcomp)\n"; 
     AMREX_ASSERT(ncomp==NUM_SPECIES);
     auto const in_dat = datfab.array();
     auto       der = derfab.array();
