@@ -2016,7 +2016,7 @@ MultiFab::Copy(S_new,P_new,0,RhoRT,1,1);
     calc_divu(tnp1,dtin,Divu_new);
     
     if (have_dsdt)
-      get_new_data(Dsdt_Type).setVal(0);
+      get_new_data(Dsdt_Type).setVal(0.0);
   }
 
   if (state[Press_Type].descriptor()->timeType() == StateDescriptor::Point) 
@@ -3075,34 +3075,7 @@ PeleLM::avgDown ()
                          0, Divu_crse.nComp(), fine_ratio);
   }
 
-  if (hack_noavgdivu)
-  {
-    //
-    //  Now that have good divu, recompute dsdt (don't avgDown,
-    //   since that will give a very different value, and screw up mac)
-    //
-    StateData& dsdtSD = get_state_data(Dsdt_Type);// should be const...
-    MultiFab&  dsdt   = dsdtSD.newData();
-
-    if (get_state_data(Divu_Type).hasOldData())
-    {
-      const Real time = dsdtSD.curTime();
-      const Real dt   = time - dsdtSD.prevTime();
-      calc_dsdt(time,dt,dsdt);
-    }
-    else
-    {
-      dsdt.setVal(0.0);
-    }
-  }
-  else
-  {
-    MultiFab& Dsdt_crse = get_new_data(Dsdt_Type);
-    MultiFab& Dsdt_fine = fine_lev.get_new_data(Dsdt_Type);
-            
-    amrex::average_down(Dsdt_fine, Dsdt_crse, fine_lev.geom, geom,
-                         0, Dsdt_crse.nComp(), fine_ratio);
-  }
+  get_new_data(Dsdt_Type).setVal(0.0);
 
   if (verbose > 1)
   {
@@ -5689,7 +5662,7 @@ PeleLM::advance (Real time,
     }
   }
 
-  calc_dsdt(time, dt, get_new_data(Dsdt_Type));
+  get_new_data(Dsdt_Type).setVal(0.0);
 
   if (NavierStokesBase::initial_step)
     MultiFab::Copy(get_old_data(Dsdt_Type),get_new_data(Dsdt_Type),0,0,1,0);
