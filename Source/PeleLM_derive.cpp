@@ -51,7 +51,8 @@ void pelelm_derRhoY (const Box& bx, FArrayBox& derfab, int dcomp, int ncomp,
                   Real /*time*/, const int* /*bcrec*/, int /*level*/)
 
 {
-    AMREX_ASSERT(ncomp==NUM_SPECIES+1);
+    amrex::Print()<< dcomp << "  (dcomp)\n"; 
+    AMREX_ASSERT(ncomp==NUM_SPECIES);
     auto const in_dat = datfab.array();
     auto       der = derfab.array();
     amrex::ParallelFor(bx, NUM_SPECIES,
@@ -70,7 +71,7 @@ void pelelm_dermassfrac (const Box& bx, FArrayBox& derfab, int dcomp, int ncomp,
                   Real /*time*/, const int* /*bcrec*/, int /*level*/)
 
 {
-    AMREX_ASSERT(ncomp==NUM_SPECIES+1);
+    AMREX_ASSERT(ncomp==NUM_SPECIES);
     auto const in_dat = datfab.array();
     auto       der = derfab.array();
     amrex::ParallelFor(bx, NUM_SPECIES,
@@ -90,7 +91,7 @@ void pelelm_dermolefrac (const Box& bx, FArrayBox& derfab, int dcomp, int ncomp,
                   Real /*time*/, const int* /*bcrec*/, int /*level*/)
 
 {
-    AMREX_ASSERT(ncomp==NUM_SPECIES+1);
+    AMREX_ASSERT(ncomp==NUM_SPECIES);
 
     auto const in_dat = datfab.array();
     auto       der = derfab.array();
