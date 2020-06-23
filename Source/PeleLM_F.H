@@ -164,49 +164,6 @@ extern "C" {
                     const BL_FORT_FAB_ARG_ANYD(RY),
                     const int* dir, const int* bc);
 
-
-//   void enth_diff_terms(const int* lo, const int* hi, 
-//                        const int* dlo, const int* dhi, const amrex::Real* dx,
-//                        const BL_FORT_FAB_ARG_ANYD(T),
-//
-//                        const BL_FORT_FAB_ARG_ANYD(rDx),
-//                        const BL_FORT_FAB_ARG_ANYD(Fix),
-//                        const BL_FORT_FAB_ARG_ANYD(ax),
-//                        const BL_FORT_FAB_ARG_ANYD(rDy),
-//                        const BL_FORT_FAB_ARG_ANYD(Fiy),
-//                        const BL_FORT_FAB_ARG_ANYD(ay),
-//#if AMREX_SPACEDIM == 3
-//                        const BL_FORT_FAB_ARG_ANYD(rDz),
-//                        const BL_FORT_FAB_ARG_ANYD(Fiz),
-//                        const BL_FORT_FAB_ARG_ANYD(az),
-//#endif
-//                        const int* Tbc);
-
-   void incrwext_flx_div (const int* lo, const int* hi,
-                          const BL_FORT_FAB_ARG_ANYD(xflux),
-                          const BL_FORT_FAB_ARG_ANYD(yflux),
-#if AMREX_SPACEDIM == 3
-                          const BL_FORT_FAB_ARG_ANYD(zflux),
-#endif
-                          const BL_FORT_FAB_ARG_ANYD(sto),
-                                BL_FORT_FAB_ARG_ANYD(stn),
-                          const BL_FORT_FAB_ARG_ANYD(vol),
-                          const int* nc, const amrex::Real* dt);
-
-   void flux_div (const int* lo, const int* hi,
-                        BL_FORT_FAB_ARG_ANYD(update), 
-                  const BL_FORT_IFAB_ARG_ANYD(mask),
-                  const BL_FORT_FAB_ARG_ANYD(xflux),
-                  const BL_FORT_FAB_ARG_ANYD(yflux),
-#if AMREX_SPACEDIM == 3
-                  const BL_FORT_FAB_ARG_ANYD(zflux),
-#endif
-                  const BL_FORT_FAB_ARG_ANYD(vol),
-#ifdef AMREX_USE_EB
-                  const BL_FORT_FAB_ARG_ANYD(volfrac),
-#endif
-                  const int* nc, const amrex::Real* scale);
-
    void set_common (const amrex::Real* time, const int* iteration);
 
    void compute_ugradp (const BL_FORT_FAB_ARG_ANYD(p),

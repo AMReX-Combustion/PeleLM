@@ -392,9 +392,6 @@ private:
                             amrex::MultiFab& P,
                                    int       pComp);
 
-  void compute_vel_visc (amrex::Real      time,
-                         amrex::MultiFab* beta);
-
 #ifdef USE_WBAR
   void compute_Wbar_fluxes(amrex::Real time,
                            amrex::Real inc);
