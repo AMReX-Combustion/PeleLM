@@ -302,18 +302,23 @@ void pelelm_dermixanddiss (const Box& bx, FArrayBox& derfab, int /*dcomp*/, int 
 {
     if (!PeleLM::mixture_fraction_ready) amrex::Abort("Mixture fraction not initialized");
 
+    auto const bx_dat     = datfab.box();     //input box (grown to compute mixture fraction --grow_bow_by_one ?)
+    auto const bx_der     = derfab.box();     //output box (ungrown)
+
     auto const density    = datfab.array(0);
     auto const temp       = datfab.array(1);
     auto const rhoY       = datfab.array(2);
     auto       mixt_frac  = derfab.array(0);
     auto       scalar_dis = derfab.array(1);
 
+    AMREX_ASSERT(bx_dat.contains(grow(bx,1))); // check that data box is grown
+    
+    FArrayBox  tmp(bx_dat,1);    // def temporary array for mixt fraction
+    //Elixir tmp_e = tmp.elixir();
+    auto       mixt_frac_tmp  = tmp.array(0);
+
     const auto dxinv = geomdata.InvCellSizeArray();    
-#if (AMREX_SPACEDIM == 2 )
-    Real factor = 0.5*dxinv[0];
-#elif (AMREX_SPACEDIM == 3 )
-    Real factor = 0.25*dxinv[0];
-#endif
+    amrex::Real factor = 0.5*dxinv[0];
 
     // TODO probably better way to do this ?
     amrex::Real Zox_lcl = PeleLM::Zox;
@@ -323,9 +328,9 @@ void pelelm_dermixanddiss (const Box& bx, FArrayBox& derfab, int /*dcomp*/, int 
         fact_lcl[n] = PeleLM::spec_Bilger_fact[n];
     }
 
-    // Compute Z first
-    amrex::ParallelFor(bx,
-    [density, rhoY, mixt_frac, fact_lcl, Zox_lcl, Zfu_lcl] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+    // Compute Z first -- on grown box
+    amrex::ParallelFor(bx_dat,
+    [density, rhoY, mixt_frac_tmp, fact_lcl, Zox_lcl, Zfu_lcl] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
     {
         // Get Y from rhoY
         amrex::Real rhoinv;
@@ -335,16 +340,20 @@ void pelelm_dermixanddiss (const Box& bx, FArrayBox& derfab, int /*dcomp*/, int 
             y[n] = rhoY(i,j,k,n) * rhoinv;
         }
 
-        mixt_frac(i,j,k) = 0.0;
+        mixt_frac_tmp(i,j,k) = 0.0;
         for (int n=0; n<NUM_SPECIES; ++n) {
-            mixt_frac(i,j,k) = mixt_frac(i,j,k) + y[n] * fact_lcl[n];
+            mixt_frac_tmp(i,j,k) += y[n] * fact_lcl[n];
         }
-        mixt_frac(i,j,k) = ( mixt_frac(i,j,k) - Zox_lcl ) / ( Zfu_lcl - Zox_lcl ) ;
-    }
+        mixt_frac_tmp(i,j,k) = ( mixt_frac_tmp(i,j,k) - Zox_lcl ) / ( Zfu_lcl - Zox_lcl ) ;
+    });
 
-    amrex::ParallelFor(bx,
-    [density, temp, rhoY, mixt_frac, scalar_dis, factor] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+
+    amrex::ParallelFor(bx_der,
+    [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
     {
+        // Copy mixt frac on ungrown box
+        mixt_frac(i,j,k) = mixt_frac_tmp(i,j,k);
+
         // Get Y from rhoY
         amrex::Real rhoinv;
         rhoinv = 1.0 / density(i,j,k);
@@ -353,22 +362,32 @@ void pelelm_dermixanddiss (const Box& bx, FArrayBox& derfab, int /*dcomp*/, int 
             y[n] = rhoY(i,j,k,n) * rhoinv;
         }
 
-        amrex::Real lambda;
-        getConductivity_ptw(i, j, k, rhoY, temp, lambda);
+        // get only conductivity
+	amrex::Real lambda;
+        amrex::Real Tloc = temp(i,j,k);
+        amrex::Real rho  = density(i,j,k);
 
-        amrex::Real cpmix;
-        EOS::TY2Cp(temp(i,j,k), y, cpmix);
+        amrex::Real dummy_rhoDi[NUM_SPECIES], dummy_mu, lambda_cgs, dummy_xi;
+
+        transport(false, false, true, false, 
+                  Tloc, rho, y, dummy_rhoDi, dummy_mu, dummy_xi, lambda_cgs);
+        lambda = lambda_cgs * 1.0e-5;  // CGS -> MKS 
+        
+        amrex::Real cpmix = 0.0;
+        EOS::TY2Cp(Tloc, y, cpmix);
+	//amrex::Print()<<"cpmix "<< cpmix <<std::endl;	
         cpmix *= 0.0001;                         // CGS -> MKS conversion
 
         //grad mixt. fraction
         amrex::Real grad[3];
-        grad[1] = factor * ( mixt_frac(i+1,j,k)-mixt_frac(i-1,j,k) );
-        grad[2] = factor * ( mixt_frac(i,j+1,k)-mixt_frac(i,j-1,k) );
+        grad[1] = factor * ( mixt_frac_tmp(i+1,j,k)-mixt_frac_tmp(i-1,j,k) );
+        grad[2] = factor * ( mixt_frac_tmp(i,j+1,k)-mixt_frac_tmp(i,j-1,k) );
+        grad[3] = 0.0;
 #if (AMREX_SPACEDIM == 3 )
-        grad(3) = factor * ( mixt_frac(i,j,k+1)-mixt_frac(i,j,k-1) );
+        grad[3] = factor * ( mixt_frac_tmp(i,j,k+1)-mixt_frac_tmp(i,j,k-1) );
 #endif
         scalar_dis(i,j,k) = grad[1]*grad[1] + grad[2]*grad[2] + grad[3]*grad[3];
-        scalar_dis(i,j,k) = 2.0 * scalar_dis(i,j,k) * lambda * rhoinv / cpmix;
+        scalar_dis(i,j,k) *= 2.0 * lambda * rhoinv / cpmix;
     });
 
 }
