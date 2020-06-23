@@ -5234,10 +5234,29 @@ PeleLM::advance (Real time,
   MultiFab mac_divu(grids,dmap,1,nGrowAdvForcing,MFInfo(),Factory());
 
   BL_PROFILE_VAR_START(PLM_DIFF);
-  MultiFab::Copy(Dnp1,Dn,0,0,NUM_SPECIES+2,nGrowAdvForcing);
-  MultiFab::Copy(DDnp1,DDn,0,0,1,nGrowAdvForcing);
-  Dhat.setVal(0,nGrowAdvForcing);
-  DDhat.setVal(0,nGrowAdvForcing);
+#ifdef _OPENMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+  for (MFIter mfi(Dn,TilingIfNotGPU()); mfi.isValid(); ++mfi)
+  {
+     const Box& gbx = mfi.growntilebox();
+     auto const& diffn       = Dn.array(mfi);
+     auto const& diffnp1k    = Dnp1.array(mfi);
+     auto const& diffnp1kp1  = Dhat.array(mfi);
+     auto const& ddiffn      = DDn.array(mfi);
+     auto const& ddiffnp1k   = DDnp1.array(mfi);
+     auto const& ddiffnp1kp1 = DDhat.array(mfi);
+     amrex::ParallelFor(gbx, [diffn, diffnp1k, diffnp1kp1, ddiffn, ddiffnp1k, ddiffnp1kp1]
+     AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+     {
+        for (int n = 0; n < NUM_SPECIES+2; n++) {
+           diffnp1k(i,j,k,n) = diffn(i,j,k,n);
+           diffnp1kp1(i,j,k,n) = 0.0;
+        }
+        ddiffnp1k(i,j,k) = ddiffn(i,j,k);
+        ddiffnp1kp1(i,j,k) = 0.0;
+     });
+  }
   BL_PROFILE_VAR_STOP(PLM_DIFF);
 
   BL_PROFILE_VAR_START(PLM_MAC);
