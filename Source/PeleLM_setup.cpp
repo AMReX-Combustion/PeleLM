@@ -972,11 +972,11 @@ PeleLM::variableSetUp ()
   derive_lst.add("mixfrac",IndexType::TheCellType(),2,mix_and_diss,pelelm_dermixanddiss,grow_box_by_one,&lincc_interp);
   derive_lst.addComponent("mixfrac",desc_lst,State_Type,Density,1);
   derive_lst.addComponent("mixfrac",desc_lst,State_Type,Temp,1);
-  derive_lst.addComponent("mixfrac",desc_lst,State_Type,first_spec,nspecies);
+  derive_lst.addComponent("mixfrac",desc_lst,State_Type,first_spec,NUM_SPECIES);
 
-  derive_lst.add("HeatRelease",IndexType::TheCellType(),1,dhrr,the_same_box);
+  derive_lst.add("HeatRelease",IndexType::TheCellType(),1,pelelm_dhrr,the_same_box);
   derive_lst.addComponent("HeatRelease",desc_lst,State_Type,Temp,1);
-  derive_lst.addComponent("HeatRelease",desc_lst,RhoYdot_Type,0,nspecies);
+  derive_lst.addComponent("HeatRelease",desc_lst,RhoYdot_Type,0,NUM_SPECIES);
 
   derive_lst.add("CMA",IndexType::TheCellType(),4,dcma,the_same_box);
   derive_lst.addComponent("CMA",desc_lst,State_Type,Density,1);
