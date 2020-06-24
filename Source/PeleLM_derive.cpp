@@ -622,12 +622,12 @@ void pelelm_dhrr (const Box& bx, FArrayBox& derfab, int dcomp, int ncomp,
     amrex::ParallelFor(bx, 
     [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
     {   
-        amrex::Real Hi[NUM_SPECIES];
-        EOS::T2Hi(dat(i,j,k,0),Hi);
+        amrex::Real hi_spec[NUM_SPECIES];
+        EOS::T2Hi(in_dat(i,j,k,0),hi_spec);
         der(i,j,k) = 0.0;
         for (int n = 0; n < NUM_SPECIES; n++) {
-            Hi[n] *= 1.0e-4;   // erg/g -> J/kg
-            der(i,j,k) += - dat(i,j,k,n+1)*Hi[n];
+            hi_spec[n] *= 0.0001;   // erg/g -> J/kg
+            der(i,j,k) -= in_dat(i,j,k,n+1)*hi_spec[n];
         }
     });
 }
