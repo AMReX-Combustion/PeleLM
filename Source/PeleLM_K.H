@@ -64,7 +64,7 @@ getPGivenRTY(int i, int j, int k,
       y[n] = rhoY(i,j,k,n) * rhoinv;
    }
 
-   EOS::TRY2P(rho_cgs, T(i,j,k), y, P(i,j,k));
+   EOS::RTY2P(rho_cgs, T(i,j,k), y, P(i,j,k));
    P(i,j,k) = P(i,j,k) * 0.1_rt;                         // CGS -> MKS conversion
 }
 
