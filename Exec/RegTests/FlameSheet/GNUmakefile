@@ -23,7 +23,7 @@ DEFINES+=-DALWAYS_NEW_J
 DO_2S_CONVERGENCE=FALSE
 
 #######################
-USE_SUNDIALS_PP = TRUE
+USE_SUNDIALS_PP = FALSE
 ifeq ($(USE_SUNDIALS_PP), TRUE)
   # provide location of sundials lib if needed
   #SUNDIALS_LIB_DIR=$(PELE_PHYSICS_HOME)/ThirdParty/sundials/instdir/lib/
