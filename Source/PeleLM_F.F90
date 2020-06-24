@@ -32,7 +32,7 @@ module PeleLM_F
 
 contains
 
-! Init/Close PelePhysics network, transport, reaction. Similar to PeleC.  
+! Init/Close PelePhysics network, reaction. Similar to PeleC.  
 
   subroutine pphys_network_init() bind(C, name="pphys_network_init")                                                                                         
 
@@ -49,26 +49,6 @@ contains
      call network_close()
 
   end subroutine pphys_network_close
-
-  subroutine pphys_transport_init(ieg) bind(C, name="pphys_transport_init")
-
-     use transport_module, only: transport_init_F
-
-     implicit none
-     integer(c_int), intent(in   ) :: ieg
-
-     call transport_init_F()
-     use_eg = ieg
-
-  end subroutine pphys_transport_init  
-
-  subroutine pphys_transport_close() bind(C, name="pphys_transport_close")
-
-      use transport_module, only: transport_close_F
-
-      call transport_close_F()
-
-  end subroutine pphys_transport_close
 
 subroutine plm_extern_init(name,namlen) bind(C, name="plm_extern_init")
 
@@ -91,27 +71,6 @@ end subroutine plm_extern_init
       nspec_out = NUM_SPECIES
 
   end subroutine pphys_get_num_spec  
-
-  subroutine pphys_get_spec_name(spec_names_out,ispec,len) &
-             bind(C, name="pphys_get_spec_name")
-
-      use fuego_chemistry, only : spec_names
-
-      implicit none
-      integer(c_int), intent(in   ) :: ispec
-      integer(c_int), intent(inout) :: len
-      integer(c_int), intent(inout) :: spec_names_out(len)
-
-      ! Local variables
-      integer   :: i
-
-      len = len_trim(spec_names(ispec+1))
-
-      do i = 1,len
-         spec_names_out(i) = ichar(spec_names(ispec+1)(i:i))
-      end do
-
-  end subroutine pphys_get_spec_name  
 
   integer function pphys_getckspecname(i, coded)
   

@@ -440,7 +440,7 @@ protected:
   static int getStateID (const std::string& stateName)
     {
       Vector<std::string> names;
-      PeleLM::getSpeciesNames(names);
+      EOS::speciesNames(names);
       for (int i=0; i<names.size(); i++)
         if (names[i] == stateName)
           return i;
@@ -502,8 +502,6 @@ PeleLM::variableSetUp ()
   EOS::init();
   transport_init();
 
-  init_transport(use_tranlib);
-
   BCRec bc;
   //
   // Set state variable Id's (Density and velocities set already).
@@ -521,7 +519,7 @@ PeleLM::variableSetUp ()
   NUM_STATE = ++counter;
   NUM_SCALARS = NUM_STATE - Density;
 
-  getSpeciesNames(spec_names); 
+  EOS::speciesNames(spec_names);
 
   amrex::Print() << nreactions << " Reactions in mechanism \n";
   amrex::Print() << nspecies << " Chemical species interpreted:\n { ";
@@ -849,7 +847,7 @@ PeleLM::variableSetUp ()
   var_names_transp_coeff[nspecies] = "Lambda";
   var_names_transp_coeff[nspecies+1] = "Mu";
   derive_lst.add("cc_transport_coeffs",IndexType::TheCellType(),nspecies+2,
-                 var_names_transp_coeff,dertransportcoeff,the_same_box);
+                 var_names_transp_coeff,pelelm_dertransportcoeff,the_same_box);
   derive_lst.addComponent("cc_transport_coeffs",desc_lst,State_Type,Density,1);
   derive_lst.addComponent("cc_transport_coeffs",desc_lst,State_Type,Temp,1);
   derive_lst.addComponent("cc_transport_coeffs",desc_lst,State_Type,
@@ -964,23 +962,27 @@ PeleLM::variableSetUp ()
   //err_list.add("total_particle_count",1,ErrorRec::Special,part_cnt_err);
 #endif
 
+  derive_lst.add("mixfrac_only",IndexType::TheCellType(),1,pelelm_dermixfrac,the_same_box);
+  derive_lst.addComponent("mixfrac_only",desc_lst,State_Type,Density,1);
+  derive_lst.addComponent("mixfrac_only",desc_lst,State_Type,first_spec,NUM_SPECIES);
+
   Vector<std::string> mix_and_diss(2);
   mix_and_diss[0] = "mixture_fraction";
   mix_and_diss[1] = "Scalar_diss";
-  derive_lst.add("mixfrac",IndexType::TheCellType(),2,mix_and_diss,dermixanddiss,grow_box_by_one,&lincc_interp);
+  derive_lst.add("mixfrac",IndexType::TheCellType(),2,mix_and_diss,pelelm_dermixanddiss,grow_box_by_one,&lincc_interp);
   derive_lst.addComponent("mixfrac",desc_lst,State_Type,Density,1);
   derive_lst.addComponent("mixfrac",desc_lst,State_Type,Temp,1);
-  derive_lst.addComponent("mixfrac",desc_lst,State_Type,first_spec,nspecies);
+  derive_lst.addComponent("mixfrac",desc_lst,State_Type,first_spec,NUM_SPECIES);
 
-  derive_lst.add("HeatRelease",IndexType::TheCellType(),1,dhrr,the_same_box);
+  derive_lst.add("HeatRelease",IndexType::TheCellType(),1,pelelm_dhrr,the_same_box);
   derive_lst.addComponent("HeatRelease",desc_lst,State_Type,Temp,1);
-  derive_lst.addComponent("HeatRelease",desc_lst,RhoYdot_Type,0,nspecies);
+  derive_lst.addComponent("HeatRelease",desc_lst,RhoYdot_Type,0,NUM_SPECIES);
 
-  derive_lst.add("CMA",IndexType::TheCellType(),4,dcma,the_same_box);
+  derive_lst.add("CMA",IndexType::TheCellType(),4,pelelm_dcma,the_same_box);
   derive_lst.addComponent("CMA",desc_lst,State_Type,Density,1);
-  derive_lst.addComponent("CMA",desc_lst,State_Type,first_spec,nspecies);
+  derive_lst.addComponent("CMA",desc_lst,State_Type,first_spec,NUM_SPECIES);
   derive_lst.addComponent("CMA",desc_lst,State_Type,Temp,1);
-  derive_lst.addComponent("CMA",desc_lst,RhoYdot_Type,0,nspecies);
+  derive_lst.addComponent("CMA",desc_lst,RhoYdot_Type,0,NUM_SPECIES);
 // For this particular error I take of level inside the function
 //  err_list.add("CMA",0,ErrorRec::Special,
 //                   LM_Error_Value(dcma_error,0.0,0.0,1.0,10));
