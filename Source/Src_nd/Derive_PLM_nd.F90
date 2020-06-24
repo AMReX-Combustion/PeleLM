@@ -21,7 +21,7 @@ module derive_PLM_nd
   private
 
   public :: dermgvort, dermgdivu, & 
-            dhrr, dcma
+            dcma
 
   REAL_T, dimension(NUM_SPECIES,NUM_ELEMENTS) :: coeff_mix
   REAL_T, dimension(NUM_ELEMENTS) :: beta_mix
@@ -916,10 +916,10 @@ contains
       !                 lo, hi, domlo, domhi, delta, xlo, time, dt, bc, &
       !                 level, grid_no)
 
-      CALL  dhrr(e(:,:,:,2), e_lo, e_hi, 1, &
-                 dat(:,:,:,T:ncomp), d_lo, d_hi, NUM_SPECIES+1, &
-                 lo, hi, domlo, domhi, delta, xlo, time, dt, bc, &
-                 level, grid_no)
+      !CALL  dhrr(e(:,:,:,2), e_lo, e_hi, 1, &
+      !           dat(:,:,:,T:ncomp), d_lo, d_hi, NUM_SPECIES+1, &
+      !           lo, hi, domlo, domhi, delta, xlo, time, dt, bc, &
+      !           level, grid_no)
 
       do k = lo(3), hi(3)
          do j = lo(2), hi(2)
