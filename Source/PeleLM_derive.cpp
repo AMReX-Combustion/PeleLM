@@ -1,6 +1,9 @@
 #include "PeleLM.H"
+#include "PeleLM_K.H"
 #include "PeleLM_derive.H"
 #include <EOS.H>
+
+#include <mechanism.h>
 
 using namespace amrex;
 
@@ -389,7 +392,179 @@ void pelelm_dergrdpz (const Box& bx, FArrayBox& derfab, int dcomp, int ncomp,
     });
 }
 
+//
+//  Compute transport coefficient: D_n, \lambda, \mus
+//
 
+void pelelm_dertransportcoeff (const Box& bx, FArrayBox& derfab, int dcomp, int ncomp,
+                  const FArrayBox& datfab, const Geometry& /*geomdata*/,
+                  Real /*time*/, const int* /*bcrec*/, int /*level*/)
+
+{
+    AMREX_ASSERT(derfab.box().contains(bx));
+    AMREX_ASSERT(datfab.box().contains(bx));
+    AMREX_ASSERT(derfab.nComp() >= dcomp + ncomp);
+    AMREX_ASSERT(datfab.nComp() >= NUM_SPECIES+2);
+    AMREX_ASSERT(ncomp == NUM_SPECIES+2);
+    auto const density = datfab.array(0);
+    auto const T       = datfab.array(1);
+    auto const rhoY    = datfab.array(2);
+    auto       rhoD    = derfab.array(dcomp);
+    auto       lambda  = derfab.array(dcomp+NUM_SPECIES);
+    auto       mu      = derfab.array(dcomp+NUM_SPECIES+1);
+
+    amrex::ParallelFor(bx,
+    [density, T, rhoY, rhoD, lambda, mu] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+    {
+        getTransportCoeff( i, j, k, rhoY, T, rhoD, lambda, mu);
+    });
+
+}
+
+//
+//  Compute both mixt. fraction and scalar diss. rate
+//
+void pelelm_dermixanddiss (const Box& bx, FArrayBox& derfab, int dcomp, int ncomp,
+                  const FArrayBox& datfab, const Geometry& geomdata,
+                  Real /*time*/, const int* /*bcrec*/, int /*level*/)
+
+{
+    AMREX_ASSERT(derfab.box().contains(bx));
+    AMREX_ASSERT(datfab.box().contains(bx));
+    AMREX_ASSERT(derfab.nComp() >= dcomp + ncomp);
+    AMREX_ASSERT(datfab.nComp() >= NUM_SPECIES+2);
+    AMREX_ASSERT(ncomp == 2);
+
+    if (!PeleLM::mixture_fraction_ready) amrex::Abort("Mixture fraction not initialized");
+
+    auto const bx_dat     = datfab.box();     //input box (grown to compute mixture fraction --grow_bow_by_one ?)
+    auto const bx_der     = derfab.box();     //output box (ungrown)
+
+    auto const density    = datfab.array(0);
+    auto const temp       = datfab.array(1);
+    auto const rhoY       = datfab.array(2);
+    auto       mixt_frac  = derfab.array(dcomp);
+    auto       scalar_dis = derfab.array(dcomp+1);
+
+    AMREX_ASSERT(bx_dat.contains(grow(bx,1))); // check that data box is grown
+    
+    FArrayBox  tmp(bx_dat,1);    // def temporary array for mixt fraction
+    //Elixir tmp_e = tmp.elixir();  // not sure we need this
+    auto       mixt_frac_tmp  = tmp.array(0);
+
+    const auto dxinv = geomdata.InvCellSizeArray();    
+    amrex::Real factor = 0.5*dxinv[0];
+
+    // TODO probably better way to do this ?
+    amrex::Real Zox_lcl = PeleLM::Zox;
+    amrex::Real Zfu_lcl = PeleLM::Zfu;
+    amrex::Real fact_lcl[NUM_SPECIES];
+    for (int n=0; n<NUM_SPECIES; ++n) {
+        fact_lcl[n] = PeleLM::spec_Bilger_fact[n];
+    }
+
+    // Compute Z first -- on grown box
+    amrex::ParallelFor(bx_dat,
+    [density, rhoY, mixt_frac_tmp, fact_lcl, Zox_lcl, Zfu_lcl] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+    {
+        // Get Y from rhoY
+        amrex::Real rhoinv;
+        rhoinv = 1.0 / density(i,j,k);
+        amrex::Real y[NUM_SPECIES];
+        for (int n = 0; n < NUM_SPECIES; n++) {
+            y[n] = rhoY(i,j,k,n) * rhoinv;
+        }
+
+        mixt_frac_tmp(i,j,k) = 0.0;
+        for (int n=0; n<NUM_SPECIES; ++n) {
+            mixt_frac_tmp(i,j,k) += y[n] * fact_lcl[n];
+        }
+        mixt_frac_tmp(i,j,k) = ( mixt_frac_tmp(i,j,k) - Zox_lcl ) / ( Zfu_lcl - Zox_lcl ) ;
+    });
+
+
+    amrex::ParallelFor(bx_der,
+    [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+    {
+        // Copy mixt frac on ungrown box
+        mixt_frac(i,j,k) = mixt_frac_tmp(i,j,k);
+
+        // Get Y from rhoY
+        amrex::Real rhoinv;
+        rhoinv = 1.0 / density(i,j,k);
+        amrex::Real y[NUM_SPECIES];
+        for (int n = 0; n < NUM_SPECIES; n++) {
+            y[n] = rhoY(i,j,k,n) * rhoinv;
+        }
+
+        // get only conductivity
+	amrex::Real lambda;
+        amrex::Real Tloc = temp(i,j,k);
+        amrex::Real rho  = density(i,j,k);
+
+        amrex::Real dummy_rhoDi[NUM_SPECIES], dummy_mu, lambda_cgs, dummy_xi;
+
+        transport(false, false, true, false, 
+                  Tloc, rho, y, dummy_rhoDi, dummy_mu, dummy_xi, lambda_cgs);
+        lambda = lambda_cgs * 1.0e-5;  // CGS -> MKS 
+        
+        amrex::Real cpmix = 0.0;
+        EOS::TY2Cp(Tloc, y, cpmix);
+        cpmix *= 0.0001;                         // CGS -> MKS conversion
+
+        //grad mixt. fraction
+        amrex::Real grad[3];
+        grad[1] = factor * ( mixt_frac_tmp(i+1,j,k)-mixt_frac_tmp(i-1,j,k) );
+        grad[2] = factor * ( mixt_frac_tmp(i,j+1,k)-mixt_frac_tmp(i,j-1,k) );
+        grad[3] = 0.0;
+#if (AMREX_SPACEDIM == 3 )
+        grad[3] = factor * ( mixt_frac_tmp(i,j,k+1)-mixt_frac_tmp(i,j,k-1) );
+#endif
+        scalar_dis(i,j,k) = grad[1]*grad[1] + grad[2]*grad[2] + grad[3]*grad[3];
+        scalar_dis(i,j,k) *= 2.0 * lambda * rhoinv / cpmix;
+    });
+
+}
+
+//
+//  Compute Bilger's element based mixture fraction
+//
+
+void pelelm_dermixfrac (const Box& bx, FArrayBox& derfab, int dcomp, int ncomp,
+                  const FArrayBox& datfab, const Geometry& /*geomdata*/,
+                  Real /*time*/, const int* /*bcrec*/, int /*level*/)
+
+{
+    AMREX_ASSERT(derfab.box().contains(bx));
+    AMREX_ASSERT(datfab.box().contains(bx));
+    AMREX_ASSERT(derfab.nComp() >= dcomp + ncomp);
+    AMREX_ASSERT(datfab.nComp() >= NUM_SPECIES+1);
+    AMREX_ASSERT(ncomp == 1);
+
+    if (!PeleLM::mixture_fraction_ready) amrex::Abort("Mixture fraction not initialized");
+
+    auto const density   = datfab.array(0);
+    auto const rhoY      = datfab.array(1);
+    auto       mixt_frac = derfab.array(0);
+
+    // TODO probably better way to do this ?
+    amrex::Real Zox_lcl   = PeleLM::Zox;
+    amrex::Real Zfu_lcl   = PeleLM::Zfu;
+    amrex::Real denom_inv = 1.0 / (Zfu_lcl - Zox_lcl);
+    amrex::Real fact_lcl[NUM_SPECIES];
+    for (int n=0; n<NUM_SPECIES; ++n) {
+        fact_lcl[n] = PeleLM::spec_Bilger_fact[n];
+    }
+
+    amrex::ParallelFor(bx,
+    [density, rhoY, mixt_frac, fact_lcl, Zox_lcl, denom_inv] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+    {
+        calcMixtFrac(i,j,k,
+                     Zox_lcl, denom_inv, fact_lcl, 
+                     density, rhoY, mixt_frac);
+    });
+}
+        
 
 //
 // Compute species concentrations C_n
@@ -424,5 +599,99 @@ void pelelm_derconcentration (const Box& bx, FArrayBox& derfab, int dcomp, int n
         for (int n = 0; n < NUM_SPECIES; n++) {
           der(i,j,k,n) = Ct[n] * 1.0e6; // cm^(-3) -> m^(-3)
         }
+    });
+}
+
+//
+//  Compute the heat release rate -Sum_n(rhoYn_dot * Hn(T))
+//
+void pelelm_dhrr (const Box& bx, FArrayBox& derfab, int dcomp, int ncomp,
+                              const FArrayBox& datfab, const Geometry& /*geomdata*/,
+                              Real /*time*/, const int* /*bcrec*/, int /*level*/)
+
+{   
+    AMREX_ASSERT(derfab.box().contains(bx));
+    AMREX_ASSERT(Box(datfab.box()).enclosedCells().contains(bx));
+    AMREX_ASSERT(derfab.nComp() >= dcomp + ncomp);
+    AMREX_ASSERT(datfab.nComp() >= NUM_SPECIES+1);
+    AMREX_ASSERT(ncomp == 1);
+    auto const in_dat = datfab.array();
+    auto          der = derfab.array(dcomp);
+
+    amrex::ParallelFor(bx, 
+    [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+    {   
+        amrex::Real hi_spec[NUM_SPECIES];
+        EOS::T2Hi(in_dat(i,j,k,0),hi_spec);
+        der(i,j,k) = 0.0;
+        for (int n = 0; n < NUM_SPECIES; n++) {
+            hi_spec[n] *= 0.0001;   // erg/g -> J/kg
+            der(i,j,k) -= in_dat(i,j,k,n+1)*hi_spec[n];
+        }
+    });
+}
+
+
+//
+//  Compute the heat release rate -Sum_n(rhoYn_dot * Hn(T)) + the mixture fraction (dcma)
+//
+void pelelm_dcma (const Box& bx, FArrayBox& derfab, int dcomp, int ncomp,
+                              const FArrayBox& datfab, const Geometry& /*geomdata*/,
+                              Real /*time*/, const int* /*bcrec*/, int /*level*/)
+
+{   
+    AMREX_ASSERT(derfab.box().contains(bx));
+    AMREX_ASSERT(Box(datfab.box()).enclosedCells().contains(bx));
+    AMREX_ASSERT(derfab.nComp() >= dcomp + ncomp);
+    AMREX_ASSERT(datfab.nComp() >= 2*NUM_SPECIES+2);
+    AMREX_ASSERT(ncomp == 4);
+    auto const density   = datfab.array(0);
+    auto const rhoY      = datfab.array(1);
+    auto const Temp      = derfab.array(NUM_SPECIES+1);
+    auto const rhoY_dot  = derfab.array(NUM_SPECIES+2);
+    auto       mixt_frac = derfab.array(dcomp);
+    auto       hr        = derfab.array(dcomp+1);
+    auto       Y1        = derfab.array(dcomp+2);
+    auto       Y2        = derfab.array(dcomp+3);
+
+#ifdef C12H25O2_ID
+    int        OH        = OH_ID
+    int        RO2       = C12H25O2_ID
+#else
+    amrex::Abort("C12H25O2 is not present in your chemistry: do not use dcma.");
+#endif
+
+    // TODO probably better way to do this ?
+    amrex::Real Zox_lcl   = PeleLM::Zox;
+    amrex::Real Zfu_lcl   = PeleLM::Zfu;
+    amrex::Real denom_inv = 1.0 / (Zfu_lcl - Zox_lcl);
+    amrex::Real fact_lcl[NUM_SPECIES];
+    for (int n=0; n<NUM_SPECIES; ++n) {
+        fact_lcl[n] = PeleLM::spec_Bilger_fact[n];
+    }
+
+    amrex::ParallelFor(bx, 
+    [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+    {   
+        // Z
+        calcMixtFrac(i,j,k,
+                     Zox_lcl, denom_inv, fact_lcl, 
+                     density, rhoY, mixt_frac);
+
+        // HR
+        amrex::Real hi_spec[NUM_SPECIES];
+        EOS::T2Hi(Temp(i,j,k),hi_spec);
+        hr(i,j,k) = 0.0;
+        for (int n = 0; n < NUM_SPECIES; n++) {
+            hi_spec[n] *= 0.0001;   // erg/g -> J/kg
+            hr(i,j,k) -= rhoY_dot(i,j,k,n)*hi_spec[n];
+        }
+
+        // Y
+        amrex::Real rho_inv = 1.0 / density(i,j,k);
+#ifdef C12H25O2_ID
+        Y1(i,j,k) = rhoY(i,j,k,OH)  * rho_inv; 
+        Y2(i,j,k) = rhoY(i,j,k,RO2) * rho_inv; 
+#endif
     });
 }

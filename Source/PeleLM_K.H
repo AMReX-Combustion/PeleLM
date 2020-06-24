@@ -328,7 +328,7 @@ inline
 void
 getTransportCoeff(int i, int j, int k,
                   amrex::Array4<const amrex::Real> const& rhoY,
-                  amrex::Array4<      amrex::Real> const& T,
+                  amrex::Array4<const amrex::Real> const& T,
                   amrex::Array4<      amrex::Real> const& rhoDi,
                   amrex::Array4<      amrex::Real> const& lambda,
                   amrex::Array4<      amrex::Real> const& mu) noexcept
@@ -354,9 +354,10 @@ getTransportCoeff(int i, int j, int k,
 
    rho *= 1.0e-3_rt;                          // MKS -> CGS conversion
    amrex::Real rhoDi_cgs[NUM_SPECIES], lambda_cgs, mu_cgs, dummy_xi;
+   amrex::Real Tloc = T(i,j,k);
 
    bool get_xi = false, get_mu = true, get_lam = true, get_Ddiag = true;
-   transport(get_xi, get_mu, get_lam, get_Ddiag, T(i,j,k),
+   transport(get_xi, get_mu, get_lam, get_Ddiag, Tloc,
              rho, y, rhoDi_cgs, mu_cgs, dummy_xi, lambda_cgs);
 
    // Do CGS -> MKS conversions
@@ -450,9 +451,6 @@ getVelViscosity(int i, int j, int k,
 {
    using namespace amrex::literals;
 
-   amrex::Real mwtinv[NUM_SPECIES];
-   EOS::inv_molecular_weight(mwtinv);
-
    // Get rho & Y from rhoY
    amrex::Real rho = 0.0_rt, rhoinv;
    for (int n = 0; n < NUM_SPECIES; n++) {
@@ -478,6 +476,38 @@ getVelViscosity(int i, int j, int k,
 AMREX_GPU_HOST_DEVICE
 inline
 void
+getConductivity(int i, int j, int k,
+                amrex::Array4<const amrex::Real> const& rhoY,
+                amrex::Array4<      amrex::Real> const& T,
+                amrex::Array4<      amrex::Real> const& lambda) noexcept
+{
+   using namespace amrex::literals;
+
+   // Get rho & Y from rhoY
+   amrex::Real rho = 0.0_rt, rhoinv;
+   for (int n = 0; n < NUM_SPECIES; n++) {
+      rho += rhoY(i,j,k,n);
+   }
+   rhoinv = 1.0_rt / rho;
+   amrex::Real y[NUM_SPECIES];
+   for (int n = 0; n < NUM_SPECIES; n++) {
+      y[n] = rhoY(i,j,k,n) * rhoinv;
+   }
+
+   rho *= 1.0e-3_rt;                          // MKS -> CGS conversion
+   amrex::Real dummy_rhoDi[NUM_SPECIES], dummy_mu, lambda_cgs, dummy_xi;
+
+   bool get_xi = false, get_mu = false, get_lam = true, get_Ddiag = false;
+   transport(get_xi, get_mu, get_lam, get_Ddiag, T(i,j,k),
+             rho, y, dummy_rhoDi, dummy_mu, dummy_xi, lambda_cgs);
+
+   // Do CGS -> MKS conversions
+   lambda(i,j,k) = lambda_cgs * 1.0e-5_rt;
+}
+
+AMREX_GPU_HOST_DEVICE
+inline
+void
 fluxDivergence(int i, int j, int k,
                int ncomp,
                D_DECL(amrex::Array4<const amrex::Real>     const& fluxX,
@@ -498,4 +528,25 @@ fluxDivergence(int i, int j, int k,
       div(i,j,k,n) *= factor;
    }
 }
+
+
+AMREX_GPU_HOST_DEVICE
+inline
+void
+calcMixtFrac(int i, int j, int k,
+                amrex::Real                      const& ZO,
+                amrex::Real                      const& denom_inv,
+                amrex::Real                      const  fact_Bilger[],
+                amrex::Array4<const amrex::Real> const& density,
+                amrex::Array4<const amrex::Real> const& rhoY,
+                amrex::Array4<      amrex::Real> const& mixt_frac) noexcept
+{
+        amrex::Real rho_inv = 1.0 / density(i,j,k);
+        mixt_frac(i,j,k) = 0.0;
+        for (int n=0; n<NUM_SPECIES; ++n) {
+            mixt_frac(i,j,k) += ( rhoY(i,j,k,n) * fact_Bilger[n] ) * rho_inv;
+        }
+         mixt_frac(i,j,k) = ( mixt_frac(i,j,k) - ZO ) * denom_inv;
+}
+
 #endif

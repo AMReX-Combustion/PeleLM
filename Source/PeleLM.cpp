@@ -40,7 +40,6 @@
 #include <AMReX_AmrData.H>
 #endif
 
-#include <mechanism.h>
 #ifdef USE_SUNDIALS_PP
 #include <reactor.h>
 #ifdef USE_CUDA_SUNDIALS_PP
@@ -149,6 +148,11 @@ Real PeleLM::rgas;
 Real PeleLM::prandtl;
 Real PeleLM::schmidt;
 Real PeleLM::constant_thick_val;
+Array<Real, 4> PeleLM::Beta_mix;
+Array<Real, NUM_SPECIES> PeleLM::spec_Bilger_fact;
+Real PeleLM::Zfu;
+Real PeleLM::Zox;
+bool PeleLM::mixture_fraction_ready;
 int  PeleLM::unity_Le;
 Real PeleLM::htt_tempmin;
 Real PeleLM::htt_tempmax;
@@ -291,12 +295,6 @@ PeleLM::init_network ()
 }
 
 void
-PeleLM::init_transport (int iEG)
-{
-	pphys_transport_init(&iEG); 
-}
-
-void
 PeleLM::init_extern ()
 {
   // initialize the external runtime parameters -- these will
@@ -355,24 +353,6 @@ PeleLM::getSpeciesIdx(const std::string& spName)
 }
 
 void
-PeleLM::getSpeciesNames(Vector<std::string>& spn)
-{
-    for (int i = 0; i < nspecies; i++) {
-        int len = 20;
-        Vector<int> int_spec_name(len);
-        pphys_get_spec_name(int_spec_name.dataPtr(),&i,&len);
-        char* spec_name = new char[len+1];
-        for (int j = 0; j < len; j++) {
-            spec_name[j] = int_spec_name[j];
-        }
-        spec_name[len] = '\0';
-        //spec_names.push_back(spec_name);
-        spn.push_back(spec_name);
-        delete [] spec_name;
-    }
-}
-
-void
 PeleLM::Initialize ()
 {
   if (initialized) return;
@@ -424,6 +404,12 @@ PeleLM::Initialize ()
   PeleLM::prandtl                   = .7;
   PeleLM::schmidt                   = .7;
   PeleLM::constant_thick_val        = -1;
+
+  PeleLM::Beta_mix = {0};
+  PeleLM::spec_Bilger_fact = {0};
+  PeleLM::Zfu = -1;
+  PeleLM::Zox = -1;
+  PeleLM::mixture_fraction_ready    = false;
   PeleLM::unity_Le                  = 1;
   PeleLM::htt_tempmin               = 298.0;
   PeleLM::htt_tempmax               = 40000.;
@@ -618,6 +604,7 @@ PeleLM::Initialize_specific ()
     Vector<std::string> hi_bc_char(BL_SPACEDIM);
     pplm.getarr("lo_bc",lo_bc_char,0,BL_SPACEDIM);
     pplm.getarr("hi_bc",hi_bc_char,0,BL_SPACEDIM);
+
 
     Vector<int> lo_bc(BL_SPACEDIM), hi_bc(BL_SPACEDIM);
     bool flag_closed_chamber = false;
@@ -1259,13 +1246,13 @@ PeleLM::init_once ()
   typical_values.resize(NUM_STATE,-1); // -ve means don't use for anything
   typical_values[RhoH] = typical_RhoH_value_default;
 
-  Vector<std::string> speciesNames;
-  PeleLM::getSpeciesNames(speciesNames);
+  Vector<std::string> specNames;
+  EOS::speciesNames(specNames);
   ParmParse pp("ht");
   for (int i=0; i<nspecies; ++i) {
-    const std::string ppStr = std::string("typValY_") + speciesNames[i];
+    const std::string ppStr = std::string("typValY_") + specNames[i];
     if (pp.countval(ppStr.c_str())>0) {
-      pp.get(ppStr.c_str(),typical_values_FileVals[speciesNames[i]]);
+      pp.get(ppStr.c_str(),typical_values_FileVals[specNames[i]]);
     }
   }
   Vector<std::string> otherKeys = {"Temp", "RhoH", "Vel"};
@@ -1439,7 +1426,51 @@ PeleLM::restart (Amr&          papa,
 
       isp >> p_amb_old;
       p_amb_new = p_amb_old;
-   }
+  }
+  init_mixture_fraction();
+}
+
+void
+PeleLM::init_mixture_fraction()
+{
+      // Get fuel and oxy tank composition
+      Vector<std::string> specNames;
+      EOS::speciesNames(specNames);
+      amrex::Real YF[NUM_SPECIES], YO[NUM_SPECIES];
+      for (int i=0; i<NUM_SPECIES; ++i) {
+         YF[i] = 0.0;
+         YO[i] = 0.0;  
+         if (!specNames[i].compare("O2"))  YO[i] = 0.233;
+         if (!specNames[i].compare("N2"))  YO[i] = 0.767;
+         if (!specNames[i].compare("CH4")) YF[i] = 1.0;
+      }
+
+      // Only interested in CHON -in that order. Compute Bilger weights
+      amrex::Real atwCHON[4];
+      EOS::atomic_weightsCHON(atwCHON);
+      Beta_mix[0] = 2.0/atwCHON[0];
+      Beta_mix[1] = 1.0/(2.0*atwCHON[1]);
+      Beta_mix[2] = -1.0/atwCHON[2];
+      Beta_mix[3] = 0.0;
+
+      // Compute each species weight for the Bilger formulation based on elemental compo
+      // Only interested in CHON -in that order.
+      int ecompCHON[NUM_SPECIES*4];
+      amrex::Real mwt[NUM_SPECIES];
+      EOS::element_compositionCHON(ecompCHON);
+      EOS::molecular_weight(mwt);
+      Zfu = 0.0;
+      Zox = 0.0;
+      for (int i=0; i<NUM_SPECIES; ++i) {
+         spec_Bilger_fact[i] = 0.0;
+         for (int k = 0; k < 4; k++) {
+            spec_Bilger_fact[i] += Beta_mix[k] * (ecompCHON[i*4 + k]*atwCHON[k]/mwt[i]);
+         }
+         Zfu += spec_Bilger_fact[i]*YF[i];
+         Zox += spec_Bilger_fact[i]*YO[i];
+      }
+
+      mixture_fraction_ready = true;
 }
 
 void
@@ -1851,7 +1882,7 @@ PeleLM::initData ()
   int nspecies;
   pphys_get_num_spec(&nspecies);
   Vector<std::string> names;
-  PeleLM::getSpeciesNames(names);
+  EOS::speciesNames(names);
   Vector<std::string>        plotnames   = amrData.PlotVarNames();
 
   int idT = -1, idX = -1;
@@ -2001,6 +2032,11 @@ MultiFab::Copy(S_new,P_new,0,RhoRT,1,1);
   // Load typical values for each state component
   //
   set_typical_values(false);
+  
+  //
+  // Initialize mixture fraction data.
+  //
+  init_mixture_fraction();
 
   //
   // Initialize divU and dSdt.
@@ -4793,7 +4829,7 @@ PeleLM::temperature_stats (MultiFab& S)
 
     if (aNegY){
         Vector<std::string> names;
-        PeleLM::getSpeciesNames(names);
+        EOS::speciesNames(names);
         amrex::Print() << "  Species w/min < 0: ";
         for (int i = 0; i < nspecies; ++i) {
         int idx = first_spec + i - BL_SPACEDIM;
@@ -8768,7 +8804,7 @@ PeleLM::setPlotVariables ()
   AmrLevel::setPlotVariables();
 
   Vector<std::string> names;
-  PeleLM::getSpeciesNames(names);
+  EOS::speciesNames(names);
 
   
 // Here we specify to not plot all the rho.Y from the state variables
