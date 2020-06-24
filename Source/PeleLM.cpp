@@ -7234,287 +7234,321 @@ PeleLM::mac_sync ()
             }
          } // deltaT_iters
 
-//    Construct the \delta(\rho h) from (post - pre) deltaT iters
-      MultiFab::Copy(Ssync,get_new_data(State_Type),RhoH,RhoH-AMREX_SPACEDIM,1,0);
-      MultiFab::Subtract(Ssync,*S_new_sav[level],RhoH,RhoH-AMREX_SPACEDIM,1,0);
-
-//    Need to compute increment of enthalpy fluxes if last_sync_iter
-//    Enthalpy fluxes for pre-sync state stored in GammaKp1 above 
-//    Enthalpy fluxes for post-sync computed in the last deltaT iter and stored in SpecDiffusionFluxnp1
-//    To avoid creating yet another container, subtract SpecDiffusionFluxnp1 from GammaKp1 for the two enthalpy pieces
-//    NOTE: FluxReg incremented with -dt scale whereas it should be dt within a SDC context, but what we have
-//    in GammaKp1 is currently of the opposite sign.
-      if (do_reflux && level > 0 && last_mac_sync_iter) {
-         for (int d=0; d<AMREX_SPACEDIM; ++d)
+         // Construct the \delta(\rho h) from (post - pre) deltaT iters
+#ifdef _OPENMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+         for (MFIter mfi(S_new,TilingIfNotGPU()); mfi.isValid(); ++mfi)
          {
-           MultiFab::Subtract(*GammaKp1[d],*SpecDiffusionFluxnp1[d],NUM_SPECIES+1,NUM_SPECIES+1,2,0);
-           getViscFluxReg().FineAdd(*GammaKp1[d],d,NUM_SPECIES+2,RhoH,1,-dt);
-           getAdvFluxReg().FineAdd(*GammaKp1[d],d,NUM_SPECIES+1,RhoH,1,-dt);
+            const Box& bx = mfi.tilebox();
+            auto const& rhoHm   = S_new.array(mfi,RhoH);
+            auto const& rhoHm_0 = S_new_sav[level]->array(mfi,RhoH);
+            auto const& ssync   = Ssync.array(mfi,RhoH-AMREX_SPACEDIM);
+            amrex::ParallelFor(bx, [ rhoHm, rhoHm_0, ssync ]
+            AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+            {
+               ssync(i,j,k) = rhoHm(i,j,k) - rhoHm_0(i,j,k);
+            });
          }
+
+         // Need to compute increment of enthalpy fluxes if last_sync_iter
+         // Enthalpy fluxes for pre-sync state stored in GammaKp1 above 
+         // Enthalpy fluxes for post-sync computed in the last deltaT iter and stored in SpecDiffusionFluxnp1
+         // To avoid creating yet another container, subtract SpecDiffusionFluxnp1 from GammaKp1 for the two enthalpy pieces
+         // NOTE: FluxReg incremented with -dt scale whereas it should be dt within a SDC context, but what we have
+         // in GammaKp1 is currently of the opposite sign.
+         if (do_reflux && level > 0 && last_mac_sync_iter) {
+            for (int d=0; d<AMREX_SPACEDIM; ++d)
+            {
+               MultiFab::Subtract(*GammaKp1[d],*SpecDiffusionFluxnp1[d],NUM_SPECIES+1,NUM_SPECIES+1,2,0);
+               getViscFluxReg().FineAdd(*GammaKp1[d],d,NUM_SPECIES+2,RhoH,1,-dt);
+               getAdvFluxReg().FineAdd(*GammaKp1[d],d,NUM_SPECIES+1,RhoH,1,-dt);
+            }
+         }
+         BL_PROFILE_VAR_STOP(PLM_SSYNC);
+      }
+      else
+      {
+         Abort("FIXME: Properly deal with do_diffuse_sync=0");
       }
 
-      BL_PROFILE_VAR_STOP(HTSSYNC);
-    }
-    else
-    {
-      Abort("FIXME: Properly deal with do_diffuse_sync=0");
-    }
+      BL_PROFILE_VAR_START(PLM_SSYNC);
+      // Update coarse post-sync temp from rhoH and rhoY
+      RhoH_to_Temp(S_new);
+      setThermoPress(curr_time);
 
-//  Update coarse post-sync temp from rhoH and rhoY
-    RhoH_to_Temp(S_new);
-    setThermoPress(curr_time);
-
-    showMF("DBGSync",Ssync,"sdc_SsyncToInterp_inSyncIter",level,mac_sync_iter,parent->levelSteps(level));
-    //
-    // Interpolate the sync correction to the finer levels.
-    // Interpolate rhoY and rhoH Syncs and recompute rho and Temp on fine
-    //
-    Real mult = 1.0;
-    Vector<int*>         sync_bc(grids.size());
-    Vector< Vector<int> > sync_bc_array(grids.size());
-    for (int i = 0; i < ngrids; i++)
-    {
-      sync_bc_array[i] = getBCArray(State_Type,i,Density,numscal);
-      sync_bc[i]       = sync_bc_array[i].dataPtr();
-    }
-    IntVect ratio = IntVect::TheUnitVector();
-
-    for (int lev = level+1; lev <= finest_level; lev++)
-    {
-      ratio               *= parent->refRatio(lev-1);
-      PeleLM& fine_level  = getLevel(lev);
-      MultiFab& S_new_lev = fine_level.get_new_data(State_Type);
-      showMF("DBGSync",S_new_lev,"sdc_SnewBefIncr_inSync",level,mac_sync_iter,parent->levelSteps(level));
+      showMF("DBGSync",Ssync,"sdc_SsyncToInterp_inSyncIter",level,mac_sync_iter,parent->levelSteps(level));
       //
-      // New way of interpolating syncs to make sure mass is conserved
-      // and to ensure freestream preservation for species & temperature.
+      // Interpolate the sync correction to the finer levels.
+      // Interpolate rhoY and rhoH Syncs and recompute rho and Temp on fine
       //
-      const BoxArray& fine_grids            = S_new_lev.boxArray();
-      const DistributionMapping& fine_dmap  = S_new_lev.DistributionMap();
-      const int nghost                      = S_new_lev.nGrow();
-
-      MultiFab increment(fine_grids, fine_dmap, numscal, nghost,MFInfo(),getLevel(lev).Factory());
-
-      increment.setVal(0.0,nghost);
-
-      SyncInterp(Ssync, level, increment, lev, ratio, 
-                 first_spec-AMREX_SPACEDIM, first_spec-AMREX_SPACEDIM, nspecies+1, 1, mult,
-                 sync_bc.dataPtr());
-
-      if (do_set_rho_to_species_sum)
+      Real mult = 1.0;
+      Vector<int*>         sync_bc(grids.size());
+      Vector< Vector<int> > sync_bc_array(grids.size());
+      for (int i = 0; i < ngrids; i++)
       {
+        sync_bc_array[i] = getBCArray(State_Type,i,Density,numscal);
+        sync_bc[i]       = sync_bc_array[i].dataPtr();
+      }
+      IntVect ratio = IntVect::TheUnitVector();
+
+      for (int lev = level+1; lev <= finest_level; lev++)
+      {
+         ratio               *= parent->refRatio(lev-1);
+         PeleLM& fine_level  = getLevel(lev);
+         MultiFab& S_new_lev = fine_level.get_new_data(State_Type);
+         showMF("DBGSync",S_new_lev,"sdc_SnewBefIncr_inSync",level,mac_sync_iter,parent->levelSteps(level));
+         //
+         // New way of interpolating syncs to make sure mass is conserved
+         // and to ensure freestream preservation for species & temperature.
+         //
+         const BoxArray& fine_grids            = S_new_lev.boxArray();
+         const DistributionMapping& fine_dmap  = S_new_lev.DistributionMap();
+         const int nghost                      = S_new_lev.nGrow();
+
+         MultiFab increment(fine_grids, fine_dmap, numscal, nghost,MFInfo(),getLevel(lev).Factory());
+         increment.setVal(0.0,nghost);
+
+         SyncInterp(Ssync, level, increment, lev, ratio, 
+                    first_spec-AMREX_SPACEDIM, first_spec-AMREX_SPACEDIM, nspecies+1, 1, mult,
+                    sync_bc.dataPtr());
+
+         // Set rhoIncr = Sum rhoYincr if required and update S_new += incr
 #ifdef _OPENMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
          for (MFIter mfi(increment,TilingIfNotGPU()); mfi.isValid(); ++mfi)
          {
             const Box& bx = mfi.tilebox();
-            auto const& rhoincr  = increment.array(mfi,Density-AMREX_SPACEDIM);
-            auto const& rhoYincr = increment.array(mfi,first_spec-AMREX_SPACEDIM);
+            auto const& rhoincr     = increment.array(mfi,Density-AMREX_SPACEDIM);
+            auto const& rhoYincr    = increment.array(mfi,first_spec-AMREX_SPACEDIM);
+            auto const& S_new_incr  = S_new_lev.array(mfi,Density);
+            int  rhoSumrhoY_flag    = do_set_rho_to_species_sum;
 
-            amrex::ParallelFor(bx, [rhoincr, rhoYincr]
+            amrex::ParallelFor(bx, [rhoincr, rhoYincr, S_new_incr, rhoSumrhoY_flag, numscal]
             AMREX_GPU_DEVICE (int i, int j, int k) noexcept
             {
-               rhoincr(i,j,k) = 0.0;   
-               for (int n = 0; n < NUM_SPECIES; n++) { 
-                  rhoincr(i,j,k) += rhoYincr(i,j,k,n);
-               }
+               if ( rhoSumrhoY_flag ) {
+                  rhoincr(i,j,k) = 0.0;   
+                  for (int n = 0; n < NUM_SPECIES; n++) { 
+                     rhoincr(i,j,k) += rhoYincr(i,j,k,n);
+                  }
+               }   
+               for (int n = 0; n < numscal; n++) { 
+                  S_new_incr(i,j,k,n) += rhoincr(i,j,k,n);
+               }   
             });
          }
-      }
-// TODO : find a way to merge these two kernels.   
-#ifdef _OPENMP
-#pragma omp parallel
-#endif
-      for (MFIter mfi(increment,true); mfi.isValid(); ++mfi)
-      {
-        const Box& box = mfi.tilebox();
-        S_new_lev[mfi].plus<RunOn::Host>(increment[mfi],box,0,Density,numscal);
-      }
-      showMF("DBGSync",increment,"sdc_increment_inSync",level,mac_sync_iter,parent->levelSteps(level));
+         showMF("DBGSync",increment,"sdc_increment_inSync",level,mac_sync_iter,parent->levelSteps(level));
 
-      if (last_mac_sync_iter)
-      {
-        fine_level.make_rho_curr_time();
-        fine_level.incrRhoAvg(increment,Density-AMREX_SPACEDIM,1.0);
+         if (last_mac_sync_iter)
+         {
+           fine_level.make_rho_curr_time();
+           fine_level.incrRhoAvg(increment,Density-AMREX_SPACEDIM,1.0);
+         }
+         //
+         // Recompute temperature and rho R T after interpolation of the mac_sync correction
+         //   of the individual quantities rho, Y, T.
+         //
+         RhoH_to_Temp(S_new_lev);
+         fine_level.setThermoPress(curr_time);
       }
+
       //
-      // Recompute temperature and rho R T after interpolation of the mac_sync correction
+      // Average down rho R T after interpolation of the mac_sync correction
       //   of the individual quantities rho, Y, T.
       //
-      RhoH_to_Temp(S_new_lev);
-      fine_level.setThermoPress(curr_time);
-    }
-
-    //
-    // Average down rho R T after interpolation of the mac_sync correction
-    //   of the individual quantities rho, Y, T.
-    //
-    for (int lev = finest_level-1; lev >= level; lev--)
-    {
-      PeleLM& fine_level = getLevel(lev+1);
-      PeleLM& crse_level = getLevel(lev);
-
-      MultiFab& S_crse_loc = crse_level.get_new_data(State_Type);
-      MultiFab& S_fine_loc = fine_level.get_new_data(State_Type);
-
-      amrex::average_down(S_fine_loc, S_crse_loc, fine_level.geom, crse_level.geom,
-                          RhoRT, 1, crse_level.fine_ratio);
-    }
-    PeleLM& fine_level = getLevel(level+1);
-    showMF("DBGSync",fine_level.get_new_data(State_Type),"sdc_SnewFine_EndSyncIter",level+1,mac_sync_iter,parent->levelSteps(level));
-    showMF("DBGSync",get_new_data(State_Type),"sdc_SnewCoarse_EndSyncIter",level,mac_sync_iter,parent->levelSteps(level));
-
-    // Compute chi increment and update chi_sync
-    chi_sync_increment.setVal(0,0);
-    calc_dpdt(curr_time,dt,chi_sync_increment,u_mac);
-
-    MultiFab::Subtract(chi_sync,chi_sync_increment,0,0,1,0);
-    BL_PROFILE_VAR_STOP(HTSSYNC);
-  } // end loop over mac_sync_iters
-
-  BL_PROFILE_VAR_START(HTSSYNC);
-  DeltaYsync.clear();
-  chi_sync.clear();
-  S_new_sav.clear();
-  Ssync_sav.clear();
-  Vsync_sav.clear();
-
-  //
-  // Diffuse all other state quantities
-  //
-
-  // Start by getting a list of components to do
-  // Do not diffuse {Density, RhoH, Spec, Temp}
-  //         or anything that is not diffusive
-  Vector<int> comps_to_diffuse;
-  for (int sigma = 0; sigma < numscal; sigma++)
-  {
-    const int state_ind = AMREX_SPACEDIM + sigma;
-    const bool is_spec = state_ind<=last_spec && state_ind>=first_spec;
-    int do_it
-      =  state_ind!=Density 
-      && state_ind!=Temp
-      && state_ind!=RhoH
-      && !is_spec
-      && is_diffusive[state_ind];
-
-    if (do_it)
-    {
-      comps_to_diffuse.push_back(sigma);
-    }
-  }
-
-  if (comps_to_diffuse.size() > 0)
-  {
-    amrex::Print() << " Doing some comps_to_diffuse \n"; 
-    FluxBoxes fb_flux(this);
-    MultiFab **flux = fb_flux.get();
-
-    FluxBoxes fb_beta(this);
-    MultiFab** beta = fb_beta.get();
-
-    MultiFab DeltaSsync(grids,dmap,1,0);
-
-    for (int n=0; n<comps_to_diffuse.size(); ++n)
-    {
-      int sigma = comps_to_diffuse[n];
-      const int state_ind = AMREX_SPACEDIM + sigma;
-
-      //
-      // For variables of the form rhoQ, increment RHS
-      // by -DeltaSsync = - (sync_for_rho)*Q_presync.
-      //
-      if (advectionType[state_ind] == Conservative)
+      for (int lev = finest_level-1; lev >= level; lev--)
       {
-        MultiFab::Copy(DeltaSsync,S_new,Density,0,1,0);
-        DeltaSsync.invert(1.0,0,1,0);
-        MultiFab::Multiply(DeltaSsync,S_new,state_ind,0,1,0);
-        MultiFab::Multiply(DeltaSsync,Ssync,Density-AMREX_SPACEDIM,0,1,0);
-        MultiFab::Subtract(Ssync,DeltaSsync,0,sigma,1,0);
+        PeleLM& fine_level = getLevel(lev+1);
+        PeleLM& crse_level = getLevel(lev);
+
+        MultiFab& S_crse_loc = crse_level.get_new_data(State_Type);
+        MultiFab& S_fine_loc = fine_level.get_new_data(State_Type);
+
+        amrex::average_down(S_fine_loc, S_crse_loc, fine_level.geom, crse_level.geom,
+                            RhoRT, 1, crse_level.fine_ratio);
       }
+      PeleLM& fine_level = getLevel(level+1);
+      showMF("DBGSync",fine_level.get_new_data(State_Type),"sdc_SnewFine_EndSyncIter",level+1,mac_sync_iter,parent->levelSteps(level));
+      showMF("DBGSync",get_new_data(State_Type),"sdc_SnewCoarse_EndSyncIter",level,mac_sync_iter,parent->levelSteps(level));
 
-      MultiFab* alpha = 0;
-      getDiffusivity(beta, curr_time, state_ind, 0, 1);
-      int rho_flag = 0;
+      // Compute chi increment and update chi_sync
+      chi_sync_increment.setVal(0,0);
+      calc_dpdt(curr_time,dt,chi_sync_increment,u_mac);
+      MultiFab::Subtract(chi_sync,chi_sync_increment,0,0,1,0);
+      BL_PROFILE_VAR_STOP(PLM_SSYNC);
+   } // end loop over mac_sync_iters
 
-      // on entry, Ssync = RHS for sync_for_Q diffusive solve
-      // on exit,  Ssync = rho^{n+1} * sync_for_Q
-      // on exit,  flux = - coeff * grad Q
-      diffusion->diffuse_Ssync(Ssync,sigma,dt,be_cn_theta,rho_half,
-                               rho_flag,flux,0,beta,0,alpha,0);
+   BL_PROFILE_VAR_START(PLM_SSYNC);
+   DeltaYsync.clear();
+   chi_sync.clear();
+   S_new_sav.clear();
+   Ssync_sav.clear();
+   Vsync_sav.clear();
 
-      MultiFab::Add(S_new,Ssync,sigma,state_ind,1,0);  // + rho^{n+1} * sync_for_Q
-      MultiFab::Add(S_new,DeltaSsync,0,state_ind,1,0); // + (sync_for_rho)*Q_presync.
+   //
+   // Diffuse all other state quantities
+   //
+
+   // Start by getting a list of components to do
+   // Do not diffuse {Density, RhoH, Spec, Temp}
+   //         or anything that is not diffusive
+   Vector<int> comps_to_diffuse;
+   for (int sigma = 0; sigma < numscal; sigma++)
+   {
+      const int state_ind = AMREX_SPACEDIM + sigma;
+      const bool is_spec = state_ind<=last_spec && state_ind>=first_spec;
+      int do_it
+            =  state_ind!=Density 
+            && state_ind!=Temp
+            && state_ind!=RhoH
+            && !is_spec
+            && is_diffusive[state_ind];
+
+      if (do_it)
+      {
+         comps_to_diffuse.push_back(sigma);
+      }
+   }
+
+   if (comps_to_diffuse.size() > 0)
+   {
+      amrex::Print() << " Doing some comps_to_diffuse \n"; 
+      FluxBoxes fb_flux(this);
+      MultiFab **flux = fb_flux.get();
+
+      FluxBoxes fb_beta(this);
+      MultiFab** beta = fb_beta.get();
+
+      MultiFab DeltaSsync(grids,dmap,1,0);
+
+      for (int n=0; n<comps_to_diffuse.size(); ++n)
+      {
+         int sigma = comps_to_diffuse[n];
+         const int state_ind = AMREX_SPACEDIM + sigma;
+
+         //
+         // For variables of the form rhoQ, increment RHS
+         // by -DeltaSsync = - (sync_for_rho)*Q_presync.
+         //
+         if (advectionType[state_ind] == Conservative)
+         {
+#ifdef _OPENMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+            for (MFIter mfi(S_new,TilingIfNotGPU()); mfi.isValid(); ++mfi)
+            {
+               const Box& bx = mfi.tilebox();
+               auto const& rho      = S_new.array(mfi,Density);
+               auto const& scalar   = S_new.array(mfi,state_ind);
+               auto const& dssync   = DeltaSsync.array(mfi);
+               auto const& drhosync = Ssync.array(mfi,Density-AMREX_SPACEDIM);
+               auto const& scalsync = Ssync.array(mfi,sigma);
+               amrex::ParallelFor(bx, [rho, scalar, dssync, drhosync, scalsync ]
+               AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+               {
+                  dssync(i,j,k) = scalar(i,j,k) / rho(i,j,k) * drhosync(i,j,k);
+                  scalsync(i,j,k) -= dssync(i,j,k);
+               });
+            }
+         }   
+
+         MultiFab* alpha = 0;
+         getDiffusivity(beta, curr_time, state_ind, 0, 1);
+         int rho_flag = 0;
+
+         // on entry, Ssync = RHS for sync_for_Q diffusive solve
+         // on exit,  Ssync = rho^{n+1} * sync_for_Q
+         // on exit,  flux = - coeff * grad Q
+         diffusion->diffuse_Ssync(Ssync,sigma,dt,be_cn_theta,rho_half,
+                                  rho_flag,flux,0,beta,0,alpha,0);
+
+         // rho Scal{n+1} = rho Scal{n+1,p} + rho^{n+1} * delta{scal}^{sync} + delta{rho}^{sync} * scal{n+1,p}
+#ifdef _OPENMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+         for (MFIter mfi(S_new,TilingIfNotGPU()); mfi.isValid(); ++mfi)
+         {
+            const Box& bx = mfi.tilebox();
+            auto const& scalar   = S_new.array(mfi,state_ind);
+            auto const& dssync   = DeltaSsync.array(mfi);
+            auto const& scalsync = Ssync.array(mfi,sigma);
+            amrex::ParallelFor(bx, [scalar, dssync, scalsync ]
+            AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+            {
+               scalar(i,j,k) += scalsync(i,j,k) + dssync(i,j,k);
+            });
+         }
 
 #ifdef AMREX_USE_EB
-      EB_set_covered_faces({D_DECL(flux[0],flux[1],flux[2])},0.);
+         EB_set_covered_faces({D_DECL(flux[0],flux[1],flux[2])},0.);
 #endif
 
-      if (level > 0)
-      {
-         
-         for (int d=0; d<AMREX_SPACEDIM; ++d)
-            getViscFluxReg().FineAdd(*flux[d],d,0,state_ind,1,dt);
+         if (level > 0)
+         {
+            for (int d=0; d<AMREX_SPACEDIM; ++d) {
+               getViscFluxReg().FineAdd(*flux[d],d,0,state_ind,1,dt);
+            }
+         }
+
+         // Interpolate sync to finer levels
+         Vector<int*>         sync_bc(grids.size());
+         Vector< Vector<int> > sync_bc_array(grids.size());
+         for (int i = 0; i < ngrids; i++)
+         {
+            sync_bc_array[i] = getBCArray(State_Type,i,state_ind,1);
+            sync_bc[i]       = sync_bc_array[i].dataPtr();
+         }
+
+         IntVect ratio = IntVect::TheUnitVector();
+         for (int lev = level+1; lev <= finest_level; lev++)
+         {
+            ratio                                *= parent->refRatio(lev-1);
+            PeleLM& fine_level                   =  getLevel(lev);
+            MultiFab& S_new_lev                  =  fine_level.get_new_data(State_Type);
+            const BoxArray& fine_grids           =  S_new_lev.boxArray();
+            const DistributionMapping& fine_dmap =  S_new_lev.DistributionMap();
+            const int nghost                     =  S_new_lev.nGrow();
+
+            MultiFab increment(fine_grids, fine_dmap, numscal, nghost);
+            increment.setVal(0,nghost);
+
+            Real mult = 1.0;
+            SyncInterp(Ssync, level, increment, lev, ratio, 
+                       sigma, sigma, 1, 1, mult, sync_bc.dataPtr());
+
+            MultiFab::Add(S_new_lev,increment,0,state_ind,1,nghost);
+         }
       }
+   }
 
-      // Interpolate sync to finer levels
-      Vector<int*>         sync_bc(grids.size());
-      Vector< Vector<int> > sync_bc_array(grids.size());
-      for (int i = 0; i < ngrids; i++)
-      {
-        sync_bc_array[i] = getBCArray(State_Type,i,state_ind,1);
-        sync_bc[i]       = sync_bc_array[i].dataPtr();
-      }
+   //
+   // Average down rho R T after interpolation of the mac_sync correction
+   //   of the individual quantities rho, Y, T.
+   //
+   for (int lev = finest_level-1; lev >= level; lev--)
+   {
+     PeleLM& fine_level = getLevel(lev+1);
+     PeleLM& crse_level = getLevel(lev);
 
-      IntVect ratio = IntVect::TheUnitVector();
-      for (int lev = level+1; lev <= finest_level; lev++)
-      {
-        ratio                                *= parent->refRatio(lev-1);
-        PeleLM& fine_level                   =  getLevel(lev);
-        MultiFab& S_new_lev                  =  fine_level.get_new_data(State_Type);
-        const BoxArray& fine_grids           =  S_new_lev.boxArray();
-        const DistributionMapping& fine_dmap =  S_new_lev.DistributionMap();
-        const int nghost                     =  S_new_lev.nGrow();
+     MultiFab& S_crse_loc = crse_level.get_new_data(State_Type);
+     MultiFab& S_fine_loc = fine_level.get_new_data(State_Type);
 
-        MultiFab increment(fine_grids, fine_dmap, numscal, nghost);
-        increment.setVal(0,nghost);
+     amrex::average_down(S_fine_loc, S_crse_loc, fine_level.geom, crse_level.geom,
+                         RhoRT, 1, crse_level.fine_ratio);
+   }
+   BL_PROFILE_VAR_STOP(PLM_SSYNC);
 
-        Real mult = 1.0;
-        SyncInterp(Ssync, level, increment, lev, ratio, 
-                   sigma, sigma, 1, 1, mult, sync_bc.dataPtr());
+   if (verbose)
+   {
+     const int IOProc   = ParallelDescriptor::IOProcessorNumber();
+     Real      run_time = ParallelDescriptor::second() - strt_time;
 
-        MultiFab::Add(S_new_lev,increment,0,state_ind,1,nghost);
-      }
-    }
-  }
+     ParallelDescriptor::ReduceRealMax(run_time,IOProc);
 
-  //
-  // Average down rho R T after interpolation of the mac_sync correction
-  //   of the individual quantities rho, Y, T.
-  //
-  for (int lev = finest_level-1; lev >= level; lev--)
-  {
-    PeleLM& fine_level = getLevel(lev+1);
-    PeleLM& crse_level = getLevel(lev);
-
-    MultiFab& S_crse_loc = crse_level.get_new_data(State_Type);
-    MultiFab& S_fine_loc = fine_level.get_new_data(State_Type);
-
-    amrex::average_down(S_fine_loc, S_crse_loc, fine_level.geom, crse_level.geom,
-                        RhoRT, 1, crse_level.fine_ratio);
-  }
-  BL_PROFILE_VAR_STOP(HTSSYNC);
-
-  if (verbose)
-  {
-    const int IOProc   = ParallelDescriptor::IOProcessorNumber();
-    Real      run_time = ParallelDescriptor::second() - strt_time;
-      
-    ParallelDescriptor::ReduceRealMax(run_time,IOProc);
-      
-    amrex::Print() << "PeleLM::mac_sync(): lev: " << level << ", time: " << run_time << '\n';
-  }
+     amrex::Print() << "PeleLM::mac_sync(): lev: " << level << ", time: " << run_time << '\n';
+   }
 
 }
 
