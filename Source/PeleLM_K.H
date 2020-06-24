@@ -528,4 +528,25 @@ fluxDivergence(int i, int j, int k,
       div(i,j,k,n) *= factor;
    }
 }
+
+
+AMREX_GPU_HOST_DEVICE
+inline
+void
+calcMixtFrac(int i, int j, int k,
+                amrex::Real                      const& ZO,
+                amrex::Real                      const& denom_inv,
+                amrex::Real                      const  fact_Bilger[],
+                amrex::Array4<const amrex::Real> const& density,
+                amrex::Array4<const amrex::Real> const& rhoY,
+                amrex::Array4<      amrex::Real> const& mixt_frac) noexcept
+{
+        amrex::Real rho_inv = 1.0 / density(i,j,k);
+        mixt_frac(i,j,k) = 0.0;
+        for (int n=0; n<NUM_SPECIES; ++n) {
+            mixt_frac(i,j,k) += ( rhoY(i,j,k,n) * fact_Bilger[n] ) * rho_inv;
+        }
+         mixt_frac(i,j,k) = ( mixt_frac(i,j,k) - ZO ) * denom_inv;
+}
+
 #endif
