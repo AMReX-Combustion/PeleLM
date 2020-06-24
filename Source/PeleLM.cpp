@@ -4632,7 +4632,8 @@ PeleLM::flux_divergence (MultiFab&        fdiv,
       auto const& vol          = volume.const_array(mfi);
 
 #ifdef AMREX_USE_EB
-      auto const& flagfab = Factory.getMultiEBCellFlagFab()[mfi];
+      auto const& ebfactory = dynamic_cast<EBFArrayBoxFactory const&>(Factory());
+      auto const& flagfab = ebfactory.getMultiEBCellFlagFab()[mfi];
       auto const& flag    = flagfab.const_array();
 #endif
 
@@ -4644,7 +4645,7 @@ PeleLM::flux_divergence (MultiFab&        fdiv,
             divergence(i,j,k,n) = 0.0;
          });
       } else if (flagfab.getType(bx) != FabType::regular ) {     // EB containing boxes 
-         auto vfrac = Factory.getVolFrac().const_array(mfi);
+         auto vfrac = ebfactory.getVolFrac().const_array(mfi);
          amrex::ParallelFor(bx, [nComp, flag, vfrac, divergence, D_DECL(fluxX, fluxY, fluxZ), vol, scale]
          AMREX_GPU_DEVICE (int i, int j, int k) noexcept
          {
@@ -7893,7 +7894,8 @@ PeleLM::differential_spec_diffuse_sync (Real dt,
       auto const& rhs_Dsolve = Rhs.const_array(mfi);
 
 #ifdef AMREX_USE_EB
-      auto const& flagfab = Factory.getMultiEBCellFlagFab()[mfi];
+      auto const& ebfactory = dynamic_cast<EBFArrayBoxFactory const&>(Factory());
+      auto const& flagfab = ebfactory.getMultiEBCellFlagFab()[mfi];
       auto const& flag    = flagfab.const_array();
 #endif
 
@@ -7907,7 +7909,7 @@ PeleLM::differential_spec_diffuse_sync (Real dt,
             ssync(i,j,k,n) = 0.0;
          });
       } else if (flagfab.getType(bx) != FabType::regular ) {     // EB containing boxes 
-         auto vfrac = Factory.getVolFrac().const_array(mfi);
+         auto vfrac = ebfactory.getVolFrac().const_array(mfi);
          amrex::ParallelFor(bx, [flag, vfrac, ssync, D_DECL(fluxX, fluxY, fluxZ), vol, rhs_Dsolve, scale]
          AMREX_GPU_DEVICE (int i, int j, int k) noexcept
          {
