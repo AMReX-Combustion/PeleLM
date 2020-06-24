@@ -19,7 +19,7 @@ DO_2S_CONVERGENCE=FALSE
 
 USE_EB = FALSE
 
-USE_SUNDIALS_PP = TRUE
+USE_SUNDIALS_PP = FALSE
 ifeq ($(USE_SUNDIALS_PP), TRUE)
   # use KLU sparse features -- only useful if CVODE is used on CPU
   USE_KLU_PP = FALSE
