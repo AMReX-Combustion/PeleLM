@@ -978,11 +978,11 @@ PeleLM::variableSetUp ()
   derive_lst.addComponent("HeatRelease",desc_lst,State_Type,Temp,1);
   derive_lst.addComponent("HeatRelease",desc_lst,RhoYdot_Type,0,NUM_SPECIES);
 
-  derive_lst.add("CMA",IndexType::TheCellType(),4,dcma,the_same_box);
+  derive_lst.add("CMA",IndexType::TheCellType(),4,pelelm_dcma,the_same_box);
   derive_lst.addComponent("CMA",desc_lst,State_Type,Density,1);
-  derive_lst.addComponent("CMA",desc_lst,State_Type,first_spec,nspecies);
+  derive_lst.addComponent("CMA",desc_lst,State_Type,first_spec,NUM_SPECIES);
   derive_lst.addComponent("CMA",desc_lst,State_Type,Temp,1);
-  derive_lst.addComponent("CMA",desc_lst,RhoYdot_Type,0,nspecies);
+  derive_lst.addComponent("CMA",desc_lst,RhoYdot_Type,0,NUM_SPECIES);
 // For this particular error I take of level inside the function
 //  err_list.add("CMA",0,ErrorRec::Special,
 //                   LM_Error_Value(dcma_error,0.0,0.0,1.0,10));
