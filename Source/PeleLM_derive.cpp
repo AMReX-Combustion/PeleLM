@@ -655,8 +655,8 @@ void pelelm_dcma (const Box& bx, FArrayBox& derfab, int dcomp, int ncomp,
     auto       Y2        = derfab.array(dcomp+3);
 
 #ifdef C12H25O2_ID
-    int        OH        = OH_ID
-    int        RO2       = C12H25O2_ID
+    int        OH        = OH_ID;
+    int        RO2       = C12H25O2_ID;
 #else
     amrex::Abort("C12H25O2 is not present in your chemistry: do not use dcma.");
 #endif
