@@ -21,8 +21,8 @@ module PeleLM_nd
 
   private
 
-  public :: pphys_HMIXfromTY, pphys_RHOfromPTY, pphys_CPMIXfromTY, init_data_new_mech, &
-            est_divu_dt, check_divu_dt,&
+  public :: pphys_HMIXfromTY, pphys_RHOfromPTY, pphys_CPMIXfromTY, pphys_TfromHY, &
+            init_data_new_mech, est_divu_dt, check_divu_dt,&
             dqrad_fill, divu_fill, dsdt_fill, ydot_fill, rhoYdot_fill, &
             repair_flux, compute_ugradp, conservative_T_floor, &
             part_cnt_err, mcurve, smooth, recomp_update, &
@@ -167,12 +167,12 @@ contains
 !  Iterate on T until it matches Hmix and Ym
 !=========================================================
 
-   integer function pphys_TfromHY(lo, hi, &
-                                  T, t_lo, t_hi, &
-                                  Hmix, h_lo, h_hi, &
-                                  Y, y_lo, y_hi, &
-                                  errMax, NiterMAX, res) &
-                                  bind(C, name="pphys_TfromHY")
+   function pphys_TfromHY(lo, hi, &
+                          T, t_lo, t_hi, &
+                          Hmix, h_lo, h_hi, &
+                          Y, y_lo, y_hi, &
+                          errMax, NiterMAX, res) &
+                          bind(C, name="pphys_TfromHY") result(MAXiters)
 
       use PeleLM_F, only : pphys_TfromHYpt
 
@@ -218,12 +218,6 @@ contains
             end do
          end do
       end do
-
-!     Set max iters taken during this solve, and exit
-      pphys_TfromHY = MAXiters
-
-      return
-
    end function pphys_TfromHY
 
 !=========================================================

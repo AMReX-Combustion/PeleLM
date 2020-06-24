@@ -7,6 +7,8 @@
 
 #include <AMReX_ForkJoin.H>
 
+#include <mechanism.h>
+
 #include <list>
 #include <map>
 #include <utility>
@@ -229,6 +231,13 @@ public:
                                                        const amrex::MultiFab& divu,
                                                        amrex::Real            dt);
 
+  // Mixture fraction machinery
+  static amrex::Array<amrex::Real, 4> Beta_mix;
+  static amrex::Array<amrex::Real, NUM_SPECIES> spec_Bilger_fact;
+  static amrex::Real Zfu;
+  static amrex::Real Zox;
+  static bool        mixture_fraction_ready;
+
 #if !defined(AMREX_USE_CUDA)
 protected:
 #endif
@@ -310,6 +319,7 @@ protected:
 
   static void Initialize ();
   static void Initialize_specific ();
+  static void init_mixture_fraction ();
   static void Finalize ();
     
 #ifdef AMREX_PARTICLES
@@ -443,6 +453,7 @@ private:
 
   void set_typical_values(bool restart);
   void reset_typical_values(const amrex::MultiFab& S);
+
 
   void temperature_stats (amrex::MultiFab& S);
 
