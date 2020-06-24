@@ -396,17 +396,22 @@ void pelelm_dergrdpz (const Box& bx, FArrayBox& derfab, int dcomp, int ncomp,
 //  Compute transport coefficient: D_n, \lambda, \mus
 //
 
-void pelelm_dertransportcoeff (const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+void pelelm_dertransportcoeff (const Box& bx, FArrayBox& derfab, int dcomp, int ncomp,
                   const FArrayBox& datfab, const Geometry& /*geomdata*/,
                   Real /*time*/, const int* /*bcrec*/, int /*level*/)
 
 {
+    AMREX_ASSERT(derfab.box().contains(bx));
+    AMREX_ASSERT(datfab.box().contains(bx));
+    AMREX_ASSERT(derfab.nComp() >= dcomp + ncomp);
+    AMREX_ASSERT(datfab.nComp() >= NUM_SPECIES+2);
+    AMREX_ASSERT(ncomp == NUM_SPECIES+2);
     auto const density = datfab.array(0);
     auto const T       = datfab.array(1);
     auto const rhoY    = datfab.array(2);
-    auto       rhoD    = derfab.array(0);
-    auto       lambda  = derfab.array(NUM_SPECIES);
-    auto       mu      = derfab.array(NUM_SPECIES+1);
+    auto       rhoD    = derfab.array(dcomp);
+    auto       lambda  = derfab.array(dcomp+NUM_SPECIES);
+    auto       mu      = derfab.array(dcomp+NUM_SPECIES+1);
 
     amrex::ParallelFor(bx,
     [density, T, rhoY, rhoD, lambda, mu] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
@@ -419,11 +424,17 @@ void pelelm_dertransportcoeff (const Box& bx, FArrayBox& derfab, int /*dcomp*/, 
 //
 //  Compute both mixt. fraction and scalar diss. rate
 //
-void pelelm_dermixanddiss (const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+void pelelm_dermixanddiss (const Box& bx, FArrayBox& derfab, int dcomp, int ncomp,
                   const FArrayBox& datfab, const Geometry& geomdata,
                   Real /*time*/, const int* /*bcrec*/, int /*level*/)
 
 {
+    AMREX_ASSERT(derfab.box().contains(bx));
+    AMREX_ASSERT(datfab.box().contains(bx));
+    AMREX_ASSERT(derfab.nComp() >= dcomp + ncomp);
+    AMREX_ASSERT(datfab.nComp() >= NUM_SPECIES+2);
+    AMREX_ASSERT(ncomp == 2);
+
     if (!PeleLM::mixture_fraction_ready) amrex::Abort("Mixture fraction not initialized");
 
     auto const bx_dat     = datfab.box();     //input box (grown to compute mixture fraction --grow_bow_by_one ?)
@@ -432,8 +443,8 @@ void pelelm_dermixanddiss (const Box& bx, FArrayBox& derfab, int /*dcomp*/, int 
     auto const density    = datfab.array(0);
     auto const temp       = datfab.array(1);
     auto const rhoY       = datfab.array(2);
-    auto       mixt_frac  = derfab.array(0);
-    auto       scalar_dis = derfab.array(1);
+    auto       mixt_frac  = derfab.array(dcomp);
+    auto       scalar_dis = derfab.array(dcomp+1);
 
     AMREX_ASSERT(bx_dat.contains(grow(bx,1))); // check that data box is grown
     
@@ -519,11 +530,17 @@ void pelelm_dermixanddiss (const Box& bx, FArrayBox& derfab, int /*dcomp*/, int 
 //  Compute Bilger's element based mixture fraction
 //
 
-void pelelm_dermixfrac (const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+void pelelm_dermixfrac (const Box& bx, FArrayBox& derfab, int dcomp, int ncomp,
                   const FArrayBox& datfab, const Geometry& /*geomdata*/,
                   Real /*time*/, const int* /*bcrec*/, int /*level*/)
 
 {
+    AMREX_ASSERT(derfab.box().contains(bx));
+    AMREX_ASSERT(datfab.box().contains(bx));
+    AMREX_ASSERT(derfab.nComp() >= dcomp + ncomp);
+    AMREX_ASSERT(datfab.nComp() >= NUM_SPECIES+1);
+    AMREX_ASSERT(ncomp == 1);
+
     if (!PeleLM::mixture_fraction_ready) amrex::Abort("Mixture fraction not initialized");
 
     auto const density   = datfab.array(0);
