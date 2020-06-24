@@ -6723,293 +6723,301 @@ enum SYNC_SCHEME {ReAdvect, UseEdgeState, Other};
 void
 PeleLM::mac_sync ()
 {
-  BL_PROFILE("HT::mac_sync()");
-  if (!do_reflux) return;
-  if (verbose) amrex::Print() << "... mac_sync\n";
+   BL_PROFILE("PeleLM::mac_sync()");
+   if (!do_reflux) return;
+   if (verbose) amrex::Print() << "... mac_sync\n";
 
-  const Real strt_time = ParallelDescriptor::second();
+   const Real strt_time = ParallelDescriptor::second();
 
-  const int  finest_level   = parent->finestLevel();
-  const int  ngrids         = grids.size();
-  const Real prev_time      = state[State_Type].prevTime();
-  const Real curr_time      = state[State_Type].curTime();
-  const Real prev_pres_time = state[Press_Type].prevTime();
-  const Real dt             = parent->dtLevel(level);
-  MultiFab&  rh             = get_rho_half_time();
+   const int  finest_level   = parent->finestLevel();
+   const int  ngrids         = grids.size();
+   const Real prev_time      = state[State_Type].prevTime();
+   const Real curr_time      = state[State_Type].curTime();
+   const Real prev_pres_time = state[Press_Type].prevTime();
+   const Real dt             = parent->dtLevel(level);
+   MultiFab&  rh             = get_rho_half_time();
 
-  MultiFab& S_new = get_new_data(State_Type);
+   MultiFab& S_new = get_new_data(State_Type);
 
-  ////////////////////////
-  // save states that we need to reset with each mac sync iteration
-  ////////////////////////
-  const int numscal = NUM_STATE - AMREX_SPACEDIM;
+   ////////////////////////
+   // save states that we need to reset with each mac sync iteration
+   ////////////////////////
+   const int numscal = NUM_STATE - AMREX_SPACEDIM;
 
-  MultiFab chi_sync(grids,dmap,1,0,MFInfo(),Factory());
-  chi_sync.setVal(0);
+   MultiFab chi_sync(grids,dmap,1,0,MFInfo(),Factory());
+   chi_sync.setVal(0.0);
 
-  Vector<std::unique_ptr<MultiFab> > S_new_sav(finest_level+1);
+   Vector<std::unique_ptr<MultiFab> > S_new_sav(finest_level+1);
 
-  // Save new pre-sync S^{n+1,p} state for my level and all the finer ones
-  for (int lev=level; lev<=finest_level; lev++)
-  {
+   // Save new pre-sync S^{n+1,p} state for my level and all the finer ones
+   for (int lev=level; lev<=finest_level; lev++)
+   {
+      const MultiFab& S_new_lev = getLevel(lev).get_new_data(State_Type);
+      S_new_sav[lev].reset(new MultiFab(S_new_lev.boxArray(),
+                                        S_new_lev.DistributionMap(),
+                                        NUM_STATE,1,MFInfo(),getLevel(lev).Factory()));
+      MultiFab::Copy(*S_new_sav[lev],S_new_lev,0,0,NUM_STATE,1);
+      showMF("DBGSync",*S_new_sav[lev],"sdc_Snew_BeginSync",lev,0,parent->levelSteps(level));
+   }
 
-    const MultiFab& S_new_lev = getLevel(lev).get_new_data(State_Type);
+   Vector<std::unique_ptr<MultiFab> > Ssync_sav(finest_level);
+   Vector<std::unique_ptr<MultiFab> > Vsync_sav(finest_level);
 
+   // Save Sync RHS & Vsync for my level and all the finer ones (but the finest)
+   for (int lev=level; lev<=finest_level-1; lev++)
+   {
+      const MultiFab& Ssync_lev = getLevel(lev).Ssync;
+      Ssync_sav[lev].reset(new MultiFab(Ssync_lev.boxArray(),
+                                        Ssync_lev.DistributionMap(),
+                                        numscal,1,MFInfo(),getLevel(lev).Factory()));
+      MultiFab::Copy(*Ssync_sav[lev],Ssync_lev,0,0,numscal,1);
+      showMF("DBGSync",*Ssync_sav[lev],"sdc_Ssync_BeginSync",level,0,parent->levelSteps(level));
 
-    S_new_sav[lev].reset(new MultiFab(S_new_lev.boxArray(),
-                                      S_new_lev.DistributionMap(),
-                                      NUM_STATE,1,MFInfo(),getLevel(lev).Factory()));
+      const MultiFab& Vsync_lev = getLevel(lev).Vsync;
+      Vsync_sav[lev].reset(new MultiFab(Vsync_lev.boxArray(),
+                                        Vsync_lev.DistributionMap(),
+                                        AMREX_SPACEDIM,1,MFInfo(),getLevel(lev).Factory()));
+      MultiFab::Copy(*Vsync_sav[lev],Vsync_lev,0,0,AMREX_SPACEDIM,1);
+      showMF("DBGSync",*Vsync_sav[lev],"sdc_Vsync_BeginSync",level,0,parent->levelSteps(level));
+   }
 
-    MultiFab::Copy(*S_new_sav[lev],S_new_lev,0,0,NUM_STATE,1);
-    showMF("DBGSync",*S_new_sav[lev],"sdc_Snew_BeginSync",lev,0,parent->levelSteps(level));
-  }
+   ////////////////////////
+   // begin mac_sync_iter loop here
+   // The loop allows an update of chi to ensure that the sync correction remains
+   // on the constrain.
+   ////////////////////////
 
-  Vector<std::unique_ptr<MultiFab> > Ssync_sav(finest_level);
-  Vector<std::unique_ptr<MultiFab> > Vsync_sav(finest_level);
+   MultiFab DeltaYsync(grids,dmap,NUM_SPECIES,0,MFInfo(),Factory());
+   MultiFab chi_sync_increment(grids,dmap,1,0,MFInfo(),Factory());
 
-  // Save Sync RHS & Vsync for my level and all the finer ones (but the finest)
-  for (int lev=level; lev<=finest_level-1; lev++)
-  {
-    const MultiFab& Ssync_lev = getLevel(lev).Ssync;
+   // save pressure
+   Real p_amb_new_temp = p_amb_new;
 
-    Ssync_sav[lev].reset(new MultiFab(Ssync_lev.boxArray(),
-                                      Ssync_lev.DistributionMap(),
-                                      numscal,1,MFInfo(),getLevel(lev).Factory()));
+   for (int mac_sync_iter=0; mac_sync_iter < num_mac_sync_iter; mac_sync_iter++)
+   {
+      bool last_mac_sync_iter = (mac_sync_iter == num_mac_sync_iter-1);
 
-    MultiFab::Copy(*Ssync_sav[lev],Ssync_lev,0,0,numscal,1);
-    showMF("DBGSync",*Ssync_sav[lev],"sdc_Ssync_BeginSync",level,0,parent->levelSteps(level));
+      if ( mac_sync_iter != 0 ) {
+         // Restore saved copy of S_new^{n+1,p} state into S_new
+         for (int lev=level; lev<=finest_level; lev++)
+         {
+           MultiFab& S_new_lev = getLevel(lev).get_new_data(State_Type);
+           MultiFab::Copy(S_new_lev,*S_new_sav[lev],0,0,NUM_STATE,1);
+         }
 
-    const MultiFab& Vsync_lev = getLevel(lev).Vsync;
+         // Restore stored Ssync/Vsync from the one saved before sync_iter
+         for (int lev=level; lev<=finest_level-1; lev++)
+         {
+           MultiFab& Ssync_lev = getLevel(lev).Ssync;
+           MultiFab::Copy(Ssync_lev,*Ssync_sav[lev],0,0,numscal,1);
 
-    Vsync_sav[lev].reset(new MultiFab(Vsync_lev.boxArray(),
-                                      Vsync_lev.DistributionMap(),
-                                      AMREX_SPACEDIM,1,MFInfo(),getLevel(lev).Factory()));
+           MultiFab& Vsync_lev = getLevel(lev).Vsync;
+           MultiFab::Copy(Vsync_lev,*Vsync_sav[lev],0,0,AMREX_SPACEDIM,1);
+         }
+      }
 
-    MultiFab::Copy(*Vsync_sav[lev],Vsync_lev,0,0,AMREX_SPACEDIM,1);
-    showMF("DBGSync",*Vsync_sav[lev],"sdc_Vsync_BeginSync",level,0,parent->levelSteps(level));
-  }
+      // Update back rho^{n+1,p} and rho^{n+1/2,p}
+      make_rho_curr_time();
+      get_rho_half_time();
 
-  ////////////////////////
-  // begin mac_sync_iter loop here
-  // The loop allows an update of chi to ensure that the sync correction remains
-  // on the constrain.
-  ////////////////////////
+      //
+      // Compute the corrective pressure, mac_sync_phi, used to 
+      // compute U^{ADV,corr} in mac_sync_compute
+      //
+      //TODO: offset/subtract_avg is not used ... ?
+//      bool subtract_avg = (closed_chamber && level == 0);
+      Real offset = 0.0;
 
-  MultiFab DeltaYsync(grids,dmap,nspecies,0,MFInfo(),Factory());
-  MultiFab chi_sync_increment(grids,dmap,1,0,MFInfo(),Factory());
-
-  // save pressure
-  Real p_amb_new_temp = p_amb_new;
-
-  for (int mac_sync_iter=0; mac_sync_iter < num_mac_sync_iter; mac_sync_iter++)
-  {
-    bool last_mac_sync_iter = (mac_sync_iter == num_mac_sync_iter-1);
-
-    if ( mac_sync_iter != 0 ) {
-       // Restore saved copy of S_new^{n+1,p} state into S_new
-       for (int lev=level; lev<=finest_level; lev++)
-       {
-         MultiFab& S_new_lev = getLevel(lev).get_new_data(State_Type);
-         MultiFab::Copy(S_new_lev,*S_new_sav[lev],0,0,NUM_STATE,1);
-       }
-
-       // Restore stored Ssync/Vsync from the one saved before sync_iter
-       for (int lev=level; lev<=finest_level-1; lev++)
-       {
-         MultiFab& Ssync_lev = getLevel(lev).Ssync;
-         MultiFab::Copy(Ssync_lev,*Ssync_sav[lev],0,0,numscal,1);
-
-         MultiFab& Vsync_lev = getLevel(lev).Vsync;
-         MultiFab::Copy(Vsync_lev,*Vsync_sav[lev],0,0,AMREX_SPACEDIM,1);
-       }
-    }
-
-    // Update back rho^{n+1,p} and rho^{n+1/2,p}
-    make_rho_curr_time();
-    get_rho_half_time();
-
-    //
-    // Compute the corrective pressure, mac_sync_phi, used to 
-    // compute U^{ADV,corr} in mac_sync_compute
-    //
-//  TODO: offset/subtract_avg is not used ... ?
-//    bool subtract_avg = (closed_chamber && level == 0);
-    Real offset = 0.0;
-
-    BL_PROFILE_VAR("HT::mac_sync::ucorr", HTUCORR);
-    Array<MultiFab*,AMREX_SPACEDIM> Ucorr;
+      BL_PROFILE_VAR("PeleLM::mac_sync::ucorr", PLM_UCORR);
+      Array<MultiFab*,AMREX_SPACEDIM> Ucorr;
 #ifdef AMREX_USE_EB
-    const int ng = 4; // For redistribution ... We may not need 4 but for now we play safe
+      const int ng = 4; // For redistribution ... We may not need 4 but for now we play safe
 #else
-    const int ng = 0;
+      const int ng = 0;
 #endif
-    for (int idim = 0; idim < AMREX_SPACEDIM; ++idim){
-      const BoxArray& edgeba = getEdgeBoxArray(idim);
+      for (int idim = 0; idim < AMREX_SPACEDIM; ++idim){
+         const BoxArray& edgeba = getEdgeBoxArray(idim);
+         // fixme? unsure how many ghost cells...
+         Ucorr[idim]= new MultiFab(edgeba,dmap,1,ng,MFInfo(),Factory());
+      }
+      Vector<BCRec> rho_math_bc = fetchBCArray(State_Type,Density,1);
+      mac_projector->mac_sync_solve(level,dt,rh,rho_math_bc[0],fine_ratio,Ucorr,&chi_sync);
+      showMF("DBGSync",chi_sync,"sdc_chi_sync_inSync",level,mac_sync_iter,parent->levelSteps(level));
+      showMF("DBGSync",*Ucorr[0],"sdc_UcorrX_inSync",level,mac_sync_iter,parent->levelSteps(level));
+      showMF("DBGSync",*Ucorr[1],"sdc_UcorrY_inSync",level,mac_sync_iter,parent->levelSteps(level));
+      BL_PROFILE_VAR_STOP(PLM_UCORR);
 
-      // fixme? unsure how many ghost cells...
-      Ucorr[idim]= new MultiFab(edgeba,dmap,1,ng,MFInfo(),Factory());
-    }
-    Vector<BCRec> rho_math_bc = fetchBCArray(State_Type,Density,1);
-    mac_projector->mac_sync_solve(level,dt,rh,rho_math_bc[0],fine_ratio,Ucorr,&chi_sync);
 
-    BL_PROFILE_VAR_STOP(HTUCORR);
-    showMF("DBGSync",chi_sync,"sdc_chi_sync_inSync",level,mac_sync_iter,parent->levelSteps(level));
-    showMF("DBGSync",*Ucorr[0],"sdc_UcorrX_inSync",level,mac_sync_iter,parent->levelSteps(level));
-    showMF("DBGSync",*Ucorr[1],"sdc_UcorrY_inSync",level,mac_sync_iter,parent->levelSteps(level));
+      if (closed_chamber && level == 0)
+      {
+        Print() << "0-1 MAC SYNC OFFSET " << offset << std::endl;
+        Print() << "0-1 MAC SYNC PAMB ADJUSTMENT " << -dt*(offset/thetabar) << std::endl;
+        p_amb_new = p_amb_new_temp - dt*(offset/thetabar);
+        p_amb_old = p_amb_new;
+      }
 
-    if (closed_chamber && level == 0)
-    {
-      Print() << "0-1 MAC SYNC OFFSET " << offset << std::endl;
-      Print() << "0-1 MAC SYNC PAMB ADJUSTMENT " << -dt*(offset/thetabar) << std::endl;
-      p_amb_new = p_amb_new_temp - dt*(offset/thetabar);
-      p_amb_old = p_amb_new;
-    }
+      Vector<SYNC_SCHEME> sync_scheme(NUM_STATE,ReAdvect);
 
-    Vector<SYNC_SCHEME> sync_scheme(NUM_STATE,ReAdvect);
+      if (do_mom_diff == 1) {
+         for (int i=0; i<AMREX_SPACEDIM; ++i) {
+            sync_scheme[i] = UseEdgeState;
+         }
+      }
 
-    if (do_mom_diff == 1)
-      for (int i=0; i<AMREX_SPACEDIM; ++i)
-        sync_scheme[i] = UseEdgeState;
+      for (int i=AMREX_SPACEDIM; i<NUM_STATE; ++i) {
+         sync_scheme[i] = UseEdgeState;
+      }
 
-    for (int i=AMREX_SPACEDIM; i<NUM_STATE; ++i)
-      sync_scheme[i] = UseEdgeState;
-
-    Vector<int> incr_sync(NUM_STATE,0);
-    for (int i=0; i<sync_scheme.size(); ++i)
-      if (sync_scheme[i] == ReAdvect)
-        incr_sync[i] = 1;
+      Vector<int> incr_sync(NUM_STATE,0);
+      for (int i=0; i<sync_scheme.size(); ++i) {
+         if (sync_scheme[i] == ReAdvect) {
+            incr_sync[i] = 1;
+         }
+      }
  
-    // After solving for mac_sync_phi in mac_sync_solve(), we
-    // can now do the sync advect step in mac_sync_compute().
-    // This consists of two steps
-    //
-    // 1. compute U^{ADV,corr} as the gradient of mac_sync_phi : done above now !
-    // 2. add -D^MAC ( U^{ADV,corr} * rho * q)^{n+1/2} ) to flux registers,
-    //    which already contain the delta F adv/diff flux mismatches
+      // After solving for mac_sync_phi in mac_sync_solve(), we
+      // can now do the sync advect step in mac_sync_compute().
+      // This consists of two steps
+      //
+      // 1. compute U^{ADV,corr} as the gradient of mac_sync_phi : done above now !
+      // 2. add -D^MAC ( U^{ADV,corr} * rho * q)^{n+1/2} ) to flux registers,
+      //    which already contain the delta F adv/diff flux mismatches
 
-    BL_PROFILE_VAR("HT::mac_sync::Vsync", HTVSYNC);
-    if (do_mom_diff == 0) 
-    {
-      mac_projector->mac_sync_compute(level,Ucorr,u_mac,Vsync,Ssync,rho_half,
-                                      (level > 0) ? &getAdvFluxReg(level) : 0,
-                                      advectionType,prev_time,
-                                      prev_pres_time,dt,NUM_STATE,
-                                      be_cn_theta,
-                                      modify_reflux_normal_vel,
-                                      do_mom_diff,
-                                      incr_sync, 
-                                      last_mac_sync_iter);
-    }
-    else
-    {
-      for (int comp=0; comp<AMREX_SPACEDIM; ++comp)
+      BL_PROFILE_VAR("PeleLM::mac_sync::Vsync", PLM_VSYNC);
+      if (do_mom_diff == 0) 
       {
-        if (sync_scheme[comp]==UseEdgeState)
-        {
-          mac_projector->mac_sync_compute(level,Ucorr,Vsync,comp,
-                                          comp,EdgeState, comp,rho_half,
-                                          (level > 0 ? &getAdvFluxReg(level):0),
-                                          advectionType,modify_reflux_normal_vel,dt,
-                                          last_mac_sync_iter);
-        }
+         mac_projector->mac_sync_compute(level,Ucorr,u_mac,Vsync,Ssync,rho_half,
+                                         (level > 0) ? &getAdvFluxReg(level) : 0,
+                                         advectionType,prev_time,
+                                         prev_pres_time,dt,NUM_STATE,
+                                         be_cn_theta,
+                                         modify_reflux_normal_vel,
+                                         do_mom_diff,
+                                         incr_sync,
+                                         last_mac_sync_iter);
       }
-    }
-    BL_PROFILE_VAR_STOP(HTVSYNC);
-    showMF("DBGSync",Vsync,"sdc_Vsync_AfterMACSync",level,mac_sync_iter,parent->levelSteps(level));
-
-    //
-    // Scalars.
-    //
-    showMF("DBGSync",Ssync,"sdc_Ssync_BefMinusUcorr",level,mac_sync_iter,parent->levelSteps(level));
-    BL_PROFILE_VAR("HT::mac_sync::Ssync", HTSSYNC);
-    for (int comp=AMREX_SPACEDIM; comp<NUM_STATE; ++comp)
-    {
-      if (sync_scheme[comp]==UseEdgeState)
+      else
       {
-        int s_ind = comp - AMREX_SPACEDIM;
-        //
-        // Ssync contains the adv/diff coarse-fine flux mismatch divergence
-        // This routine does a sync advect step for a single scalar component,
-        // i.e., subtracts the D(Ucorr rho q) term from Ssync
-        // The half-time edge states are passed in.
-        // This routine is useful when the edge states are computed
-        // in a physics-class-specific manner. (For example, as they are
-        // in the calculation of div rho U h = div U sum_l (rho Y)_l h_l(T)).
-        // Note: the density component now contains (delta rho)^sync since there
-        // is no diffusion for this term
-        //
-        mac_projector->mac_sync_compute(level,Ucorr,Ssync,comp,s_ind,
-                                        EdgeState,comp,rho_half,
-                                        (level > 0 ? &getAdvFluxReg(level):0),
-                                        advectionType,modify_reflux_normal_vel,dt,
-                                        last_mac_sync_iter);
+         for (int comp=0; comp<AMREX_SPACEDIM; ++comp)
+         {
+            if (sync_scheme[comp]==UseEdgeState)
+            {
+               mac_projector->mac_sync_compute(level,Ucorr,Vsync,comp,
+                                               comp,EdgeState, comp,rho_half,
+                                               (level > 0 ? &getAdvFluxReg(level):0),
+                                               advectionType,modify_reflux_normal_vel,dt,
+                                               last_mac_sync_iter);
+            }
+         }
       }
-    }
-    showMF("DBGSync",Ssync,"sdc_Ssync_MinusUcorr",level,mac_sync_iter,parent->levelSteps(level));
+      showMF("DBGSync",Vsync,"sdc_Vsync_AfterMACSync",level,mac_sync_iter,parent->levelSteps(level));
+      BL_PROFILE_VAR_STOP(PLM_VSYNC);
 
-    Ssync.mult(dt); // Turn this into an increment over dt
-
-#ifdef USE_WBAR
-    // compute beta grad Wbar terms using the latest version of the post-sync state
-    // Initialize containers first here, 1/2 is for C-N sync, dt mult later with everything else
-    for (int dir=0; dir<AMREX_SPACEDIM; ++dir) {
-       (*SpecDiffusionFluxWbar[dir]).setVal(0.);
-    }
-    compute_Wbar_fluxes(curr_time,0.5);
-#endif
-
-#ifdef USE_WBAR
-    // compute beta grad Wbar terms at {n+1,p}
-    // internally added with values already stored in SpecDiffusionFluxWbar
-    compute_Wbar_fluxes(curr_time,-0.5);
-
-    // take divergence of beta grad delta Wbar
-    MultiFab DdWbar(grids,dmap,nspecies,nGrowAdvForcing);
-    MultiFab* const * fluxWbar = SpecDiffusionFluxWbar;
-    flux_divergence(DdWbar,0,fluxWbar,0,nspecies,-1);
-#endif
-
-    // DeltaYSsync = Y^{n+1,p} * (delta rho)^sync
-    {
-      S_new.invert(1,Density,1,0);
-      MultiFab::Copy(DeltaYsync,S_new,first_spec,0,nspecies,0);               // Get rho^{n+1,p} * Y^{n+1,p}
-      for (int n=0; n<nspecies; ++n) {
-        MultiFab::Multiply(DeltaYsync,S_new,Density,n,1,0);                   // divide by rho^{n+1,p}
-        MultiFab::Multiply(DeltaYsync,Ssync,Density-AMREX_SPACEDIM,n,1,0);    // mult. by (delta rho)^sync
+      //
+      // Scalars.
+      //
+      BL_PROFILE_VAR("PeleLM::mac_sync::Ssync", PLM_SSYNC);
+      showMF("DBGSync",Ssync,"sdc_Ssync_BefMinusUcorr",level,mac_sync_iter,parent->levelSteps(level));
+      for (int comp=AMREX_SPACEDIM; comp<NUM_STATE; ++comp)
+      {
+         if (sync_scheme[comp]==UseEdgeState)
+         {
+            int s_ind = comp - AMREX_SPACEDIM;
+            //
+            // Ssync contains the adv/diff coarse-fine flux mismatch divergence
+            // This routine does a sync advect step for a single scalar component,
+            // i.e., subtracts the D(Ucorr rho q) term from Ssync
+            // The half-time edge states are passed in.
+            // This routine is useful when the edge states are computed
+            // in a physics-class-specific manner. (For example, as they are
+            // in the calculation of div rho U h = div U sum_l (rho Y)_l h_l(T)).
+            // Note: the density component now contains (delta rho)^sync since there
+            // is no diffusion for this term
+            //
+            mac_projector->mac_sync_compute(level,Ucorr,Ssync,comp,s_ind,
+                                            EdgeState,comp,rho_half,
+                                            (level > 0 ? &getAdvFluxReg(level):0),
+                                            advectionType,modify_reflux_normal_vel,dt,
+                                            last_mac_sync_iter);
+         }
       }
-      S_new.invert(1,Density,1,0);
-    }
+      showMF("DBGSync",Ssync,"sdc_Ssync_MinusUcorr",level,mac_sync_iter,parent->levelSteps(level));
 
-    //  Ssync = Sync - DeltaYSync + DdWbar
-    MultiFab::Subtract(Ssync,DeltaYsync,0,first_spec-AMREX_SPACEDIM,nspecies,0);
+      Ssync.mult(dt); // Turn this into an increment over dt
+
 #ifdef USE_WBAR
-    MultiFab::Add(Ssync,DdWbar,0,first_spec-AMREX_SPACEDIM,nspecies,0);
+      // compute beta grad Wbar terms using the latest version of the post-sync state
+      // Initialize containers first here, 1/2 is for C-N sync, dt mult later with everything else
+      for (int dir=0; dir<AMREX_SPACEDIM; ++dir) {
+         (*SpecDiffusionFluxWbar[dir]).setVal(0.);
+      }
+      compute_Wbar_fluxes(curr_time,0.5);
+      // compute beta grad Wbar terms at {n+1,p}
+      // internally added with values already stored in SpecDiffusionFluxWbar
+      compute_Wbar_fluxes(curr_time,-0.5);
+
+      // take divergence of beta grad delta Wbar
+      MultiFab DdWbar(grids,dmap,nspecies,nGrowAdvForcing);
+      MultiFab* const * fluxWbar = SpecDiffusionFluxWbar;
+      flux_divergence(DdWbar,0,fluxWbar,0,nspecies,-1);
 #endif
 
-    //
-    // Increment density, rho^{n+1} = rho^{n+1,p} + (delta_rho)^sync
-    //
+#ifdef _OPENMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+      for (MFIter mfi(S_new, TilingIfNotGPU()); mfi.isValid(); ++mfi)
+      {
+         const Box& bx = mfi.tilebox();
+         auto const& rho      = S_new.array(mfi,Density);
+         auto const& rhoY     = S_new.array(mfi,first_spec);
+         auto const& dYsync   = DeltaYsync.array(mfi);
+         auto const& drhosync = Ssync.array(mfi,Density-AMREX_SPACEDIM);
+         auto const& ssync    = Ssync.array(mfi,first_spec-AMREX_SPACEDIM);
+#ifdef USE_WBAR
+         auto const& dwbar    = DdWbar.array(mfi);
+#endif
+
+         amrex::ParallelFor(bx, [rho, rhoY, dYsync, drhosync,
+#ifdef USE_WBAR
+                                 dwbar,
+#endif
+                                 ssync ]
+         AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+         {
+            Real rhoinv = 1.0/rho(i,j,k);
+            for (int n = 0; n < NUM_SPECIES; n++) {
+               dYsync(i,j,k,n) = rhoY(i,j,k,n) * rhoinv * drhosync(i,j,k);   // DeltaYSsync = Y^{n+1,p} * (delta rho)^sync
+               ssync(i,j,k,n) -= dYsync(i,j,k,n);                            // Ssync = Ssync - DeltaYSync
+#ifdef USE_WBAR
+               ssync(i,j,k,n) += dwbar(i,j,k,n);                             // Ssync = Ssync + DdWbar
+#endif
+            }
+         });
+      }
+
+      // TODO: the folloxing should be merged with the above kernel
+      // but I need to find a way to EB_set_covered.
+      // 
+      // Increment density, rho^{n+1} = rho^{n+1,p} + (delta_rho)^sync
+      //
 #ifdef AMREX_USE_EB
-   EB_set_covered(Ssync,0.);
+      EB_set_covered(Ssync,0.);
 #endif
+      MultiFab::Add(S_new,Ssync,Density-AMREX_SPACEDIM,Density,1,0);
+      make_rho_curr_time();
+      BL_PROFILE_VAR_STOP(PLM_SSYNC);
 
-    MultiFab::Add(S_new,Ssync,Density-AMREX_SPACEDIM,Density,1,0);
-
-
-    make_rho_curr_time();
-    BL_PROFILE_VAR_STOP(HTSSYNC);
-
-    //
-    // If mom_diff, scale Vsync by rho so we can diffuse with the same call below
-    //
-    BL_PROFILE_VAR_START(HTVSYNC);
-    if (do_mom_diff == 1)
-    {
-      for (int d=0; d<AMREX_SPACEDIM; ++d) {
-        MultiFab::Divide(Vsync,rho_ctime,0,Xvel+d,1,0);
+      //
+      // If mom_diff, scale Vsync by rho so we can diffuse with the same call below
+      //
+      BL_PROFILE_VAR_START(PLM_VSYNC);
+      if (do_mom_diff == 1)
+      {
+         for (int d=0; d<AMREX_SPACEDIM; ++d) {
+            MultiFab::Divide(Vsync,rho_ctime,0,Xvel+d,1,0);
+         }
       }
-    }
-    BL_PROFILE_VAR_STOP(HTVSYNC);
+      BL_PROFILE_VAR_STOP(PLM_VSYNC);
 
     if (do_diffuse_sync)
     {
