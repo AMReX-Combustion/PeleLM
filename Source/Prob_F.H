@@ -36,62 +36,6 @@
                       const amrex::Real* dx,
                       const amrex::Real* xlo, const amrex::Real* xhi);
 
-     void drhort (BL_FORT_FAB_ARG_ANYD(der),const int* nvar,
-                  const BL_FORT_FAB_ARG_ANYD(data),const int* ncomp,
-                  const int* lo, const int* hi,
-                  const int* domain_lo, const int* domain_hi,
-                  const amrex::Real* delta, const amrex::Real* xlo,
-                  const amrex::Real* time, const amrex::Real* dt, const int* bcrec,
-                  const int* level, const int* grid_no) ;
-
-     void dermolefrac (BL_FORT_FAB_ARG_ANYD(der),const int* nvar,
-                       const BL_FORT_FAB_ARG_ANYD(data),const int* ncomp,
-                       const int* lo, const int* hi,
-                       const int* domain_lo, const int* domain_hi,
-                       const amrex::Real* delta, const amrex::Real* xlo,
-                       const amrex::Real* time, const amrex::Real* dt, const int* bcrec,
-                       const int* level, const int* grid_no) ;
-
-     void derconcentration (BL_FORT_FAB_ARG_ANYD(der),const int* nvar,
-                            const BL_FORT_FAB_ARG_ANYD(data),const int* ncomp,
-                            const int* lo, const int* hi,
-                            const int* domain_lo, const int* domain_hi,
-                            const amrex::Real* delta, const amrex::Real* xlo,
-                            const amrex::Real* time, const amrex::Real* dt, const int* bcrec,
-                            const int* level, const int* grid_no) ;
-
-     void dermolweight (BL_FORT_FAB_ARG_ANYD(der),const int* nvar,
-                        const BL_FORT_FAB_ARG_ANYD(data),const int* ncomp,
-                        const int* lo, const int* hi,
-                        const int* domain_lo, const int* domain_hi,
-                        const amrex::Real* delta, const amrex::Real* xlo,
-                        const amrex::Real* time, const amrex::Real* dt, const int* bcrec,
-                        const int* level, const int* grid_no) ;
-
-     void dercpmix (BL_FORT_FAB_ARG_ANYD(der),const int* nvar,
-                    const BL_FORT_FAB_ARG_ANYD(data),const int* ncomp,
-                    const int* lo, const int* hi,
-                    const int* domain_lo, const int* domain_hi,
-                    const amrex::Real* delta, const amrex::Real* xlo,
-                    const amrex::Real* time, const amrex::Real* dt, const int* bcrec,
-                    const int* level, const int* grid_no) ;
-
-     void dertransportcoeff (BL_FORT_FAB_ARG_ANYD(der),const int* nvar,
-                             const BL_FORT_FAB_ARG_ANYD(data),const int* ncomp,
-                             const int* lo, const int* hi,
-                             const int* domain_lo, const int* domain_hi,
-                             const amrex::Real* delta, const amrex::Real* xlo,
-                             const amrex::Real* time, const amrex::Real* dt, const int* bcrec,
-                             const int* level, const int* grid_no) ;
-
-     void dermixanddiss (BL_FORT_FAB_ARG_ANYD(der),const int* nvar,
-                         const BL_FORT_FAB_ARG_ANYD(data),const int* ncomp,
-                         const int* lo, const int* hi,
-                         const int* domain_lo, const int* domain_hi,
-                         const amrex::Real* delta, const amrex::Real* xlo,
-                         const amrex::Real* time, const amrex::Real* dt, const int* bcrec,
-                         const int* level, const int* grid_no) ;
-
      void dhrr (BL_FORT_FAB_ARG_ANYD(der),const int* nvar,
                 const BL_FORT_FAB_ARG_ANYD(data),const int* ncomp,
                 const int* lo, const int* hi,
