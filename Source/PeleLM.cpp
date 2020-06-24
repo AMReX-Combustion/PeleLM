@@ -6957,9 +6957,9 @@ PeleLM::mac_sync ()
       compute_Wbar_fluxes(curr_time,-0.5);
 
       // take divergence of beta grad delta Wbar
-      MultiFab DdWbar(grids,dmap,nspecies,nGrowAdvForcing);
+      MultiFab DdWbar(grids,dmap,NUM_SPECIES,nGrowAdvForcing);
       MultiFab* const * fluxWbar = SpecDiffusionFluxWbar;
-      flux_divergence(DdWbar,0,fluxWbar,0,nspecies,-1);
+      flux_divergence(DdWbar,0,fluxWbar,0,NUM_SPECIES,-1);
 #endif
 
 #ifdef _OPENMP
@@ -7013,226 +7013,226 @@ PeleLM::mac_sync ()
       BL_PROFILE_VAR_START(PLM_VSYNC);
       if (do_mom_diff == 1)
       {
-         for (int d=0; d<AMREX_SPACEDIM; ++d) {
-            MultiFab::Divide(Vsync,rho_ctime,0,Xvel+d,1,0);
+#ifdef _OPENMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+         for (MFIter mfi(rho_ctime, TilingIfNotGPU()); mfi.isValid(); ++mfi)
+         {
+            const Box& bx = mfi.tilebox();
+            auto const& rho_c    = rho_ctime.array(mfi);
+            auto const& vsync    = Vsync.array(mfi,Xvel);
+            amrex::ParallelFor(bx, [rho_c, vsync]
+            AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+            {
+               Real rhoinv = 1.0/rho_c(i,j,k);
+               for (int n = 0; n < AMREX_SPACEDIM; n++) {
+                  vsync(i,j,k,n) *= rhoinv;
+               }
+            });
          }
       }
       BL_PROFILE_VAR_STOP(PLM_VSYNC);
 
-    if (do_diffuse_sync)
-    {
-      FluxBoxes fb_beta(this);
-      MultiFab** beta = fb_beta.get();
-
-      BL_PROFILE_VAR_STOP(HTVSYNC);
-      if (is_diffusive[Xvel])
+      if (do_diffuse_sync)
       {
-        int rho_flag = (do_mom_diff == 0) ? 1 : 3;
-        getViscosity(beta, curr_time);
-        diffusion->diffuse_Vsync(Vsync,dt,be_cn_theta,rho_half,rho_flag,beta,0,
-                                 last_mac_sync_iter);
-      }
-      BL_PROFILE_VAR_STOP(HTVSYNC);
+         FluxBoxes fb_beta(this);
+         MultiFab** beta = fb_beta.get();
 
-      // species and temperature diffusion
+         BL_PROFILE_VAR_STOP(PLM_VSYNC);
+         if (is_diffusive[Xvel])
+         {
+           int rho_flag = (do_mom_diff == 0) ? 1 : 3;
+           getViscosity(beta, curr_time);
+           diffusion->diffuse_Vsync(Vsync,dt,be_cn_theta,rho_half,rho_flag,beta,0,
+                                    last_mac_sync_iter);
+         }
+         BL_PROFILE_VAR_STOP(PLM_VSYNC);
 
-      BL_PROFILE_VAR_START(HTSSYNC);
-      // FIXME: Really wish there was a way to avoid this temporary....
-      FluxBoxes fb_GammaKp1(this, nspecies+3, 0);
-      MultiFab** GammaKp1 = fb_GammaKp1.get();
-      for (int d=0; d<AMREX_SPACEDIM; ++d) {
-        MultiFab::Copy(*GammaKp1[d],*SpecDiffusionFluxnp1[d],0,0,nspecies+3,0); // get Gamma^{presync}
-      }
+         // species and temperature diffusion
 
-      FluxBoxes fb_betanp1(this, nspecies+1, 0);
-      MultiFab **betanp1 = fb_betanp1.get();
-      getDiffusivity(betanp1, curr_time, first_spec, 0, nspecies);  // species
-      getDiffusivity(betanp1, curr_time, Temp, nspecies, 1);        // temperature (lambda)
-      compute_enthalpy_fluxes(GammaKp1,betanp1,curr_time);          // Compute F[N+1] = sum_m (H_m Gamma_m), 
-                                                                    //         F[N+2] = - lambda grad T
+         BL_PROFILE_VAR_START(PLM_SSYNC);
+         // FIXME: Really wish there was a way to avoid this temporary....
+         FluxBoxes fb_GammaKp1(this, NUM_SPECIES+3, 0);
+         MultiFab** GammaKp1 = fb_GammaKp1.get();
+         for (int d=0; d<AMREX_SPACEDIM; ++d) {
+           MultiFab::Copy(*GammaKp1[d],*SpecDiffusionFluxnp1[d],0,0,NUM_SPECIES+3,0); // get Gamma^{presync}
+         }
 
-      MultiFab DT_pre(grids,dmap,1,0,MFInfo(),Factory());
-      MultiFab DD_pre(grids,dmap,1,0,MFInfo(),Factory());
-      flux_divergence(DT_pre,0,GammaKp1,nspecies+2,1,-1);
-      flux_divergence(DD_pre,0,GammaKp1,nspecies+1,1,-1);
+         FluxBoxes fb_betanp1(this, NUM_SPECIES+1, 0);
+         MultiFab **betanp1 = fb_betanp1.get();
+         getDiffusivity(betanp1, curr_time, first_spec, 0, NUM_SPECIES);  // species
+         getDiffusivity(betanp1, curr_time, Temp, NUM_SPECIES, 1);        // temperature (lambda)
+         compute_enthalpy_fluxes(GammaKp1,betanp1,curr_time);             // Compute F[N+1] = sum_m (H_m Gamma_m), 
+                                                                          //         F[N+2] = - lambda grad T
 
+         // Note: DT (comp 1) and DD (comp 0) are in the same multifab
+         MultiFab DiffTerms_pre(grids,dmap,2,0,MFInfo(),Factory());
+         flux_divergence(DiffTerms_pre,0,GammaKp1,NUM_SPECIES+1,2,-1);
 
-      // Diffuse species sync to get dGamma^{sync}, then form Gamma^{postsync} = Gamma^{presync} + dGamma^{sync}
-      // Before this call Ssync = \nabla \cdot \delta F_{rhoY} - \delta_ADV - Y^{n+1,p}\delta rho^{sync}
-      differential_spec_diffuse_sync(dt, true, last_mac_sync_iter);
-      // Ssync for species now contains rho^{n+1}(delta_Y)^sync
+         // Diffuse species sync to get dGamma^{sync}, then form Gamma^{postsync} = Gamma^{presync} + dGamma^{sync}
+         // Before this call Ssync = \nabla \cdot \delta F_{rhoY} - \delta_ADV - Y^{n+1,p}\delta rho^{sync}
+         differential_spec_diffuse_sync(dt, true, last_mac_sync_iter);
+         // Ssync for species now contains rho^{n+1}(delta_Y)^sync
 
-      for (int d=0; d<AMREX_SPACEDIM; ++d) {
-        MultiFab::Add(*SpecDiffusionFluxnp1[d],*GammaKp1[d],0,0,nspecies,0);
-      }
+         for (int d=0; d<AMREX_SPACEDIM; ++d) {
+            MultiFab::Add(*SpecDiffusionFluxnp1[d],*GammaKp1[d],0,0,NUM_SPECIES,0);
+         }
 
-      //
-      // For all species increment sync by (sync_for_rho)*Y_presync.
-      // Before this, Ssync holds rho^{n+1} (delta Y)^sync
-      // DeltaYsync holds Y^{n+1,p} * (delta rho)^sync
-      //
-      BL_PROFILE_VAR_START(HTSSYNC);
-      MultiFab::Add(Ssync,DeltaYsync,0,first_spec-AMREX_SPACEDIM,nspecies,0);
-      MultiFab::Add(S_new,Ssync,first_spec-AMREX_SPACEDIM,first_spec,nspecies,0);
+         //
+         // For all species increment sync by (sync_for_rho)*Y_presync.
+         // Before this, Ssync holds rho^{n+1} (delta Y)^sync
+         // DeltaYsync holds Y^{n+1,p} * (delta rho)^sync
+         //
+         MultiFab::Add(Ssync,DeltaYsync,0,first_spec-AMREX_SPACEDIM,NUM_SPECIES,0);
+         MultiFab::Add(S_new,Ssync,first_spec-AMREX_SPACEDIM,first_spec,NUM_SPECIES,0);
 
-      // Trying to solve for:
-      // \rho^{n+1} * Cp{n+1,\eta} * ∆T^{\eta+1} - dt / 2 \nabla \cdot \lambda^{n+1,p} \nabla ∆T^{\eta+1} = 
-      // \rho^{n+1,p}*h^{n+1,p} - \rho^{n+1}*h^{n+1,\eta} + dt*Ssync + dt/2*(DT^{n+1,\eta} - DT^{n+1,p} + H^{n+1,\eta} - H^{n+1,p})
+         // Trying to solve for:
+         // \rho^{n+1} * Cp{n+1,\eta} * ∆T^{\eta+1} - dt / 2 \nabla \cdot \lambda^{n+1,p} \nabla ∆T^{\eta+1} = 
+         // \rho^{n+1,p}*h^{n+1,p} - \rho^{n+1}*h^{n+1,\eta} + dt*Ssync + dt/2*(DT^{n+1,\eta} - DT^{n+1,p} + H^{n+1,\eta} - H^{n+1,p})
 
-      // Here Ssync contains refluxed enthalpy fluxes (from -lambda.Grad(T) and hm.Gamma_m)  FIXME: Make sure it does
-      MultiFab Trhs0(grids,dmap,1,0,MFInfo(),Factory());
-      MultiFab Trhs(grids,dmap,1,0,MFInfo(),Factory());
-      MultiFab Told(grids,dmap,1,0,MFInfo(),Factory());
-      MultiFab RhoCp_post(grids,dmap,1,0,MFInfo(),Factory());
-      MultiFab DeltaT(grids,dmap,1,0,MFInfo(),Factory());
-      MultiFab DT_post(grids,dmap,1,0,MFInfo(),Factory());
-      MultiFab DD_post(grids,dmap,1,0,MFInfo(),Factory());
-      MultiFab DT_DD_Sum(grids,dmap,1,0,MFInfo(),Factory());
+         // Here Ssync contains refluxed enthalpy fluxes (from -lambda.Grad(T) and hm.Gamma_m)  FIXME: Make sure it does
+         MultiFab Trhs(grids,dmap,1,0,MFInfo(),Factory());
+         MultiFab Told(grids,dmap,1,0,MFInfo(),Factory());
+         MultiFab RhoCp_post(grids,dmap,1,0,MFInfo(),Factory());
+         MultiFab DiffTerms_post(grids,dmap,2,0,MFInfo(),Factory());
 
-      DeltaT.setVal(0);
+         Print() << "Starting deltaT iters in mac_sync... " << std::endl;
 
-      // Build the piece of the dT source terms that does not change with iterations
-      // Trhs0 = rho^{n+1,p}*h^{n+1,p} + dt*Ssync * dt/2*(-DT^{n+1,p}-H^{n+1,p})
-      MultiFab::Copy(Trhs0,*S_new_sav[level],RhoH,0,1,0);
-      MultiFab::Copy(DT_DD_Sum,DT_pre,0,0,1,0);
-      MultiFab::Add(DT_DD_Sum,DD_pre,0,0,1,0);
-      DT_DD_Sum.mult(-dt);
-      MultiFab::Add(Trhs0,DT_DD_Sum,0,0,1,0);
-      MultiFab::Add(Trhs0,Ssync,RhoH-AMREX_SPACEDIM,0,1,0);
-
-      // Initialize DT_post, DD_post from pre values
-      MultiFab::Copy(DT_post,DT_pre,0,0,1,0);
-      MultiFab::Copy(DD_post,DD_pre,0,0,1,0);
-
-      const int nlev = 1;
-      Vector<MultiFab*> Sn(nlev,0), Snp1(nlev,0);
-      Sn[0]   = &(get_old_data(State_Type));
-      Snp1[0] = &(get_new_data(State_Type));
-      MultiFab RhT(get_new_data(State_Type), amrex::make_alias, Density, 1);
-
-      Print() << "Starting deltaT iters in mac_sync... " << std::endl;
-
-      Real deltaT_iter_norm = 0;
-      for (int L=0; L<num_deltaT_iters_MAX && (L==0 || deltaT_iter_norm >= deltaT_norm_max); ++L)
-      {
-
+         Real deltaT_iter_norm = 0;
+         for (int L=0; L<num_deltaT_iters_MAX && (L==0 || deltaT_iter_norm >= deltaT_norm_max); ++L)
+         {
+            // Bundle in a single kernel assembling the Trhs and compute rhoCpmix
 #ifdef _OPENMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
-        for (MFIter mfi(S_new,TilingIfNotGPU()); mfi.isValid(); ++mfi)
-        {
-           const Box& bx = mfi.tilebox();
-           auto const& rho     = S_new.array(mfi,Density);
-           auto const& rhoY    = S_new.array(mfi,first_spec);
-           auto const& T       = S_new.array(mfi,Temp);
-           auto const& RhoCpm  = RhoCp_post.array(mfi);
+            for (MFIter mfi(S_new,TilingIfNotGPU()); mfi.isValid(); ++mfi)
+            {
+               const Box& bx = mfi.tilebox();
+               // Things needed for the Trhs
+               auto const& rhs      = Trhs.array(mfi);
+               auto const& dT_pre   = DiffTerms_pre.array(mfi,1);
+               auto const& dd_pre   = DiffTerms_pre.array(mfi,0);
+               auto const& dT_post  = DiffTerms_post.array(mfi,1);
+               auto const& dd_post  = DiffTerms_post.array(mfi,0);
+               auto const& rhoH_eta = S_new.array(mfi,RhoH);
+               auto const& rhoH_0   = S_new_sav[level]->array(mfi,RhoH);
+               auto const& ssync    = Ssync.array(mfi,RhoH-AMREX_SPACEDIM);
 
-           amrex::ParallelFor(bx, [rho, rhoY, T, RhoCpm]
-           AMREX_GPU_DEVICE (int i, int j, int k) noexcept
-           {
-              getCpmixGivenRYT( i, j, k, rho, rhoY, T, RhoCpm );
-              RhoCpm(i,j,k) *= rho(i,j,k);
-           });
-        }
+               // Things needed to compute RhoCpmix
+               auto const& rho     = S_new.array(mfi,Density);
+               auto const& rhoY    = S_new.array(mfi,first_spec);
+               auto const& T       = S_new.array(mfi,Temp);
+               auto const& RhoCpm  = RhoCp_post.array(mfi);
 
-        // Build Trhs
-        MultiFab::Copy(Trhs,get_new_data(State_Type),RhoH,0,1,0);
-        Trhs.mult(-1.0);
-        MultiFab::Copy(DT_DD_Sum,DT_post,0,0,1,0);
-        MultiFab::Add(DT_DD_Sum,DD_post,0,0,1,0);
-        DT_DD_Sum.mult(dt);
-        MultiFab::Add(Trhs,DT_DD_Sum,0,0,1,0);
-        MultiFab::Add(Trhs,Trhs0,0,0,1,0);
-        showMF("DBGSync",Trhs,"sdc_Trhs_indeltaTiter",level,(mac_sync_iter+1)*1000+L,parent->levelSteps(level));
-        showMF("DBGSync",RhoCp_post,"sdc_RhoCp_post_indeltaTiter",level,(mac_sync_iter+1)*1000+L,parent->levelSteps(level));
+               // Things needed to store T
+               auto const& T_old   = Told.array(mfi);
 
-        // Save current T value, guess deltaT=0
-        MultiFab::Copy(Told,get_new_data(State_Type),Temp,0,1,0);
-        get_new_data(State_Type).setVal(0.0,Temp,1,1);
-        MultiFab deltaT(get_new_data(State_Type), amrex::make_alias, Temp, 1);
+               amrex::ParallelFor(bx, [rhs, dT_pre, dd_pre, dT_post, dd_post, rhoH_eta, rhoH_0, ssync, dt, L,
+                                       rho, rhoY, T, RhoCpm,
+                                       T_old]
+               AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+               {
+                  // Trhs computation
+                  rhs(i,j,k) =  rhoH_0(i,j,k) - rhoH_eta(i,j,k) + ssync(i,j,k);
+                  if ( L > 0 ) {   // On first pass, pre & post are equals. Do that to avoid a copy.
+                     rhs(i,j,k) += dt * ( dT_post(i,j,k) + dd_post(i,j,k) - dT_pre(i,j,k) - dd_pre(i,j,k) );
+                  }
 
-        const Real be_cn_theta_SDC = 1.0;
+                  // rhoCpmix computation
+                  getCpmixGivenRYT( i, j, k, rho, rhoY, T, RhoCpm );
+                  RhoCpm(i,j,k) *= rho(i,j,k);
 
-        // Set-up our own MG solver for the deltaT
-        LPInfo info;
-        info.setAgglomeration(1);
-        info.setConsolidation(1);
-        info.setMetricTerm(false);
+                  // Store Told
+                  T_old(i,j,k) = T(i,j,k);
+               });
+            }
+
+            showMF("DBGSync",Trhs,"sdc_Trhs_indeltaTiter",level,(mac_sync_iter+1)*1000+L,parent->levelSteps(level));
+            showMF("DBGSync",RhoCp_post,"sdc_RhoCp_post_indeltaTiter",level,(mac_sync_iter+1)*1000+L,parent->levelSteps(level));
+
+            // Let's deltaT be an alias to T in S_new
+            get_new_data(State_Type).setVal(0.0,Temp,1,1);        // Can't do that in the kernel above, I need 1 GC here.
+            MultiFab deltaT(get_new_data(State_Type), amrex::make_alias, Temp, 1);
+
+            const Real be_cn_theta_SDC = 1.0;
+
+            // Set-up our own MG solver for the deltaT
+            LPInfo info;
+            info.setAgglomeration(1);
+            info.setConsolidation(1);
+            info.setMetricTerm(false);
 #ifdef AMREX_USE_EB
-        const auto& ebf = &dynamic_cast<EBFArrayBoxFactory const&>((parent->getLevel(level)).Factory());
-        MLEBABecLap deltaTSyncOp({geom}, {grids}, {dmap}, info, {ebf});
+            const auto& ebf = &dynamic_cast<EBFArrayBoxFactory const&>((parent->getLevel(level)).Factory());
+            MLEBABecLap deltaTSyncOp({geom}, {grids}, {dmap}, info, {ebf});
 #else
-        MLABecLaplacian deltaTSyncOp({geom}, {grids}, {dmap}, info);
+            MLABecLaplacian deltaTSyncOp({geom}, {grids}, {dmap}, info);
 #endif
-        deltaTSyncOp.setMaxOrder(diffusion->maxOrder());
-        deltaTSyncOp.setScalars(1.0, dt*be_cn_theta_SDC);
-        deltaTSyncOp.setACoeffs(0.0, RhoCp_post);
+            deltaTSyncOp.setMaxOrder(diffusion->maxOrder());
+            deltaTSyncOp.setScalars(1.0, dt*be_cn_theta_SDC);
+            deltaTSyncOp.setACoeffs(0.0, RhoCp_post);
 
-        AMREX_D_TERM(MultiFab lambdax(*betanp1[0], amrex::make_alias, nspecies, 1);,
-                     MultiFab lambday(*betanp1[1], amrex::make_alias, nspecies, 1);,
-                     MultiFab lambdaz(*betanp1[2], amrex::make_alias, nspecies, 1););
-        std::array<MultiFab*,AMREX_SPACEDIM> bcoeffs{AMREX_D_DECL(&lambdax,&lambday,&lambdaz)};
-        deltaTSyncOp.setBCoeffs(0,amrex::GetArrOfConstPtrs(bcoeffs));
+            AMREX_D_TERM(MultiFab lambdax(*betanp1[0], amrex::make_alias, NUM_SPECIES, 1);,
+                         MultiFab lambday(*betanp1[1], amrex::make_alias, NUM_SPECIES, 1);,
+                         MultiFab lambdaz(*betanp1[2], amrex::make_alias, NUM_SPECIES, 1););
+            std::array<MultiFab*,AMREX_SPACEDIM> bcoeffs{AMREX_D_DECL(&lambdax,&lambday,&lambdaz)};
+            deltaTSyncOp.setBCoeffs(0,amrex::GetArrOfConstPtrs(bcoeffs));
 
-        std::array<LinOpBCType,AMREX_SPACEDIM> mlmg_lobc;
-        std::array<LinOpBCType,AMREX_SPACEDIM> mlmg_hibc;
-        const Vector<BCRec>& theBCs = AmrLevel::desc_lst[State_Type].getBCs();
-        const BCRec& bc = theBCs[Temp];
-        Diffusion::setDomainBC(mlmg_lobc, mlmg_hibc, bc); // Same for all comps, by assumption
-        deltaTSyncOp.setDomainBC(mlmg_lobc, mlmg_hibc);
-        if (level > 0) {
-          deltaTSyncOp.setCoarseFineBC(nullptr, crse_ratio[0]);
-        }
-        deltaTSyncOp.setLevelBC(0, &deltaT);
+            std::array<LinOpBCType,AMREX_SPACEDIM> mlmg_lobc;
+            std::array<LinOpBCType,AMREX_SPACEDIM> mlmg_hibc;
+            const Vector<BCRec>& theBCs = AmrLevel::desc_lst[State_Type].getBCs();
+            const BCRec& bc = theBCs[Temp];
+            Diffusion::setDomainBC(mlmg_lobc, mlmg_hibc, bc); // Same for all comps, by assumption
+            deltaTSyncOp.setDomainBC(mlmg_lobc, mlmg_hibc);
+            if (level > 0) {
+               deltaTSyncOp.setCoarseFineBC(nullptr, crse_ratio[0]);
+            }
+            deltaTSyncOp.setLevelBC(0, &deltaT);
 
-        MLMG deltaTSyncSolve(deltaTSyncOp);
-        deltaTSyncSolve.setVerbose(0);
+            MLMG deltaTSyncSolve(deltaTSyncOp);
+            deltaTSyncSolve.setVerbose(0);
 
-        const Real S_tol     = visc_tol;
-	// Ignore EB covered cells when computing Trhs.norm. In certain cases, including
-	// covered cells can result in a very large S_tol_abs that tricks MLMG into
-	// thinking the system is sufficiently solved when it's not
-        const Real S_tol_abs = visc_tol * Trhs.norm0(0,0,false,true);
+            // Ignore EB covered cells when computing Trhs.norm. In certain cases, including
+            // covered cells can result in a very large S_tol_abs that tricks MLMG into
+            // thinking the system is sufficiently solved when it's not
+            const Real S_tol     = visc_tol;
+            const Real S_tol_abs = visc_tol * Trhs.norm0(0,0,false,true);
 
-        deltaTSyncSolve.solve({&deltaT}, {&Trhs}, S_tol, S_tol_abs); 
+            deltaTSyncSolve.solve({&deltaT}, {&Trhs}, S_tol, S_tol_abs); 
 
-        deltaT_iter_norm = deltaT.norm0(0);
-        if (deltaT_verbose) {
-          Print() << "DeltaTsync solve norm = " << deltaT_iter_norm << std::endl;
-        }
+            deltaT_iter_norm = deltaT.norm0(0);
+            if (deltaT_verbose) {
+               Print() << "DeltaTsync solve norm [" << L << "] = " << deltaT_iter_norm << std::endl;
+            }
 
-        showMF("DBGSync",deltaT,"sdc_deltaT_indeltaTiter",level,(mac_sync_iter+1)*1000+L,parent->levelSteps(level));
+            showMF("DBGSync",deltaT,"sdc_deltaT_indeltaTiter",level,(mac_sync_iter+1)*1000+L,parent->levelSteps(level));
 
-        MultiFab::Add(get_new_data(State_Type),Told,0,Temp,1,0);
-        compute_enthalpy_fluxes(SpecDiffusionFluxnp1,betanp1,curr_time); // Compute F[N+1], F[N+2]
-        flux_divergence(DT_post,0,SpecDiffusionFluxnp1,nspecies+2,1,-1);
-        flux_divergence(DD_post,0,SpecDiffusionFluxnp1,nspecies+1,1,-1);
+            MultiFab::Add(get_new_data(State_Type),Told,0,Temp,1,0);
+            compute_enthalpy_fluxes(SpecDiffusionFluxnp1,betanp1,curr_time); // Compute F[N+1], F[N+2]
+            flux_divergence(DiffTerms_post,0,SpecDiffusionFluxnp1,NUM_SPECIES+1,2,-1);
 
 #ifdef _OPENMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
-        {
-           // Update (RhoH)^{postsync,L}
-           for (MFIter mfi(S_new,TilingIfNotGPU()); mfi.isValid(); ++mfi)
-           {
-              const Box& bx = mfi.tilebox();
-              auto const& rho     = S_new.array(mfi,Density);  
-              auto const& rhoY    = S_new.array(mfi,first_spec);
-              auto const& T       = S_new.array(mfi,Temp);
-              auto const& rhoHm   = S_new.array(mfi,RhoH);
+            // Update (RhoH)^{postsync,L}
+            for (MFIter mfi(S_new,TilingIfNotGPU()); mfi.isValid(); ++mfi)
+            {
+               const Box& bx = mfi.tilebox();
+               auto const& rho     = S_new.array(mfi,Density);  
+               auto const& rhoY    = S_new.array(mfi,first_spec);
+               auto const& T       = S_new.array(mfi,Temp);
+               auto const& rhoHm   = S_new.array(mfi,RhoH);
 
-              amrex::ParallelFor(bx, [rho, rhoY, T, rhoHm]
-              AMREX_GPU_DEVICE (int i, int j, int k) noexcept
-              {
-                 getRHmixGivenTY( i, j, k, rho, rhoY, T, rhoHm );
-              });
-           }
-        }
+               amrex::ParallelFor(bx, [rho, rhoY, T, rhoHm]
+               AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+               {
+                  getRHmixGivenTY( i, j, k, rho, rhoY, T, rhoHm );
+               });
+            }
 
-        if (L==(num_deltaT_iters_MAX-1) && deltaT_iter_norm >= deltaT_norm_max) {
-          Abort("deltaT_iters not converged in mac_sync");
-        }
-      } // deltaT_iters
+            if (L==(num_deltaT_iters_MAX-1) && deltaT_iter_norm >= deltaT_norm_max) {
+               Abort("deltaT_iters not converged in mac_sync");
+            }
+         } // deltaT_iters
 
 //    Construct the \delta(\rho h) from (post - pre) deltaT iters
       MultiFab::Copy(Ssync,get_new_data(State_Type),RhoH,RhoH-AMREX_SPACEDIM,1,0);
@@ -7247,9 +7247,9 @@ PeleLM::mac_sync ()
       if (do_reflux && level > 0 && last_mac_sync_iter) {
          for (int d=0; d<AMREX_SPACEDIM; ++d)
          {
-           MultiFab::Subtract(*GammaKp1[d],*SpecDiffusionFluxnp1[d],nspecies+1,nspecies+1,2,0);
-           getViscFluxReg().FineAdd(*GammaKp1[d],d,nspecies+2,RhoH,1,-dt);
-           getAdvFluxReg().FineAdd(*GammaKp1[d],d,nspecies+1,RhoH,1,-dt);
+           MultiFab::Subtract(*GammaKp1[d],*SpecDiffusionFluxnp1[d],NUM_SPECIES+1,NUM_SPECIES+1,2,0);
+           getViscFluxReg().FineAdd(*GammaKp1[d],d,NUM_SPECIES+2,RhoH,1,-dt);
+           getAdvFluxReg().FineAdd(*GammaKp1[d],d,NUM_SPECIES+1,RhoH,1,-dt);
          }
       }
 
