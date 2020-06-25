@@ -47,8 +47,6 @@ contains
       use mod_Fvar_def, only : pamb
 
       use probdata_module, only: T_mean, Tc, Th, epsilon
-      use extern_probin_module, only: Prandtl_number, viscosity_mu_ref, viscosity_T_ref, viscosity_S,&
-         const_bulk_viscosity, const_diffusivity
       
       implicit none
       integer init, namlen
@@ -58,8 +56,7 @@ contains
 
       integer i
 
-      namelist /fortin/ T_mean, Tc, epsilon, Prandtl_number, viscosity_mu_ref, viscosity_T_ref, viscosity_S,&
-         const_bulk_viscosity, const_diffusivity
+      namelist /fortin/ T_mean, Tc, epsilon
 
       namelist /heattransin/ pamb
 
@@ -95,13 +92,6 @@ contains
 
 !     Set defaults
       pamb = pphys_getP1atm_MKS()
-
-      Prandtl_number = 0.71d0
-      viscosity_mu_ref = 1.68d-5
-      viscosity_T_ref = 273.0d0
-      viscosity_S = 110.5d0
-      const_bulk_viscosity = 0.0d0
-      const_diffusivity = 0.0d0
 
       T_mean = 600.0d0
       Tc = 300.0d0
