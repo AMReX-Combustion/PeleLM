@@ -1769,45 +1769,44 @@ PeleLM::estTimeStep ()
 void
 PeleLM::checkTimeStep (Real dt)
 {
-  if (fixed_dt > 0.0 || !divu_ceiling) 
-    return;
+   if (fixed_dt > 0.0 || !divu_ceiling) 
+      return;
 
-  const int   n_grow    = 1;
-  const Real  cur_time  = state[State_Type].curTime();
-  const Real* dx        = geom.CellSize();
-  MultiFab*   dsdt      = getDsdt(0,cur_time);
-  MultiFab*   divu      = getDivCond(0,cur_time);
+   const int   nGrow    = 1;
+   const Real  cur_time  = state[State_Type].curTime();
+   const Real* dx        = geom.CellSize();
+   MultiFab*   DivU      = getDivCond(0,cur_time);
 
-  FillPatchIterator U_fpi(*this,*divu,n_grow,cur_time,State_Type,Xvel,BL_SPACEDIM);
-  MultiFab& Umf=U_fpi.get_mf();
+   FillPatchIterator U_fpi(*this,*DivU,nGrow,cur_time,State_Type,Xvel,AMREX_SPACEDIM);
+   MultiFab& Umf=U_fpi.get_mf();
 
 #ifdef _OPENMP
-#pragma omp parallel
+#pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
-  for (MFIter mfi(Umf,true); mfi.isValid();++mfi)
-  {
-    const Box&    grdbx  = mfi.tilebox();
-    const int        i   = mfi.index();
-    FArrayBox&       U   = Umf[mfi];
-    const FArrayBox& Rho = rho_ctime[mfi];
+   for (MFIter mfi(Umf,TilingIfNotGPU()); mfi.isValid();++mfi)
+   {
+      const Box&  bx       = mfi.tilebox();
+      auto const& rho      = rho_ctime.array(mfi);  
+      auto const& vel      = Umf.array(mfi);
+      auto const& divu     = DivU->array(mfi);
+      auto const& vol      = volume.const_array(mfi);
+      D_TERM(auto const& areax = (area[0]).const_array(mfi);,
+             auto const& areay = (area[1]).const_array(mfi);,
+             auto const& areaz = (area[2]).const_array(mfi););
+      int  divu_check_flag = divu_ceiling;
+      Real divu_dt_fac     = divu_dt_factor;
+      Real rho_min         = min_rho_divu_ceiling;
+      const auto dxinv     = geom.InvCellSizeArray();
 
-    check_divu_dt( divu_ceiling, &divu_dt_factor, dx,
-                   BL_TO_FORTRAN_ANYD((*divu)[mfi]),
-                   BL_TO_FORTRAN_ANYD((*dsdt)[mfi]),
-                   BL_TO_FORTRAN_ANYD(Rho),
-                   BL_TO_FORTRAN_ANYD(U),
-                   BL_TO_FORTRAN_ANYD(volume[i]),
-                   BL_TO_FORTRAN_ANYD(area[0][i]),
-                   BL_TO_FORTRAN_ANYD(area[1][i]),
-#if (AMREX_SPACEDIM==3)
-                   BL_TO_FORTRAN_ANYD(area[2][i]),
-#endif
-                   BL_TO_FORTRAN_BOX(grdbx),
-                   &dt, &min_rho_divu_ceiling);
-  }
-
-  delete dsdt;
-  delete divu;
+      amrex::ParallelFor(bx, [rho, vel, divu, vol, D_DECL(areax,areay,areaz), 
+                              divu_check_flag, divu_dt_fac, rho_min, dxinv, dt]
+      AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+      {
+         check_divu_dt(i, j, k, divu_check_flag, divu_dt_fac, rho_min, dxinv,
+                       rho, vel, divu, vol, D_DECL(areax,areay,areaz), dt); 
+      });
+   }
+   delete DivU;
 }
 
 void
