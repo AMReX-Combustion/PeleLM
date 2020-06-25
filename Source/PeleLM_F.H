@@ -126,21 +126,6 @@ extern "C" {
                     const int* lo,const int* hi,
                     amrex::Real* dt, const amrex::Real* min_rho_divu_ceiling);
 
-   void check_divu_dt(const int& flag, const amrex::Real* divu_dt_factor,
-                    const amrex::Real* dx, 
-                    const BL_FORT_FAB_ARG_ANYD(sdat),
-                    const BL_FORT_FAB_ARG_ANYD(dsdtdat),
-                    const BL_FORT_FAB_ARG_ANYD(rhodat),
-                    const BL_FORT_FAB_ARG_ANYD(vel),
-                    const BL_FORT_FAB_ARG_ANYD(volume),
-                    const BL_FORT_FAB_ARG_ANYD(areax),
-                    const BL_FORT_FAB_ARG_ANYD(areay),
-#if (AMREX_SPACEDIM == 3) 
-                    const BL_FORT_FAB_ARG_ANYD(areaz),
-#endif
-                    const int* lo,const int* hi,
-                    const amrex::Real* dt, const amrex::Real* min_rho_divu_ceiling);
-
    void set_ht_adim_common(const amrex::Real* thickFacVal,
                            const amrex::Real* Pr, const amrex::Real* Sc, const int* unityLe);
 
