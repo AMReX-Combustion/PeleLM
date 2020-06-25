@@ -580,7 +580,7 @@ AMREX_GPU_HOST_DEVICE
 inline
 void
 check_divu_dt(int i, int j, int k,
-              int                                          const& check_type, 
+              int                                          const& check_type,
               amrex::Real                                  const& dtfactor,
               amrex::Real                                  const& rhomin,
               amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> const dxinv,
@@ -598,19 +598,19 @@ check_divu_dt(int i, int j, int k,
    amrex::Real dtcell = 1.0e12_rt;
    amrex::Real denom  = 0.0_rt;
    bool rho_is_okay = (rho(i,j,k) > rhomin);
-   
+
    if ( check_type == 1 ) {                           // Check based on divU of DivU_type
       if ( divu(i,j,k) > 0.0_rt ) {
          dtcell = (rho_is_okay) ? ( 1.0_rt - rhomin / rho(i,j,k) ) / divu(i,j,k) : 1.0_rt / divu(i,j,k);
       }
-   } else if ( check_type == 2 ) {                    // Check based rho * divU + u \cdot grad rho 
+   } else if ( check_type == 2 ) {                    // Check based rho * divU + u \cdot grad rho
       denom = rho(i,j,k) * divu(i,j,k) +
               D_TERM(  vel(i,j,k,0) * ( rho(i+1,j,k) - rho(i-1,j,k) ) * dxinv[0],
                      + vel(i,j,k,1) * ( rho(i,j+1,k) - rho(i,j-1,k) ) * dxinv[1],
                      + vel(i,j,k,2) * ( rho(i,j,k+1) - rho(i,j,k-1) ) * dxinv[2] );
       if ( denom > 0.0_rt ) {
          dtcell = (rho_is_okay) ? ( rho(i,j,k) - rhomin ) / denom : std::abs( rho(i,j,k) ) / denom;
-      }   
+      }
    } else if ( check_type == 3 ) {                    // Check based on div (rho U)
       D_TERM( amrex::Real fxlo = 0.25_rt * ( (rho(i,j,k)+rho(i-1,j,k)) * (vel(i,j,k,0)+vel(i-1,j,k,0)) );,
               amrex::Real fylo = 0.25_rt * ( (rho(i,j,k)+rho(i,j-1,k)) * (vel(i,j,k,1)+vel(i,j-1,k,1)) );,
@@ -624,12 +624,67 @@ check_divu_dt(int i, int j, int k,
       denom /= vol(i,j,k);
       if ( denom > 0.0_rt ) {
          dtcell = (rho_is_okay) ? ( rho(i,j,k) - rhomin ) / denom : std::abs( rho(i,j,k) ) / denom;
-      }   
+      }
    }
    if (dt>dtcell) {
       printf(" ERROR: check_divu_dt - [%i,%i,%i] dtcell %f8.6 > dt %f8.6", i, j, k, dtcell, dt);
    } else if (dt>dtcell*dtfactor) {
       printf(" WARNING: check_divu_dt - [%i,%i,%i] dtcell*dtfactor %f8.6 > dt %f8.6", i, j, k, dtcell*dtfactor, dt);
    }
+}
+
+AMREX_GPU_HOST_DEVICE
+inline
+amrex::Real
+est_divu_dt(int i, int j, int k,
+            int                                          const& step_type,
+            amrex::Real                                  const& dtfactor,
+            amrex::Real                                  const& rhomin,
+            amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> const dxinv,
+            amrex::Array4<const amrex::Real>             const& rho,
+            amrex::Array4<const amrex::Real>             const& vel,
+            amrex::Array4<const amrex::Real>             const& divu,
+            amrex::Array4<const amrex::Real>             const& vol,
+            D_DECL(amrex::Array4<const amrex::Real>      const& areaX,
+                   amrex::Array4<const amrex::Real>      const& areaY,
+                   amrex::Array4<const amrex::Real>      const& areaZ)) noexcept
+{
+   using namespace amrex::literals;
+
+   amrex::Real dtcell = 1.0e20_rt;
+   amrex::Real denom  = 0.0_rt;
+   bool rho_is_okay = (rho(i,j,k) > rhomin);
+
+   if ( step_type == 1 ) {                           // Check based on divU of DivU_type
+      if ( divu(i,j,k) > 0.0_rt ) {
+         dtcell = (rho_is_okay) ? ( 1.0_rt - rhomin / rho(i,j,k) ) / divu(i,j,k) : 1.0_rt / divu(i,j,k);
+         dtcell *= dtfactor;
+      }
+   } else if ( step_type == 2 ) {                    // Check based rho * divU + u \cdot grad rho
+      denom = rho(i,j,k) * divu(i,j,k) +
+              D_TERM(  vel(i,j,k,0) * ( rho(i+1,j,k) - rho(i-1,j,k) ) * dxinv[0],
+                     + vel(i,j,k,1) * ( rho(i,j+1,k) - rho(i,j-1,k) ) * dxinv[1],
+                     + vel(i,j,k,2) * ( rho(i,j,k+1) - rho(i,j,k-1) ) * dxinv[2] );
+      if ( denom > 0.0_rt ) {
+         dtcell = (rho_is_okay) ? ( rho(i,j,k) - rhomin ) / denom : std::abs( rho(i,j,k) ) / denom;
+         dtcell *= dtfactor;
+      }
+   } else if ( step_type == 3 ) {                    // Check based on div (rho U)
+      D_TERM( amrex::Real fxlo = 0.25_rt * ( (rho(i,j,k)+rho(i-1,j,k)) * (vel(i,j,k,0)+vel(i-1,j,k,0)) );,
+              amrex::Real fylo = 0.25_rt * ( (rho(i,j,k)+rho(i,j-1,k)) * (vel(i,j,k,1)+vel(i,j-1,k,1)) );,
+              amrex::Real fzlo = 0.25_rt * ( (rho(i,j,k)+rho(i,j,k-1)) * (vel(i,j,k,2)+vel(i,j,k-1,2)) ););
+      D_TERM( amrex::Real fxhi = 0.25_rt * ( (rho(i,j,k)+rho(i+1,j,k)) * (vel(i,j,k,0)+vel(i+1,j,k,0)) );,
+              amrex::Real fyhi = 0.25_rt * ( (rho(i,j,k)+rho(i,j+1,k)) * (vel(i,j,k,1)+vel(i,j+1,k,1)) );,
+              amrex::Real fzhi = 0.25_rt * ( (rho(i,j,k)+rho(i,j,k+1)) * (vel(i,j,k,2)+vel(i,j,k+1,2)) ););
+      denom = D_TERM (  areaX(i+1,j,k) * fxhi - areaX(i,j,k) * fxlo,
+                      + areaY(i,j+1,k) * fyhi - areaY(i,j,k) * fylo,
+                      + areaZ(i,j,k+1) * fzhi - areaZ(i,j,k) * fzlo );
+      denom /= vol(i,j,k);
+      if ( denom > 0.0_rt ) {
+         dtcell = (rho_is_okay) ? ( rho(i,j,k) - rhomin ) / denom : std::abs( rho(i,j,k) ) / denom;
+         dtcell *= dtfactor;
+      }
+   }
+   return dtcell;
 }
 #endif
