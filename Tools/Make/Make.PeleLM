@@ -1,4 +1,5 @@
 EBASE = PeleLM
+PELE_PHYSICS_HOME ?= $(TOP)/PelePhysics
 
 ifeq ($(USE_SUNDIALS_PP),TRUE) 
   include $(PELE_PHYSICS_HOME)/ThirdParty/Make.ThirdParty
@@ -17,7 +18,6 @@ all: $(executable)
 	$(SILENT) $(RM) AMReX_buildInfo.cpp
 	@echo SUCCESS
 
-PELE_PHYSICS_HOME ?= $(TOP)/PelePhysics
 EOS_HOME       = $(PELE_PHYSICS_HOME)/Eos
 REACTIONS_HOME = $(PELE_PHYSICS_HOME)/Reactions
 TRAN_HOME      = $(PELE_PHYSICS_HOME)/Transport
