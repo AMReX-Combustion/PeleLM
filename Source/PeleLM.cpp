@@ -1661,120 +1661,96 @@ PeleLM::reset_typical_values (const MultiFab& S)
 Real
 PeleLM::estTimeStep ()
 {
+   Real estdt = NavierStokesBase::estTimeStep();
 
-  Real estdt = NavierStokesBase::estTimeStep();
+   if (fixed_dt > 0.0 || !divu_ceiling)
+     //
+     // The n-s function did the right thing in this case.
+     //
+     return estdt;
 
-  if (fixed_dt > 0.0 || !divu_ceiling)
-    //
-    // The n-s function did the right thing in this case.
-    //
-    return estdt;
+   const Real strt_time = ParallelDescriptor::second();
 
-  const Real strt_time = ParallelDescriptor::second();
+   Real ns_estdt = estdt;
+   Real divu_dt = 1.0e20;
 
-  
-  Real ns_estdt = estdt;
-  Real divu_dt = 1.0e20;
+   const int   nGrow   = 1;
+   const Real  cur_time = state[State_Type].curTime();
+   MultiFab&   DivU     = *getDivCond(0,cur_time);
+   int  divu_check_flag = divu_ceiling;
+   Real divu_dt_fac     = divu_dt_factor;
+   Real rho_min         = min_rho_divu_ceiling;
+   const auto dxinv     = geom.InvCellSizeArray();
 
-  const int   n_grow   = 1;
-  const Real  cur_time = state[State_Type].curTime();
-  const Real* dx       = geom.CellSize();
-  MultiFab*   dsdt     = getDsdt(0,cur_time);
-  MultiFab*   divu     = getDivCond(0,cur_time);
+   FillPatchIterator U_fpi(*this,DivU,nGrow,cur_time,State_Type,Xvel,AMREX_SPACEDIM);
+   MultiFab& Umf=U_fpi.get_mf();
 
-  FillPatchIterator U_fpi(*this,*divu,n_grow,cur_time,State_Type,Xvel,BL_SPACEDIM);
-  MultiFab& Umf=U_fpi.get_mf();
-  
-#ifdef AMREX_USE_EB
-  MultiFab TT(grids,dmap,BL_SPACEDIM,n_grow,MFInfo(),Factory());
-  MultiFab::Copy(TT,Umf,0,0,BL_SPACEDIM,n_grow);
-//  EB_interp_CC_to_Centroid(Umf,TT,0,0,BL_SPACEDIM,geom);
+   divu_dt = amrex::ReduceMin(rho_ctime, Umf, DivU, volume, D_DECL(area[0], area[1], area[2]), 0,
+                              [divu_check_flag,divu_dt_fac,rho_min,dxinv]
+   AMREX_GPU_HOST_DEVICE (Box const& bx, Array4<Real const> const& rho,
+                                         Array4<Real const> const& vel,
+                                         Array4<Real const> const& divu,
+                                         Array4<Real const> const& vol,
+                                         D_DECL( Array4<Real const> const& areax,
+                                                 Array4<Real const> const& areay,
+                                                 Array4<Real const> const& areax) ) noexcept -> Real
+   {   
+      using namespace amrex::literals;
+      const auto lo = amrex::lbound(bx);
+      const auto hi = amrex::ubound(bx);
+#if !defined(__CUDACC__) || (__CUDACC_VER_MAJOR__ != 9) || (__CUDACC_VER_MINOR__ != 2)
+      amrex::Real dt = std::numeric_limits<amrex::Real>::max();
+#else
+      amrex::Real dt = 1.e37_rt;
 #endif
+      for       (int k = lo.z; k <= hi.z; ++k) {
+         for    (int j = lo.y; j <= hi.y; ++j) {
+            for (int i = lo.x; i <= hi.x; ++i) {
+               Real dtcell = est_divu_dt(i, j, k, divu_check_flag, divu_dt_fac, rho_min, dxinv,
+                                         rho, vel, divu, vol, D_DECL(areax,areay,areaz) );
+               dt = amrex::min(dt,dtcell);
+            }
+         }
+      }
+      return dt;
+   });
 
-#ifdef _OPENMP
-#pragma omp parallel if (!system::regtest_reduction) reduction(min:divu_dt)
-#endif
-{
-  for (MFIter mfi(Umf,true); mfi.isValid();++mfi)
-  {
-    Real dt;
-    const Box& bx = mfi.tilebox();
-    const FArrayBox& dsdt_mf   =  (*dsdt)[mfi];
-    const FArrayBox& divu_mf   =  (*divu)[mfi];
-    const FArrayBox& U   = Umf[mfi];
-    const FArrayBox& Rho = rho_ctime[mfi];
-    const FArrayBox& vol = volume[mfi];
-    const FArrayBox& areax = area[0][mfi];
-    const FArrayBox& areay = area[1][mfi];
-#if (AMREX_SPACEDIM==3) 
-    const FArrayBox& areaz = area[2][mfi];
-#endif
-#ifdef AMREX_USE_EB    
-    const FArrayBox& vfrac = (*volfrac)[mfi];
-#endif
-    
+   ParallelDescriptor::ReduceRealMin(divu_dt);
 
-    est_divu_dt(divu_ceiling, &divu_dt_factor, dx,
-                BL_TO_FORTRAN_ANYD(divu_mf),
-                BL_TO_FORTRAN_ANYD(dsdt_mf),
-                BL_TO_FORTRAN_ANYD(Rho),
-                BL_TO_FORTRAN_ANYD(U),
-                BL_TO_FORTRAN_ANYD(vol),
-#ifdef AMREX_USE_EB    
-                BL_TO_FORTRAN_ANYD(vfrac),
-#endif
-                BL_TO_FORTRAN_ANYD(areax),
-                BL_TO_FORTRAN_ANYD(areay),
-#if (AMREX_SPACEDIM==3) 
-                BL_TO_FORTRAN_ANYD(areaz), 
-#endif 
-                BL_TO_FORTRAN_BOX(bx), &dt, &min_rho_divu_ceiling);
+   if (verbose)
+   {
+      amrex::Print() << "PeleLM::estTimeStep(): estdt, divu_dt = "
+                     << estdt << ", " << divu_dt << '\n';
+   }
 
-    divu_dt = std::min(divu_dt,dt);
+   estdt = std::min(estdt, divu_dt);
 
-  }
-}
+   if (estdt < ns_estdt && verbose)
+      amrex::Print() << "PeleLM::estTimeStep(): timestep reduced from "
+                     << ns_estdt << " to " << estdt << '\n';
 
-  delete divu;
-  delete dsdt;
+   if (verbose > 1)
+   {
+      const int IOProc   = ParallelDescriptor::IOProcessorNumber();
+      Real      run_time = ParallelDescriptor::second() - strt_time;
 
-  ParallelDescriptor::ReduceRealMin(divu_dt);
+      ParallelDescriptor::ReduceRealMax(run_time,IOProc);
 
-  if (verbose)
-  {
-    amrex::Print() << "PeleLM::estTimeStep(): estdt, divu_dt = " 
-		   << estdt << ", " << divu_dt << '\n';
-  }
+      amrex::Print() << "PeleLM::estTimeStep(): lev: " << level
+                     << ", time: " << run_time << '\n';
+   }
 
-  estdt = std::min(estdt, divu_dt);
-
-  if (estdt < ns_estdt && verbose)
-    amrex::Print() << "PeleLM::estTimeStep(): timestep reduced from " 
-		   << ns_estdt << " to " << estdt << '\n';
-
-  if (verbose > 1)
-  {
-    const int IOProc   = ParallelDescriptor::IOProcessorNumber();
-    Real      run_time = ParallelDescriptor::second() - strt_time;
-
-    ParallelDescriptor::ReduceRealMax(run_time,IOProc);
-
-    amrex::Print() << "PeleLM::estTimeStep(): lev: " << level 
-		   << ", time: " << run_time << '\n';
-  }
-
-  return estdt;
+   return estdt;
 }
 
 void
 PeleLM::checkTimeStep (Real dt)
 {
-   if (fixed_dt > 0.0 || !divu_ceiling) 
+   if (fixed_dt > 0.0 || !divu_ceiling)
       return;
 
    const int   nGrow    = 1;
    const Real  cur_time  = state[State_Type].curTime();
-   const Real* dx        = geom.CellSize();
    MultiFab*   DivU      = getDivCond(0,cur_time);
 
    FillPatchIterator U_fpi(*this,*DivU,nGrow,cur_time,State_Type,Xvel,AMREX_SPACEDIM);
@@ -1786,7 +1762,7 @@ PeleLM::checkTimeStep (Real dt)
    for (MFIter mfi(Umf,TilingIfNotGPU()); mfi.isValid();++mfi)
    {
       const Box&  bx       = mfi.tilebox();
-      auto const& rho      = rho_ctime.array(mfi);  
+      auto const& rho      = rho_ctime.array(mfi);
       auto const& vel      = Umf.array(mfi);
       auto const& divu     = DivU->array(mfi);
       auto const& vol      = volume.const_array(mfi);
@@ -1798,7 +1774,7 @@ PeleLM::checkTimeStep (Real dt)
       Real rho_min         = min_rho_divu_ceiling;
       const auto dxinv     = geom.InvCellSizeArray();
 
-      amrex::ParallelFor(bx, [rho, vel, divu, vol, D_DECL(areax,areay,areaz), 
+      amrex::ParallelFor(bx, [rho, vel, divu, vol, D_DECL(areax,areay,areaz),
                               divu_check_flag, divu_dt_fac, rho_min, dxinv, dt]
       AMREX_GPU_DEVICE (int i, int j, int k) noexcept
       {
@@ -1814,11 +1790,11 @@ PeleLM::setTimeLevel (Real time,
                       Real dt_old,
                       Real dt_new)
 {
-  NavierStokesBase::setTimeLevel(time, dt_old, dt_new);    
+   NavierStokesBase::setTimeLevel(time, dt_old, dt_new);
 
-  state[RhoYdot_Type].setTimeLevel(time,dt_old,dt_new);
+   state[RhoYdot_Type].setTimeLevel(time,dt_old,dt_new);
 
-  state[FuncCount_Type].setTimeLevel(time,dt_old,dt_new);
+   state[FuncCount_Type].setTimeLevel(time,dt_old,dt_new);
 }
 
 //
