@@ -588,22 +588,33 @@ PeleLM::variableSetUp ()
   Vector<BCRec>       bcs(BL_SPACEDIM);
   Vector<std::string> name(BL_SPACEDIM);
 
+  int do_group_bndry_fills = 0;
+  ppns.query("do_group_bndry_fills",do_group_bndry_fills);
+
   set_x_vel_bc(bc,phys_bc);
   bcs[0]  = bc;
   name[0] = "x_velocity";
-  desc_lst.setComponent(State_Type,Xvel,"x_velocity",bc,BndryFunc(xvel_fill));
+  if (do_group_bndry_fills==0) desc_lst.setComponent(State_Type,Xvel,"x_velocity",bc,BndryFunc(xvel_fill));
 
   set_y_vel_bc(bc,phys_bc);
   bcs[1]  = bc;
   name[1] = "y_velocity";
-  desc_lst.setComponent(State_Type,Yvel,"y_velocity",bc,BndryFunc(yvel_fill));
+  if (do_group_bndry_fills==0) desc_lst.setComponent(State_Type,Yvel,"y_velocity",bc,BndryFunc(yvel_fill));
 
 #if(AMREX_SPACEDIM==3)
   set_z_vel_bc(bc,phys_bc);
   bcs[2]  = bc;
   name[2] = "z_velocity";
-  desc_lst.setComponent(State_Type,Zvel,"z_velocity",bc,BndryFunc(zvel_fill));
+  if (do_group_bndry_fills==0) desc_lst.setComponent(State_Type,Zvel,"z_velocity",bc,BndryFunc(zvel_fill));
 #endif
+
+  if (do_group_bndry_fills!=0) {
+    desc_lst.setComponent(State_Type,
+                          Xvel,
+                          name,
+                          bcs,
+                          BndryFunc(xvel_fill,vel_fill));
+  }
 
   //
   // **************  DEFINE SCALAR VARIABLES  ********************

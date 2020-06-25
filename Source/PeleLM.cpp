@@ -4619,7 +4619,8 @@ PeleLM::flux_divergence (MultiFab&        fdiv,
       auto const& vol          = volume.const_array(mfi);
 
 #ifdef AMREX_USE_EB
-      auto const& flagfab = Factory.getMultiEBCellFlagFab()[mfi];
+      auto const& ebfactory = dynamic_cast<EBFArrayBoxFactory const&>(Factory());
+      auto const& flagfab = ebfactory.getMultiEBCellFlagFab()[mfi];
       auto const& flag    = flagfab.const_array();
 #endif
 
@@ -4631,7 +4632,7 @@ PeleLM::flux_divergence (MultiFab&        fdiv,
             divergence(i,j,k,n) = 0.0;
          });
       } else if (flagfab.getType(bx) != FabType::regular ) {     // EB containing boxes 
-         auto vfrac = Factory.getVolFrac().const_array(mfi);
+         auto vfrac = ebfactory.getVolFrac().const_array(mfi);
          amrex::ParallelFor(bx, [nComp, flag, vfrac, divergence, D_DECL(fluxX, fluxY, fluxZ), vol, scale]
          AMREX_GPU_DEVICE (int i, int j, int k) noexcept
          {
@@ -7906,7 +7907,8 @@ PeleLM::differential_spec_diffuse_sync (Real dt,
       auto const& rhs_Dsolve = Rhs.const_array(mfi);
 
 #ifdef AMREX_USE_EB
-      auto const& flagfab = Factory.getMultiEBCellFlagFab()[mfi];
+      auto const& ebfactory = dynamic_cast<EBFArrayBoxFactory const&>(Factory());
+      auto const& flagfab = ebfactory.getMultiEBCellFlagFab()[mfi];
       auto const& flag    = flagfab.const_array();
 #endif
 
@@ -7920,7 +7922,7 @@ PeleLM::differential_spec_diffuse_sync (Real dt,
             ssync(i,j,k,n) = 0.0;
          });
       } else if (flagfab.getType(bx) != FabType::regular ) {     // EB containing boxes 
-         auto vfrac = Factory.getVolFrac().const_array(mfi);
+         auto vfrac = ebfactory.getVolFrac().const_array(mfi);
          amrex::ParallelFor(bx, [flag, vfrac, ssync, D_DECL(fluxX, fluxY, fluxZ), vol, rhs_Dsolve, scale]
          AMREX_GPU_DEVICE (int i, int j, int k) noexcept
          {
@@ -8292,9 +8294,9 @@ PeleLM::getViscosity (MultiFab* viscosity[AMREX_SPACEDIM],
 #ifdef AMREX_USE_EB
    // EB : use EB CCentroid -> FCentroid
    auto math_bc = fetchBCArray(State_Type,0,1);
-   EB_interp_CellCentroid_to_FaceCentroid(visc, D_DECL(*viscosity[0],*viscosity[1],*viscosity[2]), 
+   EB_interp_CellCentroid_to_FaceCentroid(*visc, D_DECL(*viscosity[0],*viscosity[1],*viscosity[2]), 
                                           0, 0, 1, geom, math_bc);
-   EB_set_covered_faces({D_DECL(*viscosity[0],*viscosity[1],*viscosity[2])},0.0);
+   EB_set_covered_faces({D_DECL(viscosity[0],viscosity[1],viscosity[2])},0.0);
 
 #else
    // NON-EB : simply use center_to_edge_fancy
@@ -8366,9 +8368,9 @@ PeleLM::getDiffusivity (MultiFab* diffusivity[AMREX_SPACEDIM],
 #ifdef AMREX_USE_EB
    // EB : use EB CCentroid -> FCentroid
    auto math_bc = fetchBCArray(State_Type,state_comp,ncomp);
-   EB_interp_CellCentroid_to_FaceCentroid(diff, D_DECL(*diffusivity[0],*diffusivity[1],*diffusivity[2]), 
+   EB_interp_CellCentroid_to_FaceCentroid(*diff, D_DECL(*diffusivity[0],*diffusivity[1],*diffusivity[2]), 
                                           diff_comp, dst_comp, ncomp, geom, math_bc);
-   EB_set_covered_faces({D_DECL(*diffusivity[0],*diffusivity[1],*diffusivity[2])},0.0);
+   EB_set_covered_faces({D_DECL(diffusivity[0],diffusivity[1],diffusivity[2])},0.0);
 #else
    // NON-EB : simply use center_to_edge_fancy
 
@@ -8410,7 +8412,7 @@ PeleLM::getDiffusivity_Wbar (MultiFab*  betaWbar[AMREX_SPACEDIM],
 #ifdef AMREX_USE_EB
    // EB : use EB CCentroid -> FCentroid
    auto math_bc = fetchBCArray(State_Type,first_spec,NUM_SPECIES);
-   EB_interp_CellCentroid_to_FaceCentroid(diff, D_DECL(*betaWbar[0],*betaWbar[1],*betaWbar[2]), 
+   EB_interp_CellCentroid_to_FaceCentroid(*diff, D_DECL(*betaWbar[0],*betaWbar[1],*betaWbar[2]), 
                                           0, 0, NUM_SPECIES, geom, math_bc);
    EB_set_covered_faces({D_DECL(*betaWbar[0],*betaWbar[1],*betaWbar[2])},0.0);
 #else
