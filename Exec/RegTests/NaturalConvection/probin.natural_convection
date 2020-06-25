@@ -2,13 +2,6 @@
   T_mean = 600.0d0
   epsilon = 0.6d0
   Tc = 300.0d0
- 
-  Prandtl_number = 0.71d0
-  viscosity_mu_ref = 1.68d-5
-  viscosity_T_ref = 273.0d0 
-  viscosity_S = 110.5d0
-  const_bulk_viscosity = 0.0d0 
-  const_diffusivity = 0.0d0
  /
  &heattransin
   pamb = 101325.0d0

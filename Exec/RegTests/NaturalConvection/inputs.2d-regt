@@ -86,6 +86,13 @@ ns.zeroBndryVisc=1
 
 ns.num_divu_iters =3
 ns.sdc_iterMAX = 2
+
+# ----------------  INPUTS TO CONSTANT TRANSPORT -------------------
+transport.const_viscosity = 1.68e-4
+transport.const_bulk_viscosity = 0.0 
+transport.const_conductivity = 2292.9
+transport.const_diffusivity = 0.0 
+
 # ------------------  INPUTS TO GODUNOV CLASS ----------------------
 godunov.slope_order = 4
 
