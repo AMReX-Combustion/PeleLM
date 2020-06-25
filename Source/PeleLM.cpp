@@ -1429,15 +1429,15 @@ PeleLM::init_mixture_fraction()
          YO[i] = 0.0;  
          if (!specNames[i].compare("O2"))  YO[i] = 0.233;
          if (!specNames[i].compare("N2"))  YO[i] = 0.767;
-         if (!specNames[i].compare("CH4")) YF[i] = 1.0;
+         if (!specNames[i].compare(fuelName)) YF[i] = 1.0;
       }
 
       // Only interested in CHON -in that order. Compute Bilger weights
-      amrex::Real atwCHON[4];
+      amrex::Real atwCHON[4] = {0.0};
       EOS::atomic_weightsCHON(atwCHON);
-      Beta_mix[0] = 2.0/atwCHON[0];
-      Beta_mix[1] = 1.0/(2.0*atwCHON[1]);
-      Beta_mix[2] = -1.0/atwCHON[2];
+      Beta_mix[0] = ( atwCHON[0] != 0.0 ) ? 2.0/atwCHON[0] : 0.0;
+      Beta_mix[1] = ( atwCHON[1] != 0.0 ) ? 1.0/(2.0*atwCHON[1]) : 0.0;
+      Beta_mix[2] = ( atwCHON[2] != 0.0 ) ? -1.0/atwCHON[2] : 0.0;
       Beta_mix[3] = 0.0;
 
       // Compute each species weight for the Bilger formulation based on elemental compo
