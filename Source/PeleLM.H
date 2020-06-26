@@ -2,6 +2,8 @@
 #ifndef _PeleLM_H_
 #define _PeleLM_H_
 
+#include <pelelm_prob_parm.H>
+
 #include <AMReX_AuxBoundaryData.H>
 #include <NavierStokesBase.H>
 
@@ -694,6 +696,10 @@ private:
   static int nGrowAdvForcing;
 
   static std::string probin_file;
+
+public:
+    static std::unique_ptr<ProbParm> prob_parm;
+
 };
 
 #endif /*_PeleLM_H_*/

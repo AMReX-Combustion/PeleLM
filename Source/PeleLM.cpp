@@ -34,6 +34,7 @@
 #include <NS_util.H>
 
 #include <PeleLM_K.H>
+#include <pelelm_prob.H>
 
 #if defined(BL_USE_NEWMECH) || defined(BL_USE_VELOCITY)
 #include <AMReX_DataServices.H>
@@ -1027,6 +1028,7 @@ PeleLM::variableCleanUp ()
 {
   NavierStokesBase::variableCleanUp();
 
+  prob_parm.reset();
 
   ShowMF_Sets.clear();
   auxDiag_names.clear();
@@ -1900,6 +1902,37 @@ PeleLM::initData ()
   if (verbose) amrex::Print() << "initData: finished init from pltfile" << '\n';
 #endif
 
+
+#if 1
+
+
+    const auto geomdata = geom.data();
+    ProbParm const* lprobparm = prob_parm.get();
+
+#ifdef _OPENMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+    for (MFIter mfi(S_new); mfi.isValid(); ++mfi)
+    {
+        const Box& box = mfi.validbox();
+        auto sfab = S_new.array(mfi);
+        auto pressfab = P_new.array(mfi);
+
+        amrex::ParallelFor(box,
+        [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+        {
+            pelelm_initdata(i, j, k, sfab, pressfab, geomdata, *lprobparm);
+        });
+    }
+
+
+
+#else
+
+
+
+
+
 #ifdef _OPENMP
 #pragma omp parallel
 #endif
@@ -1928,6 +1961,9 @@ PeleLM::initData ()
                dx, AMREX_ZFILL(gridloc.lo()), AMREX_ZFILL(gridloc.hi()) );
 #endif
   }
+
+
+#endif
 
   showMFsub("1D",S_new,stripBox,"1D_S",level);
   
