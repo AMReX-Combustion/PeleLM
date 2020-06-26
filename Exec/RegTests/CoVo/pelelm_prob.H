@@ -9,9 +9,13 @@
 AMREX_GPU_DEVICE
 inline
 void
-pelelm_initdata (int i, int j, int k, 
-                 amrex::Array4<amrex::Real> const& state,
-                 amrex::Array4<amrex::Real> const& pressure,
+pelelm_initdata (int i, int j, int k,
+                 amrex::Array4<amrex::Real> const& vel, 
+                 amrex::Array4<amrex::Real> const& rho, 
+                 amrex::Array4<amrex::Real> const& rhoY,
+                 amrex::Array4<amrex::Real> const& rhoH,
+                 amrex::Array4<amrex::Real> const& T,
+                 amrex::Array4<amrex::Real> const& Pressure,
                  amrex::GeometryData const& geomdata, ProbParm const& prob_parm)
 {
     using namespace amrex::literals;
@@ -29,6 +33,9 @@ pelelm_initdata (int i, int j, int k,
     const amrex::Real z = prob_lo[2] + (k+0.5_rt)*dx[2];
     const amrex::Real y = prob_lo[1] + (j+0.5_rt)*dx[1];
     const amrex::Real x = prob_lo[0] + (i+0.5_rt)*dx[0];
+
+    T(i,j,k) = prob_parm.T_mean;
+
 
 //    amrex::Real Pt;
 //    if (z < splitz) {

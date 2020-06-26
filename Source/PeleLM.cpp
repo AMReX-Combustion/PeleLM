@@ -1915,13 +1915,18 @@ PeleLM::initData ()
     for (MFIter mfi(S_new); mfi.isValid(); ++mfi)
     {
         const Box& box = mfi.validbox();
-        auto sfab = S_new.array(mfi);
-        auto pressfab = P_new.array(mfi);
+
+        auto vel_fab     = S_new.array(mfi,Xvel);
+        auto rho_fab     = S_new.array(mfi,Density); 
+        auto rhoY_fab    = S_new.array(mfi,first_spec);
+        auto rhoH_fab    = S_new.array(mfi,RhoH);
+        auto T_fab       = S_new.array(mfi,Temp);
+        auto Press_fab = P_new.array(mfi);
 
         amrex::ParallelFor(box,
         [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
         {
-            pelelm_initdata(i, j, k, sfab, pressfab, geomdata, *lprobparm);
+            pelelm_initdata(i, j, k, vel_fab, rho_fab, rhoY_fab, rhoH_fab, T_fab, Press_fab, geomdata, *lprobparm);
         });
     }
 
