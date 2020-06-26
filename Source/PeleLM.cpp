@@ -1685,35 +1685,62 @@ PeleLM::estTimeStep ()
    FillPatchIterator U_fpi(*this,DivU,nGrow,cur_time,State_Type,Xvel,AMREX_SPACEDIM);
    MultiFab& Umf=U_fpi.get_mf();
 
-   divu_dt = amrex::ReduceMin(rho_ctime, Umf, DivU, volume, D_DECL(area[0], area[1], area[2]), 0,
-                              [divu_check_flag,divu_dt_fac,rho_min,dxinv]
-   AMREX_GPU_HOST_DEVICE (Box const& bx, Array4<Real const> const& rho,
-                                         Array4<Real const> const& vel,
-                                         Array4<Real const> const& divu,
-                                         Array4<Real const> const& vol,
-                                         D_DECL( Array4<Real const> const& areax,
-                                                 Array4<Real const> const& areay,
-                                                 Array4<Real const> const& areax) ) noexcept -> Real
-   {   
-      using namespace amrex::literals;
-      const auto lo = amrex::lbound(bx);
-      const auto hi = amrex::ubound(bx);
+   if ( divu_ceiling == 1 ) {
+      divu_dt = amrex::ReduceMin(rho_ctime, DivU, 0,
+                                 [divu_check_flag,divu_dt_fac,rho_min,dxinv]
+      AMREX_GPU_HOST_DEVICE (Box const& bx, Array4<Real const> const& rho,
+                                            Array4<Real const> const& divu ) noexcept -> Real
+      {   
+         using namespace amrex::literals;
+         const auto lo = amrex::lbound(bx);
+         const auto hi = amrex::ubound(bx);
 #if !defined(__CUDACC__) || (__CUDACC_VER_MAJOR__ != 9) || (__CUDACC_VER_MINOR__ != 2)
-      amrex::Real dt = std::numeric_limits<amrex::Real>::max();
+         amrex::Real dt = std::numeric_limits<amrex::Real>::max();
 #else
-      amrex::Real dt = 1.e37_rt;
+         amrex::Real dt = 1.e37_rt;
 #endif
-      for       (int k = lo.z; k <= hi.z; ++k) {
-         for    (int j = lo.y; j <= hi.y; ++j) {
-            for (int i = lo.x; i <= hi.x; ++i) {
-               Real dtcell = est_divu_dt(i, j, k, divu_check_flag, divu_dt_fac, rho_min, dxinv,
-                                         rho, vel, divu, vol, D_DECL(areax,areay,areaz) );
-               dt = amrex::min(dt,dtcell);
+         for       (int k = lo.z; k <= hi.z; ++k) {
+            for    (int j = lo.y; j <= hi.y; ++j) {
+               for (int i = lo.x; i <= hi.x; ++i) {
+                  Real dtcell = est_divu_dt_1(i, j, k, divu_check_flag, divu_dt_fac, rho_min, dxinv,
+                                              rho, divu );
+                  dt = amrex::min(dt,dtcell);
+               }
             }
          }
-      }
-      return dt;
-   });
+         return dt;
+      });
+   } else if ( divu_ceiling == 2 ) {
+      divu_dt = amrex::ReduceMin(rho_ctime, Umf, DivU, 0,
+                                 [divu_check_flag,divu_dt_fac,rho_min,dxinv]
+      AMREX_GPU_HOST_DEVICE (Box const& bx, Array4<Real const> const& rho,
+                                            Array4<Real const> const& vel,
+                                            Array4<Real const> const& divu ) noexcept -> Real
+      {   
+         using namespace amrex::literals;
+         const auto lo = amrex::lbound(bx);
+         const auto hi = amrex::ubound(bx);
+#if !defined(__CUDACC__) || (__CUDACC_VER_MAJOR__ != 9) || (__CUDACC_VER_MINOR__ != 2)
+         amrex::Real dt = std::numeric_limits<amrex::Real>::max();
+#else
+         amrex::Real dt = 1.e37_rt;
+#endif
+         for       (int k = lo.z; k <= hi.z; ++k) {
+            for    (int j = lo.y; j <= hi.y; ++j) {
+               for (int i = lo.x; i <= hi.x; ++i) {
+                  Real dtcell = est_divu_dt_2(i, j, k, divu_check_flag, divu_dt_fac, rho_min, dxinv,
+                                              rho, vel, divu );
+                  dt = amrex::min(dt,dtcell);
+               }
+            }
+         }
+         return dt;
+      });
+   } else if ( divu_ceiling == 3 ) {
+      amrex::Abort("divu_ceiling == 3 currently not available. If amrex::ReduceMin has been updated then this should be fixed");
+   } else {
+      amrex::Abort("Unknown divu_ceiling value. It should be between 0 and 3.");
+   }
 
    ParallelDescriptor::ReduceRealMin(divu_dt);
 
