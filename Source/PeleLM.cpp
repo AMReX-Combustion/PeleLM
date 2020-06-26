@@ -4759,7 +4759,7 @@ PeleLM::compute_differential_diffusion_terms (MultiFab& D,
 }
 
 void
-PeleLM::temperature_stats (MultiFab& S)
+PeleLM::state_stats (MultiFab& S)
 {
    if (verbose) {
       //
@@ -5577,7 +5577,7 @@ PeleLM::advance (Real time,
     showMF("mysdc",S_new,"sdc_Snew_end_sdc",level,sdc_iter,parent->levelSteps(level));
     showMF("mysdc",S_old,"sdc_Sold_end_sdc",level,sdc_iter,parent->levelSteps(level));
 
-    temperature_stats(S_new);
+    state_stats(S_new);
     if (verbose) amrex::Print() << "DONE WITH R (SDC corrector " << sdc_iter << ")\n";
 
     BL_PROFILE_VAR_START(PLM_MAC);
@@ -5785,7 +5785,7 @@ PeleLM::advance (Real time,
 
    if (verbose) amrex::Print() << "PeleLM::advance(): at end of time step\n";
 
-   temperature_stats(S_new);
+   state_stats(S_new);
    
    BL_PROFILE_VAR_START(PLM_MAC);
    // during initialization, reset time 0 ambient pressure
