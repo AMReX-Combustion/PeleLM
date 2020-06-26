@@ -4761,39 +4761,38 @@ PeleLM::compute_differential_diffusion_terms (MultiFab& D,
 void
 PeleLM::temperature_stats (MultiFab& S)
 {
-  if (verbose)
-  {
-    //
-    // Calculate some minimums and maximums.
-    //
-    auto scaleMin = VectorMin({&S},FabArrayBase::mfiter_tile_size,Density,NUM_STATE-BL_SPACEDIM,0);
-    auto scaleMax = VectorMax({&S},FabArrayBase::mfiter_tile_size,Density,NUM_STATE-BL_SPACEDIM,0);
+   if (verbose) {
+      //
+      // Calculate some minimums and maximums.
+      //
+      auto scaleMin = VectorMin({&S},FabArrayBase::mfiter_tile_size,Density,NUM_STATE-AMREX_SPACEDIM,0);
+      auto scaleMax = VectorMax({&S},FabArrayBase::mfiter_tile_size,Density,NUM_STATE-AMREX_SPACEDIM,0);
 
-    bool aNegY = false;
-    for (int i = 0; i < nspecies && !aNegY; ++i) {
-      if (scaleMin[first_spec+i-BL_SPACEDIM] < 0) aNegY = true;
-    }
-
-    amrex::Print() << "  Min,max temp = " << scaleMin[Temp   - BL_SPACEDIM]
-                   << ", "                << scaleMax[Temp   - BL_SPACEDIM] << '\n';
-    amrex::Print() << "  Min,max rho  = " << scaleMin[Density- BL_SPACEDIM]
-                   << ", "                << scaleMax[Density- BL_SPACEDIM] << '\n';
-    amrex::Print() << "  Min,max rhoh = " << scaleMin[RhoH   - BL_SPACEDIM]
-                   << ", "                << scaleMax[RhoH   - BL_SPACEDIM] << '\n';
-
-    if (aNegY){
-        Vector<std::string> names;
-        EOS::speciesNames(names);
-        amrex::Print() << "  Species w/min < 0: ";
-        for (int i = 0; i < nspecies; ++i) {
-        int idx = first_spec + i - BL_SPACEDIM;
-        if ( scaleMin[idx] < 0) {
-          amrex::Print() << "Y(" << names[i] << ") [" << scaleMin[idx] << "]  ";
-        }
+      bool aNegY = false;
+      for (int i = 0; i < NUM_SPECIES && !aNegY; ++i) {
+         if (scaleMin[first_spec+i-AMREX_SPACEDIM] < 0) aNegY = true;
       }
-      amrex::Print() << '\n';
-    }   
-  }
+
+      amrex::Print() << "  Min,max temp = " << scaleMin[Temp   - AMREX_SPACEDIM]
+                     << ", "                << scaleMax[Temp   - AMREX_SPACEDIM] << '\n';
+      amrex::Print() << "  Min,max rho  = " << scaleMin[Density- AMREX_SPACEDIM]
+                     << ", "                << scaleMax[Density- AMREX_SPACEDIM] << '\n';
+      amrex::Print() << "  Min,max rhoh = " << scaleMin[RhoH   - AMREX_SPACEDIM]
+                     << ", "                << scaleMax[RhoH   - AMREX_SPACEDIM] << '\n';
+
+      if (aNegY){
+         Vector<std::string> names;
+         EOS::speciesNames(names);
+         amrex::Print() << "  Species w/min < 0: ";
+         for (int i = 0; i < NUM_SPECIES; ++i) {
+            int idx = first_spec + i - AMREX_SPACEDIM;
+            if ( scaleMin[idx] < 0) {
+               amrex::Print() << "Y(" << names[i] << ") [" << scaleMin[idx] << "]  ";
+            }
+         }
+         amrex::Print() << '\n';
+      }
+   }
 }
 
 void
@@ -9251,13 +9250,11 @@ PeleLM::derive (const std::string& name,
                 MultiFab&          mf,
                 int                dcomp)
 {
-  {
 #ifdef AMREX_PARTICLES
-    ParticleDerive(name,time,mf,dcomp);
+   ParticleDerive(name,time,mf,dcomp);
 #else
-    AmrLevel::derive(name,time,mf,dcomp);
+   AmrLevel::derive(name,time,mf,dcomp);
 #endif
-  }
 }
 
 void
