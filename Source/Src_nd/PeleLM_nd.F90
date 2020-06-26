@@ -25,7 +25,7 @@ module PeleLM_nd
             init_data_new_mech, &
             dqrad_fill, divu_fill, dsdt_fill, ydot_fill, rhoYdot_fill, &
             repair_flux, compute_ugradp, conservative_T_floor, &
-            part_cnt_err, mcurve, smooth, recomp_update, &
+            part_cnt_err, mcurve, smooth, &
             valgt_error, vallt_error, magvort_error, diffgt_error, &
             FORT_AVERAGE_EDGE_STATES
 
@@ -1870,59 +1870,6 @@ contains
       end do
 
    end subroutine smooth
-
-!=========================================================
-!  Recompute cell update from fluxes
-!=========================================================
-
-   subroutine recomp_update(lo, hi, &
-                            update, u_lo, u_hi,&
-                            xflux,  xf_lo, xf_hi,&
-                            yflux,  yf_lo, yf_hi,&
-#if ( AMREX_SPACEDIM == 3 )
-                            zflux,  zf_lo, zf_hi,&
-#endif
-                            vol,    v_lo, v_hi, &
-                            nc) &
-                            bind(C, name="recomp_update")
-
-      implicit none
-
-      integer, intent(in) :: lo(3), hi(3)
-      integer, intent(in) :: nc
-      integer, intent(in) :: u_lo(3), u_hi(3)
-      integer, intent(in) :: xf_lo(3), xf_hi(3)
-      integer, intent(in) :: yf_lo(3), yf_hi(3)
-#if ( AMREX_SPACEDIM == 3 )
-      integer, intent(in) :: zf_lo(3), zf_hi(3)
-#endif
-      integer, intent(in) :: v_lo(3), v_hi(3)
-      REAL_T, dimension(u_lo(1):u_hi(1),u_lo(2):u_hi(2),u_lo(3):u_hi(3),nc) :: update
-      REAL_T, dimension(xf_lo(1):xf_hi(1),xf_lo(2):xf_hi(2),xf_lo(3):xf_hi(3),nc) :: xflux
-      REAL_T, dimension(yf_lo(1):yf_hi(1),yf_lo(2):yf_hi(2),yf_lo(3):yf_hi(3),nc) :: yflux
-#if ( AMREX_SPACEDIM == 3 )
-      REAL_T, dimension(zf_lo(1):zf_hi(1),zf_lo(2):zf_hi(2),zf_lo(3):zf_hi(3),nc) :: zflux
-#endif
-      REAL_T, dimension(v_lo(1):v_hi(1),v_lo(2):v_hi(2),v_lo(3):v_hi(3)) :: vol
-
-      integer :: i, j, k, n
-
-      do n = 1, nc
-         do k = lo(3), hi(3)
-            do j = lo(2), hi(2)
-               do i = lo(1), hi(1)
-                  update(i,j,k,n) = - ( (xflux(i+1,j,k,n)-xflux(i,j,k,n)) &
-                                      + (yflux(i,j+1,k,n)-yflux(i,j,k,n)) &
-#if ( AMREX_SPACEDIM == 3 )
-                                      + (zflux(i,j,k+1,n)-zflux(i,j,k,n)) &
-#endif
-                                      ) / vol(i,j,k)
-               end do
-            end do
-         end do
-      end do
-
-   end subroutine recomp_update
 
 !=========================================================
 !  Error tagging function : greater than 

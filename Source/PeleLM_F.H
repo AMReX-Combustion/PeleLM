@@ -157,16 +157,6 @@ extern "C" {
                      const amrex::Real* prob_lo, const amrex::Real* time,
                      const int* level);
 
-   void recomp_update(const int* lo, const int* hi,
-                            BL_FORT_FAB_ARG_ANYD(update),
-                      const BL_FORT_FAB_ARG_ANYD(xflux),
-                      const BL_FORT_FAB_ARG_ANYD(yflux),
-#if AMREX_SPACEDIM == 3
-                      const BL_FORT_FAB_ARG_ANYD(zflux),
-#endif
-                      const BL_FORT_FAB_ARG_ANYD(volume),
-                      const int* nc);
-
    void mcurve(const int* lo, const int* hi,
                const BL_FORT_FAB_ARG_ANYD(T),
                      BL_FORT_FAB_ARG_ANYD(K),
