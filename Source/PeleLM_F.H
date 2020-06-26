@@ -148,16 +148,6 @@ extern "C" {
                      const amrex::Real* prob_lo, const amrex::Real* time,
                      const int* level);
 
-   void mcurve(const int* lo, const int* hi,
-               const BL_FORT_FAB_ARG_ANYD(T),
-                     BL_FORT_FAB_ARG_ANYD(K),
-                     BL_FORT_FAB_ARG_ANYD(nW),
-               const amrex::Real* delta);
-
-   void smooth(const int* lo, const int* hi,
-                     BL_FORT_FAB_ARG_ANYD(i),
-               const BL_FORT_FAB_ARG_ANYD(o));
-
    void valgt_error(BL_FORT_IFAB_ARG_ANYD(tag),
                     const int* tagval, const int* clearval,
                     const BL_FORT_FAB_ARG_ANYD(dat),

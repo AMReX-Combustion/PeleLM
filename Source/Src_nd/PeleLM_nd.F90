@@ -25,7 +25,7 @@ module PeleLM_nd
             init_data_new_mech, &
             dqrad_fill, divu_fill, dsdt_fill, ydot_fill, rhoYdot_fill, &
             repair_flux, conservative_T_floor, &
-            part_cnt_err, mcurve, smooth, &
+            part_cnt_err, &
             valgt_error, vallt_error, magvort_error, diffgt_error, &
             FORT_AVERAGE_EDGE_STATES
 
@@ -1670,139 +1670,6 @@ contains
       end do
 
    end subroutine part_cnt_err
-
-!=========================================================
-! Compute curvature from temperature
-!=========================================================
-
-   subroutine mcurve ( lo, hi, &
-                       T, t_lo, t_hi,&
-                       curv, c_lo, c_hi,&
-                       wrk, w_lo, w_hi, delta )&
-                       bind(C, name="mcurve")
-
-      implicit none
-
-      integer lo(3), hi(3)
-      integer :: t_lo(3), t_hi(3)
-      integer :: c_lo(3), c_hi(3)
-      integer :: w_lo(3), w_hi(3)
-      REAL_T, dimension(t_lo(1):t_hi(1),t_lo(2):t_hi(2),t_lo(3):t_hi(3)) :: T
-      REAL_T, dimension(c_lo(1):c_hi(1),c_lo(2):c_hi(2),c_lo(3):c_hi(3)) :: curv
-      REAL_T, dimension(w_lo(1):w_hi(1),w_lo(2):w_hi(2),w_lo(3):w_hi(3),dim) :: wrk
-      REAL_T :: delta(3)
-
-      REAL_T  :: mag
-      REAL_T  :: Tx,Ty,Tz,Txx,Tyy,Tzz,Txy,Tyz,Txz,tdxI(3),dxSqI(3)
-      integer :: i, j, k
-
-      ! Fill normal on nodes (assumes 1 grow cell properly filled)
-      do i = 1, dim
-         tdxI(i) =  one / (two*delta(i))
-         dxSqI(i) = one / (delta(i)*delta(i))
-      enddo
- 
-      ! Init those to zero. If AMREX_SPACEDIM /= 3, all z component remain zero.
-      Tx  = 0.0d0
-      Ty  = 0.0d0
-      Tz  = 0.0d0
-      Txx = 0.0d0
-      Tyy = 0.0d0
-      Tzz = 0.0d0
-      Txy = 0.0d0
-      Txz = 0.0d0
-      Tyz = 0.0d0
-
-      do k = lo(3), hi(3)
-         do j = lo(2), hi(2)
-            do i = lo(1), hi(1)
-
-               Tx = tdxI(1)*(T(i+1,j,k) - T(i-1,j,k))
-               Ty = tdxI(2)*(T(i,j+1,k) - T(i,j-1,k))
-#if ( AMREX_SPACEDIM == 3 )
-               Tz = tdxI(3)*(T(i,j,k+1) - T(i,j,k-1))
-#endif
-
-               Txx = dxSqI(1)*(T(i+1,j,k) - two*T(i,j,k) + T(i-1,j,k))
-               Tyy = dxSqI(2)*(T(i,j+1,k) - two*T(i,j,k) + T(i,j-1,k))
-#if ( AMREX_SPACEDIM == 3 )
-               Tzz = dxSqI(3)*(T(i,j,k+1) - two*T(i,j,k) + T(i,j,k-1))
-#endif
-
-               Txy = tdxI(1)*tdxI(2)*(T(i+1,j+1,k) - T(i-1,j+1,k) - T(i+1,j-1,k) + T(i-1,j-1,k))
-#if ( AMREX_SPACEDIM == 3 )
-               Txz = tdxI(1)*tdxI(3)*(T(i+1,j,k+1) - T(i-1,j,k+1) - T(i+1,j,k-1) + T(i-1,j,k-1))
-               Tyz = tdxI(2)*tdxI(3)*(T(i,j+1,k+1) - T(i,j-1,k+1) - T(i,j+1,k-1) + T(i,j-1,k-1))
-#endif
-
-               mag = max(1.0d-12, SQRT(Tx*Tx + Ty*Ty + Tz*Tz))
-
-               curv(i,j,k) = - half * (  Txx + Tyy + Tzz &
-                                       - (  Tx*(Tx*Txx + Ty*Txy + Tz*Txz) &
-                                          + Ty*(Tx*Txy + Ty*Tyy + Tz*Tyz) &
-                                          + Tz*(Tx*Txz + Ty*Tyz + Tz*Tzz) ) / mag**2.0d0 ) / mag
-            end do
-         end do
-      end do
-
-   end subroutine mcurve
-
-!=========================================================
-! Smooth variable by averaging surrounding cells
-!=========================================================
-
-   subroutine smooth ( lo, hi,&
-                       Tin, ti_lo, ti_hi,&
-                       Tout, to_lo, to_hi )&
-                       bind(C, name="smooth")
-
-      implicit none
-
-      integer :: lo(3), hi(3)
-      integer :: ti_lo(3), ti_hi(3)
-      integer :: to_lo(3), to_hi(3)
-      REAL_T, dimension(ti_lo(1):ti_hi(1),ti_lo(2):ti_hi(2),ti_lo(3):ti_hi(3)) :: Tin
-      REAL_T, dimension(to_lo(1):to_hi(1),to_lo(2):to_hi(2),to_lo(3):to_hi(3)) :: Tout
-      REAL_T :: factor
-      integer :: i, j, k, ii, jj, kk
-
-#if ( AMREX_SPACEDIM == 2 )
-      factor = 1.0d0 / 16.0d0
-#elif ( AMREX_SPACEDIM == 3 )
-      factor = 1.0d0 / 64.0d0
-#endif
-
-      do k = lo(3), hi(3)
-         do j = lo(2), hi(2)
-            do i = lo(1), hi(1)
-               Tout(i,j,k) = zero
-#if ( AMREX_SPACEDIM == 2 )
-                do jj = 0, 1
-                   do ii = 0, 1
-                      Tout(i,j,k) = Tout(i,j,k) &
-                          + Tin(i+ii,j+jj,  k)   + Tin(i+ii-1,j+jj,  k  ) &
-                          + Tin(i+ii,j+jj-1,k  ) + Tin(i+ii-1,j+jj-1,k  )
-                   end do
-                end do
-#elif ( AMREX_SPACEDIM == 3 )
-               do kk = 0, 1
-                  do jj = 0, 1
-                     do ii = 0, 1
-                        Tout(i,j,k) = Tout(i,j,k) &
-                            + Tin(i+ii,j+jj,  k+kk-1) + Tin(i+ii-1,j+jj,  k+kk-1) &
-                            + Tin(i+ii,j+jj-1,k+kk-1) + Tin(i+ii-1,j+jj-1,k+kk-1) &
-                            + Tin(i+ii,j+jj,  k+kk)   + Tin(i+ii-1,j+jj,  k+kk  ) &
-                            + Tin(i+ii,j+jj-1,k+kk  ) + Tin(i+ii-1,j+jj-1,k+kk  )
-                     end do
-                  end do
-               end do
-#endif
-               Tout(i,j,k) = Tout(i,j,k) * factor
-            end do
-         end do
-      end do
-
-   end subroutine smooth
 
 !=========================================================
 !  Error tagging function : greater than 
