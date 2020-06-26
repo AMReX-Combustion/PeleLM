@@ -24,7 +24,7 @@ module PeleLM_nd
   public :: pphys_HMIXfromTY, pphys_RHOfromPTY, pphys_CPMIXfromTY, pphys_TfromHY, &
             init_data_new_mech, &
             dqrad_fill, divu_fill, dsdt_fill, ydot_fill, rhoYdot_fill, &
-            repair_flux, compute_ugradp, conservative_T_floor, &
+            repair_flux, conservative_T_floor, &
             part_cnt_err, mcurve, smooth, &
             valgt_error, vallt_error, magvort_error, diffgt_error, &
             FORT_AVERAGE_EDGE_STATES
@@ -1506,73 +1506,6 @@ contains
 #endif
 
    end subroutine fillWithZeros
-
-!=========================================================
-! Compute u times gradP 
-!=========================================================
-
-   subroutine compute_ugradp(p, p_lo, p_hi,&
-                             ugradp, ugp_lo, ugp_hi,&
-                             umac, u_lo, u_hi,&
-                             vmac, v_lo, v_hi,&
-#if ( AMREX_SPACEDIM == 3 )
-                             wmac, w_lo, w_hi,&
-#endif
-                             lo, hi, dx)&
-                             bind(C, name="compute_ugradp")
-
-      implicit none
-
-      integer :: lo(3), hi(3)
-      integer :: p_lo(3), p_hi(3)
-      integer :: ugp_lo(3), ugp_hi(3)
-      integer :: u_lo(3), u_hi(3)
-      integer :: v_lo(3), v_hi(3)
-#if ( AMREX_SPACEDIM == 3 )
-      integer :: w_lo(3), w_hi(3)
-#endif
-      REAL_T, dimension(p_lo(1):p_hi(1),p_lo(2):p_hi(2),p_lo(3):p_hi(3)) :: p
-      REAL_T, dimension(ugp_lo(1):ugp_hi(1),ugp_lo(2):ugp_hi(2),ugp_lo(3):ugp_hi(3)) :: ugradp
-      REAL_T, dimension(u_lo(1):u_hi(1),u_lo(2):u_hi(2),u_lo(3):u_hi(3)) :: umac
-      REAL_T, dimension(v_lo(1):v_hi(1),v_lo(2):v_hi(2),v_lo(3):v_hi(3)) :: vmac
-#if ( AMREX_SPACEDIM == 3 )
-      REAL_T, dimension(w_lo(1):w_hi(1),w_lo(2):w_hi(2),w_lo(3):w_hi(3)) :: wmac
-#endif
-      REAL_T :: dx(3)
-
-      integer :: i, j, k
-      REAL_T :: uadv, vadv, wadv
-      REAL_T :: p_x_lo, p_x_hi
-      REAL_T :: p_y_lo, p_y_hi
-      REAL_T :: p_z_lo, p_z_hi
-
-      do k = lo(3), hi(3)
-         do j = lo(2), hi(2)
-            do i = lo(1), hi(1)
-               uadv = half*(umac(i,j,k) + umac(i+1,j,k))
-               vadv = half*(vmac(i,j,k) + vmac(i,j+1,k))
-#if ( AMREX_SPACEDIM == 3 )
-               wadv = half*(wmac(i,j,k) + wmac(i,j,k+1))
-#endif
-               p_x_hi = merge(p(i  ,j,k),p(i+1,j,k),umac(i+1,j,k)>=zero)
-               p_x_lo = merge(p(i-1,j,k),p(i  ,j,k),umac(i  ,j,k)>=zero)
-               p_y_hi = merge(p(i,j  ,k),p(i,j+1,k),vmac(i,j+1,k)>=zero)
-               p_y_lo = merge(p(i,j-1,k),p(i,j  ,k),vmac(i,j  ,k)>=zero)
-#if ( AMREX_SPACEDIM == 3 )
-               p_z_hi = merge(p(i,j,k  ),p(i,j,k+1),wmac(i,j,k+1)>=zero)
-               p_z_lo = merge(p(i,j,k-1),p(i,j,k  ),wmac(i,j,k  )>=zero)
-#endif
-               ugradp(i,j,k) = (   uadv * (p_x_hi - p_x_lo) / dx(1) &
-                                 + vadv * (p_y_hi - p_y_lo) / dx(2) &
-#if ( AMREX_SPACEDIM == 3 )
-                                 + wadv * (p_z_hi - p_z_lo) / dx(3) &
-#endif
-                               )
-            end do
-         end do
-      end do
-
-   end subroutine compute_ugradp
 
 !=========================================================
 ! Floor T in a conservative manner

@@ -133,15 +133,6 @@ extern "C" {
 
    void set_common (const amrex::Real* time, const int* iteration);
 
-   void compute_ugradp (const BL_FORT_FAB_ARG_ANYD(p),
-                              BL_FORT_FAB_ARG_ANYD(ugradp),
-                        const BL_FORT_FAB_ARG_ANYD(umac),
-                        const BL_FORT_FAB_ARG_ANYD(vmac),
-#if AMREX_SPACEDIM == 3
-                        const BL_FORT_FAB_ARG_ANYD(wmac),
-#endif
-                        const int* lo, const int* hi, const amrex::Real* dx);
-
    int conservative_T_floor(const int* lo, const int* hi,
                             BL_FORT_FAB_ARG_ANYD(fabdat),
                             const amrex::Real* min_T_fine, const int* Tcomp, const int* Rcomp,
