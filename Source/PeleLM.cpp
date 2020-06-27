@@ -1025,12 +1025,10 @@ PeleLM::center_to_edge_fancy (const FArrayBox& cfab,
 void
 PeleLM::variableCleanUp ()
 {
-  NavierStokesBase::variableCleanUp();
-
-
-  ShowMF_Sets.clear();
-  auxDiag_names.clear();
-  typical_values.clear();
+   NavierStokesBase::variableCleanUp();
+   ShowMF_Sets.clear();
+   auxDiag_names.clear();
+   typical_values.clear();
 }
 
 PeleLM::PeleLM ()
@@ -3734,113 +3732,108 @@ PeleLM::adjust_spec_diffusion_fluxes (MultiFab* const * flux,
                                       const MultiFab&   S,
 #ifdef AMREX_USE_EB
                                       D_DECL(const amrex::MultiCutFab& x_areafrac,
-		                                         const amrex::MultiCutFab& y_areafrac,
-		                                         const amrex::MultiCutFab& z_areafrac),
+                                             const amrex::MultiCutFab& y_areafrac,
+                                             const amrex::MultiCutFab& z_areafrac),
 #endif
                                       const BCRec&      bc,
                                       Real              time)
 {
-  //
-  // Adjust the species diffusion fluxes so that their sum is zero.
-  //
-  const Real strt_time = ParallelDescriptor::second();
-  const Box& domain = geom.Domain();
+   //
+   // Adjust the species diffusion fluxes so that their sum is zero.
+   //
+   const Real strt_time = ParallelDescriptor::second();
+   const Box& domain = geom.Domain();
 
-  int ngrow = 3;
-  MultiFab TT(grids,dmap,nspecies,ngrow,MFInfo(),Factory());
-  FillPatch(*this,TT,ngrow,time,State_Type,first_spec,nspecies,0);
-
+   int ngrow = 3;
+   MultiFab TT(grids,dmap,NUM_SPECIES,ngrow,MFInfo(),Factory());
+   FillPatch(*this,TT,ngrow,time,State_Type,first_spec,NUM_SPECIES,0);
 
 #ifdef AMREX_USE_EB
+   Vector<BCRec> math_bc(NUM_SPECIES);
+   math_bc = fetchBCArray(State_Type,first_spec,NUM_SPECIES);
 
-  Vector<BCRec> math_bc(nspecies);
-  math_bc = fetchBCArray(State_Type,first_spec,nspecies);
+   MultiFab edgstate[AMREX_SPACEDIM];
+   int nghost(4);         // Use 4 for now
 
-  MultiFab edgstate[BL_SPACEDIM];
-  int nghost(4);         // Use 4 for now
-
-  for (int i(0); i < BL_SPACEDIM; i++)
-  {
-    const BoxArray& ba = getEdgeBoxArray(i);
-    edgstate[i].define(ba, dmap, nspecies, nghost, MFInfo(), Factory());
-  }
-
-  EB_interp_CellCentroid_to_FaceCentroid(TT, D_DECL(edgstate[0],edgstate[1],edgstate[2]), 0, 0, nspecies, geom, math_bc);
+   for (int i(0); i < AMREX_SPACEDIM; i++)
+   {
+     const BoxArray& ba = getEdgeBoxArray(i);
+     edgstate[i].define(ba, dmap, NUM_SPECIES, nghost, MFInfo(), Factory());
+   }
+   EB_interp_CellCentroid_to_FaceCentroid(TT, D_DECL(edgstate[0],edgstate[1],edgstate[2]), 0, 0, NUM_SPECIES, geom, math_bc);
 #endif
 
 #ifdef _OPENMP
 #pragma omp parallel
 #endif
-  for (MFIter mfi(S,true); mfi.isValid(); ++mfi)
-  {    
-    const FArrayBox& Sfab = TT[mfi];
-    for (int d =0; d < BL_SPACEDIM; ++d)
-    {
-      FArrayBox& Ffab = (*flux[d])[mfi];
-      const Box& ebox = mfi.nodaltilebox(d);
-      const Box& edomain = amrex::surroundingNodes(domain,d);
+   for (MFIter mfi(S,true); mfi.isValid(); ++mfi)
+   {    
+      const FArrayBox& Sfab = TT[mfi];
+      for (int dir =0; dir < AMREX_SPACEDIM; ++dir)
+      {
+
+         const Box& ebx = mfi.nodaltilebox(dir);
+         const Box& edomain = amrex::surroundingNodes(domain,dir);
+         FArrayBox& Ffab = (*flux[dir])[mfi];
 
 #ifdef AMREX_USE_EB
+         const EBFArrayBox&  state_fab = static_cast<EBFArrayBox const&>(S[mfi]);
+         const EBCellFlagFab&    flags = state_fab.getEBCellFlagFab();
 
-      const EBFArrayBox&  state_fab = static_cast<EBFArrayBox const&>(S[mfi]);
-      const EBCellFlagFab&    flags = state_fab.getEBCellFlagFab();
-
-      if (flags.getType(amrex::grow(ebox,0)) != FabType::covered )
-      {
-         // No cut cells in tile + nghost-cell witdh halo -> use non-eb routine
-         if (flags.getType(amrex::grow(ebox,nghost)) == FabType::regular )
+         if (flags.getType(amrex::grow(ebx,0)) != FabType::covered )
          {
-           repair_flux(BL_TO_FORTRAN_BOX(ebox),
-                       BL_TO_FORTRAN_BOX(edomain),
-                       BL_TO_FORTRAN_ANYD(Ffab), 
-                       BL_TO_FORTRAN_N_ANYD(Sfab,0),
-                       &d, bc.vect());
-                 
-         }
-         else
-         {         
-           repair_flux_eb(BL_TO_FORTRAN_BOX(ebox),
-                          BL_TO_FORTRAN_BOX(edomain),
-                          BL_TO_FORTRAN_ANYD(Ffab), 
-                          BL_TO_FORTRAN_N_ANYD(Sfab,0),
-
-                          BL_TO_FORTRAN_N_ANYD(edgstate[0][mfi],0),
-                          BL_TO_FORTRAN_ANYD((*areafrac[0])[mfi]),
-                          BL_TO_FORTRAN_N_ANYD(edgstate[1][mfi],0),
-                          BL_TO_FORTRAN_ANYD((*areafrac[1])[mfi]),
+            // No cut cells in tile + nghost-cell witdh halo -> use non-eb routine
+            if (flags.getType(amrex::grow(ebx,nghost)) == FabType::regular )
+            {
+               repair_flux(BL_TO_FORTRAN_BOX(ebx),
+                           BL_TO_FORTRAN_BOX(edomain),
+                           BL_TO_FORTRAN_ANYD(Ffab), 
+                           BL_TO_FORTRAN_N_ANYD(Sfab,0),
+                           &dir, bc.vect());
+            }
+            else
+            {         
+               repair_flux_eb(BL_TO_FORTRAN_BOX(ebx),
+                              BL_TO_FORTRAN_BOX(edomain),
+                              BL_TO_FORTRAN_ANYD(Ffab), 
+                              BL_TO_FORTRAN_N_ANYD(Sfab,0),
+                              BL_TO_FORTRAN_N_ANYD(edgstate[0][mfi],0),
+                              BL_TO_FORTRAN_ANYD((*areafrac[0])[mfi]),
+                              BL_TO_FORTRAN_N_ANYD(edgstate[1][mfi],0),
+                              BL_TO_FORTRAN_ANYD((*areafrac[1])[mfi]),
 #if ( AMREX_SPACEDIM == 3 )
-                          BL_TO_FORTRAN_N_ANYD(edgstate[2][mfi],0),
-                          BL_TO_FORTRAN_ANYD((*areafrac[2])[mfi]),
+                              BL_TO_FORTRAN_N_ANYD(edgstate[2][mfi],0),
+                              BL_TO_FORTRAN_ANYD((*areafrac[2])[mfi]),
 #endif
-                         &d, bc.vect());
-          
+                              &dir, bc.vect());
+            }
          }
-      }
-      
 #else
-
-      repair_flux(BL_TO_FORTRAN_BOX(ebox),
-                  BL_TO_FORTRAN_BOX(edomain),
-                  BL_TO_FORTRAN_ANYD(Ffab), 
-                  BL_TO_FORTRAN_N_ANYD(Sfab,0),
-                  &d, bc.vect());
+         auto const& rhoY     = TT.array(mfi);
+         auto const& flux_dir = flux[dir]->array(mfi);
+         amrex::ParallelFor(ebx, [dir, rhoY, flux_dir, edomain, bc]
+         AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+         {
+            int idx[3] = {i,j,k};
+            bool on_lo = ( ( bc.lo(dir) == EXT_DIR ) && ( idx[dir] <= edomain.smallEnd(dir) ) );
+            bool on_hi = ( ( bc.hi(dir) == EXT_DIR ) && ( idx[dir] >= edomain.bigEnd(dir) ) );
+            repair_flux( i, j, k, dir, on_lo, on_hi, rhoY, flux_dir );
+         });
 
 #endif
+      }
+   }
 
-      
-    }
-  }
+   if (verbose > 1)
+   {
+      const int IOProc   = ParallelDescriptor::IOProcessorNumber();
+      Real      run_time = ParallelDescriptor::second() - strt_time;
 
-  if (verbose > 1)
-  {
-    const int IOProc   = ParallelDescriptor::IOProcessorNumber();
-    Real      run_time = ParallelDescriptor::second() - strt_time;
+      ParallelDescriptor::ReduceRealMax(run_time,IOProc);
 
-    ParallelDescriptor::ReduceRealMax(run_time,IOProc);
-
-    amrex::Print() << "PeleLM::adjust_spec_diffusion_fluxes(): lev: " << level 
-		   << ", time: " << run_time << '\n';
-  }
+      amrex::Print() << "PeleLM::adjust_spec_diffusion_fluxes(): lev: " << level 
+                     << ", time: " << run_time << '\n';
+   }
 }
 
 void
