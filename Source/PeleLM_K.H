@@ -762,9 +762,9 @@ repair_flux(int i, int j, int k,
    amrex::Real sumRhoYe = 0.0_rt;
    amrex::Real RhoYe[NUM_SPECIES];
 
-   // Handle the BCs : need a -1 on low in dir away from the BC
-   // Need -1 in id_l and id_h on low BC
-   // Need nothing on high BC
+   // Handle the BCs : need a -1 on id_l in dir away from the BC
+   // Need -1 in id_l and id_h in dir on low Dirichlet BC
+   // Need nothing on high Dirichlet BC
    int  id_l[3] = {i,j,k};
    int  id_h[3] = {i,j,k};
    if ( !on_lo ) {
@@ -784,6 +784,48 @@ repair_flux(int i, int j, int k,
    sumRhoYe = 1.0_rt / sumRhoYe;
    for (int n = 0; n < NUM_SPECIES; n++) {
       flux(i,j,k,n) -= sumFlux * RhoYe[n] * sumRhoYe;
+   }
+
+}
+
+AMREX_GPU_HOST_DEVICE
+inline
+void
+repair_flux_eb(int i, int j, int k,
+               int dir,
+               const bool                       on_lo,
+               const bool                       on_hi,
+               amrex::Array4<const amrex::Real> const& rhoY,
+               amrex::Array4<const amrex::Real> const& rhoYed,
+               amrex::Array4<const amrex::Real> const& areafrac,
+               amrex::Array4<      amrex::Real> const& flux ) noexcept
+{
+   using namespace amrex::literals;
+
+   amrex::Real sumFlux = 0.0_rt;
+   amrex::Real sumRhoYe = 0.0_rt;
+   amrex::Real RhoYe[NUM_SPECIES];
+
+   // Handle the BCs : need a -1 on id_l in dir on Dirichlet BC
+   int  id_l[3] = {i,j,k};
+   id_l[dir] -= 1;
+
+   if ( areafrac(i,j,k) > 0.0_rt ) {
+      for (int n = 0; n < NUM_SPECIES; n++) {
+         sumFlux += flux(i,j,k,n);
+         RhoYe[n] = rhoYed(i,j,k,n);
+         if ( on_lo ) RhoYe[n] = rhoY(id_l[0],id_l[1],id_l[2],n);
+         if ( on_hi ) RhoYe[n] = rhoY(i,j,k,n);
+         sumRhoYe += RhoYe[n];
+      }
+      sumRhoYe = 1.0_rt / sumRhoYe;
+      for (int n = 0; n < NUM_SPECIES; n++) {
+         flux(i,j,k,n) -= sumFlux * RhoYe[n] * sumRhoYe;
+      }
+   } else {
+      for (int n = 0; n < NUM_SPECIES; n++) {
+         flux(i,j,k,n) = 0.0_rt;
+      }
    }
 
 }

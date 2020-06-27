@@ -3764,17 +3764,16 @@ PeleLM::adjust_spec_diffusion_fluxes (MultiFab* const * flux,
 #endif
 
 #ifdef _OPENMP
-#pragma omp parallel
+#pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
-   for (MFIter mfi(S,true); mfi.isValid(); ++mfi)
+   for (MFIter mfi(S,TilingIfNotGPU()); mfi.isValid(); ++mfi)
    {    
-      const FArrayBox& Sfab = TT[mfi];
       for (int dir =0; dir < AMREX_SPACEDIM; ++dir)
       {
-
          const Box& ebx = mfi.nodaltilebox(dir);
          const Box& edomain = amrex::surroundingNodes(domain,dir);
-         FArrayBox& Ffab = (*flux[dir])[mfi];
+         auto const& rhoY     = TT.array(mfi);
+         auto const& flux_dir = flux[dir]->array(mfi);
 
 #ifdef AMREX_USE_EB
          const EBFArrayBox&  state_fab = static_cast<EBFArrayBox const&>(S[mfi]);
@@ -3785,32 +3784,30 @@ PeleLM::adjust_spec_diffusion_fluxes (MultiFab* const * flux,
             // No cut cells in tile + nghost-cell witdh halo -> use non-eb routine
             if (flags.getType(amrex::grow(ebx,nghost)) == FabType::regular )
             {
-               repair_flux(BL_TO_FORTRAN_BOX(ebx),
-                           BL_TO_FORTRAN_BOX(edomain),
-                           BL_TO_FORTRAN_ANYD(Ffab), 
-                           BL_TO_FORTRAN_N_ANYD(Sfab,0),
-                           &dir, bc.vect());
+               amrex::ParallelFor(ebx, [dir, rhoY, flux_dir, edomain, bc]
+               AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+               {
+                  int idx[3] = {i,j,k};
+                  bool on_lo = ( ( bc.lo(dir) == EXT_DIR ) && ( idx[dir] <= edomain.smallEnd(dir) ) );
+                  bool on_hi = ( ( bc.hi(dir) == EXT_DIR ) && ( idx[dir] >= edomain.bigEnd(dir) ) );
+                  repair_flux( i, j, k, dir, on_lo, on_hi, rhoY, flux_dir );
+               });
             }
             else
             {         
-               repair_flux_eb(BL_TO_FORTRAN_BOX(ebx),
-                              BL_TO_FORTRAN_BOX(edomain),
-                              BL_TO_FORTRAN_ANYD(Ffab), 
-                              BL_TO_FORTRAN_N_ANYD(Sfab,0),
-                              BL_TO_FORTRAN_N_ANYD(edgstate[0][mfi],0),
-                              BL_TO_FORTRAN_ANYD((*areafrac[0])[mfi]),
-                              BL_TO_FORTRAN_N_ANYD(edgstate[1][mfi],0),
-                              BL_TO_FORTRAN_ANYD((*areafrac[1])[mfi]),
-#if ( AMREX_SPACEDIM == 3 )
-                              BL_TO_FORTRAN_N_ANYD(edgstate[2][mfi],0),
-                              BL_TO_FORTRAN_ANYD((*areafrac[2])[mfi]),
-#endif
-                              &dir, bc.vect());
+               auto const& rhoYed_d   = edgstate[dir].array(mfi);
+               auto const& areafrac_d = areafrac[dir]->array(mfi);
+               amrex::ParallelFor(ebx, [dir, rhoY, flux_dir, rhoYed_d, areafrac_d, edomain, bc]
+               AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+               {
+                  int idx[3] = {i,j,k};
+                  bool on_lo = ( ( bc.lo(dir) == EXT_DIR ) && ( idx[dir] <= edomain.smallEnd(dir) ) );
+                  bool on_hi = ( ( bc.hi(dir) == EXT_DIR ) && ( idx[dir] >= edomain.bigEnd(dir) ) );
+                  repair_flux_eb( i, j, k, dir, on_lo, on_hi, rhoY, rhoYed_d, areafrac_d, flux_dir );
+               });
             }
          }
 #else
-         auto const& rhoY     = TT.array(mfi);
-         auto const& flux_dir = flux[dir]->array(mfi);
          amrex::ParallelFor(ebx, [dir, rhoY, flux_dir, edomain, bc]
          AMREX_GPU_DEVICE (int i, int j, int k) noexcept
          {
