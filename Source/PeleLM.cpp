@@ -4271,21 +4271,6 @@ void dumpProfile(const MultiFab& mf,
   dumpProfileFab(fab,file);
 }
 
-Real MFnorm(const MultiFab& mf,
-            int             sComp,
-            int             nComp)
-{
-  const int p = 0; // max norm
-  Real normtot = 0.0;
-#ifdef _OPENMP
-#pragma omp parallel
-#endif
-  for (MFIter mfi(mf,true); mfi.isValid(); ++mfi)
-    normtot = std::max(normtot,mf[mfi].norm<RunOn::Host>(mfi.tilebox(),p,sComp,nComp));
-  ParallelDescriptor::ReduceRealMax(normtot);
-  return normtot;
-}
-
 void
 PeleLM::compute_differential_diffusion_fluxes (const MultiFab& S,
                                                const MultiFab* Scrse,
