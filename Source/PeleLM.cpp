@@ -2295,26 +2295,26 @@ PeleLM::post_timestep (int crse_iteration)
 void
 PeleLM::post_restart ()
 {
-  NavierStokesBase::post_restart();
+   NavierStokesBase::post_restart();
 
-  make_rho_prev_time();
-  make_rho_curr_time();
+   make_rho_prev_time();
+   make_rho_curr_time();
 
-  Real dummy  = 0;
-  int MyProc  = ParallelDescriptor::MyProc();
-  int step    = parent->levelSteps(0);
-  int is_restart = 1;
+   Real dummy  = 0;
+   int MyProc  = ParallelDescriptor::MyProc();
+   int step    = parent->levelSteps(0);
+   int is_restart = 1;
 
-  if (do_active_control)
-  {
-    int usetemp = 0;
-    active_control(&dummy,&dummy,&crse_dt,&MyProc,&step,&is_restart,&usetemp);
-  }
-  else if (do_active_control_temp)
-  {
-    int usetemp = 1;
-    active_control(&dummy,&dummy,&crse_dt,&MyProc,&step,&is_restart,&usetemp);
-  }
+   if (do_active_control)
+   {
+      int usetemp = 0;
+      active_control(&dummy,&dummy,&crse_dt,&MyProc,&step,&is_restart,&usetemp);
+   }
+   else if (do_active_control_temp)
+   {
+      int usetemp = 1;
+      active_control(&dummy,&dummy,&crse_dt,&MyProc,&step,&is_restart,&usetemp);
+   }
 }
 
 void
@@ -4043,108 +4043,53 @@ PeleLM::compute_enthalpy_fluxes (MultiFab* const*       flux,
 void
 PeleLM::velocity_diffusion_update (Real dt)
 {
-  //
-  // Do implicit c-n solve for velocity
-  // compute the viscous forcing
-  // do following except at initial iteration--rbp, per jbb
-  //
-  if (is_diffusive[Xvel])
-  {
-    const Real strt_time = ParallelDescriptor::second();
+   //
+   // Do implicit c-n solve for velocity
+   // compute the viscous forcing
+   // do following except at initial iteration--rbp, per jbb
+   //
+   if (is_diffusive[Xvel])
+   {
+      const Real strt_time = ParallelDescriptor::second();
 
-    int rho_flag;
-    if (do_mom_diff == 0)
-    {
-      rho_flag = 1;
-    }
-    else
-    {
-      rho_flag = 3;
-    }
+      const Real time = state[State_Type].prevTime();
 
-    MultiFab *delta_rhs = 0;
-    FluxBoxes fb_betan, fb_betanp1;
+      int rho_flag;
+      if (do_mom_diff == 0)
+      {
+         rho_flag = 1;
+      }
+      else
+      {
+         rho_flag = 3;
+      }
 
-    diffuse_velocity_setup(dt, delta_rhs, fb_betan, fb_betanp1);
+      MultiFab *delta_rhs = 0;
 
-    int rhsComp  = 0;
-    int betaComp = 0;
-    diffusion->diffuse_velocity(dt,be_cn_theta,get_rho_half_time(),rho_flag,
-                                delta_rhs,rhsComp,fb_betan.get(),fb_betanp1.get(),betaComp);
+      FluxBoxes fb_betan(this,1,0);
+      FluxBoxes fb_betanp1(this,1,0);
+      MultiFab** betan = fb_betan.get();
+      MultiFab** betanp1 = fb_betanp1.get();
+      getViscosity(betan, time);
+      getViscosity(betanp1, time+dt);
 
-    delete delta_rhs;
+      int rhsComp  = 0;
+      int betaComp = 0;
+      diffusion->diffuse_velocity(dt,be_cn_theta,get_rho_half_time(),rho_flag,
+                                  delta_rhs,rhsComp,betan,betanp1,betaComp);
 
-    if (verbose > 1)
-    {
-      const int IOProc   = ParallelDescriptor::IOProcessorNumber();
-      Real      run_time = ParallelDescriptor::second() - strt_time;
+      delete delta_rhs;
 
-      ParallelDescriptor::ReduceRealMax(run_time,IOProc);
+      if (verbose > 1)
+      {
+        const int IOProc   = ParallelDescriptor::IOProcessorNumber();
+        Real      run_time = ParallelDescriptor::second() - strt_time;
 
-      amrex::Print() << "PeleLM::velocity_diffusion_update(): lev: " << level 
-		     << ", time: " << run_time << '\n';
-    }
-  }
-}
- 
-void
-PeleLM::diffuse_velocity_setup (Real        dt,
-                                MultiFab*&  delta_rhs,
-                                FluxBoxes&  fb_betan,
-                                FluxBoxes&  fb_betanp1)
-{
-  //
-  // Do setup for implicit c-n solve for velocity.
-  //
-  BL_ASSERT(delta_rhs==0);
-  const Real time = state[State_Type].prevTime();
-  //
-  // Assume always variable viscosity.
-  //
-  MultiFab** betan = fb_betan.define(this);
-  MultiFab** betanp1 = fb_betanp1.define(this);
-    
-  getViscosity(betan, time);
-  getViscosity(betanp1, time+dt);
-  //
-  // Do the following only if it is a non-trivial operation.
-  //
-  if (S_in_vel_diffusion)
-  {
-    //
-    // Include div mu S*I terms in rhs
-    //  (i.e. make nonzero delta_rhs to add into RHS):
-    //
-    // The scalar and tensor solvers incorporate the relevant pieces of
-    //  of Div(tau), provided the flow is divergence-free.  Howeever, if
-    //  Div(U) =/= 0, there is an additional piece not accounted for,
-    //  which is of the form A.Div(U).  For constant viscosity, Div(tau)_i
-    //  = Lapacian(U_i) + mu/3 d[Div(U)]/dx_i.  For mu not constant,
-    //  Div(tau)_i = d[ mu(du_i/dx_j + du_j/dx_i) ]/dx_i - 2mu/3 d[Div(U)]/dx_i
-    //
-    // As a convenience, we treat this additional term as a "source" in
-    // the diffusive solve, computing Div(U) in the "normal" way we
-    // always do--via a call to calc_divu.  This routine computes delta_rhs
-    // if necessary, and stores it as an auxilliary rhs to the viscous solves.
-    // This is a little strange, but probably not bad.
-    //
-    delta_rhs = new MultiFab(grids,dmap,BL_SPACEDIM,0,MFInfo(),Factory());
-    delta_rhs->setVal(0);
-      
-    MultiFab divmusi(grids,dmap,BL_SPACEDIM,0,MFInfo(),Factory());
+        ParallelDescriptor::ReduceRealMax(run_time,IOProc);
 
-    //
-    // Assume always variable viscosity.
-    //
-    diffusion->compute_divmusi(time,betan,divmusi);
-    divmusi.mult((-2./3.)*(1.0-be_cn_theta),0,BL_SPACEDIM,0);
-    (*delta_rhs).plus(divmusi,0,BL_SPACEDIM,0);
-    //
-    // Assume always variable viscosity.
-    //
-    diffusion->compute_divmusi(time+dt,betanp1,divmusi);
-    divmusi.mult((-2./3.)*be_cn_theta,0,BL_SPACEDIM,0);
-    (*delta_rhs).plus(divmusi,0,BL_SPACEDIM,0);
+        amrex::Print() << "PeleLM::velocity_diffusion_update(): lev: " << level
+                       << ", time: " << run_time << '\n';
+      }
   }
 }
 
@@ -4199,26 +4144,6 @@ PeleLM::getViscTerms (MultiFab& visc_terms,
   else
   {
     amrex::Abort("Should only call getViscTerms for velocity");
-  }
-  //
-  // Add Div(u) term if desired, if this is velocity, and if Div(u) is nonzero
-  // If const-visc, term is mu.Div(u)/3, else it's -Div(mu.Div(u).I)*2/3
-  //
-  if (src_comp < BL_SPACEDIM && S_in_vel_diffusion)
-  {
-    if (num_comp < BL_SPACEDIM)
-      amrex::Error("getViscTerms() need all v-components at once");
-    
-    MultiFab divmusi(grids,dmap,BL_SPACEDIM,0,MFInfo(),Factory());
-    showMF("velVT",get_old_data(Divu_Type),"velVT_divu",level);
-    //
-    // Assume always using variable viscosity.
-    //
-    diffusion->compute_divmusi(time,vel_visc,divmusi); // pre-computed visc above
-    divmusi.mult((-2./3.),0,BL_SPACEDIM,0);
-    showMF("velVT",divmusi,"velVT_divmusi",level);
-    visc_terms.plus(divmusi,Xvel,BL_SPACEDIM,0);
-    showMF("velVT",visc_terms,"velVT_visc_terms_3",level);
   }
   //
   // Ensure consistent grow cells
