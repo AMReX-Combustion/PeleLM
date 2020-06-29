@@ -2194,70 +2194,23 @@ PeleLM::init (AmrLevel& old)
 //
 // Inits the data on a new level that did not exist before regridding.
 //
-
 void
 PeleLM::init ()
 {
-  NavierStokesBase::init();
+   NavierStokesBase::init();
 
-  PeleLM& coarser  = getLevel(level-1);
-  const Real    tnp1 = coarser.state[State_Type].curTime();
-  //
-  // Get best ydot data.
-  //
-  FillCoarsePatch(get_new_data(RhoYdot_Type),0,tnp1,RhoYdot_Type,0,nspecies);
+   PeleLM& coarser  = getLevel(level-1);
+   const Real    tnp1 = coarser.state[State_Type].curTime();
+   //
+   // Get best ydot data.
+   //
+   FillCoarsePatch(get_new_data(RhoYdot_Type),0,tnp1,RhoYdot_Type,0,NUM_SPECIES);
 
-  RhoH_to_Temp(get_new_data(State_Type));
-  get_new_data(State_Type).setBndry(1.e30);
-  showMF("sdc",get_new_data(State_Type),"sdc_new_state",level);
+   RhoH_to_Temp(get_new_data(State_Type));
+   get_new_data(State_Type).setBndry(1.e30);
+   showMF("sdc",get_new_data(State_Type),"sdc_new_state",level);
 
-  if (new_T_threshold>0)
-  {
-    MultiFab& crse = coarser.get_new_data(State_Type);
-    MultiFab& fine = get_new_data(State_Type);
-
-    RhoH_to_Temp(crse,0); // Make sure T is current
-    Real min_T_crse = crse.min(Temp);
-    Real min_T_fine = min_T_crse * std::min(1.0, new_T_threshold);
-
-    const int* ratio = crse_ratio.getVect();
-    int Tcomp = (int)Temp;
-    int Rcomp = (int)Density;
-    int n_tmp = std::max( (int)Density, std::max( (int)Temp, std::max( last_spec, RhoH) ) );
-    Vector<Real> tmp(n_tmp);
-    int num_cells_hacked = 0;
-#ifdef _OPENMP
-#pragma omp parallel
-#endif
-    for (MFIter mfi(fine,true); mfi.isValid(); ++mfi)
-    {
-      FArrayBox& fab = fine[mfi];
-      const Box& box = mfi.tilebox();
-      num_cells_hacked += conservative_T_floor(BL_TO_FORTRAN_BOX(box),
-                                               BL_TO_FORTRAN_ANYD(fab),
-                                               &min_T_fine, &Tcomp, &Rcomp,
-                                               &first_spec, &last_spec, &RhoH,
-                                               ratio, tmp.dataPtr(), &n_tmp);
-    }
-
-    ParallelDescriptor::ReduceIntSum(num_cells_hacked);
-
-    if (num_cells_hacked > 0) {
-
-      Real old_min = fine.min(Temp);
-      RhoH_to_Temp(get_new_data(State_Type));
-      Real new_min = fine.min(Temp);
-
-      if (verbose) {
-          amrex::Print() << "...level data adjusted to reduce new extrema (" << num_cells_hacked
-                         << " cells affected), new min = " << new_min 
-                         << " (old min = " << old_min << ")" << '\n';
-      }
-    }
-  }
-  showMF("sdc",get_new_data(State_Type),"sdc_new_state_floored",level);
-
-  FillCoarsePatch(get_new_data(FuncCount_Type),0,tnp1,FuncCount_Type,0,1);
+   FillCoarsePatch(get_new_data(FuncCount_Type),0,tnp1,FuncCount_Type,0,1);
 }
 
 void

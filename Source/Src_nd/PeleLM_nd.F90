@@ -24,7 +24,6 @@ module PeleLM_nd
   public :: pphys_HMIXfromTY, pphys_RHOfromPTY, pphys_CPMIXfromTY, pphys_TfromHY, &
             init_data_new_mech, &
             dqrad_fill, divu_fill, dsdt_fill, ydot_fill, rhoYdot_fill, &
-            conservative_T_floor, &
             part_cnt_err, &
             valgt_error, vallt_error, magvort_error, diffgt_error, &
             FORT_AVERAGE_EDGE_STATES
@@ -1032,119 +1031,6 @@ contains
 #endif
 
    end subroutine fillWithZeros
-
-!=========================================================
-! Floor T in a conservative manner
-!=========================================================
-
-   integer function conservative_T_floor ( lo, hi,&
-                                           state, s_lo, s_hi,&
-                                           min_T, Tcomp, Rcomp, first_spec, last_spec,&
-                                           RhoH, ratio, tmp, nt ) &
-                                           bind(C, name="conservative_T_floor")
-
-      implicit none
-
-      integer :: lo(3), hi(3)
-      integer :: s_lo(3), s_hi(3)
-      REAL_T, dimension(s_lo(1):s_hi(1),s_lo(2):s_hi(2),s_lo(3):s_hi(3),0:*) :: state
-      integer :: Tcomp, Rcomp, first_spec, last_spec, RhoH, ratio(3), nt
-      REAL_T  :: min_T
-
-      REAL_T  :: tmp(0:nt-1)
-      integer :: loC(3), hiC(3)
-      integer :: ii, jj, kk, iii, jjj, kkk, ncells
-      REAL_T  :: ncellsInv
-      logical :: bad_T
-
-      integer :: n, i, j, k
-
-!     Returns the number of fine cells fixed up
-      conservative_T_floor = 0
-
-      ncells = 1
-      do n = 1, dim
-         loC(n) = lo(n)/ratio(n)
-         hiC(n) = (hi(n)+1)/ratio(n) - 1
-         ncells = ncells*ratio(n)
-      enddo
-      ncellsInv = 1.d0 / ncells
-
-      do k = loC(3), hiC(3)
-         do j = loC(2), hiC(2)
-            do i = loC(1), hiC(1)
-
-               bad_T = .false.
-               do kk = 0, ratio(3)-1
-                  kkk = ratio(3)*k + kk
-                  do jj = 0, ratio(2)-1
-                     jjj = ratio(2)*j + jj
-                     do ii = 0, ratio(1)-1
-                        iii = ratio(1)*i + ii
-                        if (state(iii,jjj,kkk,Tcomp).lt.min_T) then
-                           bad_T = .true.
-                        endif
-                     enddo
-                  enddo
-               enddo
-
-               if (bad_T .eqv. .true.) then
-
-                  tmp(Rcomp) = 0.d0
-                  do n = first_spec, last_spec
-                     tmp(n) = 0.d0
-                  enddo
-                  tmp(RhoH) = 0.d0
-
-
-                  do kk = 0,ratio(3)-1
-                     kkk = ratio(3)*k + kk
-                     do jj = 0, ratio(2)-1
-                        jjj = ratio(2)*j + jj
-                        do ii = 0, ratio(1)-1
-                           iii = ratio(1)*i + ii
-                           
-                           tmp(Rcomp) = tmp(Rcomp) + state(iii,jjj,kkk,Rcomp)
-                           do n = first_spec, last_spec
-                              tmp(n) = tmp(n) + state(iii,jjj,kkk,n)
-                           enddo
-                           tmp(RhoH) = tmp(RhoH) + state(iii,jjj,kkk,RhoH)
-                           
-                        enddo
-                     enddo
-                  enddo
-
-                  conservative_T_floor = conservative_T_floor + ncells
-                  tmp(Rcomp) = tmp(Rcomp) * ncellsInv
-                  do n = first_spec, last_spec
-                     tmp(n) = tmp(n) * ncellsInv
-                  enddo
-                  tmp(RhoH) = tmp(RhoH)* ncellsInv
-                  
-                  do kk = 0, ratio(3)-1
-                     kkk = ratio(3)*k + kk
-                     do jj = 0, ratio(2)-1
-                        jjj = ratio(2)*j + jj
-                        do ii = 0, ratio(1)-1
-                           iii = ratio(1)*i + ii
-                           
-                           state(iii,jjj,kkk,Rcomp) = tmp(Rcomp)
-                           do n = first_spec, last_spec
-                              state(iii,jjj,kkk,n) = tmp(n)
-                           enddo
-                           state(iii,jjj,kkk,RhoH) = tmp(RhoH)
-                           
-                        enddo
-                     enddo
-                  enddo
-
-               endif
-
-            enddo
-         enddo
-      enddo
-
-   end function conservative_T_floor
 
 ! ::: -----------------------------------------------------------
 ! ::: This routine will tag high error cells based on whether or not

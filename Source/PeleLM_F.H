@@ -113,12 +113,6 @@ extern "C" {
 
    void set_common (const amrex::Real* time, const int* iteration);
 
-   int conservative_T_floor(const int* lo, const int* hi,
-                            BL_FORT_FAB_ARG_ANYD(fabdat),
-                            const amrex::Real* min_T_fine, const int* Tcomp, const int* Rcomp,
-                            const int* first_comp, const int* last_spec, const int* RhoH,
-                            const int* ratio, amrex::Real* tmp, const int* nt);
-
    void part_cnt_err(BL_FORT_IFAB_ARG_ANYD(tag),
                      const int* tagval, const int* clearval,
                      BL_FORT_FAB_ARG_ANYD(data),
