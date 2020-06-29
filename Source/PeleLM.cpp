@@ -2173,7 +2173,7 @@ PeleLM::init (AmrLevel& old)
 #ifdef _OPENMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif  
-   for (MFIter mfi(mf_fpi,TilingIfNotGPU()); mfi.isValid(); ++mfi)
+   for (MFIter mfi(Ydot_old,TilingIfNotGPU()); mfi.isValid(); ++mfi)
    {
       const Box& bx         = mfi.tilebox();
       auto const& rhoYdot_n = Ydot.array(mfi); 
@@ -2189,6 +2189,7 @@ PeleLM::init (AmrLevel& old)
          FctCnt_n(i,j,k) = FctCnt_o(i,j,k);
       });
    }
+}
 
 //
 // Inits the data on a new level that did not exist before regridding.
