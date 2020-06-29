@@ -3521,9 +3521,6 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
 {
 
   adjust_spec_diffusion_fluxes(SpecDiffusionFluxnp1,get_new_data(State_Type),
-#ifdef AMREX_USE_EB
-                               D_DECL(*areafrac[0], *areafrac[1], *areafrac[2]),
-#endif
                                Tbc,curr_time);
 }
 // Dnew.setVal(0.) done in calling fn
@@ -3730,11 +3727,6 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
 void
 PeleLM::adjust_spec_diffusion_fluxes (MultiFab* const * flux,
                                       const MultiFab&   S,
-#ifdef AMREX_USE_EB
-                                      D_DECL(const amrex::MultiCutFab& x_areafrac,
-                                             const amrex::MultiCutFab& y_areafrac,
-                                             const amrex::MultiCutFab& z_areafrac),
-#endif
                                       const BCRec&      bc,
                                       Real              time)
 {
@@ -4202,246 +4194,228 @@ PeleLM::compute_differential_diffusion_fluxes (const MultiFab& S,
                                                MultiFab* const * flux,
                                                const MultiFab* const * beta,
                                                Real dt,
-					       Real time,
+                                               Real time,
                                                bool include_Wbar_fluxes)
 {
-  BL_PROFILE("HT:::compute_differential_diffusion_fluxes_msd()");
-  const Real strt_time = ParallelDescriptor::second();
+   BL_PROFILE("PeleLM:::compute_differential_diffusion_fluxes_msd()");
+   const Real strt_time = ParallelDescriptor::second();
 
-  if (hack_nospecdiff)
-  {
-    amrex::Error("compute_differential_diffusion_fluxes: hack_nospecdiff not implemented");
-  }
+   if (hack_nospecdiff)
+   {
+      amrex::Error("compute_differential_diffusion_fluxes: hack_nospecdiff not implemented");
+   }
 
-  MultiFab  rh;      // Never need alpha for RhoY
-  MultiFab* alpha_in        = 0;
-  int       alpha_in_comp   = 0;
-  int       fluxComp        = 0;
-  int       betaComp        = 0;
-  Real      a               = 0;
-  Real      b               = 1.;
-  bool      add_hoop_stress = false; // Only true if sigma == Xvel && Geometry::IsRZ())
-//  bool      add_hoop_stress = true; // Only true if sigma == Xvel && Geometry::IsRZ())
+   MultiFab  rh;      // Never need alpha for RhoY
+   MultiFab* alpha_in        = 0;
+   int       alpha_in_comp   = 0;
+   int       fluxComp        = 0;
+   int       betaComp        = 0;
+   Real      a               = 0;
+   Real      b               = 1.;
+   bool      add_hoop_stress = false; // Only true if sigma == Xvel && Geometry::IsRZ())
+//   bool      add_hoop_stress = true; // Only true if sigma == Xvel && Geometry::IsRZ())
 
 // Some stupid check below to ensure we don't do stupid things
-#if (BL_SPACEDIM == 3)
-  // Here we ensure that R-Z related routines cannot be called in 3D
-  if (add_hoop_stress){
-    amrex::Abort("in diffuse_scalar: add_hoop_stress for R-Z geometry called in 3D !");
-  }
+#if (AMREX_SPACEDIM == 3)
+   // Here we ensure that R-Z related routines cannot be called in 3D
+   if (add_hoop_stress){
+      amrex::Abort("in diffuse_scalar: add_hoop_stress for R-Z geometry called in 3D !");
+   }
 #endif
 
 #ifdef AMREX_USE_EB
-  // Here we ensure that R-Z cannot work with EB (for now)
-  if (add_hoop_stress){
-    amrex::Abort("in diffuse_scalar: add_hoop_stress for R-Z geometry not yet working with EB support !");
-  }
+   // Here we ensure that R-Z cannot work with EB (for now)
+   if (add_hoop_stress){
+      amrex::Abort("in diffuse_scalar: add_hoop_stress for R-Z geometry not yet working with EB support !");
+   }
 #endif
 
-  const int nGrow = 1;
-  BL_ASSERT(S.nGrow()>=nGrow);
-  bool has_coarse_data = bool(Scrse);
+   const int nGrow = 1;
+   BL_ASSERT(S.nGrow()>=nGrow);
+   bool has_coarse_data = bool(Scrse);
 
-  const DistributionMapping* dmc = (has_coarse_data ? &(Scrse->DistributionMap()) : 0);
-  const BoxArray* bac = (has_coarse_data ? &(Scrse->boxArray()) : 0);
+   const DistributionMapping* dmc = (has_coarse_data ? &(Scrse->DistributionMap()) : 0);
+   const BoxArray* bac = (has_coarse_data ? &(Scrse->boxArray()) : 0);
 
-  MultiFab Soln(grids,dmap,1,nGrow,MFInfo(),Factory());
-  auto Solnc = std::unique_ptr<MultiFab>(new MultiFab());
-  if (has_coarse_data) {
-    Solnc->define(*bac, *dmc, 1, nGrow,MFInfo(),getLevel(level-1).Factory());
-  }
+   MultiFab Soln(grids,dmap,1,nGrow,MFInfo(),Factory());
+   auto Solnc = std::unique_ptr<MultiFab>(new MultiFab());
+   if (has_coarse_data) {
+      Solnc->define(*bac, *dmc, 1, nGrow,MFInfo(),getLevel(level-1).Factory());
+   }
 
-  LPInfo info;
-  info.setAgglomeration(1);
-  info.setConsolidation(1);
-  info.setMetricTerm(false);
-  info.setMaxCoarseningLevel(0);
+   LPInfo info;
+   info.setAgglomeration(1);
+   info.setConsolidation(1);
+   info.setMetricTerm(false);
+   info.setMaxCoarseningLevel(0);
 #ifdef AMREX_USE_EB
-        // create the right data holder for passing to MLEBABecLap
-  amrex::Vector<const amrex::EBFArrayBoxFactory*> ebf(1);
-        //ebf.resize(1);
-  ebf[0] = &(dynamic_cast<EBFArrayBoxFactory const&>(Factory()));
-
-  MLEBABecLap op({geom}, {grids}, {dmap}, info, ebf);
+   const auto& ebf = &(dynamic_cast<EBFArrayBoxFactory const&>(Factory()));
+   MLEBABecLap op({geom}, {grids}, {dmap}, info, {ebf});
 #else
-  MLABecLaplacian op({geom}, {grids}, {dmap}, info);
+   MLABecLaplacian op({geom}, {grids}, {dmap}, info);
 #endif
 
-  op.setMaxOrder(diffusion->maxOrder());
-  MLMG mg(op);
+   op.setMaxOrder(diffusion->maxOrder());
+   MLMG mg(op);
 
-  const Vector<BCRec>& theBCs = AmrLevel::desc_lst[State_Type].getBCs();
-  const int rho_flag = 2;
-  const BCRec& bc = theBCs[first_spec];
-  for (int icomp=1; icomp<nspecies; ++icomp) {
-    AMREX_ALWAYS_ASSERT(bc == theBCs[first_spec+icomp]);
-  }
+   const Vector<BCRec>& theBCs = AmrLevel::desc_lst[State_Type].getBCs();
+   const int rho_flag = 2;
+   const BCRec& bc = theBCs[first_spec];
+   for (int icomp=1; icomp<NUM_SPECIES; ++icomp) {
+      AMREX_ALWAYS_ASSERT(bc == theBCs[first_spec+icomp]);
+   }
 
-  std::array<LinOpBCType,AMREX_SPACEDIM> mlmg_lobc;
-  std::array<LinOpBCType,AMREX_SPACEDIM> mlmg_hibc;
-  Diffusion::setDomainBC(mlmg_lobc, mlmg_hibc, bc); // Same for all comps, by assumption
-  op.setDomainBC(mlmg_lobc, mlmg_hibc);
+   std::array<LinOpBCType,AMREX_SPACEDIM> mlmg_lobc;
+   std::array<LinOpBCType,AMREX_SPACEDIM> mlmg_hibc;
+   Diffusion::setDomainBC(mlmg_lobc, mlmg_hibc, bc); // Same for all comps, by assumption
+   op.setDomainBC(mlmg_lobc, mlmg_hibc);
 
-  for (int icomp = 0; icomp < nspecies+1; ++icomp)
-  {
-    const int sigma = first_spec + icomp;
-
-    {
-      if (has_coarse_data) {
-        MultiFab::Copy(*Solnc,*Scrse,sigma,0,1,nGrow);
-        if (rho_flag == 2) {
-          MultiFab::Divide(*Solnc,*Scrse,Density,0,1,nGrow);
-        }
-        op.setCoarseFineBC(Solnc.get(), crse_ratio[0]);
+   for (int icomp = 0; icomp < NUM_SPECIES+1; ++icomp)
+   {
+      const int sigma = first_spec + icomp;
+      {
+         if (has_coarse_data) {
+            MultiFab::Copy(*Solnc,*Scrse,sigma,0,1,nGrow);
+            if (rho_flag == 2) {
+              MultiFab::Divide(*Solnc,*Scrse,Density,0,1,nGrow);
+            }
+            op.setCoarseFineBC(Solnc.get(), crse_ratio[0]);
+         }
+         MultiFab::Copy(Soln,S,sigma,0,1,nGrow);
+         if (rho_flag == 2) {
+            MultiFab::Divide(Soln,S,Density,0,1,nGrow);
+         }
+         op.setLevelBC(0, &Soln);
       }
-      MultiFab::Copy(Soln,S,sigma,0,1,nGrow);
-      if (rho_flag == 2) {
-        MultiFab::Divide(Soln,S,Density,0,1,nGrow);
+
+      {
+// VisMF::Write(rh,"rh_cddf");
+         Real* rhsscale = 0;
+         std::pair<Real,Real> scalars;
+         MultiFab Alpha;
+         // above sets rho_flag = 2;
+         // this is potentially dangerous if rho_flag==1, because rh is an undefined MF
+         const MultiFab& rho = (rho_flag == 1) ? rh : S;
+         const int Rho_comp = (rho_flag ==1) ? 0 : Density;
+         Diffusion::computeAlpha(Alpha, scalars, a, b, 
+                                 rhsscale, alpha_in, alpha_in_comp+icomp,
+                                 rho_flag, &rho, Rho_comp);
+         op.setScalars(scalars.first, scalars.second);
+         op.setACoeffs(0, Alpha);
       }
-      op.setLevelBC(0, &Soln);
-    }
 
-    {  
+      {
+         Array<MultiFab,AMREX_SPACEDIM> bcoeffs = Diffusion::computeBeta(beta, betaComp+icomp);
+         op.setBCoeffs(0, amrex::GetArrOfConstPtrs(bcoeffs));
+      }
 
-//	Print() << "Doing the RZ geometry - zero" << std::endl;
-//	VisMF::Write(rh,"rh_cddf");
-
-       Real* rhsscale = 0;
-       std::pair<Real,Real> scalars;
-       MultiFab Alpha;
-       // above sets rho_flag = 2;
-       // this is potentially dangerous if rho_flag==1, because rh is an undefined MF
-       const MultiFab& rho = (rho_flag == 1) ? rh : S;
-       const int Rho_comp = (rho_flag ==1) ? 0 : Density;
-
-       Diffusion::computeAlpha(Alpha, scalars, a, b, 
-                               rhsscale, alpha_in, alpha_in_comp+icomp,
-                               rho_flag, &rho, Rho_comp);
-       op.setScalars(scalars.first, scalars.second);
-       op.setACoeffs(0, Alpha);
-    }
-
-    {
-      Array<MultiFab,BL_SPACEDIM> bcoeffs = Diffusion::computeBeta(beta, betaComp+icomp);
-      op.setBCoeffs(0, amrex::GetArrOfConstPtrs(bcoeffs));
-    }
-
-    // No multiplication by dt here.
-    Diffusion::computeExtensiveFluxes(mg, Soln, flux, fluxComp+icomp, 1, &geom, b);
-  }
+      // No multiplication by dt here.
+      Diffusion::computeExtensiveFluxes(mg, Soln, flux, fluxComp+icomp, 1, &geom, b);
+   }
 //VisMF::Write(*flux[0],"flux_after_getFluxes_x");
 //VisMF::Write(*flux[1],"flux_after_getFluxes_y"); 
-  
-  Soln.clear();
+
+   Soln.clear();
 
 #ifdef USE_WBAR
-  if (include_Wbar_fluxes) {
-    compute_Wbar_fluxes(time,0);
-    for (int d=0; d<AMREX_SPACEDIM; ++d) {
-      MultiFab::Add(*flux[d],*SpecDiffusionFluxWbar[d],0,fluxComp,nspecies,0);
-    }
-  }
+   if (include_Wbar_fluxes) {
+      compute_Wbar_fluxes(time,0);
+      for (int d=0; d<AMREX_SPACEDIM; ++d) {
+         MultiFab::Add(*flux[d],*SpecDiffusionFluxWbar[d],0,fluxComp,NUM_SPECIES,0);
+      }
+   }
 #endif
 
-  //
-  // Modify update/fluxes to preserve flux sum = 0 (conservatively correct Gamma_m)
-{ 
+   //
+   // Modify update/fluxes to preserve flux sum = 0 (conservatively correct Gamma_m)
+   adjust_spec_diffusion_fluxes(flux, S, bc, time);
 
-  adjust_spec_diffusion_fluxes(flux, S,
-#ifdef AMREX_USE_EB
-                               D_DECL(*areafrac[0], *areafrac[1], *areafrac[2]),
-#endif
-                               bc, time);
-}
-
-  // build heat fluxes based on species fluxes, Gamma_m, and cell-centered states
-  // compute flux[nspecies+1] = sum_m (H_m Gamma_m)
-  // compute flux[nspecies+2] = - lambda grad T
-  //
-  compute_enthalpy_fluxes(flux,beta,time);
-
-  //
-  // We have just computed "DD" and heat fluxes given an input state.
-  //
-  // Update DIFFUSIVE flux registers as follows.
-  // If we are in the predictor and sdc_iterMAX>1:
-  //   ADD -(1/2)*lambda^n GradT^n
-  // If we are in the predictor and sdc_iterMAX=1:
-  //   ADD -1.0*lambda^n GradT^n
-  // If updateFluxReg=T (we are in the final corrector):
-  //   ADD -(1/2)*lambda^(k) GradT^(k)
-  //
-  // Update ADVECTIVE flux registers as follows.
-  // If we are in the predictor and sdc_iterMAX>1:
-  //   ADD (1/2)*h_m^n Gamma_m^n
-  // If we are in the predictor and sdc_iterMAX=1:
-  //   ADD 1.0*h_m^n Gamma_m^n
-  // If updateFluxReg=T (we are in the final corrector):
-  //   ADD (1/2)*h_m^(k) Gamma_m^(k)
-  //
+   // build heat fluxes based on species fluxes, Gamma_m, and cell-centered states
+   // compute flux[NUM_SPECIES+1] = sum_m (H_m Gamma_m)
+   // compute flux[NUM_SPECIES+2] = - lambda grad T
+   compute_enthalpy_fluxes(flux,beta,time);
 
 #ifdef AMREX_USE_EB
-  EB_set_covered_faces({D_DECL(flux[0],flux[1],flux[2])},0.);
+   // Get rid of flux on covered faces
+   EB_set_covered_faces({D_DECL(flux[0],flux[1],flux[2])},0.);
 #endif
-  
-  if ( do_reflux && ( is_predictor || updateFluxReg ) )
-  {
-    if (is_predictor) {
-       showMF("DBGSync",*flux[0],"DBGSync_DiffFluxX_Dn",level,parent->levelSteps(level));
-       showMF("DBGSync",*flux[1],"DBGSync_DiffFluxY_Dn",level,parent->levelSteps(level));
-    }
-    if (updateFluxReg) {
-       showMF("DBGSync",*flux[0],"DBGSync_DiffFluxX_Dnp1",level,parent->levelSteps(level));
-       showMF("DBGSync",*flux[1],"DBGSync_DiffFluxY_Dnp1",level,parent->levelSteps(level));
-    }
-    for (int d = 0; d < AMREX_SPACEDIM; d++)
-    {
-      if (level > 0)
-      {
-        if (is_predictor)
-        {
-          const Real fac = (sdc_iterMAX==1) ? dt : 0.5*dt;
-          getViscFluxReg().FineAdd(*flux[d],d,0,first_spec,nspecies,fac);
-          getAdvFluxReg().FineAdd(*flux[d],d,nspecies+1,RhoH,1,fac);
-          getViscFluxReg().FineAdd(*flux[d],d,nspecies+2,RhoH,1,fac);
-        }
-        if (updateFluxReg)
-        {
-          getViscFluxReg().FineAdd(*flux[d],d,0,first_spec,nspecies,-0.5*dt);
-          getAdvFluxReg().FineAdd(*flux[d],d,nspecies+1,RhoH,1,-0.5*dt);
-          getViscFluxReg().FineAdd(*flux[d],d,nspecies+2,RhoH,1,-0.5*dt);
-        }
-      }
 
-      if (level < parent->finestLevel())
-      {
-        if (is_predictor)
-        {
-          const Real fac = (sdc_iterMAX==1) ? dt : 0.5*dt;
-          getViscFluxReg(level+1).CrseInit((*flux[d]),d,0,first_spec,nspecies,-fac,FluxRegister::ADD);
-          getAdvFluxReg(level+1).CrseInit((*flux[d]),d,nspecies+1,RhoH,1,-fac,FluxRegister::ADD);
-          getViscFluxReg(level+1).CrseInit((*flux[d]),d,nspecies+2,RhoH,1,-fac,FluxRegister::ADD);
-        }
-        if (updateFluxReg)
-        {
-          getViscFluxReg(level+1).CrseInit((*flux[d]),d,0,first_spec,nspecies,0.5*dt,FluxRegister::ADD);
-          getAdvFluxReg(level+1).CrseInit((*flux[d]),d,nspecies+1,RhoH,1,0.5*dt,FluxRegister::ADD);
-          getViscFluxReg(level+1).CrseInit((*flux[d]),d,nspecies+2,RhoH,1,0.5*dt,FluxRegister::ADD);
-        }
-      }
-    }
-  }
+   // We have just computed "DD" and heat fluxes given an input state.
+   //
+   // Update DIFFUSIVE flux registers as follows.
+   // If we are in the predictor and sdc_iterMAX>1:
+   //   ADD -(1/2)*lambda^n GradT^n
+   // If we are in the predictor and sdc_iterMAX=1:
+   //   ADD -1.0*lambda^n GradT^n
+   // If updateFluxReg=T (we are in the final corrector):
+   //   ADD -(1/2)*lambda^(k) GradT^(k)
+   //
+   // Update ADVECTIVE flux registers as follows.
+   // If we are in the predictor and sdc_iterMAX>1:
+   //   ADD (1/2)*h_m^n Gamma_m^n
+   // If we are in the predictor and sdc_iterMAX=1:
+   //   ADD 1.0*h_m^n Gamma_m^n
+   // If updateFluxReg=T (we are in the final corrector):
+   //   ADD (1/2)*h_m^(k) Gamma_m^(k)
 
-  if (verbose > 1)
-  {
-    const int IOProc   = ParallelDescriptor::IOProcessorNumber();
-    Real      run_time = ParallelDescriptor::second() - strt_time;
+   if ( do_reflux && ( is_predictor || updateFluxReg ) )
+   {
+     if (is_predictor) {
+        showMF("DBGSync",*flux[0],"DBGSync_DiffFluxX_Dn",level,parent->levelSteps(level));
+        showMF("DBGSync",*flux[1],"DBGSync_DiffFluxY_Dn",level,parent->levelSteps(level));
+     }
+     if (updateFluxReg) {
+        showMF("DBGSync",*flux[0],"DBGSync_DiffFluxX_Dnp1",level,parent->levelSteps(level));
+        showMF("DBGSync",*flux[1],"DBGSync_DiffFluxY_Dnp1",level,parent->levelSteps(level));
+     }
+     for (int d = 0; d < AMREX_SPACEDIM; d++)
+     {
+       if (level > 0)
+       {
+         if (is_predictor)
+         {
+           const Real fac = (sdc_iterMAX==1) ? dt : 0.5*dt;
+           getViscFluxReg().FineAdd(*flux[d],d,0,first_spec,NUM_SPECIES,fac);
+           getAdvFluxReg().FineAdd(*flux[d],d,NUM_SPECIES+1,RhoH,1,fac);
+           getViscFluxReg().FineAdd(*flux[d],d,NUM_SPECIES+2,RhoH,1,fac);
+         }
+         if (updateFluxReg)
+         {
+           getViscFluxReg().FineAdd(*flux[d],d,0,first_spec,NUM_SPECIES,-0.5*dt);
+           getAdvFluxReg().FineAdd(*flux[d],d,NUM_SPECIES+1,RhoH,1,-0.5*dt);
+           getViscFluxReg().FineAdd(*flux[d],d,NUM_SPECIES+2,RhoH,1,-0.5*dt);
+         }
+       }
 
-    ParallelDescriptor::ReduceRealMax(run_time,IOProc);
+       if (level < parent->finestLevel())
+       {
+         if (is_predictor)
+         {
+           const Real fac = (sdc_iterMAX==1) ? dt : 0.5*dt;
+           getViscFluxReg(level+1).CrseInit((*flux[d]),d,0,first_spec,NUM_SPECIES,-fac,FluxRegister::ADD);
+           getAdvFluxReg(level+1).CrseInit((*flux[d]),d,NUM_SPECIES+1,RhoH,1,-fac,FluxRegister::ADD);
+           getViscFluxReg(level+1).CrseInit((*flux[d]),d,NUM_SPECIES+2,RhoH,1,-fac,FluxRegister::ADD);
+         }
+         if (updateFluxReg)
+         {
+           getViscFluxReg(level+1).CrseInit((*flux[d]),d,0,first_spec,NUM_SPECIES,0.5*dt,FluxRegister::ADD);
+           getAdvFluxReg(level+1).CrseInit((*flux[d]),d,NUM_SPECIES+1,RhoH,1,0.5*dt,FluxRegister::ADD);
+           getViscFluxReg(level+1).CrseInit((*flux[d]),d,NUM_SPECIES+2,RhoH,1,0.5*dt,FluxRegister::ADD);
+         }
+       }
+     }
+   }
 
-    amrex::Print() << "PeleLM::compute_differential_diffusion_fluxes(): lev: " << level 
-		   << ", time: " << run_time << '\n';
-  }
+   if (verbose > 1)
+   {
+      const int IOProc   = ParallelDescriptor::IOProcessorNumber();
+      Real      run_time = ParallelDescriptor::second() - strt_time;
+
+      ParallelDescriptor::ReduceRealMax(run_time,IOProc);
+
+      amrex::Print() << "PeleLM::compute_differential_diffusion_fluxes(): lev: " << level
+                     << ", time: " << run_time << '\n';
+   }
 }
 
 void
@@ -7782,9 +7756,6 @@ PeleLM::differential_spec_diffuse_sync (Real dt,
    FillPatch(*this,get_new_data(State_Type),ng,tnp1,State_Type,Density,nspecies+2,Density);
 
    adjust_spec_diffusion_fluxes(SpecDiffusionFluxnp1, get_new_data(State_Type),
-#ifdef AMREX_USE_EB
-                                D_DECL(*areafrac[0], *areafrac[1], *areafrac[2]),
-#endif
                                 AmrLevel::desc_lst[State_Type].getBCs()[Temp],tnp1);
 
    //
