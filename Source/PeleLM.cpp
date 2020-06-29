@@ -174,7 +174,6 @@ Real PeleLM::relative_tol_chem = 1.0e-10;
 Real PeleLM::absolute_tol_chem = 1.0e-10;
 static bool plot_rhoydot;
 bool PeleLM::flag_active_control;
-Real PeleLM::new_T_threshold;
 int  PeleLM::nGrowAdvForcing=1;
 bool PeleLM::avg_down_chem;
 int  PeleLM::reset_typical_vals_int=-1;
@@ -427,7 +426,6 @@ PeleLM::Initialize ()
   PeleLM::plot_consumption          = true;
   PeleLM::plot_heat_release         = true;
   plot_rhoydot                            = false;
-  PeleLM::new_T_threshold           = -1;  // On new AMR level, max change in lower bound for T, not used if <=0
   PeleLM::avg_down_chem             = false;
   PeleLM::reset_typical_vals_int    = -1;
   PeleLM::typical_values_FileVals.clear();
@@ -1348,8 +1346,6 @@ PeleLM::init_once ()
       auxDiag_names["HEATRELEASE"].resize(1);
       auxDiag_names["HEATRELEASE"][0] = "HeatRelease";
    }
-
-   pp.query("new_T_threshold",new_T_threshold);
 
    init_once_done = 1;
 }

@@ -667,7 +667,6 @@ private:
   static std::string productName;
   static amrex::Vector<std::string> consumptionName;
   static int         calcDiffusivity_count;
-  static amrex::Real new_T_threshold;
   static amrex::Vector<amrex::Real> typical_values;
   static bool        avg_down_chem;
   static int         reset_typical_vals_int;
