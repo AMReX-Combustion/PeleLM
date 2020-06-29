@@ -575,4 +575,259 @@ calcMixtFrac(int i, int j, int k,
    }
    mixt_frac(i,j,k) = ( mixt_frac(i,j,k) - ZO ) * denom_inv;
 }
+
+AMREX_GPU_HOST_DEVICE
+inline
+void
+check_divu_dt(int i, int j, int k,
+              int                                          const& check_type,
+              amrex::Real                                  const& dtfactor,
+              amrex::Real                                  const& rhomin,
+              amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> const dxinv,
+              amrex::Array4<const amrex::Real>             const& rho,
+              amrex::Array4<const amrex::Real>             const& vel,
+              amrex::Array4<const amrex::Real>             const& divu,
+              amrex::Array4<const amrex::Real>             const& vol,
+              D_DECL(amrex::Array4<const amrex::Real>      const& areaX,
+                     amrex::Array4<const amrex::Real>      const& areaY,
+                     amrex::Array4<const amrex::Real>      const& areaZ),
+              amrex::Real                                  const& dt) noexcept
+{
+   using namespace amrex::literals;
+
+   amrex::Real dtcell = 1.0e12_rt;
+   amrex::Real denom  = 0.0_rt;
+   bool rho_is_okay = (rho(i,j,k) > rhomin);
+
+   if ( check_type == 1 ) {                           // Check based on divU of DivU_type
+      if ( divu(i,j,k) > 0.0_rt ) {
+         dtcell = (rho_is_okay) ? ( 1.0_rt - rhomin / rho(i,j,k) ) / divu(i,j,k) : 1.0_rt / divu(i,j,k);
+      }
+   } else if ( check_type == 2 ) {                    // Check based rho * divU + u \cdot grad rho
+      denom = rho(i,j,k) * divu(i,j,k) +
+              D_TERM(  vel(i,j,k,0) * ( rho(i+1,j,k) - rho(i-1,j,k) ) * dxinv[0],
+                     + vel(i,j,k,1) * ( rho(i,j+1,k) - rho(i,j-1,k) ) * dxinv[1],
+                     + vel(i,j,k,2) * ( rho(i,j,k+1) - rho(i,j,k-1) ) * dxinv[2] );
+      if ( denom > 0.0_rt ) {
+         dtcell = (rho_is_okay) ? ( rho(i,j,k) - rhomin ) / denom : std::abs( rho(i,j,k) ) / denom;
+      }
+   } else if ( check_type == 3 ) {                    // Check based on div (rho U)
+      D_TERM( amrex::Real fxlo = 0.25_rt * ( (rho(i,j,k)+rho(i-1,j,k)) * (vel(i,j,k,0)+vel(i-1,j,k,0)) );,
+              amrex::Real fylo = 0.25_rt * ( (rho(i,j,k)+rho(i,j-1,k)) * (vel(i,j,k,1)+vel(i,j-1,k,1)) );,
+              amrex::Real fzlo = 0.25_rt * ( (rho(i,j,k)+rho(i,j,k-1)) * (vel(i,j,k,2)+vel(i,j,k-1,2)) ););
+      D_TERM( amrex::Real fxhi = 0.25_rt * ( (rho(i,j,k)+rho(i+1,j,k)) * (vel(i,j,k,0)+vel(i+1,j,k,0)) );,
+              amrex::Real fyhi = 0.25_rt * ( (rho(i,j,k)+rho(i,j+1,k)) * (vel(i,j,k,1)+vel(i,j+1,k,1)) );,
+              amrex::Real fzhi = 0.25_rt * ( (rho(i,j,k)+rho(i,j,k+1)) * (vel(i,j,k,2)+vel(i,j,k+1,2)) ););
+      denom = D_TERM (  areaX(i+1,j,k) * fxhi - areaX(i,j,k) * fxlo,
+                      + areaY(i,j+1,k) * fyhi - areaY(i,j,k) * fylo,
+                      + areaZ(i,j,k+1) * fzhi - areaZ(i,j,k) * fzlo );
+      denom /= vol(i,j,k);
+      if ( denom > 0.0_rt ) {
+         dtcell = (rho_is_okay) ? ( rho(i,j,k) - rhomin ) / denom : std::abs( rho(i,j,k) ) / denom;
+      }
+   }
+   if (dt>dtcell) {
+      printf(" ERROR: check_divu_dt - [%i,%i,%i] dtcell %f8.6 > dt %f8.6", i, j, k, dtcell, dt);
+   } else if (dt>dtcell*dtfactor) {
+      printf(" WARNING: check_divu_dt - [%i,%i,%i] dtcell*dtfactor %f8.6 > dt %f8.6", i, j, k, dtcell*dtfactor, dt);
+   }
+}
+
+// Full est_divu_dt function - TODO: not available due to limitation of amrex::ReduceMin
+AMREX_GPU_HOST_DEVICE
+inline
+amrex::Real
+est_divu_dt(int i, int j, int k,
+            int                                          const& step_type,
+            amrex::Real                                  const& dtfactor,
+            amrex::Real                                  const& rhomin,
+            amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> const dxinv,
+            amrex::Array4<const amrex::Real>             const& rho,
+            amrex::Array4<const amrex::Real>             const& vel,
+            amrex::Array4<const amrex::Real>             const& divu,
+            amrex::Array4<const amrex::Real>             const& vol,
+            D_DECL(amrex::Array4<const amrex::Real>      const& areaX,
+                   amrex::Array4<const amrex::Real>      const& areaY,
+                   amrex::Array4<const amrex::Real>      const& areaZ)) noexcept
+{
+   using namespace amrex::literals;
+
+   amrex::Real dtcell = 1.0e20_rt;
+   amrex::Real denom  = 0.0_rt;
+   bool rho_is_okay = (rho(i,j,k) > rhomin);
+
+   if ( step_type == 1 ) {                           // Check based on divU of DivU_type
+      if ( divu(i,j,k) > 0.0_rt ) {
+         dtcell = (rho_is_okay) ? ( 1.0_rt - rhomin / rho(i,j,k) ) / divu(i,j,k) : 1.0_rt / divu(i,j,k);
+         dtcell *= dtfactor;
+      }
+   } else if ( step_type == 2 ) {                    // Check based rho * divU + u \cdot grad rho
+      denom = rho(i,j,k) * divu(i,j,k) +
+              D_TERM(  vel(i,j,k,0) * ( rho(i+1,j,k) - rho(i-1,j,k) ) * dxinv[0],
+                     + vel(i,j,k,1) * ( rho(i,j+1,k) - rho(i,j-1,k) ) * dxinv[1],
+                     + vel(i,j,k,2) * ( rho(i,j,k+1) - rho(i,j,k-1) ) * dxinv[2] );
+      if ( denom > 0.0_rt ) {
+         dtcell = (rho_is_okay) ? ( rho(i,j,k) - rhomin ) / denom : std::abs( rho(i,j,k) ) / denom;
+         dtcell *= dtfactor;
+      }
+   } else if ( step_type == 3 ) {                    // Check based on div (rho U)
+      D_TERM( amrex::Real fxlo = 0.25_rt * ( (rho(i,j,k)+rho(i-1,j,k)) * (vel(i,j,k,0)+vel(i-1,j,k,0)) );,
+              amrex::Real fylo = 0.25_rt * ( (rho(i,j,k)+rho(i,j-1,k)) * (vel(i,j,k,1)+vel(i,j-1,k,1)) );,
+              amrex::Real fzlo = 0.25_rt * ( (rho(i,j,k)+rho(i,j,k-1)) * (vel(i,j,k,2)+vel(i,j,k-1,2)) ););
+      D_TERM( amrex::Real fxhi = 0.25_rt * ( (rho(i,j,k)+rho(i+1,j,k)) * (vel(i,j,k,0)+vel(i+1,j,k,0)) );,
+              amrex::Real fyhi = 0.25_rt * ( (rho(i,j,k)+rho(i,j+1,k)) * (vel(i,j,k,1)+vel(i,j+1,k,1)) );,
+              amrex::Real fzhi = 0.25_rt * ( (rho(i,j,k)+rho(i,j,k+1)) * (vel(i,j,k,2)+vel(i,j,k+1,2)) ););
+      denom = D_TERM (  areaX(i+1,j,k) * fxhi - areaX(i,j,k) * fxlo,
+                      + areaY(i,j+1,k) * fyhi - areaY(i,j,k) * fylo,
+                      + areaZ(i,j,k+1) * fzhi - areaZ(i,j,k) * fzlo );
+      denom /= vol(i,j,k);
+      if ( denom > 0.0_rt ) {
+         dtcell = (rho_is_okay) ? ( rho(i,j,k) - rhomin ) / denom : std::abs( rho(i,j,k) ) / denom;
+         dtcell *= dtfactor;
+      }
+   }
+   return dtcell;
+}
+
+// DivuCeiling type 1 est_divu_dt function
+AMREX_GPU_HOST_DEVICE
+inline
+amrex::Real
+est_divu_dt_1(int i, int j, int k,
+              int                                          const& step_type,
+              amrex::Real                                  const& dtfactor,
+              amrex::Real                                  const& rhomin,
+              amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> const dxinv,
+              amrex::Array4<const amrex::Real>             const& rho,
+              amrex::Array4<const amrex::Real>             const& divu) noexcept
+{
+   using namespace amrex::literals;
+   AMREX_ASSERT(step_type==1); 
+
+   amrex::Real dtcell = 1.0e20_rt;
+   amrex::Real denom  = 0.0_rt;
+   bool rho_is_okay = (rho(i,j,k) > rhomin);
+
+   if ( divu(i,j,k) > 0.0_rt ) {
+      dtcell = (rho_is_okay) ? ( 1.0_rt - rhomin / rho(i,j,k) ) / divu(i,j,k) : 1.0_rt / divu(i,j,k);
+      dtcell *= dtfactor;
+   }
+   return dtcell;
+}
+
+// DivuCeiling type 2 est_divu_dt function
+AMREX_GPU_HOST_DEVICE
+inline
+amrex::Real
+est_divu_dt_2(int i, int j, int k,
+              int                                          const& step_type,
+              amrex::Real                                  const& dtfactor,
+              amrex::Real                                  const& rhomin,
+              amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> const dxinv,
+              amrex::Array4<const amrex::Real>             const& rho,
+              amrex::Array4<const amrex::Real>             const& vel,
+              amrex::Array4<const amrex::Real>             const& divu) noexcept
+{
+   using namespace amrex::literals;
+   AMREX_ASSERT(step_type==2); 
+
+   amrex::Real dtcell = 1.0e20_rt;
+   amrex::Real denom  = 0.0_rt;
+   bool rho_is_okay = (rho(i,j,k) > rhomin);
+
+   denom = rho(i,j,k) * divu(i,j,k) +
+           D_TERM(  vel(i,j,k,0) * ( rho(i+1,j,k) - rho(i-1,j,k) ) * dxinv[0],
+                  + vel(i,j,k,1) * ( rho(i,j+1,k) - rho(i,j-1,k) ) * dxinv[1],
+                  + vel(i,j,k,2) * ( rho(i,j,k+1) - rho(i,j,k-1) ) * dxinv[2] );
+   if ( denom > 0.0_rt ) {
+      dtcell = (rho_is_okay) ? ( rho(i,j,k) - rhomin ) / denom : std::abs( rho(i,j,k) ) / denom;
+      dtcell *= dtfactor;
+   }
+   return dtcell;
+}
+
+AMREX_GPU_HOST_DEVICE
+inline
+void
+repair_flux(int i, int j, int k,
+            int dir,
+            const bool                       on_lo,
+            const bool                       on_hi,
+            amrex::Array4<const amrex::Real> const& rhoY,
+            amrex::Array4<      amrex::Real> const& flux ) noexcept
+{
+   using namespace amrex::literals;
+
+   amrex::Real sumFlux = 0.0_rt;
+   amrex::Real sumRhoYe = 0.0_rt;
+   amrex::Real RhoYe[NUM_SPECIES];
+
+   // Handle the BCs : need a -1 on id_l in dir away from the BC
+   // Need -1 in id_l and id_h in dir on low Dirichlet BC
+   // Need nothing on high Dirichlet BC
+   int  id_l[3] = {i,j,k};
+   int  id_h[3] = {i,j,k};
+   if ( !on_lo ) {
+      if ( !on_hi ) {
+        id_l[dir] -= 1;
+      }
+   } else {
+      id_l[dir] -= 1;
+      id_h[dir] -= 1;
+   }
+
+   for (int n = 0; n < NUM_SPECIES; n++) {
+      sumFlux += flux(i,j,k,n);
+      RhoYe[n] = 0.5_rt * (rhoY(id_l[0],id_l[1],id_l[2],n) + rhoY(id_h[0],id_h[1],id_h[2],n));
+      sumRhoYe += RhoYe[n];
+   }
+   sumRhoYe = 1.0_rt / sumRhoYe;
+   for (int n = 0; n < NUM_SPECIES; n++) {
+      flux(i,j,k,n) -= sumFlux * RhoYe[n] * sumRhoYe;
+   }
+
+}
+
+AMREX_GPU_HOST_DEVICE
+inline
+void
+repair_flux_eb(int i, int j, int k,
+               int dir,
+               const bool                       on_lo,
+               const bool                       on_hi,
+               amrex::Array4<const amrex::Real> const& rhoY,
+               amrex::Array4<const amrex::Real> const& rhoYed,
+               amrex::Array4<const amrex::Real> const& areafrac,
+               amrex::Array4<      amrex::Real> const& flux ) noexcept
+{
+   using namespace amrex::literals;
+
+   amrex::Real sumFlux = 0.0_rt;
+   amrex::Real sumRhoYe = 0.0_rt;
+   amrex::Real RhoYe[NUM_SPECIES];
+
+   // Handle the BCs : need a -1 on id_l in dir on Dirichlet BC
+   int  id_l[3] = {i,j,k};
+   id_l[dir] -= 1;
+
+   if ( areafrac(i,j,k) > 0.0_rt ) {
+      for (int n = 0; n < NUM_SPECIES; n++) {
+         sumFlux += flux(i,j,k,n);
+         RhoYe[n] = rhoYed(i,j,k,n);
+         if ( on_lo ) RhoYe[n] = rhoY(id_l[0],id_l[1],id_l[2],n);
+         if ( on_hi ) RhoYe[n] = rhoY(i,j,k,n);
+         sumRhoYe += RhoYe[n];
+      }
+      sumRhoYe = 1.0_rt / sumRhoYe;
+      for (int n = 0; n < NUM_SPECIES; n++) {
+         flux(i,j,k,n) -= sumFlux * RhoYe[n] * sumRhoYe;
+      }
+   } else {
+      for (int n = 0; n < NUM_SPECIES; n++) {
+         flux(i,j,k,n) = 0.0_rt;
+      }
+   }
+
+}
+
 #endif
