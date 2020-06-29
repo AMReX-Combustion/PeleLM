@@ -1383,7 +1383,13 @@ contains
                if (y.ge.boxlo(2) .and. y.le.boxhi(2)) then
                   do i = lo(1), hi(1)
                      x = (float(i)+.5)*delta(1)+problo(1)
-                     if (x.ge.boxlo(1) .and. x.le.boxhi(1)) then
+
+                     if (x.ge.boxlo(1) .and. x.le.boxhi(1) &
+                          .and. y.ge.boxlo(2) .and. y.le.boxhi(2) &
+#if ( AMREX_SPACEDIM == 3 )
+                          .and. z.ge.boxlo(3) .and. z.le.boxhi(3) &
+#endif
+                          ) then
                         tag(i,j,k) = set
                      endif
                   end do
