@@ -108,72 +108,10 @@ extern "C" {
                       const amrex::Real* dx, const amrex::Real* grd_lo,
                       const amrex::Real* time, const int* bc);
 
-   void est_divu_dt(const int& flag,  const amrex::Real* divu_dt_factor,
-                    const amrex::Real* dx, 
-                    const BL_FORT_FAB_ARG_ANYD(sdat),
-                    const BL_FORT_FAB_ARG_ANYD(dsdtdat),
-                    const BL_FORT_FAB_ARG_ANYD(rhodat),
-                    const BL_FORT_FAB_ARG_ANYD(vel),
-                    const BL_FORT_FAB_ARG_ANYD(volume),
-#ifdef AMREX_USE_EB
-                    const BL_FORT_FAB_ARG_ANYD(volfrac),
-#endif
-                    const BL_FORT_FAB_ARG_ANYD(areax),
-                    const BL_FORT_FAB_ARG_ANYD(areay),
-#if (AMREX_SPACEDIM == 3) 
-                    const BL_FORT_FAB_ARG_ANYD(areaz),
-#endif
-                    const int* lo,const int* hi,
-                    amrex::Real* dt, const amrex::Real* min_rho_divu_ceiling);
-
-   void check_divu_dt(const int& flag, const amrex::Real* divu_dt_factor,
-                    const amrex::Real* dx, 
-                    const BL_FORT_FAB_ARG_ANYD(sdat),
-                    const BL_FORT_FAB_ARG_ANYD(dsdtdat),
-                    const BL_FORT_FAB_ARG_ANYD(rhodat),
-                    const BL_FORT_FAB_ARG_ANYD(vel),
-                    const BL_FORT_FAB_ARG_ANYD(volume),
-                    const BL_FORT_FAB_ARG_ANYD(areax),
-                    const BL_FORT_FAB_ARG_ANYD(areay),
-#if (AMREX_SPACEDIM == 3) 
-                    const BL_FORT_FAB_ARG_ANYD(areaz),
-#endif
-                    const int* lo,const int* hi,
-                    const amrex::Real* dt, const amrex::Real* min_rho_divu_ceiling);
-
    void set_ht_adim_common(const amrex::Real* thickFacVal,
                            const amrex::Real* Pr, const amrex::Real* Sc, const int* unityLe);
 
-   void repair_flux_eb(const int* lo,  const int* hi,
-                    const int* dlo, const int* dhi,
-                    BL_FORT_FAB_ARG_ANYD(flux),
-                    const BL_FORT_FAB_ARG_ANYD(RY),
-                    const amrex::Real* xstate, const int* xstatelo, const int* xstatehi,
-                    const amrex::Real* afrac_x,const int*  axlo,const int*  axhi,
-                    const amrex::Real* ystate, const int* ystatelo, const int* ystatehi,
-                    const amrex::Real* afrac_y,const int*  aylo,const int*  ayhi,
-#if (AMREX_SPACEDIM ==3)
-                    const amrex::Real* zstate, const int* zstatelo, const int* zstatehi,
-                    const amrex::Real* afrac_z,const int*  azlo,const int*  azhi,
-#endif
-                    const int* dir, const int* bc);
-
-   void repair_flux(const int* lo,  const int* hi,
-                    const int* dlo, const int* dhi,
-                          BL_FORT_FAB_ARG_ANYD(flux),
-                    const BL_FORT_FAB_ARG_ANYD(RY),
-                    const int* dir, const int* bc);
-
    void set_common (const amrex::Real* time, const int* iteration);
-
-   void compute_ugradp (const BL_FORT_FAB_ARG_ANYD(p),
-                              BL_FORT_FAB_ARG_ANYD(ugradp),
-                        const BL_FORT_FAB_ARG_ANYD(umac),
-                        const BL_FORT_FAB_ARG_ANYD(vmac),
-#if AMREX_SPACEDIM == 3
-                        const BL_FORT_FAB_ARG_ANYD(wmac),
-#endif
-                        const int* lo, const int* hi, const amrex::Real* dx);
 
    int conservative_T_floor(const int* lo, const int* hi,
                             BL_FORT_FAB_ARG_ANYD(fabdat),
@@ -189,26 +127,6 @@ extern "C" {
                      const amrex::Real* dx, const amrex::Real* xlo,
                      const amrex::Real* prob_lo, const amrex::Real* time,
                      const int* level);
-
-   void recomp_update(const int* lo, const int* hi,
-                            BL_FORT_FAB_ARG_ANYD(update),
-                      const BL_FORT_FAB_ARG_ANYD(xflux),
-                      const BL_FORT_FAB_ARG_ANYD(yflux),
-#if AMREX_SPACEDIM == 3
-                      const BL_FORT_FAB_ARG_ANYD(zflux),
-#endif
-                      const BL_FORT_FAB_ARG_ANYD(volume),
-                      const int* nc);
-
-   void mcurve(const int* lo, const int* hi,
-               const BL_FORT_FAB_ARG_ANYD(T),
-                     BL_FORT_FAB_ARG_ANYD(K),
-                     BL_FORT_FAB_ARG_ANYD(nW),
-               const amrex::Real* delta);
-
-   void smooth(const int* lo, const int* hi,
-                     BL_FORT_FAB_ARG_ANYD(i),
-               const BL_FORT_FAB_ARG_ANYD(o));
 
    void valgt_error(BL_FORT_IFAB_ARG_ANYD(tag),
                     const int* tagval, const int* clearval,

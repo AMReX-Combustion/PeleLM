@@ -688,8 +688,8 @@ void pelelm_dcma (const Box& bx, FArrayBox& derfab, int dcomp, int ncomp,
         }
 
         // Y
-        amrex::Real rho_inv = 1.0 / density(i,j,k);
 #ifdef C12H25O2_ID
+        amrex::Real rho_inv = 1.0 / density(i,j,k);
         Y1(i,j,k) = rhoY(i,j,k,OH)  * rho_inv; 
         Y2(i,j,k) = rhoY(i,j,k,RO2) * rho_inv; 
 #endif
