@@ -4095,76 +4095,76 @@ PeleLM::velocity_diffusion_update (Real dt)
 
 void
 PeleLM::getViscTerms (MultiFab& visc_terms,
-                      int       src_comp, 
+                      int       src_comp,
                       int       num_comp,
                       Real      time)
 {
-  const Real strt_time = ParallelDescriptor::second();
-  //
-  // Load "viscous" terms, starting from component = 0.
-  //
-  // JFG: for species, this procedure returns the *negative* of the divergence of 
-  // of the diffusive fluxes.  specifically, in the mixture averaged case, the
-  // diffusive flux vector for species k is
-  //
-  //       j_k = - rho D_k,mix grad Y_k
-  //
-  // so the divergence of the flux, div dot j_k, has a negative in it.  instead 
-  // this procedure returns - div dot j_k to remove the negative.
-  //
-  // note the fluxes used in the code are extensive, that is, scaled by the areas
-  // of the cell edges.  the calculation of the divergence is the sum of un-divided
-  // differences of the extensive fluxes, all divided by volume.  so the effect is 
-  // to give the true divided difference approximation to the divergence of the
-  // intensive flux.
-  //
-  MultiFab** vel_visc  = 0;        // Potentially reused, raise scope
-  FluxBoxes fb;
-  const int  nGrow     = visc_terms.nGrow();
-  //
-  // Get Div(tau) from the tensor operator, if velocity and have non-const viscosity
-  //
-  visc_terms.setBndry(1.e30);
-  if (src_comp < BL_SPACEDIM)
-  {
-    if (src_comp != Xvel || num_comp < BL_SPACEDIM)
-      amrex::Error("tensor v -> getViscTerms needs all v-components at once");
+   const Real strt_time = ParallelDescriptor::second();
+   //
+   // Load "viscous" terms, starting from component = 0.
+   //
+   // JFG: for species, this procedure returns the *negative* of the divergence of
+   // of the diffusive fluxes.  specifically, in the mixture averaged case, the
+   // diffusive flux vector for species k is
+   //
+   //       j_k = - rho D_k,mix grad Y_k
+   //
+   // so the divergence of the flux, div dot j_k, has a negative in it.  instead
+   // this procedure returns - div dot j_k to remove the negative.
+   //
+   // note the fluxes used in the code are extensive, that is, scaled by the areas
+   // of the cell edges.  the calculation of the divergence is the sum of un-divided
+   // differences of the extensive fluxes, all divided by volume.  so the effect is
+   // to give the true divided difference approximation to the divergence of the
+   // intensive flux.
 
-    vel_visc = fb.define(this);
-    getViscosity(vel_visc, time);
+   const int  nGrow     = visc_terms.nGrow();
+   //
+   // Get Div(tau) from the tensor operator, if velocity and have non-const viscosity
+   //
+   visc_terms.setBndry(1.e30);
+   if (src_comp < AMREX_SPACEDIM)
+   {
+      if (src_comp != Xvel || num_comp < AMREX_SPACEDIM)
+         amrex::Error("tensor v -> getViscTerms needs all v-components at once");
 
-    for (int dir=0; dir<BL_SPACEDIM; ++dir) {
-      showMF("velVT",*(vel_visc[dir]),amrex::Concatenate("velVT_viscn_",dir,1),level);
-    }
+      FluxBoxes fb(this);
+      MultiFab** vel_visc = fb.get();
+      getViscosity(vel_visc, time);
 
-    int viscComp = 0;
-    diffusion->getTensorViscTerms(visc_terms,time,vel_visc,viscComp);
-    showMF("velVT",visc_terms,"velVT_visc_terms_1",level);
-  }
-  else
-  {
-    amrex::Abort("Should only call getViscTerms for velocity");
-  }
-  //
-  // Ensure consistent grow cells
-  //
-  if (nGrow > 0)
-  {
-    visc_terms.FillBoundary(0,num_comp, geom.periodicity());
-    BL_ASSERT(visc_terms.nGrow() == 1);
-    Extrapolater::FirstOrderExtrap(visc_terms, geom, 0, num_comp);
-  }
+      for (int dir=0; dir<AMREX_SPACEDIM; ++dir) {
+         showMF("velVT",*(vel_visc[dir]),amrex::Concatenate("velVT_viscn_",dir,1),level);
+      }
 
-  if (verbose > 1)
-  {
-    const int IOProc   = ParallelDescriptor::IOProcessorNumber();
-    Real      run_time = ParallelDescriptor::second() - strt_time;
+      int viscComp = 0;
+      diffusion->getTensorViscTerms(visc_terms,time,vel_visc,viscComp);
+      showMF("velVT",visc_terms,"velVT_visc_terms_1",level);
+   }
+   else
+   {
+     amrex::Abort("Should only call getViscTerms for velocity");
+   }
 
-    ParallelDescriptor::ReduceRealMax(run_time,IOProc);
+   //
+   // Ensure consistent grow cells
+   //
+   if (nGrow > 0)
+   {
+      visc_terms.FillBoundary(0,num_comp, geom.periodicity());
+      BL_ASSERT(visc_terms.nGrow() == 1);
+      Extrapolater::FirstOrderExtrap(visc_terms, geom, 0, num_comp);
+   }
 
-    amrex::Print() << "PeleLM::getViscTerms(): lev: " << level 
-		   << ", time: " << run_time << '\n';
-  }
+   if (verbose > 1)
+   {
+      const int IOProc   = ParallelDescriptor::IOProcessorNumber();
+      Real      run_time = ParallelDescriptor::second() - strt_time;
+
+      ParallelDescriptor::ReduceRealMax(run_time,IOProc);
+
+      amrex::Print() << "PeleLM::getViscTerms(): lev: " << level
+                     << ", time: " << run_time << '\n';
+   }
 }
 
 void dumpProfileFab(const FArrayBox& fab,
