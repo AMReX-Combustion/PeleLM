@@ -2152,46 +2152,43 @@ PeleLM::compute_instantaneous_reaction_rates (MultiFab&       R,
 void
 PeleLM::init (AmrLevel& old)
 {
-  NavierStokesBase::init(old);
+   NavierStokesBase::init(old);
 
-  PeleLM* oldht    = (PeleLM*) &old;
-  const Real    tnp1 = oldht->state[State_Type].curTime();
-  //
-  // Get best ydot data.
-  //
-  MultiFab& Ydot = get_new_data(RhoYdot_Type);
-  {
-    FillPatchIterator fpi(*oldht,Ydot,Ydot.nGrow(),tnp1,RhoYdot_Type,0,nspecies);
-    const MultiFab& mf_fpi = fpi.get_mf();
-#ifdef _OPENMP
-#pragma omp parallel
-#endif  
-    for (MFIter mfi(mf_fpi,true); mfi.isValid(); ++mfi)
-    {
-      const Box& vbx  = mfi.tilebox();
-      const FArrayBox& pfab = mf_fpi[mfi];
-       Ydot[mfi].copy<RunOn::Host>(pfab,vbx,0,vbx,0,nspecies);
-    }
-  }
-  
-  RhoH_to_Temp(get_new_data(State_Type));
+   PeleLM* oldht    = (PeleLM*) &old;
+   const Real    tnp1 = oldht->state[State_Type].curTime();
 
-  MultiFab& FuncCount = get_new_data(FuncCount_Type);
-  {
-    FillPatchIterator fpi(*oldht,FuncCount,FuncCount.nGrow(),tnp1,FuncCount_Type,0,1);
-    const MultiFab& mf_fpi = fpi.get_mf();
+   //
+   // Get good version of rhoYdot and Function count
+   //
+   MultiFab& Ydot = get_new_data(RhoYdot_Type);
+   MultiFab& FuncCount = get_new_data(FuncCount_Type);
+   RhoH_to_Temp(get_new_data(State_Type));
+
+   FillPatchIterator Ydotfpi(*oldht,Ydot,Ydot.nGrow(),tnp1,RhoYdot_Type,0,nspecies);
+   const MultiFab& Ydot_old = Ydotfpi.get_mf();
+
+   FillPatchIterator FctCntfpi(*oldht,FuncCount,FuncCount.nGrow(),tnp1,FuncCount_Type,0,1);
+   const MultiFab& FuncCount_old = FctCntfpi.get_mf();
+
 #ifdef _OPENMP
-#pragma omp parallel
+#pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif  
-      for (MFIter mfi(mf_fpi,true); mfi.isValid(); ++mfi)
-    {
-      const Box& vbx  = mfi.tilebox();
-      const FArrayBox& pfab = mf_fpi[mfi];
-      FuncCount[mfi].copy<RunOn::Host>(pfab,vbx,0,vbx,0,1);
-    }
-  }
-  
-}
+   for (MFIter mfi(mf_fpi,TilingIfNotGPU()); mfi.isValid(); ++mfi)
+   {
+      const Box& bx         = mfi.tilebox();
+      auto const& rhoYdot_n = Ydot.array(mfi); 
+      auto const& rhoYdot_o = Ydot_old.array(mfi); 
+      auto const& FctCnt_n  = FuncCount.array(mfi); 
+      auto const& FctCnt_o  = FuncCount_old.array(mfi); 
+      amrex::ParallelFor(bx, [rhoYdot_n, rhoYdot_o, FctCnt_n, FctCnt_o]
+      AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+      {
+         for (int n = 0; n < NUM_SPECIES; n++) {
+            rhoYdot_n(i,j,k,n) = rhoYdot_o(i,j,k,n);
+         }
+         FctCnt_n(i,j,k) = FctCnt_o(i,j,k);
+      });
+   }
 
 //
 // Inits the data on a new level that did not exist before regridding.
