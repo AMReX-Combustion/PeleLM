@@ -22,7 +22,7 @@ module PeleLM_nd
 
   private
 
-  public :: pphys_HMIXfromTY, pphys_RHOfromPTY, pphys_CPMIXfromTY, pphys_TfromHY, &
+  public :: pphys_HMIXfromTY, pphys_RHOfromPTY, pphys_TfromHY, &
             init_data_new_mech, &
             dqrad_fill, divu_fill, dsdt_fill, ydot_fill, rhoYdot_fill, &
             conservative_T_floor, &
@@ -120,48 +120,6 @@ contains
       end do
 
    end subroutine pphys_RHOfromPTY
-
-!=========================================================
-!  Compute mixture mean heat capacity
-!=========================================================
-
-  subroutine pphys_CPMIXfromTY(lo, hi, &
-                               CPmix, c_lo, c_hi, &
-                               T, t_lo, t_hi, &
-                               Y, y_lo, y_hi )&
-                               bind(C,name="pphys_CPMIXfromTY")
-
-      implicit none
-
-! In/Out
-      integer, intent(in) :: lo(3),   hi(3)
-      integer, intent(in) :: c_lo(3), c_hi(3)
-      integer, intent(in) :: t_lo(3), t_hi(3)
-      integer, intent(in) :: y_lo(3), y_hi(3)
-      REAL_T, dimension(c_lo(1):c_hi(1),c_lo(2):c_hi(2),c_lo(3):c_hi(3)), intent(out) :: CPmix
-      REAL_T, dimension(t_lo(1):t_hi(1),t_lo(2):t_hi(2),t_lo(3):t_hi(3)), intent(in) :: T
-      REAL_T, dimension(y_lo(1):y_hi(1),y_lo(2):y_hi(2),y_lo(3):y_hi(3),NUM_SPECIES), intent(in) :: Y
-
-! Local
-      REAL_T  :: Yt(NUM_SPECIES), SCAL
-      integer :: i, j, k, n
-
-!     NOTE: SCAL converts result from assumed cgs to MKS (1 erg/g.K = 1.e-4 J/kg.K)
-      SCAL = 1.0d-4
-
-      do k = lo(3), hi(3)
-        do j = lo(2), hi(2)
-          do i = lo(1), hi(1)
-            do n = 1, NUM_SPECIES
-               Yt(n) = Y(i,j,k,n)
-            end do
-            CALL CKCPBS(T(i,j,k),Yt,CPMIX(i,j,k))
-            CPMIX(i,j,k) = CPMIX(i,j,k) * SCAL
-          end do
-        end do
-      end do
-
-   end subroutine pphys_CPMIXfromTY
 
 !=========================================================
 !  Iterate on T until it matches Hmix and Ym
