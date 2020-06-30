@@ -33,6 +33,7 @@
 #include <AMReX_MLMG.H>
 #include <NS_util.H>
 
+#include <PPHYS_CONSTANTS.H>
 #include <PeleLM_K.H>
 
 #if defined(BL_USE_NEWMECH) || defined(BL_USE_VELOCITY)
@@ -144,7 +145,6 @@ int  PeleLM::nreactions;
 Vector<std::string>  PeleLM::spec_names;
 int  PeleLM::floor_species;
 int  PeleLM::do_set_rho_to_species_sum;
-Real PeleLM::rgas;
 Real PeleLM::prandtl;
 Real PeleLM::schmidt;
 Real PeleLM::constant_thick_val;
@@ -164,7 +164,6 @@ int  PeleLM::hack_nospecdiff;
 int  PeleLM::hack_noavgdivu;
 int  PeleLM::use_tranlib;
 Real PeleLM::trac_diff_coef;
-Real PeleLM::P1atm_MKS;
 bool PeleLM::plot_reactions;
 bool PeleLM::plot_consumption;
 bool PeleLM::plot_heat_release;
@@ -400,7 +399,6 @@ PeleLM::Initialize ()
   PeleLM::nspecies                  = 0;
   PeleLM::floor_species             = 1;
   PeleLM::do_set_rho_to_species_sum = 1;
-  PeleLM::rgas                      = -1.0;
   PeleLM::prandtl                   = .7;
   PeleLM::schmidt                   = .7;
   PeleLM::constant_thick_val        = -1;
@@ -421,7 +419,6 @@ PeleLM::Initialize ()
   PeleLM::hack_noavgdivu            = 0;
   PeleLM::use_tranlib               = 0;
   PeleLM::trac_diff_coef            = 0.0;
-  PeleLM::P1atm_MKS                 = -1.0;
   PeleLM::turbFile                  = "";
   PeleLM::plot_reactions            = false;
   PeleLM::plot_consumption          = true;
@@ -1255,22 +1252,7 @@ PeleLM::init_once ()
        pp.get(ppStr.c_str(),typical_values_FileVals[otherKeys[i]]);
      }
    }
-   //
-   // Get universal gas constant from Fortran.
-   //
-   rgas = pphys_getRuniversal();
-   P1atm_MKS = pphys_getP1atm_MKS();
 
-   if (rgas <= 0.0)
-   {
-     std::cerr << "PeleLM::init_once(): bad rgas: " << rgas << '\n';
-     amrex::Abort();
-   }
-   if (P1atm_MKS <= 0.0)
-   {
-     std::cerr << "PeleLM::init_once(): bad P1atm_MKS: " << P1atm_MKS << '\n';
-     amrex::Abort();
-   }
    //
    // Chemistry.
    //

@@ -6,6 +6,7 @@
 
 #include <Prob_F.H>
 #include <PeleLM_F.H>
+#include <PPHYS_CONSTANTS.H>
 
 #include "mechanism.h"
 
@@ -42,7 +43,6 @@ contains
 
    subroutine amrex_probinit (init,name,namlen,problo,probhi) bind(c)
 
-      use PeleLM_F,  only: pphys_getP1atm_MKS
 
       use mod_Fvar_def, only : pamb
       use mod_Fvar_def, only : domnhi, domnlo
@@ -122,7 +122,7 @@ contains
       open(untin,file=probin(1:namlen),form='formatted',status='old')
 
 !     Set defaults
-      pamb = pphys_getP1atm_MKS()
+      pamb = PP_PA_MKS
 
       T_in = 300.0d0
 
@@ -510,7 +510,6 @@ contains
                         delta, xlo, xhi) &
                         bind(C, name="init_data")
 
-      use PeleLM_F,  only: pphys_getP1atm_MKS
       use PeleLM_nD, only: pphys_RHOfromPTY, pphys_HMIXfromTY
       use mod_Fvar_def, only : Density, Temp, FirstSpec, RhoH, pamb
       use mod_Fvar_def, only : domnlo
@@ -556,7 +555,7 @@ contains
          end do
       end do
 
-      Patm = pamb / pphys_getP1atm_MKS()
+      Patm = pamb /PP_PA_MKS
 
       call pphys_RHOfromPTY(lo,hi, &
                             scal(:,:,:,Density),   s_lo, s_hi, &

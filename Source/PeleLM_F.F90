@@ -27,7 +27,6 @@ module PeleLM_F
   public :: set_scal_numb, &
             set_ht_adim_common, get_pamb, &
             set_common, active_control, &
-            pphys_getP1atm_MKS, &
             pphys_TfromHYpt, set_prob_spec
 
 contains
@@ -97,28 +96,6 @@ end subroutine plm_extern_init
  
   end function pphys_getckspecname
   
-  function pphys_getRuniversal() bind(C, name="pphys_getRuniversal") result(RUNIV)
-
-    implicit none
-    double precision Ruc, Pa, RUNIV
-
-    call CKRP(RUNIV,Ruc,Pa)
-!     1 erg/(mole.K) = 1.e-4 J/(kmole.K)
-    RUNIV = RUNIV*1.d-4
-
-  end function pphys_getRuniversal
-
-  function pphys_getP1atm_MKS() bind(C, name="pphys_getP1atm_MKS") result(P1ATM)
-
-    implicit none
-    double precision Ru, Ruc, P1ATM
-
-    call CKRP(Ru,Ruc,P1ATM)
-!     1 N/(m.m) = 0.1 dyne/(cm.cm)
-    P1ATM = P1ATM*1.d-1
-
-  end function pphys_getP1atm_MKS
-
   function pphys_numReactions() bind(C, name="pphys_numReactions") result(NR)
 
     implicit none

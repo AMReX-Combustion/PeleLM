@@ -652,7 +652,6 @@ private:
   static int         nreactions;
   static amrex::Vector<std::string> spec_names;
   static int         floor_species;
-  static amrex::Real rgas;
   static amrex::Real prandtl;
   static amrex::Real schmidt;
   static amrex::Real constant_thick_val;
@@ -666,7 +665,6 @@ private:
   static int         hack_noavgdivu;
   static amrex::Real trac_diff_coef;
   static int         use_tranlib;
-  static amrex::Real P1atm_MKS;
   static std::string turbFile;
   static std::string fuelName;
   static std::string productName;

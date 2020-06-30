@@ -9,6 +9,7 @@
 #include <PeleLM_F.H>
 #include <AMReX_ArrayLim.H>
 #include "mechanism.h"
+#include <PPHYS_CONSTANTS.H>
 
 module PeleLM_nd
 
@@ -230,7 +231,6 @@ contains
                                   delta, xlo, xhi)&
                                   bind(C, name="init_data_new_mech")
 
-      use PeleLM_F,  only: pphys_getP1atm_MKS
       use mod_Fvar_def, only : Density, Temp, FirstSpec, RhoH, pamb
 
       implicit none
@@ -250,7 +250,7 @@ contains
       REAL_T  :: Patm
       integer :: i, j, k, n
 
-      Patm = pamb / pphys_getP1atm_MKS()
+      Patm = pamb / PP_PA_MKS
 
       call pphys_RHOfromPTY(lo,hi, &
                             scal(:,:,:,Density),   s_lo, s_hi, &
