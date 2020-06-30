@@ -3841,16 +3841,16 @@ PeleLM::compute_enthalpy_fluxes (MultiFab* const*       flux,
   /*
     Build heat fluxes based on species fluxes, Gamma_m, and fill-patched cell-centered states
     Set:
-         flux[nspecies+1] = sum_m (H_m Gamma_m)
-         flux[nspecies+2] = - lambda grad T
+         flux[NUM_SPECIES+1] = sum_m (H_m Gamma_m)
+         flux[NUM_SPECIES+2] = - lambda grad T
   */
 
-  BL_ASSERT(beta && beta[0]->nComp() == nspecies+1);
+  BL_ASSERT(beta && beta[0]->nComp() == NUM_SPECIES+1);
 
   const Real strt_time = ParallelDescriptor::second();
 
   //
-  // First step, we create an operator to get (EB-aware) fluxes from, it will provide flux[nspecies+2]
+  // First step, we create an operator to get (EB-aware) fluxes from, it will provide flux[NUM_SPECIES+2]
   //
   
   LPInfo info;
@@ -3900,25 +3900,25 @@ PeleLM::compute_enthalpy_fluxes (MultiFab* const*       flux,
   op.setScalars(a, b);
   op.setACoeffs(0, Alpha);
 
-  // Here it is nspecies because lambda is stored after the last species (first starts at 0)
-  Array<MultiFab,BL_SPACEDIM> bcoeffs = Diffusion::computeBeta(beta, nspecies);
+  // Here it is NUM_SPECIES because lambda is stored after the last species (first starts at 0)
+  Array<MultiFab,AMREX_SPACEDIM> bcoeffs = Diffusion::computeBeta(beta, NUM_SPECIES);
   op.setBCoeffs(0, amrex::GetArrOfConstPtrs(bcoeffs));
 
-  D_TERM( flux[0]->setVal(0., nspecies+2, 1);,
-          flux[1]->setVal(0., nspecies+2, 1);,
-          flux[2]->setVal(0., nspecies+2, 1););
+  D_TERM( flux[0]->setVal(0., NUM_SPECIES+2, 1);,
+          flux[1]->setVal(0., NUM_SPECIES+2, 1);,
+          flux[2]->setVal(0., NUM_SPECIES+2, 1););
 
-  // Here it is nspecies+2 because this is the heat flux (nspecies+3 in enth_diff_terms in fortran)
+  // Here it is NUM_SPECIES+2 because this is the heat flux (NUM_SPECIES+3 in enth_diff_terms in fortran)
   // No multiplication by dt here
-  Diffusion::computeExtensiveFluxes(mg, TT, flux, nspecies+2, 1, &geom, b);
+  Diffusion::computeExtensiveFluxes(mg, TT, flux, NUM_SPECIES+2, 1, &geom, b);
 
   //
-  // Now we have flux[nspecies+2]
-  // Second step, let's compute flux[nspecies+1] = sum_m (H_m Gamma_m)
+  // Now we have flux[NUM_SPECIES+2]
+  // Second step, let's compute flux[NUM_SPECIES+1] = sum_m (H_m Gamma_m)
   
 
    // First we want to gather h_i from T and then interpolate it to face centroids
-   MultiFab Enth(grids,dmap,nspecies,ngrow,MFInfo(),Factory());
+   MultiFab Enth(grids,dmap,NUM_SPECIES,ngrow,MFInfo(),Factory());
 
 #ifdef _OPENMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
@@ -3939,26 +3939,26 @@ PeleLM::compute_enthalpy_fluxes (MultiFab* const*       flux,
       }
    }
 
-  Vector<BCRec> math_bc(nspecies);
-  math_bc = fetchBCArray(State_Type,first_spec,nspecies);
+  Vector<BCRec> math_bc(NUM_SPECIES);
+  math_bc = fetchBCArray(State_Type,first_spec,NUM_SPECIES);
 
   MultiFab enth_edgstate[AMREX_SPACEDIM];
 
   for (int i(0); i < AMREX_SPACEDIM; i++)
   {
     const BoxArray& ba = getEdgeBoxArray(i);
-    enth_edgstate[i].define(ba, dmap, nspecies, 1, MFInfo(), Factory());
+    enth_edgstate[i].define(ba, dmap, NUM_SPECIES, 1, MFInfo(), Factory());
   }
 
 #ifdef AMREX_USE_EB
-  EB_interp_CellCentroid_to_FaceCentroid(Enth, D_DECL(enth_edgstate[0],enth_edgstate[1],enth_edgstate[2]), 0, 0, nspecies, geom, math_bc);
+  EB_interp_CellCentroid_to_FaceCentroid(Enth, D_DECL(enth_edgstate[0],enth_edgstate[1],enth_edgstate[2]), 0, 0, NUM_SPECIES, geom, math_bc);
 #else
 
 #ifdef _OPENMP
-#pragma omp parallel
+#pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
   {
-    for (MFIter mfi(Enth,true); mfi.isValid();++mfi)
+    for (MFIter mfi(Enth,TilingIfNotGPU()); mfi.isValid();++mfi)
     {
       const Box& vbox = mfi.validbox();
       for (int dir = 0; dir < AMREX_SPACEDIM; dir++)
@@ -3966,7 +3966,7 @@ PeleLM::compute_enthalpy_fluxes (MultiFab* const*       flux,
         const Box ebox = surroundingNodes(vbox,dir);
         FPLoc bc_lo = fpi_phys_loc(get_desc_lst()[State_Type].getBC(Temp).lo(dir));
         FPLoc bc_hi = fpi_phys_loc(get_desc_lst()[State_Type].getBC(Temp).hi(dir));
-        center_to_edge_fancy(Enth[mfi],enth_edgstate[dir][mfi],grow(vbox,amrex::BASISV(dir)),ebox,0,0,nspecies,geom.Domain(),bc_lo,bc_hi);
+        center_to_edge_fancy(Enth[mfi],enth_edgstate[dir][mfi],grow(vbox,amrex::BASISV(dir)),ebox,0,0,NUM_SPECIES,geom.Domain(),bc_lo,bc_hi);
       }
     }
   }
@@ -3977,22 +3977,13 @@ PeleLM::compute_enthalpy_fluxes (MultiFab* const*       flux,
   //
   
 #ifdef _OPENMP
-#pragma omp parallel
+#pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
 {
   FArrayBox fab_tmp;
-  for (MFIter mfi(TT,true); mfi.isValid(); ++mfi)
+  for (MFIter mfi(TT,TilingIfNotGPU()); mfi.isValid(); ++mfi)
   {
     Box bx = mfi.tilebox();
-
-    // need face-centered tilebox for each direction
-    D_TERM(const Box& xbx = mfi.nodaltilebox(0);,
-           const Box& ybx = mfi.nodaltilebox(1);,
-           const Box& zbx = mfi.nodaltilebox(2););
-
-    D_TERM((*flux[0])[mfi].setVal<RunOn::Host>(0., xbx, nspecies+1, 1);,
-           (*flux[1])[mfi].setVal<RunOn::Host>(0., ybx, nspecies+1, 1);,
-           (*flux[2])[mfi].setVal<RunOn::Host>(0., zbx, nspecies+1, 1););
 
 #if AMREX_USE_EB
     // this is to check efficiently if this tile contains any eb stuff
@@ -4004,25 +3995,36 @@ PeleLM::compute_enthalpy_fluxes (MultiFab* const*       flux,
       // If tile is completely covered by EB geometry, set 
       // value to some very large number so we know if
       // we accidentaly use these covered vals later in calculations
-      D_TERM((*flux[0])[mfi].setVal<RunOn::Host>(1.2345e30, xbx, nspecies+1, 1);,
-             (*flux[1])[mfi].setVal<RunOn::Host>(1.2345e30, ybx, nspecies+1, 1);,
-             (*flux[2])[mfi].setVal<RunOn::Host>(1.2345e30, zbx, nspecies+1, 1););
+      for (int dir = 0; dir < AMREX_SPACEDIM; ++dir)
+      {
+        const Box&  ebox_d          = mfi.nodaltilebox(dir);
+        auto const& flux_enthaply_d = (*flux[dir]).array(mfi, NUM_SPECIES+1);
+
+        amrex::ParallelFor(ebox_d, [=]
+          AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+          {
+              flux_enthaply_d(i,j,k) = 1.2345e30;
+          });
+      }
     }
     else
     {
 #endif
-      for (int i = 0; i < AMREX_SPACEDIM; ++i)
+      for (int dir = 0; dir < AMREX_SPACEDIM; ++dir)
       {
-        Box ebox = mfi.nodaltilebox(i);
-        fab_tmp.resize(ebox,1);
+        const Box&  ebox_d          = mfi.nodaltilebox(dir);
+        auto const& flux_species_d  = (*flux[dir]).array(mfi, 0);
+        auto const& flux_enthaply_d = (*flux[dir]).array(mfi, NUM_SPECIES+1);
+        auto const& enth_d          = enth_edgstate[dir].array(mfi);
 
-        for (int k = 0; k < nspecies; k++)
-        {
-          fab_tmp.copy<RunOn::Host>((*flux[i])[mfi],ebox,k,ebox,0,1);
-          fab_tmp.mult<RunOn::Host>((enth_edgstate[i])[mfi],ebox,k,0,1);
-          (*flux[i])[mfi].plus<RunOn::Host>(fab_tmp,ebox,ebox,0,nspecies+1,1);
-        }
-
+        amrex::ParallelFor(ebox_d, [=]
+          AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+          {
+              flux_enthaply_d(i,j,k) = 0.0;
+              for (int n = 0; n < NUM_SPECIES; n++) {
+                  flux_enthaply_d(i,j,k) += flux_species_d(i,j,k,n)*enth_d(i,j,k,n);
+              }
+          });
       }
 #if AMREX_USE_EB
     }
