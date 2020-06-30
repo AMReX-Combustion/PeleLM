@@ -509,6 +509,10 @@ PeleLM::variableSetUp ()
   //
   // Set state variable Id's (Density and velocities set already).
   //
+  // FIX ME: now we set up the index in IndexDefines.H (DEF_var)
+  // Currently we pass these index to static variables (without DEF_)
+  // Ultimately this has to be generalized, with the code only using the index from IndexDefines
+  // but in many places (IAMR), variables with the same name are also defined locally
 
 /*
   int counter   = Density;

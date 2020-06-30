@@ -6,6 +6,7 @@
 #include "pelelm_prob_parm.H"
 
 #include <NavierStokesBase.H>
+#include <IndexDefines.H>
 
 AMREX_GPU_DEVICE
 inline
@@ -21,38 +22,74 @@ pelelm_initdata (int i, int j, int k,
     const amrex::Real* prob_hi = geomdata.ProbHi();
     const amrex::Real* dx      = geomdata.CellSize();
 
-    constexpr amrex::Real pi = 3.14159265358979323846264338327950288_rt;
-    const amrex::Real splitx = 0.5_rt*(prob_lo[0]+prob_hi[0]);
-    const amrex::Real splity = 0.5_rt*(prob_lo[1]+prob_hi[1]);
-    const amrex::Real splitz = 0.5_rt*(prob_lo[2]+prob_hi[2]);
-    const amrex::Real L_x = prob_hi[0] - prob_lo[0];
-
     const amrex::Real z = prob_lo[2] + (k+0.5_rt)*dx[2];
     const amrex::Real y = prob_lo[1] + (j+0.5_rt)*dx[1];
     const amrex::Real x = prob_lo[0] + (i+0.5_rt)*dx[0];
 
-    state(i,j,k,Xvel) = prob_parm.T_mean;
+    state(i,j,k,DEF_Temp) = prob_parm.T_mean;
+
+    amrex::Real Yt[NUM_SPECIES];
+    Yt[0] = 0.233_rt;
+    Yt[1] = 0.767_rt;
 
 
-//    amrex::Real Pt;
-//    if (z < splitz) {
-//        Pt = prob_parm.p0_base - prob_parm.rho_1*z;
-//    } else {
-//        Pt = presmid - prob_parm.rho_2*(z-splitz);
-//    }
-//    const amrex::Real rhoet = Pt/(parm.eos_gamma-1.0_rt);
+    const amrex::Real deltax = x - prob_parm.xvort;
+    const amrex::Real deltay = y - prob_parm.yvort;
+    const amrex::Real d_sq = deltax*deltax + deltay*deltay;
+    const amrex::Real r_sq = prob_parm.rvort * prob_parm.rvort;
 
-//    const Real r2d = amrex::min(std::hypot((x-splitx),(y-splity)), 0.5_rt*L_x);
-//    const Real pertheight = 0.5_rt - 0.01_rt*std::cos(2.0_rt*pi*r2d/L_x);
-//    const Real rhot = prob_parm.rho_1 + ((prob_parm.rho_2-prob_parm.rho_1)/2.0_rt)*(1.0_rt+std::tanh((z-pertheight)/0.005_rt));
+    const amrex::Real u_vort = -prob_parm.forcevort*deltay/r_sq * exp(-d_sq/r_sq/2.);
+    const amrex::Real v_vort = prob_parm.forcevort*deltax/r_sq * exp(-d_sq/r_sq/2.);
+    const amrex::Real w_vort = 0.;
 
-//    state(i,j,k,URHO ) = rhot;
-//    state(i,j,k,UMX  ) = 0.0_rt;
-//    state(i,j,k,UMY  ) = 0.0_rt;
-//    state(i,j,k,UMZ  ) = 0.0_rt;
-//    state(i,j,k,UEINT) = rhoet;
-//    state(i,j,k,UEDEN) = rhoet;
-//    state(i,j,k,UTEMP) = 0.0_rt;
+    switch(prob_parm.meanFlowDir) {
+      case 1  :
+        state(i,j,k,Xvel) = prob_parm.meanFlowMag + u_vort;
+        state(i,j,k,Yvel) = v_vort;
+        break;
+      case -1  :
+        state(i,j,k,Xvel) = -prob_parm.meanFlowMag + u_vort;
+        state(i,j,k,Yvel) = v_vort;
+        break;
+      case 2  :
+        state(i,j,k,Xvel) = u_vort;
+        state(i,j,k,Yvel) = prob_parm.meanFlowMag + v_vort;
+        break;
+      case -2  :
+        state(i,j,k,Xvel) = u_vort;
+        state(i,j,k,Yvel) = -prob_parm.meanFlowMag + v_vort;
+        break;
+      case 3  :
+        state(i,j,k,Xvel) = prob_parm.meanFlowMag + u_vort;
+        state(i,j,k,Yvel) = prob_parm.meanFlowMag + v_vort;
+        break; 
+      case -3  :
+        state(i,j,k,Xvel) = -prob_parm.meanFlowMag + u_vort;
+        state(i,j,k,Yvel) = -prob_parm.meanFlowMag + v_vort;
+        break;
+    }
+
+#if (AMREX_SPACEDIM == 3)
+        state(i,j,k,Zvel) = w_vort;
+#endif
+
+    pressure(i,j,k,0) = prob_parm.P_mean;
+
+    amrex::Real rho_cgs, P_cgs;
+    P_cgs = prob_parm.P_mean * 10.0_rt;
+
+    EOS::PYT2R(P_cgs, Yt, state(i,j,k,DEF_Temp), rho_cgs);
+    state(i,j,k,Density) = rho_cgs * 1.0e3_rt;            // CGS -> MKS conversion
+
+    EOS::TY2H(state(i,j,k,DEF_Temp), Yt, state(i,j,k,DEF_RhoH));
+    state(i,j,k,DEF_RhoH) = state(i,j,k,DEF_RhoH) * 1.0e-4_rt * state(i,j,k,Density);   // CGS -> MKS conversion
+
+    for (int n = 0; n < NUM_SPECIES; n++) {
+      state(i,j,k,DEF_first_spec+n) = Yt[n] * state(i,j,k,Density);
+    }
+
+
+
 }
 
 #endif
