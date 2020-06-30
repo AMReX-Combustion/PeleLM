@@ -3,19 +3,16 @@
 
 #include <AMReX_Geometry.H>
 #include <AMReX_FArrayBox.H>
-//#include "CNS_index_macros.H"
 #include "pelelm_prob_parm.H"
+
+#include <NavierStokesBase.H>
 
 AMREX_GPU_DEVICE
 inline
 void
-pelelm_initdata (int i, int j, int k,
-                 amrex::Array4<amrex::Real> const& vel, 
-                 amrex::Array4<amrex::Real> const& rho, 
-                 amrex::Array4<amrex::Real> const& rhoY,
-                 amrex::Array4<amrex::Real> const& rhoH,
-                 amrex::Array4<amrex::Real> const& T,
-                 amrex::Array4<amrex::Real> const& Pressure,
+pelelm_initdata (int i, int j, int k, 
+                 amrex::Array4<amrex::Real> const& state,
+                 amrex::Array4<amrex::Real> const& pressure,
                  amrex::GeometryData const& geomdata, ProbParm const& prob_parm)
 {
     using namespace amrex::literals;
@@ -34,7 +31,7 @@ pelelm_initdata (int i, int j, int k,
     const amrex::Real y = prob_lo[1] + (j+0.5_rt)*dx[1];
     const amrex::Real x = prob_lo[0] + (i+0.5_rt)*dx[0];
 
-    T(i,j,k) = prob_parm.T_mean;
+    state(i,j,k,Xvel) = prob_parm.T_mean;
 
 
 //    amrex::Real Pt;
