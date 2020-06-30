@@ -509,7 +509,7 @@ PeleLM::variableSetUp ()
   int counter   = Density;
 
   first_spec = ++counter;
-  pphys_get_num_spec(&nspecies);
+  nspecies = NUM_SPECIES;
   nreactions = pphys_numReactions();
   counter  += nspecies - 1;
   RhoH = ++counter;
@@ -1140,8 +1140,7 @@ PeleLM::rhoydotSetUp()
 {
   RhoYdot_Type       = desc_lst.size();
   const int ngrow = 1;
-  int nrhoydot;
-  pphys_get_num_spec(&nrhoydot);
+  int nrhoydot = NUM_SPECIES;
 
   amrex::Print() << "RhoYdot_Type, nrhoydot = " << RhoYdot_Type << ' ' << nrhoydot << '\n';
 

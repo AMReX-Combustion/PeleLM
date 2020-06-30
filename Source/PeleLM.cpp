@@ -1848,8 +1848,7 @@ PeleLM::initData ()
     DataServices::Dispatch(DataServices::ExitRequest, NULL);
     
   AmrData&                  amrData     = dataServices.AmrDataRef();
-  int nspecies;
-  pphys_get_num_spec(&nspecies);
+  int nspecies = NUM_SPECIES;
   Vector<std::string> names;
   EOS::speciesNames(names);
   Vector<std::string>        plotnames   = amrData.PlotVarNames();

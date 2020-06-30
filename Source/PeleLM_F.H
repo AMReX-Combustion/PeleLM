@@ -48,8 +48,6 @@ extern "C" {
 
    void plm_extern_init(const int* name, const int* namlen);
 
-   void pphys_get_num_spec(int* nspec);
-
    void pphys_get_spec_index(int* spec,
                              int* len,
                              int* idx);

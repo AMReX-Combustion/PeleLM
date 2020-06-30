@@ -62,15 +62,6 @@ subroutine plm_extern_init(name,namlen) bind(C, name="plm_extern_init")
 
 end subroutine plm_extern_init
 
-  subroutine pphys_get_num_spec(nspec_out) bind(C, name="pphys_get_num_spec")
-
-      implicit none
-      integer(c_int), intent(out) :: nspec_out
-
-      nspec_out = NUM_SPECIES
-
-  end subroutine pphys_get_num_spec  
-
   integer function pphys_getckspecname(i, coded)
   
     use fuego_chemistry, only : L_spec_name
