@@ -3507,8 +3507,7 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
 #endif
                                Tbc,curr_time);
 }
-// Dnew.setVal(0.) done in calling fn
-  //Dnew.setVal(0);
+  // Dnew.setVal(0.) done in calling fn
   flux_divergence(Dnew,DComp,SpecDiffusionFluxnp1,0,nspecies,-1);
   
   //
@@ -3874,17 +3873,14 @@ PeleLM::compute_enthalpy_fluxes (MultiFab* const*       flux,
   op.setLevelBC(0, &TT);
 
   // Creating alpha and beta coefficients.
-  MultiFab Alpha(grids,dmap,1,0,MFInfo(),Factory());
   Real      a               = 0;
   Real      b               = 1.;
-  Alpha.setVal(1.);
   op.setScalars(a, b);
-  op.setACoeffs(0, Alpha);
 
-  // Here it is NUM_SPECIES because lambda is stored after the last species (first starts at 0)
-  Array<MultiFab,AMREX_SPACEDIM> bcoeffs = Diffusion::computeBeta(beta, NUM_SPECIES);
-  op.setBCoeffs(0, amrex::GetArrOfConstPtrs(bcoeffs));
 
+  // Here it is nspecies because lambda is stored after the last species (first starts at 0)
+  Diffusion::setBeta(op,beta,nspecies);
+  
   D_TERM( flux[0]->setVal(0., NUM_SPECIES+2, 1);,
           flux[1]->setVal(0., NUM_SPECIES+2, 1);,
           flux[2]->setVal(0., NUM_SPECIES+2, 1););
@@ -4053,7 +4049,8 @@ PeleLM::velocity_diffusion_update (Real dt)
     int rhsComp  = 0;
     int betaComp = 0;
     diffusion->diffuse_velocity(dt,be_cn_theta,get_rho_half_time(),rho_flag,
-                                delta_rhs,rhsComp,fb_betan.get(),fb_betanp1.get(),betaComp);
+                                delta_rhs,rhsComp,fb_betan.get(),viscn_cc,
+				fb_betanp1.get(),viscnp1_cc,betaComp);
 
     delete delta_rhs;
 
@@ -4176,7 +4173,10 @@ PeleLM::getViscTerms (MultiFab& visc_terms,
     }
 
     int viscComp = 0;
-    diffusion->getTensorViscTerms(visc_terms,time,vel_visc,viscComp);
+    const TimeLevel whichTime = which_time(State_Type,time);
+    BL_ASSERT(whichTime == AmrOldTime || whichTime == AmrNewTime);
+    auto vel_visc_cc = (whichTime == AmrOldTime ? viscn_cc : viscnp1_cc);
+    diffusion->getTensorViscTerms(visc_terms,time,vel_visc,vel_visc_cc,viscComp);
     showMF("velVT",visc_terms,"velVT_visc_terms_1",level);
   }
   else
@@ -4380,24 +4380,14 @@ PeleLM::compute_differential_diffusion_fluxes (const MultiFab& S,
 //	VisMF::Write(rh,"rh_cddf");
 
        Real* rhsscale = 0;
-       std::pair<Real,Real> scalars;
-       MultiFab Alpha;
        // above sets rho_flag = 2;
        // this is potentially dangerous if rho_flag==1, because rh is an undefined MF
        const MultiFab& rho = (rho_flag == 1) ? rh : S;
        const int Rho_comp = (rho_flag ==1) ? 0 : Density;
-
-       Diffusion::computeAlpha(Alpha, scalars, a, b, 
-                               rhsscale, alpha_in, alpha_in_comp+icomp,
-                               rho_flag, &rho, Rho_comp);
-       op.setScalars(scalars.first, scalars.second);
-       op.setACoeffs(0, Alpha);
+       op.setScalars(a,b);
     }
 
-    {
-      Array<MultiFab,BL_SPACEDIM> bcoeffs = Diffusion::computeBeta(beta, betaComp+icomp);
-      op.setBCoeffs(0, amrex::GetArrOfConstPtrs(bcoeffs));
-    }
+    Diffusion::setBeta(op,beta,betaComp+icomp);
 
     // No multiplication by dt here.
     Diffusion::computeExtensiveFluxes(mg, Soln, flux, fluxComp+icomp, 1, &geom, b);
@@ -5948,7 +5938,7 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
                            bool            use_stiff_solver)
 {
   BL_PROFILE("HT:::advance_chemistry()");
-
+  
   const Real strt_time = ParallelDescriptor::second();
 
   const bool do_avg_down_chem = avg_down_chem
@@ -6147,6 +6137,7 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
                 for (int sp=0;sp<nspecies; sp++){
                    tmp_vect[sp]       = rhoY(i,j,k,sp) * 1.e-3;
                    tmp_src_vect[sp]   = frcing(i,j,k,sp) * 1.e-3;
+
                 }
                 tmp_vect[nspecies]    = T(i,j,k);
                 tmp_vect_energy       = rhoH(i,j,k) * 10.0;
@@ -6176,16 +6167,19 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
                 for (int sp=0;sp<nspecies; sp++){
                    rhoY(i,j,k,sp)      = tmp_vect[sp] * 1.e+3;
                    if (isnan(rhoY(i,j,k,sp))) {
-                      amrex::Abort("NaNs !! ");
+                      amrex::Abort("NaNs in rhoY!! ");
+                   }
+                   if (isnan(frcing(i,j,k,sp))) {
+                      amrex::Abort("NaNs in forcing!! ");
                    }
                 }
                 T(i,j,k)  = tmp_vect[NUM_SPECIES];
                 if (isnan(T(i,j,k))) {
-                   amrex::Abort("NaNs !! ");
+                   amrex::Abort("NaNs in T!! ");
                 }
                 rhoH(i,j,k) = tmp_vect_energy * 1.e-01;
                 if (isnan(rhoH(i,j,k))) {
-                   amrex::Abort("NaNs !! ");
+                   amrex::Abort("NaNs in rhoH!! ");
                 }
              }
           }
