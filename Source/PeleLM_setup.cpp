@@ -43,7 +43,7 @@
 #include <Transport.H>
 
 #include <PeleLM_derive.H>
-
+#include <IndexDefines.H>
 
 #ifdef USE_SUNDIALS_PP
 #include <reactor.h>
@@ -506,6 +506,8 @@ PeleLM::variableSetUp ()
   //
   // Set state variable Id's (Density and velocities set already).
   //
+
+/*
   int counter   = Density;
 
   first_spec = ++counter;
@@ -518,6 +520,20 @@ PeleLM::variableSetUp ()
 
   NUM_STATE = ++counter;
   NUM_SCALARS = NUM_STATE - Density;
+*/
+
+  first_spec = DEF_first_spec;
+  RhoH = DEF_RhoH;
+  Temp = DEF_Temp;
+  RhoRT = DEF_RhoRT;
+  NUM_STATE = DEF_NUM_STATE;
+  NUM_SCALARS = DEF_NUM_SCALARS;
+
+
+
+  pphys_get_num_spec(&nspecies);
+  nreactions = pphys_numReactions();
+
 
   EOS::speciesNames(spec_names);
 
