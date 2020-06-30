@@ -481,9 +481,10 @@ PeleLM::variableSetUp ()
   init_extern();
 
   /* PelePhysics */
-  amrex::Print() << " Initialization of network, reactor and transport \n";
+  amrex::Print() << " Initialization of network (F90)... \n";
   init_network();
 
+  amrex::Print() << " Initialization of reactor... \n";
   int reactor_type = 2;
 #ifdef USE_CUDA_SUNDIALS_PP
   reactor_info(&reactor_type,&ncells_chem);
@@ -499,7 +500,9 @@ PeleLM::variableSetUp ()
 }
 #endif
 
+  amrex::Print() << " Initialization of EOS (CPP)... \n";
   EOS::init();
+  amrex::Print() << " Initialization of Transport (CPP)... \n";
   transport_init();
 
   BCRec bc;

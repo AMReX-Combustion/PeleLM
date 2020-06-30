@@ -13,7 +13,6 @@
 
 module PeleLM_nd
 
-  use fuego_chemistry
   use amrex_fort_module,  only : dim=>amrex_spacedim
   use amrex_error_module, only : amrex_abort
   use amrex_filcc_module, only : amrex_filccn
@@ -41,6 +40,8 @@ contains
                                T, t_lo, t_hi, &
                                Y, y_lo, y_hi)&
                                bind(C, name="pphys_HMIXfromTY")
+
+      use fuego_chemistry, only : CKHBMS
 
       implicit none
 
@@ -87,6 +88,8 @@ contains
                                T, t_lo, t_hi, &
                                Y, y_lo, y_hi, Patm) &
                                bind(C, name="pphys_RHOfromPTY")
+
+      use fuego_chemistry, only : CKRHOY
 
       implicit none
 
