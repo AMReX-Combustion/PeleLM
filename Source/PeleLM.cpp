@@ -6232,7 +6232,7 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
 
          for (int dir=0; dir<AMREX_SPACEDIM; dir++)
          {
-            const Box& ebx = S_mfi.grownnodaltilebox(d,EdgeState[dir]->nGrow());
+            const Box& ebx = S_mfi.grownnodaltilebox(dir,EdgeState[dir]->nGrow());
             auto const& rho    = EdgeState[dir]->array(S_mfi,Density);
             auto const& rho_F  = EdgeFlux[dir]->array(S_mfi,Density);
             auto const& rhoY   = EdgeState[dir]->array(S_mfi,first_spec);
@@ -6259,7 +6259,7 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
     typvals[Density] = typical_values[Density];
     typvals[Temp] = typical_values[Temp];
     typvals[RhoH] = typical_values[RhoH];
-    for (int k = 0; k < nspecies; ++k) {
+    for (int k = 0; k < NUM_SPECIES; ++k) {
        typvals[first_spec+k] = typical_values[first_spec+k]*typical_values[Density];
     }
     EB_set_covered_faces({D_DECL(EdgeState[0],EdgeState[1],EdgeState[2])},first_spec,NUM_SPECIES,typvals);
@@ -6289,7 +6289,7 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
     typvals[Density] = typical_values[Density];
     typvals[Temp] = typical_values[Temp];
     typvals[RhoH] = typical_values[RhoH];
-    for (int k = 0; k < nspecies; ++k) {
+    for (int k = 0; k < NUM_SPECIES; ++k) {
        typvals[first_spec+k] = typical_values[first_spec+k]*typical_values[Density];
     }
     EB_set_covered_faces({D_DECL(EdgeState[0],EdgeState[1],EdgeState[2])},first_spec,NUM_SPECIES,typvals);
@@ -6297,7 +6297,6 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
     EB_set_covered_faces({D_DECL(EdgeState[0],EdgeState[1],EdgeState[2])},Density,1,typvals);
     EB_set_covered_faces({D_DECL(EdgeState[0],EdgeState[1],EdgeState[2])},RhoH,1,typvals);
   }
-
 
   // Compute RhoH on faces, store in NUM_SPECIES+1 component of edgestate[d]
 #ifdef _OPENMP
@@ -6322,7 +6321,7 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
               AMREX_GPU_DEVICE (int i, int j, int k) noexcept
               {
                  rhoHm(i,j,k) = 0.0;
-                 rhoHm_F(i,j,k) = 0.0:
+                 rhoHm_F(i,j,k) = 0.0;
               });
            }
         }
@@ -6396,7 +6395,7 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
      typvals[Density] = typical_values[Density];
      typvals[Temp] = typical_values[Temp];
      typvals[RhoH] = typical_values[RhoH];
-     for (int k = 0; k < nspecies; ++k) {
+     for (int k = 0; k < NUM_SPECIES; ++k) {
         typvals[first_spec+k] = typical_values[first_spec+k]*typical_values[Density];
      }
      EB_set_covered_faces({D_DECL(EdgeState[0],EdgeState[1],EdgeState[2])},first_spec,NUM_SPECIES,typvals);
