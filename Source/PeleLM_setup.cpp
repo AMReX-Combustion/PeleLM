@@ -534,8 +534,8 @@ PeleLM::variableSetUp ()
 
 
 
-  pphys_get_num_spec(&nspecies);
-  nreactions = pphys_numReactions();
+  nspecies = NUM_SPECIES;
+  nreactions = NUM_REACTIONS;
 
 
   EOS::speciesNames(spec_names);
