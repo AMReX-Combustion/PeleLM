@@ -8,8 +8,8 @@
 #include <AMReX_BC_TYPES.H>
 #include <PeleLM_F.H>
 #include <AMReX_ArrayLim.H>
+#include "PPHYS_CONSTANTS.H"
 #include "mechanism.h"
-#include <PPHYS_CONSTANTS.H>
 
 module PeleLM_nd
 
@@ -101,13 +101,12 @@ contains
       REAL_T  :: Patm
 
 ! Local
-      REAL_T  :: RU, RUC, P1ATM, Ptmp, Yt(NUM_SPECIES), SCAL
+      REAL_T  :: Ptmp, Yt(NUM_SPECIES), SCAL
       integer :: i, j, k, n
 
 !     NOTE: SCAL converts result from assumed cgs to MKS (1 g/cm^3 = 1.e3 kg/m^3)
       SCAL = one * 1000
-      CALL CKRP(RU,RUC,P1ATM)
-      Ptmp = Patm * P1ATM
+      Ptmp = Patm * PP_PA_CGS
       do k=lo(3),hi(3)
          do j=lo(2),hi(2)
             do i=lo(1),hi(1)

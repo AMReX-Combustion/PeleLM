@@ -4,8 +4,10 @@
 #include <AMReX_BC_TYPES.H>
 #include <AMReX_ArrayLim.H>
 
+
 #include <Prob_F.H>
 #include <PeleLM_F.H>
+#include "PPHYS_CONSTANTS.H"
 #include "mechanism.h"
 
 
@@ -163,7 +165,7 @@ contains
 
    subroutine setupbc() bind(C, name="setupbc")
 
-      use PeleLM_nD, only: pphys_RHOfromPTY, pphys_HMIXfromTY
+      use PeleLM_nd, only: pphys_RHOfromPTY, pphys_HMIXfromTY
       use mod_Fvar_def, only : pamb, domnlo, V_in
       use probdata_module, only : standoff, Y_bc, T_bc, u_bc, v_bc, w_bc, rho_bc, h_bc
       use probdata_module, only : bcinit
