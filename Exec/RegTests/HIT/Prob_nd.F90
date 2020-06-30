@@ -6,6 +6,7 @@
 
 #include <Prob_F.H>
 #include <PeleLM_F.H>
+#include <PPHYS_CONSTANTS.H>
 
 #include "mechanism.h"
 
@@ -44,7 +45,6 @@ contains
    subroutine amrex_probinit (init,name,namlen,problo,probhi) bind(c)
 
 
-      use PeleLM_F,  only: pphys_getP1atm_MKS
       use amrex_paralleldescriptor_module, only: amrex_pd_ioprocessor
       use mod_Fvar_def, only : pamb
       use extern_probin_module, only: const_viscosity, const_bulk_viscosity, const_conductivity, const_diffusivity, mks_unit
@@ -116,7 +116,7 @@ contains
       open(untin,file=probin(1:namlen),form='formatted',status='old')
       
 !     Set defaults
-      pamb = pphys_getP1atm_MKS()
+      pamb = PP_PA_MKS
 
 
       read(untin,fortin)
@@ -249,7 +249,6 @@ contains
                         delta, xlo, xhi) &
                         bind(C, name="init_data")
 
-      use PeleLM_F,  only: pphys_getP1atm_MKS
       use PeleLM_nD, only: pphys_RHOfromPTY, pphys_HMIXfromTY
       use mod_Fvar_def, only : Density, Temp, FirstSpec, RhoH, domnlo
 
@@ -380,7 +379,7 @@ contains
          end do
       end do
 
-      Patm = P_mean / pphys_getP1atm_MKS()
+      Patm = P_mean / PP_PA_MKS
 
       call pphys_RHOfromPTY(lo,hi, &
                             scal(:,:,:,Density),   s_lo, s_hi, &

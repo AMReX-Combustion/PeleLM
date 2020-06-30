@@ -8,11 +8,11 @@
 #include <AMReX_BC_TYPES.H>
 #include <PeleLM_F.H>
 #include <AMReX_ArrayLim.H>
+#include "PPHYS_CONSTANTS.H"
 #include "mechanism.h"
 
 module PeleLM_nd
 
-  use fuego_chemistry
   use amrex_fort_module,  only : dim=>amrex_spacedim
   use amrex_error_module, only : amrex_abort
   use amrex_filcc_module, only : amrex_filccn
@@ -21,7 +21,7 @@ module PeleLM_nd
 
   private
 
-  public :: pphys_HMIXfromTY, pphys_RHOfromPTY, pphys_CPMIXfromTY, pphys_TfromHY, &
+  public :: pphys_HMIXfromTY, pphys_RHOfromPTY, pphys_TfromHY, &
             init_data_new_mech, &
             dqrad_fill, divu_fill, dsdt_fill, ydot_fill, rhoYdot_fill, &
             part_cnt_err, &
@@ -39,6 +39,8 @@ contains
                                T, t_lo, t_hi, &
                                Y, y_lo, y_hi)&
                                bind(C, name="pphys_HMIXfromTY")
+
+      use fuego_chemistry, only : CKHBMS
 
       implicit none
 
@@ -86,6 +88,8 @@ contains
                                Y, y_lo, y_hi, Patm) &
                                bind(C, name="pphys_RHOfromPTY")
 
+      use fuego_chemistry, only : CKRHOY
+
       implicit none
 
 ! In/Out
@@ -99,13 +103,12 @@ contains
       REAL_T  :: Patm
 
 ! Local
-      REAL_T  :: RU, RUC, P1ATM, Ptmp, Yt(NUM_SPECIES), SCAL
+      REAL_T  :: Ptmp, Yt(NUM_SPECIES), SCAL
       integer :: i, j, k, n
 
 !     NOTE: SCAL converts result from assumed cgs to MKS (1 g/cm^3 = 1.e3 kg/m^3)
       SCAL = one * 1000
-      CALL CKRP(RU,RUC,P1ATM)
-      Ptmp = Patm * P1ATM
+      Ptmp = Patm * PP_PA_CGS
       do k=lo(3),hi(3)
          do j=lo(2),hi(2)
             do i=lo(1),hi(1)
@@ -119,48 +122,6 @@ contains
       end do
 
    end subroutine pphys_RHOfromPTY
-
-!=========================================================
-!  Compute mixture mean heat capacity
-!=========================================================
-
-  subroutine pphys_CPMIXfromTY(lo, hi, &
-                               CPmix, c_lo, c_hi, &
-                               T, t_lo, t_hi, &
-                               Y, y_lo, y_hi )&
-                               bind(C,name="pphys_CPMIXfromTY")
-
-      implicit none
-
-! In/Out
-      integer, intent(in) :: lo(3),   hi(3)
-      integer, intent(in) :: c_lo(3), c_hi(3)
-      integer, intent(in) :: t_lo(3), t_hi(3)
-      integer, intent(in) :: y_lo(3), y_hi(3)
-      REAL_T, dimension(c_lo(1):c_hi(1),c_lo(2):c_hi(2),c_lo(3):c_hi(3)), intent(out) :: CPmix
-      REAL_T, dimension(t_lo(1):t_hi(1),t_lo(2):t_hi(2),t_lo(3):t_hi(3)), intent(in) :: T
-      REAL_T, dimension(y_lo(1):y_hi(1),y_lo(2):y_hi(2),y_lo(3):y_hi(3),NUM_SPECIES), intent(in) :: Y
-
-! Local
-      REAL_T  :: Yt(NUM_SPECIES), SCAL
-      integer :: i, j, k, n
-
-!     NOTE: SCAL converts result from assumed cgs to MKS (1 erg/g.K = 1.e-4 J/kg.K)
-      SCAL = 1.0d-4
-
-      do k = lo(3), hi(3)
-        do j = lo(2), hi(2)
-          do i = lo(1), hi(1)
-            do n = 1, NUM_SPECIES
-               Yt(n) = Y(i,j,k,n)
-            end do
-            CALL CKCPBS(T(i,j,k),Yt,CPMIX(i,j,k))
-            CPMIX(i,j,k) = CPMIX(i,j,k) * SCAL
-          end do
-        end do
-      end do
-
-   end subroutine pphys_CPMIXfromTY
 
 !=========================================================
 !  Iterate on T until it matches Hmix and Ym
@@ -229,7 +190,6 @@ contains
                                   delta, xlo, xhi)&
                                   bind(C, name="init_data_new_mech")
 
-      use PeleLM_F,  only: pphys_getP1atm_MKS
       use mod_Fvar_def, only : Density, Temp, FirstSpec, RhoH, pamb
 
       implicit none
@@ -249,7 +209,7 @@ contains
       REAL_T  :: Patm
       integer :: i, j, k, n
 
-      Patm = pamb / pphys_getP1atm_MKS()
+      Patm = pamb / PP_PA_MKS
 
       call pphys_RHOfromPTY(lo,hi, &
                             scal(:,:,:,Density),   s_lo, s_hi, &
