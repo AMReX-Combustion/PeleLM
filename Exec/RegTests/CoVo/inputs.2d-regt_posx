@@ -43,8 +43,6 @@ amr.derive_plot_vars=rhoRT mag_vort avg_pressure gradpx gradpy diveru
 amr.grid_log        = grdlog  # name of grid logging file
 amr.max_grid_size   = 64
 
-#amr.probin_file = probin.2d.posx # This will default to file "probin" if not set
-
 #----------- PROBLEM PARAMETERS------------
 prob.meanFlowMag = 50.0
 prob.meanFlowDir = 1
