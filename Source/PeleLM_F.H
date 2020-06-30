@@ -24,11 +24,6 @@ extern "C" {
 //                 const amrex::Real* dt, amrex::Real* diag, 
 //                         const int* do_diag, const int* do_stiff);
 
-   void pphys_HMIXfromTY(const int* lo, const int* hi,
-                               BL_FORT_FAB_ARG_ANYD(Hmix),
-                         const BL_FORT_FAB_ARG_ANYD(T),
-                         const BL_FORT_FAB_ARG_ANYD(Y));
-
    int pphys_TfromHY(const int* lo, const int* hi,
                            BL_FORT_FAB_ARG_ANYD(T), 
                      const BL_FORT_FAB_ARG_ANYD(H),

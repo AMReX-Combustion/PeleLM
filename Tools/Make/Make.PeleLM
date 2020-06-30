@@ -176,7 +176,7 @@ endif
 
 ifeq ($(USE_NEWMECH), TRUE)
   AMRVIS_HOME = $(AMREX_HOME)/Src/Extern/amrdata
-  include $(PELELM_HOME)/LMC/Tools/Make/AmrData.mk
+  include $(PELELM_HOME)/Tools/Make/AmrData.mk
   INCLUDE_LOCATIONS += $(AMRVIS_HOME)
   VPATH_LOCATIONS   += $(AMRVIS_HOME)
   DEFINES += -DBL_NOLINEVALUES -DBL_USE_NEWMECH -DBL_PARALLEL_IO

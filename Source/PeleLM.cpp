@@ -1861,75 +1861,35 @@ PeleLM::initData ()
   if (verbose) amrex::Print() << "initData: finished init from pltfile" << '\n';
 #endif
 
-
-#if 1
-
-
-    const auto geomdata = geom.data();
+  const auto geomdata = geom.data();
 
 #ifdef _OPENMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
-    for (MFIter mfi(S_new); mfi.isValid(); ++mfi)
-    {
-        const Box& box = mfi.validbox();
-        auto sfab = S_new.array(mfi);
-        auto pressfab = P_new.array(mfi);
-
-        amrex::ParallelFor(box,
-        [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
-        {
-            pelelm_initdata(i, j, k, sfab, pressfab, geomdata);
-        });
-    }
-
-
-
-#else
-
-
-
-
-
-#ifdef _OPENMP
-#pragma omp parallel
-#endif
-  for (MFIter snewmfi(S_new,true); snewmfi.isValid(); ++snewmfi)
+  for (MFIter mfi(S_new); mfi.isValid(); ++mfi)
   {
-    //BL_ASSERT(grids[snewmfi.index()] == snewmfi.validbox());
+      const Box& box = mfi.validbox();
+      auto sfab = S_new.array(mfi);
+      auto pressfab = P_new.array(mfi);
 
-    const Box& vbx = snewmfi.tilebox();
-    RealBox    gridloc = RealBox(vbx,geom.CellSize(),geom.ProbLo());
-
-    P_new[snewmfi].setVal<RunOn::Host>(0.0,snewmfi.nodaltilebox());
-    
+      amrex::ParallelFor(box,
+      [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+      {
 #ifdef BL_USE_NEWMECH
-    init_data_new_mech (&level, &cur_time,
-                        BL_TO_FORTRAN_BOX(vbx), &ns,
-                        S_new[snewmfi].dataPtr(Xvel),
-                        BL_TO_FORTRAN_N_ANYD(S_new[snewmfi],AMREX_SPACEDIM),
-                        BL_TO_FORTRAN_ANYD(P_new[snewmfi]),
-                        dx, AMREX_ZFILL(gridloc.lo()), AMREX_ZFILL(gridloc.hi()) );
+        amrex::Abort("USE_NEWMECH feature no longer working and has to be fixed/redone");
 #else
-    init_data (&level, &cur_time,
-               BL_TO_FORTRAN_BOX(vbx), &ns,
-               S_new[snewmfi].dataPtr(Xvel),
-               BL_TO_FORTRAN_N_ANYD(S_new[snewmfi],AMREX_SPACEDIM),
-               BL_TO_FORTRAN_ANYD(P_new[snewmfi]),
-               dx, AMREX_ZFILL(gridloc.lo()), AMREX_ZFILL(gridloc.hi()) );
+        pelelm_initdata(i, j, k, sfab, pressfab, geomdata);
 #endif
+      });
   }
 
-
-#endif
 
   showMFsub("1D",S_new,stripBox,"1D_S",level);
   
 // Here we save a reference state vector to apply it later to covered cells
 // in order to avoid non-physical values after diffusion solves
 // First we have to put Pnew in S_new so as to not impose NaNs for covered cells
-MultiFab::Copy(S_new,P_new,0,RhoRT,1,1);
-
+  MultiFab::Copy(S_new,P_new,0,RhoRT,1,1);
 
 #ifdef AMREX_USE_EB
   set_body_state(S_new);

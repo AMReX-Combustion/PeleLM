@@ -21,108 +21,12 @@ module PeleLM_nd
 
   private
 
-  public :: pphys_HMIXfromTY, pphys_RHOfromPTY, pphys_TfromHY, &
-            init_data_new_mech, &
-            dqrad_fill, divu_fill, dsdt_fill, ydot_fill, rhoYdot_fill, &
-            conservative_T_floor, &
-            part_cnt_err, &
-            valgt_error, vallt_error, magvort_error, diffgt_error, &
-            FORT_AVERAGE_EDGE_STATES
-
-contains
- 
-!=========================================================
-!  Compute mixture enthalpy from T and Y
-!=========================================================
-
-   subroutine pphys_HMIXfromTY(lo, hi, &
-                               Hmix, h_lo, h_hi, & 
-                               T, t_lo, t_hi, &
-                               Y, y_lo, y_hi)&
-                               bind(C, name="pphys_HMIXfromTY")
-
-      use fuego_chemistry, only : CKHBMS
-
-      implicit none
-
-! In/Out
-      integer, intent(in) :: lo(3), hi(3)
-      integer, intent(in) :: h_lo(3), h_hi(3)
-      integer, intent(in) :: t_lo(3), t_hi(3)
-      integer, intent(in) :: y_lo(3), y_hi(3)
-      REAL_T, dimension(h_lo(1):h_hi(1),h_lo(2):h_hi(2),h_lo(3):h_hi(3)) :: Hmix
-      REAL_T, dimension(t_lo(1):t_hi(1),t_lo(2):t_hi(2),t_lo(3):t_hi(3)) :: T
-      REAL_T, dimension(y_lo(1):y_hi(1),y_lo(2):y_hi(2),y_lo(3):y_hi(3),NUM_SPECIES) :: Y
-
-! Local
-      REAL_T  :: Yt(NUM_SPECIES), SCAL
-      integer :: i, j, k, n
-
-!     NOTE: SCAL converts result from assumed cgs to MKS (1 erg/g = 1.e-4 J/kg)
-      SCAL = 1.0d-4
-
-      do k=lo(3),hi(3)
-         do j=lo(2),hi(2)
-            do i=lo(1),hi(1)
-
-                do n = 1, NUM_SPECIES
-                   Yt(n) = Y(i,j,k,n)
-                end do
-
-                CALL CKHBMS(T(i,j,k),Yt,HMIX(i,j,k))
-
-                HMIX(i,j,k) = HMIX(i,j,k) * SCAL
-
-            end do
-         end do
-      end do
-
-   end subroutine pphys_HMIXfromTY
-
-!=========================================================
-!  Compute rho from P, T and Y
-!=========================================================
-
-   subroutine pphys_RHOfromPTY(lo, hi, &
-                               Rho, r_lo, r_hi, &
-                               T, t_lo, t_hi, &
-                               Y, y_lo, y_hi, Patm) &
-                               bind(C, name="pphys_RHOfromPTY")
-
-      use fuego_chemistry, only : CKRHOY
-
-      implicit none
-
-! In/Out
-      integer, intent(in) :: lo(3), hi(3)
-      integer, intent(in) :: r_lo(3), r_hi(3)
-      integer, intent(in) :: t_lo(3), t_hi(3)
-      integer, intent(in) :: y_lo(3), y_hi(3)
-      REAL_T, dimension(r_lo(1):r_hi(1),r_lo(2):r_hi(2),r_lo(3):r_hi(3)) :: Rho
-      REAL_T, dimension(t_lo(1):t_hi(1),t_lo(2):t_hi(2),t_lo(3):t_hi(3)) :: T
-      REAL_T, dimension(y_lo(1):y_hi(1),y_lo(2):y_hi(2),y_lo(3):y_hi(3),NUM_SPECIES) :: Y
-      REAL_T  :: Patm
-
-! Local
-      REAL_T  :: Ptmp, Yt(NUM_SPECIES), SCAL
-      integer :: i, j, k, n
-
-!     NOTE: SCAL converts result from assumed cgs to MKS (1 g/cm^3 = 1.e3 kg/m^3)
-      SCAL = one * 1000
-      Ptmp = Patm * PP_PA_CGS
-      do k=lo(3),hi(3)
-         do j=lo(2),hi(2)
-            do i=lo(1),hi(1)
-                do n = 1, NUM_SPECIES
-                   Yt(n) = Y(i,j,k,n)
-                end do
-                CALL CKRHOY(Ptmp,T(i,j,k),Yt,RHO(i,j,k))
-                RHO(i,j,k) = RHO(i,j,k) * SCAL
-            end do
-         end do
-      end do
-
-   end subroutine pphys_RHOfromPTY
+-  public :: pphys_TfromHY, &
+-            dqrad_fill, divu_fill, dsdt_fill, ydot_fill, rhoYdot_fill, &
+-            conservative_T_floor, &
+-            part_cnt_err, &
+-            valgt_error, vallt_error, magvort_error, diffgt_error, &
+-            FORT_AVERAGE_EDGE_STATES
 
 !=========================================================
 !  Iterate on T until it matches Hmix and Ym
@@ -180,60 +84,6 @@ contains
          end do
       end do
    end function pphys_TfromHY
-
-!=========================================================
-!  init data to transition between 2 chem mechanism.
-!=========================================================
-
-   subroutine init_data_new_mech (level, time, lo, hi, nscal, &
-                                  vel, scal, s_lo, s_hi, &
-                                  press, p_lo, p_hi, &
-                                  delta, xlo, xhi)&
-                                  bind(C, name="init_data_new_mech")
-
-      use mod_Fvar_def, only : Density, Temp, FirstSpec, RhoH, pamb
-
-      implicit none
-
-! In/Out
-      integer, intent(in) :: level, nscal
-      integer, intent(in) :: lo(3), hi(3)
-      integer, intent(in) :: s_lo(3), s_hi(3)
-      integer, intent(in) :: p_lo(3), p_hi(3)
-      REAL_T, intent(in)  :: xlo(3), xhi(3)
-      REAL_T, intent(in)  :: time, delta(3)
-      REAL_T, dimension(s_lo(1):s_hi(1),s_lo(2):s_hi(2),s_lo(3):s_hi(3),dim), intent(out) :: vel
-      REAL_T, dimension(s_lo(1):s_hi(1),s_lo(2):s_hi(2),s_lo(3):s_hi(3),nscal), intent(out) :: scal
-      REAL_T, dimension(p_lo(1):p_hi(1),p_lo(2):p_hi(2),p_lo(3):p_hi(3)), intent(out) :: press
-
-! Local
-      REAL_T  :: Patm
-      integer :: i, j, k, n
-
-      Patm = pamb / PP_PA_MKS
-
-      call pphys_RHOfromPTY(lo,hi, &
-                            scal(:,:,:,Density),   s_lo, s_hi, &
-                            scal(:,:,:,Temp),      s_lo, s_hi, &
-                            scal(:,:,:,FirstSpec), s_lo, s_hi, &
-                            Patm)
-      call pphys_HMIXfromTY(lo,hi, &
-                            scal(:,:,:,RhoH),      s_lo, s_hi, &
-                            scal(:,:,:,Temp),      s_lo, s_hi, &
-                            scal(:,:,:,FirstSpec), s_lo, s_hi)
- 
-      do k = lo(3), hi(3)
-         do j = lo(2), hi(2)
-            do i = lo(1), hi(1)
-               do n = 0,NUM_SPECIES-1
-                  scal(i,j,k,FirstSpec+n) = scal(i,j,k,FirstSpec+n)*scal(i,j,k,Density)
-               enddo
-               scal(i,j,k,RhoH) = scal(i,j,k,RhoH)*scal(i,j,k,Density)
-            enddo
-         enddo
-      enddo
- 
-   end subroutine init_data_new_mech
 
 !===================================================================
 !
