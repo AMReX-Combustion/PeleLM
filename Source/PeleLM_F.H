@@ -41,8 +41,6 @@ extern "C" {
 
   //void pphys_reactor_close();
 
-   void plm_extern_init(const int* name, const int* namlen);
-
    void pphys_get_spec_index(int* spec,
                              int* len,
                              int* idx);
