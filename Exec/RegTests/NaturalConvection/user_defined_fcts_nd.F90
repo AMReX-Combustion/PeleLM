@@ -3,6 +3,7 @@
 #include <AMReX_BC_TYPES.H>
 #include <PeleLM_F.H>
 #include <AMReX_ArrayLim.H>
+#include <PPHYS_CONSTANTS.H>
 
 module user_defined_fcts_nd_module
 
@@ -26,7 +27,6 @@ contains
                           vel, rho, Yl, T, h)&
                           bind(C, name="bcfunction")
 
-      use PeleLM_F,  only: pphys_getP1atm_MKS
       use PeleLM_nD, only: pphys_RHOfromPTY, pphys_HMIXfromTY
       use mod_Fvar_def, only : pamb
       use probdata_module, only : Tc, Th 
@@ -62,7 +62,7 @@ contains
         Yl(0) = 0.233d0
         Yl(1) = 0.767d0
 
-        Patm = pamb / pphys_getP1atm_MKS()
+        Patm = pamb / PP_PA_MKS
 
         call pphys_RHOfromPTY(b_lo, b_hi, &
                               rho_temp(1), b_lo, b_hi, &

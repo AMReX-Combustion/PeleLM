@@ -6,6 +6,7 @@
 
 #include <Prob_F.H>
 #include <PeleLM_F.H>
+#include <PPHYS_CONSTANTS.H>
 
 #include "mechanism.h"
 
@@ -43,7 +44,6 @@ contains
    subroutine amrex_probinit (init,name,namlen,problo,probhi) bind(c)
   
       
-      use PeleLM_F,  only: pphys_getP1atm_MKS
       use mod_Fvar_def, only : pamb
       use probdata_module, only: T_mean, P_mean, xblob, yblob, radblob, MeanFlow
       
@@ -88,7 +88,7 @@ contains
       open(untin,file=probin(1:namlen),form='formatted',status='old')
       
 !     Set defaults
-      pamb = pphys_getP1atm_MKS()
+      pamb = PP_PA_MKS
 
       T_mean = 298.0d0
       P_mean = pamb
@@ -147,7 +147,6 @@ contains
                         delta, xlo, xhi) &
                         bind(C, name="init_data")
 
-      use PeleLM_F,  only: pphys_getP1atm_MKS
       use PeleLM_nD, only: pphys_RHOfromPTY, pphys_HMIXfromTY
       use mod_Fvar_def, only : Density, Temp, FirstSpec, RhoH
       use mod_Fvar_def, only : domnlo
@@ -204,7 +203,7 @@ contains
          end do
       end do
 
-      Patm = P_mean / pphys_getP1atm_MKS()
+      Patm = P_mean / PP_PA_MKS
 
       call pphys_RHOfromPTY(lo,hi, &
                             scal(:,:,:,Density),   s_lo, s_hi, &
@@ -234,7 +233,6 @@ contains
 
    subroutine setupbc()bind(C, name="setupbc")
 
-      use PeleLM_F, only: pphys_getP1atm_MKS
       use PeleLM_nD, only: pphys_RHOfromPTY, pphys_HMIXfromTY
       use probdata_module, only : Y_bc, T_bc, u_bc, v_bc, rho_bc, h_bc
       use probdata_module, only : bcinit, T_mean, P_mean, MeanFlow
@@ -247,7 +245,7 @@ contains
       data  b_lo(:) / 1, 1, 1 /
       data  b_hi(:) / 1, 1, 1 /
 
-      Patm = P_mean / pphys_getP1atm_MKS()
+      Patm = P_mean / PP_PA_MKS
 
 
       Yt(1) = 0.233d0

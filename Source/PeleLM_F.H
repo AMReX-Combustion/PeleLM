@@ -29,11 +29,6 @@ extern "C" {
                          const BL_FORT_FAB_ARG_ANYD(T),
                          const BL_FORT_FAB_ARG_ANYD(Y));
 
-   void pphys_CPMIXfromTY(const int* lo, const int* hi,
-                                BL_FORT_FAB_ARG_ANYD(CPMIX),
-                          const BL_FORT_FAB_ARG_ANYD(T),
-                          const BL_FORT_FAB_ARG_ANYD(Y));
-
    int pphys_TfromHY(const int* lo, const int* hi,
                            BL_FORT_FAB_ARG_ANYD(T), 
                      const BL_FORT_FAB_ARG_ANYD(H),
@@ -53,17 +48,9 @@ extern "C" {
 
    void plm_extern_init(const int* name, const int* namlen);
 
-   void pphys_get_num_spec(int* nspec);
-
    void pphys_get_spec_index(int* spec,
                              int* len,
                              int* idx);
-
-   amrex::Real pphys_getRuniversal();
-
-   amrex::Real pphys_getP1atm_MKS();
-
-   int pphys_numReactions();
 
    void pphys_set_verbose_vode ();
 
