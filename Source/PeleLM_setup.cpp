@@ -510,7 +510,7 @@ PeleLM::variableSetUp ()
 
   first_spec = ++counter;
   nspecies = NUM_SPECIES;
-  nreactions = pphys_numReactions();
+  nreactions = NUM_REACTIONS;
   counter  += nspecies - 1;
   RhoH = ++counter;
   Temp = ++counter;

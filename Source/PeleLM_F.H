@@ -52,8 +52,6 @@ extern "C" {
                              int* len,
                              int* idx);
 
-   int pphys_numReactions();
-
    void pphys_set_verbose_vode ();
 
    void active_control(const amrex::Real* fuelmass,

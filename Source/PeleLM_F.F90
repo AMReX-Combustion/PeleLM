@@ -87,15 +87,6 @@ end subroutine plm_extern_init
  
   end function pphys_getckspecname
   
-  function pphys_numReactions() bind(C, name="pphys_numReactions") result(NR)
-
-    implicit none
-    integer NR
-
-    NR = NUM_REACTIONS
-
-  end function pphys_numReactions
-
   subroutine pphys_set_verbose_vode() bind(C, name="pphys_set_verbose_vode")
 
     use vode_module, only: verbose
