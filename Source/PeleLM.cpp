@@ -6439,11 +6439,11 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
          {
             const Box& ebx = amrex::surroundingNodes(bx,dir);
             edgeflux[dir].resize(ebx,NUM_SPECIES+3);
-            edgestate[dir].resize(ebx,NUM_SPECIES+3); // comps: 0:rho, 1:nspecies: rho*Y, nspecies+1: rho*H, nspecies+2: Temp
+            edgestate[dir].resize(ebx,NUM_SPECIES+3); // comps: 0:rho, 1:NUM_SPECIES: rho*Y, NUM_SPECIES+1: rho*H, NUM_SPECIES+2: Temp
          }
 
          // Advect RhoY
-         state_bc = fetchBCArray(State_Type,bx,first_spec,nspecies+1);
+         state_bc = fetchBCArray(State_Type,bx,first_spec,NUM_SPECIES+1);
 
          godunov->AdvectScalars(bx, dx, dt, 
                                 D_DECL(  area[0][S_mfi],  area[1][S_mfi],  area[2][S_mfi]),
@@ -6489,18 +6489,18 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
 #endif
       
          // Extrapolate Temp, then compute flux divergence and value for RhoH from face values of T,Y,Rho
-         // Note that this requires that the nspecies component of force be the temperature forcing
+         // Note that this requires that the NUM_SPECIES component of force be the temperature forcing
          state_bc = fetchBCArray(State_Type,bx,Temp,1);      
 
          godunov->AdvectScalars(bx, dx, dt, 
                                 D_DECL(  area[0][S_mfi],  area[1][S_mfi],  area[2][S_mfi]),
                                 D_DECL( u_mac[0][S_mfi], u_mac[1][S_mfi], u_mac[2][S_mfi]), 0,
-                                D_DECL(edgeflux[0],edgeflux[1],edgeflux[2]), nspecies+2,
-                                D_DECL(edgestate[0],edgestate[1],edgestate[2]), nspecies+2,
+                                D_DECL(edgeflux[0],edgeflux[1],edgeflux[2]), NUM_SPECIES+2,
+                                D_DECL(edgestate[0],edgestate[1],edgestate[2]), NUM_SPECIES+2,
                                 Sfab, Tcomp, 1, force, NUM_SPECIES, divu, 0,
                                 (*aofs)[S_mfi], Temp, advectionType, state_bc, FPU, volume[S_mfi]);
 
-         // Compute RhoH on faces, store in nspecies+1 component of edgestate[d]
+         // Compute RhoH on faces, store in NUM_SPECIES+1 component of edgestate[d]
          for (int dir=0; dir<AMREX_SPACEDIM; ++dir)
          {
             const Box& ebx = amrex::surroundingNodes(bx,dir);
