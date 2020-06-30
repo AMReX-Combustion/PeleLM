@@ -477,9 +477,10 @@ PeleLM::variableSetUp ()
   Initialize();
 
   /* PelePhysics */
-  amrex::Print() << " Initialization of network, reactor and transport \n";
+  amrex::Print() << " Initialization of network (F90)... \n";
   init_network();
 
+  amrex::Print() << " Initialization of reactor... \n";
   int reactor_type = 2;
 #ifdef USE_CUDA_SUNDIALS_PP
   reactor_info(&reactor_type,&ncells_chem);
@@ -495,7 +496,9 @@ PeleLM::variableSetUp ()
 }
 #endif
 
+  amrex::Print() << " Initialization of EOS (CPP)... \n";
   EOS::init();
+  amrex::Print() << " Initialization of Transport (CPP)... \n";
   transport_init();
 
   BCRec bc;
@@ -511,8 +514,8 @@ PeleLM::variableSetUp ()
   int counter   = Density;
 
   first_spec = ++counter;
-  pphys_get_num_spec(&nspecies);
-  nreactions = pphys_numReactions();
+  nspecies = NUM_SPECIES;
+  nreactions = NUM_REACTIONS;
   counter  += nspecies - 1;
   RhoH = ++counter;
   Temp = ++counter;
@@ -531,8 +534,8 @@ PeleLM::variableSetUp ()
 
 
 
-  pphys_get_num_spec(&nspecies);
-  nreactions = pphys_numReactions();
+  nspecies = NUM_SPECIES;
+  nreactions = NUM_REACTIONS;
 
 
   EOS::speciesNames(spec_names);
@@ -1156,8 +1159,7 @@ PeleLM::rhoydotSetUp()
 {
   RhoYdot_Type       = desc_lst.size();
   const int ngrow = 1;
-  int nrhoydot;
-  pphys_get_num_spec(&nrhoydot);
+  int nrhoydot = NUM_SPECIES;
 
   amrex::Print() << "RhoYdot_Type, nrhoydot = " << RhoYdot_Type << ' ' << nrhoydot << '\n';
 

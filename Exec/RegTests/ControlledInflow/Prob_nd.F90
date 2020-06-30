@@ -6,6 +6,7 @@
 
 #include <Prob_F.H>
 #include <PeleLM_F.H>
+#include <PPHYS_CONSTANTS.H>
 
 #include "mechanism.h"
 
@@ -44,7 +45,6 @@ contains
 
    subroutine amrex_probinit (init,name,namlen,problo,probhi) bind(c)
 
-      use PeleLM_F,  only: pphys_getP1atm_MKS
       use mod_Fvar_def, only : pamb, fuelID, domnhi, domnlo
       use mod_Fvar_def, only : ac_hist_file, cfix, changemax_control, &
                                coft_old, controlvelmax, corr, dv_control, &
@@ -102,7 +102,7 @@ contains
       open(untin,file=probin(1:namlen),form='formatted',status='old')
       
 !     Set defaults
-      pamb = pphys_getP1atm_MKS()
+      pamb = PP_PA_MKS
 
       zbase_control = 0.d0
 
@@ -162,7 +162,6 @@ contains
 
    subroutine setupbc()bind(C, name="setupbc")
 
-      use PeleLM_F, only: pphys_getP1atm_MKS
       use PeleLM_nD, only: pphys_RHOfromPTY, pphys_HMIXfromTY
       use mod_Fvar_def, only : pamb, domnlo, V_in
       use probdata_module, only : standoff, Y_bc, T_bc, u_bc, v_bc, w_bc, rho_bc, h_bc
@@ -176,7 +175,7 @@ contains
       data  b_lo(:) / 1, 1, 1 /
       data  b_hi(:) / 1, 1, 1 /
 
-      Patm = pamb / pphys_getP1atm_MKS()
+      Patm = pamb / PP_PA_MKS
 
       ! Take fuel mixture from pmf file
       loc = (domnlo(2)-standoff)*100.d0
@@ -263,7 +262,6 @@ contains
                         delta, xlo, xhi) &
                         bind(C, name="init_data")
 
-      use PeleLM_F,  only: pphys_getP1atm_MKS
       use PeleLM_nD, only: pphys_RHOfromPTY, pphys_HMIXfromTY
       use mod_Fvar_def, only : Density, Temp, FirstSpec, RhoH, pamb
       use mod_Fvar_def, only : bathID, domnhi, domnlo
@@ -345,7 +343,7 @@ contains
          end do
       end do
 
-      Patm = pamb / pphys_getP1atm_MKS()
+      Patm = pamb / PP_PA_MKS
 
       call pphys_RHOfromPTY(lo,hi, &
                             scal(:,:,:,Density),   s_lo, s_hi, &

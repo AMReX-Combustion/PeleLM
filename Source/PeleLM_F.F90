@@ -27,7 +27,6 @@ module PeleLM_F
   public :: set_scal_numb, &
             set_ht_adim_common, get_pamb, &
             set_common, active_control, &
-            pphys_getP1atm_MKS, &
             pphys_TfromHYpt, set_prob_spec
 
 contains
@@ -50,14 +49,18 @@ contains
 
   end subroutine pphys_network_close
 
-  subroutine pphys_get_num_spec(nspec_out) bind(C, name="pphys_get_num_spec")
+subroutine plm_extern_init(name,namlen) bind(C, name="plm_extern_init")
 
-      implicit none
-      integer(c_int), intent(out) :: nspec_out
+  ! initialize the external runtime parameters in
+  ! extern_probin_module
+  !use extern_probin_module, only: runtime_init 
 
-      nspec_out = NUM_SPECIES
+  integer :: namlen
+  integer :: name(namlen)
 
-  end subroutine pphys_get_num_spec  
+  call runtime_init(name,namlen)
+
+end subroutine plm_extern_init
 
   integer function pphys_getckspecname(i, coded)
   
@@ -84,37 +87,6 @@ contains
  
   end function pphys_getckspecname
   
-  function pphys_getRuniversal() bind(C, name="pphys_getRuniversal") result(RUNIV)
-
-    implicit none
-    double precision Ruc, Pa, RUNIV
-
-    call CKRP(RUNIV,Ruc,Pa)
-!     1 erg/(mole.K) = 1.e-4 J/(kmole.K)
-    RUNIV = RUNIV*1.d-4
-
-  end function pphys_getRuniversal
-
-  function pphys_getP1atm_MKS() bind(C, name="pphys_getP1atm_MKS") result(P1ATM)
-
-    implicit none
-    double precision Ru, Ruc, P1ATM
-
-    call CKRP(Ru,Ruc,P1ATM)
-!     1 N/(m.m) = 0.1 dyne/(cm.cm)
-    P1ATM = P1ATM*1.d-1
-
-  end function pphys_getP1atm_MKS
-
-  function pphys_numReactions() bind(C, name="pphys_numReactions") result(NR)
-
-    implicit none
-    integer NR
-
-    NR = NUM_REACTIONS
-
-  end function pphys_numReactions
-
   subroutine pphys_set_verbose_vode() bind(C, name="pphys_set_verbose_vode")
 
     use vode_module, only: verbose

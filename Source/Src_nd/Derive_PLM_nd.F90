@@ -14,7 +14,6 @@ module derive_PLM_nd
 
   use amrex_fort_module, only : dim=>amrex_spacedim
   use amrex_error_module, only : amrex_abort
-  use fuego_chemistry
 
   implicit none
 
