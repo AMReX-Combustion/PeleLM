@@ -194,8 +194,6 @@ int PeleLM::deltaT_verbose = 0;
 int PeleLM::mHtoTiterMAX;
 Vector<amrex::Real> PeleLM::mTmpData;
 
-std::string  PeleLM::probin_file = "probin";
-
 static
 std::string
 to_upper (const std::string& s)
@@ -293,25 +291,6 @@ void
 PeleLM::init_network ()
 {
 	pphys_network_init(); 
-}
-
-void
-PeleLM::init_extern ()
-{
-  // initialize the external runtime parameters -- these will
-  // live in the probin
-
-  amrex::Print() << "reading extern runtime parameters ... \n" << std::endl;
-
-  int probin_file_length = probin_file.length();
-  Vector<int> probin_file_name(probin_file_length);
-
-  for (int i = 0; i < probin_file_length; i++)
-  {
-    probin_file_name[i] = probin_file[i];
-  }
-
-  plm_extern_init(probin_file_name.dataPtr(),&probin_file_length);
 }
 
 int 
@@ -528,8 +507,6 @@ PeleLM::Initialize ()
 
   // Get some useful amr inputs
   ParmParse ppa("amr");
-  ppa.query("probin_file",probin_file);
-
 
   // Useful for debugging
   ParmParse pproot;
@@ -1028,9 +1005,6 @@ PeleLM::variableCleanUp ()
 {
 
    NavierStokesBase::variableCleanUp();
-
-   prob_parm.reset();
-
    ShowMF_Sets.clear();
    auxDiag_names.clear();
    typical_values.clear();
@@ -1911,7 +1885,6 @@ PeleLM::initData ()
 
 
     const auto geomdata = geom.data();
-    ProbParm const* lprobparm = prob_parm.get();
 
 #ifdef _OPENMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
@@ -1925,7 +1898,7 @@ PeleLM::initData ()
         amrex::ParallelFor(box,
         [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
         {
-            pelelm_initdata(i, j, k, sfab, pressfab, geomdata, *lprobparm);
+            pelelm_initdata(i, j, k, sfab, pressfab, geomdata);
         });
     }
 

@@ -50,19 +50,6 @@ contains
 
   end subroutine pphys_network_close
 
-subroutine plm_extern_init(name,namlen) bind(C, name="plm_extern_init")
-
-  ! initialize the external runtime parameters in
-  ! extern_probin_module
-  !use extern_probin_module, only: runtime_init 
-
-  integer :: namlen
-  integer :: name(namlen)
-
-  call runtime_init(name,namlen)
-
-end subroutine plm_extern_init
-
   subroutine pphys_get_num_spec(nspec_out) bind(C, name="pphys_get_num_spec")
 
       implicit none

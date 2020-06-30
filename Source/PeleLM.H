@@ -2,8 +2,6 @@
 #ifndef _PeleLM_H_
 #define _PeleLM_H_
 
-#include <pelelm_prob_parm.H>
-
 #include <AMReX_AuxBoundaryData.H>
 #include <NavierStokesBase.H>
 
@@ -539,8 +537,6 @@ private:
 
   static void init_once ();
 
-  static void init_extern ();
-
   static void init_network ();
 
   static void init_transport (int iEG);
@@ -694,11 +690,6 @@ private:
   static amrex::Real absolute_tol_chem;
 
   static int nGrowAdvForcing;
-
-  static std::string probin_file;
-
-public:
-    static std::unique_ptr<ProbParm> prob_parm;
 
 };
 

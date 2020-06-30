@@ -66,8 +66,6 @@ static Box the_same_box (const Box& b)    { return b;                 }
 static Box grow_box_by_one (const Box& b) { return amrex::grow(b,1); }
 static Box the_nodes (const Box& b) { return amrex::surroundingNodes(b); }
 
-std::unique_ptr<ProbParm> PeleLM::prob_parm;
-
 //
 // Components are  Interior, Inflow, Outflow, Symmetry, &
 // SlipWallAdiab, NoSlipWallAdiab, SlipWallIsoTherm, NoSlipWallIsoTherm.
@@ -470,8 +468,6 @@ PeleLM::variableSetUp ()
 {
   BL_ASSERT(desc_lst.size() == 0);
 
-  prob_parm.reset(new ProbParm{});
-
   for (int dir = 0; dir < BL_SPACEDIM; dir++)
   {
     phys_bc.setLo(dir,SlipWall);
@@ -479,9 +475,6 @@ PeleLM::variableSetUp ()
   }
 
   Initialize();
-
-  // Initialize the runtime parameters for any of the external code
-  init_extern();
 
   /* PelePhysics */
   amrex::Print() << " Initialization of network, reactor and transport \n";
