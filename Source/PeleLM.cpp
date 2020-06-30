@@ -1026,13 +1026,15 @@ PeleLM::center_to_edge_fancy (const FArrayBox& cfab,
 void
 PeleLM::variableCleanUp ()
 {
-  NavierStokesBase::variableCleanUp();
 
-  prob_parm.reset();
+   NavierStokesBase::variableCleanUp();
 
-  ShowMF_Sets.clear();
-  auxDiag_names.clear();
-  typical_values.clear();
+   prob_parm.reset();
+
+   ShowMF_Sets.clear();
+   auxDiag_names.clear();
+   typical_values.clear();
+
 }
 
 PeleLM::PeleLM ()
@@ -1663,153 +1665,155 @@ PeleLM::reset_typical_values (const MultiFab& S)
 Real
 PeleLM::estTimeStep ()
 {
+   Real estdt = NavierStokesBase::estTimeStep();
 
-  Real estdt = NavierStokesBase::estTimeStep();
+   if (fixed_dt > 0.0 || !divu_ceiling)
+     //
+     // The n-s function did the right thing in this case.
+     //
+     return estdt;
 
-  if (fixed_dt > 0.0 || !divu_ceiling)
-    //
-    // The n-s function did the right thing in this case.
-    //
-    return estdt;
+   const Real strt_time = ParallelDescriptor::second();
 
-  const Real strt_time = ParallelDescriptor::second();
+   Real ns_estdt = estdt;
+   Real divu_dt = 1.0e20;
 
-  
-  Real ns_estdt = estdt;
-  Real divu_dt = 1.0e20;
+   const int   nGrow   = 1;
+   const Real  cur_time = state[State_Type].curTime();
+   MultiFab&   DivU     = *getDivCond(0,cur_time);
+   int  divu_check_flag = divu_ceiling;
+   Real divu_dt_fac     = divu_dt_factor;
+   Real rho_min         = min_rho_divu_ceiling;
+   const auto dxinv     = geom.InvCellSizeArray();
 
-  const int   n_grow   = 1;
-  const Real  cur_time = state[State_Type].curTime();
-  const Real* dx       = geom.CellSize();
-  MultiFab*   dsdt     = getDsdt(0,cur_time);
-  MultiFab*   divu     = getDivCond(0,cur_time);
+   FillPatchIterator U_fpi(*this,DivU,nGrow,cur_time,State_Type,Xvel,AMREX_SPACEDIM);
+   MultiFab& Umf=U_fpi.get_mf();
 
-  FillPatchIterator U_fpi(*this,*divu,n_grow,cur_time,State_Type,Xvel,BL_SPACEDIM);
-  MultiFab& Umf=U_fpi.get_mf();
-  
-#ifdef AMREX_USE_EB
-  MultiFab TT(grids,dmap,BL_SPACEDIM,n_grow,MFInfo(),Factory());
-  MultiFab::Copy(TT,Umf,0,0,BL_SPACEDIM,n_grow);
-//  EB_interp_CC_to_Centroid(Umf,TT,0,0,BL_SPACEDIM,geom);
+   if ( divu_ceiling == 1 ) {
+      divu_dt = amrex::ReduceMin(rho_ctime, DivU, 0,
+                                 [divu_check_flag,divu_dt_fac,rho_min,dxinv]
+      AMREX_GPU_HOST_DEVICE (Box const& bx, Array4<Real const> const& rho,
+                                            Array4<Real const> const& divu ) noexcept -> Real
+      {   
+         using namespace amrex::literals;
+         const auto lo = amrex::lbound(bx);
+         const auto hi = amrex::ubound(bx);
+#if !defined(__CUDACC__) || (__CUDACC_VER_MAJOR__ != 9) || (__CUDACC_VER_MINOR__ != 2)
+         amrex::Real dt = std::numeric_limits<amrex::Real>::max();
+#else
+         amrex::Real dt = 1.e37_rt;
 #endif
-
-#ifdef _OPENMP
-#pragma omp parallel if (!system::regtest_reduction) reduction(min:divu_dt)
+         for       (int k = lo.z; k <= hi.z; ++k) {
+            for    (int j = lo.y; j <= hi.y; ++j) {
+               for (int i = lo.x; i <= hi.x; ++i) {
+                  Real dtcell = est_divu_dt_1(i, j, k, divu_check_flag, divu_dt_fac, rho_min, dxinv,
+                                              rho, divu );
+                  dt = amrex::min(dt,dtcell);
+               }
+            }
+         }
+         return dt;
+      });
+   } else if ( divu_ceiling == 2 ) {
+      divu_dt = amrex::ReduceMin(rho_ctime, Umf, DivU, 0,
+                                 [divu_check_flag,divu_dt_fac,rho_min,dxinv]
+      AMREX_GPU_HOST_DEVICE (Box const& bx, Array4<Real const> const& rho,
+                                            Array4<Real const> const& vel,
+                                            Array4<Real const> const& divu ) noexcept -> Real
+      {   
+         using namespace amrex::literals;
+         const auto lo = amrex::lbound(bx);
+         const auto hi = amrex::ubound(bx);
+#if !defined(__CUDACC__) || (__CUDACC_VER_MAJOR__ != 9) || (__CUDACC_VER_MINOR__ != 2)
+         amrex::Real dt = std::numeric_limits<amrex::Real>::max();
+#else
+         amrex::Real dt = 1.e37_rt;
 #endif
-{
-  for (MFIter mfi(Umf,true); mfi.isValid();++mfi)
-  {
-    Real dt;
-    const Box& bx = mfi.tilebox();
-    const FArrayBox& dsdt_mf   =  (*dsdt)[mfi];
-    const FArrayBox& divu_mf   =  (*divu)[mfi];
-    const FArrayBox& U   = Umf[mfi];
-    const FArrayBox& Rho = rho_ctime[mfi];
-    const FArrayBox& vol = volume[mfi];
-    const FArrayBox& areax = area[0][mfi];
-    const FArrayBox& areay = area[1][mfi];
-#if (AMREX_SPACEDIM==3) 
-    const FArrayBox& areaz = area[2][mfi];
-#endif
-#ifdef AMREX_USE_EB    
-    const FArrayBox& vfrac = (*volfrac)[mfi];
-#endif
-    
+         for       (int k = lo.z; k <= hi.z; ++k) {
+            for    (int j = lo.y; j <= hi.y; ++j) {
+               for (int i = lo.x; i <= hi.x; ++i) {
+                  Real dtcell = est_divu_dt_2(i, j, k, divu_check_flag, divu_dt_fac, rho_min, dxinv,
+                                              rho, vel, divu );
+                  dt = amrex::min(dt,dtcell);
+               }
+            }
+         }
+         return dt;
+      });
+   } else if ( divu_ceiling == 3 ) {
+      amrex::Abort("divu_ceiling == 3 currently not available. If amrex::ReduceMin has been updated then this should be fixed");
+   } else {
+      amrex::Abort("Unknown divu_ceiling value. It should be between 0 and 3.");
+   }
 
-    est_divu_dt(divu_ceiling, &divu_dt_factor, dx,
-                BL_TO_FORTRAN_ANYD(divu_mf),
-                BL_TO_FORTRAN_ANYD(dsdt_mf),
-                BL_TO_FORTRAN_ANYD(Rho),
-                BL_TO_FORTRAN_ANYD(U),
-                BL_TO_FORTRAN_ANYD(vol),
-#ifdef AMREX_USE_EB    
-                BL_TO_FORTRAN_ANYD(vfrac),
-#endif
-                BL_TO_FORTRAN_ANYD(areax),
-                BL_TO_FORTRAN_ANYD(areay),
-#if (AMREX_SPACEDIM==3) 
-                BL_TO_FORTRAN_ANYD(areaz), 
-#endif 
-                BL_TO_FORTRAN_BOX(bx), &dt, &min_rho_divu_ceiling);
+   ParallelDescriptor::ReduceRealMin(divu_dt);
 
-    divu_dt = std::min(divu_dt,dt);
+   if (verbose)
+   {
+      amrex::Print() << "PeleLM::estTimeStep(): estdt, divu_dt = "
+                     << estdt << ", " << divu_dt << '\n';
+   }
 
-  }
-}
+   estdt = std::min(estdt, divu_dt);
 
-  delete divu;
-  delete dsdt;
+   if (estdt < ns_estdt && verbose)
+      amrex::Print() << "PeleLM::estTimeStep(): timestep reduced from "
+                     << ns_estdt << " to " << estdt << '\n';
 
-  ParallelDescriptor::ReduceRealMin(divu_dt);
+   if (verbose > 1)
+   {
+      const int IOProc   = ParallelDescriptor::IOProcessorNumber();
+      Real      run_time = ParallelDescriptor::second() - strt_time;
 
-  if (verbose)
-  {
-    amrex::Print() << "PeleLM::estTimeStep(): estdt, divu_dt = " 
-		   << estdt << ", " << divu_dt << '\n';
-  }
+      ParallelDescriptor::ReduceRealMax(run_time,IOProc);
 
-  estdt = std::min(estdt, divu_dt);
+      amrex::Print() << "PeleLM::estTimeStep(): lev: " << level
+                     << ", time: " << run_time << '\n';
+   }
 
-  if (estdt < ns_estdt && verbose)
-    amrex::Print() << "PeleLM::estTimeStep(): timestep reduced from " 
-		   << ns_estdt << " to " << estdt << '\n';
-
-  if (verbose > 1)
-  {
-    const int IOProc   = ParallelDescriptor::IOProcessorNumber();
-    Real      run_time = ParallelDescriptor::second() - strt_time;
-
-    ParallelDescriptor::ReduceRealMax(run_time,IOProc);
-
-    amrex::Print() << "PeleLM::estTimeStep(): lev: " << level 
-		   << ", time: " << run_time << '\n';
-  }
-
-  return estdt;
+   return estdt;
 }
 
 void
 PeleLM::checkTimeStep (Real dt)
 {
-  if (fixed_dt > 0.0 || !divu_ceiling) 
-    return;
+   if (fixed_dt > 0.0 || !divu_ceiling)
+      return;
 
-  const int   n_grow    = 1;
-  const Real  cur_time  = state[State_Type].curTime();
-  const Real* dx        = geom.CellSize();
-  MultiFab*   dsdt      = getDsdt(0,cur_time);
-  MultiFab*   divu      = getDivCond(0,cur_time);
+   const int   nGrow    = 1;
+   const Real  cur_time  = state[State_Type].curTime();
+   MultiFab*   DivU      = getDivCond(0,cur_time);
 
-  FillPatchIterator U_fpi(*this,*divu,n_grow,cur_time,State_Type,Xvel,BL_SPACEDIM);
-  MultiFab& Umf=U_fpi.get_mf();
+   FillPatchIterator U_fpi(*this,*DivU,nGrow,cur_time,State_Type,Xvel,AMREX_SPACEDIM);
+   MultiFab& Umf=U_fpi.get_mf();
 
 #ifdef _OPENMP
-#pragma omp parallel
+#pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
-  for (MFIter mfi(Umf,true); mfi.isValid();++mfi)
-  {
-    const Box&    grdbx  = mfi.tilebox();
-    const int        i   = mfi.index();
-    FArrayBox&       U   = Umf[mfi];
-    const FArrayBox& Rho = rho_ctime[mfi];
+   for (MFIter mfi(Umf,TilingIfNotGPU()); mfi.isValid();++mfi)
+   {
+      const Box&  bx       = mfi.tilebox();
+      auto const& rho      = rho_ctime.array(mfi);
+      auto const& vel      = Umf.array(mfi);
+      auto const& divu     = DivU->array(mfi);
+      auto const& vol      = volume.const_array(mfi);
+      D_TERM(auto const& areax = (area[0]).const_array(mfi);,
+             auto const& areay = (area[1]).const_array(mfi);,
+             auto const& areaz = (area[2]).const_array(mfi););
+      int  divu_check_flag = divu_ceiling;
+      Real divu_dt_fac     = divu_dt_factor;
+      Real rho_min         = min_rho_divu_ceiling;
+      const auto dxinv     = geom.InvCellSizeArray();
 
-    check_divu_dt( divu_ceiling, &divu_dt_factor, dx,
-                   BL_TO_FORTRAN_ANYD((*divu)[mfi]),
-                   BL_TO_FORTRAN_ANYD((*dsdt)[mfi]),
-                   BL_TO_FORTRAN_ANYD(Rho),
-                   BL_TO_FORTRAN_ANYD(U),
-                   BL_TO_FORTRAN_ANYD(volume[i]),
-                   BL_TO_FORTRAN_ANYD(area[0][i]),
-                   BL_TO_FORTRAN_ANYD(area[1][i]),
-#if (AMREX_SPACEDIM==3)
-                   BL_TO_FORTRAN_ANYD(area[2][i]),
-#endif
-                   BL_TO_FORTRAN_BOX(grdbx),
-                   &dt, &min_rho_divu_ceiling);
-  }
-
-  delete dsdt;
-  delete divu;
+      amrex::ParallelFor(bx, [rho, vel, divu, vol, D_DECL(areax,areay,areaz),
+                              divu_check_flag, divu_dt_fac, rho_min, dxinv, dt]
+      AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+      {
+         check_divu_dt(i, j, k, divu_check_flag, divu_dt_fac, rho_min, dxinv,
+                       rho, vel, divu, vol, D_DECL(areax,areay,areaz), dt); 
+      });
+   }
+   delete DivU;
 }
 
 void
@@ -1817,11 +1821,11 @@ PeleLM::setTimeLevel (Real time,
                       Real dt_old,
                       Real dt_new)
 {
-  NavierStokesBase::setTimeLevel(time, dt_old, dt_new);    
+   NavierStokesBase::setTimeLevel(time, dt_old, dt_new);
 
-  state[RhoYdot_Type].setTimeLevel(time,dt_old,dt_new);
+   state[RhoYdot_Type].setTimeLevel(time,dt_old,dt_new);
 
-  state[FuncCount_Type].setTimeLevel(time,dt_old,dt_new);
+   state[FuncCount_Type].setTimeLevel(time,dt_old,dt_new);
 }
 
 //
@@ -3562,8 +3566,7 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
 #endif
                                Tbc,curr_time);
 }
-// Dnew.setVal(0.) done in calling fn
-  //Dnew.setVal(0);
+  // Dnew.setVal(0.) done in calling fn
   flux_divergence(Dnew,DComp,SpecDiffusionFluxnp1,0,nspecies,-1);
   
   //
@@ -3768,113 +3771,105 @@ PeleLM::adjust_spec_diffusion_fluxes (MultiFab* const * flux,
                                       const MultiFab&   S,
 #ifdef AMREX_USE_EB
                                       D_DECL(const amrex::MultiCutFab& x_areafrac,
-		                                         const amrex::MultiCutFab& y_areafrac,
-		                                         const amrex::MultiCutFab& z_areafrac),
+                                             const amrex::MultiCutFab& y_areafrac,
+                                             const amrex::MultiCutFab& z_areafrac),
 #endif
                                       const BCRec&      bc,
                                       Real              time)
 {
-  //
-  // Adjust the species diffusion fluxes so that their sum is zero.
-  //
-  const Real strt_time = ParallelDescriptor::second();
-  const Box& domain = geom.Domain();
+   //
+   // Adjust the species diffusion fluxes so that their sum is zero.
+   //
+   const Real strt_time = ParallelDescriptor::second();
+   const Box& domain = geom.Domain();
 
-  int ngrow = 3;
-  MultiFab TT(grids,dmap,nspecies,ngrow,MFInfo(),Factory());
-  FillPatch(*this,TT,ngrow,time,State_Type,first_spec,nspecies,0);
-
+   int ngrow = 3;
+   MultiFab TT(grids,dmap,NUM_SPECIES,ngrow,MFInfo(),Factory());
+   FillPatch(*this,TT,ngrow,time,State_Type,first_spec,NUM_SPECIES,0);
 
 #ifdef AMREX_USE_EB
+   Vector<BCRec> math_bc(NUM_SPECIES);
+   math_bc = fetchBCArray(State_Type,first_spec,NUM_SPECIES);
 
-  Vector<BCRec> math_bc(nspecies);
-  math_bc = fetchBCArray(State_Type,first_spec,nspecies);
+   MultiFab edgstate[AMREX_SPACEDIM];
+   int nghost(4);         // Use 4 for now
 
-  MultiFab edgstate[BL_SPACEDIM];
-  int nghost(4);         // Use 4 for now
-
-  for (int i(0); i < BL_SPACEDIM; i++)
-  {
-    const BoxArray& ba = getEdgeBoxArray(i);
-    edgstate[i].define(ba, dmap, nspecies, nghost, MFInfo(), Factory());
-  }
-
-  EB_interp_CellCentroid_to_FaceCentroid(TT, D_DECL(edgstate[0],edgstate[1],edgstate[2]), 0, 0, nspecies, geom, math_bc);
+   for (int i(0); i < AMREX_SPACEDIM; i++)
+   {
+     const BoxArray& ba = getEdgeBoxArray(i);
+     edgstate[i].define(ba, dmap, NUM_SPECIES, nghost, MFInfo(), Factory());
+   }
+   EB_interp_CellCentroid_to_FaceCentroid(TT, D_DECL(edgstate[0],edgstate[1],edgstate[2]), 0, 0, NUM_SPECIES, geom, math_bc);
 #endif
 
 #ifdef _OPENMP
-#pragma omp parallel
+#pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
-  for (MFIter mfi(S,true); mfi.isValid(); ++mfi)
-  {    
-    const FArrayBox& Sfab = TT[mfi];
-    for (int d =0; d < BL_SPACEDIM; ++d)
-    {
-      FArrayBox& Ffab = (*flux[d])[mfi];
-      const Box& ebox = mfi.nodaltilebox(d);
-      const Box& edomain = amrex::surroundingNodes(domain,d);
+   for (MFIter mfi(S,TilingIfNotGPU()); mfi.isValid(); ++mfi)
+   {    
+      for (int dir =0; dir < AMREX_SPACEDIM; ++dir)
+      {
+         const Box& ebx = mfi.nodaltilebox(dir);
+         const Box& edomain = amrex::surroundingNodes(domain,dir);
+         auto const& rhoY     = TT.array(mfi);
+         auto const& flux_dir = flux[dir]->array(mfi);
 
 #ifdef AMREX_USE_EB
+         const EBFArrayBox&  state_fab = static_cast<EBFArrayBox const&>(S[mfi]);
+         const EBCellFlagFab&    flags = state_fab.getEBCellFlagFab();
 
-      const EBFArrayBox&  state_fab = static_cast<EBFArrayBox const&>(S[mfi]);
-      const EBCellFlagFab&    flags = state_fab.getEBCellFlagFab();
-
-      if (flags.getType(amrex::grow(ebox,0)) != FabType::covered )
-      {
-         // No cut cells in tile + nghost-cell witdh halo -> use non-eb routine
-         if (flags.getType(amrex::grow(ebox,nghost)) == FabType::regular )
+         if (flags.getType(amrex::grow(ebx,0)) != FabType::covered )
          {
-           repair_flux(BL_TO_FORTRAN_BOX(ebox),
-                       BL_TO_FORTRAN_BOX(edomain),
-                       BL_TO_FORTRAN_ANYD(Ffab), 
-                       BL_TO_FORTRAN_N_ANYD(Sfab,0),
-                       &d, bc.vect());
-                 
+            // No cut cells in tile + nghost-cell witdh halo -> use non-eb routine
+            if (flags.getType(amrex::grow(ebx,nghost)) == FabType::regular )
+            {
+               amrex::ParallelFor(ebx, [dir, rhoY, flux_dir, edomain, bc]
+               AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+               {
+                  int idx[3] = {i,j,k};
+                  bool on_lo = ( ( bc.lo(dir) == EXT_DIR ) && ( idx[dir] <= edomain.smallEnd(dir) ) );
+                  bool on_hi = ( ( bc.hi(dir) == EXT_DIR ) && ( idx[dir] >= edomain.bigEnd(dir) ) );
+                  repair_flux( i, j, k, dir, on_lo, on_hi, rhoY, flux_dir );
+               });
+            }
+            else
+            {         
+               auto const& rhoYed_d   = edgstate[dir].array(mfi);
+               auto const& areafrac_d = areafrac[dir]->array(mfi);
+               amrex::ParallelFor(ebx, [dir, rhoY, flux_dir, rhoYed_d, areafrac_d, edomain, bc]
+               AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+               {
+                  int idx[3] = {i,j,k};
+                  bool on_lo = ( ( bc.lo(dir) == EXT_DIR ) && ( idx[dir] <= edomain.smallEnd(dir) ) );
+                  bool on_hi = ( ( bc.hi(dir) == EXT_DIR ) && ( idx[dir] >= edomain.bigEnd(dir) ) );
+                  repair_flux_eb( i, j, k, dir, on_lo, on_hi, rhoY, rhoYed_d, areafrac_d, flux_dir );
+               });
+            }
          }
-         else
-         {         
-           repair_flux_eb(BL_TO_FORTRAN_BOX(ebox),
-                          BL_TO_FORTRAN_BOX(edomain),
-                          BL_TO_FORTRAN_ANYD(Ffab), 
-                          BL_TO_FORTRAN_N_ANYD(Sfab,0),
-
-                          BL_TO_FORTRAN_N_ANYD(edgstate[0][mfi],0),
-                          BL_TO_FORTRAN_ANYD((*areafrac[0])[mfi]),
-                          BL_TO_FORTRAN_N_ANYD(edgstate[1][mfi],0),
-                          BL_TO_FORTRAN_ANYD((*areafrac[1])[mfi]),
-#if ( AMREX_SPACEDIM == 3 )
-                          BL_TO_FORTRAN_N_ANYD(edgstate[2][mfi],0),
-                          BL_TO_FORTRAN_ANYD((*areafrac[2])[mfi]),
-#endif
-                         &d, bc.vect());
-          
-         }
-      }
-      
 #else
-
-      repair_flux(BL_TO_FORTRAN_BOX(ebox),
-                  BL_TO_FORTRAN_BOX(edomain),
-                  BL_TO_FORTRAN_ANYD(Ffab), 
-                  BL_TO_FORTRAN_N_ANYD(Sfab,0),
-                  &d, bc.vect());
+         amrex::ParallelFor(ebx, [dir, rhoY, flux_dir, edomain, bc]
+         AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+         {
+            int idx[3] = {i,j,k};
+            bool on_lo = ( ( bc.lo(dir) == EXT_DIR ) && ( idx[dir] <= edomain.smallEnd(dir) ) );
+            bool on_hi = ( ( bc.hi(dir) == EXT_DIR ) && ( idx[dir] >= edomain.bigEnd(dir) ) );
+            repair_flux( i, j, k, dir, on_lo, on_hi, rhoY, flux_dir );
+         });
 
 #endif
+      }
+   }
 
-      
-    }
-  }
+   if (verbose > 1)
+   {
+      const int IOProc   = ParallelDescriptor::IOProcessorNumber();
+      Real      run_time = ParallelDescriptor::second() - strt_time;
 
-  if (verbose > 1)
-  {
-    const int IOProc   = ParallelDescriptor::IOProcessorNumber();
-    Real      run_time = ParallelDescriptor::second() - strt_time;
+      ParallelDescriptor::ReduceRealMax(run_time,IOProc);
 
-    ParallelDescriptor::ReduceRealMax(run_time,IOProc);
-
-    amrex::Print() << "PeleLM::adjust_spec_diffusion_fluxes(): lev: " << level 
-		   << ", time: " << run_time << '\n';
-  }
+      amrex::Print() << "PeleLM::adjust_spec_diffusion_fluxes(): lev: " << level 
+                     << ", time: " << run_time << '\n';
+   }
 }
 
 void
@@ -3937,17 +3932,13 @@ PeleLM::compute_enthalpy_fluxes (MultiFab* const*       flux,
   op.setLevelBC(0, &TT);
 
   // Creating alpha and beta coefficients.
-  MultiFab Alpha(grids,dmap,1,0,MFInfo(),Factory());
   Real      a               = 0;
   Real      b               = 1.;
-  Alpha.setVal(1.);
   op.setScalars(a, b);
-  op.setACoeffs(0, Alpha);
 
   // Here it is nspecies because lambda is stored after the last species (first starts at 0)
-  Array<MultiFab,BL_SPACEDIM> bcoeffs = Diffusion::computeBeta(beta, nspecies);
-  op.setBCoeffs(0, amrex::GetArrOfConstPtrs(bcoeffs));
-
+  Diffusion::setBeta(op,beta,nspecies);
+  
   D_TERM( flux[0]->setVal(0., nspecies+2, 1);,
           flux[1]->setVal(0., nspecies+2, 1);,
           flux[2]->setVal(0., nspecies+2, 1););
@@ -4114,7 +4105,8 @@ PeleLM::velocity_diffusion_update (Real dt)
     int rhsComp  = 0;
     int betaComp = 0;
     diffusion->diffuse_velocity(dt,be_cn_theta,get_rho_half_time(),rho_flag,
-                                delta_rhs,rhsComp,fb_betan.get(),fb_betanp1.get(),betaComp);
+                                delta_rhs,rhsComp,fb_betan.get(),viscn_cc,
+				fb_betanp1.get(),viscnp1_cc,betaComp);
 
     delete delta_rhs;
 
@@ -4237,7 +4229,10 @@ PeleLM::getViscTerms (MultiFab& visc_terms,
     }
 
     int viscComp = 0;
-    diffusion->getTensorViscTerms(visc_terms,time,vel_visc,viscComp);
+    const TimeLevel whichTime = which_time(State_Type,time);
+    BL_ASSERT(whichTime == AmrOldTime || whichTime == AmrNewTime);
+    auto vel_visc_cc = (whichTime == AmrOldTime ? viscn_cc : viscnp1_cc);
+    diffusion->getTensorViscTerms(visc_terms,time,vel_visc,vel_visc_cc,viscComp);
     showMF("velVT",visc_terms,"velVT_visc_terms_1",level);
   }
   else
@@ -4441,24 +4436,14 @@ PeleLM::compute_differential_diffusion_fluxes (const MultiFab& S,
 //	VisMF::Write(rh,"rh_cddf");
 
        Real* rhsscale = 0;
-       std::pair<Real,Real> scalars;
-       MultiFab Alpha;
        // above sets rho_flag = 2;
        // this is potentially dangerous if rho_flag==1, because rh is an undefined MF
        const MultiFab& rho = (rho_flag == 1) ? rh : S;
        const int Rho_comp = (rho_flag ==1) ? 0 : Density;
-
-       Diffusion::computeAlpha(Alpha, scalars, a, b, 
-                               rhsscale, alpha_in, alpha_in_comp+icomp,
-                               rho_flag, &rho, Rho_comp);
-       op.setScalars(scalars.first, scalars.second);
-       op.setACoeffs(0, Alpha);
+       op.setScalars(a,b);
     }
 
-    {
-      Array<MultiFab,BL_SPACEDIM> bcoeffs = Diffusion::computeBeta(beta, betaComp+icomp);
-      op.setBCoeffs(0, amrex::GetArrOfConstPtrs(bcoeffs));
-    }
+    Diffusion::setBeta(op,beta,betaComp+icomp);
 
     // No multiplication by dt here.
     Diffusion::computeExtensiveFluxes(mg, Soln, flux, fluxComp+icomp, 1, &geom, b);
@@ -4793,41 +4778,40 @@ PeleLM::compute_differential_diffusion_terms (MultiFab& D,
 }
 
 void
-PeleLM::temperature_stats (MultiFab& S)
+PeleLM::state_stats (MultiFab& S)
 {
-  if (verbose)
-  {
-    //
-    // Calculate some minimums and maximums.
-    //
-    auto scaleMin = VectorMin({&S},FabArrayBase::mfiter_tile_size,Density,NUM_STATE-BL_SPACEDIM,0);
-    auto scaleMax = VectorMax({&S},FabArrayBase::mfiter_tile_size,Density,NUM_STATE-BL_SPACEDIM,0);
+   if (verbose) {
+      //
+      // Calculate some minimums and maximums.
+      //
+      auto scaleMin = VectorMin({&S},FabArrayBase::mfiter_tile_size,Density,NUM_STATE-AMREX_SPACEDIM,0);
+      auto scaleMax = VectorMax({&S},FabArrayBase::mfiter_tile_size,Density,NUM_STATE-AMREX_SPACEDIM,0);
 
-    bool aNegY = false;
-    for (int i = 0; i < nspecies && !aNegY; ++i) {
-      if (scaleMin[first_spec+i-BL_SPACEDIM] < 0) aNegY = true;
-    }
-
-    amrex::Print() << "  Min,max temp = " << scaleMin[Temp   - BL_SPACEDIM]
-                   << ", "                << scaleMax[Temp   - BL_SPACEDIM] << '\n';
-    amrex::Print() << "  Min,max rho  = " << scaleMin[Density- BL_SPACEDIM]
-                   << ", "                << scaleMax[Density- BL_SPACEDIM] << '\n';
-    amrex::Print() << "  Min,max rhoh = " << scaleMin[RhoH   - BL_SPACEDIM]
-                   << ", "                << scaleMax[RhoH   - BL_SPACEDIM] << '\n';
-
-    if (aNegY){
-        Vector<std::string> names;
-        EOS::speciesNames(names);
-        amrex::Print() << "  Species w/min < 0: ";
-        for (int i = 0; i < nspecies; ++i) {
-        int idx = first_spec + i - BL_SPACEDIM;
-        if ( scaleMin[idx] < 0) {
-          amrex::Print() << "Y(" << names[i] << ") [" << scaleMin[idx] << "]  ";
-        }
+      bool aNegY = false;
+      for (int i = 0; i < NUM_SPECIES && !aNegY; ++i) {
+         if (scaleMin[first_spec+i-AMREX_SPACEDIM] < 0) aNegY = true;
       }
-      amrex::Print() << '\n';
-    }   
-  }
+
+      amrex::Print() << "  Min,max temp = " << scaleMin[Temp   - AMREX_SPACEDIM]
+                     << ", "                << scaleMax[Temp   - AMREX_SPACEDIM] << '\n';
+      amrex::Print() << "  Min,max rho  = " << scaleMin[Density- AMREX_SPACEDIM]
+                     << ", "                << scaleMax[Density- AMREX_SPACEDIM] << '\n';
+      amrex::Print() << "  Min,max rhoh = " << scaleMin[RhoH   - AMREX_SPACEDIM]
+                     << ", "                << scaleMax[RhoH   - AMREX_SPACEDIM] << '\n';
+
+      if (aNegY){
+         Vector<std::string> names;
+         EOS::speciesNames(names);
+         amrex::Print() << "  Species w/min < 0: ";
+         for (int i = 0; i < NUM_SPECIES; ++i) {
+            int idx = first_spec + i - AMREX_SPACEDIM;
+            if ( scaleMin[idx] < 0) {
+               amrex::Print() << "Y(" << names[i] << ") [" << scaleMin[idx] << "]  ";
+            }
+         }
+         amrex::Print() << '\n';
+      }
+   }
 }
 
 void
@@ -5612,7 +5596,7 @@ PeleLM::advance (Real time,
     showMF("mysdc",S_new,"sdc_Snew_end_sdc",level,sdc_iter,parent->levelSteps(level));
     showMF("mysdc",S_old,"sdc_Sold_end_sdc",level,sdc_iter,parent->levelSteps(level));
 
-    temperature_stats(S_new);
+    state_stats(S_new);
     if (verbose) amrex::Print() << "DONE WITH R (SDC corrector " << sdc_iter << ")\n";
 
     BL_PROFILE_VAR_START(PLM_MAC);
@@ -5820,7 +5804,7 @@ PeleLM::advance (Real time,
 
    if (verbose) amrex::Print() << "PeleLM::advance(): at end of time step\n";
 
-   temperature_stats(S_new);
+   state_stats(S_new);
    
    BL_PROFILE_VAR_START(PLM_MAC);
    // during initialization, reset time 0 ambient pressure
@@ -6010,7 +5994,7 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
                            bool            use_stiff_solver)
 {
   BL_PROFILE("HT:::advance_chemistry()");
-
+  
   const Real strt_time = ParallelDescriptor::second();
 
   const bool do_avg_down_chem = avg_down_chem
@@ -6209,6 +6193,7 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
                 for (int sp=0;sp<nspecies; sp++){
                    tmp_vect[sp]       = rhoY(i,j,k,sp) * 1.e-3;
                    tmp_src_vect[sp]   = frcing(i,j,k,sp) * 1.e-3;
+
                 }
                 tmp_vect[nspecies]    = T(i,j,k);
                 tmp_vect_energy       = rhoH(i,j,k) * 10.0;
@@ -6238,16 +6223,19 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
                 for (int sp=0;sp<nspecies; sp++){
                    rhoY(i,j,k,sp)      = tmp_vect[sp] * 1.e+3;
                    if (isnan(rhoY(i,j,k,sp))) {
-                      amrex::Abort("NaNs !! ");
+                      amrex::Abort("NaNs in rhoY!! ");
+                   }
+                   if (isnan(frcing(i,j,k,sp))) {
+                      amrex::Abort("NaNs in forcing!! ");
                    }
                 }
                 T(i,j,k)  = tmp_vect[NUM_SPECIES];
                 if (isnan(T(i,j,k))) {
-                   amrex::Abort("NaNs !! ");
+                   amrex::Abort("NaNs in T!! ");
                 }
                 rhoH(i,j,k) = tmp_vect_energy * 1.e-01;
                 if (isnan(rhoH(i,j,k))) {
-                   amrex::Abort("NaNs !! ");
+                   amrex::Abort("NaNs in rhoH!! ");
                 }
              }
           }
@@ -9285,90 +9273,11 @@ PeleLM::derive (const std::string& name,
                 MultiFab&          mf,
                 int                dcomp)
 {
-  if (name == "mean_progress_curvature")
-  {
-    // 
-    // Smooth the temperature, then use smoothed T to compute mean progress curvature
-    //
-
-    // Assert because we do not know how to un-convert the destination
-    //   and also, implicitly assume the convert that was used to build mf BA is trivial
-    BL_ASSERT(mf.boxArray()[0].ixType()==IndexType::TheCellType());
-
-    const DeriveRec* rec = derive_lst.get(name);
-
-    Box srcB = mf.boxArray()[0];
-    Box dstB = rec->boxMap()(srcB);
-
-    // Find nGrowSRC
-    int nGrowSRC = 0;
-    for ( ; !srcB.contains(dstB); ++nGrowSRC)
-    {
-      srcB.grow(1);
-    }
-    BL_ASSERT(nGrowSRC);  // Need grow cells for this to work!
-
-    FillPatchIterator fpi(*this,mf,nGrowSRC,time,State_Type,Temp,1);
-    MultiFab& tmf = fpi.get_mf();
-
-    int num_smooth_pre = 3;
-        
-    for (int i=0; i<num_smooth_pre; ++i)
-    {
-      // Fix up fine-fine and periodic
-      if (i!=0) 
-        tmf.FillBoundary(0,1,geom.periodicity());
-
-#ifdef _OPENMP
-#pragma omp parallel
-#endif
-      for (MFIter mfi(tmf,true); mfi.isValid(); ++mfi)
-      {
-        // 
-        // Use result MultiFab for temporary container to hold smooth T field
-        // 
-        const Box& box = mfi.tilebox();
-        smooth( BL_TO_FORTRAN_BOX(box),
-                BL_TO_FORTRAN_ANYD(tmf[mfi]),
-                BL_TO_FORTRAN_N_ANYD(mf[mfi],dcomp));
-      }
-      
-      MultiFab::Copy(tmf,mf,0,0,1,0);
-    }
-
-    tmf.FillBoundary(0,1,geom.periodicity());
-
-    const Real* dx = geom.CellSize();
-        
-#ifdef _OPENMP
-#pragma omp parallel
-#endif
-    {
-      FArrayBox nWork;
-      for (MFIter mfi(tmf,true); mfi.isValid(); ++mfi)
-      {
-        const FArrayBox& Tg = tmf[mfi];
-        FArrayBox& MC = mf[mfi];
-        const Box& box = mfi.tilebox();
-        const Box& nodebox = amrex::surroundingNodes(box);
-        nWork.resize(nodebox,BL_SPACEDIM);
-
-        mcurve( BL_TO_FORTRAN_BOX(box),
-                BL_TO_FORTRAN_ANYD(Tg),
-                BL_TO_FORTRAN_N_ANYD(MC,dcomp),
-                BL_TO_FORTRAN_ANYD(nWork),
-                dx);
-      }
-    }
-  }
-  else
-  {
 #ifdef AMREX_PARTICLES
-    ParticleDerive(name,time,mf,dcomp);
+   ParticleDerive(name,time,mf,dcomp);
 #else
-    AmrLevel::derive(name,time,mf,dcomp);
+   AmrLevel::derive(name,time,mf,dcomp);
 #endif
-  }
 }
 
 void

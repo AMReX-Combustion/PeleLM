@@ -457,7 +457,7 @@ private:
   void reset_typical_values(const amrex::MultiFab& S);
 
 
-  void temperature_stats (amrex::MultiFab& S);
+  void state_stats (amrex::MultiFab& S);
 
   void zeroBoundaryVisc (amrex::MultiFab*  beta[BL_SPACEDIM],
                          const amrex::Real time,
