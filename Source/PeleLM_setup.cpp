@@ -1102,6 +1102,13 @@ rhoydot_bc[] =
 };
 
 static
+int
+spraydot_bc[] =
+{
+  INT_DIR, EXT_DIR, FOEXTRAP, REFLECT_EVEN, REFLECT_EVEN, REFLECT_EVEN
+};
+
+static
 void
 set_rhoydot_bc (BCRec&       bc,
                 const BCRec& phys_bc)
@@ -1113,6 +1120,21 @@ set_rhoydot_bc (BCRec&       bc,
   {
     bc.setLo(i,rhoydot_bc[lo_bc[i]]);
     bc.setHi(i,rhoydot_bc[hi_bc[i]]);
+  }
+}
+
+static
+void
+set_spraydot_bc (BCRec&       bc,
+                const BCRec& phys_bc)
+{
+  const int* lo_bc = phys_bc.lo();
+  const int* hi_bc = phys_bc.hi();
+
+  for (int i = 0; i < BL_SPACEDIM; i++)
+  {
+    bc.setLo(i,spraydot_bc[lo_bc[i]]);
+    bc.setHi(i,spraydot_bc[hi_bc[i]]);
   }
 }
 
@@ -1166,40 +1188,40 @@ PeleLM::spraydotSetUp()
   PeleLM::getSpeciesNames(names);
 
 
-  //BCRec bc;
-  //set_spraydot_bc(bc,phys_bc);
+  BCRec bc;
+  set_spraydot_bc(bc,phys_bc);
 
-  // std::string name = "I_R_spray_rhoU";
-  //
-  // desc_lst.setComponent(spraydot_Type, 0, name.c_str(), bc,
-	// 		BndryFunc(FORT_RHOYDOTFILL), &lincc_interp, 0, 0);
-  //
-  // name = "I_R_spray_rhoV";
-  // desc_lst.setComponent(spraydot_Type, 1, name.c_str(), bc,
-	// 		BndryFunc(FORT_RHOYDOTFILL), &lincc_interp, 1, 1);
-  //
-  // name = "I_R_spray_rhoW";
-  // desc_lst.setComponent(spraydot_Type, 2, name.c_str(), bc,
-	// 		BndryFunc(FORT_RHOYDOTFILL), &lincc_interp, 2, 2);
-  //
-  // name = "I_R_spray_rho";
-  // desc_lst.setComponent(spraydot_Type, 3, name.c_str(), bc,
-	// 		BndryFunc(FORT_RHOYDOTFILL), &lincc_interp, 3, 3);
-  //
-  // for (int i = 0; i < num_species; i++)
-  // {
-  //   name = "I_R_spray_Y("+names[i]+")]";
-  //   desc_lst.setComponent(spraydot_Type, i+4, name.c_str(), bc,
-  //                         BndryFunc(FORT_RHOYDOTFILL), &lincc_interp, 4, 4+num_species-1);
-  // }
-  //
-  // name = "I_R_spray_rhoh";
-  // desc_lst.setComponent(spraydot_Type, num_species+4, name.c_str(), bc,
-  // 			BndryFunc(FORT_RHOYDOTFILL), &lincc_interp, num_species+4, num_species+4);
-  //
-  // name = "I_R_spray_temp";
-  // desc_lst.setComponent(spraydot_Type, num_species+5, name.c_str(), bc,
-  // 			BndryFunc(FORT_RHOYDOTFILL), &lincc_interp, num_species+5, num_species+5);
+   std::string name = "I_R_spray_rhoU";
+  
+   desc_lst.setComponent(spraydot_Type, 0, name.c_str(), bc,
+	 		BndryFunc(rhoYdot_fill), &lincc_interp, 0, 0);
+  
+   name = "I_R_spray_rhoV";
+   desc_lst.setComponent(spraydot_Type, 1, name.c_str(), bc,
+	 		BndryFunc(rhoYdot_fill), &lincc_interp, 1, 1);
+  
+   name = "I_R_spray_rhoW";
+   desc_lst.setComponent(spraydot_Type, 2, name.c_str(), bc,
+	 		BndryFunc(rhoYdot_fill), &lincc_interp, 2, 2);
+  
+   name = "I_R_spray_rho";
+   desc_lst.setComponent(spraydot_Type, 3, name.c_str(), bc,
+	 		BndryFunc(rhoYdot_fill), &lincc_interp, 3, 3);
+  
+   for (int i = 0; i < num_species; i++)
+   {
+     name = "I_R_spray_Y("+names[i]+")]";
+     desc_lst.setComponent(spraydot_Type, i+4, name.c_str(), bc,
+                           BndryFunc(rhoYdot_fill), &lincc_interp, 4, 4+num_species-1);
+   }
+  
+   name = "I_R_spray_rhoh";
+   desc_lst.setComponent(spraydot_Type, num_species+4, name.c_str(), bc,
+   			BndryFunc(rhoYdot_fill), &lincc_interp, num_species+4, num_species+4);
+  
+   name = "I_R_spray_temp";
+   desc_lst.setComponent(spraydot_Type, num_species+5, name.c_str(), bc,
+   			BndryFunc(rhoYdot_fill), &lincc_interp, num_species+5, num_species+5);
 
 }
 

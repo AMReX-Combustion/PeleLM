@@ -270,6 +270,7 @@ void setSprayGridInfo(
 
 /// A state array with ghost zones
 amrex::MultiFab Sborder;
+amrex::MultiFab SpraySourceTest;
 
 static int particle_mass_tran;
 static int particle_heat_tran;

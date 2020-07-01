@@ -1300,6 +1300,7 @@ PeleLM::PeleLM (Amr&            papa,
 #ifdef AMREX_PARTICLES
   const int NUM_GROW = 2; // mr: not sure if that's right here, check!
   Sborder.define(grids,dmap,NUM_STATE,NUM_GROW,MFInfo(),Factory());
+  SpraySourceTest.define(grids,dmap,NUM_STATE,3,MFInfo(),Factory());
 #endif
 
 }
@@ -1952,7 +1953,9 @@ PeleLM::setTimeLevel (Real time,
   NavierStokesBase::setTimeLevel(time, dt_old, dt_new);
 
   state[RhoYdot_Type].setTimeLevel(time,dt_old,dt_new);
-
+#ifdef AMREX_PARTICLES
+  state[spraydot_Type].setTimeLevel(time,dt_old,dt_new);
+#endif
   state[FuncCount_Type].setTimeLevel(time,dt_old,dt_new);
 }
 
@@ -2208,6 +2211,10 @@ PeleLM::initDataOtherTypes ()
   // Set initial omegadot = 0
   get_new_data(RhoYdot_Type).setVal(0);
 
+#ifdef AMREX_PARTICLES
+  get_new_data(spraydot_Type).setVal(0);
+#endif
+
   // Put something reasonable into the FuncCount variable
   get_new_data(FuncCount_Type).setVal(1);
 
@@ -2310,6 +2317,23 @@ PeleLM::init (AmrLevel& old)
     }
   }
 
+#ifdef AMREX_PARTICLES
+MultiFab& spraydot = get_new_data(spraydot_Type);
+{
+  FillPatchIterator fpi(*oldht,spraydot,spraydot.nGrow(),tnp1,spraydot_Type,0,nspecies+6);
+  const MultiFab& mf_fpi = fpi.get_mf();
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
+  for (MFIter mfi(mf_fpi,true); mfi.isValid(); ++mfi)
+  {
+    const Box& vbx  = mfi.tilebox();
+    const FArrayBox& pfab = mf_fpi[mfi];
+     spraydot[mfi].copy(pfab,vbx,0,vbx,0,nspecies+6);
+  }
+}
+#endif
+
   RhoH_to_Temp(get_new_data(State_Type));
 
   MultiFab& FuncCount = get_new_data(FuncCount_Type);
@@ -2344,6 +2368,9 @@ PeleLM::init ()
   // Get best ydot data.
   //
   FillCoarsePatch(get_new_data(RhoYdot_Type),0,tnp1,RhoYdot_Type,0,nspecies);
+#ifdef AMREX_PARTICLES
+  FillCoarsePatch(get_new_data(spraydot_Type),0,tnp1,spraydot_Type,0,nspecies+6);
+#endif
 
   RhoH_to_Temp(get_new_data(State_Type));
   get_new_data(State_Type).setBndry(1.e30);
@@ -2477,6 +2504,13 @@ PeleLM::post_restart ()
   int MyProc  = ParallelDescriptor::MyProc();
   int step    = parent->levelSteps(0);
   int is_restart = 1;
+
+#ifdef AMREX_PARTICLES
+  if (do_spray_particles)
+  {
+    particlePostRestart(parent->theRestartFile());
+  }
+#endif
 
   if (do_active_control)
   {
@@ -5532,6 +5566,11 @@ PeleLM::predict_velocity (Real  dt)
 
 #else
 
+#ifdef AMREX_PARTICLES
+MultiFab& spraydot = get_old_data(spraydot_Type);
+showMF("spray",spraydot,"spraydot_pred_vel",level,parent->levelSteps(level));
+#endif
+
 #ifdef _OPENMP
 #pragma omp parallel
 #endif
@@ -5550,6 +5589,15 @@ PeleLM::predict_velocity (Real  dt)
       if (getForceVerbose)
         amrex::Print() << "---\nA - Predict velocity:\n Calling getForce..." << '\n';
       getForce(tforces,bx,1,Xvel,BL_SPACEDIM,prev_time,Ufab,Smf[U_mfi],0);
+
+#ifdef AMREX_PARTICLES
+      amrex::Print() << "Gonna do particle source term in predict vel" << '\n';
+      //FArrayBox& spraydot_FAB = spraydot[U_mfi];
+      const FArrayBox& spraydot_FAB = get_old_data(spraydot_Type)[U_mfi];
+      //tforces.copy(spraydot_FAB,0,0,BL_SPACEDIM);
+      tforces.plus(spraydot_FAB,0,0,BL_SPACEDIM);
+      //tforces.setVal(1e6);
+#endif
 
       //
       // Compute the total forcing.
@@ -5805,32 +5853,39 @@ PeleLM::advance (Real time,
       updateFluxReg = true;
 
 #ifdef AMREX_PARTICLES
-  if (sdc_iter == 1)
-  {
-    setupVirtualParticles();
+    if (sdc_iter == 1)
+    {
+      setupVirtualParticles();
 
-    int finest_level = parent->finestLevel();
+      int finest_level = parent->finestLevel();
 
-    //particle_redistribute(level,false);
+      //particle_redistribute(level,false);
 
-    if (level < finest_level)
-      setupGhostParticles(ghost_width);
+      if (level < finest_level)
+        setupGhostParticles(ghost_width);
 
-    MultiFab& spraydot = get_old_data(spraydot_Type);
-    spraydot.setVal(0.);
+      MultiFab& spraydot = get_old_data(spraydot_Type);
+      spraydot.setVal(0.);
 
-    // valid particles
-    theSprayPC()->moveKickDrift(Sborder,spraydot, level, dt, time, false, false, tmp_src_width, true, where_width, Density, 0, Temp, RhoH, first_spec);
+      SpraySourceTest.setVal(0.);
 
-    // Only need the coarsest virtual particles here.
-    if (level < finest_level)
-      theVirtPC()->moveKickDrift(Sborder,spraydot, level, dt, time, true, false, tmp_src_width, true, where_width, Density, 0, Temp, RhoH, first_spec);
+      // valid particles
+      theSprayPC()->moveKickDrift(Sborder,spraydot,*u_mac,level, dt, time, false, false, tmp_src_width, true, where_width, Density, 0, Temp, RhoH, first_spec);
 
-    // Miiiight need all Ghosts
-    if (theGhostPC() != 0)
-      theGhostPC()->moveKickDrift(Sborder,spraydot, level, dt, time, false, true, tmp_src_width, true, where_width, Density, 0, Temp, RhoH, first_spec);
+      // Only need the coarsest virtual particles here.
+      if (level < finest_level)
+        theVirtPC()->moveKickDrift(Sborder,spraydot,*u_mac,level, dt, time, true, false, tmp_src_width, true, where_width, Density, 0, Temp, RhoH, first_spec);
 
-  }
+      // Miiiight need all Ghosts
+      if (theGhostPC() != 0)
+        theGhostPC()->moveKickDrift(Sborder,spraydot,*u_mac,level, dt, time, false, true, tmp_src_width, true, where_width, Density, 0, Temp, RhoH, first_spec);
+
+      MultiFab& spraydot_new = get_new_data(spraydot_Type);
+      spraydot_new.copy(spraydot,0,0,nspecies+6);
+
+      showMF("spray",spraydot,"spraydot",level,sdc_iter,parent->levelSteps(level));
+
+    }
 #endif
 
     if (sdc_iter > 1)
@@ -6256,7 +6311,16 @@ PeleLM::advance (Real time,
     velocity_advection(dt);
   }
 
-  velocity_update(dt);
+#ifdef AMREX_PARTICLES
+  MultiFab& spraydot = get_old_data(spraydot_Type);
+  amrex::Print() <<" Gonna do spray velocity update:" << '\n';
+#endif
+
+  velocity_update(dt,
+#ifdef AMREX_PARTICLES
+                  spraydot
+#endif
+  );
   BL_PROFILE_VAR_STOP(HTVEL);
 
   // compute chi correction
