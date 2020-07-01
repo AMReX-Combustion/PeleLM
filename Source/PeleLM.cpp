@@ -595,15 +595,15 @@ PeleLM::Initialize_specific ()
     pplm.query("absolute_tol_chem",absolute_tol_chem);
     
     // Get boundary conditions
-    Vector<std::string> lo_bc_char(BL_SPACEDIM);
-    Vector<std::string> hi_bc_char(BL_SPACEDIM);
-    pplm.getarr("lo_bc",lo_bc_char,0,BL_SPACEDIM);
-    pplm.getarr("hi_bc",hi_bc_char,0,BL_SPACEDIM);
+    Vector<std::string> lo_bc_char(AMREX_SPACEDIM);
+    Vector<std::string> hi_bc_char(AMREX_SPACEDIM);
+    pplm.getarr("lo_bc",lo_bc_char,0,AMREX_SPACEDIM);
+    pplm.getarr("hi_bc",hi_bc_char,0,AMREX_SPACEDIM);
 
 
-    Vector<int> lo_bc(BL_SPACEDIM), hi_bc(BL_SPACEDIM);
+    Vector<int> lo_bc(AMREX_SPACEDIM), hi_bc(AMREX_SPACEDIM);
     bool flag_closed_chamber = false;
-    for (int dir = 0; dir<BL_SPACEDIM; dir++){
+    for (int dir = 0; dir<AMREX_SPACEDIM; dir++){
       if (!lo_bc_char[dir].compare("Interior")){
         lo_bc[dir] = 0;
       } else if (!lo_bc_char[dir].compare("Inflow")){
@@ -666,7 +666,7 @@ PeleLM::Initialize_specific ()
         //
         // Do idiot check.  Periodic means interior in those directions.
         //
-        for (int dir = 0; dir < BL_SPACEDIM; dir++)
+        for (int dir = 0; dir < AMREX_SPACEDIM; dir++)
         {
             if (DefaultGeometry().isPeriodic(dir))
             {
@@ -692,7 +692,7 @@ PeleLM::Initialize_specific ()
         //
         // Do idiot check.  If not periodic, should be no interior.
         //
-        for (int dir = 0; dir < BL_SPACEDIM; dir++)
+        for (int dir = 0; dir < AMREX_SPACEDIM; dir++)
         {
             if (!DefaultGeometry().isPeriodic(dir))
             {
@@ -714,13 +714,13 @@ PeleLM::Initialize_specific ()
         }
     } 
 
-    PeleLM::closed_chamber            = 1;
-    if (flag_closed_chamber){
-      PeleLM::closed_chamber            = 0;
-    }
+   PeleLM::closed_chamber  = 1;
+   if (flag_closed_chamber){
+      PeleLM::closed_chamber  = 0;
+   }
 
-    PeleLM::dpdt_factor = 1.0;
-    pplm.query("dpdt_factor",dpdt_factor);
+   PeleLM::dpdt_factor = 1.0;
+   pplm.query("dpdt_factor",dpdt_factor);
 
 }
 
@@ -926,96 +926,6 @@ LM_Error_Value::tagCells1(int* tag, const int* tlo, const int* thi,
                lo, hi, domain_lo, domain_hi, dx, xlo, prob_lo, time, level);
     }
 }
-
-void
-PeleLM::center_to_edge_fancy (const FArrayBox& cfab,
-                              FArrayBox&       efab,
-                              const Box&       ccBox,
-                              const Box&       ebox,
-                              int              sComp,
-                              int              dComp,
-                              int              nComp,
-                              const Box&       domain,
-                              const FPLoc&     bc_lo,
-                              const FPLoc&     bc_hi)
-{
-  //const Box&      ebox = efab.box();
-  const IndexType ixt  = ebox.ixType();
-
-  BL_ASSERT(!(ixt.cellCentered()) && !(ixt.nodeCentered()));
-
-  int dir = -1;
-  for (int d = 0; d < BL_SPACEDIM; d++)
-    if (ixt.test(d))
-      dir = d;
-
-  BL_ASSERT(amrex::grow(ccBox,-amrex::BASISV(dir)).contains(amrex::enclosedCells(ebox)));
-  BL_ASSERT(sComp+nComp <= cfab.nComp() && dComp+nComp <= efab.nComp());
-  //
-  // Exclude unnecessary cc->ec calcs
-  //
-  Box ccVBox = ccBox;
-  if (bc_lo!=HT_Center)
-    ccVBox.setSmall(dir,std::max(domain.smallEnd(dir),ccVBox.smallEnd(dir)));
-  if (bc_hi!=HT_Center)
-    ccVBox.setBig(dir,std::min(domain.bigEnd(dir),ccVBox.bigEnd(dir)));
-  //
-  // Shift cell-centered data to edges
-  //
-  const int isharm = def_harm_avg_cen2edge?1:0;
-  cen2edg(ebox.loVect(),ebox.hiVect(),
-               ARLIM(cfab.loVect()),ARLIM(cfab.hiVect()),cfab.dataPtr(sComp),
-               ARLIM(efab.loVect()),ARLIM(efab.hiVect()),efab.dataPtr(dComp),
-               &nComp, &dir, &isharm);
-  //
-  // Fix boundary...i.e. fill-patched data in cfab REALLY lives on edges
-  //
-  if ( !(domain.contains(ccBox)) )
-  {
-    if (bc_lo==HT_Edge)
-    {
-      BoxList gCells = amrex::boxDiff(ccBox,domain);
-      if (gCells.ok())
-      {
-        const int inc = +1;
-        FArrayBox ovlpFab;
-        for (BoxList::const_iterator bli = gCells.begin(), end = gCells.end();
-             bli != end;
-             ++bli)
-        {
-          if (bc_lo == HT_Edge)
-          {
-            ovlpFab.resize(*bli,nComp);
-            ovlpFab.copy<RunOn::Host>(cfab,sComp,0,nComp);
-            ovlpFab.shiftHalf(dir,inc);
-            efab.copy<RunOn::Host>(ovlpFab,0,dComp,nComp);
-          }
-        }
-      }
-    }
-    if (bc_hi==HT_Edge)
-    {
-      BoxList gCells = amrex::boxDiff(ccBox,domain);
-      if (gCells.ok())
-      {
-        const int inc = -1;
-        FArrayBox ovlpFab;
-        for (BoxList::const_iterator bli = gCells.begin(), end = gCells.end();
-             bli != end;
-             ++bli)
-        {
-          if (bc_hi == HT_Edge)
-          {
-            ovlpFab.resize(*bli,nComp);
-            ovlpFab.copy<RunOn::Host>(cfab,sComp,0,nComp);
-            ovlpFab.shiftHalf(dir,inc);
-            efab.copy<RunOn::Host>(ovlpFab,0,dComp,nComp);
-          }
-        }
-      }
-    }
-  }
-}    
 
 void
 PeleLM::variableCleanUp ()
@@ -3882,25 +3792,35 @@ PeleLM::compute_enthalpy_fluxes (MultiFab* const*       flux,
   }
 
 #ifdef AMREX_USE_EB
-  EB_interp_CellCentroid_to_FaceCentroid(Enth, D_DECL(enth_edgstate[0],enth_edgstate[1],enth_edgstate[2]), 0, 0, NUM_SPECIES, geom, math_bc);
+   EB_interp_CellCentroid_to_FaceCentroid(Enth, D_DECL(enth_edgstate[0],enth_edgstate[1],enth_edgstate[2]), 0, 0, NUM_SPECIES, geom, math_bc);
+
 #else
+   const Box& domain = geom.Domain();
+   bool use_harmonic_avg = def_harm_avg_cen2edge ? true : false;
 
 #ifdef _OPENMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
-  {
-    for (MFIter mfi(Enth,TilingIfNotGPU()); mfi.isValid();++mfi)
-    {
-      const Box& vbox = mfi.validbox();
+   for (MFIter mfi(Enth,TilingIfNotGPU()); mfi.isValid();++mfi)
+   {
+      const Box& bx  = mfi.tilebox();
       for (int dir = 0; dir < AMREX_SPACEDIM; dir++)
       {
-        const Box ebox = surroundingNodes(vbox,dir);
-        FPLoc bc_lo = fpi_phys_loc(get_desc_lst()[State_Type].getBC(Temp).lo(dir));
-        FPLoc bc_hi = fpi_phys_loc(get_desc_lst()[State_Type].getBC(Temp).hi(dir));
-        center_to_edge_fancy(Enth[mfi],enth_edgstate[dir][mfi],grow(vbox,amrex::BASISV(dir)),ebox,0,0,NUM_SPECIES,geom.Domain(),bc_lo,bc_hi);
+         //const Box ebx = surroundingNodes(bx,dir);
+         const Box ebx = mfi.nodaltilebox(dir);
+         const Box& edomain = amrex::surroundingNodes(domain,dir);
+         const auto& enth_c  = Enth.array(mfi,0);
+         const auto& enth_ed = enth_edgstate[dir].array(mfi,0);
+         amrex::ParallelFor(ebx, [dir, use_harmonic_avg, enth_c, enth_ed, math_bc, edomain]
+         AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+         {
+            int idx[3] = {i,j,k};
+            bool on_lo = ( ( fpi_phys_loc(math_bc[0].lo(dir)) == HT_Edge ) && ( idx[dir] <= edomain.smallEnd(dir) ) );
+            bool on_hi = ( ( fpi_phys_loc(math_bc[0].hi(dir)) == HT_Edge ) && ( idx[dir] >= edomain.bigEnd(dir) ) );
+            cen2edg_cpp( i, j, k, dir, NUM_SPECIES, use_harmonic_avg, on_lo, on_hi, enth_c, enth_ed);
+         });
       }
-    }
-  }
+   }
 
 #endif
   //
@@ -8102,24 +8022,29 @@ PeleLM::getViscosity (MultiFab* viscosity[AMREX_SPACEDIM],
 
 #else
    // NON-EB : simply use center_to_edge_fancy
+   auto math_bc = fetchBCArray(State_Type,Temp,1);
+   const Box& domain = geom.Domain();
+   bool use_harmonic_avg = def_harm_avg_cen2edge ? true : false;
 
 #ifdef _OPENMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
+   for (MFIter mfi(*visc,TilingIfNotGPU()); mfi.isValid();++mfi)
    {
-      for (MFIter mfi(*visc,TilingIfNotGPU()); mfi.isValid();++mfi)
+      for (int dir = 0; dir < AMREX_SPACEDIM; dir++)
       {
-         const Box& bx = mfi.tilebox();
-         for (int dir = 0; dir < AMREX_SPACEDIM; dir++)
+         const Box ebx = mfi.nodaltilebox(dir);
+         const Box& edomain = amrex::surroundingNodes(domain,dir);
+         const auto& visc_c  = visc->array(mfi,0);
+         const auto& visc_ed = viscosity[dir]->array(mfi,0);
+         amrex::ParallelFor(ebx, [dir, use_harmonic_avg, visc_c, visc_ed, math_bc, edomain]
+         AMREX_GPU_DEVICE (int i, int j, int k) noexcept
          {
-            const Box ebx = mfi.nodaltilebox(dir);
-            FPLoc bc_lo = fpi_phys_loc(get_desc_lst()[State_Type].getBC(Temp).lo(dir));
-            FPLoc bc_hi = fpi_phys_loc(get_desc_lst()[State_Type].getBC(Temp).hi(dir));
-            center_to_edge_fancy((*visc)[mfi],(*viscosity[dir])[mfi], 
-                                 amrex::grow(bx,amrex::BASISV(dir)), 
-                                 ebx, 0, 0, 1, geom.Domain(), bc_lo, bc_hi); 
-
-         }
+            int idx[3] = {i,j,k};
+            bool on_lo = ( ( fpi_phys_loc(math_bc[0].lo(dir)) == HT_Edge ) && ( idx[dir] <= edomain.smallEnd(dir) ) );
+            bool on_hi = ( ( fpi_phys_loc(math_bc[0].hi(dir)) == HT_Edge ) && ( idx[dir] >= edomain.bigEnd(dir) ) );
+            cen2edg_cpp( i, j, k, dir, 1, use_harmonic_avg, on_lo, on_hi, visc_c, visc_ed);
+         });
       }
    }
 #endif
@@ -8173,28 +8098,34 @@ PeleLM::getDiffusivity (MultiFab* diffusivity[AMREX_SPACEDIM],
    EB_interp_CellCentroid_to_FaceCentroid(*diff, D_DECL(*diffusivity[0],*diffusivity[1],*diffusivity[2]), 
                                           diff_comp, dst_comp, ncomp, geom, math_bc);
    EB_set_covered_faces({D_DECL(diffusivity[0],diffusivity[1],diffusivity[2])},0.0);
+
 #else
    // NON-EB : simply use center_to_edge_fancy
+   auto math_bc = fetchBCArray(State_Type,Temp,1);
+   const Box& domain = geom.Domain();
+   bool use_harmonic_avg = def_harm_avg_cen2edge ? true : false;
 
 #ifdef _OPENMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
+   for (MFIter mfi(*diff,TilingIfNotGPU()); mfi.isValid();++mfi)
    {
-      for (MFIter mfi(*diff,TilingIfNotGPU()); mfi.isValid();++mfi)
+      for (int dir = 0; dir < AMREX_SPACEDIM; dir++)
       {
-         const Box& bx = mfi.tilebox();
-         for (int dir = 0; dir < AMREX_SPACEDIM; dir++)
+         const Box ebx = mfi.nodaltilebox(dir);
+         const Box& edomain = amrex::surroundingNodes(domain,dir);
+         const auto& diff_c  = diff->array(mfi,diff_comp);
+         const auto& diff_ed = diffusivity[dir]->array(mfi,dst_comp);
+         amrex::ParallelFor(ebx, [dir, ncomp, use_harmonic_avg, diff_c, diff_ed, math_bc, edomain]
+         AMREX_GPU_DEVICE (int i, int j, int k) noexcept
          {
-            const Box& ebx = mfi.nodaltilebox(dir);
-            FPLoc bc_lo = fpi_phys_loc(get_desc_lst()[State_Type].getBC(Temp).lo(dir));
-            FPLoc bc_hi = fpi_phys_loc(get_desc_lst()[State_Type].getBC(Temp).hi(dir));
-            center_to_edge_fancy((*diff)[mfi],(*diffusivity[dir])[mfi], amrex::grow(bx,amrex::BASISV(dir)), ebx, diff_comp, 
-                                 dst_comp, ncomp, geom.Domain(), bc_lo, bc_hi); 
-
-         }
+            int idx[3] = {i,j,k};
+            bool on_lo = ( ( fpi_phys_loc(math_bc[0].lo(dir)) == HT_Edge ) && ( idx[dir] <= edomain.smallEnd(dir) ) );
+            bool on_hi = ( ( fpi_phys_loc(math_bc[0].hi(dir)) == HT_Edge ) && ( idx[dir] >= edomain.bigEnd(dir) ) );
+            cen2edg_cpp( i, j, k, dir, ncomp, use_harmonic_avg, on_lo, on_hi, diff_c, diff_ed);
+         });
       }
    }
-
 #endif
 
    if (zeroBndryVisc > 0) {
@@ -8217,25 +8148,34 @@ PeleLM::getDiffusivity_Wbar (MultiFab*  betaWbar[AMREX_SPACEDIM],
    EB_interp_CellCentroid_to_FaceCentroid(*diff, D_DECL(*betaWbar[0],*betaWbar[1],*betaWbar[2]), 
                                           0, 0, NUM_SPECIES, geom, math_bc);
    EB_set_covered_faces({D_DECL(*betaWbar[0],*betaWbar[1],*betaWbar[2])},0.0);
+
 #else
    // NON-EB : simply use center_to_edge_fancy
+   auto math_bc = fetchBCArray(State_Type,Temp,1);
+   const Box& domain = geom.Domain();
+   bool use_harmonic_avg = def_harm_avg_cen2edge ? true : false;
 
 #ifdef _OPENMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
-  for (MFIter mfi(diff,TilingIfNotGPU()); mfi.isValid(); ++mfi)
-  {
-     const Box& bx = mfi.tilebox();
-
-     for (int dir = 0; dir < AMREX_SPACEDIM; dir++)
-     {
-        const Box& ebx = mfi.nodaltilebox(dir);
-        FPLoc bc_lo = fpi_phys_loc(get_desc_lst()[State_Type].getBC(first_spec).lo(dir));
-        FPLoc bc_hi = fpi_phys_loc(get_desc_lst()[State_Type].getBC(first_spec).hi(dir));
-        center_to_edge_fancy(diff[mfi],(*betaWbar[dir])[mfi], amrex::grow(bx,amrex::BASISV(dir)), ebx, 0,
-                             0, NUM_SPECIES, geom.Domain(), bc_lo, bc_hi);
-     }
-  }
+   for (MFIter mfi(diff,TilingIfNotGPU()); mfi.isValid(); ++mfi)
+   {
+      for (int dir = 0; dir < AMREX_SPACEDIM; dir++)
+      {
+         const Box ebx = mfi.nodaltilebox(dir);
+         const Box& edomain = amrex::surroundingNodes(domain,dir);
+         const auto& diff_c  = diff.array(mfi,0);
+         const auto& diff_ed = betaWbar[dir]->array(mfi,0);
+         amrex::ParallelFor(ebx, [dir, use_harmonic_avg, diff_c, diff_ed, math_bc, edomain]
+         AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+         {
+            int idx[3] = {i,j,k};
+            bool on_lo = ( ( fpi_phys_loc(math_bc[0].lo(dir)) == HT_Edge ) && ( idx[dir] <= edomain.smallEnd(dir) ) );
+            bool on_hi = ( ( fpi_phys_loc(math_bc[0].hi(dir)) == HT_Edge ) && ( idx[dir] >= edomain.bigEnd(dir) ) );
+            cen2edg_cpp( i, j, k, dir, NUM_SPECIES, use_harmonic_avg, on_lo, on_hi, diff_c, diff_ed);
+         });
+      }
+   }
 #endif
 
   if (zeroBndryVisc > 0)
