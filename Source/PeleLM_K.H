@@ -830,4 +830,49 @@ repair_flux_eb(int i, int j, int k,
 
 }
 
+AMREX_GPU_HOST_DEVICE
+inline
+void
+cen2edg_cpp(int i, int j, int k,
+            int dir,
+            int ncomp,
+            const bool                       do_harmonic,
+            const bool                       on_lo,
+            const bool                       on_hi,
+            amrex::Array4<const amrex::Real> const& cfab,
+            amrex::Array4<      amrex::Real> const& efab) noexcept
+{
+   using namespace amrex::literals;
+
+   // Default behavior: id_l -1 in dir
+   // Handle the BCs
+   // Need -1 in id_l and id_h in dir on low Dirichlet BC
+   // Need nothing on high Dirichlet BC
+   int  id_l[3] = {i,j,k};
+   int  id_h[3] = {i,j,k};
+   if (!on_lo ) {
+      if ( !on_hi ) {
+         id_l[dir] -= 1;
+      }
+   } else {
+      id_l[dir] -= 1;
+      id_h[dir] -= 1;
+   }
+
+   if (do_harmonic) {
+      for (int n = 0; n < ncomp; n++) {
+         if ( ( cfab(id_l[0],id_l[1],id_l[2],n) * cfab(id_h[0],id_h[1],id_h[2],n) ) > 0.0_rt ) {
+            efab(i,j,k,n) = 2.0_rt * ( cfab(id_l[0],id_l[1],id_l[2],n) * cfab(id_h[0],id_h[1],id_h[2],n) )
+                                   / ( cfab(id_l[0],id_l[1],id_l[2],n) + cfab(id_h[0],id_h[1],id_h[2],n) );
+         } else {
+            efab(i,j,k,n) = 0.0_rt;
+         }
+      }
+   } else {
+      for (int n = 0; n < ncomp; n++) {
+         efab(i,j,k,n) = 0.5_rt*(cfab(id_l[0],id_l[1],id_l[2],n) + cfab(id_h[0],id_h[1],id_h[2],n));
+      }
+   }
+}
+
 #endif
