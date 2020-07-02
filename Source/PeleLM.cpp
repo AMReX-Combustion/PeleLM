@@ -5228,7 +5228,9 @@ PeleLM::advance (Real time,
         {
            buildDiffusionForcing( i, j, k, dn, ddn, dnp1k, ddnp1k, r, a, dp0dt_d, closed_ch_d, fY, fT );
 #ifdef USE_WBAR
-           fY(i,j,k,n) += dwbar(i,j,k,n);
+           for (int n = 0; n < NUM_SPECIES; n++) {
+              fY(i,j,k,n) += dwbar(i,j,k,n);
+           }
 #endif
         });
       }
