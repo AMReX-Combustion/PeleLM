@@ -3811,12 +3811,14 @@ PeleLM::compute_enthalpy_fluxes (MultiFab* const*       flux,
          const Box& edomain = amrex::surroundingNodes(domain,dir);
          const auto& enth_c  = Enth.array(mfi,0);
          const auto& enth_ed = enth_edgstate[dir].array(mfi,0);
-         amrex::ParallelFor(ebx, [dir, use_harmonic_avg, enth_c, enth_ed, math_bc, edomain]
+         const auto bc_lo = fpi_phys_loc(math_bc[0].lo(dir));
+         const auto bc_hi = fpi_phys_loc(math_bc[0].hi(dir));
+         amrex::ParallelFor(ebx, [dir, bc_lo, bc_hi, use_harmonic_avg, enth_c, enth_ed, math_bc, edomain]
          AMREX_GPU_DEVICE (int i, int j, int k) noexcept
          {
             int idx[3] = {i,j,k};
-            bool on_lo = ( ( fpi_phys_loc(math_bc[0].lo(dir)) == HT_Edge ) && ( idx[dir] <= edomain.smallEnd(dir) ) );
-            bool on_hi = ( ( fpi_phys_loc(math_bc[0].hi(dir)) == HT_Edge ) && ( idx[dir] >= edomain.bigEnd(dir) ) );
+            bool on_lo = ( ( bc_lo == HT_Edge ) && ( idx[dir] <= edomain.smallEnd(dir) ) );
+            bool on_hi = ( ( bc_hi == HT_Edge ) && ( idx[dir] >= edomain.bigEnd(dir) ) );
             cen2edg_cpp( i, j, k, dir, NUM_SPECIES, use_harmonic_avg, on_lo, on_hi, enth_c, enth_ed);
          });
       }
@@ -6328,10 +6330,6 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
          const FArrayBox& divu = DivU[S_mfi];
          const FArrayBox& force = Force[S_mfi];
 
-#ifdef AMREX_USE_CUDA
-         cudaError_t cuda_status = cudaSuccess;
-#endif
-
          for (int dir=0; dir<AMREX_SPACEDIM; ++dir)
          {
             const Box& ebx = amrex::surroundingNodes(bx,dir);
@@ -6380,9 +6378,9 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
                }
             });
          }
-         // TODO: remove cudaStreamSynchronize when all GPU
+         // TODO: remove StreamSynchronize when all GPU
 #ifdef AMREX_USE_CUDA
-         cuda_status = cudaStreamSynchronize(amrex::Gpu::gpuStream());
+         Gpu::streamSynchronize();
 #endif
       
          // Extrapolate Temp, then compute flux divergence and value for RhoH from face values of T,Y,Rho
@@ -6415,7 +6413,7 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
          }
          // TODO: remove cudaStreamSynchronize when all GPU
 #ifdef AMREX_USE_CUDA
-         cuda_status = cudaStreamSynchronize(amrex::Gpu::gpuStream());
+         Gpu::streamSynchronize();
 #endif
 
          // Compute -Div(flux.Area) for RhoH, return Area-scaled (extensive) fluxes
@@ -8037,12 +8035,14 @@ PeleLM::getViscosity (MultiFab* viscosity[AMREX_SPACEDIM],
          const Box& edomain = amrex::surroundingNodes(domain,dir);
          const auto& visc_c  = visc->array(mfi,0);
          const auto& visc_ed = viscosity[dir]->array(mfi,0);
-         amrex::ParallelFor(ebx, [dir, use_harmonic_avg, visc_c, visc_ed, math_bc, edomain]
+         const auto bc_lo = fpi_phys_loc(math_bc[0].lo(dir));
+         const auto bc_hi = fpi_phys_loc(math_bc[0].hi(dir));
+         amrex::ParallelFor(ebx, [dir, bc_lo, bc_hi, use_harmonic_avg, visc_c, visc_ed, math_bc, edomain]
          AMREX_GPU_DEVICE (int i, int j, int k) noexcept
          {
             int idx[3] = {i,j,k};
-            bool on_lo = ( ( fpi_phys_loc(math_bc[0].lo(dir)) == HT_Edge ) && ( idx[dir] <= edomain.smallEnd(dir) ) );
-            bool on_hi = ( ( fpi_phys_loc(math_bc[0].hi(dir)) == HT_Edge ) && ( idx[dir] >= edomain.bigEnd(dir) ) );
+            bool on_lo = ( ( bc_lo == HT_Edge ) && ( idx[dir] <= edomain.smallEnd(dir) ) );
+            bool on_hi = ( ( bc_hi == HT_Edge ) && ( idx[dir] >= edomain.bigEnd(dir) ) );
             cen2edg_cpp( i, j, k, dir, 1, use_harmonic_avg, on_lo, on_hi, visc_c, visc_ed);
          });
       }
@@ -8116,12 +8116,14 @@ PeleLM::getDiffusivity (MultiFab* diffusivity[AMREX_SPACEDIM],
          const Box& edomain = amrex::surroundingNodes(domain,dir);
          const auto& diff_c  = diff->array(mfi,diff_comp);
          const auto& diff_ed = diffusivity[dir]->array(mfi,dst_comp);
-         amrex::ParallelFor(ebx, [dir, ncomp, use_harmonic_avg, diff_c, diff_ed, math_bc, edomain]
+         const auto bc_lo = fpi_phys_loc(math_bc[0].lo(dir));
+         const auto bc_hi = fpi_phys_loc(math_bc[0].hi(dir));
+         amrex::ParallelFor(ebx, [dir, bc_lo, bc_hi, ncomp, use_harmonic_avg, diff_c, diff_ed, math_bc, edomain]
          AMREX_GPU_DEVICE (int i, int j, int k) noexcept
          {
             int idx[3] = {i,j,k};
-            bool on_lo = ( ( fpi_phys_loc(math_bc[0].lo(dir)) == HT_Edge ) && ( idx[dir] <= edomain.smallEnd(dir) ) );
-            bool on_hi = ( ( fpi_phys_loc(math_bc[0].hi(dir)) == HT_Edge ) && ( idx[dir] >= edomain.bigEnd(dir) ) );
+            bool on_lo = ( ( bc_lo == HT_Edge ) && ( idx[dir] <= edomain.smallEnd(dir) ) );
+            bool on_hi = ( ( bc_hi == HT_Edge ) && ( idx[dir] >= edomain.bigEnd(dir) ) );
             cen2edg_cpp( i, j, k, dir, ncomp, use_harmonic_avg, on_lo, on_hi, diff_c, diff_ed);
          });
       }
@@ -8166,12 +8168,14 @@ PeleLM::getDiffusivity_Wbar (MultiFab*  betaWbar[AMREX_SPACEDIM],
          const Box& edomain = amrex::surroundingNodes(domain,dir);
          const auto& diff_c  = diff.array(mfi,0);
          const auto& diff_ed = betaWbar[dir]->array(mfi,0);
-         amrex::ParallelFor(ebx, [dir, use_harmonic_avg, diff_c, diff_ed, math_bc, edomain]
+         const auto bc_lo = fpi_phys_loc(math_bc[0].lo(dir));
+         const auto bc_hi = fpi_phys_loc(math_bc[0].hi(dir));
+         amrex::ParallelFor(ebx, [dir, bc_lo, bc_hi, use_harmonic_avg, diff_c, diff_ed, math_bc, edomain]
          AMREX_GPU_DEVICE (int i, int j, int k) noexcept
          {
             int idx[3] = {i,j,k};
-            bool on_lo = ( ( fpi_phys_loc(math_bc[0].lo(dir)) == HT_Edge ) && ( idx[dir] <= edomain.smallEnd(dir) ) );
-            bool on_hi = ( ( fpi_phys_loc(math_bc[0].hi(dir)) == HT_Edge ) && ( idx[dir] >= edomain.bigEnd(dir) ) );
+            bool on_lo = ( ( bc_lo == HT_Edge ) && ( idx[dir] <= edomain.smallEnd(dir) ) );
+            bool on_hi = ( ( bc_hi == HT_Edge ) && ( idx[dir] >= edomain.bigEnd(dir) ) );
             cen2edg_cpp( i, j, k, dir, NUM_SPECIES, use_harmonic_avg, on_lo, on_hi, diff_c, diff_ed);
          });
       }
