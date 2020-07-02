@@ -337,13 +337,8 @@ private:
 
   void adjust_spec_diffusion_fluxes (amrex::MultiFab* const * flux,
                                      const amrex::MultiFab&   S,
-#ifdef AMREX_USE_EB
-                                     D_DECL(const amrex::MultiCutFab& x_areafrac,
-                                            const amrex::MultiCutFab& y_areafrac,
-                                            const amrex::MultiCutFab& z_areafrac),
-#endif
                                      const amrex::BCRec&      bc,
-				     amrex::Real 	      time);
+                                     amrex::Real              time);
 
 #ifdef USE_WBAR
   void calcDiffusivity_Wbar (const amrex::Real time);
@@ -670,7 +665,6 @@ private:
   static std::string productName;
   static amrex::Vector<std::string> consumptionName;
   static int         calcDiffusivity_count;
-  static amrex::Real new_T_threshold;
   static amrex::Vector<amrex::Real> typical_values;
   static bool        avg_down_chem;
   static int         reset_typical_vals_int;
