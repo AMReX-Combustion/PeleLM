@@ -21,11 +21,13 @@ module PeleLM_nd
 
   private
 
--  public :: pphys_TfromHY, &
--            dqrad_fill, divu_fill, dsdt_fill, ydot_fill, rhoYdot_fill, &
--            part_cnt_err, &
--            valgt_error, vallt_error, magvort_error, diffgt_error, &
--            FORT_AVERAGE_EDGE_STATES
+  public :: pphys_TfromHY, &
+            dqrad_fill, divu_fill, dsdt_fill, ydot_fill, rhoYdot_fill, &
+            part_cnt_err, &
+            valgt_error, vallt_error, magvort_error, diffgt_error, &
+            FORT_AVERAGE_EDGE_STATES
+
+contains
 
 !=========================================================
 !  Iterate on T until it matches Hmix and Ym

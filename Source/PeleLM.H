@@ -685,4 +685,22 @@ private:
 
 };
 
+void pelelm_cc_ext_fill (amrex::Box const& bx, amrex::FArrayBox& data,
+                 const int dcomp, const int numcomp,
+                 amrex::Geometry const& geom, const amrex::Real time,
+                 const amrex::Vector<amrex::BCRec>& bcr, const int bcomp,
+                 const int scomp);
+
+void pelelm_press_fill (amrex::Box const& bx, amrex::FArrayBox& data,
+                 const int dcomp, const int numcomp,
+                 amrex::Geometry const& geom, const amrex::Real time,
+                 const amrex::Vector<amrex::BCRec>& bcr, const int bcomp,
+                 const int scomp);
+
+void pelelm_fillEdges  (amrex::Box const& bx, amrex::FArrayBox& data,
+                 const int dcomp, const int numcomp,
+                 amrex::Geometry const& geom, const amrex::Real time,
+                 const amrex::Vector<amrex::BCRec>& bcr, const int bcomp,
+                 const int scomp);
+
 #endif /*_PeleLM_H_*/
