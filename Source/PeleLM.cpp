@@ -6446,6 +6446,9 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
                }
             });
          }
+#ifdef AMREX_USE_CUDA
+         Gpu::streamSynchronize();
+#endif
       }
    }
 #endif
