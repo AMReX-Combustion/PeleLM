@@ -1,6 +1,7 @@
 #include <AMReX_FArrayBox.H>
 #include <AMReX_Geometry.H>
 #include <AMReX_PhysBCFunct.H>
+#include <IndexDefines.H>
 
 using namespace amrex;
 
@@ -15,8 +16,8 @@ struct PeleLMFillExtDirGPU
         {
             // do something for external Dirichlet (BCType::ext_dir)
 
-amrex::Print() << "\n  HELLO from PeleLMFillExtDir  \n ";
-amrex::Print() << "\n  dcomp = " << dcomp << " numpmp = " << numcomp << "\n" ;
+//amrex::Print() << "\n  HELLO from PeleLMFillExtDir  \n ";
+//amrex::Print() << "\n  dcomp = " << dcomp << " numpmp = " << numcomp << "\n" ;
 amrex::Print() << "\n  bcomp = " << bcomp << " orig_comp = " << orig_comp << "\n" ;
 
     const int* domlo = geom.Domain().loVect();
@@ -29,7 +30,23 @@ amrex::Print() << "\n  bcomp = " << bcomp << " orig_comp = " << orig_comp << "\n
       prob_lo[2] + (iv[2] + 0.5) * dx[2])};
 
     const int* bc = bcr->data();
-/*
+
+    int NVAR = 1;
+    if (orig_comp == Xvel){
+#if AMREX_SPACEDIM < 3
+      NVAR = 2;
+#else
+      NVAR = 3;
+#endif
+    }
+    else if (orig_comp == DEF_first_spec){ 
+     NVAR = NUM_SPECIES;
+    }
+    
+
+
+amrex::Print() << "\n  NVAR = " << NVAR << "\n";
+
     amrex::Real s_int[NVAR] = {0.0};
     amrex::Real s_ext[NVAR] = {0.0};
 
@@ -40,7 +57,7 @@ amrex::Print() << "\n  bcomp = " << bcomp << " orig_comp = " << orig_comp << "\n
       for (int n = 0; n < NVAR; n++) {
         s_int[n] = dest(loc, n);
       }
-      bcnormal(x, s_int, s_ext, idir, +1, time, geom);
+//      bcnormal(x, s_int, s_ext, idir, +1, time, geom);
       for (int n = 0; n < NVAR; n++) {
         dest(iv, n) = s_ext[n];
       }
@@ -57,7 +74,7 @@ amrex::Print() << "\n  bcomp = " << bcomp << " orig_comp = " << orig_comp << "\n
       }
     }
 
-*/
+
 
 /*
 
