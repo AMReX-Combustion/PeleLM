@@ -5441,7 +5441,7 @@ PeleLM::advance (Real time,
    // subtract mean from divu
    Real Sbar_old = 0;
    Real Sbar_new = 0;
-   BL_PROFILE_VAR_START(HTPROJ);
+   BL_PROFILE_VAR_START(PLM_PROJ);
    if (closed_chamber == 1 && level == 0)
    {
       MultiFab& divu_old = get_old_data(Divu_Type);
@@ -5490,7 +5490,7 @@ PeleLM::advance (Real time,
 
       if (level > 0 && iteration == 1) p_avg.setVal(0);
    }
-   BL_PROFILE_VAR_STOP(HTPROJ);
+   BL_PROFILE_VAR_STOP(PLM_PROJ);
 
 #ifdef AMREX_PARTICLES
    if (theNSPC() != 0)
@@ -5600,7 +5600,6 @@ PeleLM::adjust_p_and_divu_for_closed_chamber(MultiFab& mac_divu)
          m_divu(i,j,k) -= theta(i,j,k) * scaling;
       });
    }
-   BL_PROFILE_VAR_STOP(HTMAC);
 
    amrex::Print() << "level 0: prev_time, p_amb_old, p_amb_new, delta = " 
                   << prev_time << " " << p_amb_old << " " << p_amb_new << " "
@@ -6578,6 +6577,7 @@ PeleLM::mac_sync ()
    // save pressure
    Real p_amb_new_temp = p_amb_new;
 
+   BL_PROFILE_VAR("PeleLM::mac_sync::Ssync", PLM_SSYNC);
    for (int mac_sync_iter=0; mac_sync_iter < num_mac_sync_iter; mac_sync_iter++)
    {
       bool last_mac_sync_iter = (mac_sync_iter == num_mac_sync_iter-1);
@@ -6701,7 +6701,6 @@ PeleLM::mac_sync ()
       //
       // Scalars.
       //
-      BL_PROFILE_VAR("PeleLM::mac_sync::Ssync", PLM_SSYNC);
       showMF("DBGSync",Ssync,"sdc_Ssync_BefMinusUcorr",level,mac_sync_iter,parent->levelSteps(level));
       for (int comp=AMREX_SPACEDIM; comp<NUM_STATE; ++comp)
       {
