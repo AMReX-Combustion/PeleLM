@@ -5,7 +5,7 @@
 #include <AMReX_FArrayBox.H>
 #include "pelelm_prob_parm.H"
 
-#include <NavierStokesBase.H>
+//#include <NavierStokesBase.H>
 #include <IndexDefines.H>
 
 AMREX_GPU_DEVICE
@@ -90,5 +90,52 @@ pelelm_initdata (int i, int j, int k,
 
 
 }
+
+/*
+
+AMREX_GPU_DEVICE
+AMREX_FORCE_INLINE
+void
+bcnormal(
+  const amrex::Real x[AMREX_SPACEDIM],
+  amrex::Real vel_ext[AMREX_SPACEDIM],
+  amrex::Real rho_ext,
+  amrex::Real Y_ext[NUM_SPECIES],
+  amrex::Real Temp_ext,
+  amrex::Real enth_ext,
+  const int idir,
+  const int sgn,
+  const amrex::Real time,
+  amrex::GeometryData const& geomdata)
+{
+  const amrex::Real* prob_lo = geomdata.ProbLo();
+  const amrex::Real* prob_hi = geomdata.ProbHi();
+
+
+
+
+  if (sgn == -1) {
+
+vel_ext[0] = ProbParm::meanFlowMag;
+vel_ext[1] = 0.0;
+
+
+
+
+  } else {
+
+    amrex::Abort("Inflow not implemented for hi_x");
+
+  }
+
+
+
+
+}
+
+
+*/
+
+
 
 #endif

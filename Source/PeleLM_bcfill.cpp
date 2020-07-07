@@ -2,6 +2,8 @@
 #include <AMReX_Geometry.H>
 #include <AMReX_PhysBCFunct.H>
 #include <IndexDefines.H>
+#include <pelelm_prob.H>
+
 
 using namespace amrex;
 
@@ -47,20 +49,52 @@ amrex::Print() << "\n  bcomp = " << bcomp << " orig_comp = " << orig_comp << "\n
 
 amrex::Print() << "\n  NVAR = " << NVAR << "\n";
 
-    amrex::Real s_int[NVAR] = {0.0};
-    amrex::Real s_ext[NVAR] = {0.0};
+//    amrex::Real s_int[NVAR] = {0.0};
+//    amrex::Real s_ext[NVAR] = {0.0};
+
+amrex::Real vel[AMREX_SPACEDIM];
+amrex::Real rho;
+amrex::Real Y[NUM_SPECIES];
+amrex::Real Temp;
+amrex::Real Enth;
+
 
     // xlo and xhi
     int idir = 0;
-    if ((bc[idir] == amrex::BCType::ext_dir) and (iv[idir] < domlo[idir])) {
+//    if ((bc[idir] == amrex::BCType::ext_dir) and (iv[idir] < domlo[idir])) {
       amrex::IntVect loc(AMREX_D_DECL(domlo[idir], iv[1], iv[2]));
-      for (int n = 0; n < NVAR; n++) {
-        s_int[n] = dest(loc, n);
+//      for (int n = 0; n < NVAR; n++) {
+//        s_int[n] = dest(loc, n);
+//      }
+
+//      bcnormal(x, vel, rho, Y, Temp, Enth, idir, +1, time, geom);
+
+      if (orig_comp == Xvel){
+        for (int n = 0; n < AMREX_SPACEDIM; n++) {
+          dest(iv, n) = vel[n];
+        }
       }
-//      bcnormal(x, s_int, s_ext, idir, +1, time, geom);
-      for (int n = 0; n < NVAR; n++) {
-        dest(iv, n) = s_ext[n];
+      else if (orig_comp == Density){
+         dest(iv, 0) = Density;        
       }
+      else if (orig_comp == DEF_first_spec){
+      for (int n = 0; n < NUM_SPECIES; n++) {
+          dest(iv, n) = Y[n];
+        }
+      }
+      else if (orig_comp == DEF_RhoH){
+       dest(iv, 0) = rho*Enth;
+      }
+      else if (orig_comp == DEF_Temp){
+        dest(iv, 0) = Temp;
+      }
+      else if (orig_comp == DEF_RhoRT){
+        dest(iv, 0) = 0.0;
+      }
+ 
+
+
+/*
     } else if (
       (bc[idir + AMREX_SPACEDIM] == amrex::BCType::ext_dir) and
       (iv[idir] > domhi[idir])) {
@@ -73,7 +107,7 @@ amrex::Print() << "\n  NVAR = " << NVAR << "\n";
         dest(iv, n) = s_ext[n];
       }
     }
-
+*/
 
 
 /*
