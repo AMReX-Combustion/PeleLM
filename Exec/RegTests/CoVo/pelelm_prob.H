@@ -7,6 +7,7 @@
 
 #include <NavierStokesBase.H>
 #include <IndexDefines.H>
+#include "EOS.H"
 
 AMREX_GPU_DEVICE
 inline
