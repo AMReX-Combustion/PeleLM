@@ -5,7 +5,7 @@
 #include <AMReX_FArrayBox.H>
 #include "pelelm_prob_parm.H"
 
-//#include <NavierStokesBase.H>
+#include <NavierStokesBase.H>
 #include <IndexDefines.H>
 
 AMREX_GPU_DEVICE
