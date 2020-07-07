@@ -312,34 +312,6 @@ PeleLM::init_extern ()
 }
 
 int 
-PeleLM::getTGivenHY_pphys(FArrayBox&     T,
-                        const FArrayBox& H,
-                        const FArrayBox& Y,
-                        const Box&       box,
-                        int              sCompH,
-                        int              sCompY,
-                        int              sCompT,
-	                const Real&      errMAX)
-{
-    BL_ASSERT(T.nComp() > sCompT);
-    BL_ASSERT(H.nComp() > sCompH);
-    BL_ASSERT(Y.nComp() >= sCompY+nspecies);
-    
-    BL_ASSERT(T.box().contains(box));
-    BL_ASSERT(H.box().contains(box));
-    BL_ASSERT(Y.box().contains(box));
-
-    Real solveTOL = (errMAX<0 ? 1.0e-8 : errMAX);
-    
-    return pphys_TfromHY(BL_TO_FORTRAN_BOX(box),
-			                BL_TO_FORTRAN_N_ANYD(T,sCompT),
-                         BL_TO_FORTRAN_N_ANYD(H,sCompH),
-			                BL_TO_FORTRAN_N_ANYD(Y,sCompY),
-			                &solveTOL, &mHtoTiterMAX, mTmpData.dataPtr());
-}
-
-
-int 
 PeleLM::getSpeciesIdx(const std::string& spName)
 {
     for (int i=0; i<nspecies; i++) {
