@@ -292,34 +292,6 @@ PeleLM::init_network ()
 }
 
 int 
-PeleLM::getTGivenHY_pphys(FArrayBox&     T,
-                        const FArrayBox& H,
-                        const FArrayBox& Y,
-                        const Box&       box,
-                        int              sCompH,
-                        int              sCompY,
-                        int              sCompT,
-	                const Real&      errMAX)
-{
-    BL_ASSERT(T.nComp() > sCompT);
-    BL_ASSERT(H.nComp() > sCompH);
-    BL_ASSERT(Y.nComp() >= sCompY+nspecies);
-    
-    BL_ASSERT(T.box().contains(box));
-    BL_ASSERT(H.box().contains(box));
-    BL_ASSERT(Y.box().contains(box));
-
-    Real solveTOL = (errMAX<0 ? 1.0e-8 : errMAX);
-    
-    return pphys_TfromHY(BL_TO_FORTRAN_BOX(box),
-			                BL_TO_FORTRAN_N_ANYD(T,sCompT),
-                         BL_TO_FORTRAN_N_ANYD(H,sCompH),
-			                BL_TO_FORTRAN_N_ANYD(Y,sCompY),
-			                &solveTOL, &mHtoTiterMAX, mTmpData.dataPtr());
-}
-
-
-int 
 PeleLM::getSpeciesIdx(const std::string& spName)
 {
     for (int i=0; i<nspecies; i++) {
@@ -4558,49 +4530,55 @@ const Real BL_BOGUS      = 1.e30;
 void
 PeleLM::set_htt_hmixTYP ()
 {
-  const int finest_level = parent->finestLevel();
+   const int finest_level = parent->finestLevel();
 
-  // set typical value for hmix, needed for TfromHY solves if not provided explicitly
-  if (typical_values[RhoH]==typical_RhoH_value_default)
-  {
-    htt_hmixTYP = 0;
-    std::vector< std::pair<int,Box> > isects;
-    for (int k = 0; k <= finest_level; k++)
-    {
-      AmrLevel&       ht = getLevel(k);
-      const MultiFab& S  = ht.get_new_data(State_Type);
-      const BoxArray& ba = ht.boxArray();
-      const DistributionMapping& dm = ht.DistributionMap();
-      MultiFab hmix(ba,dm,1,0,MFInfo(),Factory());
-      MultiFab::Copy(hmix,S,RhoH,0,1,0);
-      MultiFab::Divide(hmix,S,Density,0,1,0);
-      if (k != finest_level) 
+   // set typical value for hmix, needed for TfromHY solves if not provided explicitly
+   if (typical_values[RhoH]==typical_RhoH_value_default)
+   {
+      htt_hmixTYP = 0;
+      std::vector< std::pair<int,Box> > isects;
+      for (int k = 0; k <= finest_level; k++)
       {
-        AmrLevel& htf = getLevel(k+1);
-        BoxArray  baf = htf.boxArray();
-        baf.coarsen(parent->refRatio(k));
+         AmrLevel&       ht = getLevel(k);
+         const MultiFab& S  = ht.get_new_data(State_Type);
+         const BoxArray& ba = ht.boxArray();
+         const DistributionMapping& dm = ht.DistributionMap();
+         MultiFab hmix(ba,dm,1,0,MFInfo(),Factory());
+         MultiFab::Copy(hmix,S,RhoH,0,1,0);
+         MultiFab::Divide(hmix,S,Density,0,1,0);
+         if (k != finest_level)
+         {
+            AmrLevel& htf = getLevel(k+1);
+            BoxArray  baf = htf.boxArray();
+            baf.coarsen(parent->refRatio(k));
 #ifdef _OPENMP
-#pragma omp parallel
-#endif  
-        for (MFIter mfi(hmix,true); mfi.isValid(); ++mfi)
-        {
-          baf.intersections(ba[mfi.index()],isects);
-          for (int i = 0; i < isects.size(); i++)
-            hmix[mfi].setVal<RunOn::Host>(0,isects[i].second,0,1);
-        }
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+            for (MFIter mfi(hmix,TilingIfNotGPU()); mfi.isValid(); ++mfi)
+            {
+               auto const& h_mix = hmix.array(mfi);
+               baf.intersections(ba[mfi.index()],isects);
+               for (int i = 0; i < isects.size(); i++) {
+                  amrex::ParallelFor(isects[i].second, [h_mix]
+                  AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+                  {
+                     h_mix(i,j,k) = 0.0;
+                  });
+               }
+            }
+         }
+         htt_hmixTYP = std::max(htt_hmixTYP,hmix.norm0(0));
       }
-      htt_hmixTYP = std::max(htt_hmixTYP,hmix.norm0(0));
-    }
-    ParallelDescriptor::ReduceRealMax(htt_hmixTYP);
-    if (verbose)
+      ParallelDescriptor::ReduceRealMax(htt_hmixTYP);
+      if (verbose)
       amrex::Print() << "setting htt_hmixTYP(via domain scan) = " << htt_hmixTYP << '\n';
-  }
-  else
-  {
-    htt_hmixTYP = typical_values[RhoH];
-    if (verbose)
-      amrex::Print() << "setting htt_hmixTYP(from user input) = " << htt_hmixTYP << '\n';
-  }
+   }
+   else
+   {
+      htt_hmixTYP = typical_values[RhoH];
+      if (verbose)
+         amrex::Print() << "setting htt_hmixTYP(from user input) = " << htt_hmixTYP << '\n';
+   }
 }
 
 void
@@ -5134,16 +5112,6 @@ PeleLM::advance (Real time,
     BL_PROFILE_VAR_START(PLM_ADV);
     aofs->setVal(1.e30,aofs->nGrow());
 
-#ifdef AMREX_USE_EB
-//    { 
-//      MultiFab Forcing_tmp(grids,dmap,Forcing.nComp(),(Forcing.nGrow())+1,MFInfo(),Factory());
-//      Forcing_tmp.copy<RunOn::Host>(Forcing);
-//      amrex::single_level_redistribute( 0, {Forcing_tmp}, {Forcing}, 0, nspecies+1, {geom} );
-//    }
-//    EB_set_covered(Forcing,0.);
-//
-#endif
-
     compute_scalar_advection_fluxes_and_divergence(Forcing,mac_divu,dt);
     BL_PROFILE_VAR_STOP(PLM_ADV);
     showMF("DBGSync",u_mac[0],"DBGSync_umacX",level,sdc_iter,parent->levelSteps(level));
@@ -5210,11 +5178,6 @@ PeleLM::advance (Real time,
     }
 
 #ifdef AMREX_USE_EB    
-    //{
-    //  MultiFab Forcing_tmp(grids,dmap,Forcing.nComp(),(Forcing.nGrow())+2,MFInfo(),Factory());
-    //  Forcing_tmp.copy<RunOn::Host>(Forcing);
-    //  amrex::single_level_redistribute( 0, {Forcing_tmp}, {Forcing}, 0, nspecies+1, {geom} );
-    //}
     EB_set_covered(Forcing,0.);
 #endif
 
@@ -5414,7 +5377,7 @@ PeleLM::advance (Real time,
    // subtract mean from divu
    Real Sbar_old = 0;
    Real Sbar_new = 0;
-   BL_PROFILE_VAR_START(HTPROJ);
+   BL_PROFILE_VAR_START(PLM_PROJ);
    if (closed_chamber == 1 && level == 0)
    {
       MultiFab& divu_old = get_old_data(Divu_Type);
@@ -5463,7 +5426,7 @@ PeleLM::advance (Real time,
 
       if (level > 0 && iteration == 1) p_avg.setVal(0);
    }
-   BL_PROFILE_VAR_STOP(HTPROJ);
+   BL_PROFILE_VAR_STOP(PLM_PROJ);
 
 #ifdef AMREX_PARTICLES
    if (theNSPC() != 0)
@@ -5573,7 +5536,6 @@ PeleLM::adjust_p_and_divu_for_closed_chamber(MultiFab& mac_divu)
          m_divu(i,j,k) -= theta(i,j,k) * scaling;
       });
    }
-   BL_PROFILE_VAR_STOP(HTMAC);
 
    amrex::Print() << "level 0: prev_time, p_amb_old, p_amb_new, delta = " 
                   << prev_time << " " << p_amb_old << " " << p_amb_new << " "
@@ -6419,6 +6381,9 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
                }
             });
          }
+#ifdef AMREX_USE_CUDA
+         Gpu::streamSynchronize();
+#endif
       }
    }
 #endif
@@ -6548,6 +6513,7 @@ PeleLM::mac_sync ()
    // save pressure
    Real p_amb_new_temp = p_amb_new;
 
+   BL_PROFILE_VAR("PeleLM::mac_sync::Ssync", PLM_SSYNC);
    for (int mac_sync_iter=0; mac_sync_iter < num_mac_sync_iter; mac_sync_iter++)
    {
       bool last_mac_sync_iter = (mac_sync_iter == num_mac_sync_iter-1);
@@ -6671,7 +6637,6 @@ PeleLM::mac_sync ()
       //
       // Scalars.
       //
-      BL_PROFILE_VAR("PeleLM::mac_sync::Ssync", PLM_SSYNC);
       showMF("DBGSync",Ssync,"sdc_Ssync_BefMinusUcorr",level,mac_sync_iter,parent->levelSteps(level));
       for (int comp=AMREX_SPACEDIM; comp<NUM_STATE; ++comp)
       {
@@ -8352,8 +8317,29 @@ PeleLM::RhoH_to_Temp (MultiFab& S,
                       int       nGrow,
                       int       dominmax)
 {
-  BL_PROFILE("HT::RhoH_to_Temp()");
+  BL_PROFILE("PLM::RhoH_to_Temp()");
   const Real strt_time = ParallelDescriptor::second();
+
+  // TODO: simplified version of that function for now: no iters, no tols, ... PPhys need to be fixed
+
+#ifdef _OPENMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+  for (MFIter mfi(S,TilingIfNotGPU()); mfi.isValid(); ++mfi)
+  {
+     const Box& bx    = mfi.tilebox();
+     auto const& T    = S.array(mfi,Temp);
+     auto const& rho  = S.array(mfi,Density);
+     auto const& rhoY = S.array(mfi,first_spec);
+     auto const& rhoH = S.array(mfi,RhoH);
+     amrex::ParallelFor(bx, [T,rho,rhoY,rhoH]
+     AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+     {
+        getTfromHY(i,j,k, rho, rhoY, rhoH, T);
+     });
+  }
+
+  /*
   //
   // If this hasn't been set yet, we cannnot do it correct here (scan multilevel),
   // just wing it.
@@ -8383,6 +8369,7 @@ PeleLM::RhoH_to_Temp (MultiFab& S,
     const Box& box = mfi.growntilebox(nGrow);
     max_iters = std::max(max_iters, RhoH_to_Temp(S[mfi],box,dominmax));
   }
+  */
 
    if (dominmax) {
 #ifdef _OPENMP
@@ -8408,80 +8395,15 @@ PeleLM::RhoH_to_Temp (MultiFab& S,
     const int IOProc   = ParallelDescriptor::IOProcessorNumber();
     Real      run_time = ParallelDescriptor::second() - strt_time;
 
-    ParallelDescriptor::ReduceIntMax(max_iters,IOProc);
+   // ParallelDescriptor::ReduceIntMax(max_iters,IOProc);
     ParallelDescriptor::ReduceRealMax(run_time,IOProc);
 
-    if (verbose) amrex::Print() << "PeleLM::RhoH_to_Temp: max_iters = " << max_iters << ", time: " << run_time << '\n';
+    if (verbose) amrex::Print() << "PeleLM::RhoH_to_Temp: time: " << run_time << '\n';
   }
   //
   // Reset it back.
   //
-  htt_hmixTYP = htt_hmixTYP_SAVE;
-}
-
-int PeleLM::RhoH_to_Temp_DoIt(FArrayBox&       Tfab,
-                      const FArrayBox& Hfab,
-                      const FArrayBox& Yfab,
-                      const Box&       box,
-                      int              sCompH,
-                      int              sCompY,
-                      int              dCompT,
-                      const Real&      htt_hmixTYP)
-{
-	// FIXME
-  const Real eps = 1.0e-8; //getHtoTerrMAX_pphys();
-  Real errMAX = eps*htt_hmixTYP;
-
-  int iters = getTGivenHY_pphys(Tfab,Hfab,Yfab,box,sCompH,sCompY,dCompT,errMAX);
-
-  if (iters < 0)
-    amrex::Error("PeleLM::RhoH_to_Temp(fab): error in H->T");
-
-  return iters;
-}
-
-
-int
-PeleLM::RhoH_to_Temp (FArrayBox& S,
-                      const Box& box,
-                      int        dominmax)
-{
-  BL_ASSERT(S.box().contains(box));
-
-  // temporary storage for 1/rho, H, and Y
-  FArrayBox rhoInv, H, Y;
-  rhoInv.resize(box,1);
-  H.resize(box,1);
-  Y.resize(box,nspecies);
-
-  // copy in rho, rhoH, and rhoY
-  rhoInv.copy<RunOn::Host>(S,box,Density,   box,0,1);
-  H.copy<RunOn::Host>     (S,box,RhoH,      box,0,1);
-  Y.copy<RunOn::Host>     (S,box,first_spec,box,0,nspecies);
-
-  // invert rho, then multiply 1/rho by rhoH and rhoY to get H and Y
-  rhoInv.invert<RunOn::Host>(1,box,0,1);
-  H.mult<RunOn::Host>(rhoInv,box,0,0,1);
-  for (int i=0; i<nspecies; i++)
-  {
-    Y.mult<RunOn::Host>(rhoInv,box,0,i,1);
-  }
-  
-  //{
-  //  std::ofstream os("fabH");
-  //  H.writeOn(os);
-  //  os.close(); 
-  //}
-  //  {
-  //  std::ofstream os("fabrhoInv");
-  //  rhoInv.writeOn(os);
-  //  os.close(); 
-  //}
-
-   // we index into Temperature component in S.  H and Y begin with the 0th component
-   int iters = RhoH_to_Temp_DoIt(S,H,Y,box,0,0,Temp,htt_hmixTYP);
-
-   return iters;
+  //htt_hmixTYP = htt_hmixTYP_SAVE;
 }
 
 void

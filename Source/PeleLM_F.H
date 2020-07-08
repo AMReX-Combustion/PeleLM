@@ -24,17 +24,6 @@ extern "C" {
 //                 const amrex::Real* dt, amrex::Real* diag, 
 //                         const int* do_diag, const int* do_stiff);
 
-   int pphys_TfromHY(const int* lo, const int* hi,
-                           BL_FORT_FAB_ARG_ANYD(T), 
-                     const BL_FORT_FAB_ARG_ANYD(H),
-                     const BL_FORT_FAB_ARG_ANYD(Y),
-                     const amrex::Real* errMAX, const int* NiterMAX,
-                     const amrex::Real* tmp);
-
-  //void pphys_TfromHYpt(amrex::Real* T, const amrex::Real* Hin, const amrex::Real* Yin,
-  //                      const amrex::Real* errMAX, const int* NiterMAX, const amrex::Real* res,
-  //                      int* Niter);
-
    void pphys_network_init();
 
    void pphys_network_close();

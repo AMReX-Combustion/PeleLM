@@ -21,70 +21,12 @@ module PeleLM_nd
 
   private
 
-  public :: pphys_TfromHY, &
-            dqrad_fill, divu_fill, dsdt_fill, ydot_fill, rhoYdot_fill, &
+  public :: dqrad_fill, divu_fill, dsdt_fill, ydot_fill, rhoYdot_fill, &
             part_cnt_err, &
             valgt_error, vallt_error, magvort_error, diffgt_error, &
             FORT_AVERAGE_EDGE_STATES
 
 contains
-
-!=========================================================
-!  Iterate on T until it matches Hmix and Ym
-!=========================================================
-
-   function pphys_TfromHY(lo, hi, &
-                          T, t_lo, t_hi, &
-                          Hmix, h_lo, h_hi, &
-                          Y, y_lo, y_hi, &
-                          errMax, NiterMAX, res) &
-                          bind(C, name="pphys_TfromHY") result(MAXiters)
-
-      use PeleLM_F, only : pphys_TfromHYpt
-
-      implicit none
-
-! In/Out
-      integer, intent(in) :: lo(3),   hi(3)
-      integer, intent(in) :: t_lo(3), t_hi(3)
-      integer, intent(in) :: h_lo(3), h_hi(3)
-      integer, intent(in) :: y_lo(3), y_hi(3)
-      integer, intent(in) :: NiterMAX
-      REAL_T, dimension(t_lo(1):t_hi(1),t_lo(2):t_hi(2),t_lo(3):t_hi(3)), intent(out) :: T
-      REAL_T, dimension(h_lo(1):h_hi(1),h_lo(2):h_hi(2),h_lo(3):h_hi(3)), intent(in) :: Hmix
-      REAL_T, dimension(y_lo(1):y_hi(1),y_lo(2):y_hi(2),y_lo(3):y_hi(3),NUM_SPECIES), intent(in) :: Y
-      REAL_T, intent(in)  :: errMAX
-      REAL_T, dimension(0:NiterMAX-1), intent(out)  :: res
-
-! Local
-      REAL_T :: Yt(NUM_SPECIES)
-      integer :: i, j, k, n, Niter, MAXiters
-
-      MAXiters = 0
-
-      do k = lo(3), hi(3)
-         do j = lo(2), hi(2)
-            do i = lo(1), hi(1)
-
-               do n = 1, NUM_SPECIES
-                  Yt(n) = Y(i,j,k,n)
-               end do
-
-               CALL pphys_TfromHYpt( T(i,j,k), Hmix(i,j,k), Yt, errMax, NiterMAX, res, Niter)
-
-               if (Niter < 0) then
-                  write(*,*)"Error code ", Niter
-                  call amrex_abort(" Something went wrong in pphys_TfromHYpt ")
-               end if
-
-               if (Niter > MAXiters) then
-                  MAXiters = Niter
-               end if
-
-            end do
-         end do
-      end do
-   end function pphys_TfromHY
 
 !===================================================================
 !
