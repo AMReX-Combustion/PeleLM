@@ -21,7 +21,8 @@ reactionRateRhoY(int i, int j, int k,
    using namespace amrex::literals;
 
    // Get rho from rhoY. Is there a better way ?
-   amrex::Real rho = 0.0_rt, rhoinv;
+   amrex::Real rho = 0.0_rt;
+   amrex::Real rhoinv;
    for (int n = 0; n < NUM_SPECIES; n++) {
       rho += rhoY(i,j,k,n);
    }
@@ -165,7 +166,8 @@ buildAdvectionForcing(int i, int j, int k,
 
    if ( closed_chamber == 1 ) forceT(i,j,k) += dp0dt;                // Add dp0/dt
 
-   amrex::Real cpmix, cpmixinv;
+   amrex::Real cpmix;
+   amrex::Real cpmixinv;
    EOS::TY2Cp(T(i,j,k), y, cpmix);
    cpmixinv = 1.0_rt / cpmix * 1.0e4_rt;                             // CGS -> MKS conversion
    forceT(i,j,k) *= rhoinv * cpmixinv;
@@ -231,7 +233,8 @@ compute_divu(int i, int j, int k,
    EOS::inv_molecular_weight(mwtinv);
 
    // Get rho & Y from rhoY
-   amrex::Real rho = 0.0_rt, rhoinv;
+   amrex::Real rho = 0.0_rt;
+   amrex::Real rhoinv;
    for (int n = 0; n < NUM_SPECIES; n++) {
       rho += rhoY(i,j,k,n);
    }
@@ -241,7 +244,9 @@ compute_divu(int i, int j, int k,
       y[n] = rhoY(i,j,k,n) * rhoinv;
    }
 
-   amrex::Real cpmix, Wbar, hi[NUM_SPECIES];;
+   amrex::Real cpmix;
+   amrex::Real Wbar;
+   amrex::Real hi[NUM_SPECIES];;
    EOS::TY2Cp(T(i,j,k), y, cpmix);
    EOS::Y2WBAR(y, Wbar);
    EOS::T2Hi(T(i,j,k), hi);
@@ -284,7 +289,8 @@ getGammaInv(int i, int j, int k,
    using namespace amrex::literals;
 
    // Get rho & Y from rhoY
-   amrex::Real rho = 0.0_rt, rhoinv;
+   amrex::Real rho = 0.0_rt;
+   amrex::Real rhoinv;
    for (int n = 0; n < NUM_SPECIES; n++) {
       rho += rhoY(i,j,k,n);
    }
@@ -294,7 +300,8 @@ getGammaInv(int i, int j, int k,
       y[n] = rhoY(i,j,k,n) * rhoinv;
    }
 
-   amrex::Real cpmix, cvmix;
+   amrex::Real cpmix;
+   amrex::Real cvmix;
    EOS::TY2Cp(T(i,j,k), y, cpmix);
    EOS::TY2Cv(T(i,j,k), y, cvmix);
    
@@ -314,7 +321,9 @@ getRhoGivenTYP(int i, int j, int k,
 {
    using namespace amrex::literals;
 
-   amrex::Real rho_cgs, P_cgs, y[NUM_SPECIES];
+   amrex::Real rho_cgs;
+   amrex::Real P_cgs;
+   amrex::Real y[NUM_SPECIES];
    P_cgs = Patm * EOS::PATM;
    for (int n = 0; n < NUM_SPECIES; n++) {
       y[n] = Y(i,j,k,n);                       // TODO: need to find a way not to do that
@@ -339,7 +348,8 @@ getTransportCoeff(int i, int j, int k,
    EOS::inv_molecular_weight(mwtinv);
 
    // Get rho & Y from rhoY
-   amrex::Real rho = 0.0_rt, rhoinv;
+   amrex::Real rho = 0.0_rt;
+   amrex::Real rhoinv;
    for (int n = 0; n < NUM_SPECIES; n++) {
       rho += rhoY(i,j,k,n);
    }
@@ -353,10 +363,16 @@ getTransportCoeff(int i, int j, int k,
    EOS::Y2WBAR(y, Wbar);
 
    rho *= 1.0e-3_rt;                          // MKS -> CGS conversion
-   amrex::Real rhoDi_cgs[NUM_SPECIES], lambda_cgs, mu_cgs, dummy_xi;
+   amrex::Real rhoDi_cgs[NUM_SPECIES];
+   amrex::Real lambda_cgs;
+   amrex::Real mu_cgs;
+   amrex::Real dummy_xi;
    amrex::Real Tloc = T(i,j,k);
 
-   bool get_xi = false, get_mu = true, get_lam = true, get_Ddiag = true;
+   bool get_xi = false;
+   bool get_mu = true;
+   bool get_lam = true;
+   bool get_Ddiag = true;
    transport(get_xi, get_mu, get_lam, get_Ddiag, Tloc,
              rho, y, rhoDi_cgs, mu_cgs, dummy_xi, lambda_cgs);
 
@@ -383,7 +399,8 @@ getTransportCoeffUnityLe(int i, int j, int k,
    using namespace amrex::literals;
 
    // Get rho & Y from rhoY
-   amrex::Real rho = 0.0_rt, rhoinv;
+   amrex::Real rho = 0.0_rt;
+   amrex::Real rhoinv;
    for (int n = 0; n < NUM_SPECIES; n++) {
       rho += rhoY(i,j,k,n);
    }
@@ -394,9 +411,15 @@ getTransportCoeffUnityLe(int i, int j, int k,
    }
 
    rho *= 1.0e-3_rt;                                     // MKS -> CGS conversion
-   amrex::Real rhoDi_cgs[NUM_SPECIES], lambda_cgs, mu_cgs, dummy_xi;
+   amrex::Real rhoDi_cgs[NUM_SPECIES];
+   amrex::Real lambda_cgs;
+   amrex::Real mu_cgs;
+   amrex::Real dummy_xi;
 
-   bool get_xi = false, get_mu = true, get_lam = false, get_Ddiag = false;
+   bool get_xi = false;
+   bool get_mu = true;
+   bool get_lam = false;
+   bool get_Ddiag = false;
    transport(get_xi, get_mu, get_lam, get_Ddiag, T(i,j,k),
              rho, y, rhoDi_cgs, mu_cgs, dummy_xi, lambda_cgs);
 
@@ -444,7 +467,8 @@ getBetaWbar(int i, int j, int k,
    using namespace amrex::literals;
 
    // Get rho & Y from rhoY
-   amrex::Real rho = 0.0_rt, rhoinv;
+   amrex::Real rho = 0.0_rt;
+   amrex::Real rhoinv;
    for (int n = 0; n < NUM_SPECIES; n++) {
       rho += rhoY(i,j,k,n);
    }
@@ -474,7 +498,8 @@ getVelViscosity(int i, int j, int k,
    using namespace amrex::literals;
 
    // Get rho & Y from rhoY
-   amrex::Real rho = 0.0_rt, rhoinv;
+   amrex::Real rho = 0.0_rt;
+   amrex::Real rhoinv;
    for (int n = 0; n < NUM_SPECIES; n++) {
       rho += rhoY(i,j,k,n);
    }
@@ -485,9 +510,15 @@ getVelViscosity(int i, int j, int k,
    }
 
    rho *= 1.0e-3_rt;                          // MKS -> CGS conversion
-   amrex::Real dummy_rhoDi[NUM_SPECIES], dummy_lambda, mu_cgs, dummy_xi;
+   amrex::Real dummy_rhoDi[NUM_SPECIES];
+   amrex::Real dummy_lambda;
+   amrex::Real mu_cgs;
+   amrex::Real dummy_xi;
 
-   bool get_xi = false, get_mu = true, get_lam = false, get_Ddiag = false;
+   bool get_xi = false;
+   bool get_mu = true;
+   bool get_lam = false;
+   bool get_Ddiag = false;
    transport(get_xi, get_mu, get_lam, get_Ddiag, T(i,j,k),
              rho, y, dummy_rhoDi, mu_cgs, dummy_xi, dummy_lambda);
 
@@ -506,7 +537,8 @@ getConductivity(int i, int j, int k,
    using namespace amrex::literals;
 
    // Get rho & Y from rhoY
-   amrex::Real rho = 0.0_rt, rhoinv;
+   amrex::Real rho = 0.0_rt;
+   amrex::Real rhoinv;
    for (int n = 0; n < NUM_SPECIES; n++) {
       rho += rhoY(i,j,k,n);
    }
@@ -517,9 +549,15 @@ getConductivity(int i, int j, int k,
    }
 
    rho *= 1.0e-3_rt;                          // MKS -> CGS conversion
-   amrex::Real dummy_rhoDi[NUM_SPECIES], dummy_mu, lambda_cgs, dummy_xi;
+   amrex::Real dummy_rhoDi[NUM_SPECIES];
+   amrex::Real lambda_cgs;
+   amrex::Real dummy_mu;
+   amrex::Real dummy_xi;
 
-   bool get_xi = false, get_mu = false, get_lam = true, get_Ddiag = false;
+   bool get_xi = false;
+   bool get_mu = false;
+   bool get_lam = true;
+   bool get_Ddiag = false;
    transport(get_xi, get_mu, get_lam, get_Ddiag, T(i,j,k),
              rho, y, dummy_rhoDi, dummy_mu, dummy_xi, lambda_cgs);
 
