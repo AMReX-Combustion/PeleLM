@@ -410,6 +410,28 @@ getTransportCoeffUnityLe(int i, int j, int k,
    lambda(i,j,k) = mu_cgs * 1.0e-1_rt * PrInv / cpmix;   // Constant Prandtl number
 }
 
+AMREX_GPU_HOST_DEVICE
+inline
+void
+getTfromHY(int i, int j, int k,
+           amrex::Array4<const amrex::Real> const& rho,
+           amrex::Array4<const amrex::Real> const& rhoY,
+           amrex::Array4<const amrex::Real> const& rhoH,
+           amrex::Array4<      amrex::Real> const& T) noexcept
+{
+   using namespace amrex::literals;
+
+   amrex::Real rhoinv = 1.0_rt / rho(i,j,k);
+   amrex::Real y[NUM_SPECIES];
+   for (int n = 0; n < NUM_SPECIES; n++) {
+      y[n] = rhoY(i,j,k,n) * rhoinv;
+   }
+   amrex::Real h_cgs = rhoH(i,j,k) * rhoinv * 1.0e4_rt;
+   amrex::Real T_loc = T(i,j,k);
+   EOS::HY2T(h_cgs, y, T_loc);
+   T(i,j,k) = T_loc;
+}
+
 #ifdef USE_WBAR
 AMREX_GPU_HOST_DEVICE
 inline
@@ -872,6 +894,44 @@ cen2edg_cpp(int i, int j, int k,
       for (int n = 0; n < ncomp; n++) {
          efab(i,j,k,n) = 0.5_rt*(cfab(id_l[0],id_l[1],id_l[2],n) + cfab(id_h[0],id_h[1],id_h[2],n));
       }
+   }
+}
+
+
+AMREX_GPU_HOST_DEVICE
+inline
+void
+makeForce(int i, int j, int k,
+          int                                     scomp,
+          int                                     ncomp,
+          int                                     pseudo_gravity,
+          const amrex::Real                     & time,
+          const amrex::Real                     & gravity,
+          const amrex::Real                     & dV_control,
+          amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> const dx,
+          amrex::Array4<const amrex::Real> const& vel,
+          amrex::Array4<const amrex::Real> const& scal,
+          amrex::Array4<      amrex::Real> const& force) noexcept
+{
+   using namespace amrex::literals;
+   // TODO: component handling here is awfull. Will be updated.
+
+   if ( scomp == 0 ) {
+      if ( std::abs(gravity) > 0.0001_rt ) {
+         force(i,j,k,0) = 0.0_rt;
+#if ( AMREX_SPACEDIM == 2 )
+         force(i,j,k,1) = gravity*scal(i,j,k,0);
+#elif ( AMREX_SPACEDIM == 3 )
+         force(i,j,k,1) = 0.0_rt;
+         force(i,j,k,2) = gravity*scal(i,j,k,0);
+#endif
+      }
+      if (pseudo_gravity) {
+         force(i,j,k,AMREX_SPACEDIM-1) += dV_control * scal(i,j,k,0);
+      }
+   }
+   for (int n = std::max(scomp,AMREX_SPACEDIM); n < scomp+ncomp; n++) {
+      force(i,j,k,n) = 0.0_rt;
    }
 }
 
