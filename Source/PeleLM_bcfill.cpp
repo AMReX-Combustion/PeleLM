@@ -7,6 +7,21 @@
 
 using namespace amrex;
 
+struct PeleLMPressFillExtDirGPU
+{
+    AMREX_GPU_DEVICE
+    void operator() (const IntVect& iv, Array4<Real> const& dest,
+                     const int dcomp, const int numcomp,
+                     GeometryData const& geom, const Real time,
+                     const BCRec* bcr, const int bcomp,
+                     const int orig_comp) const
+        {
+            // do something for external Dirichlet (BCType::ext_dir)
+amrex::Print() << "\n \n HELLO from PeleLMPressFillExtDirGPU \n \n ";
+        }
+};
+
+
 struct PeleLMFillExtDirGPU
 {
     AMREX_GPU_DEVICE
@@ -196,7 +211,7 @@ struct PeleLMFillEdges
 };
 
 
-
+/*
 void PeleLM_PressFill_CPU (Box const& bx, Array4<Real> const& dest,
                             const int dcomp, const int numcomp,
                             GeometryData const& geom, const Real time,
@@ -208,9 +223,10 @@ void PeleLM_PressFill_CPU (Box const& bx, Array4<Real> const& dest,
 amrex::Print() << "\n WE ARE IN  PeleLM_PressFill_CPU \n";
 
 
-
-
 }
+*/
+
+
 
 
 
@@ -271,12 +287,12 @@ amrex::Print() << "\n \n HELLO from pelelm_press_fill \n \n ";
 
 
 
-CpuBndryFuncFab  cpu_bndry_func(PeleLM_PressFill_CPU);
-  cpu_bndry_func(bx,data,dcomp,numcomp,geom,time,bcr,bcomp,scomp);
+//CpuBndryFuncFab  cpu_bndry_func(PeleLM_PressFill_CPU);
+//  cpu_bndry_func(bx,data,dcomp,numcomp,geom,time,bcr,bcomp,scomp);
 
 //    if (Gpu::inLauncihRegion()) {
-//        GpuBndryFuncFab<PeleLMFillExtDir> gpu_bndry_func(PeleLMFillExtDir{});
-//        gpu_bndry_func(bx,data,dcomp,numcomp,geom,time,bcr,bcomp,scomp);
+        GpuBndryFuncFab<PeleLMPressFillExtDirGPU> gpu_bndry_func(PeleLMPressFillExtDirGPU{});
+        gpu_bndry_func(bx,data,dcomp,numcomp,geom,time,bcr,bcomp,scomp);
 //    } else {
         // Without EXT_DIR (e.g., inflow), we can pass a nullptr
 //        CpuBndryFuncFab cpu_bndry_func(nullptr);
