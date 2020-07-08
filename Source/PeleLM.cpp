@@ -4557,49 +4557,55 @@ const Real BL_BOGUS      = 1.e30;
 void
 PeleLM::set_htt_hmixTYP ()
 {
-  const int finest_level = parent->finestLevel();
+   const int finest_level = parent->finestLevel();
 
-  // set typical value for hmix, needed for TfromHY solves if not provided explicitly
-  if (typical_values[RhoH]==typical_RhoH_value_default)
-  {
-    htt_hmixTYP = 0;
-    std::vector< std::pair<int,Box> > isects;
-    for (int k = 0; k <= finest_level; k++)
-    {
-      AmrLevel&       ht = getLevel(k);
-      const MultiFab& S  = ht.get_new_data(State_Type);
-      const BoxArray& ba = ht.boxArray();
-      const DistributionMapping& dm = ht.DistributionMap();
-      MultiFab hmix(ba,dm,1,0,MFInfo(),Factory());
-      MultiFab::Copy(hmix,S,RhoH,0,1,0);
-      MultiFab::Divide(hmix,S,Density,0,1,0);
-      if (k != finest_level) 
+   // set typical value for hmix, needed for TfromHY solves if not provided explicitly
+   if (typical_values[RhoH]==typical_RhoH_value_default)
+   {
+      htt_hmixTYP = 0;
+      std::vector< std::pair<int,Box> > isects;
+      for (int k = 0; k <= finest_level; k++)
       {
-        AmrLevel& htf = getLevel(k+1);
-        BoxArray  baf = htf.boxArray();
-        baf.coarsen(parent->refRatio(k));
+         AmrLevel&       ht = getLevel(k);
+         const MultiFab& S  = ht.get_new_data(State_Type);
+         const BoxArray& ba = ht.boxArray();
+         const DistributionMapping& dm = ht.DistributionMap();
+         MultiFab hmix(ba,dm,1,0,MFInfo(),Factory());
+         MultiFab::Copy(hmix,S,RhoH,0,1,0);
+         MultiFab::Divide(hmix,S,Density,0,1,0);
+         if (k != finest_level)
+         {
+            AmrLevel& htf = getLevel(k+1);
+            BoxArray  baf = htf.boxArray();
+            baf.coarsen(parent->refRatio(k));
 #ifdef _OPENMP
-#pragma omp parallel
-#endif  
-        for (MFIter mfi(hmix,true); mfi.isValid(); ++mfi)
-        {
-          baf.intersections(ba[mfi.index()],isects);
-          for (int i = 0; i < isects.size(); i++)
-            hmix[mfi].setVal<RunOn::Host>(0,isects[i].second,0,1);
-        }
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+            for (MFIter mfi(hmix,TilingIfNotGPU()); mfi.isValid(); ++mfi)
+            {
+               auto const& h_mix = hmix.array(mfi);
+               baf.intersections(ba[mfi.index()],isects);
+               for (int i = 0; i < isects.size(); i++) {
+                  amrex::ParallelFor(isects[i].second, [h_mix]
+                  AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+                  {
+                     h_mix(i,j,k) = 0.0;
+                  });
+               }
+            }
+         }
+         htt_hmixTYP = std::max(htt_hmixTYP,hmix.norm0(0));
       }
-      htt_hmixTYP = std::max(htt_hmixTYP,hmix.norm0(0));
-    }
-    ParallelDescriptor::ReduceRealMax(htt_hmixTYP);
-    if (verbose)
+      ParallelDescriptor::ReduceRealMax(htt_hmixTYP);
+      if (verbose)
       amrex::Print() << "setting htt_hmixTYP(via domain scan) = " << htt_hmixTYP << '\n';
-  }
-  else
-  {
-    htt_hmixTYP = typical_values[RhoH];
-    if (verbose)
-      amrex::Print() << "setting htt_hmixTYP(from user input) = " << htt_hmixTYP << '\n';
-  }
+   }
+   else
+   {
+      htt_hmixTYP = typical_values[RhoH];
+      if (verbose)
+         amrex::Print() << "setting htt_hmixTYP(from user input) = " << htt_hmixTYP << '\n';
+   }
 }
 
 void
@@ -5133,16 +5139,6 @@ PeleLM::advance (Real time,
     BL_PROFILE_VAR_START(PLM_ADV);
     aofs->setVal(1.e30,aofs->nGrow());
 
-#ifdef AMREX_USE_EB
-//    { 
-//      MultiFab Forcing_tmp(grids,dmap,Forcing.nComp(),(Forcing.nGrow())+1,MFInfo(),Factory());
-//      Forcing_tmp.copy<RunOn::Host>(Forcing);
-//      amrex::single_level_redistribute( 0, {Forcing_tmp}, {Forcing}, 0, nspecies+1, {geom} );
-//    }
-//    EB_set_covered(Forcing,0.);
-//
-#endif
-
     compute_scalar_advection_fluxes_and_divergence(Forcing,mac_divu,dt);
     BL_PROFILE_VAR_STOP(PLM_ADV);
     showMF("DBGSync",u_mac[0],"DBGSync_umacX",level,sdc_iter,parent->levelSteps(level));
@@ -5209,11 +5205,6 @@ PeleLM::advance (Real time,
     }
 
 #ifdef AMREX_USE_EB    
-    //{
-    //  MultiFab Forcing_tmp(grids,dmap,Forcing.nComp(),(Forcing.nGrow())+2,MFInfo(),Factory());
-    //  Forcing_tmp.copy<RunOn::Host>(Forcing);
-    //  amrex::single_level_redistribute( 0, {Forcing_tmp}, {Forcing}, 0, nspecies+1, {geom} );
-    //}
     EB_set_covered(Forcing,0.);
 #endif
 
