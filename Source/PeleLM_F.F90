@@ -27,7 +27,7 @@ module PeleLM_F
   public :: set_scal_numb, &
             set_ht_adim_common, get_pamb, &
             set_common, active_control, &
-            pphys_TfromHYpt, set_prob_spec
+            set_prob_spec
 
 contains
 
@@ -414,129 +414,6 @@ contains
 
 
   end subroutine active_control
-
-!-------------------------------------
-
-  subroutine pphys_TfromHYpt(T,Hin,Y,errMax,NiterMAX,res,Niter)&
-                  bind(C, name="pphys_TfromHYpt")
-
-      implicit none
-
-      REAL_T T,Y(*),Hin,errMax
-
-      integer NiterMAX,Niter,NiterDAMP,ihitlo,ihithi
-      REAL_T  T0,cp,dH
-      REAL_T  res(0:NiterMAX-1),dT, Htarg,HMIN,cpMIN,HMAX,cpMAX
-      logical converged, soln_bad, stalled
-      REAL_T  H, old_T, old_H, Tsec, Hsec
-
-      integer, parameter :: Discont_NiterMAX = 100
-      REAL_T,  parameter :: TMIN = 250.d0, TMAX = 5000.d0
-
-      if ((T.GE.TMIN).and.(T.LE.TMAX)) then
-            T0 = T
-      else
-            T0 = half*(TMIN+TMAX)
-            T  = T0
-      end if
-
-      NiterDAMP = NiterMAX
-      Niter     = 0
-      soln_bad  = .FALSE.
-      Htarg     = Hin * 1.d4
-      ihitlo    = 0
-      ihithi    = 0
-
-      CALL CKHBMS(T,Y,H)
-
-      old_T = T
-      old_H = H
-
-      dH         = two*ABS(H - Htarg)/(one + ABS(H) + ABS(Htarg))
-      res(Niter) = dH
-      converged  = dH.le.errMAX
-      stalled    = .false.
-
-      do while ((.not.converged) .and. (.not.stalled) .and. (.not.soln_bad))
-
-          CALL CKCPBS(T,Y,cp)
-          dT = (Htarg - H)/cp
-          old_T = T
-          if ((Niter.le.NiterDAMP).and.(T+dT.ge.TMAX)) then
-                  T = TMAX
-                  ihithi = 1
-          else if ((Niter.le.NiterDAMP).and.(T+dT.le.TMIN)) then
-                  T = TMIN
-                  ihitlo = 1
-          else
-                  T = T + dT
-          end if
-          soln_bad = (T.lt.TMIN-one) .or. (T.gt.TMAX)
-          if (soln_bad) then
-                  Niter = -1
-                  exit
-          else
-                  old_H = H
-                  CALL CKHBMS(T,Y,H)
-                  dH = two*ABS(H - Htarg)/(one + ABS(H) + ABS(Htarg))
-                  res(Niter) = min(dH,abs(dT))
-                  Niter = Niter + 1
-          end if
-          converged = (dH.le.errMAX) .or. (ABS(dT).le.errMAX)
-          if (Niter .ge. NiterMAX) then
-                  if(abs(T-1000.d0).le.1.d-3.and. dH.le.1.d-5)then
-                          converged = .true.
-                  else
-                          Niter = -2
-                          exit
-                  end if
-          end if
-
-          if ((ihitlo.eq.1).and.(H.gt.Htarg)) then
-                  T = TMIN
-                  CALL CKHBMS(T,Y,HMIN)
-                  CALL CKCPBS(T,Y,cpMIN)
-                  T=TMIN+(Htarg-HMIN)/cpMIN
-                  converged = .true.
-          end if
-          if ((ihithi.eq.1).and.(H.lt.Htarg)) then 
-                  T = TMAX
-                  CALL CKHBMS(T,Y,HMAX)
-                  CALL CKCPBS(T,Y,cpMAX)
-                  T=TMAX+(Htarg-HMAX)/cpMAX
-                  converged = .true.
-          end if
-
-          if (Niter .ge. NiterMAX) then
-              do while (.not. stalled)
-                  dT = - (H - Htarg) * (old_T - T)/(old_H - H)
-                  Tsec = T + dT
-                  soln_bad = (Tsec.lt.TMIN-one) .or. (Tsec.gt.TMAX)
-                  if (soln_bad) then
-                          Niter = -3
-                          exit
-                  end if
-                  CALL CKHBMS(Tsec,Y,Hsec)
-                  if ( (Hsec-Htarg)*(Htarg-H) .gt. 0.d0 ) then
-                          old_H = H
-                          old_T = T
-                  end if
-                  H = Hsec
-                  T = Tsec
-                  stalled = (2*ABS(old_T-T)/(old_T+T).le.errMAX)
-                  Niter = Niter + 1
-                  if (Niter.gt.NiterMAX+Discont_NiterMAX) then
-                          Niter = -4
-                          exit
-                  endif
-              end do
-              converged = .true.
-          end if
-      end do
-
-      if (converged) return
-
-  end subroutine pphys_TfromHYpt
 
 !-------------------------------------
 
