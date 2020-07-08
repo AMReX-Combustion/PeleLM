@@ -20,7 +20,7 @@ struct PeleLMFillExtDirGPU
 
 //amrex::Print() << "\n  HELLO from PeleLMFillExtDir  \n ";
 //amrex::Print() << "\n  dcomp = " << dcomp << " numpmp = " << numcomp << "\n" ;
-amrex::Print() << "\n  bcomp = " << bcomp << " orig_comp = " << orig_comp << "\n" ;
+//amrex::Print() << "\n  bcomp = " << bcomp << " orig_comp = " << orig_comp << "\n" ;
 
     const int* domlo = geom.Domain().loVect();
     const int* domhi = geom.Domain().hiVect();
@@ -47,46 +47,42 @@ amrex::Print() << "\n  bcomp = " << bcomp << " orig_comp = " << orig_comp << "\n
     
 
 
-amrex::Print() << "\n  NVAR = " << NVAR << "\n";
+//amrex::Print() << "\n  NVAR = " << NVAR << "\n";
 
 //    amrex::Real s_int[NVAR] = {0.0};
-//    amrex::Real s_ext[NVAR] = {0.0};
+    amrex::Real s_ext[DEF_NUM_STATE] = {0.0};
 
-amrex::Real vel[AMREX_SPACEDIM];
-amrex::Real rho;
-amrex::Real Y[NUM_SPECIES];
-amrex::Real Temp;
-amrex::Real Enth;
 
 
     // xlo and xhi
     int idir = 0;
-//    if ((bc[idir] == amrex::BCType::ext_dir) and (iv[idir] < domlo[idir])) {
-      amrex::IntVect loc(AMREX_D_DECL(domlo[idir], iv[1], iv[2]));
-//      for (int n = 0; n < NVAR; n++) {
-//        s_int[n] = dest(loc, n);
-//      }
+    if ((bc[idir] == amrex::BCType::ext_dir) and (iv[idir] < domlo[idir])) {
 
-//      bcnormal(x, vel, rho, Y, Temp, Enth, idir, +1, time, geom);
+      bcnormal(x, s_ext, idir, 1, time, geom);
 
       if (orig_comp == Xvel){
         for (int n = 0; n < AMREX_SPACEDIM; n++) {
-          dest(iv, n) = vel[n];
+          dest(iv, n) = s_ext[Xvel+n];
+//amrex::Print() << "\n the BC we impose = " << dest(iv, n) << "\n";
         }
       }
       else if (orig_comp == Density){
-         dest(iv, 0) = Density;        
+         dest(iv, 0) = s_ext[Density];
+//amrex::Print() << "\n the BC we impose = " << dest(iv, 0) << "\n";        
       }
       else if (orig_comp == DEF_first_spec){
       for (int n = 0; n < NUM_SPECIES; n++) {
-          dest(iv, n) = Y[n];
+          dest(iv, n) = s_ext[DEF_first_spec+n];
+//amrex::Print() << "\n the BC we impose = " << dest(iv, n) << "\n";
         }
       }
       else if (orig_comp == DEF_RhoH){
-       dest(iv, 0) = rho*Enth;
+       dest(iv, 0) = s_ext[DEF_RhoH];
+//amrex::Print() << "\n the BC we impose = " << dest(iv, 0) << "\n";
       }
       else if (orig_comp == DEF_Temp){
-        dest(iv, 0) = Temp;
+        dest(iv, 0) = s_ext[DEF_Temp];
+//amrex::Print() << "\n the BC we impose = " << dest(iv, 0) << "\n";
       }
       else if (orig_comp == DEF_RhoRT){
         dest(iv, 0) = 0.0;
@@ -94,20 +90,43 @@ amrex::Real Enth;
  
 
 
-/*
     } else if (
       (bc[idir + AMREX_SPACEDIM] == amrex::BCType::ext_dir) and
       (iv[idir] > domhi[idir])) {
-      amrex::IntVect loc(AMREX_D_DECL(domhi[idir], iv[1], iv[2]));
-      for (int n = 0; n < NVAR; n++) {
-        s_int[n] = dest(loc, n);
+
+      bcnormal(x, s_ext, idir, -1, time, geom);
+
+      if (orig_comp == Xvel){
+        for (int n = 0; n < AMREX_SPACEDIM; n++) {
+          dest(iv, n) = s_ext[Xvel+n];
+//amrex::Print() << "\n the BC we impose = " << dest(iv, n) << "\n";
+        }
       }
-//      bcnormal(x, s_int, s_ext, idir, -1, time, geom);
-      for (int n = 0; n < NVAR; n++) {
-        dest(iv, n) = s_ext[n];
+      else if (orig_comp == Density){
+         dest(iv, 0) = s_ext[Density];
+//amrex::Print() << "\n the BC we impose = " << dest(iv, 0) << "\n";        
       }
+      else if (orig_comp == DEF_first_spec){
+      for (int n = 0; n < NUM_SPECIES; n++) {
+          dest(iv, n) = s_ext[DEF_first_spec+n];
+//amrex::Print() << "\n the BC we impose = " << dest(iv, n) << "\n";
+        }
+      }
+      else if (orig_comp == DEF_RhoH){
+       dest(iv, 0) = s_ext[DEF_RhoH];
+//amrex::Print() << "\n the BC we impose = " << dest(iv, 0) << "\n";
+      }
+      else if (orig_comp == DEF_Temp){
+        dest(iv, 0) = s_ext[DEF_Temp];
+//amrex::Print() << "\n the BC we impose = " << dest(iv, 0) << "\n";
+      }
+      else if (orig_comp == DEF_RhoRT){
+        dest(iv, 0) = 0.0;
+      }
+
+
     }
-*/
+
 
 
 /*
@@ -185,6 +204,12 @@ void PeleLM_PressFill_CPU (Box const& bx, Array4<Real> const& dest,
                             const int orig_comp)
 {
     // do something for external Dirichlet (BCType::ext_dir) if there are
+
+amrex::Print() << "\n WE ARE IN  PeleLM_PressFill_CPU \n";
+
+
+
+
 }
 
 
@@ -201,7 +226,7 @@ void pelelm_cc_ext_fill (Box const& bx, FArrayBox& data,
                  const int scomp)
 {
 
-amrex::Print() << "\n \n HELLO from pelelm_cc_ext_fill \n \n ";
+//amrex::Print() << "\n \n HELLO from pelelm_cc_ext_fill \n \n ";
 
 //    if (Gpu::inLauncihRegion()) {
         GpuBndryFuncFab<PeleLMFillExtDirGPU> gpu_bndry_func(PeleLMFillExtDirGPU{});
@@ -247,7 +272,7 @@ amrex::Print() << "\n \n HELLO from pelelm_press_fill \n \n ";
 
 
 CpuBndryFuncFab  cpu_bndry_func(PeleLM_PressFill_CPU);
-//  cpu_bndry_func(bx,data,dcomp,numcomp,geom,time,bcr,bcomp,scomp);
+  cpu_bndry_func(bx,data,dcomp,numcomp,geom,time,bcr,bcomp,scomp);
 
 //    if (Gpu::inLauncihRegion()) {
 //        GpuBndryFuncFab<PeleLMFillExtDir> gpu_bndry_func(PeleLMFillExtDir{});

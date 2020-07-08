@@ -5,9 +5,9 @@
 #include <AMReX_FArrayBox.H>
 #include "pelelm_prob_parm.H"
 
-#include <NavierStokesBase.H>
+//#include <NavierStokesBase.H>
 #include <IndexDefines.H>
-#include "EOS.H"
+#include <EOS.H>
 
 AMREX_GPU_DEVICE
 inline
@@ -92,18 +92,14 @@ pelelm_initdata (int i, int j, int k,
 
 }
 
-/*
+
 
 AMREX_GPU_DEVICE
 AMREX_FORCE_INLINE
 void
 bcnormal(
   const amrex::Real x[AMREX_SPACEDIM],
-  amrex::Real vel_ext[AMREX_SPACEDIM],
-  amrex::Real rho_ext,
-  amrex::Real Y_ext[NUM_SPECIES],
-  amrex::Real Temp_ext,
-  amrex::Real enth_ext,
+  amrex::Real s_ext[DEF_NUM_STATE],
   const int idir,
   const int sgn,
   const amrex::Real time,
@@ -112,14 +108,33 @@ bcnormal(
   const amrex::Real* prob_lo = geomdata.ProbLo();
   const amrex::Real* prob_hi = geomdata.ProbHi();
 
+  if (sgn == 1) {
+
+s_ext[Xvel] = ProbParm::meanFlowMag;
+s_ext[Yvel] = 0.0;
+#if (AMREX_SPACEDIM == 3)
+s_ext[Zvel] = 0.0;
+#endif
+
+s_ext[DEF_Temp] = ProbParm::T_mean;
+
+    amrex::Real Yt[NUM_SPECIES];
+    Yt[0] = 0.233;
+    Yt[1] = 0.767;
 
 
+    amrex::Real rho_cgs, P_cgs, RhoH_temp;
+    P_cgs = ProbParm::P_mean * 10.0;
 
-  if (sgn == -1) {
+    EOS::PYT2R(P_cgs, Yt, ProbParm::T_mean, rho_cgs);
+    s_ext[Density] = rho_cgs * 1.0e3;            // CGS -> MKS conversion
 
-vel_ext[0] = ProbParm::meanFlowMag;
-vel_ext[1] = 0.0;
+    EOS::TY2H(ProbParm::T_mean, Yt, RhoH_temp);
+    s_ext[DEF_RhoH] = RhoH_temp * 1.0e-4 * s_ext[Density];   // CGS -> MKS conversion
 
+    for (int n = 0; n < NUM_SPECIES; n++) {
+      s_ext[DEF_first_spec+n] = Yt[n] * s_ext[Density];
+    }
 
 
 
@@ -130,12 +145,10 @@ vel_ext[1] = 0.0;
   }
 
 
-
-
 }
 
 
-*/
+
 
 
 
