@@ -8450,7 +8450,6 @@ PeleLM::getForce(FArrayBox&       force,
                  const FArrayBox& Scal,
                  int              scalScomp)
 {
-   amrex::Print() << "PeleLM::getForce() \n";
    BL_ASSERT(force.box().contains(bx));
 
    const auto& velocity = Vel.array();
