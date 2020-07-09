@@ -3758,7 +3758,7 @@ PeleLM::compute_enthalpy_fluxes (MultiFab* const*       flux,
          const auto& enth_ed = enth_edgstate[dir].array(mfi,0);
          const auto bc_lo = fpi_phys_loc(math_bc[0].lo(dir));
          const auto bc_hi = fpi_phys_loc(math_bc[0].hi(dir));
-         amrex::ParallelFor(ebx, [dir, bc_lo, bc_hi, use_harmonic_avg, enth_c, enth_ed, math_bc, edomain]
+         amrex::ParallelFor(ebx, [dir, bc_lo, bc_hi, use_harmonic_avg, enth_c, enth_ed, edomain]
          AMREX_GPU_DEVICE (int i, int j, int k) noexcept
          {
             int idx[3] = {i,j,k};
@@ -7977,7 +7977,7 @@ PeleLM::getViscosity (MultiFab* viscosity[AMREX_SPACEDIM],
          const auto& visc_ed = viscosity[dir]->array(mfi,0);
          const auto bc_lo = fpi_phys_loc(math_bc[0].lo(dir));
          const auto bc_hi = fpi_phys_loc(math_bc[0].hi(dir));
-         amrex::ParallelFor(ebx, [dir, bc_lo, bc_hi, use_harmonic_avg, visc_c, visc_ed, math_bc, edomain]
+         amrex::ParallelFor(ebx, [dir, bc_lo, bc_hi, use_harmonic_avg, visc_c, visc_ed, edomain]
          AMREX_GPU_DEVICE (int i, int j, int k) noexcept
          {
             int idx[3] = {i,j,k};
@@ -8058,7 +8058,7 @@ PeleLM::getDiffusivity (MultiFab* diffusivity[AMREX_SPACEDIM],
          const auto& diff_ed = diffusivity[dir]->array(mfi,dst_comp);
          const auto bc_lo = fpi_phys_loc(math_bc[0].lo(dir));
          const auto bc_hi = fpi_phys_loc(math_bc[0].hi(dir));
-         amrex::ParallelFor(ebx, [dir, bc_lo, bc_hi, ncomp, use_harmonic_avg, diff_c, diff_ed, math_bc, edomain]
+         amrex::ParallelFor(ebx, [dir, bc_lo, bc_hi, ncomp, use_harmonic_avg, diff_c, diff_ed, edomain]
          AMREX_GPU_DEVICE (int i, int j, int k) noexcept
          {
             int idx[3] = {i,j,k};
@@ -8110,7 +8110,7 @@ PeleLM::getDiffusivity_Wbar (MultiFab*  betaWbar[AMREX_SPACEDIM],
          const auto& diff_ed = betaWbar[dir]->array(mfi,0);
          const auto bc_lo = fpi_phys_loc(math_bc[0].lo(dir));
          const auto bc_hi = fpi_phys_loc(math_bc[0].hi(dir));
-         amrex::ParallelFor(ebx, [dir, bc_lo, bc_hi, use_harmonic_avg, diff_c, diff_ed, math_bc, edomain]
+         amrex::ParallelFor(ebx, [dir, bc_lo, bc_hi, use_harmonic_avg, diff_c, diff_ed, edomain]
          AMREX_GPU_DEVICE (int i, int j, int k) noexcept
          {
             int idx[3] = {i,j,k};
