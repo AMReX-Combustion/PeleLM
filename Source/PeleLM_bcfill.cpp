@@ -17,7 +17,7 @@ struct PeleLMPressFillExtDirGPU
                      const int orig_comp) const
         {
             // do something for external Dirichlet (BCType::ext_dir)
-amrex::Print() << "\n \n HELLO from PeleLMPressFillExtDirGPU \n \n ";
+//amrex::Print() << "\n \n HELLO from PeleLMPressFillExtDirGPU \n \n ";
         }
 };
 
