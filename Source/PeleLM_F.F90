@@ -558,7 +558,7 @@ end subroutine plm_extern_init
                            flag_active_control)  bind(C, name="set_prob_spec")
  
       use mod_Fvar_def, only: domnlo, domnhi
-      use mod_Fvar_def, only: bathID, fuelID, oxidID, prodID
+      use mod_Fvar_def, only: bathID, fuelID, oxidID, prodID, H2ID
       use mod_Fvar_def, only: f_flag_active_control
 
       implicit none
@@ -567,6 +567,7 @@ end subroutine plm_extern_init
       double precision, intent(in) :: problo_in(dm), probhi_in(dm)
 
       integer bath, fuel, oxid, prod, numspec
+      integer k
 
       ! Passing dimensions of problem from Cpp to Fortran
       if (dm .ne. dim) then
@@ -585,6 +586,11 @@ end subroutine plm_extern_init
          call bl_pd_abort('no N2 species present in mechanism')
       endif
       bathID = bath + 1
+
+      H2ID = -1
+      do k = 1, NUM_SPECIES
+          if ( TRIM(spec_names(k)) == "H2" ) H2ID = k
+      end do
 
       if (numspec .ne. NUM_SPECIES) then
          call bl_pd_abort('number of species not consistent')

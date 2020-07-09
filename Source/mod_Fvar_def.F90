@@ -24,7 +24,7 @@ module mod_Fvar_def
   REAL_T  :: time
   
   ! From probdata.H
-  integer :: bathID, fuelID, oxidID, prodID
+  integer :: bathID, fuelID, oxidID, prodID, H2ID
   
   integer         , save :: f_flag_active_control
   ! geometry information
