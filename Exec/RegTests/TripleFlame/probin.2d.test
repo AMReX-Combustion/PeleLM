@@ -1,0 +1,19 @@
+ &fortin
+  V_in = 0.64
+  T_in = 300.0d0
+  H2_enrich = 0.0d0 
+ /
+ &heattransin
+  pamb = 101325.
+ /
+ &control
+  tau_control = 10.0e-3
+  sest = .2
+  h_control = 0.0098
+  changeMax_control = .01
+  controlVelMax = 2.0
+  pseudo_gravity = 1
+ /
+ &extern
+  new_Jacobian_each_cell = 1
+ /
