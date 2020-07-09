@@ -4537,20 +4537,20 @@ PeleLM::set_htt_hmixTYP ()
    {
       htt_hmixTYP = 0;
       std::vector< std::pair<int,Box> > isects;
-      for (int k = 0; k <= finest_level; k++)
+      for (int lvl = 0; lvl <= finest_level; lvl++)
       {
-         AmrLevel&       ht = getLevel(k);
+         AmrLevel&       ht = getLevel(lvl);
          const MultiFab& S  = ht.get_new_data(State_Type);
          const BoxArray& ba = ht.boxArray();
          const DistributionMapping& dm = ht.DistributionMap();
          MultiFab hmix(ba,dm,1,0,MFInfo(),Factory());
          MultiFab::Copy(hmix,S,RhoH,0,1,0);
          MultiFab::Divide(hmix,S,Density,0,1,0);
-         if (k != finest_level)
+         if (lvl != finest_level)
          {
-            AmrLevel& htf = getLevel(k+1);
+            AmrLevel& htf = getLevel(lvl+1);
             BoxArray  baf = htf.boxArray();
-            baf.coarsen(parent->refRatio(k));
+            baf.coarsen(parent->refRatio(lvl));
 #ifdef _OPENMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
@@ -4558,8 +4558,8 @@ PeleLM::set_htt_hmixTYP ()
             {
                auto const& h_mix = hmix.array(mfi);
                baf.intersections(ba[mfi.index()],isects);
-               for (int i = 0; i < isects.size(); i++) {
-                  amrex::ParallelFor(isects[i].second, [h_mix]
+               for (int is = 0; is < isects.size(); is++) {
+                  amrex::ParallelFor(isects[is].second, [h_mix]
                   AMREX_GPU_DEVICE (int i, int j, int k) noexcept
                   {
                      h_mix(i,j,k) = 0.0;
@@ -4732,8 +4732,14 @@ PeleLM::predict_velocity (Real  dt)
 
       if (getForceVerbose)
         amrex::Print() << "---\nA - Predict velocity:\n Calling getForce..." << '\n';
-      getForce(tforces,bx,1,Xvel,AMREX_SPACEDIM,prev_time,Ufab,Smf[mfi],0);
+      const Box& forcebx = grow(bx,1);
+      tforces.resize(forcebx,AMREX_SPACEDIM);
+      getForce(tforces,forcebx,1,Xvel,AMREX_SPACEDIM,prev_time,Ufab,Smf[mfi],0);
       Elixir Forcei = tforces.elixir();
+      // TODO: remove StreamSynchronize when all GPU
+#ifdef AMREX_USE_CUDA
+      Gpu::streamSynchronize();
+#endif
 
       //
       // Compute the total forcing.
@@ -5566,7 +5572,7 @@ PeleLM::getFuncCountDM (const BoxArray& bxba, int ngrow)
 
 // FIXME need to be tiled  
   for (MFIter mfi(fctmpnew); mfi.isValid(); ++mfi)
-    vwrk[count++] = static_cast<long>(fctmpnew[mfi].sum<RunOn::Host>(0));
+     vwrk[count++] = static_cast<long>(fctmpnew[mfi].sum<RunOn::Host>(0));
 
   fctmpnew.clear();
 
@@ -8404,6 +8410,39 @@ PeleLM::RhoH_to_Temp (MultiFab& S,
   // Reset it back.
   //
   //htt_hmixTYP = htt_hmixTYP_SAVE;
+}
+
+void
+PeleLM::getForce(FArrayBox&       force,
+                 const Box&       bx,
+                 int              ngrow,
+                 int              scomp,
+                 int              ncomp,
+                 const Real       time,
+                 const FArrayBox& Vel,
+                 const FArrayBox& Scal,
+                 int              scalScomp)
+{
+   BL_ASSERT(force.box().contains(bx));
+
+   const auto& velocity = Vel.array();
+   const auto& scalars  = Scal.array(scalScomp);
+   const auto& f        = force.array(scomp);
+
+   const auto  dx       = geom.CellSizeArray();
+   RealBox gridloc      = RealBox(bx,geom.CellSize(),geom.ProbLo());
+   const Real  grav     = gravity;
+   const int   nscal    = NUM_SCALARS;
+
+   // TODO: For now the following are set here. Update when active_control moved to C++
+   int pseudo_gravity    = 0;
+   const Real dV_control = 0.0;
+
+   amrex::ParallelFor(bx, [f, scalars, velocity, time, grav, pseudo_gravity, dV_control, dx, scomp, ncomp]
+   AMREX_GPU_DEVICE(int i, int j, int k) noexcept
+   {
+      makeForce(i,j,k, scomp, ncomp, pseudo_gravity, time, grav, dV_control, dx, velocity, scalars, f);
+   });
 }
 
 void
