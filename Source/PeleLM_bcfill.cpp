@@ -7,31 +7,44 @@
 
 using namespace amrex;
 
-struct PeleLMPressFillExtDirGPU
+struct PeleLMNodalFillExtDir
 {
-    AMREX_GPU_DEVICE
-    void operator() (const IntVect& iv, Array4<Real> const& dest,
-                     const int dcomp, const int numcomp,
-                     GeometryData const& geom, const Real time,
-                     const BCRec* bcr, const int bcomp,
-                     const int orig_comp) const
-        {
+  AMREX_GPU_DEVICE
+  void operator()(
+    const amrex::IntVect& iv,
+    amrex::Array4<amrex::Real> const& dest,
+    const int dcomp,
+    const int numcomp,
+    amrex::GeometryData const& geom,
+    const amrex::Real time,
+    const amrex::BCRec* bcr,
+    const int bcomp,
+    const int orig_comp) const
+  {
             // do something for external Dirichlet (BCType::ext_dir)
-            printf("\n \n HELLO from PeleLMPressFillExtDirGPU \n \n ");
+            printf("\n \n HELLO from PeleLMNodalFillExtDir \n \n ");
         }
 };
 
 
-struct PeleLMFillExtDirGPU
+struct PeleLMCCFillExtDir
 {
-    AMREX_GPU_DEVICE
-    void operator() (const IntVect& iv, Array4<Real> const& dest,
-                     const int dcomp, const int numcomp,
-                     GeometryData const& geom, const Real time,
-                     const BCRec* bcr, const int bcomp,
-                     const int orig_comp) const
-        {
+  AMREX_GPU_DEVICE
+  void operator()(
+    const amrex::IntVect& iv,
+    amrex::Array4<amrex::Real> const& dest,
+    const int dcomp,
+    const int numcomp,
+    amrex::GeometryData const& geom,
+    const amrex::Real time,
+    const amrex::BCRec* bcr,
+    const int bcomp,
+    const int orig_comp) const
+  {
             // do something for external Dirichlet (BCType::ext_dir)
+
+printf("\n \n HELLO from PeleLMCCFillExtDir \n \n ");
+
 
 //amrex::Print() << "\n  HELLO from PeleLMFillExtDir  \n ";
 //amrex::Print() << "\n  dcomp = " << dcomp << " numpmp = " << numcomp << "\n" ;
@@ -48,23 +61,7 @@ struct PeleLMFillExtDirGPU
 
     const int* bc = bcr->data();
 
-    int NVAR = 1;
-    if (orig_comp == Xvel){
-#if AMREX_SPACEDIM < 3
-      NVAR = 2;
-#else
-      NVAR = 3;
-#endif
-    }
-    else if (orig_comp == DEF_first_spec){ 
-     NVAR = NUM_SPECIES;
-    }
-    
 
-
-//amrex::Print() << "\n  NVAR = " << NVAR << "\n";
-
-//    amrex::Real s_int[NVAR] = {0.0};
     amrex::Real s_ext[DEF_NUM_STATE] = {0.0};
 
 
@@ -198,33 +195,23 @@ struct PeleLMFillExtDirGPU
         }
 };
 
-struct PeleLMFillEdges
-{
-    AMREX_GPU_DEVICE
-    void operator() (const IntVect& iv, Array4<Real> const& dest,
-                     const int dcomp, const int numcomp,
-                     GeometryData const& geom, const Real time,
-                     const BCRec* bcr, const int bcomp,
-                     const int orig_comp) const
-        {
-        }
-};
 
 
-/*
-void PeleLM_PressFill_CPU (Box const& bx, Array4<Real> const& dest,
-                            const int dcomp, const int numcomp,
-                            GeometryData const& geom, const Real time,
-                            const BCRec* bcr, const int bcomp,
-                            const int orig_comp)
-{
-    // do something for external Dirichlet (BCType::ext_dir) if there are
-
-amrex::Print() << "\n WE ARE IN  PeleLM_PressFill_CPU \n";
 
 
-}
-*/
+namespace {
+// Cell-center data (state)
+static PeleLMCCFillExtDir pelelm_cc_fill_ext_dir;
+static amrex::GpuBndryFuncFab<PeleLMCCFillExtDir>
+  cc_bndry_func(pelelm_cc_fill_ext_dir);
+
+// Nodal data (pressure)
+static PeleLMNodalFillExtDir pelelm_nodal_fill_ext_dir;
+static amrex::GpuBndryFuncFab<PeleLMNodalFillExtDir>
+  nodal_bndry_func(pelelm_nodal_fill_ext_dir);
+
+} // namespace
+
 
 
 
@@ -242,16 +229,14 @@ void pelelm_cc_ext_fill (Box const& bx, FArrayBox& data,
                  const int scomp)
 {
 
-//amrex::Print() << "\n \n HELLO from pelelm_cc_ext_fill \n \n ";
+amrex::Print() << "\n \n HELLO from pelelm_cc_ext_fill \n \n ";
 
-//    if (Gpu::inLauncihRegion()) {
-        GpuBndryFuncFab<PeleLMFillExtDirGPU> gpu_bndry_func(PeleLMFillExtDirGPU{});
-        gpu_bndry_func(bx,data,dcomp,numcomp,geom,time,bcr,bcomp,scomp);
-//    } else {
-        // Without EXT_DIR (e.g., inflow), we can pass a nullptr
-//        CpuBndryFuncFab cpu_bndry_func(nullptr);
-//        cpu_bndry_func(bx,data,dcomp,numcomp,geom,time,bcr,bcomp,scomp);
-//    }
+	// old way
+//        GpuBndryFuncFab<PeleLMFillExtDirGPU> gpu_bndry_func(PeleLMFillExtDirGPU{});
+//        gpu_bndry_func(bx,data,dcomp,numcomp,geom,time,bcr,bcomp,scomp);
+
+cc_bndry_func(bx, data, dcomp, numcomp, geom, time, bcr, bcomp, scomp);
+
 }
 
 
@@ -264,14 +249,10 @@ void pelelm_fillEdges (Box const& bx, FArrayBox& data,
 
 amrex::Print() << "\n \n HELLO from pelelm_fillEdges \n \n ";
 
-//    if (Gpu::inLauncihRegion()) {
-        GpuBndryFuncFab<PeleLMFillEdges> gpu_bndry_func(PeleLMFillEdges{});
-        gpu_bndry_func(bx,data,dcomp,numcomp,geom,time,bcr,bcomp,scomp);
-//    } else {
-        // Without EXT_DIR (e.g., inflow), we can pass a nullptr
-//        CpuBndryFuncFab cpu_bndry_func(nullptr);
-//        cpu_bndry_func(bx,data,dcomp,numcomp,geom,time,bcr,bcomp,scomp);
-//    }
+//        GpuBndryFuncFab<PeleLMFillEdges> gpu_bndry_func(PeleLMFillEdges{});
+//        gpu_bndry_func(bx,data,dcomp,numcomp,geom,time,bcr,bcomp,scomp);
+
+
 }
 
 
@@ -285,17 +266,10 @@ void pelelm_press_fill (Box const& bx, FArrayBox& data,
 amrex::Print() << "\n \n HELLO from pelelm_press_fill \n \n ";
 
 
+//        GpuBndryFuncFab<PeleLMPressFillExtDirGPU> gpu_bndry_func(PeleLMPressFillExtDirGPU{});
+//        gpu_bndry_func(bx,data,dcomp,numcomp,geom,time,bcr,bcomp,scomp);
+
+nodal_bndry_func(bx, data, dcomp, numcomp, geom, time, bcr, bcomp, scomp);
 
 
-//CpuBndryFuncFab  cpu_bndry_func(PeleLM_PressFill_CPU);
-//  cpu_bndry_func(bx,data,dcomp,numcomp,geom,time,bcr,bcomp,scomp);
-
-//    if (Gpu::inLauncihRegion()) {
-        GpuBndryFuncFab<PeleLMPressFillExtDirGPU> gpu_bndry_func(PeleLMPressFillExtDirGPU{});
-        gpu_bndry_func(bx,data,dcomp,numcomp,geom,time,bcr,bcomp,scomp);
-//    } else {
-        // Without EXT_DIR (e.g., inflow), we can pass a nullptr
-//        CpuBndryFuncFab cpu_bndry_func(nullptr);
-//        cpu_bndry_func(bx,data,dcomp,numcomp,geom,time,bcr,bcomp,scomp);
-//    }
 }
