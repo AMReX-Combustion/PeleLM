@@ -963,13 +963,20 @@ makeForce(int i, int j, int k,
          force(i,j,k,1) = 0.0_rt;
          force(i,j,k,2) = gravity*scal(i,j,k,0);
 #endif
+      } else {
+         for (int n = 0; n < AMREX_SPACEDIM; n++) {
+            force(i,j,k,n) = 0.0_rt;
+         }
       }
+
       if (pseudo_gravity) {
          force(i,j,k,AMREX_SPACEDIM-1) += dV_control * scal(i,j,k,0);
       }
    }
-   for (int n = std::max(scomp,AMREX_SPACEDIM); n < scomp+ncomp; n++) {
-      force(i,j,k,n) = 0.0_rt;
+   if ( (scomp+ncomp) > AMREX_SPACEDIM - 1) {
+      for (int n = std::max(scomp,AMREX_SPACEDIM); n < scomp+ncomp; n++) {
+         force(i,j,k,n) = 0.0_rt;
+      }
    }
 }
 
