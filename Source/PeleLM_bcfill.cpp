@@ -199,21 +199,6 @@ printf("\n \n HELLO from PeleLMCCFillExtDir \n \n ");
 
 
 
-namespace {
-// Cell-center data (state)
-static PeleLMCCFillExtDir pelelm_cc_fill_ext_dir;
-static amrex::GpuBndryFuncFab<PeleLMCCFillExtDir>
-  cc_bndry_func(pelelm_cc_fill_ext_dir);
-
-// Nodal data (pressure)
-static PeleLMNodalFillExtDir pelelm_nodal_fill_ext_dir;
-static amrex::GpuBndryFuncFab<PeleLMNodalFillExtDir>
-  nodal_bndry_func(pelelm_nodal_fill_ext_dir);
-
-} // namespace
-
-
-
 
 
 
@@ -229,13 +214,10 @@ void pelelm_cc_ext_fill (Box const& bx, FArrayBox& data,
                  const int scomp)
 {
 
-amrex::Print() << "\n \n HELLO from pelelm_cc_ext_fill \n \n ";
+//amrex::Print() << "\n \n HELLO from pelelm_cc_ext_fill \n \n ";
 
-	// old way
-//        GpuBndryFuncFab<PeleLMFillExtDirGPU> gpu_bndry_func(PeleLMFillExtDirGPU{});
-//        gpu_bndry_func(bx,data,dcomp,numcomp,geom,time,bcr,bcomp,scomp);
-
-cc_bndry_func(bx, data, dcomp, numcomp, geom, time, bcr, bcomp, scomp);
+        GpuBndryFuncFab<PeleLMCCFillExtDir> gpu_bndry_func(PeleLMCCFillExtDir{});
+        gpu_bndry_func(bx,data,dcomp,numcomp,geom,time,bcr,bcomp,scomp);
 
 }
 
@@ -263,13 +245,12 @@ void pelelm_press_fill (Box const& bx, FArrayBox& data,
                  const int scomp)
 {
 
-amrex::Print() << "\n \n HELLO from pelelm_press_fill \n \n ";
+//amrex::Print() << "\n \n HELLO from pelelm_press_fill \n \n ";
 
 
-//        GpuBndryFuncFab<PeleLMPressFillExtDirGPU> gpu_bndry_func(PeleLMPressFillExtDirGPU{});
-//        gpu_bndry_func(bx,data,dcomp,numcomp,geom,time,bcr,bcomp,scomp);
+        GpuBndryFuncFab<PeleLMNodalFillExtDir> gpu_bndry_func(PeleLMNodalFillExtDir{});
+        gpu_bndry_func(bx,data,dcomp,numcomp,geom,time,bcr,bcomp,scomp);
 
-nodal_bndry_func(bx, data, dcomp, numcomp, geom, time, bcr, bcomp, scomp);
 
 
 }
