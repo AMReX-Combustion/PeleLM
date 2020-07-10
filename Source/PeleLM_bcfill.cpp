@@ -22,7 +22,7 @@ struct PeleLMNodalFillExtDir
     const int orig_comp) const
   {
             // do something for external Dirichlet (BCType::ext_dir)
-            printf("\n \n HELLO from PeleLMNodalFillExtDir \n \n ");
+//            printf("\n \n HELLO from PeleLMNodalFillExtDir \n \n ");
         }
 };
 
@@ -43,7 +43,7 @@ struct PeleLMCCFillExtDir
   {
             // do something for external Dirichlet (BCType::ext_dir)
 
-printf("\n \n HELLO from PeleLMCCFillExtDir \n \n ");
+//printf("\n \n HELLO from PeleLMCCFillExtDir \n \n ");
 
 
 //amrex::Print() << "\n  HELLO from PeleLMFillExtDir  \n ";
@@ -71,33 +71,47 @@ printf("\n \n HELLO from PeleLMCCFillExtDir \n \n ");
     if ((bc[idir] == amrex::BCType::ext_dir) and (iv[idir] < domlo[idir])) {
 
       bcnormal(x, s_ext, idir, 1, time, geom);
+//amrex::Print() << "\n s_ext after bcnornal \n";
+//amrex::Print() << "\n iv[0] = " << iv[0] << " iv[1] = " << iv[1] <<  "\n";
+/*
+amrex::Print() << "\n s_ext[0] = " << s_ext[0] << "\n";
+amrex::Print() << "\n s_ext[1] = " << s_ext[1] << "\n";
+amrex::Print() << "\n s_ext[2] = " << s_ext[2] << "\n";
+amrex::Print() << "\n s_ext[3] = " << s_ext[3] << "\n";
+amrex::Print() << "\n s_ext[4] = " << s_ext[4] << "\n";
+amrex::Print() << "\n s_ext[5] = " << s_ext[5] << "\n";
+amrex::Print() << "\n s_ext[6] = " << s_ext[6] << "\n";
+*/
+//amrex::Print() << "\n orig_comp = " << orig_comp << "\n";
+//amrex::Print() << "\n  dcomp = " << dcomp << " numpmp = " << numcomp << "\n" ;
+//amrex::Print() << "\n  bcomp = " << bcomp << " orig_comp = " << orig_comp << "\n" ;
 
       if (orig_comp == Xvel){
         for (int n = 0; n < AMREX_SPACEDIM; n++) {
-          dest(iv, n) = s_ext[Xvel+n];
-//amrex::Print() << "\n the BC we impose = " << dest(iv, n) << "\n";
+          dest(iv, dcomp + n) = s_ext[Xvel+n];
+//amrex::Print() << "\n the BC we impose = " << dest(iv, dcomp + n) << "\n";
         }
       }
       else if (orig_comp == Density){
-         dest(iv, 0) = s_ext[Density];
-//amrex::Print() << "\n the BC we impose = " << dest(iv, 0) << "\n";        
+         dest(iv, dcomp) = s_ext[Density];
+//amrex::Print() << "\n the BC we impose = " << dest(iv, decomp) << "\n";        
       }
       else if (orig_comp == DEF_first_spec){
       for (int n = 0; n < NUM_SPECIES; n++) {
-          dest(iv, n) = s_ext[DEF_first_spec+n];
-//amrex::Print() << "\n the BC we impose = " << dest(iv, n) << "\n";
+          dest(iv, dcomp + n) = s_ext[DEF_first_spec+n];
+//amrex::Print() << "\n the BC we impose = " << dest(iv, dcomp + n) << "\n";
         }
       }
       else if (orig_comp == DEF_RhoH){
-       dest(iv, 0) = s_ext[DEF_RhoH];
-//amrex::Print() << "\n the BC we impose = " << dest(iv, 0) << "\n";
+       dest(iv, dcomp) = s_ext[DEF_RhoH];
+//amrex::Print() << "\n the BC we impose = " << dest(iv, dcomp) << "\n";
       }
       else if (orig_comp == DEF_Temp){
-        dest(iv, 0) = s_ext[DEF_Temp];
-//amrex::Print() << "\n the BC we impose = " << dest(iv, 0) << "\n";
+        dest(iv, dcomp) = s_ext[DEF_Temp];
+//amrex::Print() << "\n the BC we impose = " << dest(iv, dcomp) << "\n";
       }
       else if (orig_comp == DEF_RhoRT){
-        dest(iv, 0) = 0.0;
+        dest(iv, dcomp) = 0.0;
       }
  
 
