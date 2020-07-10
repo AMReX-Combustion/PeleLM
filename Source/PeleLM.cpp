@@ -5790,7 +5790,7 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
 #endif
 
         /* ALLOCS */
-        BL_PROFILE_VAR_START(Allocs);
+        BL_PROFILE_VAR("advance_chemistry::Allocs", Allocs);
         // rhoY,T
         amrex::Real *tmp_vect; 
         // rhoY_src_ext
@@ -5812,6 +5812,7 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
         tmp_src_vect_energy =  new amrex::Real[ncells];
         tmp_fctCn           =  new int[ncells]
 #endif
+        BL_PROFILE_VAR_STOP(Allocs);
 
         /* Packing of data */
         BL_PROFILE_VAR("Array_flatten()", ARRAY_FLATTEN);
@@ -5826,6 +5827,7 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
         BL_PROFILE_VAR_STOP(ARRAY_FLATTEN);
 
 
+        BL_PROFILE_VAR("React()", ReactInLoop);  
         Real dt_incr     = dt;
         Real time_chem   = 0;
         int reactor_type = 2;
@@ -5857,6 +5859,7 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
                       &reactor_type, &ncells, amrex::Gpu::gpuStream());
         dt_incr = dt;
 #endif
+        BL_PROFILE_VAR_STOP(ReactInLoop);
 
 
         /* Unpacking of data */
@@ -5871,6 +5874,7 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
         BL_PROFILE_VAR_STOP(ARRAY_FLATTEN);
 
         /* Deallocate */
+        BL_PROFILE_VAR_START(Allocs);
 #ifdef USE_CUDA_SUNDIALS_PP 
         cuda_status = cudaStreamSynchronize(amrex::Gpu::gpuStream());
 
@@ -5886,6 +5890,7 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
         delete(tmp_src_vect_energy);
         delete(tmp_fctCn);
 #endif
+        BL_PROFILE_VAR_STOP(Allocs);
 
     }
 
