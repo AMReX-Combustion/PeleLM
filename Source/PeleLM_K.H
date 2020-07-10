@@ -16,7 +16,8 @@ gpu_flatten(int icell, int i, int j, int k,
             amrex::Array4<amrex::Real> const& rhoY,
             amrex::Array4<amrex::Real> const& frcExt,
             amrex::Real * tmp_vect, amrex::Real * tmp_src_vect,
-            amrex::Real * tmp_vect_energy, amrex::Real * tmp_src_vect_energy) noexcept
+            amrex::Real * tmp_vect_energy, amrex::Real * tmp_src_vect_energy,
+            int * tmp_FCount) noexcept
 {
     amrex::Real * TV_cell  = tmp_vect + icell * (NUM_SPECIES+1);
     amrex::Real * TVS_cell = tmp_src_vect + icell * (NUM_SPECIES);
@@ -27,6 +28,7 @@ gpu_flatten(int icell, int i, int j, int k,
     TV_cell[NUM_SPECIES]       = rhoY(i,j,k,NUM_SPECIES+1);
     tmp_vect_energy[icell]     = rhoY(i,j,k,NUM_SPECIES) * 10.0;
     tmp_src_vect_energy[icell] = frcExt(i,j,k,NUM_SPECIES) * 10.0;
+    tmp_FCount[icell]          = -1;
 }
 
 AMREX_GPU_HOST_DEVICE
@@ -37,7 +39,7 @@ gpu_unflatten(int icell, int i, int j, int k,
               amrex::Array4<amrex::Real> const& fcl,
               amrex::Real *tmp_vect,
               amrex::Real *tmp_vect_energy,
-              amrex::Real fc_pt) noexcept
+              int * tmp_FCount) noexcept
 {
    amrex::Real * TV_cell  = tmp_vect + icell * (NUM_SPECIES+1);
    for (int n = 0; n < NUM_SPECIES; n++) {
@@ -45,9 +47,7 @@ gpu_unflatten(int icell, int i, int j, int k,
    }
    rhoY(i,j,k,NUM_SPECIES+1) = TV_cell[NUM_SPECIES];
    rhoY(i,j,k,NUM_SPECIES) = tmp_vect_energy[icell] * 1.e-01;
-   if (fc_pt > 0.0) {
-       fcl(i,j,k) = fc_pt;
-   }
+   fcl(i,j,k) = tmp_FCount[icell];
 }
 
 AMREX_GPU_HOST_DEVICE
