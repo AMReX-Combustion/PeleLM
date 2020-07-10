@@ -3554,6 +3554,7 @@ PeleLM::adjust_spec_diffusion_fluxes (MultiFab* const * flux,
                                       const BCRec&      bc,
                                       Real              time)
 {
+   BL_PROFILE("PeleLM:::adjust_spec_diffusion_fluxes()");
    //
    // Adjust the species diffusion fluxes so that their sum is zero.
    //
@@ -3654,6 +3655,7 @@ PeleLM::compute_enthalpy_fluxes (MultiFab* const*       flux,
                                  const MultiFab* const* beta,
                                  Real                   time)
 {
+  BL_PROFILE("PeleLM:::compute_enthalpy_fluxes()");
   /*
     Build heat fluxes based on species fluxes, Gamma_m, and fill-patched cell-centered states
     Set:
@@ -3870,6 +3872,7 @@ PeleLM::compute_enthalpy_fluxes (MultiFab* const*       flux,
 void
 PeleLM::velocity_diffusion_update (Real dt)
 {
+   BL_PROFILE("PeleLM::velocity_diffusion_update()");
    //
    // Do implicit c-n solve for velocity
    // compute the viscous forcing
@@ -3927,6 +3930,7 @@ PeleLM::getViscTerms (MultiFab& visc_terms,
                       int       num_comp,
                       Real      time)
 {
+   BL_PROFILE("PeleLM::getViscTerms()");
    const Real strt_time = ParallelDescriptor::second();
    //
    // Load "viscous" terms, starting from component = 0.
@@ -4286,6 +4290,7 @@ PeleLM::flux_divergence (MultiFab&        fdiv,
                          int              nComp,
                          Real             scale) const
 {
+   BL_PROFILE("PeleLM::flux_divergence()");
    BL_ASSERT(fdiv.nComp() >= fdivComp+nComp);
 
 //////////////////////////////////////////////////////
@@ -4655,6 +4660,7 @@ PeleLM::setThermoPress(Real time)
 Real
 PeleLM::predict_velocity (Real  dt)
 {
+   BL_PROFILE("PeleLM::predict_velocity()");
    if (verbose) {
       amrex::Print() << "... predict edge velocities\n";
    }
@@ -7822,7 +7828,7 @@ PeleLM::calcViscosity (const Real time,
                        const int  iteration,
                        const int  ncycle)
 {
-   BL_PROFILE("HT::calcViscosity()");
+   BL_PROFILE("PLM::calcViscosity()");
 
    const TimeLevel whichTime = which_time(State_Type, time);
    BL_ASSERT(whichTime == AmrOldTime || whichTime == AmrNewTime);
@@ -7865,7 +7871,7 @@ PeleLM::calcViscosity (const Real time,
 void
 PeleLM::calcDiffusivity (const Real time)
 {
-   BL_PROFILE("HT::calcDiffusivity()");
+   BL_PROFILE("PLM::calcDiffusivity()");
 
    const TimeLevel whichTime = which_time(State_Type, time);
    BL_ASSERT(whichTime == AmrOldTime || whichTime == AmrNewTime);
@@ -7936,7 +7942,7 @@ PeleLM::calcDiffusivity (const Real time)
 void
 PeleLM::calcDiffusivity_Wbar (const Real time)
 {
-   BL_PROFILE("HT::calcDiffusivity_Wbar()");
+   BL_PROFILE("PLM::calcDiffusivity_Wbar()");
 
    Abort("Fix Dwbar");
 
