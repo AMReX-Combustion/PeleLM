@@ -22,7 +22,6 @@ struct PeleLMNodalFillExtDir
     const int orig_comp) const
   {
             // do something for external Dirichlet (BCType::ext_dir)
-//            printf("\n \n HELLO from PeleLMNodalFillExtDir \n \n ");
         }
 };
 
@@ -42,13 +41,6 @@ struct PeleLMCCFillExtDir
     const int orig_comp) const
   {
             // do something for external Dirichlet (BCType::ext_dir)
-
-//printf("\n \n HELLO from PeleLMCCFillExtDir \n \n ");
-
-
-//amrex::Print() << "\n  HELLO from PeleLMFillExtDir  \n ";
-//amrex::Print() << "\n  dcomp = " << dcomp << " numpmp = " << numcomp << "\n" ;
-//amrex::Print() << "\n  bcomp = " << bcomp << " orig_comp = " << orig_comp << "\n" ;
 
     const int* domlo = geom.Domain().loVect();
     const int* domhi = geom.Domain().hiVect();
@@ -250,13 +242,6 @@ struct PeleLMCCFillExtDir
  }
 };
 
-
-
-
-
-
-
-
 // bx                  : Cells outside physical domain and inside bx are filled.
 // data, dcomp, numcomp: Fill numcomp components of data starting from dcomp.
 // bcr, bcomp          : bcr[bcomp] specifies BC for component dcomp and so on.
@@ -268,8 +253,6 @@ void pelelm_cc_ext_fill (Box const& bx, FArrayBox& data,
                  const Vector<BCRec>& bcr, const int bcomp,
                  const int scomp)
 {
-
-//amrex::Print() << "\n \n HELLO from pelelm_cc_ext_fill \n \n ";
 
         GpuBndryFuncFab<PeleLMCCFillExtDir> gpu_bndry_func(PeleLMCCFillExtDir{});
         gpu_bndry_func(bx,data,dcomp,numcomp,geom,time,bcr,bcomp,scomp);
@@ -300,12 +283,7 @@ void pelelm_press_fill (Box const& bx, FArrayBox& data,
                  const int scomp)
 {
 
-//amrex::Print() << "\n \n HELLO from pelelm_press_fill \n \n ";
-
-
         GpuBndryFuncFab<PeleLMNodalFillExtDir> gpu_bndry_func(PeleLMNodalFillExtDir{});
         gpu_bndry_func(bx,data,dcomp,numcomp,geom,time,bcr,bcomp,scomp);
-
-
 
 }

@@ -308,158 +308,6 @@ set_species_bc (BCRec&       bc,
   }
 }
 
-
-/*
-
-typedef StateDescriptor::BndryFunc BndryFunc;
-
-extern "C"
-{
-//
-// Function called by BCRec for user-supplied boundary data.
-//
-  typedef void (*ChemBndryFunc_FortBndryFunc)(Real* data, AMREX_ARLIM_P(lo), AMREX_ARLIM_P(hi),
-                                              const int* dom_lo, const int* dom_hi,
-                                              const Real* dx, const Real* grd_lo,
-                                              const Real* time, const int* bc,
-                                              const int* stateID);
-
-  typedef void (*ChemBndryFunc3D_FortBndryFunc)(Real* data, const int* lo, const int* hi,
-                                                const int* dom_lo, const int* dom_hi,
-                                                const Real* dx, const Real* grd_lo,
-                                                const Real* time, const int* bc,
-                                                const int* stateID);
-
-}
-
-class ChemBndryFunc
-  :
-  public BndryFunc
-{
-public:
-  //
-  // Bogus constructor.
-  //
-  ChemBndryFunc()
-    :
-    m_func(0),
-    m_stateID(-1) {}
-  //
-  // Constructor.
-  //
-  ChemBndryFunc (ChemBndryFunc_FortBndryFunc  inFunc,
-                 const std::string& stateName)
-    :
-    m_func(inFunc),
-    m_stateName(stateName)
-    {
-      m_stateID = getStateID(m_stateName);
-      BL_ASSERT(m_stateID >= 0);
-    }
-  ChemBndryFunc (ChemBndryFunc3D_FortBndryFunc  inFunc,
-                 const std::string& stateName)
-    :
-    m_func3D(inFunc),
-    m_stateName(stateName)
-    {
-      m_stateID = getStateID(m_stateName);
-      BL_ASSERT(m_stateID >= 0);
-    }
-
-  //
-  // Another Constructor which sets "regular" and "group" fill routines..
-  //
-  ChemBndryFunc (ChemBndryFunc_FortBndryFunc  inFunc,
-                 const std::string&           stateName,
-                 BndryFuncDefault             gFunc)
-    :
-    BndryFunc(gFunc,gFunc),
-    m_func(inFunc),
-    m_stateName(stateName)
-    {
-      m_stateID = getStateID(m_stateName);
-      BL_ASSERT(m_stateID >= 0);
-    }
-  ChemBndryFunc (ChemBndryFunc3D_FortBndryFunc  inFunc,
-                 const std::string&           stateName,
-                 BndryFunc3DDefault             gFunc)
-    :
-    BndryFunc(gFunc,gFunc),
-    m_func3D(inFunc),
-    m_stateName(stateName)
-    {
-      m_stateID = getStateID(m_stateName);
-      BL_ASSERT(m_stateID >= 0);
-    }
-  //
-  // Destructor.
-  //
-  virtual ~ChemBndryFunc ()  override {}
-    
-  virtual StateDescriptor::BndryFunc* clone () const override
-    {
-      //
-      // Bitwise copy ok here, no copy ctr required.
-      //
-      return new ChemBndryFunc(*this);
-    }
-  //
-  // Fill boundary cells the "regular" way.
-  // The other virtual function in BndryFunc will
-  // give us the appropriate call for "group" fills.
-  //
-  virtual void operator () (Real* data, const int* lo, const int* hi,
-                            const int* dom_lo, const int* dom_hi,
-                            const Real* dx, const Real* grd_lo,
-                            const Real* time, const int* bc) const override
-    {
-      BL_ASSERT(m_func != 0 || m_func3D != 0);
-      if (m_func != 0)
-         m_func(data,AMREX_ARLIM(lo),AMREX_ARLIM(hi),dom_lo,dom_hi,dx,grd_lo,time,bc,&m_stateID);
-      else
-         m_func3D(data,AMREX_ARLIM_3D(lo),AMREX_ARLIM_3D(hi),AMREX_ARLIM_3D(dom_lo),AMREX_ARLIM_3D(dom_hi),
-                  AMREX_ZFILL(dx),AMREX_ZFILL(grd_lo),time,bc,&m_stateID);
-    }
-  //
-  // Fill boundary cells using "group" function.
-  //
-  virtual void operator () (Real* data, const int* lo, const int* hi,
-                            const int* dom_lo, const int* dom_hi,
-                            const Real* dx, const Real* grd_lo,
-                            const Real* time, const int* bc, int ng) const override
-    {
-      BndryFunc::operator()(data, lo, hi, dom_lo, dom_hi, dx, grd_lo, time, bc, ng);
-    }
-  //
-  // Access.
-  //
-  int getStateID () const { return m_stateID;}
-  const std::string& getStateName () const { return m_stateName;}
-  ChemBndryFunc_FortBndryFunc getBndryFunc () const  { return m_func;}
-  ChemBndryFunc3D_FortBndryFunc getBndryFunc3D () const  { return m_func3D;}
-
-protected:
-
-  static int getStateID (const std::string& stateName)
-    {
-      Vector<std::string> names;
-      EOS::speciesNames(names);
-      for (int i=0; i<names.size(); i++)
-        if (names[i] == stateName)
-          return i;
-      return -1;
-    }
-    
-private:
-
-  ChemBndryFunc_FortBndryFunc   m_func = nullptr;
-  ChemBndryFunc3D_FortBndryFunc m_func3D = nullptr;
-  std::string                   m_stateName;
-  int                           m_stateID;
-};
-
-*/
-
 //
 // Indices of fuel and oxidizer -- ParmParsed in & used in a couple places.
 //
@@ -508,24 +356,10 @@ PeleLM::variableSetUp ()
   transport_init();
 
   BCRec bc;
+
   //
   // Set state variable Id's (Density and velocities set already).
   //
-
-/*
-  int counter   = Density;
-
-  first_spec = ++counter;
-  nspecies = NUM_SPECIES;
-  nreactions = NUM_REACTIONS;
-  counter  += nspecies - 1;
-  RhoH = ++counter;
-  Temp = ++counter;
-  RhoRT = ++counter;
-
-  NUM_STATE = ++counter;
-  NUM_SCALARS = NUM_STATE - Density;
-*/
 
   first_spec = DEF_first_spec;
   RhoH = DEF_RhoH;
@@ -534,8 +368,6 @@ PeleLM::variableSetUp ()
   NUM_STATE = DEF_NUM_STATE;
   NUM_SCALARS = DEF_NUM_SCALARS;
 
-
-
   nspecies = NUM_SPECIES;
   nreactions = NUM_REACTIONS;
 
@@ -543,8 +375,8 @@ PeleLM::variableSetUp ()
   EOS::speciesNames(spec_names);
 
   amrex::Print() << nreactions << " Reactions in mechanism \n";
-  amrex::Print() << nspecies << " Chemical species interpreted:\n { ";
-  for (int i = 0; i < nspecies; i++)
+  amrex::Print() << NUM_SPECIES << " Chemical species interpreted:\n { ";
+  for (int i = 0; i < NUM_SPECIES; i++)
     amrex::Print() << spec_names[i] << ' ' << ' ';
   amrex::Print() << '}' << '\n' << '\n';
 
@@ -567,12 +399,6 @@ PeleLM::variableSetUp ()
   //
   std::string speciesScaleFile; ppns.query("speciesScaleFile",speciesScaleFile);
 
-  // Fill spec_scalY that is not used anywhere anymore: FIXME 
-  //if (! speciesScaleFile.empty())
-  //{
-  //  amrex::Print() << "  Setting scale values for chemical species\n\n";
-  //  getChemSolve().set_species_Yscales(speciesScaleFile);
-  //}
   int verbose_vode=0; ppns.query("verbose_vode",verbose_vode);
   if (verbose_vode!=0)
     pphys_set_verbose_vode();
@@ -594,7 +420,7 @@ PeleLM::variableSetUp ()
   else {flag_active_control = 0;}
   
   set_prob_spec(dm,DefaultGeometry().ProbLo(),DefaultGeometry().ProbHi(),
-                &bathID, &fuelID, &oxidID, &prodID, &nspecies,flag_active_control);
+                &bathID, &fuelID, &oxidID, &prodID, &nspecies, flag_active_control);
   //
   // Get a species to use as a flame tracker.
   //
@@ -636,22 +462,14 @@ PeleLM::variableSetUp ()
                         bcs,
                         pelelm_bndryfunc);
 
-
-
-
   //
   // **************  DEFINE SCALAR VARIABLES  ********************
   //
   // Set range of combination limit to include rho, rhoh and species, if they exist
   //
-  //int combinLimit_lo = static_cast<int>(Density);
-  //int combinLimit_hi = std::max(combinLimit_lo, RhoH);
   set_scalar_bc(bc,phys_bc);
   desc_lst.setComponent(State_Type,Density,"density",bc,pelelm_bndryfunc,
                         &cell_cons_interp);
-
-//  desc_lst.setComponent(State_Type,Density,"density",bc,pelelm_bndryfunc,
-//                        &cell_cons_interp);
 
   //
   // **************  DEFINE RHO*H  ********************
@@ -667,26 +485,23 @@ PeleLM::variableSetUp ()
   //
   // ***************  DEFINE SPECIES **************************
   //
-  bcs.resize(nspecies);
-  name.resize(nspecies);
+  bcs.resize(NUM_SPECIES);
+  name.resize(NUM_SPECIES);
 
   set_species_bc(bc,phys_bc);
 
-  for (int i = 0; i < nspecies; i++)
+  for (int i = 0; i < NUM_SPECIES; i++)
   {
     bcs[i]  = bc;
     name[i] = "rho.Y(" + spec_names[i] + ")";
-}
-    desc_lst.setComponent(State_Type,
-                          first_spec,
-                          name,
-                          bcs,
-                          pelelm_bndryfunc,
-                          &cell_cons_interp);
+  }
+  desc_lst.setComponent(State_Type,
+                        first_spec,
+                        name,
+                        bcs,
+                        pelelm_bndryfunc,
+                        &cell_cons_interp);
           
-
-  
-
   //
   // ***************  DEFINE TRACER and RhoRT **************************
   //
@@ -726,7 +541,7 @@ PeleLM::variableSetUp ()
   advectionType[RhoH] = Conservative;
   diffusionType[RhoH] = Laplacian_SoverRho;
 
-  for (int i = 0; i < nspecies; ++i)
+  for (int i = 0; i < NUM_SPECIES; ++i)
   {
     advectionType[first_spec + i] = Conservative;
     diffusionType[first_spec + i] = Laplacian_SoverRho;
@@ -821,7 +636,7 @@ PeleLM::variableSetUp ()
   //
   derive_lst.add("molweight",IndexType::TheCellType(),1,pelelm_dermolweight,the_same_box);
   derive_lst.addComponent("molweight",desc_lst,State_Type,Density,1);
-  derive_lst.addComponent("molweight",desc_lst,State_Type,first_spec,nspecies);
+  derive_lst.addComponent("molweight",desc_lst,State_Type,first_spec,NUM_SPECIES);
   
   //
   // Mixture heat capacity
@@ -829,22 +644,22 @@ PeleLM::variableSetUp ()
   derive_lst.add("cpmix",IndexType::TheCellType(),1,pelelm_dercpmix,the_same_box);
   derive_lst.addComponent("cpmix",desc_lst,State_Type,Density,1);
   derive_lst.addComponent("cpmix",desc_lst,State_Type,Temp,1);
-  derive_lst.addComponent("cpmix",desc_lst,State_Type,first_spec,nspecies);
+  derive_lst.addComponent("cpmix",desc_lst,State_Type,first_spec,NUM_SPECIES);
   
   //
   // Group Species Rho.Y (for ploting in plot file)
   //
-  Vector<std::string> var_names_rhoY(nspecies);
-  for (int i = 0; i < nspecies; i++)
+  Vector<std::string> var_names_rhoY(NUM_SPECIES);
+  for (int i = 0; i < NUM_SPECIES; i++)
     var_names_rhoY[i] = "rho.Y("+spec_names[i]+")";
-  derive_lst.add("rhoY",IndexType::TheCellType(),nspecies,
+  derive_lst.add("rhoY",IndexType::TheCellType(),NUM_SPECIES,
                  var_names_rhoY,pelelm_derRhoY,the_same_box);
-  derive_lst.addComponent("rhoY",desc_lst,State_Type,first_spec,nspecies);
+  derive_lst.addComponent("rhoY",desc_lst,State_Type,first_spec,NUM_SPECIES);
   
   //
   // Individual Species mass fractions (for error tag with tracer)
   //
-  for (int i = 0; i < nspecies; i++)
+  for (int i = 0; i < NUM_SPECIES; i++)
   {
     const std::string chname = "Y("+spec_names[i]+")";
     derive_lst.add(chname,IndexType::TheCellType(),1,pelelm_derdvrho,the_same_box);
@@ -854,64 +669,64 @@ PeleLM::variableSetUp ()
   //
   // Group Species mass fractions (for ploting in plot file)
   //
-  Vector<std::string> var_names_massfrac(nspecies);
-  for (int i = 0; i < nspecies; i++)
+  Vector<std::string> var_names_massfrac(NUM_SPECIES);
+  for (int i = 0; i < NUM_SPECIES; i++)
     var_names_massfrac[i] = "Y("+spec_names[i]+")";
-  derive_lst.add("mass_fractions",IndexType::TheCellType(),nspecies,
+  derive_lst.add("mass_fractions",IndexType::TheCellType(),NUM_SPECIES,
                  var_names_massfrac,pelelm_dermassfrac,the_same_box);
   derive_lst.addComponent("mass_fractions",desc_lst,State_Type,Density,1);
-  derive_lst.addComponent("mass_fractions",desc_lst,State_Type,first_spec,nspecies);
+  derive_lst.addComponent("mass_fractions",desc_lst,State_Type,first_spec,NUM_SPECIES);
 
   //
   // Species mole fractions
   //
-  Vector<std::string> var_names_molefrac(nspecies);
-  for (int i = 0; i < nspecies; i++)
+  Vector<std::string> var_names_molefrac(NUM_SPECIES);
+  for (int i = 0; i < NUM_SPECIES; i++)
     var_names_molefrac[i] = "X("+spec_names[i]+")";
-  derive_lst.add("mole_fractions",IndexType::TheCellType(),nspecies,
+  derive_lst.add("mole_fractions",IndexType::TheCellType(),NUM_SPECIES,
                  var_names_molefrac,pelelm_dermolefrac,the_same_box);
   derive_lst.addComponent("mole_fractions",desc_lst,State_Type,Density,1);
-  derive_lst.addComponent("mole_fractions",desc_lst,State_Type,first_spec,nspecies);
+  derive_lst.addComponent("mole_fractions",desc_lst,State_Type,first_spec,NUM_SPECIES);
 
   //
   // Species concentrations
   //
-  Vector<std::string> var_names_conc(nspecies);
-  for (int i = 0; i < nspecies; i++)
+  Vector<std::string> var_names_conc(NUM_SPECIES);
+  for (int i = 0; i < NUM_SPECIES; i++)
     var_names_conc[i] = "C("+spec_names[i]+")";
-  derive_lst.add("concentration",IndexType::TheCellType(),nspecies,
+  derive_lst.add("concentration",IndexType::TheCellType(),NUM_SPECIES,
                  var_names_conc,pelelm_derconcentration,the_same_box);
   derive_lst.addComponent("concentration",desc_lst,State_Type,Density,1);
   derive_lst.addComponent("concentration",desc_lst,State_Type,Temp,1);
   derive_lst.addComponent("concentration",desc_lst,State_Type,
-                          first_spec,nspecies);
+                          first_spec,NUM_SPECIES);
 
   //
   // Derive transport coefficients
   //
-  Vector<std::string> var_names_transp_coeff(nspecies+2);
-  for (int i = 0; i < nspecies; i++)
+  Vector<std::string> var_names_transp_coeff(NUM_SPECIES+2);
+  for (int i = 0; i < NUM_SPECIES; i++)
     var_names_transp_coeff[i] = "D_Y("+spec_names[i]+")";
-  var_names_transp_coeff[nspecies] = "Lambda";
-  var_names_transp_coeff[nspecies+1] = "Mu";
-  derive_lst.add("cc_transport_coeffs",IndexType::TheCellType(),nspecies+2,
+  var_names_transp_coeff[NUM_SPECIES] = "Lambda";
+  var_names_transp_coeff[NUM_SPECIES+1] = "Mu";
+  derive_lst.add("cc_transport_coeffs",IndexType::TheCellType(),NUM_SPECIES+2,
                  var_names_transp_coeff,pelelm_dertransportcoeff,the_same_box);
   derive_lst.addComponent("cc_transport_coeffs",desc_lst,State_Type,Density,1);
   derive_lst.addComponent("cc_transport_coeffs",desc_lst,State_Type,Temp,1);
   derive_lst.addComponent("cc_transport_coeffs",desc_lst,State_Type,
-                          first_spec,nspecies);
+                          first_spec,NUM_SPECIES);
 
 
 
 
-  if (nspecies > 0)
+  if (NUM_SPECIES > 0)
   {
     //
     // rho-sum rhoY.
     //
     derive_lst.add("rhominsumrhoY",IndexType::TheCellType(),1,pelelm_drhomry,the_same_box);
     derive_lst.addComponent("rhominsumrhoY",desc_lst,State_Type,Density,1);
-    for (int i = 0; i < nspecies; i++)
+    for (int i = 0; i < NUM_SPECIES; i++)
     {
       const int comp = first_spec + i;
       derive_lst.addComponent("rhominsumrhoY",desc_lst,State_Type,comp,1);
@@ -921,7 +736,7 @@ PeleLM::variableSetUp ()
   // Sum rhoYdot
   //
   derive_lst.add("sumRhoYdot",IndexType::TheCellType(),1,pelelm_dsrhoydot,the_same_box);
-  for (int i = 0; i < nspecies; i++)
+  for (int i = 0; i < NUM_SPECIES; i++)
   {
     derive_lst.addComponent("sumRhoYdot",desc_lst,RhoYdot_Type,i,1);
   }
@@ -1036,7 +851,7 @@ PeleLM::variableSetUp ()
   derive_lst.add("UserDefined",IndexType::TheCellType(),1,derUserDefined,the_same_box);
   derive_lst.addComponent("UserDefined",desc_lst,State_Type,Xvel,BL_SPACEDIM);
   derive_lst.addComponent("UserDefined",desc_lst,State_Type,Density,1);
-  derive_lst.addComponent("UserDefined",desc_lst,State_Type,first_spec,nspecies);
+  derive_lst.addComponent("UserDefined",desc_lst,State_Type,first_spec,NUM_SPECIES);
   derive_lst.addComponent("UserDefined",desc_lst,State_Type,Temp,1);
 
 
