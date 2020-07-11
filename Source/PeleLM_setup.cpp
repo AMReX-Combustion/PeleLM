@@ -936,10 +936,6 @@ PeleLM::variableSetUp ()
   //
   // **************  DEFINE DERIVED QUANTITIES ********************
   //
-  // Divergence of velocity field.
-  //
-  derive_lst.add("diveru",IndexType::TheCellType(),1,DeriveFunc3D(dermgdivu),grow_box_by_one);
-  derive_lst.addComponent("diveru",desc_lst,State_Type,Xvel,AMREX_SPACEDIM);
   //
   // average pressure
   //
