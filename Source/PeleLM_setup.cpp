@@ -368,9 +368,7 @@ PeleLM::variableSetUp ()
   NUM_STATE = DEF_NUM_STATE;
   NUM_SCALARS = DEF_NUM_SCALARS;
 
-  nspecies = NUM_SPECIES;
   nreactions = NUM_REACTIONS;
-
 
   EOS::speciesNames(spec_names);
 
@@ -403,14 +401,7 @@ PeleLM::variableSetUp ()
   if (verbose_vode!=0)
     pphys_set_verbose_vode();
 
-  int fuelID = getSpeciesIdx(fuelName);
-  int oxidID = getSpeciesIdx(oxidizerName);
-  int prodID = getSpeciesIdx(productName);
-  int bathID = getSpeciesIdx("N2");
-
   amrex::Print() << " fuel name " << fuelName << std::endl;
-  amrex::Print() << " index for fuel and oxidizer " << fuelID << " " << oxidID << std::endl;
-  amrex::Print() << " index for bath " << bathID << std::endl;
 
   int dm = BL_SPACEDIM;
   int flag_active_control = 0;
@@ -419,8 +410,6 @@ PeleLM::variableSetUp ()
     flag_active_control = 1;}
   else {flag_active_control = 0;}
   
-  set_prob_spec(dm,DefaultGeometry().ProbLo(),DefaultGeometry().ProbHi(),
-                &bathID, &fuelID, &oxidID, &prodID, &nspecies, flag_active_control);
   //
   // Get a species to use as a flame tracker.
   //
