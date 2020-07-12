@@ -24,9 +24,8 @@ module PeleLM_F
 
   private
 
-  public :: set_ht_adim_common, get_pamb, &
-            active_control, &
-            set_prob_spec
+  public :: get_pamb, &
+            active_control
 
 contains
 
@@ -82,27 +81,6 @@ contains
     verbose = 5
 
   end subroutine pphys_set_verbose_vode
-
-!------------------------------------------
-
-  subroutine set_ht_adim_common(thickeningfac, &
-                                prandtl, schmidt, unityLe) &
-                                bind(C, name="set_ht_adim_common") 
-
-    use mod_Fvar_def, only : Pr, Sc, LeEQ1, thickFac
-    
-    implicit none
-
-    REAL_T thickeningfac, prandtl, schmidt
-    integer unityLe
-
-
-    Pr = prandtl
-    Sc = schmidt
-    LeEQ1 = unityLe .ne. 0
-    thickFac = MAX(one,thickeningfac)
-
-  end subroutine set_ht_adim_common
 
 !----------------------------------------
 
@@ -370,46 +348,5 @@ contains
 
 
   end subroutine active_control
-
-!-------------------------------------
-
-  subroutine set_prob_spec(dm,problo_in, probhi_in,&
-                           bath, fuel, oxid, prod, numspec, &
-                           flag_active_control)  bind(C, name="set_prob_spec")
- 
-      use mod_Fvar_def, only: domnlo, domnhi
-      use mod_Fvar_def, only: bathID, fuelID, oxidID, prodID
-      use mod_Fvar_def, only: f_flag_active_control
-
-      implicit none
-
-      integer, intent(in) :: dm, flag_active_control
-      double precision, intent(in) :: problo_in(dm), probhi_in(dm)
-
-      integer bath, fuel, oxid, prod, numspec
-
-      ! Passing dimensions of problem from Cpp to Fortran
-      if (dm .ne. dim) then
-         call bl_pd_abort('dimension not right')
-      endif
-      domnlo(1:dm) = problo_in(1:dm)
-      domnhi(1:dm) = probhi_in(1:dm)
-      f_flag_active_control = flag_active_control
-
-      
-      ! Passing Cpp to Fortran for chemistry
-      fuelID = fuel + 1
-      oxidID = oxid + 1
-      prodID = prod + 1
-      if (bath .lt. 0 .or. bath .ge. NUM_SPECIES) then
-         call bl_pd_abort('no N2 species present in mechanism')
-      endif
-      bathID = bath + 1
-
-      if (numspec .ne. NUM_SPECIES) then
-         call bl_pd_abort('number of species not consistent')
-      endif
-      
-  end subroutine set_prob_spec
 
 end module PeleLM_F

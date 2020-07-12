@@ -1082,11 +1082,6 @@ PeleLM::init_once ()
    const int density = (int)Density;
 
    //
-   // Load constants from Fortran module to thickenig factor, etc.
-   //
-   set_ht_adim_common( &constant_thick_val, &prandtl, &schmidt, &unity_Le);
-
-   //
    // make space for typical values
    //
    typical_values.resize(NUM_STATE,-1); // -ve means don't use for anything

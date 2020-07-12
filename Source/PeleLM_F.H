@@ -46,9 +46,6 @@ extern "C" {
 
    void get_pamb(amrex::Real* pamb);
 
-   void set_ht_adim_common(const amrex::Real* thickFacVal,
-                           const amrex::Real* Pr, const amrex::Real* Sc, const int* unityLe);
-
    void part_cnt_err(BL_FORT_IFAB_ARG_ANYD(tag),
                      const int* tagval, const int* clearval,
                      BL_FORT_FAB_ARG_ANYD(data),
@@ -102,14 +99,6 @@ extern "C" {
                   const amrex::Real* dx, const amrex::Real* xlo,
                   const amrex::Real* prob_lo, const amrex::Real* time,
                   const int* level);
-
-   void set_prob_spec (const int& dm,
-                       const amrex::Real* problo, const amrex::Real* probhi,
-                       const int* bathID,  const int* fuelID,
-                       const int* oxidID,
-                       const int* prodID,
-                       const int* numspec,
-                       const int& flag_active_control);
 
    void dcma_error(BL_FORT_IFAB_ARG_ANYD(tag),
                    const int* tagval, const int* clearval,
