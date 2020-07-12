@@ -166,13 +166,7 @@ pelelm_initdata (int i, int j, int k,
     {
 
 #if ( AMREX_SPACEDIM == 2 ) 
-//         pert = ProbParm::pertmag * (1.000 * std::sin(2*Pi*4*x/L_x) &
-//                                   + 1.023 * std::sin(2*Pi*2*(x-.004598)/L_x) &
-//                                   + 0.945 * std::sin(2*Pi*3*(x-.00712435)/L_x)  &
-//                                   + 1.017 * std::sin(2*Pi*5*(x-.0033)/L_x)  &
-//                                   +  .982 * std::sin(2*Pi*5*(x-.014234)/L_x) );
-
-pert = ProbParm::pertmag * 
+       pert = ProbParm::pertmag * 
              (1.0 * std::sin(2 * Pi * 4 * x / L_x) +
               1.023 * std::sin(2 * Pi * 2 * (x - 0.4598) / L_x) +
               0.945 * std::sin(2 * Pi * 3 * (x - 0.712435) / L_x) +
@@ -185,20 +179,15 @@ pert = ProbParm::pertmag *
     y1 = (y - ProbParm::standoff - 0.5*dx[1] + pert)*100;
     y2 = (y - ProbParm::standoff + 0.5*dx[1] + pert)*100;
 #elif ( AMREX_SPACEDIM == 3 ) 
-//         pert = ProbParm::pertmag * (1.000 * std::sin(2*Pi*4*x/L_x)             * std::sin(2*Pi*5*y/L_y) &
-//                                   + 1.023 * std::sin(2*Pi*2*(x-.004598)/L_x)   * std::sin(2*Pi*4*(y-.0053765)/L_y) &
-//                                   + 0.945 * std::sin(2*Pi*3*(x-.00712435)/L_x) * std::sin(2*Pi*3*(y-.02137)/L_y)  &
-//                                   + 1.017 * std::sin(2*Pi*5*(x-.0033)/L_x)     * std::sin(2*Pi*6*(y-.018)/L_y)  &
-//                                   +  .982 * std::sin(2*Pi*5*(x-.014234)/L_x) );
-pert = ProbParm::pertmag *
+       pert = ProbParm::pertmag *
              (1.0 * std::sin(2 * Pi * 4 * x / L_x) *
                 std::sin(2 * Pi * 5 * y / L_y) +
               1.023 * std::sin(2 * Pi * 2 * (x - 0.4598) / L_x) *
-                std::sin(2 * PI * 4 * (y - 0.53765) / L_y) +
+                std::sin(2 * Pi * 4 * (y - 0.53765) / L_y) +
               0.945 * std::sin(2 * Pi * 3 * (x - 0.712435) / L_x) *
-                std::sin(2 * PI * 3 * (y - 2.137) / L_y) +
+                std::sin(2 * Pi * 3 * (y - 2.137) / L_y) +
               1.017 * std::sin(2 * Pi * 5 * (x - 0.33) / L_x) *
-                std::sin(2 * PI * 6 * (y - 1.8) / L_y) +
+                std::sin(2 * Pi * 6 * (y - 1.8) / L_y) +
               0.982 * std::sin(2 * Pi * 5 * (x - 1.4234) / L_x));
 
 

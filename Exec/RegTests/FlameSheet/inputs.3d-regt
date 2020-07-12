@@ -108,6 +108,13 @@ ns.do_fillPatchUMAC=1
 ns.zeroBndryVisc=1
 ns.num_divu_iters =3
 
+# ------------------  INPUTS TO CVODE CHEMISTRY ----------------------
+#peleLM.use_typ_vals_chem = 1
+#peleLM.relative_tol_chem = 1.0e-8
+#peleLM.absolute_tol_chem = 1.0e-6
+cvode.solve_type = dense
+ode.analytical_jacobian = 0
+
 # ------------------  INPUTS TO GODUNOV CLASS ----------------------
 godunov.slope_order = 4
 
@@ -161,11 +168,6 @@ proj.v = 1
 ns.do_group_bndry_fills = 1
 
 cg.cg_solver=1
-
-# Select CVODE Jacobian eval: 0=FD 1=AJ
-ns.cvode_iJac = 1
-# Choose between sparse (5) dense (1) or iterative (99) solver
-ns.cvode_iDense = 1
 
 #
 # Select form of FAB output: default is NATIVE
