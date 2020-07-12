@@ -3,11 +3,13 @@
 
 #include <AMReX_Geometry.H>
 #include <AMReX_FArrayBox.H>
-#include "pelelm_prob_parm.H"
+#include <AMReX_ParmParse.H>
+
+#include <pelelm_prob_parm.H>
 
 #include <NavierStokesBase.H>
 #include <IndexDefines.H>
-
+#include <EOS.H>
 
 AMREX_GPU_HOST_DEVICE
 AMREX_FORCE_INLINE
@@ -148,7 +150,7 @@ pelelm_initdata (int i, int j, int k,
     const amrex::Real y = prob_lo[1] + (j+0.5)*dx[1];
     const amrex::Real x = prob_lo[0] + (i+0.5)*dx[0];
 
-    constexpr amrex::Real Pi = 3.14159265358979323846264338327950288_rt;
+    constexpr amrex::Real Pi = 3.14159265358979323846264338327950288;
     const amrex::Real L_x = prob_hi[0] - prob_lo[0];
     const amrex::Real L_y = prob_hi[1] - prob_lo[1];
 
@@ -156,7 +158,7 @@ pelelm_initdata (int i, int j, int k,
     amrex::Real u[3] = {0.0};
     amrex::Real molefrac[NUM_SPECIES] = {0.0};
     amrex::Real massfrac[NUM_SPECIES] = {0.0};
-    amrex::Real pert, rho, energy, T, pres;
+    amrex::Real pert;
     amrex::Real y1, y2;
 
     pert = 0.0;
@@ -164,25 +166,47 @@ pelelm_initdata (int i, int j, int k,
     {
 
 #if ( AMREX_SPACEDIM == 2 ) 
-         pert = ProbParm::pertmag * (1.000 * std::sin(2*Pi*4*x/L_x) &
-                                   + 1.023 * std::sin(2*Pi*2*(x-.004598)/L_x) &
-                                   + 0.945 * std::sin(2*Pi*3*(x-.00712435)/L_x)  &
-                                   + 1.017 * std::sin(2*Pi*5*(x-.0033)/L_x)  &
-                                   +  .982 * std::sin(2*Pi*5*(x-.014234)/L_x) );
+//         pert = ProbParm::pertmag * (1.000 * std::sin(2*Pi*4*x/L_x) &
+//                                   + 1.023 * std::sin(2*Pi*2*(x-.004598)/L_x) &
+//                                   + 0.945 * std::sin(2*Pi*3*(x-.00712435)/L_x)  &
+//                                   + 1.017 * std::sin(2*Pi*5*(x-.0033)/L_x)  &
+//                                   +  .982 * std::sin(2*Pi*5*(x-.014234)/L_x) );
+
+pert = ProbParm::pertmag * 
+             (1.0 * std::sin(2 * Pi * 4 * x / L_x) +
+              1.023 * std::sin(2 * Pi * 2 * (x - 0.4598) / L_x) +
+              0.945 * std::sin(2 * Pi * 3 * (x - 0.712435) / L_x) +
+              1.017 * std::sin(2 * Pi * 5 * (x - 0.33) / L_x) +
+              0.982 * std::sin(2 * Pi * 5 * (x - 1.4234) / L_x));
+
+
     }
 
-    y1 = (y - ProbParm::standoff - 0.5d0*dx[1] + pert)*100;
-    y2 = (y - ProbParm::standoff + 0.5d0*dx[1] + pert)*100;
+    y1 = (y - ProbParm::standoff - 0.5*dx[1] + pert)*100;
+    y2 = (y - ProbParm::standoff + 0.5*dx[1] + pert)*100;
 #elif ( AMREX_SPACEDIM == 3 ) 
-         pert = ProbParm::pertmag * (1.000 * std::sin(2*Pi*4*x/L_x)             * std::sin(2*Pi*5*y/L_y) &
-                                   + 1.023 * std::sin(2*Pi*2*(x-.004598)/L_x)   * std::sin(2*Pi*4*(y-.0053765)/L_y) &
-                                   + 0.945 * std::sin(2*Pi*3*(x-.00712435)/L_x) * std::sin(2*Pi*3*(y-.02137)/L_y)  &
-                                   + 1.017 * std::sin(2*Pi*5*(x-.0033)/L_x)     * std::sin(2*Pi*6*(y-.018)/L_y)  &
-                                   +  .982 * std::sin(2*Pi*5*(x-.014234)/L_x) );
+//         pert = ProbParm::pertmag * (1.000 * std::sin(2*Pi*4*x/L_x)             * std::sin(2*Pi*5*y/L_y) &
+//                                   + 1.023 * std::sin(2*Pi*2*(x-.004598)/L_x)   * std::sin(2*Pi*4*(y-.0053765)/L_y) &
+//                                   + 0.945 * std::sin(2*Pi*3*(x-.00712435)/L_x) * std::sin(2*Pi*3*(y-.02137)/L_y)  &
+//                                   + 1.017 * std::sin(2*Pi*5*(x-.0033)/L_x)     * std::sin(2*Pi*6*(y-.018)/L_y)  &
+//                                   +  .982 * std::sin(2*Pi*5*(x-.014234)/L_x) );
+pert = ProbParm::pertmag *
+             (1.0 * std::sin(2 * Pi * 4 * x / L_x) *
+                std::sin(2 * Pi * 5 * y / L_y) +
+              1.023 * std::sin(2 * Pi * 2 * (x - 0.4598) / L_x) *
+                std::sin(2 * PI * 4 * (y - 0.53765) / L_y) +
+              0.945 * std::sin(2 * Pi * 3 * (x - 0.712435) / L_x) *
+                std::sin(2 * PI * 3 * (y - 2.137) / L_y) +
+              1.017 * std::sin(2 * Pi * 5 * (x - 0.33) / L_x) *
+                std::sin(2 * PI * 6 * (y - 1.8) / L_y) +
+              0.982 * std::sin(2 * Pi * 5 * (x - 1.4234) / L_x));
+
+
+
     }
 
-    y1 = (z - ProbParm::standoff - 0.5d0*dx[2] + pert)*100;
-    y2 = (z - ProbParm::standoff + 0.5d0*dx[2] + pert)*100;
+    y1 = (z - ProbParm::standoff - 0.5*dx[2] + pert)*100;
+    y2 = (z - ProbParm::standoff + 0.5*dx[2] + pert)*100;
 #endif
 
     pmf(y1, y2, pmf_vals);
@@ -218,7 +242,58 @@ pelelm_initdata (int i, int j, int k,
       state(i,j,k,DEF_first_spec+n) = massfrac[n] * state(i,j,k,Density);
     }
 
+}
 
+
+AMREX_GPU_DEVICE
+AMREX_FORCE_INLINE
+void
+bcnormal(
+  const amrex::Real x[AMREX_SPACEDIM],
+  amrex::Real s_ext[DEF_NUM_STATE],
+  const int idir,
+  const int sgn,
+  const amrex::Real time,
+  amrex::GeometryData const& geomdata)
+{
+  const amrex::Real* prob_lo = geomdata.ProbLo();
+  const amrex::Real* prob_hi = geomdata.ProbHi();
+  amrex::GpuArray<amrex::Real, NUM_SPECIES + 4> pmf_vals = {0.0};
+  amrex::Real molefrac[NUM_SPECIES] = {0.0};
+  amrex::Real massfrac[NUM_SPECIES] = {0.0};
+
+  if (sgn == 1) {
+    pmf(prob_hi[idir], prob_hi[idir], pmf_vals);
+
+    s_ext[Xvel] = 0.0;
+#if ( AMREX_SPACEDIM == 2 )
+    s_ext[Yvel] = pmf_vals[1]*1e-2;
+#elif (AMREX_SPACEDIM == 3)
+    s_ext[Yvel] = 0.0;
+    s_ext[Zvel] = pmf_vals[1]*1e-2;
+#endif
+
+    s_ext[DEF_Temp] = pmf_vals[0];
+
+    for (int n = 0; n < NUM_SPECIES; n++){
+      molefrac[n] = pmf_vals[3 + n];
+    }
+    EOS::X2Y(molefrac, massfrac);
+
+    amrex::Real rho_cgs, P_cgs, RhoH_temp;
+    P_cgs = ProbParm::P_mean * 10.0;
+
+    EOS::PYT2R(P_cgs, massfrac, s_ext[DEF_Temp], rho_cgs);
+    s_ext[Density] = rho_cgs * 1.0e3;
+
+
+    EOS::TY2H(s_ext[DEF_Temp], massfrac, RhoH_temp);
+    s_ext[DEF_RhoH] = RhoH_temp * 1.0e-4 * s_ext[Density];   // CGS -> MKS conversion
+
+    for (int n = 0; n < NUM_SPECIES; n++) {
+      s_ext[DEF_first_spec+n] = massfrac[n] * s_ext[Density];
+    }
+  }
 
 }
 
