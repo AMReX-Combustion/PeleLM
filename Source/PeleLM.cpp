@@ -1081,7 +1081,6 @@ PeleLM::init_once ()
    //
    const int density = (int)Density;
 
-   set_scal_numb(&density, &Temp, &RhoH, &first_spec, &last_spec);
    //
    // Load constants from Fortran module to thickenig factor, etc.
    //
@@ -4828,8 +4827,6 @@ PeleLM::advance (Real time,
   if (level == 0)
   {
     crse_dt = dt;
-    int thisLevelStep = parent->levelSteps(0);
-    set_common(&time,&thisLevelStep);
   }
 
   if (verbose)

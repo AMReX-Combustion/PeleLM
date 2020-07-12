@@ -44,43 +44,10 @@ extern "C" {
                        const int*  restart,
                        const int*  usetemp);
 
-   void set_scal_numb(const int* Density,
-                      const int* Temp,
-                      const int* RhoH,
-                      const int* FirstSpec,
-                      const int* LastSpec);
-
    void get_pamb(amrex::Real* pamb);
-
-   void divu_fill (BL_FORT_FAB_ARG_ANYD(data),
-                   const int* dom_lo, const int* dom_hi,
-                   const amrex::Real* dx, const amrex::Real* grd_lo,
-                   const amrex::Real* time, const int* bc);
-
-   void dsdt_fill (BL_FORT_FAB_ARG_ANYD(data),
-                   const int* dom_lo, const int* dom_hi,
-                   const amrex::Real* dx, const amrex::Real* grd_lo,
-                   const amrex::Real* time, const int* bc);
-
-   void dqrad_fill (BL_FORT_FAB_ARG_ANYD(data),
-                    const int* dom_lo, const int* dom_hi,
-                    const amrex::Real* dx, const amrex::Real* grd_lo,
-                    const amrex::Real* time, const int* bc);
-
-   void ydot_fill (BL_FORT_FAB_ARG_ANYD(data),
-                   const int* dom_lo, const int* dom_hi,
-                   const amrex::Real* dx, const amrex::Real* grd_lo,
-                   const amrex::Real* time, const int* bc);
-
-   void rhoYdot_fill (BL_FORT_FAB_ARG_ANYD(data),
-                      const int* dom_lo, const int* dom_hi,
-                      const amrex::Real* dx, const amrex::Real* grd_lo,
-                      const amrex::Real* time, const int* bc);
 
    void set_ht_adim_common(const amrex::Real* thickFacVal,
                            const amrex::Real* Pr, const amrex::Real* Sc, const int* unityLe);
-
-   void set_common (const amrex::Real* time, const int* iteration);
 
    void part_cnt_err(BL_FORT_IFAB_ARG_ANYD(tag),
                      const int* tagval, const int* clearval,

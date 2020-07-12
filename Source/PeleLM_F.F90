@@ -24,9 +24,8 @@ module PeleLM_F
 
   private
 
-  public :: set_scal_numb, &
-            set_ht_adim_common, get_pamb, &
-            set_common, active_control, &
+  public :: set_ht_adim_common, get_pamb, &
+            active_control, &
             set_prob_spec
 
 contains
@@ -84,31 +83,6 @@ contains
 
   end subroutine pphys_set_verbose_vode
 
-!------------------------------------  
-  subroutine set_scal_numb(DensityIn, TempIn, RhoHIn, &
-                           FirstSpecIn, LastSpecIn) &
-                           bind(C, name="set_scal_numb")
-
-    use mod_Fvar_def, only : Density, Temp, RhoH, FirstSpec, LastSpec
-    
-    implicit none
-
-    integer DensityIn, TempIn, RhoHIn, FirstSpecIn, LastSpecIn
-
-
-!
-! ::: Remove SPACEDIM from the counter, since those spots contain the
-! ::: velocity, and our INITDATA function below fills the scalar state
-! ::: However, add one since the C++ is 0-based      
-!
-    Density = DensityIn - dim + 1
-    Temp = TempIn - dim + 1
-    RhoH = RhoHIn - dim + 1
-    FirstSpec = FirstSpecIn - dim + 1
-    LastSpec = LastSpecIn - dim + 1
-
-  end subroutine set_scal_numb
-
 !------------------------------------------
 
   subroutine set_ht_adim_common(thickeningfac, &
@@ -145,24 +119,6 @@ contains
   return
 
   end subroutine get_pamb
-
-!=======================================================================
-
-  subroutine set_common(time1,iteration1)bind(C, name="set_common")
-
-    use mod_Fvar_def, only : time, iteration
-
-    implicit none
-
-    REAL_T time1
-    integer iteration1
-
-    time = time1
-    iteration = iteration1
-
-  return
-  
-  end subroutine set_common
 
 !------------------------------------------------------
 
