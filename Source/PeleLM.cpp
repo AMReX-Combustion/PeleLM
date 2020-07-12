@@ -1729,7 +1729,7 @@ PeleLM::initData ()
 #ifdef _OPENMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
-  for (MFIter mfi(S_new); mfi.isValid(); ++mfi)
+  for (MFIter mfi(S_new,TilingIfNotGPU()); mfi.isValid(); ++mfi)
   {
       const Box& box = mfi.validbox();
       auto sfab = S_new.array(mfi);
@@ -1745,7 +1745,6 @@ PeleLM::initData ()
 #endif
       });
   }
-
 
   showMFsub("1D",S_new,stripBox,"1D_S",level);
   
