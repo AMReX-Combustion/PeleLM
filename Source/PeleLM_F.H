@@ -12,12 +12,6 @@ extern "C" {
 
 //PelePhysics stuffs
 
-   void pphys_get_spec_index(int* spec,
-                             int* len,
-                             int* idx);
-
-   void pphys_set_verbose_vode ();
-
    void active_control(const amrex::Real* fuelmass,
                        const amrex::Real* time,
                        const amrex::Real* crsedt,

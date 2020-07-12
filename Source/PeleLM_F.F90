@@ -29,43 +29,6 @@ module PeleLM_F
 
 contains
 
-  integer function pphys_getckspecname(i, coded)
-  
-    use fuego_chemistry, only : L_spec_name
-
-    implicit none
-      
-    integer i
-    integer coded(*)
-    integer names(L_spec_name*NUM_SPECIES)
-    integer j, str_len
-    str_len = 0
-    call cksyms(names, L_spec_name)
-    do j = 1, L_spec_name
-      coded(j) = names(L_spec_name*(i-1)+j)
-    end do
-    do j = 1, L_spec_name
-      if (coded(j).eq.ICHAR(' ')) then
-        str_len = j
-        exit
-      endif 
-    end do
-    pphys_getckspecname = str_len - 1
- 
-  end function pphys_getckspecname
-  
-  subroutine pphys_set_verbose_vode() bind(C, name="pphys_set_verbose_vode")
-
-    use vode_module, only: verbose
-
-    implicit none
-
-    verbose = 5
-
-  end subroutine pphys_set_verbose_vode
-
-!----------------------------------------
-
   subroutine get_pamb(pambout)bind(C, name="get_pamb")
 
     use mod_Fvar_def, only : pamb

@@ -391,10 +391,6 @@ PeleLM::variableSetUp ()
   //
   std::string speciesScaleFile; ppns.query("speciesScaleFile",speciesScaleFile);
 
-  int verbose_vode=0; ppns.query("verbose_vode",verbose_vode);
-  if (verbose_vode!=0)
-    pphys_set_verbose_vode();
-
   amrex::Print() << " fuel name " << fuelName << std::endl;
 
   int dm = BL_SPACEDIM;
