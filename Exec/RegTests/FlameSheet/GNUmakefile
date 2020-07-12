@@ -46,7 +46,7 @@ else
 	
 	# Choose model (from list below), and pmf file
 	Chemistry_Model = drm19
-	fEXE_sources += drm19Soln_seed_0.50.f
+#	fEXE_sources += drm19Soln_seed_0.50.f
 	
 	#Chemistry_Model = LIDRYER
 	#fEXE_sources += LiDryer_040_01ATM.f
@@ -70,7 +70,7 @@ Transport_dir := Simple
 Blocs   := .
 
 CEXE_sources +=
-F90EXE_sources += Prob_nd.F90 probdata.F90
+F90EXE_sources +=
 CEXE_headers += 
 FEXE_headers += 
 

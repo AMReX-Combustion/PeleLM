@@ -543,10 +543,6 @@ private:
 
   static void init_once ();
 
-  static void init_extern ();
-
-  static void init_network ();
-
   static void init_transport (int iEG);
 
   void reactionRateRhoY_pphys(amrex::FArrayBox&       RhoYdot,
@@ -641,8 +637,6 @@ private:
   static int         have_rhort;
   static int         first_spec;
   static int         last_spec;
-  static int         nspecies;
-  static int         nreactions;
   static amrex::Vector<std::string> spec_names;
   static int         floor_species;
   static amrex::Real prandtl;
@@ -683,7 +677,24 @@ private:
 
   static int nGrowAdvForcing;
 
-  static std::string probin_file;
 };
+
+void pelelm_cc_ext_fill (amrex::Box const& bx, amrex::FArrayBox& data,
+                 const int dcomp, const int numcomp,
+                 amrex::Geometry const& geom, const amrex::Real time,
+                 const amrex::Vector<amrex::BCRec>& bcr, const int bcomp,
+                 const int scomp);
+
+void pelelm_press_fill (amrex::Box const& bx, amrex::FArrayBox& data,
+                 const int dcomp, const int numcomp,
+                 amrex::Geometry const& geom, const amrex::Real time,
+                 const amrex::Vector<amrex::BCRec>& bcr, const int bcomp,
+                 const int scomp);
+
+void pelelm_fillEdges  (amrex::Box const& bx, amrex::FArrayBox& data,
+                 const int dcomp, const int numcomp,
+                 amrex::Geometry const& geom, const amrex::Real time,
+                 const amrex::Vector<amrex::BCRec>& bcr, const int bcomp,
+                 const int scomp);
 
 #endif /*_PeleLM_H_*/
