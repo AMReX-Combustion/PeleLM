@@ -21,8 +21,8 @@ struct PeleLMNodalFillExtDir
     const int bcomp,
     const int orig_comp) const
   {
-            // do something for external Dirichlet (BCType::ext_dir)
-        }
+           // do something for external Dirichlet (BCType::ext_dir)
+  }
 };
 
 
@@ -48,8 +48,8 @@ struct PeleLMCCFillExtDir
     const amrex::Real* prob_hi = geom.ProbHi();
     const amrex::Real* dx = geom.CellSize();
     const amrex::Real x[AMREX_SPACEDIM] = {AMREX_D_DECL(
-      prob_lo[0] + (iv[0] + 0.5) * dx[0], prob_lo[1] + (iv[1] + 0.5) * dx[1],
-      prob_lo[2] + (iv[2] + 0.5) * dx[2])};
+    prob_lo[0] + (iv[0] + 0.5) * dx[0], prob_lo[1] + (iv[1] + 0.5) * dx[1],
+    prob_lo[2] + (iv[2] + 0.5) * dx[2])};
 
     const int* bc = bcr->data();
 
@@ -236,9 +236,6 @@ struct PeleLMCCFillExtDir
 
     }
 #endif
-
-
-
  }
 };
 
@@ -267,7 +264,8 @@ void pelelm_fillEdges (Box const& bx, FArrayBox& data,
                  const int scomp)
 {
 
-amrex::Print() << "\n \n HELLO from pelelm_fillEdges \n \n ";
+// The GpuBndryFuncFab routine is not yet supporting Edge Face data.
+// Currently nothing is done, but at this end it does not seem to impact the solution
 
 //        GpuBndryFuncFab<PeleLMFillEdges> gpu_bndry_func(PeleLMFillEdges{});
 //        gpu_bndry_func(bx,data,dcomp,numcomp,geom,time,bcr,bcomp,scomp);

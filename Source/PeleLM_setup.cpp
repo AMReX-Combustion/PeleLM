@@ -368,11 +368,9 @@ PeleLM::variableSetUp ()
   NUM_STATE = DEF_NUM_STATE;
   NUM_SCALARS = DEF_NUM_SCALARS;
 
-  nreactions = NUM_REACTIONS;
-
   EOS::speciesNames(spec_names);
 
-  amrex::Print() << nreactions << " Reactions in mechanism \n";
+  amrex::Print() << NUM_REACTIONS << " Reactions in mechanism \n";
   amrex::Print() << NUM_SPECIES << " Chemical species interpreted:\n { ";
   for (int i = 0; i < NUM_SPECIES; i++)
     amrex::Print() << spec_names[i] << ' ' << ' ';

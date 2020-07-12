@@ -639,7 +639,6 @@ private:
   static int         have_rhort;
   static int         first_spec;
   static int         last_spec;
-  static int         nreactions;
   static amrex::Vector<std::string> spec_names;
   static int         floor_species;
   static amrex::Real prandtl;

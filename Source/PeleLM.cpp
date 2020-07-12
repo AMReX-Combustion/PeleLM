@@ -141,7 +141,6 @@ int  PeleLM::have_rhort;
 int  PeleLM::RhoRT;
 int  PeleLM::first_spec;
 int  PeleLM::last_spec;
-int  PeleLM::nreactions;
 Vector<std::string>  PeleLM::spec_names;
 int  PeleLM::floor_species;
 int  PeleLM::do_set_rho_to_species_sum;
@@ -1164,8 +1163,8 @@ PeleLM::init_once ()
    pp.query("plot_reactions",plot_reactions);
    if (plot_reactions)
    {
-      auxDiag_names["REACTIONS"].resize(nreactions);
-      amrex::Print() << "nreactions "<< nreactions << '\n';
+      auxDiag_names["REACTIONS"].resize(NUM_REACTIONS);
+      amrex::Print() << "NUM_REACTIONS = "<< NUM_REACTIONS << '\n';
       for (int i = 0; i < auxDiag_names["REACTIONS"].size(); ++i)
          auxDiag_names["REACTIONS"][i] = amrex::Concatenate("R",i+1);
       amrex::Print() << "***** Make sure to increase amr.regrid_int !!!!!" << '\n';
