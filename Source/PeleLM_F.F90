@@ -29,24 +29,6 @@ module PeleLM_F
 
 contains
 
-! Init/Close PelePhysics network, reaction. Similar to PeleC.  
-
-  subroutine pphys_network_init() bind(C, name="pphys_network_init")                                                                                         
-
-     use fuego_chemistry, only: network_init
-          
-     call network_init()
-            
-  end subroutine pphys_network_init 
-
-  subroutine pphys_network_close() bind(C, name="pphys_network_close")
-
-     use fuego_chemistry, only: network_close
-
-     call network_close()
-
-  end subroutine pphys_network_close
-
   integer function pphys_getckspecname(i, coded)
   
     use fuego_chemistry, only : L_spec_name

@@ -330,10 +330,6 @@ PeleLM::variableSetUp ()
 
   Initialize();
 
-  /* PelePhysics */
-  amrex::Print() << " Initialization of network (F90)... \n";
-  init_network();
-
   amrex::Print() << " Initialization of reactor... \n";
   int reactor_type = 2;
 #ifdef USE_CUDA_SUNDIALS_PP

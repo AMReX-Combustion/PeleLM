@@ -543,8 +543,6 @@ private:
 
   static void init_once ();
 
-  static void init_network ();
-
   static void init_transport (int iEG);
 
   void reactionRateRhoY_pphys(amrex::FArrayBox&       RhoYdot,

@@ -283,12 +283,6 @@ PeleLM::compute_rhohmix (Real      time,
    }
 }
 
-void
-PeleLM::init_network ()
-{
-	pphys_network_init(); 
-}
-
 int 
 PeleLM::getSpeciesIdx(const std::string& spName)
 {

@@ -12,24 +12,6 @@ extern "C" {
 
 //PelePhysics stuffs
 
-//  int pphys_CONPsolv_SDC(const int* lo, const int* hi,
-//                 amrex::Real* rhoYnew, ARLIM_P(rhoYnlo), ARLIM_P(rhoYnhi),
-//                 amrex::Real* rhoHnew, ARLIM_P(rhoHnlo), ARLIM_P(rhoHnhi),
-//                 amrex::Real* Tnew, ARLIM_P(Tnlo), ARLIM_P(Tnhi),
-//                 const amrex::Real* rhoYold, ARLIM_P(rhoYolo), ARLIM_P(rhoYohi),
-//                 const amrex::Real* rhoHold, ARLIM_P(rhoHolo), ARLIM_P(rhoHohi),
-//                 const amrex::Real* Told, ARLIM_P(Tolo), ARLIM_P(Tohi),
-//                 const amrex::Real* const_src, ARLIM_P(cslo), ARLIM_P(cshi),
-//                 amrex::Real* FuncCount, ARLIM_P(FuncCountlo), ARLIM_P(FuncCounthi),
-//                 const amrex::Real* dt, amrex::Real* diag, 
-//                         const int* do_diag, const int* do_stiff);
-
-   void pphys_network_init();
-
-   void pphys_network_close();
-
-  //void pphys_reactor_close();
-
    void pphys_get_spec_index(int* spec,
                              int* len,
                              int* idx);
