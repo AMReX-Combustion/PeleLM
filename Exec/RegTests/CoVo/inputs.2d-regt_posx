@@ -93,6 +93,14 @@ ns.do_fillPatchUMAC=1
 ns.zeroBndryVisc=1
 ns.num_divu_iters =3
 
+
+# ------------------  INPUTS TO CVODE CHEMISTRY ----------------------
+#peleLM.use_typ_vals_chem = 1
+#peleLM.relative_tol_chem = 1.0e-8
+#peleLM.absolute_tol_chem = 1.0e-6
+cvode.solve_type = dense
+ode.analytical_jacobian = 0
+
 # ----------------  INPUTS TO CONSTANT TRANSPORT -------------------
 transport.const_viscosity = 0.0
 transport.const_bulk_viscosity = 0.0
@@ -164,3 +172,7 @@ fab.format = NATIVE
 
 fabarray.mfiter_tile_size = 8 8 8 
 amrex.regtest_reduction=1
+
+amrex.fpe_trap_invalid=1
+amrex.fpe_trap_overflow=1
+amrex.fpe_trap_zero=1
