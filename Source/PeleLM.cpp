@@ -1746,6 +1746,22 @@ PeleLM::initData ()
       });
   }
 
+// If the FillBoundary is commented, P_new is set-up correctly, with only data in interior nodes
+// but if do we the fill patch operation, it will fill the ghost-cell but put 0 in the first interior node
+#if 0
+P_new.FillBoundary(geom.periodicity());
+#endif
+
+  for (MFIter mfi(P_new,TilingIfNotGPU()); mfi.isValid(); ++mfi)
+  {
+  amrex::Print() << P_new[mfi];
+}
+
+amrex::Abort();
+
+
+
+
   showMFsub("1D",S_new,stripBox,"1D_S",level);
   
 // Here we save a reference state vector to apply it later to covered cells
