@@ -1721,6 +1721,8 @@ PeleLM::initData ()
 #endif
 
   const auto geomdata = geom.data();
+  S_new.setVal(0.0);
+  P_new.setVal(0.0);
 
 #ifdef _OPENMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
@@ -1743,7 +1745,7 @@ PeleLM::initData ()
   }
 
   showMFsub("1D",S_new,stripBox,"1D_S",level);
-  
+ 
 // Here we save a reference state vector to apply it later to covered cells
 // in order to avoid non-physical values after diffusion solves
 // First we have to put Pnew in S_new so as to not impose NaNs for covered cells
