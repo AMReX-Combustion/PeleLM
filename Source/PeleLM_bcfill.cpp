@@ -25,6 +25,23 @@ struct PeleLMNodalFillExtDir
   }
 };
 
+struct PeleLMEdgeFillExtDir
+{
+  AMREX_GPU_DEVICE
+  void operator()(
+    const amrex::IntVect& iv,
+    amrex::Array4<amrex::Real> const& dest,
+    const int dcomp,
+    const int numcomp,
+    amrex::GeometryData const& geom,
+    const amrex::Real time,
+    const amrex::BCRec* bcr,
+    const int bcomp,
+    const int orig_comp) const
+  {
+           // do something for external Dirichlet (BCType::ext_dir)
+  }
+};
 
 struct PeleLMCCFillExtDir
 {
@@ -264,12 +281,11 @@ void pelelm_fillEdges (Box const& bx, FArrayBox& data,
                  const int scomp)
 {
 
-// The GpuBndryFuncFab routine is not yet supporting Edge Face data.
-// Currently nothing is done, but at this end it does not seem to impact the solution
+// The GpuBndryFuncFab routine is not yet supporting Edge Face data
+// but it is called here so that it will automatically work when amrex support will be ok
 
-//        GpuBndryFuncFab<PeleLMFillEdges> gpu_bndry_func(PeleLMFillEdges{});
-//        gpu_bndry_func(bx,data,dcomp,numcomp,geom,time,bcr,bcomp,scomp);
-
+        GpuBndryFuncFab<PeleLMEdgeFillExtDir> gpu_bndry_func(PeleLMEdgeFillExtDir{});
+        gpu_bndry_func(bx,data,dcomp,numcomp,geom,time,bcr,bcomp,scomp);
 
 }
 
