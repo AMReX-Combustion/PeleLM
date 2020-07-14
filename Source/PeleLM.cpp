@@ -5798,7 +5798,7 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
         Real p_local   = 1.0;
         for (int i = 0; i < ncells; i++) {
 #ifdef AMREX_USE_EB             
-            if (tmp_mask(i) != -1 ){   // Regular & cut cells
+            if (tmp_mask[i] != -1 ){   // Regular & cut cells
 #endif
                 tmp_fctCn[i] = react(tmp_vect + i*(NUM_SPECIES+1), tmp_src_vect + i*NUM_SPECIES,
                                    tmp_vect_energy + i, tmp_src_vect_energy + i,
