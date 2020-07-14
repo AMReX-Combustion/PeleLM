@@ -19,7 +19,7 @@ DO_2S_CONVERGENCE=FALSE
 
 USE_EB = FALSE
 
-USE_SUNDIALS_PP = FALSE
+USE_SUNDIALS_PP = TRUE
 ifeq ($(USE_SUNDIALS_PP), TRUE)
   # use KLU sparse features -- only useful if CVODE is used on CPU
   USE_KLU_PP = FALSE
@@ -40,7 +40,6 @@ else
 
   # Choose model (from list below), and pmf file
   Chemistry_Model = drm19
-  fEXE_sources += drm19Soln_seed_0.50.f
 
   #Chemistry_Model = LIDRYER
   #fEXE_sources += LiDryer_040_01ATM.f
@@ -64,7 +63,7 @@ Transport_dir := Simple
 Blocs   := .
 
 CEXE_sources +=
-F90EXE_sources += Prob_nd.F90 probdata.F90
+F90EXE_sources +=
 CEXE_headers += 
 FEXE_headers += 
 
