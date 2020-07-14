@@ -1018,7 +1018,7 @@ makeForce(int i, int j, int k,
       }
    }
    if ( (scomp+ncomp) > AMREX_SPACEDIM - 1) {
-      for (int n = std::max(scomp,AMREX_SPACEDIM); n < scomp+ncomp; n++) {
+      for (int n = amrex::max(scomp,AMREX_SPACEDIM); n < scomp+ncomp; n++) {
          force(i,j,k,n) = 0.0_rt;
       }
    }
