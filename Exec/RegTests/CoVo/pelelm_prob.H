@@ -12,7 +12,7 @@
 AMREX_GPU_DEVICE
 inline
 void
-pelelm_initdata_cc (int i, int j, int k, 
+pelelm_initdata (int i, int j, int k, 
                  amrex::Array4<amrex::Real> const& state,
                  amrex::GeometryData const& geomdata)
 {
@@ -86,21 +86,6 @@ pelelm_initdata_cc (int i, int j, int k,
     }
 
 }
-
-
-AMREX_GPU_DEVICE
-inline
-void
-pelelm_initdata_nodal (int i, int j, int k,
-                 amrex::Array4<amrex::Real> const& pressure,
-                 amrex::GeometryData const& geomdata)
-{
-
-    pressure(i,j,k,0) = ProbParm::P_mean;
-
-}
-
-
 
 AMREX_GPU_DEVICE
 AMREX_FORCE_INLINE
