@@ -5797,9 +5797,7 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
 #ifndef USE_CUDA_SUNDIALS_PP
         Real p_local   = 1.0;
         for (int i = 0; i < ncells; i++) {
-#ifdef AMREX_USE_EB             
-            if (tmp_mask(i) != -1 ){   // Regular & cut cells
-#endif
+            if (tmp_mask[i] != -1 ){   // Regular & cut cells
                 tmp_fctCn[i] = react(tmp_vect + i*(NUM_SPECIES+1), tmp_src_vect + i*NUM_SPECIES,
                                    tmp_vect_energy + i, tmp_src_vect_energy + i,
 #ifndef USE_SUNDIALS_PP
@@ -5808,11 +5806,9 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
                                    &dt_incr, &time_chem);
                 dt_incr   = dt;
                 time_chem = 0;
-#ifdef AMREX_USE_EB 
-            } else {   // Covered cells 
+            } else {                   // Masked (covered) cells 
                 tmp_fctCn[i] = 0.0;
             }
-#endif
         }
 #else
         tmp_fctCn[0] = react(tmp_vect, tmp_src_vect,
