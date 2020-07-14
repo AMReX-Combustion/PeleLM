@@ -1733,36 +1733,28 @@ PeleLM::initData ()
 #endif
   for (MFIter mfi(S_new,TilingIfNotGPU()); mfi.isValid(); ++mfi)
   {
-      const Box& box = mfi.validbox();
+      const Box& box_cc = mfi.validbox();
+      const Box& box_nd = mfi.nodaltilebox();
       auto sfab = S_new.array(mfi);
       auto pressfab = P_new.array(mfi);
 
-      amrex::ParallelFor(box,
+      amrex::ParallelFor(box_cc,
       [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
       {
 #ifdef BL_USE_NEWMECH
         amrex::Abort("USE_NEWMECH feature no longer working and has to be fixed/redone");
 #else
-        pelelm_initdata(i, j, k, sfab, pressfab, geomdata);
+        pelelm_initdata_cc(i, j, k, sfab, geomdata);
 #endif
       });
+
+      amrex::ParallelFor(box_nd,
+      [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+      {
+        pelelm_initdata_nodal(i, j, k, pressfab, geomdata);
+      });
+
   }
-
-// If the FillBoundary is commented, P_new is set-up correctly, with only data in interior nodes
-// but if do we the fill patch operation, it will fill the ghost-cell but put 0 in the first interior node
-#if 0
-P_new.FillBoundary(geom.periodicity());
-#endif
-
-  for (MFIter mfi(P_new,TilingIfNotGPU()); mfi.isValid(); ++mfi)
-  {
-  amrex::Print() << P_new[mfi];
-}
-
-amrex::Abort();
-
-
-
 
   showMFsub("1D",S_new,stripBox,"1D_S",level);
  

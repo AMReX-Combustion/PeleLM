@@ -136,9 +136,8 @@ for (int j = 0; j < ProbParm::pmf_M; j++) {
 AMREX_GPU_DEVICE
 inline
 void
-pelelm_initdata (int i, int j, int k, 
+pelelm_initdata_cc (int i, int j, int k, 
                  amrex::Array4<amrex::Real> const& state,
-                 amrex::Array4<amrex::Real> const& pressure,
                  amrex::GeometryData const& geomdata)
 {
 
@@ -216,8 +215,6 @@ pelelm_initdata (int i, int j, int k,
     state(i,j,k,Zvel) = pmf_vals[1]*1e-2;
 #endif
 
-    pressure(i,j,k,0) = ProbParm::P_mean;
-
     amrex::Real rho_cgs, P_cgs;
     P_cgs = ProbParm::P_mean * 10.0;
 
@@ -230,6 +227,18 @@ pelelm_initdata (int i, int j, int k,
     for (int n = 0; n < NUM_SPECIES; n++) {
       state(i,j,k,DEF_first_spec+n) = massfrac[n] * state(i,j,k,Density);
     }
+
+}
+
+AMREX_GPU_DEVICE
+inline
+void
+pelelm_initdata_nodal (int i, int j, int k,
+                 amrex::Array4<amrex::Real> const& pressure,
+                 amrex::GeometryData const& geomdata)
+{
+
+    pressure(i,j,k,0) = ProbParm::P_mean;
 
 }
 
