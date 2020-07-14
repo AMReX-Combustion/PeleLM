@@ -5771,8 +5771,8 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
         tmp_src_vect        =  new amrex::Real[ncells*(NUM_SPECIES)];
         tmp_vect_energy     =  new amrex::Real[ncells];
         tmp_src_vect_energy =  new amrex::Real[ncells];
-        tmp_fctCn           =  new int[ncells]
-        tmp_mask            =  new int[ncells]
+        tmp_fctCn           =  new int[ncells];
+        tmp_mask            =  new int[ncells];
 #endif
         BL_PROFILE_VAR_STOP(Allocs);
 
