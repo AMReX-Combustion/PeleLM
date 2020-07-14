@@ -74,26 +74,11 @@ VPATH_LOCATIONS   += $(REACTIONS_HOME) $(REACTIONS_HOME_F90) $(REACTIONS_PATH) $
 #endif
 
 # Transport
-TRAN_HOME_F90 := $(TRAN_HOME)/F90
 TRAN_PATH := $(TRAN_HOME)/$(strip $(Transport_dir))
-TRAN_PATH_F90 := $(TRAN_PATH)/F90
-# Put inside an if use FORTRAN later
-include $(TRAN_HOME_F90)/Make.package
-include $(TRAN_PATH_F90)/Make.package
-# CPP TRANSPORT NOT USED RIGHT NOW
 include $(TRAN_PATH)/Make.package
-EXTERN_CORE       += $(TRAN_HOME_F90) $(TRAN_PATH_F90)
-INCLUDE_LOCATIONS += $(TRAN_HOME_F90) $(TRAN_PATH_F90) $(TRAN_PATH)
-VPATH_LOCATIONS   += $(TRAN_HOME_F90) $(TRAN_PATH_F90) $(TRAN_PATH)
+INCLUDE_LOCATIONS += $(TRAN_PATH)
+VPATH_LOCATIONS   += $(TRAN_PATH)
 USE_FUEGO = FALSE
-ifeq ($(Transport_dir), EGLib)
-  USE_FUEGO = TRUE
-  DEFINES += -DEGLIB_TRANSPORT
-endif
-ifeq ($(Transport_dir), Sutherland)
-  USE_FUEGO = TRUE
-  DEFINES += -DSUTHERLAND_TRANSPORT
-endif
 ifeq ($(Transport_dir), Simple)
   DEFINES += -DSIMPLE_TRANSPORT
 endif
