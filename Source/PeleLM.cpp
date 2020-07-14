@@ -5706,11 +5706,14 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
     MultiFab fcnCntTemp(ba, dm, 1, 0);
     MultiFab diagTemp;
 
+    // Setup a mask for chemistry. Right used only for EB.
+    // TODO: find a way to set that up properly when running boxes on GPU.
+    amrex::FabArray<amrex::BaseFab<int>>  react_mask;
+    react_mask.define(ba, dm,  1, 0);
 #ifdef AMREX_USE_EB     
-    amrex::FabArray<amrex::BaseFab<int>>  new_ebmask;
-    new_ebmask.define(ba, dm,  1, 0);
-    
-    new_ebmask.copy(ebmask);
+    react_mask.copy(ebmask);
+#else
+    react_mask.setVal(1);
 #endif
     
     const bool do_diag = plot_reactions && amrex::intersect(ba,auxDiag["REACTIONS"]->boxArray()).size() != 0;
@@ -5733,6 +5736,7 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
         auto const& rhoY     = STemp.array(Smfi);
         auto const& fcl      = fcnCntTemp.array(Smfi);
         auto const& frcing   = FTemp.array(Smfi);
+        auto const& mask     = react_mask.array(Smfi);
 
         const auto len       = amrex::length(bx);
         const auto lo        = amrex::lbound(bx);
@@ -5743,12 +5747,6 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
 #ifdef USE_CUDA_SUNDIALS_PP
         const auto ec           = Gpu::ExecutionConfig(ncells);
         cudaError_t cuda_status = cudaSuccess;
-#else
-// TODO: EB works only on CPU right now  ?
-  #ifdef AMREX_USE_EB      
-        const BaseFab<int>& fab_ebmask = new_ebmask[Smfi];
-        const auto local_ebmask        = fab_ebmask.array();
-  #endif
 #endif
 
         /* ALLOCS */
@@ -5760,19 +5758,22 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
         // rhoE/rhoH
         amrex::Real *tmp_vect_energy;
         amrex::Real *tmp_src_vect_energy;
-        int         *tmp_fctCn;
+        int         *tmp_fctCn, *tmp_mask;
 #ifdef USE_CUDA_SUNDIALS_PP
+//        The_Arena()->alloc(tmp_vect, (NUM_SPECIES+1)*ncells*sizeof(amrex::Real));
         cudaMallocManaged(&tmp_vect,            (NUM_SPECIES+1)*ncells*sizeof(amrex::Real));
         cudaMallocManaged(&tmp_src_vect,        (NUM_SPECIES)*ncells*sizeof(amrex::Real));
         cudaMallocManaged(&tmp_vect_energy,     ncells*sizeof(amrex::Real));
         cudaMallocManaged(&tmp_src_vect_energy, ncells*sizeof(amrex::Real));
         cudaMallocManaged(&tmp_fctCn,           ncells*sizeof(int));
+        cudaMallocManaged(&tmp_mask,            ncells*sizeof(int));
 #else
         tmp_vect            =  new amrex::Real[ncells*(NUM_SPECIES+1)];
         tmp_src_vect        =  new amrex::Real[ncells*(NUM_SPECIES)];
         tmp_vect_energy     =  new amrex::Real[ncells];
         tmp_src_vect_energy =  new amrex::Real[ncells];
         tmp_fctCn           =  new int[ncells]
+        tmp_mask            =  new int[ncells]
 #endif
         BL_PROFILE_VAR_STOP(Allocs);
 
@@ -5782,9 +5783,9 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
         [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
         {
            int icell = (k-lo.z)*len.x*len.y + (j-lo.y)*len.x + (i-lo.x);
-           gpu_flatten(icell, i, j, k, rhoY, frcing,
+           gpu_flatten(icell, i, j, k, rhoY, frcing, mask,
                        tmp_vect, tmp_src_vect, tmp_vect_energy, tmp_src_vect_energy,
-                       tmp_fctCn);  
+                       tmp_fctCn, tmp_mask);  
         });
         BL_PROFILE_VAR_STOP(ARRAY_FLATTEN);
 
@@ -5798,7 +5799,7 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
         Real p_local   = 1.0;
         for (int i = 0; i < ncells; i++) {
 #ifdef AMREX_USE_EB             
-            if (local_ebmask(i,j,k) != -1 ){   // Regular & cut cells
+            if (tmp_mask(i) != -1 ){   // Regular & cut cells
 #endif
                 tmp_fctCn[i] = react(tmp_vect + i*(NUM_SPECIES+1), tmp_src_vect + i*NUM_SPECIES,
                                    tmp_vect_energy + i, tmp_src_vect_energy + i,

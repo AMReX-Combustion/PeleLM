@@ -15,9 +15,10 @@ void
 gpu_flatten(int icell, int i, int j, int k,  
             amrex::Array4<amrex::Real> const& rhoY,
             amrex::Array4<amrex::Real> const& frcExt,
+            amrex::Array4<int>         const& EBmask,
             amrex::Real * tmp_vect, amrex::Real * tmp_src_vect,
             amrex::Real * tmp_vect_energy, amrex::Real * tmp_src_vect_energy,
-            int * tmp_FCount) noexcept
+            int * tmp_FCount, int * tmp_EBmask) noexcept
 {
     amrex::Real * TV_cell  = tmp_vect + icell * (NUM_SPECIES+1);
     amrex::Real * TVS_cell = tmp_src_vect + icell * (NUM_SPECIES);
@@ -29,6 +30,7 @@ gpu_flatten(int icell, int i, int j, int k,
     tmp_vect_energy[icell]     = rhoY(i,j,k,NUM_SPECIES) * 10.0;
     tmp_src_vect_energy[icell] = frcExt(i,j,k,NUM_SPECIES) * 10.0;
     tmp_FCount[icell]          = -1;
+    tmp_EBmask[icell]          = EBmask(i,j,k);
 }
 
 AMREX_GPU_HOST_DEVICE
