@@ -332,19 +332,19 @@ PeleLM::variableSetUp ()
 
   amrex::Print() << " Initialization of reactor... \n";
   int reactor_type = 2;
-#ifdef USE_CUDA_SUNDIALS_PP
-  reactor_info(&reactor_type,&ncells_chem);
-#else
 #ifdef _OPENMP
-#pragma omp parallel
+#pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif  
 {
 #ifdef USE_SUNDIALS_PP
   SetTolFactODE(relative_tol_chem,absolute_tol_chem);
 #endif
+#ifdef USE_CUDA_SUNDIALS_PP
+  reactor_info(&reactor_type,&ncells_chem);
+#else
   reactor_init(&reactor_type,&ncells_chem);
-}
 #endif
+}
 
   amrex::Print() << " Initialization of EOS (CPP)... \n";
   EOS::init();

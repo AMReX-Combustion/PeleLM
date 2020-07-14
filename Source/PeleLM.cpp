@@ -1387,11 +1387,10 @@ PeleLM::set_typical_values(bool is_restart)
       }
 
 #ifdef USE_SUNDIALS_PP
-#ifndef USE_CUDA_SUNDIALS_PP
     if (use_typ_vals_chem) {
       amrex::Print() << "Using typical values for the absolute tolerances of the ode solver\n";
 #ifdef _OPENMP
-#pragma omp parallel
+#pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif  
       {
       Vector<Real> typical_values_chem;
@@ -1404,7 +1403,6 @@ PeleLM::set_typical_values(bool is_restart)
       ReSetTolODE();
       }
     }  
-#endif
 #endif
 
   }
