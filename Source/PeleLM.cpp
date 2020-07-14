@@ -1400,7 +1400,9 @@ PeleLM::set_typical_values(bool is_restart)
       }
       typical_values_chem[NUM_SPECIES] = typical_values[Temp];
       SetTypValsODE(typical_values_chem);
+#ifndef USE_CUDA_SUNDIALS_PP
       ReSetTolODE();
+#endif  
       }
     }  
 #endif
