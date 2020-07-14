@@ -42,7 +42,10 @@ amr.derive_plot_vars=rhoRT mag_vort avg_pressure gradpx gradpy diveru mass_fract
 amr.grid_log        = grdlog  # name of grid logging file
 amr.max_grid_size   = 64
 
-amr.probin_file = probin.3d.test # This will default to file "probin" if not set
+prob.P_mean = 101325.0
+prob.standoff = -.022
+prob.pertmag = 0.0004
+prob.pmf_datafile = "drm19_pmf.dat"
 
 # Refinement according to a species tracer
 amr.refinement_indicators = flame_tracer 
