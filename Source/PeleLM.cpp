@@ -1731,7 +1731,6 @@ PeleLM::initData ()
   {
       const Box& box = mfi.validbox();
       auto sfab = S_new.array(mfi);
-      auto pressfab = P_new.array(mfi);
 
       amrex::ParallelFor(box,
       [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
@@ -1739,7 +1738,7 @@ PeleLM::initData ()
 #ifdef BL_USE_NEWMECH
         amrex::Abort("USE_NEWMECH feature no longer working and has to be fixed/redone");
 #else
-        pelelm_initdata(i, j, k, sfab, pressfab, geomdata);
+        pelelm_initdata(i, j, k, sfab, geomdata);
 #endif
       });
   }
