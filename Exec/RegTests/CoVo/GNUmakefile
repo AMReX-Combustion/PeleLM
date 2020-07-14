@@ -18,10 +18,17 @@ VERBOSE         = FALSE
 TINY_PROFILE = FALSE
 #USE_WBAR = TRUE
 
-DEFINES+=-DALWAYS_NEW_J
+#DEFINES+=-DALWAYS_NEW_J
 
 #######################
-USE_SUNDIALS_3x4x = FALSE
+USE_SUNDIALS_PP = TRUE
+ifeq ($(USE_SUNDIALS_PP), TRUE)
+  # use KLU sparse features -- only useful if CVODE is used on CPU
+  USE_KLU_PP = FALSE
+  # Activates GPU version
+  USE_CUDA_SUNDIALS_PP = FALSE
+endif
+#######################
 
 # Enable ht.velocity_plotfile option
 #USE_VELOCITY    = FALSE
@@ -46,7 +53,7 @@ Transport_dir := Constant
 Blocs   := .
 
 CEXE_sources +=
-F90EXE_sources += Prob_nd.F90 probdata.F90
+F90EXE_sources +=
 CEXE_headers += 
 FEXE_headers += 
 

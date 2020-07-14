@@ -458,7 +458,7 @@ void pelelm_dermixanddiss (const Box& bx, FArrayBox& derfab, int dcomp, int ncom
     // TODO probably better way to do this ?
     amrex::Real Zox_lcl = PeleLM::Zox;
     amrex::Real Zfu_lcl = PeleLM::Zfu;
-    amrex::Real fact_lcl[NUM_SPECIES];
+    amrex::GpuArray<amrex::Real,NUM_SPECIES> fact_lcl;
     for (int n=0; n<NUM_SPECIES; ++n) {
         fact_lcl[n] = PeleLM::spec_Bilger_fact[n];
     }
@@ -514,13 +514,13 @@ void pelelm_dermixanddiss (const Box& bx, FArrayBox& derfab, int dcomp, int ncom
 
         //grad mixt. fraction
         amrex::Real grad[3];
-        grad[1] = factor * ( mixt_frac_tmp(i+1,j,k)-mixt_frac_tmp(i-1,j,k) );
-        grad[2] = factor * ( mixt_frac_tmp(i,j+1,k)-mixt_frac_tmp(i,j-1,k) );
-        grad[3] = 0.0;
+        grad[0] = factor * ( mixt_frac_tmp(i+1,j,k)-mixt_frac_tmp(i-1,j,k) );
+        grad[1] = factor * ( mixt_frac_tmp(i,j+1,k)-mixt_frac_tmp(i,j-1,k) );
+        grad[2] = 0.0;
 #if (AMREX_SPACEDIM == 3 )
-        grad[3] = factor * ( mixt_frac_tmp(i,j,k+1)-mixt_frac_tmp(i,j,k-1) );
+        grad[2] = factor * ( mixt_frac_tmp(i,j,k+1)-mixt_frac_tmp(i,j,k-1) );
 #endif
-        scalar_dis(i,j,k) = grad[1]*grad[1] + grad[2]*grad[2] + grad[3]*grad[3];
+        scalar_dis(i,j,k) = grad[0]*grad[0] + grad[1]*grad[1] + grad[2]*grad[2];
         scalar_dis(i,j,k) *= 2.0 * lambda * rhoinv / cpmix;
     });
 
@@ -551,7 +551,7 @@ void pelelm_dermixfrac (const Box& bx, FArrayBox& derfab, int dcomp, int ncomp,
     amrex::Real Zox_lcl   = PeleLM::Zox;
     amrex::Real Zfu_lcl   = PeleLM::Zfu;
     amrex::Real denom_inv = 1.0 / (Zfu_lcl - Zox_lcl);
-    amrex::Real fact_lcl[NUM_SPECIES];
+    amrex::GpuArray<amrex::Real,NUM_SPECIES> fact_lcl;
     for (int n=0; n<NUM_SPECIES; ++n) {
         fact_lcl[n] = PeleLM::spec_Bilger_fact[n];
     }
@@ -560,7 +560,7 @@ void pelelm_dermixfrac (const Box& bx, FArrayBox& derfab, int dcomp, int ncomp,
     [density, rhoY, mixt_frac, fact_lcl, Zox_lcl, denom_inv] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
     {
         calcMixtFrac(i,j,k,
-                     Zox_lcl, denom_inv, fact_lcl, 
+                     Zox_lcl, denom_inv, fact_lcl.data(),
                      density, rhoY, mixt_frac);
     });
 }
@@ -665,7 +665,7 @@ void pelelm_dcma (const Box& bx, FArrayBox& derfab, int dcomp, int ncomp,
     amrex::Real Zox_lcl   = PeleLM::Zox;
     amrex::Real Zfu_lcl   = PeleLM::Zfu;
     amrex::Real denom_inv = 1.0 / (Zfu_lcl - Zox_lcl);
-    amrex::Real fact_lcl[NUM_SPECIES];
+    amrex::GpuArray<amrex::Real,NUM_SPECIES> fact_lcl;
     for (int n=0; n<NUM_SPECIES; ++n) {
         fact_lcl[n] = PeleLM::spec_Bilger_fact[n];
     }
@@ -675,7 +675,7 @@ void pelelm_dcma (const Box& bx, FArrayBox& derfab, int dcomp, int ncomp,
     {   
         // Z
         calcMixtFrac(i,j,k,
-                     Zox_lcl, denom_inv, fact_lcl, 
+                     Zox_lcl, denom_inv, fact_lcl.data(),
                      density, rhoY, mixt_frac);
 
         // HR

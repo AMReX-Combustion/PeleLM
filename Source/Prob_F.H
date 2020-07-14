@@ -44,62 +44,6 @@
                         const amrex::Real* time, const amrex::Real* dt, const int* bcrec,
                         const int* level, const int* grid_no) ;
 
-     void rhoh_fill (BL_FORT_FAB_ARG_ANYD(data),
-                     const int* dom_lo, const int* dom_hi,
-                     const amrex::Real* dx, const amrex::Real* grd_lo,
-                     const amrex::Real* time, const int* bc);
-
-     void vel_fill (BL_FORT_FAB_ARG_ANYD(data),
-                    const int* dom_lo, const int* dom_hi,
-                    const amrex::Real* dx, const amrex::Real* grd_lo,
-                    const amrex::Real* time, const int* bc);
-
-     void xvel_fill (BL_FORT_FAB_ARG_ANYD(data),
-                     const int* dom_lo, const int* dom_hi,
-                     const amrex::Real* dx, const amrex::Real* grd_lo,
-                     const amrex::Real* time, const int* bc);
-
-     void yvel_fill (BL_FORT_FAB_ARG_ANYD(data),
-                     const int* dom_lo, const int* dom_hi,
-                     const amrex::Real* dx, const amrex::Real* grd_lo,
-                     const amrex::Real* time, const int* bc);
-
-     void zvel_fill (BL_FORT_FAB_ARG_ANYD(data),
-                     const int* dom_lo, const int* dom_hi,
-                     const amrex::Real* dx, const amrex::Real* grd_lo,
-                     const amrex::Real* time, const int* bc);
-
-     void den_fill (BL_FORT_FAB_ARG_ANYD(data),
-                    const int* dom_lo, const int* dom_hi,
-                    const amrex::Real* dx, const amrex::Real* grd_lo,
-                    const amrex::Real* time, const int* bc);
-
-     void temp_fill (BL_FORT_FAB_ARG_ANYD(data),
-                     const int* dom_lo, const int* dom_hi,
-                     const amrex::Real* dx, const amrex::Real* grd_lo,
-                     const amrex::Real* time, const int* bc);
-
-     void adv_fill (BL_FORT_FAB_ARG_ANYD(data),
-                    const int* dom_lo, const int* dom_hi,
-                    const amrex::Real* dx, const amrex::Real* grd_lo,
-                    const amrex::Real* time, const int* bc);
-
-     void press_fill (BL_FORT_FAB_ARG_ANYD(data),
-                      const int* dom_lo, const int* dom_hi,
-                      const amrex::Real* dx, const amrex::Real* grd_lo,
-                      const amrex::Real* time, const int* bc);     
-
-     void chem_fill (BL_FORT_FAB_ARG_ANYD(data),
-                     const int* dom_lo, const int* dom_hi,
-                     const amrex::Real* dx, const amrex::Real* grd_lo,
-                     const amrex::Real* time, const int* bc,
-                     const int* stateID);
-
-     void all_chem_fill (BL_FORT_FAB_ARG_ANYD(data),
-                         const int* dom_lo, const int* dom_hi,
-                         const amrex::Real* dx, const amrex::Real* grd_lo,
-                         const amrex::Real* time, const int* bc);
-
      void zero_visc (BL_FORT_FAB_ARG_ANYD(visc),
                      const int* lo,   const int* hi,
                      const int* domlo, const int* domhi,
