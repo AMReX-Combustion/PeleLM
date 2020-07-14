@@ -3,10 +3,54 @@
 
 #include <AMReX_REAL.H>
 #include <AMReX_FArrayBox.H>
+#include <AMReX_Gpu.H>
 #include <mechanism.h>
 #include <EOS.H>
 #include <Transport.H>
 #include <cmath>
+
+AMREX_GPU_HOST_DEVICE
+inline
+void
+gpu_flatten(int icell, int i, int j, int k,  
+            amrex::Array4<amrex::Real> const& rhoY,
+            amrex::Array4<amrex::Real> const& frcExt,
+            amrex::Array4<int>         const& EBmask,
+            amrex::Real * tmp_vect, amrex::Real * tmp_src_vect,
+            amrex::Real * tmp_vect_energy, amrex::Real * tmp_src_vect_energy,
+            int * tmp_FCount, int * tmp_EBmask) noexcept
+{
+    amrex::Real * TV_cell  = tmp_vect + icell * (NUM_SPECIES+1);
+    amrex::Real * TVS_cell = tmp_src_vect + icell * (NUM_SPECIES);
+    for (int n = 0; n < NUM_SPECIES; n++) {
+       TV_cell[n]   = rhoY(i,j,k,n) * 1.e-3;
+       TVS_cell[n]  = frcExt(i,j,k,n) * 1.e-3;
+    }
+    TV_cell[NUM_SPECIES]       = rhoY(i,j,k,NUM_SPECIES+1);
+    tmp_vect_energy[icell]     = rhoY(i,j,k,NUM_SPECIES) * 10.0;
+    tmp_src_vect_energy[icell] = frcExt(i,j,k,NUM_SPECIES) * 10.0;
+    tmp_FCount[icell]          = -1;
+    tmp_EBmask[icell]          = EBmask(i,j,k);
+}
+
+AMREX_GPU_HOST_DEVICE
+inline
+void
+gpu_unflatten(int icell, int i, int j, int k,
+              amrex::Array4<amrex::Real> const& rhoY,
+              amrex::Array4<amrex::Real> const& fcl,
+              amrex::Real *tmp_vect,
+              amrex::Real *tmp_vect_energy,
+              int * tmp_FCount) noexcept
+{
+   amrex::Real * TV_cell  = tmp_vect + icell * (NUM_SPECIES+1);
+   for (int n = 0; n < NUM_SPECIES; n++) {
+      rhoY(i,j,k,n) = TV_cell[n] * 1.e+3;
+   }
+   rhoY(i,j,k,NUM_SPECIES+1) = TV_cell[NUM_SPECIES];
+   rhoY(i,j,k,NUM_SPECIES) = tmp_vect_energy[icell] * 1.e-01;
+   fcl(i,j,k) = tmp_FCount[icell];
+}
 
 AMREX_GPU_HOST_DEVICE
 inline
