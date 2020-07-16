@@ -5763,7 +5763,7 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
         Real time_chem   = 0;
 #ifndef USE_CUDA_SUNDIALS_PP
         /* Solve */
-        int tmp_fctCn = react(bx, rhoY, frc_rhoY, temp, rhoH, frc_rhoH, fcl, mask, ncells, dt_incr, time_chem);
+        int tmp_fctCn = react_1(bx, rhoY, frc_rhoY, temp, rhoH, frc_rhoH, fcl, mask, dt_incr, time_chem);
         dt_incr   = dt;
         time_chem = 0;
 #else
