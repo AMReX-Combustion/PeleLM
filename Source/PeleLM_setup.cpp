@@ -48,7 +48,7 @@
 #ifdef USE_SUNDIALS_PP
 #include <reactor.h>
 #else
-#include <reactor.H> 
+#include <reactor_F.H>
 #endif
 
 using namespace amrex;
