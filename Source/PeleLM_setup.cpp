@@ -340,7 +340,7 @@ PeleLM::variableSetUp ()
   SetTolFactODE(relative_tol_chem,absolute_tol_chem);
 #endif
 #ifdef USE_CUDA_SUNDIALS_PP
-  reactor_info(&reactor_type,&ncells_chem);
+  reactor_info(reactor_type,ncells_chem);
 #else
   reactor_init(reactor_type,ncells_chem);
 #endif
