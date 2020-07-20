@@ -6623,6 +6623,12 @@ PeleLM::mac_sync ()
       }
       showMF("DBGSync",Ssync,"sdc_Ssync_MinusUcorr",level,mac_sync_iter,parent->levelSteps(level));
 
+      //
+      // Delete Ucorr; we're done with it.
+      //
+      for (int idim = 0; idim < AMREX_SPACEDIM; ++idim)
+	delete Ucorr[idim];
+
       Ssync.mult(dt); // Turn this into an increment over dt
 
 #ifdef USE_WBAR
