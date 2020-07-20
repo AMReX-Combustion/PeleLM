@@ -5803,7 +5803,7 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
 #ifndef USE_SUNDIALS_PP
                                    &p_local,
 #endif
-                                   &dt_incr, &time_chem);
+                                   dt_incr, time_chem);
                 dt_incr   = dt;
                 time_chem = 0;
             } else {                   // Masked (covered) cells 
