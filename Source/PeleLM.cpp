@@ -5768,12 +5768,10 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
         time_chem = 0;
 #else
         int reactor_type = 2;
-        tmp_fctCn[0] = react(tmp_vect, tmp_src_vect,
-                      tmp_vect_energy, tmp_src_vect_energy,
-                      dt_incr, time_chem,
-                      reactor_type, ncells, 
-                      amrex::Gpu::gpuStream());
+        int tmp_fctCn = react(bx, rhoY, frc_rhoY, temp, rhoH, frc_rhoH, fcl, mask, 
+                              dt_incr, time_chem, reactor_type, amrex::Gpu::gpuStream());
         dt_incr = dt;
+        time_chem = 0;
 #endif
         BL_PROFILE_VAR_STOP(ReactInLoop);
 
