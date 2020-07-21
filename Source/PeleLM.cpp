@@ -187,6 +187,8 @@ int PeleLM::deltaT_verbose = 0;
 int PeleLM::mHtoTiterMAX;
 Vector<amrex::Real> PeleLM::mTmpData;
 
+Vector<AMRErrorTag> PeleLM::errtags;
+
 static
 std::string
 to_upper (const std::string& s)
@@ -8890,7 +8892,8 @@ PeleLM::errorEst (TagBoxArray& tags,
                   int         n_error_buf, 
                   int         ngrow)
 {
-  BL_PROFILE("HT::errorEst()");
+  BL_PROFILE("PLM::errorEst()");
+
   const int*  domain_lo = geom.Domain().loVect();
   const int*  domain_hi = geom.Domain().hiVect();
   const Real* dx        = geom.CellSize();
@@ -8902,6 +8905,15 @@ PeleLM::errorEst (TagBoxArray& tags,
         amrex::TagCutCells(tags, S_new);
   }
 #endif
+
+  for (int j=0; j<errtags.size(); ++j) {
+    std::unique_ptr<MultiFab> mf;
+    if (errtags[0].Field() != std::string()) {
+      mf = std::unique_ptr<MultiFab>(derive(errtags[j].Field(), time, errtags[j].NGrow()));
+    }
+    errtags[j](tags,mf.get(),clearval,tagval,time,level,geom);
+  }
+  Abort("errorEst");
 
   for (int j = 0; j < err_list.size(); j++)
   {
