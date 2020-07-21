@@ -45,7 +45,7 @@
 #ifdef USE_SUNDIALS_PP
 #include <reactor.h>
 #else
-#include <reactor.H> 
+#include <reactor_F.H>
 #endif
 
 #include <Prob_F.H>
@@ -1498,17 +1498,17 @@ PeleLM::estTimeStep ()
 
    const int   nGrow   = 1;
    const Real  cur_time = state[State_Type].curTime();
-   MultiFab&   DivU     = *getDivCond(0,cur_time);
+   std::unique_ptr<MultiFab> DivU (getDivCond(0,cur_time));
    int  divu_check_flag = divu_ceiling;
    Real divu_dt_fac     = divu_dt_factor;
    Real rho_min         = min_rho_divu_ceiling;
    const auto dxinv     = geom.InvCellSizeArray();
 
-   FillPatchIterator U_fpi(*this,DivU,nGrow,cur_time,State_Type,Xvel,AMREX_SPACEDIM);
+   FillPatchIterator U_fpi(*this,*DivU,nGrow,cur_time,State_Type,Xvel,AMREX_SPACEDIM);
    MultiFab& Umf=U_fpi.get_mf();
 
    if ( divu_ceiling == 1 ) {
-      divu_dt = amrex::ReduceMin(rho_ctime, DivU, 0,
+      divu_dt = amrex::ReduceMin(rho_ctime, *DivU, 0,
                                  [divu_check_flag,divu_dt_fac,rho_min,dxinv]
       AMREX_GPU_HOST_DEVICE (Box const& bx, Array4<Real const> const& rho,
                                             Array4<Real const> const& divu ) noexcept -> Real
@@ -1533,7 +1533,7 @@ PeleLM::estTimeStep ()
          return dt;
       });
    } else if ( divu_ceiling == 2 ) {
-      divu_dt = amrex::ReduceMin(rho_ctime, Umf, DivU, 0,
+      divu_dt = amrex::ReduceMin(rho_ctime, Umf, *DivU, 0,
                                  [divu_check_flag,divu_dt_fac,rho_min,dxinv]
       AMREX_GPU_HOST_DEVICE (Box const& bx, Array4<Real const> const& rho,
                                             Array4<Real const> const& vel,
@@ -5805,7 +5805,7 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
 #ifndef USE_SUNDIALS_PP
                                    &p_local,
 #endif
-                                   &dt_incr, &time_chem);
+                                   dt_incr, time_chem);
                 dt_incr   = dt;
                 time_chem = 0;
             } else {                   // Masked (covered) cells 
@@ -5815,8 +5815,9 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
 #else
         tmp_fctCn[0] = react(tmp_vect, tmp_src_vect,
                       tmp_vect_energy, tmp_src_vect_energy,
-                      &dt_incr, &time_chem,
-                      &reactor_type, &ncells, amrex::Gpu::gpuStream());
+                      dt_incr, time_chem,
+                      reactor_type, ncells, 
+                      amrex::Gpu::gpuStream());
         dt_incr = dt;
 #endif
         BL_PROFILE_VAR_STOP(ReactInLoop);
@@ -5843,12 +5844,14 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
         cudaFree(tmp_vect_energy);
         cudaFree(tmp_src_vect_energy);
         cudaFree(tmp_fctCn);
+	cudaFree(tmp_mask);
 #else
         delete(tmp_vect);
         delete(tmp_src_vect);
         delete(tmp_vect_energy);
         delete(tmp_src_vect_energy);
         delete(tmp_fctCn);
+	delete(tmp_mask);
 #endif
         BL_PROFILE_VAR_STOP(Allocs);
 
@@ -6624,6 +6627,12 @@ PeleLM::mac_sync ()
          }
       }
       showMF("DBGSync",Ssync,"sdc_Ssync_MinusUcorr",level,mac_sync_iter,parent->levelSteps(level));
+
+      //
+      // Delete Ucorr; we're done with it.
+      //
+      for (int idim = 0; idim < AMREX_SPACEDIM; ++idim)
+	delete Ucorr[idim];
 
       Ssync.mult(dt); // Turn this into an increment over dt
 
