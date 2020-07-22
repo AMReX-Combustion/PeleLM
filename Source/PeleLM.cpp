@@ -8895,11 +8895,11 @@ PeleLM::derive (const std::string& name,
 
 void
 PeleLM::errorEst (TagBoxArray& tags,
-                  int         clearval,
-                  int         tagval,
-                  Real        time,
-                  int         n_error_buf, 
-                  int         ngrow)
+                  int          clearval,
+                  int          tagval,
+                  Real         time,
+                  int          n_error_buf,
+                  int          ngrow)
 {
   BL_PROFILE("PLM::errorEst()");
 
@@ -8922,8 +8922,8 @@ PeleLM::errorEst (TagBoxArray& tags,
     }
     errtags[j](tags,mf.get(),clearval,tagval,time,level,geom);
   }
-  Abort("errorEst");
 
+#if 0
   for (int j = 0; j < err_list.size(); j++)
   {
     const ErrorRec::ErrorFunc& efunc = err_list[j].errFunc();
@@ -8985,4 +8985,5 @@ PeleLM::errorEst (TagBoxArray& tags,
 
     }
   }
+#endif
 }
