@@ -8917,8 +8917,8 @@ PeleLM::errorEst (TagBoxArray& tags,
 
   for (int j=0; j<errtags.size(); ++j) {
     std::unique_ptr<MultiFab> mf;
-    if (errtags[0].Field() != std::string()) {
-      mf = std::unique_ptr<MultiFab>(derive(errtags[j].Field(), time, errtags[j].NGrow()));
+    if (errtags[j].Field() != std::string()) {
+      mf = derive(errtags[j].Field(), time, errtags[j].NGrow());
     }
     errtags[j](tags,mf.get(),clearval,tagval,time,level,geom);
   }
