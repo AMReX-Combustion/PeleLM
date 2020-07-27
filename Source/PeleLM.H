@@ -585,6 +585,8 @@ private:
   //    Private Data                                                        //
   ////////////////////////////////////////////////////////////////////////////
 
+  static amrex::Vector<amrex::AMRErrorTag> errtags;
+
   amrex::Vector<std::unique_ptr<FluxBoxes> > raii_fbs;
     
   amrex::MultiFab**  EdgeState;
