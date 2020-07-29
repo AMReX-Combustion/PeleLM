@@ -460,10 +460,16 @@ private:
   void set_typical_values(bool restart);
   void reset_typical_values(const amrex::MultiFab& S);
 
+  void activeControl(const int         step,
+                     const int         restart,
+                     const amrex::Real time,
+                     const amrex::Real dt);
+
+  void initActiveControl();
 
   void state_stats (amrex::MultiFab& S);
 
-  void zeroBoundaryVisc (amrex::MultiFab*  beta[BL_SPACEDIM],
+  void zeroBoundaryVisc (amrex::MultiFab*  beta[AMREX_SPACEDIM],
                          const amrex::Real time,
                          const int  state_comp,
                          const int  dst_comp,
@@ -615,6 +621,34 @@ private:
   static int closed_chamber;
   static amrex::Real dpdt_factor;
 
+  // Active control data
+  static bool        ctrl_active;
+  static bool        ctrl_use_temp;
+  static amrex::Real ctrl_tauControl;
+  static amrex::Real ctrl_cfix;
+  static amrex::Real ctrl_coftOld;
+  static amrex::Real ctrl_sest;
+  static amrex::Real ctrl_corr;
+  static amrex::Real ctrl_V_in;
+  static amrex::Real ctrl_V_in_old;
+  static amrex::Real ctrl_changeMax;
+  static amrex::Real ctrl_tBase;
+  static amrex::Real ctrl_dV;
+  static amrex::Real ctrl_scale;
+  static amrex::Real ctrl_zBase;
+  static amrex::Real ctrl_h;
+  static amrex::Real ctrl_velMax;
+  static amrex::Real ctrl_temperature;
+  static int         ctrl_verbose;
+  static int         ctrl_NavgPts;
+  static int         ctrl_nfilled;
+  static int         ctrl_flameDir;
+  static int         ctrl_pseudoGravity;
+  static std::string ctrl_AChistory;
+  static amrex::Vector<amrex::Real> ctrl_time_pts;
+  static amrex::Vector<amrex::Real> ctrl_velo_pts;
+  static amrex::Vector<amrex::Real> ctrl_cntl_pts;
+
   //
   // Protected static data.
   //
@@ -668,7 +702,6 @@ private:
   static int         mHtoTiterMAX;
   static amrex::Vector<amrex::Real> mTmpData;
   
-  static bool         flag_active_control;
 
   static int  ncells_chem;
   static bool use_typ_vals_chem; 
