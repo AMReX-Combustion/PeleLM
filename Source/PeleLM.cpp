@@ -215,6 +215,8 @@ int PeleLM::deltaT_verbose = 0;
 int PeleLM::mHtoTiterMAX;
 Vector<amrex::Real> PeleLM::mTmpData;
 
+Vector<AMRErrorTag> PeleLM::errtags;
+
 static
 std::string
 to_upper (const std::string& s)
@@ -8848,13 +8850,14 @@ PeleLM::derive (const std::string& name,
 
 void
 PeleLM::errorEst (TagBoxArray& tags,
-                  int         clearval,
-                  int         tagval,
-                  Real        time,
-                  int         n_error_buf, 
-                  int         ngrow)
+                  int          clearval,
+                  int          tagval,
+                  Real         time,
+                  int          n_error_buf,
+                  int          ngrow)
 {
-  BL_PROFILE("HT::errorEst()");
+  BL_PROFILE("PLM::errorEst()");
+
   const int*  domain_lo = geom.Domain().loVect();
   const int*  domain_hi = geom.Domain().hiVect();
   const Real* dx        = geom.CellSize();
@@ -8867,66 +8870,12 @@ PeleLM::errorEst (TagBoxArray& tags,
   }
 #endif
 
-  for (int j = 0; j < err_list.size(); j++)
-  {
-    const ErrorRec::ErrorFunc& efunc = err_list[j].errFunc();
-    const LM_Error_Value* lmfunc = dynamic_cast<const LM_Error_Value*>(&efunc);
-    bool box_tag = lmfunc && lmfunc->BoxTag();
-
-    auto mf = box_tag ? 0 : derive(err_list[j].name(), time, err_list[j].nGrow());
-
-#ifdef _OPENMP
-#pragma omp parallel
-#endif
-    for (MFIter mfi(grids,dmap,true); mfi.isValid(); ++mfi)
-    {
-      const Box&  vbx     = mfi.tilebox();
-      RealBox     gridloc = RealBox(vbx,geom.CellSize(),geom.ProbLo());
-      Vector<int> itags   = tags[mfi].tags();
-      int*        tptr    = itags.dataPtr();
-      const int*  tlo     = tags[mfi].box().loVect();
-      const int*  thi     = tags[mfi].box().hiVect();
-      const Real* xlo     = gridloc.lo();
-
-      if (box_tag)
-      {
-        lmfunc->tagCells1(tptr, tlo, thi,
-                          &tagval, &clearval,
-                          BL_TO_FORTRAN_BOX(vbx),
-                          BL_TO_FORTRAN_BOX(geom.Domain()),
-                          dx, xlo, prob_lo, &time, &level);
-      }
-      else
-      {
-        FArrayBox&  fab     = (*mf)[mfi];
-        Real*       dat     = fab.dataPtr();
-        const int*  dlo     = fab.box().loVect();
-        const int*  dhi     = fab.box().hiVect();
-        const int   ncomp   = fab.nComp();
-        
-        if (lmfunc==0) 
-        {
-          err_list[j].errFunc()(tptr, tlo, thi,
-                                &tagval, &clearval,
-                                BL_TO_FORTRAN_ANYD(fab),
-                                BL_TO_FORTRAN_BOX(vbx), &ncomp,
-                                BL_TO_FORTRAN_BOX(geom.Domain()),
-                                dx, xlo, prob_lo, &time, &level);
-        }
-        else
-        {
-          lmfunc->tagCells(tptr, tlo, thi,
-                           &tagval, &clearval,
-                           dat, dlo, dhi, 
-                           BL_TO_FORTRAN_BOX(vbx), &ncomp,
-                           BL_TO_FORTRAN_BOX(geom.Domain()),
-                           dx, xlo, prob_lo, &time, &level);
-        }
-      }
-                      
-      tags[mfi].tags(itags);
-
+  for (int j=0; j<errtags.size(); ++j) {
+    std::unique_ptr<MultiFab> mf;
+    if (errtags[j].Field() != std::string()) {
+      mf = derive(errtags[j].Field(), time, errtags[j].NGrow());
     }
+    errtags[j](tags,mf.get(),clearval,tagval,time,level,geom);
   }
 }
 
