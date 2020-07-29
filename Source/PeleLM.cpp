@@ -13,6 +13,7 @@
 #include <cfloat>
 #include <fstream>
 #include <vector>
+#include <sys/stat.h>
 
 #include <AMReX_Geometry.H>
 #include <AMReX_Extrapolater.H>
@@ -36,6 +37,8 @@
 #include <PPHYS_CONSTANTS.H>
 #include <PeleLM_K.H>
 #include <pelelm_prob.H>
+#include <pelelm_prob_parm.H>
+#include <PeleLM_parm.H>
 
 #if defined(BL_USE_NEWMECH) || defined(BL_USE_VELOCITY)
 #include <AMReX_DataServices.H>
@@ -105,8 +108,6 @@ namespace
   bool                  ShowMF_Check_Nans;
   FABio::Format         ShowMF_Fab_Format;
   bool                  do_not_use_funccount;
-  bool                  do_active_control;
-  bool                  do_active_control_temp;
   Real                  temp_control;
   Real                  crse_dt;
   int                   chem_box_chop_threshold;
@@ -168,7 +169,6 @@ bool PeleLM::use_typ_vals_chem = 0;
 Real PeleLM::relative_tol_chem = 1.0e-10;
 Real PeleLM::absolute_tol_chem = 1.0e-10;
 static bool plot_rhoydot;
-bool PeleLM::flag_active_control;
 int  PeleLM::nGrowAdvForcing=1;
 bool PeleLM::avg_down_chem;
 int  PeleLM::reset_typical_vals_int=-1;
@@ -177,6 +177,34 @@ std::map<std::string,Real> PeleLM::typical_values_FileVals;
 
 std::string                                PeleLM::turbFile;
 std::map<std::string, Vector<std::string> > PeleLM::auxDiag_names;
+
+// Active control defaults
+bool         PeleLM::ctrl_active = 0;
+bool         PeleLM::ctrl_use_temp = 0;
+Real         PeleLM::ctrl_tauControl = -1.0;
+Real         PeleLM::ctrl_cfix = 0.0;
+Real         PeleLM::ctrl_coftOld = -1.0;
+Real         PeleLM::ctrl_sest = 0.0;
+Real         PeleLM::ctrl_corr = 1.0;
+Real         PeleLM::ctrl_V_in = 0.0;
+Real         PeleLM::ctrl_V_in_old = 0.0;
+Real         PeleLM::ctrl_changeMax = 1.0;
+Real         PeleLM::ctrl_tBase = 0.0;
+Real         PeleLM::ctrl_dV = 0.0;
+Real         PeleLM::ctrl_scale = 1.0;
+Real         PeleLM::ctrl_zBase = 0.0;
+Real         PeleLM::ctrl_h = -1.0;
+Real         PeleLM::ctrl_velMax = 10000.0;
+Real         PeleLM::ctrl_temperature = -1.0;
+int          PeleLM::ctrl_verbose = 0;
+int          PeleLM::ctrl_NavgPts = 3;
+int          PeleLM::ctrl_flameDir = AMREX_SPACEDIM-1;
+int          PeleLM::ctrl_pseudoGravity = 0;
+int          PeleLM::ctrl_nfilled = -1;
+std::string  PeleLM::ctrl_AChistory = "AC_History.dat";
+Vector<Real> PeleLM::ctrl_time_pts;
+Vector<Real> PeleLM::ctrl_velo_pts;
+Vector<Real> PeleLM::ctrl_cntl_pts;
 
 Vector<Real> PeleLM::typical_values;
 
@@ -312,8 +340,6 @@ PeleLM::Initialize ()
   ShowMF_Check_Nans       = true;
   ShowMF_Fab_Format       = ShowMF_Fab_Format_map["ASCII"];
   do_not_use_funccount    = false;
-  do_active_control       = false;
-  do_active_control_temp  = false;
   temp_control            = -1;
   crse_dt                 = -1;
   chem_box_chop_threshold = -1;
@@ -373,19 +399,10 @@ PeleLM::Initialize ()
   PeleLM::ncells_chem               = 1;
 
   ParmParse pp("ns");
-
   pp.query("do_diffuse_sync",do_diffuse_sync);
   BL_ASSERT(do_diffuse_sync == 0 || do_diffuse_sync == 1);
   pp.query("do_reflux_visc",do_reflux_visc);
   BL_ASSERT(do_reflux_visc == 0 || do_reflux_visc == 1);
-  pp.query("do_active_control",do_active_control);
-  pp.query("do_active_control_temp",do_active_control_temp);
-  pp.query("temp_control",temp_control);
-
-  if (do_active_control_temp && temp_control <= 0)
-    amrex::Error("temp_control MUST be set with do_active_control_temp");
-
-  PeleLM::flag_active_control = do_active_control;
 
   verbose = pp.contains("v");
 
@@ -898,11 +915,11 @@ PeleLM::PeleLM ()
    // can modify these later
    if (p_amb_old == -1.0)
    {
-      get_pamb(&p_amb_old);
+      p_amb_old = ProbParm::P_mean;
    }
    if (p_amb_new == -1.0)
    {
-      get_pamb(&p_amb_new);
+      p_amb_new = ProbParm::P_mean;
    }
 
    updateFluxReg = false;
@@ -945,11 +962,11 @@ PeleLM::PeleLM (Amr&            papa,
   // can modify these later
   if (p_amb_old == -1.0)
   {
-    get_pamb(&p_amb_old);
+    p_amb_old = ProbParm::P_mean;
   }
   if (p_amb_new == -1.0)
   {
-    get_pamb(&p_amb_new);
+    p_amb_new = ProbParm::P_mean;
   }
 
   updateFluxReg = false;
@@ -1234,7 +1251,17 @@ PeleLM::restart (Amr&          papa,
       isp >> p_amb_old;
       p_amb_new = p_amb_old;
   }
+
+  //
+  // Initialize mixture fraction data.
+  //
   init_mixture_fraction();
+
+  //
+  // Initialize active control
+  //
+  initActiveControl();
+
 }
 
 void
@@ -1839,6 +1866,11 @@ PeleLM::initData ()
   init_mixture_fraction();
 
   //
+  // Initialize active control
+  //
+  initActiveControl();
+
+  //
   // Initialize divU and dSdt.
   //
   if (have_divu)
@@ -2069,16 +2101,7 @@ PeleLM::post_restart ()
    int step    = parent->levelSteps(0);
    int is_restart = 1;
 
-   if (do_active_control)
-   {
-      int usetemp = 0;
-      active_control(&dummy,&dummy,&crse_dt,&MyProc,&step,&is_restart,&usetemp);
-   }
-   else if (do_active_control_temp)
-   {
-      int usetemp = 1;
-      active_control(&dummy,&dummy,&crse_dt,&MyProc,&step,&is_restart,&usetemp);
-   }
+   activeControl(step,is_restart,0.0,crse_dt);
 }
 
 void
@@ -2437,91 +2460,19 @@ PeleLM::sum_integrated_quantities ()
   {
     Real mass = 0.0;
     for (int lev = 0; lev <= finest_level; lev++)
-      mass += getLevel(lev).volWgtSum("density",tnp1);
+       mass += getLevel(lev).volWgtSum("density",tnp1);
 
     Print() << "TIME= " << tnp1 << " MASS= " << mass;
   }
   
   if (getSpeciesIdx(fuelName) >= 0)
   {
-    int MyProc  = ParallelDescriptor::MyProc();
-    int step    = parent->levelSteps(0);
-    int is_restart = 0;
-
-    if (do_active_control)
-    {
-      Real fuelmass = 0.0;
-      std::string fuel = "rho.Y(" + fuelName + ")";
-      for (int lev = 0; lev <= finest_level; lev++)
-        fuelmass += getLevel(lev).volWgtSum(fuel,tnp1);
-        
-      if (verbose) amrex::Print() << " FUELMASS= " << fuelmass;
-        
-      int usetemp = 0;
-      active_control(&fuelmass,&tnp1,&crse_dt,&MyProc,&step,&is_restart,&usetemp);      
+    Real fuelmass = 0.0;
+    std::string fuel = "rho.Y(" + fuelName + ")";
+    for (int lev = 0; lev <= finest_level; lev++) {
+       fuelmass += getLevel(lev).volWgtSum(fuel,tnp1);
     }
-    else if (do_active_control_temp)
-    {
-      const int   DM     = BL_SPACEDIM-1;
-      const Real* dx     = geom.CellSize();
-      const Real* problo = geom.ProbLo();
-      Real        hival  = geom.ProbHi(DM);
-      MultiFab&   mf     = get_new_data(State_Type);
-
-      FillPatchIterator Tfpi(*this,mf,1,tnp1,State_Type,Temp,1);
-      MultiFab& Tmf=Tfpi.get_mf();
-  
-#ifdef _OPENMP
-#pragma omp parallel
-#endif  
-      for (MFIter mfi(Tmf,true); mfi.isValid();++mfi)
-      {
-        const FArrayBox& fab  = Tmf[mfi];
-        const Box&       vbox = mfi.tilebox();
-
-        for (IntVect iv = vbox.smallEnd(); iv <= vbox.bigEnd(); vbox.next(iv))
-        {
-          const Real T_hi = fab(iv);
-
-          if (T_hi > temp_control)
-          {
-            const Real hi = problo[DM] + (iv[DM] + .5) * dx[DM];
-
-            if (hi < hival)
-            {
-              hival = hi;
-
-              IntVect lo_iv = iv;
-              
-              lo_iv[DM] -= 1;
-
-              const Real T_lo = fab(lo_iv);
-
-              if (T_lo < temp_control)
-              {
-                const Real lo    = problo[DM] + (lo_iv[DM] + .5) * dx[DM];
-                const Real slope = (T_hi - T_lo) / (hi - lo);
-                  
-                hival = (temp_control - T_lo) / slope + lo;
-              }
-            }
-          }
-        }
-      }
-
-      ParallelDescriptor::ReduceRealMin(hival);
-      int usetemp = 1;      
-      active_control(&hival,&tnp1,&crse_dt,&MyProc,&step,&is_restart,&usetemp);      
-    }
-    else
-    {
-      Real fuelmass = 0.0;
-      std::string fuel = "rho.Y(" + fuelName + ")";
-      for (int lev = 0; lev <= finest_level; lev++) {
-        fuelmass += getLevel(lev).volWgtSum(fuel,tnp1);
-      }
-      if (verbose) amrex::Print() << " FUELMASS= " << fuelmass;
-    }
+    if (verbose) amrex::Print() << " FUELMASS= " << fuelmass;
   }
 
   if (verbose)
@@ -2538,16 +2489,20 @@ PeleLM::sum_integrated_quantities ()
     Print() << '\n';
   }
 
+  int step    = parent->levelSteps(0);
+  int is_restart = 0;
+  activeControl(step,is_restart,tnp1,crse_dt);
+
   {
-    Real rho_h    = 0.0;
-    Real rho_temp = 0.0;
-    for (int lev = 0; lev <= finest_level; lev++)
-    {
-      rho_temp += getLevel(lev).volWgtSum("rho_temp",tnp1);
-      rho_h     = getLevel(lev).volWgtSum("rhoh",tnp1);
-      if (verbose) Print() << "TIME= " << tnp1 << " LEV= " << lev << " RHOH= " << rho_h << '\n';
-    }
-    if (verbose) Print() << "TIME= " << tnp1 << " RHO*TEMP= " << rho_temp << '\n';
+     Real rho_h    = 0.0;
+     Real rho_temp = 0.0;
+     for (int lev = 0; lev <= finest_level; lev++)
+     {
+       rho_temp += getLevel(lev).volWgtSum("rho_temp",tnp1);
+       rho_h     = getLevel(lev).volWgtSum("rhoh",tnp1);
+       if (verbose) Print() << "TIME= " << tnp1 << " LEV= " << lev << " RHOH= " << rho_h << '\n';
+     }
+     if (verbose) Print() << "TIME= " << tnp1 << " RHO*TEMP= " << rho_temp << '\n';
   }
   
   if (verbose)
@@ -8397,9 +8352,9 @@ PeleLM::getForce(FArrayBox&       force,
    const Real  grav     = gravity;
    const int   nscal    = NUM_SCALARS;
 
-   // TODO: For now the following are set here. Update when active_control moved to C++
-   int pseudo_gravity    = 0;
-   const Real dV_control = 0.0;
+   // Get non-static info for the pseudo gravity forcing
+   int pseudo_gravity    = ctrl_pseudoGravity;
+   const Real dV_control = ctrl_dV;
 
    amrex::ParallelFor(bx, [f, scalars, velocity, time, grav, pseudo_gravity, dV_control, dx, scomp, ncomp]
    AMREX_GPU_DEVICE(int i, int j, int k) noexcept
@@ -8973,4 +8928,351 @@ PeleLM::errorEst (TagBoxArray& tags,
 
     }
   }
+}
+
+void
+PeleLM::activeControl(const int  step,
+                      const int restart,
+                      const Real time,
+                      const Real dt)
+{
+
+   if (!ctrl_active) return;
+
+   const int finest_level = parent->finestLevel();
+
+   // Get the current target state (either amount of fuel or T-iso position)
+   Real coft = 0.0;
+
+   if ( !ctrl_use_temp ) {
+      // Get fuel mass
+      Real fuelmass = 0.0;
+      std::string fuel = "rho.Y(" + fuelName + ")";
+      for (int lev = 0; lev <= finest_level; lev++) {
+        fuelmass += getLevel(lev).volWgtSum(fuel,time);
+      }
+      coft = fuelmass;
+   } else {
+      // Get the low T position
+      coft = 1.e37;
+      for (int lev = 0; lev <= finest_level; lev++) {
+
+         // Level data
+         MultiFab&   mf     = getLevel(lev).get_new_data(State_Type);
+         const auto dx      = getLevel(lev).geom.CellSizeArray();
+         const auto prob_lo = getLevel(lev).geom.ProbLo();
+         Real AC_Tcross     = ctrl_temperature;
+
+         // Static -> local AC data
+         int  AC_FlameDir   = ctrl_flameDir;
+
+         // FPI on temp
+         FillPatchIterator Tfpi(getLevel(lev),mf,1,time,State_Type,Temp,1);
+         MultiFab& Tmf=Tfpi.get_mf();
+
+         // If not finest, set covered to 0.0 : is it really necessary ?
+         if ( lev < finest_level ) {
+            auto bac = getLevel(lev).boxArray();
+            auto baf = getLevel(lev+1).boxArray();
+            baf.coarsen(fine_ratio);
+#ifdef _OPENMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+            {
+               std::vector< std::pair<int,Box> > isects;
+               for (MFIter mfi(Tmf,TilingIfNotGPU()); mfi.isValid(); ++mfi)
+               {
+                  auto const& T_arr = Tmf.array(mfi);
+                  baf.intersections(bac[mfi.index()],isects);
+                  for (int is = 0; is < isects.size(); is++) {
+                     amrex::ParallelFor(isects[is].second, [T_arr]
+                     AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+                     {
+                        T_arr(i,j,k) = 0.0;
+                     });
+                  }
+               }
+            }
+         }
+
+         Real lowT = amrex::ReduceMin(Tmf, 0, [prob_lo,dx,AC_Tcross,AC_FlameDir]
+                     AMREX_GPU_HOST_DEVICE(Box const& bx, Array4<Real const> const& T_arr ) noexcept -> Real
+                     {
+                        using namespace amrex::literals;
+                        const auto lo = amrex::lbound(bx);
+                        const auto hi = amrex::ubound(bx);
+                        amrex::Real tmp_pos = 1.e37_rt;
+                        for       (int k = lo.z; k <= hi.z; ++k) {
+                           Real z = prob_lo[2] + (k+0.5)*dx[2];
+                           for    (int j = lo.y; j <= hi.y; ++j) {
+                              Real y = prob_lo[1] + (j+0.5)*dx[1];
+                              for (int i = lo.x; i <= hi.x; ++i) {
+                                 Real x = prob_lo[0] + (i+0.5)*dx[0];
+                                 Real lcl_pos = 1.e37_rt;
+                                 int idx[3] = {D_DECL(i,j,k)};
+                                 Real coor[3] = {D_DECL(x,y,z)};
+                                 idx[AC_FlameDir] -= 1;
+                                 coor[AC_FlameDir] -= dx[AC_FlameDir];
+                                 if ( T_arr(i,j,k) > AC_Tcross ) {
+                                    if ( T_arr(idx[0],idx[1],idx[2]) < AC_Tcross ) {
+                                       Real slope = ((T_arr(i,j,k) ) - T_arr(idx[0],idx[1],idx[2]))/dx[AC_FlameDir];
+                                       lcl_pos = coor[AC_FlameDir] + ( AC_Tcross - T_arr(idx[0],idx[1],idx[2]) ) / slope;
+                                    }
+                                 }
+                                 tmp_pos = amrex::min(tmp_pos,lcl_pos);
+                              }
+                           }
+                        }
+                        return tmp_pos;
+                     });
+          coft = amrex::min(coft,lowT);
+      }
+      ParallelDescriptor::ReduceRealMin(coft);
+   }
+
+   // If first time, set old target state
+   if ( ctrl_coftOld < 0.0 ) ctrl_coftOld = coft;
+
+   if ( step == 0 ) ctrl_nfilled = ctrl_NavgPts+1;
+
+   // Manage AC history I/O
+   if ( restart ) {
+      ctrl_nfilled = ctrl_NavgPts+1;
+      struct stat buffer;
+      bool have_history = (stat (ctrl_AChistory.c_str(), &buffer) == 0);
+      if ( have_history ) {
+         if ( ctrl_verbose ) Print() << " Setting AC from history from " << ctrl_AChistory << "\n";
+         int step_io;
+         Real time_io, vel_io, slocal_io, dV_io, s_est_io, coft_old_io;
+         std::fstream ACfile (ctrl_AChistory.c_str(), std::fstream::in);
+         if (ACfile.is_open()) {
+            while ( ACfile.good() ) {
+               ACfile >> step_io
+                      >> time_io
+                      >> vel_io
+                      >> slocal_io
+                      >> dV_io
+                      >> s_est_io
+                      >> coft_old_io;
+               if ( ( ( step - step_io ) >= 0 ) &&
+                    ( ( step - step_io ) <= ctrl_NavgPts ) ) {   // Fill the previous step data
+                  int pos = ( step - step_io );
+                  ctrl_nfilled -= 1;
+                  ctrl_time_pts[pos] = time_io;
+                  ctrl_velo_pts[pos] = vel_io;
+                  ctrl_cntl_pts[pos] = coft_old_io;
+               }
+               if ( step_io == step ) {                          // Found the right step
+                  ctrl_V_in = vel_io;
+                  ctrl_tBase = time_io;
+                  ctrl_dV = dV_io;
+                  ctrl_sest = s_est_io;
+                  ctrl_coftOld = coft_old_io;
+               }
+            }
+            ACfile.close();
+         }
+         if ( ctrl_verbose ) {
+            Print() << " AC history arrays: \n";
+            for (int n = 0; n < ctrl_time_pts.size(); n++) {
+               Print() << "  ["<<n<<"] time: "<< ctrl_time_pts[n]
+                                <<", velo: "<< ctrl_velo_pts[n]
+                                <<", coft: "<< ctrl_cntl_pts[n] << "\n";
+            }
+         }
+      } else {
+         if ( ctrl_verbose ) Print() << " AC history file " << ctrl_AChistory << " not found, restarting from scratch \n";
+      }
+   }
+
+   //Real zbase_control += ctrl_V_in * dt + ctrl_dV * dt * dt;
+   ctrl_V_in_old = ctrl_V_in;
+   ctrl_V_in += dt * ctrl_dV;
+
+   Real slocal = 0.5 * (ctrl_V_in_old + ctrl_V_in) - (coft - ctrl_coftOld) / ( dt * ctrl_scale );
+
+   // -------------------------------------------
+   // Get s_est averaged from previous N steps
+   // -------------------------------------------
+   // Update ctrl_* Vectors if not restarting
+   if (!restart) {
+      ctrl_time_pts.insert(ctrl_time_pts.begin(),time);
+      ctrl_velo_pts.insert(ctrl_velo_pts.begin(),ctrl_V_in);
+      ctrl_cntl_pts.insert(ctrl_cntl_pts.begin(),coft);
+      if ( ctrl_time_pts.size() > ctrl_NavgPts ) { // Pop_back only if it's filled
+         ctrl_time_pts.pop_back();
+         ctrl_velo_pts.pop_back();
+         ctrl_cntl_pts.pop_back();
+      }
+   }
+
+   if ( ctrl_nfilled <= 0 ) {
+      Real velIntegral = 0.0;
+      for (int n = 1; n <= ctrl_NavgPts; n++ ) { // Piecewise constant velocity over NavgPts last steps
+         velIntegral += 0.5 * ( ctrl_velo_pts[n-1] + ctrl_velo_pts[n] )
+                            * ( ctrl_time_pts[n-1] - ctrl_time_pts[n] );
+      }
+      ctrl_sest = ( velIntegral - ( ctrl_cntl_pts[0] - ctrl_cntl_pts[ctrl_NavgPts]) / ctrl_scale )
+                 / ( ctrl_time_pts[0] - ctrl_time_pts[ctrl_NavgPts] );
+
+   } else {
+      ctrl_nfilled -= 1;
+      if ( step != 0 ) {
+         ctrl_sest = (1.0 - ctrl_corr ) * ctrl_sest + ctrl_corr * slocal;
+      }
+   }
+
+   // Compute Vnew
+   int ctrl_method = 3;
+   Real Vnew = 0.0;
+
+   if (ctrl_method == 1) {         // linear
+      Real vslope = 2.0 * ( (ctrl_cfix - coft)/(ctrl_scale * ctrl_tauControl) + ctrl_sest - ctrl_V_in ) / ctrl_tauControl;
+      Vnew = ctrl_V_in + dt * vslope;
+   } else if (ctrl_method == 2) { // Quadratic 1
+      Real vslope = 3.0 * ( (ctrl_cfix - coft)/(ctrl_scale * ctrl_tauControl) + ctrl_sest - ctrl_V_in ) / ctrl_tauControl;
+      Vnew = ctrl_V_in + ( dt - 0.5 * dt*dt / ctrl_tauControl ) * vslope;
+   } else if (ctrl_method == 3) { // Quadratic 2
+      Real rhs2 = 2.0 * ( (ctrl_cfix - coft)/(ctrl_scale * ctrl_tauControl) + ctrl_sest - ctrl_V_in ) / ctrl_tauControl;
+      Real rhs1 = ( ctrl_sest - ctrl_V_in ) / ctrl_tauControl;
+      Real vt_tay = 3.0 * rhs2 - 2.0 * rhs1;
+      Real vtt_tay = 6.0 * ( rhs1 - rhs2 ) / ctrl_tauControl;
+      Vnew = ctrl_V_in + dt * vt_tay + 0.5 * dt * dt * vtt_tay;
+   }
+
+   // Limit Vnew
+   Real dVmax = ctrl_changeMax * 1.0;
+   Real dVmin = ctrl_changeMax * std::max(1.0,ctrl_V_in);
+   Vnew = std::max(Vnew,0.0);
+   Vnew = std::min(std::max(Vnew,ctrl_V_in-dVmin),ctrl_V_in+dVmax);
+   Vnew = std::min(Vnew,ctrl_velMax);
+
+   if (!restart && step > 0) {
+      ctrl_tBase = time;
+
+      // Compute
+      ctrl_dV = ( Vnew - ctrl_V_in ) / dt;
+   }
+
+   ctrl_coftOld = coft;
+
+   // Pass dV and ctrl_V_in to GPU compliant problem routines
+   ACParm::ctrl_V_in = ctrl_V_in;
+   ACParm::ctrl_dV = ctrl_dV;
+   ACParm::ctrl_tBase = ctrl_tBase;
+
+   // Verbose
+   if ( ctrl_verbose && !restart) {
+      Print() << "\n------------------------AC CONTROL------------------------ \n";
+      Print() << " |     Time: " << time << " -     dt: " << dt << "\n";
+      Print() << " | Position: " << coft/ctrl_scale << " - Target: " << ctrl_cfix/ctrl_scale << "\n";
+      Print() << " |    V_new: " << Vnew << " -   V_in: " << ctrl_V_in << " - dV: " << ctrl_dV << "\n";
+      Print() << "---------------------------------------------------------- \n";
+   }
+
+   // Append to (or create) AC history file
+   if (!restart) {
+      std::ofstream ACfile(ctrl_AChistory.c_str(), std::ofstream::out | std::ofstream::app );
+      Print(ACfile).SetPrecision(15) << step << "  "
+                                     << time << "  "
+                                     << ctrl_V_in << "  "
+                                     << slocal << "  "
+                                     << ctrl_dV << "  "
+                                     << ctrl_sest << "  "
+                                     << ctrl_coftOld << std::endl;
+   }
+}
+
+void
+PeleLM::initActiveControl()
+{
+   if (level!=0) return;
+
+   if (verbose) Print() <<  "PeleLM::initActiveControl()\n";
+
+   // Parse input file
+   ParmParse ppAC("active_ctrl");
+   ppAC.query("active",ctrl_active);
+   ppAC.query("use_temp",ctrl_use_temp);
+   ppAC.query("temperature",ctrl_temperature);
+   ppAC.query("tau",ctrl_tauControl);
+   ppAC.query("v",ctrl_verbose);
+   ppAC.query("height",ctrl_h);
+   ppAC.query("changeMax",ctrl_changeMax);
+   ppAC.query("velMax",ctrl_velMax);
+   ppAC.query("pseudo_gravity",ctrl_pseudoGravity);
+   ppAC.query("flame_direction",ctrl_flameDir);
+   ppAC.query("AC_history",ctrl_AChistory);
+   ppAC.query("npoints_average",ctrl_NavgPts);
+
+   // Active control checks
+   if ( ctrl_use_temp && (ctrl_temperature <= 0.0) )
+      amrex::Error("active_ctrl.temperature MUST be set with active_ctrl.use_temp = 1");
+
+   if ( ctrl_active && (ctrl_tauControl <= 0.0) )
+      amrex::Error("active_ctrl.tau MUST be set when using active_ctrl");
+
+   if ( ctrl_active && (ctrl_h <= 0.0) )
+      amrex::Error("active_ctrl.height MUST be set when using active_ctrl");
+
+   if ( ctrl_active && ( ctrl_flameDir > 2 ) )
+      amrex::Error("active_ctrl.flame_direction MUST be 0, 1 or 2 for X, Y and Z resp.");
+
+   // Exit here if AC not activated
+   if ( !ctrl_active ) return;
+
+   // Activate AC in problem specific / GPU compliant sections
+   ACParm::ctrl_active = ctrl_active;
+
+   // Resize vector for temporal average
+   ctrl_time_pts.resize(ctrl_NavgPts+1,-1.0);
+   ctrl_velo_pts.resize(ctrl_NavgPts+1,-1.0);
+   ctrl_cntl_pts.resize(ctrl_NavgPts+1,-1.0);
+
+   // Compute some active control parameters
+   Real area_tot = 1.0;
+   const Real* problo = geom.ProbLo();
+   const Real* probhi = geom.ProbHi();
+   for (int dim = 0; dim < AMREX_SPACEDIM; dim++) {
+      if (dim != ctrl_flameDir) area_tot *= (probhi[dim] - problo[dim]);
+   }
+
+   // Extract data from bc: assumes flow comes in from lo side of ctrl_flameDir
+   amrex::Real s_ext[DEF_NUM_STATE] = {0.0};
+   amrex::Real x[AMREX_SPACEDIM] = {D_DECL(problo[0],problo[1],problo[2])};
+   x[ctrl_flameDir] -= 1.0;
+   bcnormal(x, s_ext, ctrl_flameDir, 1, -1.0, geom.data());
+
+   if ( !ctrl_use_temp ) {
+      // Get the fuel rhoY
+      Vector<std::string> specNames;
+      EOS::speciesNames(specNames);
+      int fuelidx = -1;
+      for (int k = 0; k < NUM_SPECIES; k++) {
+         if ( !specNames[k].compare(fuelName) ) fuelidx = k;
+      }
+      ctrl_scale = area_tot * s_ext[first_spec+fuelidx];
+      ctrl_cfix  = ctrl_h * ctrl_scale;
+   } else {
+      // If using temp, scale is 1.0
+      ctrl_scale = 1.0;
+      ctrl_cfix = ctrl_h;
+   }
+
+   // Extract initial ctrl_V_in from bc
+   ctrl_V_in  = s_ext[ctrl_flameDir];
+   ctrl_V_in_old = ctrl_V_in;
+
+   // Pass V_in to bc
+   ACParm::ctrl_V_in = ctrl_V_in;
+
+   if ( ctrl_verbose && ctrl_active ) {
+      if ( ctrl_use_temp ) {
+         Print() << " Active control based on temperature iso-level activated."
+                 << " Maintaining the flame at " << ctrl_h << " in " << ctrl_flameDir << " direction. \n";
+      } else {
+         Print() << " Active control based on fuel mass activated."
+                 << " Maintaining the flame at " << ctrl_h << " in " << ctrl_flameDir << " direction. \n";
+      }
+   }
 }
