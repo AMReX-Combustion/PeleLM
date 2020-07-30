@@ -136,6 +136,33 @@ for (int j = 0; j < ProbParm::pmf_M; j++) {
 AMREX_GPU_DEVICE
 inline
 void
+pelelm_initdata_newmech (int i, int j, int k, 
+                 amrex::Array4<amrex::Real> const& state,
+                 amrex::GeometryData const& geomdata)
+{
+
+    amrex::Real massfrac[NUM_SPECIES] = {0.0};
+    for (int n = 0; n < NUM_SPECIES; n++) {
+      massfrac[n] = state(i,j,k,DEF_first_spec+n);
+    }
+
+    amrex::Real rho_cgs, P_cgs;
+    P_cgs = ProbParm::P_mean * 10.0;
+
+    EOS::PYT2R(P_cgs, massfrac, state(i,j,k,DEF_Temp), rho_cgs);
+    state(i,j,k,Density) = rho_cgs * 1.0e3;            // CGS -> MKS conversion
+
+    EOS::TY2H(state(i,j,k,DEF_Temp), massfrac, state(i,j,k,DEF_RhoH));
+    state(i,j,k,DEF_RhoH) = state(i,j,k,DEF_RhoH) * 1.0e-4 * state(i,j,k,Density);   // CGS -> MKS conversion
+
+    for (int n = 0; n < NUM_SPECIES; n++) {
+      state(i,j,k,DEF_first_spec+n) = massfrac[n] * state(i,j,k,Density);
+    }
+}
+
+AMREX_GPU_DEVICE
+inline
+void
 pelelm_initdata (int i, int j, int k, 
                  amrex::Array4<amrex::Real> const& state,
                  amrex::GeometryData const& geomdata)
