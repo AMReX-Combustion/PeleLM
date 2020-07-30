@@ -9138,8 +9138,8 @@ PeleLM::initActiveControl()
    if (verbose) Print() <<  "PeleLM::initActiveControl()\n";
 
    // Parse input file
-   ParmParse ppAC("active_ctrl");
-   ppAC.query("active",ctrl_active);
+   ParmParse ppAC("active_control");
+   ppAC.query("on",ctrl_active);
    ppAC.query("use_temp",ctrl_use_temp);
    ppAC.query("temperature",ctrl_temperature);
    ppAC.query("tau",ctrl_tauControl);
@@ -9154,16 +9154,16 @@ PeleLM::initActiveControl()
 
    // Active control checks
    if ( ctrl_use_temp && (ctrl_temperature <= 0.0) )
-      amrex::Error("active_ctrl.temperature MUST be set with active_ctrl.use_temp = 1");
+      amrex::Error("active_control.temperature MUST be set with active_control.use_temp = 1");
 
    if ( ctrl_active && (ctrl_tauControl <= 0.0) )
-      amrex::Error("active_ctrl.tau MUST be set when using active_ctrl");
+      amrex::Error("active_control.tau MUST be set when using active_control");
 
    if ( ctrl_active && (ctrl_h <= 0.0) )
-      amrex::Error("active_ctrl.height MUST be set when using active_ctrl");
+      amrex::Error("active_control.height MUST be set when using active_control");
 
    if ( ctrl_active && ( ctrl_flameDir > 2 ) )
-      amrex::Error("active_ctrl.flame_direction MUST be 0, 1 or 2 for X, Y and Z resp.");
+      amrex::Error("active_control.flame_direction MUST be 0, 1 or 2 for X, Y and Z resp.");
 
    // Exit here if AC not activated
    if ( !ctrl_active ) return;
