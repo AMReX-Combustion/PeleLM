@@ -108,7 +108,6 @@ namespace
   bool                  ShowMF_Check_Nans;
   FABio::Format         ShowMF_Fab_Format;
   bool                  do_not_use_funccount;
-  Real                  temp_control;
   Real                  crse_dt;
   int                   chem_box_chop_threshold;
   int                   num_deltaT_iters_MAX;
@@ -342,7 +341,6 @@ PeleLM::Initialize ()
   ShowMF_Check_Nans       = true;
   ShowMF_Fab_Format       = ShowMF_Fab_Format_map["ASCII"];
   do_not_use_funccount    = false;
-  temp_control            = -1;
   crse_dt                 = -1;
   chem_box_chop_threshold = -1;
 
@@ -8908,12 +8906,11 @@ PeleLM::activeControl(const int  step,
 
          // Level data
          MultiFab&   mf     = getLevel(lev).get_new_data(State_Type);
-         const auto dx      = getLevel(lev).geom.CellSizeArray();
-         const auto prob_lo = getLevel(lev).geom.ProbLo();
-         Real AC_Tcross     = ctrl_temperature;
+         const auto geomdata = getLevel(lev).geom.data();
 
          // Static -> local AC data
          int  AC_FlameDir   = ctrl_flameDir;
+         Real AC_Tcross     = ctrl_temperature;
 
          // FPI on temp
          FillPatchIterator Tfpi(getLevel(lev),mf,1,time,State_Type,Temp,1);
@@ -8944,28 +8941,29 @@ PeleLM::activeControl(const int  step,
             }
          }
 
-         Real lowT = amrex::ReduceMin(Tmf, 0, [prob_lo,dx,AC_Tcross,AC_FlameDir]
+         Real lowT = amrex::ReduceMin(Tmf, 0, [geomdata,AC_Tcross,AC_FlameDir]
                      AMREX_GPU_HOST_DEVICE(Box const& bx, Array4<Real const> const& T_arr ) noexcept -> Real
                      {
                         using namespace amrex::literals;
                         const auto lo = amrex::lbound(bx);
                         const auto hi = amrex::ubound(bx);
                         amrex::Real tmp_pos = 1.e37_rt;
+                        const amrex::Real* prob_lo = geomdata.ProbLo();
+                        const amrex::Real* dx = geomdata.CellSize();
+                        Real coor[3] = {0.0};
                         for       (int k = lo.z; k <= hi.z; ++k) {
-                           Real z = prob_lo[2] + (k+0.5)*dx[2];
                            for    (int j = lo.y; j <= hi.y; ++j) {
-                              Real y = prob_lo[1] + (j+0.5)*dx[1];
                               for (int i = lo.x; i <= hi.x; ++i) {
-                                 Real x = prob_lo[0] + (i+0.5)*dx[0];
                                  Real lcl_pos = 1.e37_rt;
-                                 int idx[3] = {D_DECL(i,j,k)};
-                                 Real coor[3] = {D_DECL(x,y,z)};
-                                 idx[AC_FlameDir] -= 1;
-                                 coor[AC_FlameDir] -= dx[AC_FlameDir];
                                  if ( T_arr(i,j,k) > AC_Tcross ) {
+                                    int idx[AMREX_SPACEDIM] = {D_DECL(i,j,k)};
+                                    idx[AC_FlameDir] -= 1;
                                     if ( T_arr(idx[0],idx[1],idx[2]) < AC_Tcross ) {
+                                       D_TERM(coor[0] = prob_lo[0] + (i+0.5)*dx[0];,
+                                              coor[1] = prob_lo[1] + (j+0.5)*dx[1];,
+                                              coor[2] = prob_lo[2] + (k+0.5)*dx[2];);
                                        Real slope = ((T_arr(i,j,k) ) - T_arr(idx[0],idx[1],idx[2]))/dx[AC_FlameDir];
-                                       lcl_pos = coor[AC_FlameDir] + ( AC_Tcross - T_arr(idx[0],idx[1],idx[2]) ) / slope;
+                                       lcl_pos = coor[AC_FlameDir] - dx[AC_FlameDir] + ( AC_Tcross - T_arr(idx[0],idx[1],idx[2]) ) / slope;
                                     }
                                  }
                                  tmp_pos = amrex::min(tmp_pos,lcl_pos);
