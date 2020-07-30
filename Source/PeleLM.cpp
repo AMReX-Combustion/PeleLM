@@ -1670,7 +1670,7 @@ PeleLM::initData ()
   // has at least as many levels as does the current problem.  If
   // either of these are false this code is likely to core dump.
   //
-  ParmParse pp("ht");
+  ParmParse pp("peleLM");
 
   std::string pltfile;
   pp.query("pltfile", pltfile);
@@ -1680,7 +1680,7 @@ PeleLM::initData ()
     amrex::Print() << "initData: reading data from: " << pltfile << '\n';
 
   DataServices::SetBatchMode();
-  FileType fileType(NEWPLT);
+  Amrvis::FileType fileType(Amrvis::NEWPLT);
   DataServices dataServices(pltfile, fileType);
 
   if (!dataServices.AmrDataOk())
@@ -1694,16 +1694,13 @@ PeleLM::initData ()
   EOS::speciesNames(names);
   Vector<std::string>        plotnames   = amrData.PlotVarNames();
 
-  int idT = -1, idX = -1;
+  int idT = -1, idX = -1, idfirstSpec = -1;
   for (int i = 0; i < plotnames.size(); ++i)
   {
     if (plotnames[i] == "temp")       idT = i;
     if (plotnames[i] == "x_velocity") idX = i;
+    if (plotnames[i] == "Y("+names[0]+")") idfirstSpec = i;
   }
-  //
-  // In the plotfile the mass fractions directly follow the velocities.
-  //
-  int idSpec = idX + BL_SPACEDIM;
 
   for (int i = 0; i < BL_SPACEDIM; i++)
   {
@@ -1715,8 +1712,8 @@ PeleLM::initData ()
 
   for (int i = 0; i < NUM_SPECIES; i++)
   {
-    amrData.FillVar(S_new, level, plotnames[idSpec+i], first_spec+i);
-    amrData.FlushGrids(idSpec+i);
+    amrData.FillVar(S_new, level, plotnames[idfirstSpec+i], first_spec+i);
+    amrData.FlushGrids(idfirstSpec+i);
   }
 
   if (verbose) amrex::Print() << "initData: finished init from pltfile" << '\n';
@@ -1738,7 +1735,7 @@ PeleLM::initData ()
       [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
       {
 #ifdef BL_USE_NEWMECH
-        amrex::Abort("USE_NEWMECH feature no longer working and has to be fixed/redone");
+        pelelm_initdata_newmech(i, j, k, sfab, geomdata);
 #else
         pelelm_initdata(i, j, k, sfab, geomdata);
 #endif
