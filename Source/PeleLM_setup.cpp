@@ -392,13 +392,6 @@ PeleLM::variableSetUp ()
   std::string speciesScaleFile; ppns.query("speciesScaleFile",speciesScaleFile);
 
   amrex::Print() << " fuel name " << fuelName << std::endl;
-
-  int dm = BL_SPACEDIM;
-  int flag_active_control = 0;
-  
-  if (PeleLM::flag_active_control){
-    flag_active_control = 1;}
-  else {flag_active_control = 0;}
   
   //
   // Get a species to use as a flame tracker.
