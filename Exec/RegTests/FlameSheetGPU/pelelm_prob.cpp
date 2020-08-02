@@ -22,14 +22,6 @@ namespace ProbParm
    amrex::Vector<std::string> pmf_names;
 } // namespace ProbParm
 
-namespace ACParm
-{
-   AMREX_GPU_DEVICE_MANAGED unsigned int ctrl_active = 0;
-   AMREX_GPU_DEVICE_MANAGED amrex::Real  ctrl_dV = 0.0;
-   AMREX_GPU_DEVICE_MANAGED amrex::Real  ctrl_V_in = 0.0;
-   AMREX_GPU_DEVICE_MANAGED amrex::Real  ctrl_tBase = 0.0;
-}
-
 std::string
 read_pmf_file(std::ifstream& in)
 {

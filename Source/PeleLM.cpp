@@ -93,6 +93,14 @@ const int  LinOp_grow  = 1;
 static Real              typical_RhoH_value_default = -1.e10;
 static const std::string typical_values_filename("typical_values.fab");
 
+namespace ACParm
+{
+   AMREX_GPU_DEVICE_MANAGED unsigned int ctrl_active = 0;
+   AMREX_GPU_DEVICE_MANAGED amrex::Real  ctrl_dV = 0.0;
+   AMREX_GPU_DEVICE_MANAGED amrex::Real  ctrl_V_in = 0.0;
+   AMREX_GPU_DEVICE_MANAGED amrex::Real  ctrl_tBase = 0.0;
+}
+
 namespace
 {
   bool initialized = false;
