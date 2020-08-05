@@ -107,6 +107,7 @@ Pdirs   += $(AMREX_HOME)/Src/Base
 Pdirs   += $(AMREX_HOME)/Src/AmrCore
 Pdirs   += $(AMREX_HOME)/Src/Amr
 Pdirs   += $(AMREX_HOME)/Src/Boundary
+Pdirs   += $(AMREX_HOME)/Src/Extern/amrdata
 ifeq ($(USE_PARTICLES), TRUE)
   Pdirs += $(AMREX_HOME)/Src/Particle
 endif
