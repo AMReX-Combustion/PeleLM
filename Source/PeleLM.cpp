@@ -1695,6 +1695,9 @@ PeleLM::initData ()
   MultiFab&   P_new    = get_new_data(Press_Type);
   const Real  cur_time = state[State_Type].curTime();
 
+  S_new.setVal(0.0);
+  P_new.setVal(0.0);
+
 #ifdef BL_USE_NEWMECH
   //
   // This code has a few drawbacks.  It assumes that the physical
@@ -1734,6 +1737,7 @@ PeleLM::initData ()
     if (plotnames[i] == "x_velocity") idX = i;
     if (plotnames[i] == "Y("+names[0]+")") idfirstSpec = i;
   }
+  amrex::Print() << "temp, vel, spec idx " << idT << " " <<idX << " "<< idfirstSpec<< '\n';
 
   for (int i = 0; i < BL_SPACEDIM; i++)
   {
@@ -1753,8 +1757,6 @@ PeleLM::initData ()
 #endif
 
   const auto geomdata = geom.data();
-  S_new.setVal(0.0);
-  P_new.setVal(0.0);
 
 #ifdef _OPENMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
