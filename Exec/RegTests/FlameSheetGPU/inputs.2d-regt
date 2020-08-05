@@ -101,8 +101,6 @@ ns.min_rho_divu_ceiling = .01
 ns.fuelName        = H2
 ns.unity_Le = 0
 
-ns.do_active_control = 0
-
 ns.do_fillPatchUMAC=1
 ns.zeroBndryVisc=1
 ns.num_divu_iters =3
@@ -113,6 +111,17 @@ ns.num_divu_iters =3
 #peleLM.absolute_tol_chem = 1.0e-6
 cvode.solve_type = GMRES
 ode.analytical_jacobian = 0
+
+# ------------------  INPUTS TO ACTIVE CONTROL  ----------------------
+active_control.on = 0                              # Use AC ?
+active_control.use_temp = 1                        # Default in fuel mass, rather use iso-T position ?
+active_control.temperature = 1300.0                # Value of iso-T ?
+active_control.tau = 1.0e-4                        # Control tau (should ~ 10 dt)
+active_control.height = 0.0070                     # Where is the flame held ? Default assumes coordinate along Y in 2D or Z in 3D.
+active_control.v = 1                               # verbose
+active_control.velMax = 1.5                        # Optional: limit inlet velocity
+active_control.changeMax = 0.2                     # Optional: limit inlet velocity changes (absolute)
+active_control.flameDir  = 1                       # Optional: flame main direction. Default: AMREX_SPACEDIM-1
 
 # ------------------  INPUTS TO GODUNOV CLASS ----------------------
 godunov.slope_order = 4

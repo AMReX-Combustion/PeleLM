@@ -1,26 +1,25 @@
-
 #include <pelelm_prob.H>
 
 namespace ProbParm
 {
-    AMREX_GPU_DEVICE_MANAGED  amrex::Real P_mean = 101325.0;
-    AMREX_GPU_DEVICE_MANAGED  amrex::Real standoff = - 0.022;
-    AMREX_GPU_DEVICE_MANAGED  amrex::Real pertmag = 0.0004;
+   AMREX_GPU_DEVICE_MANAGED  amrex::Real P_mean = 101325.0;
+   AMREX_GPU_DEVICE_MANAGED  amrex::Real standoff = - 0.022;
+   AMREX_GPU_DEVICE_MANAGED  amrex::Real pertmag = 0.0004;
 
-AMREX_GPU_DEVICE_MANAGED unsigned int pmf_N = 0;
-AMREX_GPU_DEVICE_MANAGED unsigned int pmf_M = 0;
-AMREX_GPU_DEVICE_MANAGED bool pmf_do_average = false;
+   AMREX_GPU_DEVICE_MANAGED unsigned int pmf_N = 0;
+   AMREX_GPU_DEVICE_MANAGED unsigned int pmf_M = 0;
+   AMREX_GPU_DEVICE_MANAGED bool pmf_do_average = false;
 
-amrex::Gpu::ManagedVector<amrex::Real>* pmf_X = nullptr;
-amrex::Gpu::ManagedVector<amrex::Real>* pmf_Y = nullptr;
-amrex::Gpu::ManagedVector<amrex::Real>* fuel_state = nullptr;
+   amrex::Gpu::ManagedVector<amrex::Real>* pmf_X = nullptr;
+   amrex::Gpu::ManagedVector<amrex::Real>* pmf_Y = nullptr;
+   amrex::Gpu::ManagedVector<amrex::Real>* fuel_state = nullptr;
 
-AMREX_GPU_DEVICE_MANAGED amrex::Real* d_pmf_X = nullptr;
-AMREX_GPU_DEVICE_MANAGED amrex::Real* d_pmf_Y = nullptr;
-AMREX_GPU_DEVICE_MANAGED amrex::Real* d_fuel_state = nullptr;
+   AMREX_GPU_DEVICE_MANAGED amrex::Real* d_pmf_X = nullptr;
+   AMREX_GPU_DEVICE_MANAGED amrex::Real* d_pmf_Y = nullptr;
+   AMREX_GPU_DEVICE_MANAGED amrex::Real* d_fuel_state = nullptr;
 
-std::string pmf_datafile = "";
-amrex::Vector<std::string> pmf_names;
+   std::string pmf_datafile = "";
+   amrex::Vector<std::string> pmf_names;
 } // namespace ProbParm
 
 std::string
@@ -113,12 +112,6 @@ read_pmf(const std::string myfile)
   ProbParm::d_pmf_X = ProbParm::pmf_X->dataPtr();
   ProbParm::d_pmf_Y = ProbParm::pmf_Y->dataPtr();
 }
-
-
-
-
-
-
 
 extern "C" {
     void amrex_probinit (const int* init,

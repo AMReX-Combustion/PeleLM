@@ -6,6 +6,7 @@
 #include <AMReX_ParmParse.H>
 
 #include <pelelm_prob_parm.H>
+#include <PeleLM_parm.H>
 
 #include <NavierStokesBase.H>
 #include <IndexDefines.H>
@@ -257,7 +258,7 @@ pelelm_initdata (int i, int j, int k,
 
 }
 
-AMREX_GPU_DEVICE
+AMREX_GPU_HOST_DEVICE
 AMREX_FORCE_INLINE
 void
 bcnormal(
@@ -277,13 +278,23 @@ bcnormal(
   if (sgn == 1) {
     pmf(prob_hi[idir], prob_hi[idir], pmf_vals);
 
-    s_ext[Xvel] = 0.0;
+    if (!ACParm::ctrl_active || time <= 0.0) {
+       s_ext[Xvel] = 0.0;
 #if ( AMREX_SPACEDIM == 2 )
-    s_ext[Yvel] = pmf_vals[1]*1e-2;
+       s_ext[Yvel] = pmf_vals[1]*1e-2;
 #elif (AMREX_SPACEDIM == 3)
-    s_ext[Yvel] = 0.0;
-    s_ext[Zvel] = pmf_vals[1]*1e-2;
+       s_ext[Yvel] = 0.0;
+       s_ext[Zvel] = pmf_vals[1]*1e-2;
 #endif
+    } else {
+       s_ext[Xvel] = 0.0;
+#if ( AMREX_SPACEDIM == 2 )
+       s_ext[Yvel] = ACParm::ctrl_V_in + (time - ACParm::ctrl_tBase) * ACParm::ctrl_dV;
+#elif (AMREX_SPACEDIM == 3)
+       s_ext[Yvel] = 0.0;
+       s_ext[Zvel] = ACParm::ctrl_V_in + (time - ACParm::ctrl_tBase) * ACParm::ctrl_dV;
+#endif
+    }
 
     s_ext[DEF_Temp] = pmf_vals[0];
 
@@ -308,5 +319,4 @@ bcnormal(
   }
 
 }
-
 #endif
