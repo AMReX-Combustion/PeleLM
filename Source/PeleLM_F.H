@@ -267,7 +267,10 @@ extern "C" {
                           const BL_FORT_FAB_ARG_ANYD(rYdot),  
                           const BL_FORT_FAB_ARG_ANYD(vtY),  
                           const BL_FORT_FAB_ARG_ANYD(vtT),  
-                          const BL_FORT_FAB_ARG_ANYD(rhoY),  
+                          const BL_FORT_FAB_ARG_ANYD(rhoY),
+#ifdef AMREX_PARTICLES
+			  const BL_FORT_FAB_ARG_ANYD(rSprayDot),
+#endif			  
                           const BL_FORT_FAB_ARG_ANYD(T));
 
    void calc_gamma_pinv(const int* lo,  const int* hi,

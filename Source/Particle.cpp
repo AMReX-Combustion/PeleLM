@@ -198,6 +198,7 @@ PeleLM::defineParticles()
   if (SPRAY_FUEL_NUM > NUM_SPECIES) {
     Abort("Cannot have more spray fuel species than fluid species");
   }
+  Print() << "in defineParticles, gonna set sprayIndxMap";
 #ifdef PeleLM_EOS_FUEGO
   for (int i = 0; i != SPRAY_FUEL_NUM; ++i) {
     for (int ns = 0; ns != NUM_SPECIES; ++ns) {
@@ -309,6 +310,8 @@ PeleLM::initParticles()
     }
 
     if (!particle_init_file.empty()) {
+      amrex::Print() << "NSR_SPR " << NSR_SPR << '\n';
+      amrex::Print() << "particle_init_file " << particle_init_file << '\n';
       theSprayPC()->InitFromAsciiFile(particle_init_file, NSR_SPR);
     } else if (particle_init_uniform > 0) {
       theSprayPC()->InitParticlesUniform(this, level, particle_init_uniform);

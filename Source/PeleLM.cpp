@@ -2329,7 +2329,7 @@ MultiFab& spraydot = get_new_data(spraydot_Type);
   {
     const Box& vbx  = mfi.tilebox();
     const FArrayBox& pfab = mf_fpi[mfi];
-     spraydot[mfi].copy(pfab,vbx,0,vbx,0,nspecies+6);
+     spraydot[mfi].copy(pfab,vbx,0,vbx,0,nspecies+3+AMREX_SPACEDIM);
   }
 }
 #endif
@@ -2369,7 +2369,7 @@ PeleLM::init ()
   //
   FillCoarsePatch(get_new_data(RhoYdot_Type),0,tnp1,RhoYdot_Type,0,nspecies);
 #ifdef AMREX_PARTICLES
-  FillCoarsePatch(get_new_data(spraydot_Type),0,tnp1,spraydot_Type,0,nspecies+6);
+  FillCoarsePatch(get_new_data(spraydot_Type),0,tnp1,spraydot_Type,0,nspecies+3+AMREX_SPACEDIM);
 #endif
 
   RhoH_to_Temp(get_new_data(State_Type));
@@ -2632,15 +2632,15 @@ PeleLM::checkPoint (const std::string& dir,
 
   if (PeleLM::theSprayPC())
   {
-       PeleLM::theSprayPC()->Checkpoint(dir,"Spray",
-                                       is_checkpoint,real_comp_names,int_comp_names);
+       //PeleLM::theSprayPC()->Checkpoint(dir,"Spray",
+      //                               is_checkpoint,real_comp_names,int_comp_names);
 
        // Here we write ascii information every time we write a checkpoint file
        if (level == 0)
        {
          if (do_spray_particles==1) {
            amrex::Print() << "Doing particle ascii writing\n";
-           theSprayPC()->Checkpoint(dir, ascii_spray_particle_file);
+           //theSprayPC()->Checkpoint(dir, ascii_spray_particle_file);
            std::string fname = "spray" + dir.substr (3,6) + "p3d";
            theSprayPC()->WriteAsciiFile(fname);
          }
@@ -5881,7 +5881,7 @@ PeleLM::advance (Real time,
         theGhostPC()->moveKickDrift(Sborder,spraydot,*u_mac,level, dt, time, false, true, tmp_src_width, true, where_width, Density, 0, Temp, RhoH, first_spec);
 
       MultiFab& spraydot_new = get_new_data(spraydot_Type);
-      spraydot_new.copy(spraydot,0,0,nspecies+6);
+      spraydot_new.copy(spraydot,0,0,nspecies+3+AMREX_SPACEDIM);
 
       showMF("spray",spraydot,"spraydot",level,sdc_iter,parent->levelSteps(level));
 
@@ -6005,6 +6005,9 @@ PeleLM::advance (Real time,
         FArrayBox& dn = Dn[mfi];
         FArrayBox& ddn = DDn[mfi];
         const FArrayBox& r = get_new_data(RhoYdot_Type)[mfi];
+#ifdef AMREX_PARTICLES
+        const FArrayBox& rSpray = get_new_data(spraydot_Type)[mfi];
+#endif
         const Box& gbox = mfi.growntilebox();
 
         H.resize(gbox,nspecies);
@@ -6012,6 +6015,9 @@ PeleLM::advance (Real time,
 
         tmp.resize(gbox,nspecies);
         tmp.copy(r,gbox,0,gbox,0,nspecies);         // copy Rk to tmp
+#ifdef AMREX_PARTICLES
+        tmp.copy(rSpray,gbox,first_spec,gbox,0,nspecies);
+#endif
         tmp.plus(dn,gbox,gbox,0,0,nspecies);        // add Dn[spec] to tmp so now we have (Rk + Div(Fk) )
 
         H.mult(tmp,gbox,gbox,0,0,nspecies);         // Multiply by hk, so now we have hk.( Rk + Div(Fk) )
@@ -6032,7 +6038,9 @@ PeleLM::advance (Real time,
         f.mult(RhoCpInv[mfi],gbox,0,nspecies,1);    // Scale, so that F[Temp]= (Dn[Temp]- Sum{hk.(Rk+Div(Fk))})/(Rho.Cp)
         f.copy(dn,gbox,0,gbox,0,nspecies);          // initialize RhoY forcing with Dn
         f.plus(r,gbox,gbox,0,0,nspecies);           // add R to RhoY, so that F[i] = Dn[i] + R[i]
-
+#ifdef AMREX_PARTICLES
+        f.plus(rSpray,gbox,gbox,first_spec,0,nspecies);
+#endif
       }
     }
     BL_PROFILE_VAR_STOP(HTADV);
@@ -6066,6 +6074,26 @@ PeleLM::advance (Real time,
     make_rho_curr_time();
     BL_PROFILE_VAR_STOP(HTADV);
 
+#ifdef AMREX_PARTICLES
+    MultiFab&       S_new = get_new_data(State_Type);
+    const MultiFab& S_old_s = get_old_data(State_Type);
+
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
+    for (MFIter mfi(S_new,true); mfi.isValid(); ++mfi)
+    {
+      const Box& box   = mfi.tilebox();
+      FArrayBox& snew  = S_new[mfi];
+      const FArrayBox& rSpray = get_new_data(spraydot_Type)[mfi];
+
+      snew.copy( rSpray,box,Density,box,Density,1);
+      snew.mult(dt,box,Density,1);
+      snew.plus(S_old_s[mfi],box,Density,Density,1);
+    }
+
+#endif
+
     //
     // Compute Dhat, diffuse with F
     //                 = A + R + 0.5(Dn + Dnp1) - Dnp1 + Dhat + 0.5(DDn + DDnp1) - DDnp1 + DDHat
@@ -6088,7 +6116,9 @@ PeleLM::advance (Real time,
         const FArrayBox& ddn = DDn[mfi];
         const FArrayBox& dnp1 = Dnp1[mfi];
         const FArrayBox& ddnp1 = DDnp1[mfi];
-
+#ifdef AMREX_PARTICLES
+        const FArrayBox& rSpray = get_new_data(spraydot_Type)[mfi];
+#endif
         f.copy(dn,box,0,box,0,nspecies); // copy Dn into RhoY
         f.copy(dn,box,nspecies+1,box,nspecies,1); // copy Div(lamGradT) into RhoH
         f.minus(dnp1,box,box,0,0,nspecies);  // subtract Dnp1 from RhoY
@@ -6102,7 +6132,9 @@ PeleLM::advance (Real time,
 
         f.plus(a,box,box,first_spec,0,nspecies+1); // add A into RhoY and RhoH
         f.plus(r,box,box,0,0,nspecies); // no reactions for RhoH
-
+#ifdef AMREX_PARTICLES
+        f.plus(rSpray,box,box,first_spec,0,nspecies);
+#endif
       }
     }
 
@@ -6316,9 +6348,9 @@ PeleLM::advance (Real time,
   amrex::Print() <<" Gonna do spray velocity update:" << '\n';
 #endif
 
-  velocity_update(dt,
+  velocity_update(dt
 #ifdef AMREX_PARTICLES
-                  spraydot
+                  ,spraydot
 #endif
   );
   BL_PROFILE_VAR_STOP(HTVEL);
@@ -8972,6 +9004,9 @@ PeleLM::calc_divu (Real      time,
   const bool use_IR  = (time == 0 && dt > 0);
 
   MultiFab& RhoYdot = (use_IR) ? get_new_data(RhoYdot_Type) : RhoYdotTmp;
+#ifdef AMREX_PARTICLES
+  MultiFab& spraydot = get_new_data(spraydot_Type);
+#endif // AMREX_PARTICLES
 
   if (!use_IR)
   {
@@ -9004,6 +9039,9 @@ PeleLM::calc_divu (Real      time,
     const FArrayBox& vtT = mcViscTerms[mfi];
     const FArrayBox& rhoY = S[mfi];
     const FArrayBox& rYdot = RhoYdot[mfi];
+#ifdef AMREX_PARTICLES
+    const FArrayBox& rSprayDot = spraydot[mfi];
+#endif // AMREX_PARTICLES
     const FArrayBox& T = S[mfi];
     calc_divu_fortran(BL_TO_FORTRAN_BOX(box),
                       BL_TO_FORTRAN_ANYD(du),
@@ -9011,6 +9049,9 @@ PeleLM::calc_divu (Real      time,
                       BL_TO_FORTRAN_N_ANYD(vtY,vtCompY),
                       BL_TO_FORTRAN_N_ANYD(vtT,vtCompT),
                       BL_TO_FORTRAN_N_ANYD(rhoY,first_spec),
+#ifdef AMREX_PARTICLES
+                      BL_TO_FORTRAN_N_ANYD(rSprayDot,Density),
+#endif // AMREX_PARTICLES
                       BL_TO_FORTRAN_N_ANYD(T,Temp));
 
   }

@@ -741,6 +741,7 @@ PeleLM::variableSetUp ()
   rhoydotSetUp();
   #ifdef AMREX_PARTICLES
   spraydotSetUp();
+  defineParticles();
   #endif
   //
   // rho_temp
@@ -1174,7 +1175,7 @@ PeleLM::spraydotSetUp()
   int num_species;
   pphys_get_num_spec(&num_species);
 
-  const int nspraydot = num_species+6; //species + density + momentum + temp + enth
+  const int nspraydot = num_species+AMREX_SPACEDIM+3; //species + density + momentum + temp + enth
 
   amrex::Print() << "spraydot_Type, nspraydot = " << spraydot_Type << ' ' << nspraydot << '\n';
 
@@ -1192,35 +1193,37 @@ PeleLM::spraydotSetUp()
   set_spraydot_bc(bc,phys_bc);
 
    std::string name = "I_R_spray_rhoU";
-  
+
    desc_lst.setComponent(spraydot_Type, 0, name.c_str(), bc,
 	 		BndryFunc(rhoYdot_fill), &lincc_interp, 0, 0);
-  
+
    name = "I_R_spray_rhoV";
    desc_lst.setComponent(spraydot_Type, 1, name.c_str(), bc,
 	 		BndryFunc(rhoYdot_fill), &lincc_interp, 1, 1);
-  
-   name = "I_R_spray_rhoW";
-   desc_lst.setComponent(spraydot_Type, 2, name.c_str(), bc,
+
+   if (AMREX_SPACEDIM == 3){
+     name = "I_R_spray_rhoW";
+     desc_lst.setComponent(spraydot_Type, 2, name.c_str(), bc,
 	 		BndryFunc(rhoYdot_fill), &lincc_interp, 2, 2);
-  
+   }
+
    name = "I_R_spray_rho";
-   desc_lst.setComponent(spraydot_Type, 3, name.c_str(), bc,
+   desc_lst.setComponent(spraydot_Type, AMREX_SPACEDIM, name.c_str(), bc,
 	 		BndryFunc(rhoYdot_fill), &lincc_interp, 3, 3);
-  
+
    for (int i = 0; i < num_species; i++)
    {
      name = "I_R_spray_Y("+names[i]+")]";
-     desc_lst.setComponent(spraydot_Type, i+4, name.c_str(), bc,
+     desc_lst.setComponent(spraydot_Type, i+1+AMREX_SPACEDIM, name.c_str(), bc,
                            BndryFunc(rhoYdot_fill), &lincc_interp, 4, 4+num_species-1);
    }
-  
+
    name = "I_R_spray_rhoh";
-   desc_lst.setComponent(spraydot_Type, num_species+4, name.c_str(), bc,
+   desc_lst.setComponent(spraydot_Type, num_species+1+AMREX_SPACEDIM, name.c_str(), bc,
    			BndryFunc(rhoYdot_fill), &lincc_interp, num_species+4, num_species+4);
-  
+
    name = "I_R_spray_temp";
-   desc_lst.setComponent(spraydot_Type, num_species+5, name.c_str(), bc,
+   desc_lst.setComponent(spraydot_Type, num_species+2+AMREX_SPACEDIM, name.c_str(), bc,
    			BndryFunc(rhoYdot_fill), &lincc_interp, num_species+5, num_species+5);
 
 }

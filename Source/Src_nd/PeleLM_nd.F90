@@ -1,7 +1,7 @@
 #undef BL_LANG_CC
 #ifndef BL_LANG_FORT
 #define BL_LANG_FORT
-#endif 
+#endif
 
 #include <AMReX_REAL.H>
 #include <AMReX_CONSTANTS.H>
@@ -32,7 +32,7 @@ module PeleLM_nd
             FORT_AVERAGE_EDGE_STATES
 
 contains
- 
+
 !=========================================================
 !  Floor species mass fraction at 0.0
 !=========================================================
@@ -73,6 +73,9 @@ contains
                                  vtY, v_lo, v_hi, &
                                  vtT, vT_lo, vT_hi, &
                                  rhoY, rY_lo, rY_hi, &
+#ifdef AMREX_PARTICLES
+                                 rSprayDot, rSp_lo, rSp_hi, &
+#endif
                                  T, t_lo, t_hi) &
                                  bind(C, name="calc_divu_fortran")
 
@@ -85,12 +88,18 @@ contains
       integer, intent(in) :: v_lo(3), v_hi(3)
       integer, intent(in) :: vT_lo(3), vT_hi(3)
       integer, intent(in) :: rY_lo(3), rY_hi(3)
+#ifdef AMREX_PARTICLES
+      integer, intent(in) :: rSp_lo(3), rSp_hi(3)
+#endif
       integer, intent(in) :: t_lo(3), t_hi(3)
       REAL_T, dimension(d_lo(1):d_hi(1),d_lo(2):d_hi(2),d_lo(3):d_hi(3)) :: divu
       REAL_T, dimension(rd_lo(1):rd_hi(1),rd_lo(2):rd_hi(2),rd_lo(3):rd_hi(3),NUM_SPECIES) :: rYdot
       REAL_T, dimension(v_lo(1):v_hi(1),v_lo(2):v_hi(2),v_lo(3):v_hi(3),NUM_SPECIES) :: vtY
       REAL_T, dimension(vT_lo(1):vT_hi(1),vT_lo(2):vT_hi(2),vT_lo(3):vT_hi(3)) :: vtT
       REAL_T, dimension(rY_lo(1):rY_hi(1),rY_lo(2):rY_hi(2),rY_lo(3):rY_hi(3),NUM_SPECIES) :: rhoY
+#ifdef AMREX_PARTICLES
+      REAL_T, dimension(rSp_lo(1):rSp_hi(1),rSp_lo(2):rSp_hi(2),rSp_lo(3):rSp_hi(3),NUM_SPECIES+1) :: rSprayDot
+#endif
       REAL_T, dimension(t_lo(1):t_hi(1),t_lo(2):t_hi(2),t_lo(3):t_hi(3)) :: T
 
 ! Local
@@ -102,7 +111,7 @@ contains
       do n = 1,NUM_SPECIES
          invmtw(n) = one / invmtw(n)
       end do
-
+      write(*,*) 'maxval rspraydot', MAXVAL(rSprayDot(:,:,:,1))
       do k=lo(3),hi(3)
          do j=lo(2),hi(2)
             do i=lo(1),hi(1)
@@ -124,9 +133,9 @@ contains
                enddo
 
                tmp = 0.d0
-               
+
                !write(*,*) "DEBUG IN calc_divu_fortran ",i,j,k,divu(i,j,k),vtT(i,j,k),rho,cpmix,T(i,j,k)
-               
+
                divu(i,j,k) = (divu(i,j,k) + vtT(i,j,k))/(rho*cpmix*T(i,j,k))
                do n=1,NUM_SPECIES
                !write(*,*) "DEBUG n ",n,divu(i,j,k),vtY(i,j,k,n),rYdot(i,j,k,n),invmtw(n),H(n)
@@ -134,9 +143,16 @@ contains
                               + (vtY(i,j,k,n) + rYdot(i,j,k,n)) &
                               *(invmtw(n)*mmw*rhoInv - H(n)/(rho*cpmix*T(i,j,k)))
                enddo
+#ifdef AMREX_PARTICLES
+               !divu(i,j,k) = divu(i,j,k) + rSprayDot(i,j,k,1) * rhoInv
+               !do n=1,NUM_SPECIES
+               !   divu(i,j,k) = divu(i,j,k) + mmw * invmtw(n) * rSprayDot(i,j,k,1+n) * rhoInv
+               !enddo
+#endif
             enddo
          enddo
       enddo
+      write(*,*) 'maxval divu', MAXVAL(divu(:,:,:))
 
    end subroutine calc_divu_fortran
 
@@ -342,7 +358,7 @@ contains
             end do
          end do
       end do
-      
+
    end subroutine pphys_mass_to_mole
 
 !=========================================================
@@ -395,7 +411,7 @@ contains
 !=========================================================
 
    subroutine pphys_HMIXfromTY(lo, hi, &
-                               Hmix, h_lo, h_hi, & 
+                               Hmix, h_lo, h_hi, &
                                T, t_lo, t_hi, &
                                Y, y_lo, y_hi)&
                                bind(C, name="pphys_HMIXfromTY")
@@ -704,7 +720,7 @@ contains
                             scal(:,:,:,RhoH),      s_lo, s_hi, &
                             scal(:,:,:,Temp),      s_lo, s_hi, &
                             scal(:,:,:,FirstSpec), s_lo, s_hi)
- 
+
       do k = lo(3), hi(3)
          do j = lo(2), hi(2)
             do i = lo(1), hi(1)
@@ -715,7 +731,7 @@ contains
             enddo
          enddo
       enddo
- 
+
    end subroutine init_data_new_mech
 
 !=========================================================
@@ -820,9 +836,9 @@ contains
 
              do i=lo(1), hi(1)
                 do n=1,NUM_SPECIES
-                   rhoD(i,j,k,n) = Wavg(i) * invmwt(n) * D(i,n)  * 1.0d-1 
+                   rhoD(i,j,k,n) = Wavg(i) * invmwt(n) * D(i,n)  * 1.0d-1
                 end do
-                if (do_temp .ne. 0) then 
+                if (do_temp .ne. 0) then
                    rhoD(i,j,k,NUM_SPECIES+1) = lambda(i) * 1.d-5
                 end if
                 if (thickFac.ne.1.d0) then
@@ -830,7 +846,7 @@ contains
                       rhoD(i,j,k,n) = rhoD(i,j,k,n)*thickFac
                    enddo
                 endif
-                if (do_VelVisc .ne. 0) then 
+                if (do_VelVisc .ne. 0) then
                    rhoD(i,j,k,NUM_SPECIES+2) = mu(i) * 1.0d-1
                 end if
              end do
@@ -846,7 +862,7 @@ contains
                      rhoD, rd_lo, rd_hi)
 
        ! Set rhoD[1] = mu * Yfac
-       do k=lo(3),hi(3) 
+       do k=lo(3),hi(3)
           do j=lo(2), hi(2)
              do i=lo(1), hi(1)
                 do n=NUM_SPECIES+1,nc
@@ -858,7 +874,7 @@ contains
        end do
        ! Set rhoD[2:N] = rhoD[1]
        do n=2,NUM_SPECIES
-          do k=lo(3),hi(3) 
+          do k=lo(3),hi(3)
              do j=lo(2), hi(2)
                 do i=lo(1), hi(1)
                    rhoD(i,j,k,n) = rhoD(i,j,k,1)
@@ -866,10 +882,10 @@ contains
              end do
           end do
        end do
-       
+
        if (do_temp /= 0) then
           ! Set lambda = mu * cpmix, ptwise
-          do k=lo(3),hi(3) 
+          do k=lo(3),hi(3)
              do j=lo(2), hi(2)
                 do i=lo(1), hi(1)
                    RHO_MKS = 0.d0
@@ -959,10 +975,10 @@ contains
 !      enddo
 !
 !!     Make space for Hi, use T box, since this better be big enough as well.
-!!     Note that any cells on a physical boundary with Dirichlet conditions will 
+!!     Note that any cells on a physical boundary with Dirichlet conditions will
 !!     actually be centered on the edge, so the stencils below must reflect this
 !
-!      call amrex_allocate(H, t_lo(1), t_hi(1), t_lo(2), t_hi(2), t_lo(3), t_hi(3), 1, NUM_SPECIES) 
+!      call amrex_allocate(H, t_lo(1), t_hi(1), t_lo(2), t_hi(2), t_lo(3), t_hi(3), 1, NUM_SPECIES)
 !
 !      call pphys_HfromT( lob, hib, H(:,:,:,1), t_lo, t_hi, T(:,:,:), t_lo, t_hi )
 !
@@ -1239,7 +1255,7 @@ contains
 
             end do
          end do
-      else 
+      else
          do k = lo(3), hi(3)
             do j = lo(2), hi(2)
                do i = lo(1), hi(1)
@@ -1436,7 +1452,7 @@ contains
 #else
                           ) / volume(i,j,k)
 #endif
-                  
+
                   if ( denom > zero ) then
                      if ( rho(i,j,k) > rhomin ) then
                         dtcell = dtfactor * ( rho(i,j,k) - rhomin ) / denom
@@ -1445,7 +1461,7 @@ contains
                      endif
                   endif
                endif
-#if 0 
+#if 0
                write(6,*)'i,j,k,dtcell=',i,j,k,dtcell
 #endif
                dt = min(dtcell,dt)
@@ -1571,7 +1587,7 @@ contains
                            + (areaz(i,j,k+1) * fluxzhi - areaz(i,j,k) * fluxzlo) &
 #endif
                           ) / volume(i,j,k)
-                  
+
                   if ( denom > zero ) then
                      if ( rho(i,j,k) > rhomin ) then
                         dtcell = ( rho(i,j,k) - rhomin ) / denom
@@ -1767,15 +1783,15 @@ contains
       REAL_T,  intent(in) ::  ystate(ystatelo(1):ystatehi(1),ystatelo(2):ystatehi(2),ystatelo(3):ystatehi(3),NUM_SPECIES)
       REAL_T,  intent(in) ::  afrac_x(axlo(1):axhi(1),axlo(2):axhi(2),axlo(3):axhi(3))
       REAL_T,  intent(in) ::  afrac_y(aylo(1):ayhi(1),aylo(2):ayhi(2),aylo(3):ayhi(3))
-#if ( AMREX_SPACEDIM == 3 ) 
+#if ( AMREX_SPACEDIM == 3 )
       REAL_T,  intent(in) ::  zstate(zstatelo(1):zstatehi(1),zstatelo(2):zstatehi(2),zstatelo(3):zstatehi(3),NUM_SPECIES)
       REAL_T,  intent(in) ::  afrac_z(azlo(1):azhi(1),azlo(2):azhi(2),azlo(3):azhi(3))
 #endif
-      
+
       integer :: i, j, k, n
       REAL_T :: sumFlux, RhoYe(NUM_SPECIES), sumRhoYe
 
-!write(*,*) ' DEBUG LO HI',lo,hi      
+!write(*,*) ' DEBUG LO HI',lo,hi
 !write(*,*) 'DEBUG AFRAC_X', lbound(afrac_x), ubound(afrac_x)
 !write(*,*) 'DEBUG AFRAC_Y', lbound(afrac_y), ubound(afrac_y)
       if (dir.eq.0) then
@@ -1785,9 +1801,9 @@ contains
          do k = lo(3),hi(3)
             do j = lo(2),hi(2)
                do i = lo(1),hi(1)
-        
+
                  if ( afrac_x(i,j,k) > zero ) then
-               
+
                   sumFlux = 0.d0
                   sumRhoYe = 0.d0
                   do n=1,NUM_SPECIES
@@ -1804,7 +1820,7 @@ contains
                     flux(i,j,k,n) = 0.0d0
                   end do
                   end if
-                  
+
                end do
             end do
          end do
@@ -1855,25 +1871,25 @@ contains
          do k = lo(3),hi(3)
             do j = lo(2),hi(2)
                do i = lo(1),hi(1)
-               
+
                  if ( afrac_y(i,j,k) > zero ) then
                    sumFlux = 0.d0
                    sumRhoYe = 0.d0
                    do n=1,NUM_SPECIES
                      sumFlux = sumFlux + flux(i,j,k,n)
-                     RhoYe(n) = ystate(i,j,k,n) 
+                     RhoYe(n) = ystate(i,j,k,n)
                      sumRhoYe = sumRhoYe + RhoYe(n)
                    enddo
                    sumRhoYe = 1.0D0/sumRhoYe
                    do n=1,NUM_SPECIES
                      flux(i,j,k,n) = flux(i,j,k,n) - sumFlux*RhoYe(n)*sumRhoYe
-                   end do         
+                   end do
                  else
                    do n=1,NUM_SPECIES
                      flux(i,j,k,n) = 0.0d0
                    end do
                  end if
-                  
+
                end do
             end do
          end do
@@ -1925,26 +1941,26 @@ contains
          do k = lo(3),hi(3)
             do j = lo(2),hi(2)
                do i = lo(1),hi(1)
-   
+
                  if ( afrac_z(i,j,k) > zero ) then
                    sumFlux = 0.d0
                    sumRhoYe = 0.d0
                    do n=1,NUM_SPECIES
                      sumFlux = sumFlux + flux(i,j,k,n)
-                     RhoYe(n) = zstate(i,j,k,n) 
+                     RhoYe(n) = zstate(i,j,k,n)
                      sumRhoYe = sumRhoYe + RhoYe(n)
                    enddo
                    sumRhoYe = 1.0D0/sumRhoYe
                    do n=1,NUM_SPECIES
                      flux(i,j,k,n) = flux(i,j,k,n) - sumFlux*RhoYe(n)*sumRhoYe
                    end do
-                  
+
                  else
                    do n=1,NUM_SPECIES
                      flux(i,j,k,n) = 0.0d0
                    end do
                  end if
-              
+
                end do
             end do
          end do
@@ -2011,7 +2027,7 @@ contains
       integer :: r_lo(3), r_hi(3)
       REAL_T, dimension(f_lo(1):f_hi(1),f_lo(2):f_hi(2),f_lo(3):f_hi(3),NUM_SPECIES) :: flux
       REAL_T, dimension(r_lo(1):r_hi(1),r_lo(2):r_hi(2),r_lo(3):r_hi(3),NUM_SPECIES) :: RhoY
-      
+
       integer :: i, j, k, n
       REAL_T :: sumFlux, RhoYe(NUM_SPECIES), sumRhoYe
 
@@ -2021,7 +2037,7 @@ contains
 
          do k = lo(3),hi(3)
             do j = lo(2),hi(2)
-               do i = lo(1),hi(1)               
+               do i = lo(1),hi(1)
                   sumFlux = 0.d0
                   sumRhoYe = 0.d0
                   do n=1,NUM_SPECIES
@@ -2310,13 +2326,13 @@ contains
       REAL_T :: scal
 
       REAL_T, pointer, dimension(:,:,:) :: ivol
-      
+
       REAL_T :: infinity
 
       integer :: i, j, k, n
 
       infinity = HUGE(0.0)
-      
+
       call amrex_allocate(ivol,lo(1),hi(1),lo(2),hi(2),lo(3),hi(3))
 
       do k = lo(3), hi(3)
@@ -2340,7 +2356,7 @@ contains
                   if ( mask(i,j,k) /= -1 ) then
                      update(i,j,k,n) = &
                         ( (xflux(i+1,j,k,n)-xflux(i,j,k,n)) &
-                        + (yflux(i,j+1,k,n)-yflux(i,j,k,n)) & 
+                        + (yflux(i,j+1,k,n)-yflux(i,j,k,n)) &
 #if ( AMREX_SPACEDIM == 3 )
                         + (zflux(i,j,k+1,n)-zflux(i,j,k,n)) &
 #endif
@@ -2843,7 +2859,7 @@ contains
                enddo
             enddo
          endif
-      endif            
+      endif
 
       if (bc(3,2).eq.EXT_DIR.and. do_zhi) then
          do k = domhi(3)+1, d_hi(3)
@@ -3012,7 +3028,7 @@ contains
    end subroutine fillWithZeros
 
 !=========================================================
-! Compute u times gradP 
+! Compute u times gradP
 !=========================================================
 
    subroutine compute_ugradp(p, p_lo, p_hi,&
@@ -3148,13 +3164,13 @@ contains
                         jjj = ratio(2)*j + jj
                         do ii = 0, ratio(1)-1
                            iii = ratio(1)*i + ii
-                           
+
                            tmp(Rcomp) = tmp(Rcomp) + state(iii,jjj,kkk,Rcomp)
                            do n = first_spec, last_spec
                               tmp(n) = tmp(n) + state(iii,jjj,kkk,n)
                            enddo
                            tmp(RhoH) = tmp(RhoH) + state(iii,jjj,kkk,RhoH)
-                           
+
                         enddo
                      enddo
                   enddo
@@ -3165,20 +3181,20 @@ contains
                      tmp(n) = tmp(n) * ncellsInv
                   enddo
                   tmp(RhoH) = tmp(RhoH)* ncellsInv
-                  
+
                   do kk = 0, ratio(3)-1
                      kkk = ratio(3)*k + kk
                      do jj = 0, ratio(2)-1
                         jjj = ratio(2)*j + jj
                         do ii = 0, ratio(1)-1
                            iii = ratio(1)*i + ii
-                           
+
                            state(iii,jjj,kkk,Rcomp) = tmp(Rcomp)
                            do n = first_spec, last_spec
                               state(iii,jjj,kkk,n) = tmp(n)
                            enddo
                            state(iii,jjj,kkk,RhoH) = tmp(RhoH)
-                           
+
                         enddo
                      enddo
                   enddo
@@ -3272,7 +3288,7 @@ contains
          tdxI(i) =  one / (two*delta(i))
          dxSqI(i) = one / (delta(i)*delta(i))
       enddo
- 
+
       ! Init those to zero. If AMREX_SPACEDIM /= 3, all z component remain zero.
       Tx  = 0.0d0
       Ty  = 0.0d0
@@ -3549,7 +3565,7 @@ contains
    end subroutine recomp_update
 
 !=========================================================
-!  Error tagging function : greater than 
+!  Error tagging function : greater than
 !=========================================================
 
    subroutine valgt_error ( tag, t_lo, t_hi,&
@@ -3582,7 +3598,7 @@ contains
    end subroutine valgt_error
 
 !=========================================================
-!  Error tagging function : lower than 
+!  Error tagging function : lower than
 !=========================================================
 
    subroutine vallt_error ( tag, t_lo, t_hi,&
@@ -3615,7 +3631,7 @@ contains
    end subroutine vallt_error
 
 !=========================================================
-!  Error tagging function : vorticity mag 
+!  Error tagging function : vorticity mag
 !  Value depends on level
 !=========================================================
 
@@ -3649,7 +3665,7 @@ contains
    end subroutine magvort_error
 
 !=========================================================
-!  Error tagging function : diff adj. cells greater than 
+!  Error tagging function : diff adj. cells greater than
 !=========================================================
 
    subroutine diffgt_error ( tag, t_lo, t_hi,&
@@ -3702,7 +3718,7 @@ contains
    end subroutine diffgt_error
 
 !=========================================================
-!  Error tagging function : tag box 
+!  Error tagging function : tag box
 !=========================================================
 
    subroutine box_error ( tag, t_lo, t_hi,&
