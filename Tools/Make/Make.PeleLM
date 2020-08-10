@@ -102,6 +102,7 @@ SKIP_NS_SPECIFIC_CODE = TRUE
 # IAMR
 Bdirs += $(IAMR_HOME)/Source
 Bdirs += $(IAMR_HOME)/Source/Src_$(DIM)d
+Bdirs += $(IAMR_HOME)/Source/Godunov
 ifeq ($(USE_EB), TRUE)
    Bdirs   += $(IAMR_HOME)/Source/MOL
 endif
@@ -117,8 +118,6 @@ Pdirs   += $(AMREX_HOME)/Src/Boundary
 ifeq ($(USE_PARTICLES), TRUE)
   Pdirs += $(AMREX_HOME)/Src/Particle
 endif
-Pdirs   += $(AMREX_HOME)/Src/LinearSolvers/C_CellMG
-Pdirs   += $(AMREX_HOME)/Src/LinearSolvers/C_TensorMG
 Pdirs   += $(AMREX_HOME)/Src/LinearSolvers/MLMG
 Pdirs   += $(AMREX_HOME)/Src/LinearSolvers/Projections
 
