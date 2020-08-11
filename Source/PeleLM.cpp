@@ -6199,6 +6199,13 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
                              dt, godunov_use_ppm, godunov_use_forces_in_trans, false );
 }
 
+
+//   for (MFIter S_mfi(Smf,TilingIfNotGPU()); S_mfi.isValid(); ++S_mfi)
+//   {
+//amrex::Print() << (*EdgeState[0])[S_mfi];
+//}
+
+
 /*
   // Advect RhoY  EB
   {
@@ -6251,6 +6258,8 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
             });
          }
    }
+
+
 
   // Extrapolate Temp, then compute flux divergence and value for RhoH from face values of T,Y,Rho
 
@@ -6355,6 +6364,17 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
 
 
 #endif
+
+   for (MFIter S_mfi(Smf,TilingIfNotGPU()); S_mfi.isValid(); ++S_mfi)
+   {
+//amrex::Print() << (*EdgeState[1])[S_mfi];
+//amrex::Print() << (*EdgeFlux[1])[S_mfi];
+//amrex::Print() << (*aofs)[S_mfi];
+}
+//   for (int dir=0; dir<AMREX_SPACEDIM; dir++) {
+//      EdgeState[dir]->setVal(0.0);
+//      EdgeFlux[dir]->setVal(0.0);
+//   }
 
    D_TERM(showMF("sdc",*EdgeState[0],"sdc_ESTATE_x",level,parent->levelSteps(level));,
           showMF("sdc",*EdgeState[1],"sdc_ESTATE_y",level,parent->levelSteps(level));,
