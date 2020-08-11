@@ -392,13 +392,6 @@ PeleLM::variableSetUp ()
   std::string speciesScaleFile; ppns.query("speciesScaleFile",speciesScaleFile);
 
   amrex::Print() << " fuel name " << fuelName << std::endl;
-
-  int dm = BL_SPACEDIM;
-  int flag_active_control = 0;
-  
-  if (PeleLM::flag_active_control){
-    flag_active_control = 1;}
-  else {flag_active_control = 0;}
   
   //
   // Get a species to use as a flame tracker.
@@ -835,41 +828,55 @@ PeleLM::variableSetUp ()
     std::string ref_prefix = amr_prefix + "." + refinement_indicators[i];
 
     ParmParse ppr(ref_prefix);
-    Real min_time =  0; ppr.query("start_time",min_time);
-    Real max_time = -1; ppr.query("end_time",max_time);
-    int max_level = -1;  ppr.query("max_level",max_level);
+    RealBox realbox;
+    if (ppr.countval("in_box_lo")) {
+      std::vector<Real> box_lo(BL_SPACEDIM), box_hi(BL_SPACEDIM);
+      ppr.getarr("in_box_lo",box_lo,0,box_lo.size());
+      ppr.getarr("in_box_hi",box_hi,0,box_hi.size());
+      realbox = RealBox(&(box_lo[0]),&(box_hi[0]));
+    }
+
+    AMRErrorTagInfo info;
+
+    if (realbox.ok()) {
+      info.SetRealBox(realbox);
+    }
+    if (ppr.countval("start_time") > 0) {
+      Real min_time; ppr.get("start_time",min_time);
+      info.SetMinTime(min_time);
+    }
+    if (ppr.countval("end_time") > 0) {
+      Real max_time; ppr.get("end_time",max_time);
+      info.SetMaxTime(max_time);
+    }
+    if (ppr.countval("max_level") > 0) {
+      int max_level; ppr.get("max_level",max_level);
+      info.SetMaxLevel(max_level);
+    }
     
     if (ppr.countval("value_greater")) {
       Real value; ppr.get("value_greater",value);
       std::string field; ppr.get("field_name",field);
-      err_list.add(field.c_str(),0,ErrorRec::Special,
-                   LM_Error_Value(valgt_error,value,min_time,max_time,max_level));
+      errtags.push_back(AMRErrorTag(value,AMRErrorTag::GREATER,field,info));
     }
     else if (ppr.countval("value_less")) {
       Real value; ppr.get("value_less",value);
       std::string field; ppr.get("field_name",field);
-      err_list.add(field.c_str(),0,ErrorRec::Special,
-                   LM_Error_Value(vallt_error,value,min_time,max_time,max_level));
+      errtags.push_back(AMRErrorTag(value,AMRErrorTag::LESS,field,info));
     }
     else if (ppr.countval("vorticity_greater")) {
       Real value; ppr.get("vorticity_greater",value);
-      std::string field; field="mag_vort";
-      err_list.add(field.c_str(),0,ErrorRec::Special,
-                   LM_Error_Value(magvort_error,value,min_time,max_time,max_level));
+      const std::string field="mag_vort";
+      errtags.push_back(AMRErrorTag(value,AMRErrorTag::VORT,field,info));
     }
     else if (ppr.countval("adjacent_difference_greater")) {
       Real value; ppr.get("adjacent_difference_greater",value);
       std::string field; ppr.get("field_name",field);
-      err_list.add(field.c_str(),1,ErrorRec::Special,
-                   LM_Error_Value(diffgt_error,value,min_time,max_time,max_level));
+      errtags.push_back(AMRErrorTag(value,AMRErrorTag::GRAD,field,info));
     }
-    else if (ppr.countval("in_box_lo")) {
-      std::vector<Real> box_lo(BL_SPACEDIM), box_hi(BL_SPACEDIM);
-      ppr.getarr("in_box_lo",box_lo,0,box_lo.size());
-      ppr.getarr("in_box_hi",box_hi,0,box_hi.size());
-      RealBox realbox(&(box_lo[0]),&(box_hi[0]));
-      err_list.add("dummy",1,ErrorRec::Special,
-                   LM_Error_Value(box_error,realbox,min_time,max_time,max_level));
+    else if (realbox.ok())
+    {
+      errtags.push_back(AMRErrorTag(info));
     }
     else {
       Abort(std::string("Unrecognized refinement indicator for " + refinement_indicators[i]).c_str());

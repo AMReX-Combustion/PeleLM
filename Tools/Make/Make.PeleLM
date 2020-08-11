@@ -14,9 +14,16 @@ ifeq ($(USE_WBAR),TRUE)
     DEFINES += -DUSE_WBAR
 endif
 
-all: $(executable)
+ifeq ($(shell uname),Darwin)
+  all: $(executable)
+	install_name_tool -add_rpath $(PELE_PHYSICS_HOME)/ThirdParty/INSTALL/$(configSpecificTPSuffix)/lib $(executable)
 	$(SILENT) $(RM) AMReX_buildInfo.cpp
 	@echo SUCCESS
+else
+  all: $(executable)
+	$(SILENT) $(RM) AMReX_buildInfo.cpp
+	@echo SUCCESS
+endif
 
 EOS_HOME       = $(PELE_PHYSICS_HOME)/Eos
 REACTIONS_HOME = $(PELE_PHYSICS_HOME)/Reactions
@@ -110,8 +117,6 @@ Pdirs   += $(AMREX_HOME)/Src/Boundary
 ifeq ($(USE_PARTICLES), TRUE)
   Pdirs += $(AMREX_HOME)/Src/Particle
 endif
-Pdirs   += $(AMREX_HOME)/Src/LinearSolvers/C_CellMG
-Pdirs   += $(AMREX_HOME)/Src/LinearSolvers/C_TensorMG
 Pdirs   += $(AMREX_HOME)/Src/LinearSolvers/MLMG
 Pdirs   += $(AMREX_HOME)/Src/LinearSolvers/Projections
 
@@ -189,15 +194,6 @@ ifeq ($(USE_BGL),TRUE)
   FORTLINK:=LOWERCASE
 endif
  
-ifeq ($(USE_HYPRE),TRUE)
-  Bdirs   += HypreABec
-  HYPRE_HOME=$(HOME)/amr/hypre
-  INCLUDE_LOCATIONS += $(HYPRE_HOME)/include
-  LIBRARY_LOCATIONS += $(HYPRE_HOME)/lib
-  LIBRARIES += -lHYPRE_struct_ls -lHYPRE_struct_mv -lHYPRE_blas -lHYPRE_utilities
-  DEFINES += -DMG_USE_HYPRE
-endif
-
 ifeq ($(USE_METIS),TRUE)
   Bdirs += metis-4.0/Lib
   DEFINES += -DBL_USE_METIS

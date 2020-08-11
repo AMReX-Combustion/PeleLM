@@ -12,16 +12,6 @@ extern "C" {
 
 //PelePhysics stuffs
 
-   void active_control(const amrex::Real* fuelmass,
-                       const amrex::Real* time,
-                       const amrex::Real* crsedt,
-                       const int*  myproc,
-                       const int*  step,
-                       const int*  restart,
-                       const int*  usetemp);
-
-   void get_pamb(amrex::Real* pamb);
-
    void part_cnt_err(BL_FORT_IFAB_ARG_ANYD(tag),
                      const int* tagval, const int* clearval,
                      BL_FORT_FAB_ARG_ANYD(data),
