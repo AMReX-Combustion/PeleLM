@@ -8007,7 +8007,7 @@ PeleLM::getDiffusivity_Wbar (MultiFab*  betaWbar[AMREX_SPACEDIM],
 #endif
 
 void
-PeleLM::zeroBoundaryVisc (MultiFab*  beta[BL_SPACEDIM],
+PeleLM::zeroBoundaryVisc (MultiFab*  beta[AMREX_SPACEDIM],
                           const Real time,
                           const int  state_comp,
                           const int  dst_comp,
@@ -8015,24 +8015,24 @@ PeleLM::zeroBoundaryVisc (MultiFab*  beta[BL_SPACEDIM],
 {
   BL_ASSERT(state_comp > Density);
 
-  const int isrz = (int) geom.IsRZ();
-  for (int dir = 0; dir < BL_SPACEDIM; dir++)
+  const auto geomdata = geom.data();
+
+  for (int dir = 0; dir < AMREX_SPACEDIM; dir++)
   {
 #ifdef _OPENMP
-#pragma omp parallel
+#pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
     {
-      Box edom = amrex::surroundingNodes(geom.Domain(),dir);
-  
-      for (MFIter mfi(*(beta[dir]),true); mfi.isValid(); ++mfi)
+      const Box edom = amrex::surroundingNodes(geom.Domain(),dir);
+      for (MFIter mfi(*(beta[dir]),TilingIfNotGPU()); mfi.isValid(); ++mfi)
       {
-        FArrayBox& beta_fab = (*(beta[dir]))[mfi];
         const Box& ebox     = amrex::surroundingNodes(mfi.growntilebox(),dir);
-        zero_visc(BL_TO_FORTRAN_N_ANYD(beta_fab,dst_comp),
-                  BL_TO_FORTRAN_BOX(ebox),
-                  BL_TO_FORTRAN_BOX(edom),
-                  geom.CellSize(), geom.ProbLo(), phys_bc.vect(),
-                  &dir, &isrz, &state_comp, &ncomp);
+        auto const& beta_arr = beta[dir]->array(mfi,dst_comp);
+        amrex::ParallelFor(ebox, [beta_arr,dir,geomdata,edom,state_comp,ncomp]
+        AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+        {
+          zero_visc(i, j, k, beta_arr, geomdata, edom, dir, state_comp, ncomp);
+        });
       }
     }
   }
