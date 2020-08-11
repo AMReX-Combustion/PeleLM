@@ -5693,127 +5693,65 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
 #endif
     for (MFIter Smfi(STemp,amrex::TilingIfNotGPU()); Smfi.isValid(); ++Smfi)
     {
-        const Box&  bx       = Smfi.tilebox();
+        const Box& bx       = Smfi.tilebox();
         auto const& rhoY     = STemp.array(Smfi);
+        auto const& rhoH     = STemp.array(Smfi,NUM_SPECIES);
+        auto const& temp     = STemp.array(Smfi,NUM_SPECIES+1);
         auto const& fcl      = fcnCntTemp.array(Smfi);
-        auto const& frcing   = FTemp.array(Smfi);
+        auto const& frc_rhoY = FTemp.array(Smfi);
+        auto const& frc_rhoH = FTemp.array(Smfi, NUM_SPECIES);
         auto const& mask     = react_mask.array(Smfi);
-
-        const auto len       = amrex::length(bx);
-        const auto lo        = amrex::lbound(bx);
-        const auto hi        = amrex::ubound(bx);
-
         int ncells           = bx.numPts();
+
+        // Convert MKS -> CGS
+        ParallelFor(bx, [rhoY,rhoH, frc_rhoY, frc_rhoH]
+        AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+        {
+           for (int n = 0; n < NUM_SPECIES; n++) {
+              rhoY(i,j,k,n) *= 1.0e-3;
+              frc_rhoY(i,j,k,n) *= 1.0e-3;
+           }
+           rhoH(i,j,k) *= 10.0;
+           frc_rhoH(i,j,k) *= 10.0;
+        });
 
 #ifdef USE_CUDA_SUNDIALS_PP
         const auto ec           = Gpu::ExecutionConfig(ncells);
         cudaError_t cuda_status = cudaSuccess;
 #endif
 
-        /* ALLOCS */
-        BL_PROFILE_VAR("advance_chemistry::Allocs", Allocs);
-        // rhoY,T
-        amrex::Real *tmp_vect; 
-        // rhoY_src_ext
-        amrex::Real *tmp_src_vect;
-        // rhoE/rhoH
-        amrex::Real *tmp_vect_energy;
-        amrex::Real *tmp_src_vect_energy;
-        int         *tmp_fctCn, *tmp_mask;
-#ifdef USE_CUDA_SUNDIALS_PP
-//        The_Arena()->alloc(tmp_vect, (NUM_SPECIES+1)*ncells*sizeof(amrex::Real));
-        cudaMallocManaged(&tmp_vect,            (NUM_SPECIES+1)*ncells*sizeof(amrex::Real));
-        cudaMallocManaged(&tmp_src_vect,        (NUM_SPECIES)*ncells*sizeof(amrex::Real));
-        cudaMallocManaged(&tmp_vect_energy,     ncells*sizeof(amrex::Real));
-        cudaMallocManaged(&tmp_src_vect_energy, ncells*sizeof(amrex::Real));
-        cudaMallocManaged(&tmp_fctCn,           ncells*sizeof(int));
-        cudaMallocManaged(&tmp_mask,            ncells*sizeof(int));
-#else
-        tmp_vect            =  new amrex::Real[ncells*(NUM_SPECIES+1)];
-        tmp_src_vect        =  new amrex::Real[ncells*(NUM_SPECIES)];
-        tmp_vect_energy     =  new amrex::Real[ncells];
-        tmp_src_vect_energy =  new amrex::Real[ncells];
-        tmp_fctCn           =  new int[ncells];
-        tmp_mask            =  new int[ncells];
-#endif
-        BL_PROFILE_VAR_STOP(Allocs);
-
-        /* Packing of data */
-        BL_PROFILE_VAR("Array_flatten()", ARRAY_FLATTEN);
-        amrex::ParallelFor(bx,
-        [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
-        {
-           int icell = (k-lo.z)*len.x*len.y + (j-lo.y)*len.x + (i-lo.x);
-           gpu_flatten(icell, i, j, k, rhoY, frcing, mask,
-                       tmp_vect, tmp_src_vect, tmp_vect_energy, tmp_src_vect_energy,
-                       tmp_fctCn, tmp_mask);  
-        });
-        BL_PROFILE_VAR_STOP(ARRAY_FLATTEN);
-
-
-        BL_PROFILE_VAR("React()", ReactInLoop);  
+        BL_PROFILE_VAR("React()", ReactInLoop);
         Real dt_incr     = dt;
         Real time_chem   = 0;
-        int reactor_type = 2;
-        /* Solve */
 #ifndef USE_CUDA_SUNDIALS_PP
-        Real p_local   = 1.0;
-        for (int i = 0; i < ncells; i++) {
-            if (tmp_mask[i] != -1 ){   // Regular & cut cells
-                tmp_fctCn[i] = react(tmp_vect + i*(NUM_SPECIES+1), tmp_src_vect + i*NUM_SPECIES,
-                                   tmp_vect_energy + i, tmp_src_vect_energy + i,
-#ifndef USE_SUNDIALS_PP
-                                   &p_local,
-#endif
-                                   dt_incr, time_chem);
-                dt_incr   = dt;
-                time_chem = 0;
-            } else {                   // Masked (covered) cells 
-                tmp_fctCn[i] = 0.0;
-            }
-        }
+        /* Solve */
+        int tmp_fctCn = react(bx, rhoY, frc_rhoY, temp, rhoH, frc_rhoH, fcl, mask, dt_incr, time_chem);
+        dt_incr   = dt;
+        time_chem = 0;
 #else
-        tmp_fctCn[0] = react(tmp_vect, tmp_src_vect,
-                      tmp_vect_energy, tmp_src_vect_energy,
-                      dt_incr, time_chem,
-                      reactor_type, ncells, 
-                      amrex::Gpu::gpuStream());
+        int reactor_type = 2;
+        int tmp_fctCn = react(bx, rhoY, frc_rhoY, temp, rhoH, frc_rhoH, fcl, mask, 
+                              dt_incr, time_chem, reactor_type, amrex::Gpu::gpuStream());
         dt_incr = dt;
+        time_chem = 0;
 #endif
         BL_PROFILE_VAR_STOP(ReactInLoop);
 
-
-        /* Unpacking of data */
-        BL_PROFILE_VAR_START(ARRAY_FLATTEN);
-        amrex::ParallelFor(bx,
-        [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
+        // Convert CGS -> MKS
+        ParallelFor(bx, [rhoY,rhoH, frc_rhoY, frc_rhoH]
+        AMREX_GPU_DEVICE (int i, int j, int k) noexcept 
         {
-           int icell = (k-lo.z)*len.x*len.y + (j-lo.y)*len.x + (i-lo.x);
-           gpu_unflatten(icell, i, j, k, rhoY, fcl,
-                         tmp_vect, tmp_vect_energy, tmp_fctCn);  
+           for (int n = 0; n < NUM_SPECIES; n++) {
+              rhoY(i,j,k,n) *= 1.0e3;
+              frc_rhoY(i,j,k,n) *= 1.0e3;
+           }
+           rhoH(i,j,k) *= 0.1;
+           frc_rhoH(i,j,k) *= 0.1;
         });
-        BL_PROFILE_VAR_STOP(ARRAY_FLATTEN);
 
-        /* Deallocate */
-        BL_PROFILE_VAR_START(Allocs);
-#ifdef USE_CUDA_SUNDIALS_PP 
+#ifdef USE_CUDA_SUNDIALS_PP
         cuda_status = cudaStreamSynchronize(amrex::Gpu::gpuStream());
-
-        cudaFree(tmp_vect);
-        cudaFree(tmp_src_vect);
-        cudaFree(tmp_vect_energy);
-        cudaFree(tmp_src_vect_energy);
-        cudaFree(tmp_fctCn);
-	cudaFree(tmp_mask);
-#else
-        delete(tmp_vect);
-        delete(tmp_src_vect);
-        delete(tmp_vect_energy);
-        delete(tmp_src_vect_energy);
-        delete(tmp_fctCn);
-	delete(tmp_mask);
 #endif
-        BL_PROFILE_VAR_STOP(Allocs);
 
     }
 
@@ -5826,13 +5764,23 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
     //
     // Set React_new (I_R).
     //
-    MultiFab::Copy(React_new, mf_old, first_spec, 0, NUM_SPECIES, 0);
-
-    MultiFab::Subtract(React_new, mf_new, first_spec, 0, NUM_SPECIES, 0);
-
-    React_new.mult(-1/dt);
-
-    MultiFab::Subtract(React_new, Force, 0, 0, NUM_SPECIES, 0);
+#ifdef _OPENMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+    for (MFIter mfi(mf_old,amrex::TilingIfNotGPU()); mfi.isValid(); ++mfi)
+    {
+        const Box& bx         = mfi.tilebox();
+        auto const& rhoY_o    = mf_old.array(mfi,first_spec);
+        auto const& rhoY_n    = mf_new.array(mfi,first_spec);
+        auto const& frc_rhoY  = Force.array(mfi);
+        auto const& rhoYdot   = React_new.array(mfi);
+        Real dt_inv = 1.0/dt;
+        ParallelFor(bx, NUM_SPECIES, [rhoY_o, rhoY_n, frc_rhoY, rhoYdot, dt_inv]
+        AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
+        {
+           rhoYdot(i,j,k,n) = - ( rhoY_o(i,j,k,n) - rhoY_n(i,j,k,n) ) * dt_inv - frc_rhoY(i,j,k,n);
+        });
+    }
 
     if (do_diag)
     {
