@@ -8904,23 +8904,23 @@ PeleLM::activeControl(const int  step,
                         const amrex::Real* dx = geomdata.CellSize();
                         Real coor[3] = {0.0};
                         for       (int k = lo.z; k <= hi.z; ++k) {
-                           for    (int j = lo.y; j <= hi.y; ++j) {
-                              for (int i = lo.x; i <= hi.x; ++i) {
-                                 Real lcl_pos = 1.e37_rt;
-                                 if ( T_arr(i,j,k) > AC_Tcross ) {
-                                    int idx[AMREX_SPACEDIM] = {D_DECL(i,j,k)};
-                                    idx[AC_FlameDir] -= 1;
-                                    if ( T_arr(idx[0],idx[1],idx[2]) < AC_Tcross ) {
-                                       D_TERM(coor[0] = prob_lo[0] + (i+0.5)*dx[0];,
-                                              coor[1] = prob_lo[1] + (j+0.5)*dx[1];,
-                                              coor[2] = prob_lo[2] + (k+0.5)*dx[2];);
-                                       Real slope = ((T_arr(i,j,k) ) - T_arr(idx[0],idx[1],idx[2]))/dx[AC_FlameDir];
-                                       lcl_pos = coor[AC_FlameDir] - dx[AC_FlameDir] + ( AC_Tcross - T_arr(idx[0],idx[1],idx[2]) ) / slope;
+                            for    (int j = lo.y; j <= hi.y; ++j) {
+                                for (int i = lo.x; i <= hi.x; ++i) {
+                                    Real lcl_pos = 1.e37_rt;
+                                    if ( T_arr(i,j,k) > AC_Tcross ) {
+                                        int idx[3] = {i,j,k};
+                                        idx[AC_FlameDir] -= 1;
+                                        if ( T_arr(idx[0],idx[1],idx[2]) < AC_Tcross ) {
+                                            D_TERM(coor[0] = prob_lo[0] + (i+0.5)*dx[0];,
+                                                   coor[1] = prob_lo[1] + (j+0.5)*dx[1];,
+                                                   coor[2] = prob_lo[2] + (k+0.5)*dx[2];);
+                                            Real slope = ((T_arr(i,j,k) ) - T_arr(idx[0],idx[1],idx[2]))/dx[AC_FlameDir];
+                                            lcl_pos = coor[AC_FlameDir] - dx[AC_FlameDir] + ( AC_Tcross - T_arr(idx[0],idx[1],idx[2]) ) / slope;
+                                        }
                                     }
-                                 }
-                                 tmp_pos = amrex::min(tmp_pos,lcl_pos);
-                              }
-                           }
+                                    tmp_pos = amrex::min(tmp_pos,lcl_pos);
+                                }
+                            }
                         }
                         return tmp_pos;
                      });
