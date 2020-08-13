@@ -21,9 +21,6 @@
 #include <AMReX_ParmParse.H>
 #include <AMReX_ErrorList.H>
 #include <PeleLM.H>
-#include <PeleLM_F.H>
-#include <Prob_F.H>
-#include <DIFFUSION_F.H>
 #include <AMReX_ArrayLim.H>
 #include <AMReX_SPACE.H>
 #include <AMReX_Interpolater.H>

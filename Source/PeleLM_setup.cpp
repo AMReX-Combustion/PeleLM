@@ -32,13 +32,8 @@
 #include <RegType.H>
 #include <AMReX_ParmParse.H>
 #include <AMReX_ErrorList.H>
-#include <Prob_F.H>
-#include <DERIVE_F.H>
 #include <AMReX_FArrayBox.H>
-#include <NAVIERSTOKES_F.H>
-#include <PeleLM_F.H>
 #include <AMReX_Utility.H>
-#include <NS_error_F.H>
 #include <EOS.H>
 #include <Transport.H>
 
