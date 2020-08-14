@@ -3,6 +3,11 @@
 #include "PeleLM_derive.H"
 #include <EOS.H>
 
+#ifdef AMREX_USE_EB
+#include <AMReX_EBFabFactory.H>
+#include <AMReX_EBFArrayBox.H>
+#endif
+
 #include <mechanism.h>
 
 using namespace amrex;
@@ -711,16 +716,12 @@ void pelelm_mgvort (const Box& bx, FArrayBox& derfab, int dcomp, int ncomp,
                  const amrex::Real idy = geomdata.InvCellSize(1);,
                  const amrex::Real idz = geomdata.InvCellSize(2););
 
-#ifdef AMREX_USE_EB
-    const auto& fact = EBFactory(level);
-    const auto& flags_mf = fact.getMultiEBCellFlagFab();
-#endif
-
     amrex::Array4<amrex::Real const> const& dat_arr = datfab.const_array();
     amrex::Array4<amrex::Real>       const&vort_arr = derfab.array();
 
 #ifdef AMREX_USE_EB
-    const EBCellFlagFab& flags = flags_mf[mfi];
+    const EBFArrayBox& ebfab = static_cast<EBFArrayBox const&>(datfab);
+    const EBCellFlagFab& flags = ebfab.getEBCellFlagFab();
     auto typ = flags.getType(bx);
     if (typ == FabType::covered)
     {
@@ -736,12 +737,11 @@ void pelelm_mgvort (const Box& bx, FArrayBox& derfab, int dcomp, int ncomp,
           constexpr amrex::Real c0 = -1.5;
           constexpr amrex::Real c1 = 2.0;
           constexpr amrex::Real c2 = -0.5;
-          if (flag_fab(i,j,k).isCovered())
-          {
+          if (flag_fab(i,j,k).isCovered()) {
              vort_arr(i,j,k) = 0.0;
           } else {
              amrex::Real vx = 0.0;
-             amrex::Real wx = 0.0;
+             amrex::Real uy = 0.0;
 #if ( AMREX_SPACEDIM == 2 )
              // Need to check if there are covered cells in neighbours --
              // -- if so, use one-sided difference computation (but still quadratic)
@@ -770,7 +770,7 @@ void pelelm_mgvort (const Box& bx, FArrayBox& derfab, int dcomp, int ncomp,
              }
              vort_arr(i,j,k) = vx-uy;
 #elif ( AMREX_SPACEDIM == 3 )
-             amrex::Real uy = 0.0;
+             amrex::Real wx = 0.0;
              amrex::Real wy = 0.0;
              amrex::Real uz = 0.0;
              amrex::Real vz = 0.0;
@@ -798,58 +798,48 @@ void pelelm_mgvort (const Box& bx, FArrayBox& derfab, int dcomp, int ncomp,
                 wx = 0.5 * (dat_arr(i+1,j,k,2) - dat_arr(i-1,j,k,2)) * idx;
              }
              // Do the same in y-direction
-             if (!flag_fab(i,j,k).isConnected(0, 1,0))
-             {
+             if (!flag_fab(i,j,k).isConnected(0, 1,0)) {
                  uy = - (c0 * dat_arr(i,j  ,k,0)
                        + c1 * dat_arr(i,j-1,k,0)
                        + c2 * dat_arr(i,j-2,k,0)) * idy;
                  wy = - (c0 * dat_arr(i,j  ,k,2)
                        + c1 * dat_arr(i,j-1,k,2)
                        + c2 * dat_arr(i,j-2,k,2)) * idy;
-             }
-             else if (!flag_fab(i,j,k).isConnected(0,-1,0))
-             {
+             } else if (!flag_fab(i,j,k).isConnected(0,-1,0)) {
                  uy = (c0 * dat_arr(i,j  ,k,0)
                      + c1 * dat_arr(i,j+1,k,0)
                      + c2 * dat_arr(i,j+2,k,0)) * idy;
                  wy = (c0 * dat_arr(i,j  ,k,2)
                      + c1 * dat_arr(i,j+1,k,2)
                      + c2 * dat_arr(i,j+2,k,2)) * idy;
-             }
-             else
-             {
+             } else {
                  uy = 0.5 * (dat_arr(i,j+1,k,0) - dat_arr(i,j-1,k,0)) * idy;
                  wy = 0.5 * (dat_arr(i,j+1,k,2) - dat_arr(i,j-1,k,2)) * idy;
              }
              // Do the same in z-direction
-             if (!flag_fab(i,j,k).isConnected(0,0, 1))
-             {
+             if (!flag_fab(i,j,k).isConnected(0,0, 1)) {
                  uz = - (c0 * dat_arr(i,j,k  ,0)
                        + c1 * dat_arr(i,j,k-1,0)
                        + c2 * dat_arr(i,j,k-2,0)) * idz;
                  vz = - (c0 * dat_arr(i,j,k  ,1)
                        + c1 * dat_arr(i,j,k-1,1)
                        + c2 * dat_arr(i,j,k-2,1)) * idz;
-             }
-             else if (!flag_fab(i,j,k).isConnected(0,0,-1))
-             {
+             } else if (!flag_fab(i,j,k).isConnected(0,0,-1)) {
                  uz = (c0 * dat_arr(i,j,k  ,0)
                      + c1 * dat_arr(i,j,k+1,0)
                      + c2 * dat_arr(i,j,k+2,0)) * idz;
                  vz = (c0 * dat_arr(i,j,k  ,1)
                      + c1 * dat_arr(i,j,k+1,1)
                      + c2 * dat_arr(i,j,k+2,1)) * idz;
-             }
-             else
-             {
+             } else {
                  uz = 0.5 * (dat_arr(i,j,k+1,0) - dat_arr(i,j,k-1,0)) * idz;
                  vz = 0.5 * (dat_arr(i,j,k+1,1) - dat_arr(i,j,k-1,1)) * idz;
              }
-             vort_fab(i,j,k) = std::sqrt((wy-vz)*(wy-vz) + (uz-wx)*(uz-wx) + (vx-uy)*(vx-uy));
+             vort_arr(i,j,k) = std::sqrt((wy-vz)*(wy-vz) + (uz-wx)*(uz-wx) + (vx-uy)*(vx-uy));
 #endif
           }
-       }
-    }
+       });
+    } else
 #endif
     {
         amrex::ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
