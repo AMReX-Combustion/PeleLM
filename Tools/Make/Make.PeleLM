@@ -67,7 +67,6 @@ VPATH_LOCATIONS   += $(REACTIONS_HOME) $(REACTIONS_PATH)
    $(error Invalid Chemistry_Model, $(Chemistry_Model))
   endif
 
-  Bpack += $(PELE_PHYSICS_HOME)/Support/Fuego/Evaluation/Make.package
   Blocs += $(PELE_PHYSICS_HOME)/Support/Fuego/Mechanism \
            $(PELE_PHYSICS_HOME)/Support/Fuego/Evaluation
 
