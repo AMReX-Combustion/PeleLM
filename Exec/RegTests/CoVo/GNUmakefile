@@ -9,7 +9,7 @@ PELELM_HOME ?= ${TOP}/PeleLM
 
 DIM             = 2
 COMP            = gnu
-DEBUG           = TRUE
+DEBUG           = FALSE
 USE_MPI         = TRUE
 USE_OMP         = FALSE
 PRECISION       = DOUBLE
@@ -17,7 +17,6 @@ VERBOSE         = FALSE
 
 TINY_PROFILE = FALSE
 #USE_WBAR = TRUE
-
 #DEFINES+=-DALWAYS_NEW_J
 
 #######################

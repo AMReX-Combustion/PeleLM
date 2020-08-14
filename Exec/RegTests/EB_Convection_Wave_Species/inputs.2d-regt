@@ -1,5 +1,5 @@
 #. ----------------  PROBLEM DEPENDENT INPUTS
-geometry.is_periodic = 0 1 1
+geometry.is_periodic = 1 1 1
 
 geometry.coord_sys = 0  # 0 => cart, 1 => RZ
 
@@ -10,22 +10,23 @@ geometry.prob_hi   = 0.12 0.04 0.005
 # Interior, Inflow, Outflow, Symmetry,
 # SlipWallAdiab, NoSlipWallAdiab, SlipWallIsotherm, NoSlipWallIsotherm
 
-peleLM.lo_bc = Inflow  Interior Interior
-peleLM.hi_bc = Outflow Interior Interior
+peleLM.lo_bc = Interior  Interior Interior
+peleLM.hi_bc = Interior  Interior Interior
 
 
 #peleLM.lo_bc =  Outflow  Inflow
 #peleLM.hi_bc =  Outflow  Outflow
 
 #----------------------------TOP LEVEL INPUTS----------------------
-max_step  = 100 
+max_step  = 700 
 stop_time = 10.0
 
 #-------------------------AMR INPUTS----------------------------
 amr.n_cell    = 128 64 
+amr.n_cell    = 32 16
 
 amr.v=1
-amr.max_level =  3            # maximum level number allowed
+amr.max_level =  0            # maximum level number allowed
 amr.ref_ratio       = 2 2 2 2 # refinement ratio
 amr.regrid_int      = 2       # how often to regrid
 amr.n_error_buf     = 2 2 2 2 # number of buffer cells in error est
@@ -41,10 +42,7 @@ amr.plot_int        = 1
 amr.derive_plot_vars=rhoRT mag_vort avg_pressure gradpx gradpy diveru mass_fractions rhoY rhominsumrhoY
 
 amr.grid_log        = grdlog  # name of grid logging file
-amr.max_grid_size   = 32 
-
-amr.probin_file = probin.2d.regt # This will default to file "probin" if not set
-
+amr.max_grid_size   = 256 
 
 # ------------------  INPUTS TO PHYSICS CLASS -------------------
 ns.dt_cutoff       = 5.e-10   # level 0 timestep below which we halt
@@ -77,13 +75,28 @@ ns.min_rho_divu_ceiling = .01
 
 ns.fuelName        = N2
 ns.unity_Le = 0
-ns.hack_nochem = 0
+ns.hack_nochem = 1
 ns.sdc_iterMAX = 2
 
 
 ns.do_fillPatchUMAC=1
 ns.zeroBndryVisc=1
 ns.num_divu_iters = 1
+
+# ------------------  INPUTS TO CVODE CHEMISTRY ----------------------
+#peleLM.use_typ_vals_chem = 1
+#peleLM.relative_tol_chem = 1.0e-8
+#peleLM.absolute_tol_chem = 1.0e-6
+cvode.solve_type = dense
+ode.analytical_jacobian = 0
+
+# ----------------  INPUTS TO CONSTANT TRANSPORT -------------------
+transport.const_viscosity = 0.0
+transport.const_bulk_viscosity = 0.0
+transport.const_conductivity = 0.0
+transport.const_diffusivity = 0.0
+
+prob.meanFlowMag = 10.0
 
 # ------------------  INPUTS TO GODUNOV CLASS ----------------------
 godunov.slope_order = 4

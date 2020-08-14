@@ -1,5 +1,5 @@
 # ----------------  PROBLEM DEPENDENT INPUTS
-geometry.is_periodic = 1 1
+geometry.is_periodic = = 1 1
 
 geometry.coord_sys = 0  # 0 => cart, 1 => RZ
 
@@ -13,14 +13,16 @@ geometry.prob_hi   = 1.0 1.0 1.0
 peleLM.lo_bc = "Interior"  "Interior"
 peleLM.hi_bc = "Interior"  "Interior"
 
+
 #----------------------------TOP LEVEL INPUTS----------------------
 max_step  =  20000
 stop_time = 0.04
 
 #-------------------------AMR INPUTS----------------------------
 amr.n_cell    = 32 32 32
-amr.n_cell    = 128 128 128
-amr.n_cell    = 64 64 64
+#amr.n_cell    = 128 128 128
+#amr.n_cell    = 64 64 64
+
 
 amr.v=1
 amr.max_level =  2            # maximum level number allowed
@@ -33,18 +35,18 @@ amr.blocking_factor = 8      # block factor in grid generation
 
 amr.checkpoint_files_output = 0
 amr.check_file      = chk     # root name of checkpoint file
-amr.check_int       = 5       # number of timesteps between checkpoints
+amr.check_int       = 1       # number of timesteps between checkpoints
 
 amr.plot_file       = plt_
-amr.plot_int        = 20000
-amr.derive_plot_vars=rhoRT mag_vort avg_pressure gradpx gradpy diveru cc_transport_coeffs
+amr.plot_int        = 1 
+amr.derive_plot_vars=rhoRT mag_vort avg_pressure gradpx gradpy diveru cc_transport_coeffs mass_fractions
 
 amr.grid_log        = grdlog  # name of grid logging file
-amr.max_grid_size   = 64
+amr.max_grid_size   = 256
 
 #----------- PROBLEM PARAMETERS------------
 prob.meanFlowMag = 50.0
-prob.meanFlowDir = 3
+prob.meanFlowDir = 1
 prob.T_mean = 298.0
 prob.P_mean = 101325.
 prob.rvort  = 0.07
@@ -58,7 +60,6 @@ ns.visc_tol        = 1.0e-12  # tolerence for viscous solves
 ns.visc_abs_tol    = 1.0e-12  # tolerence for viscous solves
 ns.cfl            = 0.7     # cfl number for hyperbolic system
 ns.init_shrink    = 1.0       # scale back initial timestep
-ns.init_shrink    = 0.0001       # scale back initial timestep
 ns.change_max     = 1.1       # scale back initial timestep
 ns.init_iter      = 3        # number of init iters to def pressure
 ns.gravity        = 0        # body force  (gravity in MKS units)
@@ -84,7 +85,7 @@ ns.min_rho_divu_ceiling = .01
 
 ns.fuelName        = N2
 ns.unity_Le = 0
-ns.hack_nochem = 0
+ns.hack_nochem = 1
 
 ns.do_active_control = 0
 
@@ -167,7 +168,7 @@ cg.cg_solver=1
 #
 fab.format = NATIVE
 
-#fabarray.mfiter_tile_size = 8 8 8
+fabarray.mfiter_tile_size = 1024 1024 1024
 
 ns.verbose = true
 
@@ -188,8 +189,8 @@ ns.sdc_iterMAX = 2
 #amr.RefineBox.in_box_lo = 0.25 0.25   
 #amr.RefineBox.in_box_hi = 0.75 0.75 
 
-ns.num_mac_sync_iter = 2
-ns.sdc_iterMAX = 2
+
+amr.restart = chk00032
 
 # Embedded Boundary options
 eb2.geom_type    =  all_regular
