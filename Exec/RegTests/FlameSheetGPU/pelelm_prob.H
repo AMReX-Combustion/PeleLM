@@ -292,4 +292,24 @@ bcnormal(
   }
 
 }
+
+AMREX_GPU_DEVICE
+inline
+void
+zero_visc (int i, int j, int k,
+           amrex::Array4<amrex::Real> const& beta,
+           amrex::GeometryData const& geomdata,
+           amrex::Box const& dBox,
+           const int  dir,
+           const int  state_comp,
+           const int  nComp)
+{
+
+    const amrex::Real* prob_lo = geomdata.ProbLo();
+    const amrex::Real* dx      = geomdata.CellSize();
+    const amrex::Real z = prob_lo[2] + (k+0.5)*dx[2];
+    const amrex::Real y = prob_lo[1] + (j+0.5)*dx[1];
+    const amrex::Real x = prob_lo[0] + (i+0.5)*dx[0];
+
+}
 #endif

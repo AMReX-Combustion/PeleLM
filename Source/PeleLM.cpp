@@ -21,9 +21,6 @@
 #include <AMReX_ParmParse.H>
 #include <AMReX_ErrorList.H>
 #include <PeleLM.H>
-#include <PeleLM_F.H>
-#include <Prob_F.H>
-#include <DIFFUSION_F.H>
 #include <AMReX_ArrayLim.H>
 #include <AMReX_SPACE.H>
 #include <AMReX_Interpolater.H>
@@ -6148,7 +6145,7 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
          }
 
          // Advect RhoY
-         state_bc = fetchBCArray(State_Type,bx,first_spec,NUM_SPECIES+1);
+         state_bc = fetchBCArray(State_Type,bx,first_spec,NUM_SPECIES);
 
          godunov->AdvectScalars(bx, dx, dt, 
                                 D_DECL(  area[0][S_mfi],  area[1][S_mfi],  area[2][S_mfi]),
@@ -8007,7 +8004,7 @@ PeleLM::getDiffusivity_Wbar (MultiFab*  betaWbar[AMREX_SPACEDIM],
 #endif
 
 void
-PeleLM::zeroBoundaryVisc (MultiFab*  beta[BL_SPACEDIM],
+PeleLM::zeroBoundaryVisc (MultiFab*  beta[AMREX_SPACEDIM],
                           const Real time,
                           const int  state_comp,
                           const int  dst_comp,
@@ -8015,24 +8012,24 @@ PeleLM::zeroBoundaryVisc (MultiFab*  beta[BL_SPACEDIM],
 {
   BL_ASSERT(state_comp > Density);
 
-  const int isrz = (int) geom.IsRZ();
-  for (int dir = 0; dir < BL_SPACEDIM; dir++)
+  const auto geomdata = geom.data();
+
+  for (int dir = 0; dir < AMREX_SPACEDIM; dir++)
   {
 #ifdef _OPENMP
-#pragma omp parallel
+#pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
     {
-      Box edom = amrex::surroundingNodes(geom.Domain(),dir);
-  
-      for (MFIter mfi(*(beta[dir]),true); mfi.isValid(); ++mfi)
+      const Box edom = amrex::surroundingNodes(geom.Domain(),dir);
+      for (MFIter mfi(*(beta[dir]),TilingIfNotGPU()); mfi.isValid(); ++mfi)
       {
-        FArrayBox& beta_fab = (*(beta[dir]))[mfi];
         const Box& ebox     = amrex::surroundingNodes(mfi.growntilebox(),dir);
-        zero_visc(BL_TO_FORTRAN_N_ANYD(beta_fab,dst_comp),
-                  BL_TO_FORTRAN_BOX(ebox),
-                  BL_TO_FORTRAN_BOX(edom),
-                  geom.CellSize(), geom.ProbLo(), phys_bc.vect(),
-                  &dir, &isrz, &state_comp, &ncomp);
+        auto const& beta_arr = beta[dir]->array(mfi,dst_comp);
+        amrex::ParallelFor(ebox, [beta_arr,dir,geomdata,edom,state_comp,ncomp]
+        AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+        {
+          zero_visc(i, j, k, beta_arr, geomdata, edom, dir, state_comp, ncomp);
+        });
       }
     }
   }
@@ -8907,23 +8904,23 @@ PeleLM::activeControl(const int  step,
                         const amrex::Real* dx = geomdata.CellSize();
                         Real coor[3] = {0.0};
                         for       (int k = lo.z; k <= hi.z; ++k) {
-                           for    (int j = lo.y; j <= hi.y; ++j) {
-                              for (int i = lo.x; i <= hi.x; ++i) {
-                                 Real lcl_pos = 1.e37_rt;
-                                 if ( T_arr(i,j,k) > AC_Tcross ) {
-                                    int idx[AMREX_SPACEDIM] = {D_DECL(i,j,k)};
-                                    idx[AC_FlameDir] -= 1;
-                                    if ( T_arr(idx[0],idx[1],idx[2]) < AC_Tcross ) {
-                                       D_TERM(coor[0] = prob_lo[0] + (i+0.5)*dx[0];,
-                                              coor[1] = prob_lo[1] + (j+0.5)*dx[1];,
-                                              coor[2] = prob_lo[2] + (k+0.5)*dx[2];);
-                                       Real slope = ((T_arr(i,j,k) ) - T_arr(idx[0],idx[1],idx[2]))/dx[AC_FlameDir];
-                                       lcl_pos = coor[AC_FlameDir] - dx[AC_FlameDir] + ( AC_Tcross - T_arr(idx[0],idx[1],idx[2]) ) / slope;
+                            for    (int j = lo.y; j <= hi.y; ++j) {
+                                for (int i = lo.x; i <= hi.x; ++i) {
+                                    Real lcl_pos = 1.e37_rt;
+                                    if ( T_arr(i,j,k) > AC_Tcross ) {
+                                        int idx[3] = {i,j,k};
+                                        idx[AC_FlameDir] -= 1;
+                                        if ( T_arr(idx[0],idx[1],idx[2]) < AC_Tcross ) {
+                                            D_TERM(coor[0] = prob_lo[0] + (i+0.5)*dx[0];,
+                                                   coor[1] = prob_lo[1] + (j+0.5)*dx[1];,
+                                                   coor[2] = prob_lo[2] + (k+0.5)*dx[2];);
+                                            Real slope = ((T_arr(i,j,k) ) - T_arr(idx[0],idx[1],idx[2]))/dx[AC_FlameDir];
+                                            lcl_pos = coor[AC_FlameDir] - dx[AC_FlameDir] + ( AC_Tcross - T_arr(idx[0],idx[1],idx[2]) ) / slope;
+                                        }
                                     }
-                                 }
-                                 tmp_pos = amrex::min(tmp_pos,lcl_pos);
-                              }
-                           }
+                                    tmp_pos = amrex::min(tmp_pos,lcl_pos);
+                                }
+                            }
                         }
                         return tmp_pos;
                      });
