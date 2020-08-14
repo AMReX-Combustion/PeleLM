@@ -32,13 +32,8 @@
 #include <RegType.H>
 #include <AMReX_ParmParse.H>
 #include <AMReX_ErrorList.H>
-#include <Prob_F.H>
-#include <DERIVE_F.H>
 #include <AMReX_FArrayBox.H>
-#include <NAVIERSTOKES_F.H>
-#include <PeleLM_F.H>
 #include <AMReX_Utility.H>
-#include <NS_error_F.H>
 #include <EOS.H>
 #include <Transport.H>
 
@@ -741,7 +736,7 @@ PeleLM::variableSetUp ()
   //
   // Magnitude of vorticity.
   //
-  derive_lst.add("mag_vort",IndexType::TheCellType(),1,DeriveFunc3D(dermgvort),grow_box_by_one);
+  derive_lst.add("mag_vort",IndexType::TheCellType(),1,pelelm_mgvort,grow_box_by_one);
   derive_lst.addComponent("mag_vort",desc_lst,State_Type,Xvel,AMREX_SPACEDIM);
 
 #ifdef DO_LMC_FORCE

@@ -7,7 +7,7 @@ endif
 include $(AMREX_HOME)/Tools/GNUMake/Make.defs 
 #$(info LIBRARIES_BeginPeleMake="$(LIBRARIES)")
 
-Bdirs += $(PELELM_HOME)/Source $(PELELM_HOME)/Source/Src_nd
+Bdirs += $(PELELM_HOME)/Source
 
 ifeq ($(USE_WBAR),TRUE)
     USERSuffix += .WBAR
@@ -15,6 +15,7 @@ ifeq ($(USE_WBAR),TRUE)
 endif
 
 ifeq ($(shell uname),Darwin)
+  LDFLAGS += -headerpad_max_install_names
   all: $(executable)
 	install_name_tool -add_rpath $(PELE_PHYSICS_HOME)/ThirdParty/INSTALL/$(configSpecificTPSuffix)/lib $(executable)
 	$(SILENT) $(RM) AMReX_buildInfo.cpp
@@ -30,15 +31,10 @@ REACTIONS_HOME = $(PELE_PHYSICS_HOME)/Reactions
 TRAN_HOME      = $(PELE_PHYSICS_HOME)/Transport
 
 # EOS
-EOS_HOME_F90 := $(EOS_HOME)/F90
 EOS_PATH := $(EOS_HOME)/$(strip $(Eos_dir))
-EOS_PATH_F90 := $(EOS_PATH)/F90
-include $(EOS_HOME_F90)/Make.package
 include $(EOS_PATH)/Make.package
-include $(EOS_PATH_F90)/Make.package
-EXTERN_CORE       += $(EOS_HOME_F90) $(EOS_PATH_F90)
-INCLUDE_LOCATIONS += $(EOS_HOME) $(EOS_HOME_F90) $(EOS_PATH) $(EOS_PATH_F90)
-VPATH_LOCATIONS   += $(EOS_HOME) $(EOS_HOME_F90) $(EOS_PATH) $(EOS_PATH_F90)
+INCLUDE_LOCATIONS += $(EOS_HOME) $(EOS_PATH)
+VPATH_LOCATIONS   += $(EOS_HOME) $(EOS_PATH)
 ifeq ($(Eos_dir), Fuego)
   TRANSPORT_TYPE := IDEAL_GAS
 else
@@ -50,13 +46,10 @@ else
 endif
 
 # Reactions
-REACTIONS_HOME_F90 := $(REACTIONS_HOME)/F90
 REACTIONS_PATH := $(REACTIONS_HOME)/$(strip $(Reactions_dir))
-REACTIONS_PATH_F90 := $(REACTIONS_PATH)/F90
 include $(REACTIONS_PATH)/Make.package
-EXTERN_CORE       += $(REACTIONS_HOME_F90) $(REACTIONS_PATH_F90)
-INCLUDE_LOCATIONS += $(REACTIONS_HOME) $(REACTIONS_HOME_F90) $(REACTIONS_PATH) $(REACTIONS_PATH_F90)
-VPATH_LOCATIONS   += $(REACTIONS_HOME) $(REACTIONS_HOME_F90) $(REACTIONS_PATH) $(REACTIONS_PATH_F90)
+INCLUDE_LOCATIONS += $(REACTIONS_HOME) $(REACTIONS_PATH)
+VPATH_LOCATIONS   += $(REACTIONS_HOME) $(REACTIONS_PATH)
 #ifdef Chemistry_Model
   ifeq ($(Eos_dir), GammaLaw)
     ifneq ($(Chemistry_Model), Null)
@@ -74,7 +67,6 @@ VPATH_LOCATIONS   += $(REACTIONS_HOME) $(REACTIONS_HOME_F90) $(REACTIONS_PATH) $
    $(error Invalid Chemistry_Model, $(Chemistry_Model))
   endif
 
-  Bpack += $(PELE_PHYSICS_HOME)/Support/Fuego/Evaluation/Make.package
   Blocs += $(PELE_PHYSICS_HOME)/Support/Fuego/Mechanism \
            $(PELE_PHYSICS_HOME)/Support/Fuego/Evaluation
 
@@ -144,16 +136,19 @@ ifeq ($(USE_FLCTS), TRUE)
 endif
 
 # runtime parameter support for extern/ routines
-f90EXE_sources += extern.f90
+# Right now, only USE_FLCTS requires those
+ifeq ($(USE_FLCTS), TRUE)
+  f90EXE_sources += extern.f90
 
-EXTERN_TEMPLATE := $(PELE_PHYSICS_HOME)/Testing/Source/extern_probin.template
+  EXTERN_TEMPLATE := $(PELE_PHYSICS_HOME)/Testing/Source/extern_probin.template
 
-EXTERN_PARAMETERS := $(shell $(AMREX_HOME)/Tools/F_scripts/findparams.py $(EXTERN_CORE))
+  EXTERN_PARAMETERS := $(shell $(AMREX_HOME)/Tools/F_scripts/findparams.py $(EXTERN_CORE))
 
-extern.f90: $(EXTERN_PARAMETERS) $(EXTERN_TEMPLATE)
-	$(AMREX_HOME)/Tools/F_scripts/write_probin.py \
-           -t $(EXTERN_TEMPLATE) -o extern.f90 -n extern \
-           --pa "$(EXTERN_PARAMETERS)" 
+  extern.f90: $(EXTERN_PARAMETERS) $(EXTERN_TEMPLATE)
+  	$(AMREX_HOME)/Tools/F_scripts/write_probin.py \
+             -t $(EXTERN_TEMPLATE) -o extern.f90 -n extern \
+             --pa "$(EXTERN_PARAMETERS)" 
+endif
 
 # Hack in some LM-specific stuff
 
