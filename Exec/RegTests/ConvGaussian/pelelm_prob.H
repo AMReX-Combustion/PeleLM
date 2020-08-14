@@ -31,45 +31,49 @@ pelelm_initdata (int i, int j, int k,
     Yt[0] = 0.233;
     Yt[1] = 0.767;
 
-
-    const amrex::Real deltax = x - ProbParm::xvort;
-    const amrex::Real deltay = y - ProbParm::yvort;
+    const amrex::Real deltax = x - ProbParm::xgauss;
+    const amrex::Real deltay = y - ProbParm::ygauss;
     const amrex::Real d_sq = deltax*deltax + deltay*deltay;
-    const amrex::Real r_sq = ProbParm::rvort * ProbParm::rvort;
+    const amrex::Real r_sq = ProbParm::rgauss * ProbParm::rgauss;
 
-    const amrex::Real u_vort = -ProbParm::forcevort*deltay/r_sq * exp(-d_sq/r_sq/2.);
-    const amrex::Real v_vort = ProbParm::forcevort*deltax/r_sq * exp(-d_sq/r_sq/2.);
-    const amrex::Real w_vort = 0.;
+    if ( ProbParm::gauss_type == "Spec" ) {
+       Yt[0] += Yt[0] * ProbParm::ampgauss * std::exp(-d_sq/r_sq);
+       Yt[1] = 1.0 - Yt[0];
+    } else if ( ProbParm::gauss_type == "Temp" ) {
+       state(i,j,k,DEF_Temp) = ProbParm::T_mean * ( 1.0 + ProbParm::ampgauss * std::exp(-d_sq/r_sq) );
+    } else {
+       amrex::Abort("Unknown gauss_type: should be either Temp or Spec");
+    }
 
     switch(ProbParm::meanFlowDir) {
       case 1  :
-        state(i,j,k,Xvel) = ProbParm::meanFlowMag + u_vort;
-        state(i,j,k,Yvel) = v_vort;
+        state(i,j,k,Xvel) = ProbParm::meanFlowMag;
+        state(i,j,k,Yvel) = 0.0;
         break;
       case -1  :
-        state(i,j,k,Xvel) = -ProbParm::meanFlowMag + u_vort;
-        state(i,j,k,Yvel) = v_vort;
+        state(i,j,k,Xvel) = -ProbParm::meanFlowMag;
+        state(i,j,k,Yvel) = 0.0;
         break;
       case 2  :
-        state(i,j,k,Xvel) = u_vort;
-        state(i,j,k,Yvel) = ProbParm::meanFlowMag + v_vort;
+        state(i,j,k,Xvel) = 0.0;
+        state(i,j,k,Yvel) = ProbParm::meanFlowMag;
         break;
       case -2  :
-        state(i,j,k,Xvel) = u_vort;
-        state(i,j,k,Yvel) = -ProbParm::meanFlowMag + v_vort;
+        state(i,j,k,Xvel) = 0.0;
+        state(i,j,k,Yvel) = -ProbParm::meanFlowMag;
         break;
       case 3  :
-        state(i,j,k,Xvel) = ProbParm::meanFlowMag + u_vort;
-        state(i,j,k,Yvel) = ProbParm::meanFlowMag + v_vort;
+        state(i,j,k,Xvel) = ProbParm::meanFlowMag;
+        state(i,j,k,Yvel) = ProbParm::meanFlowMag;
         break; 
       case -3  :
-        state(i,j,k,Xvel) = -ProbParm::meanFlowMag + u_vort;
-        state(i,j,k,Yvel) = -ProbParm::meanFlowMag + v_vort;
+        state(i,j,k,Xvel) = -ProbParm::meanFlowMag;
+        state(i,j,k,Yvel) = -ProbParm::meanFlowMag;
         break;
     }
 
 #if (AMREX_SPACEDIM == 3)
-        state(i,j,k,Zvel) = w_vort;
+    state(i,j,k,Zvel) = 0.0;
 #endif
 
     amrex::Real rho_cgs, P_cgs;
@@ -103,18 +107,17 @@ bcnormal(
 
   if (sgn == 1) {
 
-s_ext[Xvel] = ProbParm::meanFlowMag;
-s_ext[Yvel] = 0.0;
+    s_ext[Xvel] = ProbParm::meanFlowMag;
+    s_ext[Yvel] = 0.0;
 #if (AMREX_SPACEDIM == 3)
-s_ext[Zvel] = 0.0;
+    s_ext[Zvel] = 0.0;
 #endif
 
-s_ext[DEF_Temp] = ProbParm::T_mean;
+    s_ext[DEF_Temp] = ProbParm::T_mean;
 
     amrex::Real Yt[NUM_SPECIES];
     Yt[0] = 0.233;
     Yt[1] = 0.767;
-
 
     amrex::Real rho_cgs, P_cgs, RhoH_temp;
     P_cgs = ProbParm::P_mean * 10.0;
@@ -128,16 +131,9 @@ s_ext[DEF_Temp] = ProbParm::T_mean;
     for (int n = 0; n < NUM_SPECIES; n++) {
       s_ext[DEF_first_spec+n] = Yt[n] * s_ext[Density];
     }
-
-
-
   } else {
-
     amrex::Abort("Inflow not implemented for hi_x");
-
   }
-
-
 }
 
 AMREX_GPU_DEVICE
