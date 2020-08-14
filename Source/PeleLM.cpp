@@ -6145,7 +6145,7 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
          }
 
          // Advect RhoY
-         state_bc = fetchBCArray(State_Type,bx,first_spec,NUM_SPECIES+1);
+         state_bc = fetchBCArray(State_Type,bx,first_spec,NUM_SPECIES);
 
          godunov->AdvectScalars(bx, dx, dt, 
                                 D_DECL(  area[0][S_mfi],  area[1][S_mfi],  area[2][S_mfi]),
