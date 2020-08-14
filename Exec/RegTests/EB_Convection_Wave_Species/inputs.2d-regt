@@ -129,7 +129,7 @@ mac.do_outflow_bcs = 0
 #--------------------------MISC/UNSORTED INPUTS-----------------------------
 # multigrid class
 #mg.smooth_on_cg_unstable=1
-mg.v = 2 
+mg.v = 0 
 mg.maxiter = 1000
 mg.nu_0 = 1
 mg.nu_1 = 4

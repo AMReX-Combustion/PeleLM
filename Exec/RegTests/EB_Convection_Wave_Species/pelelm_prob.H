@@ -109,9 +109,17 @@ s_ext[DEF_Temp] = ProbParm::T_mean;
 
 }
 
-
-
-
-
+AMREX_GPU_DEVICE
+inline
+void
+zero_visc (int i, int j, int k,
+           amrex::Array4<amrex::Real> const& beta,
+           amrex::GeometryData const& geomdata,
+           amrex::Box const& dBox,
+           const int  dir,
+           const int  state_comp,
+           const int  nComp)
+{
+}
 
 #endif
