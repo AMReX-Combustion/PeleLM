@@ -8975,7 +8975,9 @@ PeleLM::activeControl(const int  step,
 
    //Real zbase_control += ctrl_V_in * dt + ctrl_dV * dt * dt;
    ctrl_V_in_old = ctrl_V_in;
-   ctrl_V_in += dt * ctrl_dV;
+   if ( dt > 0.0 ) {
+      ctrl_V_in += dt * ctrl_dV;
+   }
 
    Real slocal = 0.5 * (ctrl_V_in_old + ctrl_V_in) - (coft - ctrl_coftOld) / ( dt * ctrl_scale );
 
