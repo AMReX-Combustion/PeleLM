@@ -12,7 +12,13 @@
 #define DEF_RhoH DEF_first_spec + NUM_SPECIES
 #define DEF_Temp DEF_RhoH + 1
 #define DEF_RhoRT DEF_Temp + 1
+#ifdef PLM_USE_EFIELD
+#define DEF_nE DEF_RhoRT + 1
+#define DEF_PhiV DEF_nE + 1
+#define DEF_NUM_STATE AMREX_SPACEDIM + NUM_SPECIES + 6
+#else
 #define DEF_NUM_STATE AMREX_SPACEDIM + NUM_SPECIES + 4
+#endif
 #define DEF_NUM_SCALARS  DEF_NUM_STATE - Density
 
 #endif

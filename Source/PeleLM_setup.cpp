@@ -139,6 +139,47 @@ species_bc[] =
   INT_DIR, EXT_DIR, FOEXTRAP, REFLECT_EVEN, REFLECT_EVEN, REFLECT_EVEN, EXT_DIR, EXT_DIR
 };
 
+#ifdef PLM_USE_EFIELD
+static
+int
+ne_bc[] =
+{
+     INT_DIR, EXT_DIR, FOEXTRAP, REFLECT_EVEN, REFLECT_EVEN, REFLECT_EVEN, EXT_DIR, EXT_DIR
+};
+// PhiV has a separate set of BCs
+static
+int
+phiv_bc[] =
+{
+     INT_DIR, EXT_DIR, REFLECT_EVEN
+};
+void
+set_ne_bc (BCRec&       bc,
+           const BCRec& phys_bc)
+{
+  const int* lo_bc = phys_bc.lo();
+  const int* hi_bc = phys_bc.hi();
+  for (int i = 0; i < BL_SPACEDIM; i++)
+  {
+    bc.setLo(i,ne_bc[lo_bc[i]]);
+    bc.setHi(i,ne_bc[hi_bc[i]]);
+  }
+}
+static
+void
+set_phiv_bc (BCRec&       bc,
+             const BCRec& phys_bc)
+{
+  const int* lo_bc = phys_bc.lo();
+  const int* hi_bc = phys_bc.hi();
+  for (int i = 0; i < BL_SPACEDIM; i++)
+  {
+    bc.setLo(i,phiv_bc[lo_bc[i]]);
+    bc.setHi(i,phiv_bc[hi_bc[i]]);
+  }
+}
+#endif
+
 static
 void
 set_x_vel_bc (BCRec&       bc,
@@ -356,6 +397,11 @@ PeleLM::variableSetUp ()
   RhoH = DEF_RhoH;
   Temp = DEF_Temp;
   RhoRT = DEF_RhoRT;
+#ifdef PLM_USE_EFIELD
+  PhiV  = DEF_PhiV;
+  nE    = DEF_nE;
+  iE_sp = -1; //E_ID       // This comes from the mechanism.h file. Need E in mech !
+#endif
   NUM_STATE = DEF_NUM_STATE;
   NUM_SCALARS = DEF_NUM_SCALARS;
 
@@ -366,6 +412,10 @@ PeleLM::variableSetUp ()
   for (int i = 0; i < NUM_SPECIES; i++)
     amrex::Print() << spec_names[i] << ' ' << ' ';
   amrex::Print() << '}' << '\n' << '\n';
+
+#ifdef PLM_USE_EFIELD
+  amrex::Print() << " Including electric field, adding nE and phiV to State_Type \n" << "\n" ;
+#endif
 
   //
   // Send indices of fuel and oxidizer to fortran for setting prob data in common block
@@ -470,13 +520,23 @@ PeleLM::variableSetUp ()
                         &cell_cons_interp);
           
   //
-  // ***************  DEFINE TRACER and RhoRT **************************
+  // ***************  DEFINE RhoRT **************************
   //
   // Force BCs to be REFLECT_EVEN for RhoRT ghost cells in UGRADP.
   // ADVFILL is ok for this, if all BC's are REFLECT_EVEN (ie, no EXT_DIR)
   //
   set_reflect_bc(bc,phys_bc);
   desc_lst.setComponent(State_Type,RhoRT,"RhoRT",bc,pelelm_bndryfunc);
+
+#ifdef PLM_USE_EFIELD
+  bcs.resize(1);
+  set_ne_bc(bc,phys_bc);
+//  bcs[0] = hack_bc_charged_spec(-1,bc); TODO: find a more flexible way to handle BCs for charged particles.
+  desc_lst.setComponent(State_Type,nE,"nE",bcs[0],pelelm_bndryfunc); 
+
+  set_phiv_bc(bc,phiV_bc);
+  desc_lst.setComponent(State_Type,PhiV,"PhiV",bc,pelelm_bndryfunc);
+#endif
 
   advectionType.resize(NUM_STATE);
   diffusionType.resize(NUM_STATE);
@@ -513,6 +573,13 @@ PeleLM::variableSetUp ()
     advectionType[first_spec + i] = Conservative;
     diffusionType[first_spec + i] = Laplacian_SoverRho;
   }
+
+#ifdef PLM_USE_EFIELD
+  is_diffusive[nE] = false;
+  advectionType[nE] = Conservative;
+  is_diffusive[PhiV] = false;
+  advectionType[PhiV] = NonConservative;
+#endif
 
   if (is_diffusive[Density])
     amrex::Abort("PeleLM::variableSetUp(): density cannot diffuse");
