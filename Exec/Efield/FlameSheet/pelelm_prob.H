@@ -229,6 +229,11 @@ pelelm_initdata (int i, int j, int k,
       state(i,j,k,DEF_first_spec+n) = massfrac[n] * state(i,j,k,Density);
     }
 
+#ifdef PLM_USE_EFIELD    
+    state(i,j,k,DEF_nE) = 1.0; 
+    state(i,j,k,DEF_PhiV) = 0.0; 
+#endif
+
 }
 
 AMREX_GPU_HOST_DEVICE
@@ -289,6 +294,12 @@ bcnormal(
     for (int n = 0; n < NUM_SPECIES; n++) {
       s_ext[DEF_first_spec+n] = massfrac[n] * s_ext[Density];
     }
+
+#ifdef PLM_USE_EFIELD    
+    s_ext[DEF_nE] = 0.0; 
+    s_ext[DEF_PhiV] = 0.0; 
+#endif
+
   }
 
 }
