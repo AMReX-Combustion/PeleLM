@@ -100,6 +100,12 @@ struct PeleLMCCFillExtDir
          else if (orig_comp == DEF_RhoRT){
             dest(iv, dcomp) = 0.0;
          }
+         else if (orig_comp == DEF_nE){
+            dest(iv, dcomp) = s_ext[DEF_nE];
+         }
+         else if (orig_comp == DEF_PhiV){
+            dest(iv, dcomp) = s_ext[DEF_PhiV];
+         }
 
     } else if (
        (bc[idir + AMREX_SPACEDIM] == amrex::BCType::ext_dir) and
@@ -128,6 +134,12 @@ struct PeleLMCCFillExtDir
          }
          else if (orig_comp == DEF_RhoRT){
             dest(iv, dcomp) = 0.0;
+         }
+         else if (orig_comp == DEF_nE){
+            dest(iv, dcomp) = s_ext[DEF_nE];
+         }
+         else if (orig_comp == DEF_PhiV){
+            dest(iv, dcomp) = s_ext[DEF_PhiV];
          }
     }
 
@@ -160,6 +172,12 @@ struct PeleLMCCFillExtDir
          else if (orig_comp == DEF_RhoRT){
             dest(iv, dcomp) = 0.0;
          }
+         else if (orig_comp == DEF_nE){
+            dest(iv, dcomp) = s_ext[DEF_nE];
+         }
+         else if (orig_comp == DEF_PhiV){
+            dest(iv, dcomp) = s_ext[DEF_PhiV];
+         }
 
     } else if (
        (bc[idir + AMREX_SPACEDIM] == amrex::BCType::ext_dir) and
@@ -188,6 +206,12 @@ struct PeleLMCCFillExtDir
          }
          else if (orig_comp == DEF_RhoRT){
             dest(iv, dcomp) = 0.0;
+         }
+         else if (orig_comp == DEF_nE){
+            dest(iv, dcomp) = s_ext[DEF_nE];
+         }
+         else if (orig_comp == DEF_PhiV){
+            dest(iv, dcomp) = s_ext[DEF_PhiV];
          }
 
     }
@@ -221,6 +245,12 @@ struct PeleLMCCFillExtDir
          else if (orig_comp == DEF_RhoRT){
             dest(iv, dcomp) = 0.0;
          }
+         else if (orig_comp == DEF_nE){
+            dest(iv, dcomp) = s_ext[DEF_nE];
+         }
+         else if (orig_comp == DEF_PhiV){
+            dest(iv, dcomp) = s_ext[DEF_PhiV];
+         }
 
     } else if (
        (bc[idir + AMREX_SPACEDIM] == amrex::BCType::ext_dir) and
@@ -249,6 +279,12 @@ struct PeleLMCCFillExtDir
          }
          else if (orig_comp == DEF_RhoRT){
             dest(iv, dcomp) = 0.0;
+         }
+         else if (orig_comp == DEF_nE){
+            dest(iv, dcomp) = s_ext[DEF_nE];
+         }
+         else if (orig_comp == DEF_PhiV){
+            dest(iv, dcomp) = s_ext[DEF_PhiV];
          }
 
     }
