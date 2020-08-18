@@ -732,4 +732,8 @@ void pelelm_fillEdges  (amrex::Box const& bx, amrex::FArrayBox& data,
                  const amrex::Vector<amrex::BCRec>& bcr, const int bcomp,
                  const int scomp);
 
+#ifdef PLM_USE_EFIELD
+#include <PeleLM_EF.H>
+#endif
+
 #endif /*_PeleLM_H_*/

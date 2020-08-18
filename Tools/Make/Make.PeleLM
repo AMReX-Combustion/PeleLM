@@ -14,6 +14,12 @@ ifeq ($(USE_WBAR),TRUE)
     DEFINES += -DUSE_WBAR
 endif
 
+ifeq ($(USE_EFIELD),TRUE)
+    USERSuffix += .EF
+    DEFINES += -DPLM_USE_EFIELD
+    Bdirs += $(PELELM_HOME)/Source/Efield
+endif
+
 ifeq ($(shell uname),Darwin)
   LDFLAGS += -headerpad_max_install_names
   all: $(executable)
