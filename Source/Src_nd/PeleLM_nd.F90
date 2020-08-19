@@ -98,7 +98,7 @@ contains
       REAL_T, dimension(vT_lo(1):vT_hi(1),vT_lo(2):vT_hi(2),vT_lo(3):vT_hi(3)) :: vtT
       REAL_T, dimension(rY_lo(1):rY_hi(1),rY_lo(2):rY_hi(2),rY_lo(3):rY_hi(3),NUM_SPECIES) :: rhoY
 #ifdef AMREX_PARTICLES
-      REAL_T, dimension(rSp_lo(1):rSp_hi(1),rSp_lo(2):rSp_hi(2),rSp_lo(3):rSp_hi(3),NUM_SPECIES+1) :: rSprayDot
+      REAL_T, dimension(rSp_lo(1):rSp_hi(1),rSp_lo(2):rSp_hi(2),rSp_lo(3):rSp_hi(3),NUM_SPECIES+2) :: rSprayDot
 #endif
       REAL_T, dimension(t_lo(1):t_hi(1),t_lo(2):t_hi(2),t_lo(3):t_hi(3)) :: T
 
@@ -106,6 +106,8 @@ contains
       REAL_T, dimension(1:NUM_SPECIES) :: Y, H, invmtw
       REAL_T :: cpmix, rho, rhoInv, tmp, mmw
       integer :: i, j, k, n
+
+      write(*,*) 'SIZE(rSprayDot,4)', SIZE(rSprayDot,4)
 
       call CKWT(invmtw)
       do n = 1,NUM_SPECIES
@@ -144,11 +146,16 @@ contains
                               *(invmtw(n)*mmw*rhoInv - H(n)/(rho*cpmix*T(i,j,k)))
                enddo
 #ifdef AMREX_PARTICLES
-               !divu(i,j,k) = divu(i,j,k) + rSprayDot(i,j,k,1) * rhoInv
-               !do n=1,NUM_SPECIES
-               !   divu(i,j,k) = divu(i,j,k) + mmw * invmtw(n) * rSprayDot(i,j,k,1+n) * rhoInv
-               !enddo
+               divu(i,j,k) = divu(i,j,k) + rSprayDot(i,j,k,1) * rhoInv
+               do n=1,NUM_SPECIES
+                  divu(i,j,k) = divu(i,j,k) + mmw * invmtw(n) * rSprayDot(i,j,k,1+n) * rhoInv
+                  if (abs(rSprayDot(i,j,k,1)) > 1d-12) write(*,*) 'S_spray_rhoY_', n, mmw * invmtw(n) * rSprayDot(i,j,k,1+n) * rhoInv
+               enddo
+               divu(i,j,k) = divu(i,j,k) + rSprayDot(i,j,k,2+NUM_SPECIES) * rhoInv / cpmix / T(i,j,k)
 #endif
+               if (abs(rSprayDot(i,j,k,1)) > 1d-12) write(*,*) 'S_spray_rho', rSprayDot(i,j,k,1) * rhoInv
+               if (abs(rSprayDot(i,j,k,2+NUM_SPECIES)) > 1d-12) write(*,*) 'S_spray_H', rSprayDot(i,j,k,2+NUM_SPECIES) * rhoInv / cpmix / T(i,j,k)
+
             enddo
          enddo
       enddo

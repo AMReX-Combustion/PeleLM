@@ -6015,9 +6015,9 @@ PeleLM::advance (Real time,
 
         tmp.resize(gbox,nspecies);
         tmp.copy(r,gbox,0,gbox,0,nspecies);         // copy Rk to tmp
-#ifdef AMREX_PARTICLES
-        tmp.copy(rSpray,gbox,first_spec,gbox,0,nspecies);
-#endif
+//#ifdef AMREX_PARTICLES
+//        tmp.copy(rSpray,gbox,first_spec,gbox,0,nspecies);
+//#endif
         tmp.plus(dn,gbox,gbox,0,0,nspecies);        // add Dn[spec] to tmp so now we have (Rk + Div(Fk) )
 
         H.mult(tmp,gbox,gbox,0,0,nspecies);         // Multiply by hk, so now we have hk.( Rk + Div(Fk) )
@@ -6032,17 +6032,22 @@ PeleLM::advance (Real time,
         for (int n=0; n<nspecies; ++n) {
           Sfab.mult(Sfab,gbox,gbox,Rcomp,RYcomp+n,1); // S[1:nsp] = Y
         }
+#ifdef AMREX_PARTICLES
+        f.plus(rSpray,gbox,gbox,first_spec,0,nspecies+1);
+        //f.plus(rSpray,gbox,gbox,first_spec+nspecies,nspecies,1);
+#endif
         getCpmixGivenTY_pphys(RhoCpInv[mfi],Sfab,Sfab,gbox,Tcomp,RYcomp,0); // here, RhoCpInv = Cp
         RhoCpInv[mfi].invert(1.0,gbox,0,1);                                          // here, RhoCpInv = 1/(Cp)
         RhoCpInv[mfi].mult(Sfab,gbox,gbox,Rcomp,0,1);                                // here, RhoCpInv = 1/(rho.Cp)
         f.mult(RhoCpInv[mfi],gbox,0,nspecies,1);    // Scale, so that F[Temp]= (Dn[Temp]- Sum{hk.(Rk+Div(Fk))})/(Rho.Cp)
         f.copy(dn,gbox,0,gbox,0,nspecies);          // initialize RhoY forcing with Dn
         f.plus(r,gbox,gbox,0,0,nspecies);           // add R to RhoY, so that F[i] = Dn[i] + R[i]
-#ifdef AMREX_PARTICLES
-        f.plus(rSpray,gbox,gbox,first_spec,0,nspecies);
-#endif
+//#ifdef AMREX_PARTICLES
+//        f.plus(rSpray,gbox,gbox,first_spec,0,nspecies);
+//#endif
       }
     }
+
     BL_PROFILE_VAR_STOP(HTADV);
 
     BL_PROFILE_VAR_START(HTADV);
@@ -6071,28 +6076,33 @@ PeleLM::advance (Real time,
     // update rho since not affected by diffusion
     BL_PROFILE_VAR_START(HTADV);
     scalar_advection_update(dt, Density, Density);
+
+    // do we need forcing term instead of this?
+    #ifdef AMREX_PARTICLES
+        MultiFab&       S_new = get_new_data(State_Type);
+	BoxArray        ba    = S_new.boxArray();
+	DistributionMapping dm = getFuncCountDM(ba,2);
+        MultiFab        tmp_mf(ba, dm, S_new.nComp(), 0);
+
+    #ifdef _OPENMP
+    (#pragma omp parallel
+    #endif
+        for (MFIter mfi(S_new,true); mfi.isValid(); ++mfi)
+        {
+          const Box& box   = mfi.tilebox();
+          FArrayBox& snew  = S_new[mfi];
+          FArrayBox& tmp  = tmp_mf[mfi];
+          const FArrayBox& rSpray = get_new_data(spraydot_Type)[mfi];
+
+          tmp.copy( rSpray,box,Density,box,Density,1);
+          tmp.mult(dt,box,Density,1);
+          snew.plus(tmp,box,Density,Density,1);
+        }
+
+    #endif
+
     make_rho_curr_time();
     BL_PROFILE_VAR_STOP(HTADV);
-
-#ifdef AMREX_PARTICLES
-    MultiFab&       S_new = get_new_data(State_Type);
-    const MultiFab& S_old_s = get_old_data(State_Type);
-
-#ifdef _OPENMP
-#pragma omp parallel
-#endif
-    for (MFIter mfi(S_new,true); mfi.isValid(); ++mfi)
-    {
-      const Box& box   = mfi.tilebox();
-      FArrayBox& snew  = S_new[mfi];
-      const FArrayBox& rSpray = get_new_data(spraydot_Type)[mfi];
-
-      snew.copy( rSpray,box,Density,box,Density,1);
-      snew.mult(dt,box,Density,1);
-      snew.plus(S_old_s[mfi],box,Density,Density,1);
-    }
-
-#endif
 
     //
     // Compute Dhat, diffuse with F
@@ -6133,6 +6143,7 @@ PeleLM::advance (Real time,
         f.plus(a,box,box,first_spec,0,nspecies+1); // add A into RhoY and RhoH
         f.plus(r,box,box,0,0,nspecies); // no reactions for RhoH
 #ifdef AMREX_PARTICLES
+        f.plus(rSpray,box,box,first_spec+nspecies,nspecies,1);
         f.plus(rSpray,box,box,first_spec,0,nspecies);
 #endif
       }
@@ -6170,7 +6181,12 @@ PeleLM::advance (Real time,
     MultiFab::Subtract(Forcing,S_old,first_spec,0,nspecies+1,0);		// remove S_old term
     Forcing.mult(1/dt);
     MultiFab::Subtract(Forcing,get_new_data(RhoYdot_Type),0,0,nspecies,0);	// remove omegaDot term
-
+    // don't know right now if we should or should not do that
+#ifdef AMREX_PARTICLES
+//    MultiFab::Subtract(Forcing,get_new_data(spraydot_Type),first_spec,0,nspecies,0);
+    MultiFab::Subtract(Forcing,get_new_data(spraydot_Type),first_spec,0,nspecies+1,0);
+//    MultiFab::Subtract(Forcing,get_new_data(spraydot_Type),first_spec,0,nspecies,0);
+#endif
     showMF("mysdc",Forcing,"sdc_F_befAdvChem",level,sdc_iter,parent->levelSteps(level));
     showMF("mysdc",S_old,"sdc_Sold_befAdvChem",level,sdc_iter,parent->levelSteps(level));
     showMF("mysdc",S_new,"sdc_Snew_befAdvChem",level,sdc_iter,parent->levelSteps(level));
@@ -6671,6 +6687,7 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
     }
 
     MultiFab&  React_new = get_new_data(RhoYdot_Type);
+
     const int  ngrow     = std::min(std::min(React_new.nGrow(),mf_old.nGrow()),mf_new.nGrow());
     //
     // Chop the grids to level out the chemistry work.
@@ -6704,6 +6721,11 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
     DistributionMapping dm = getFuncCountDM(ba,ngrow);
 
 
+
+#ifdef AMREX_PARTICLES
+    MultiFab&  spraySrc = get_new_data(spraydot_Type);
+    MultiFab rSpray(ba, dm, spraySrc.nComp(), 0);
+#endif
 
     MultiFab diagTemp;
     MultiFab STemp(ba, dm, nspecies+3, 0);
@@ -6741,6 +6763,10 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
     STemp.copy(mf_old,first_spec,0,nspecies+3); // Parallel copy.
     FTemp.copy(Force);                          // Parallel copy.
 
+#ifdef AMREX_PARTICLES
+    rSpray.copy(spraySrc);
+#endif
+
 #ifdef _OPENMP
 #pragma omp parallel
 #endif
@@ -6750,6 +6776,9 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
       const Box&       bx       = Smfi.tilebox();
       const auto&      fcl      = fcnCntTemp.array(Smfi);
       const auto&      frcing   = FTemp.array(Smfi);
+#ifdef AMREX_PARTICLES
+      const auto&      spray_src = rSpray.array(Smfi);
+#endif
 
 //amrex::Print() << " NEW LOOP IN MFITER \n";
 #ifdef AMREX_USE_EB
@@ -6823,6 +6852,14 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
             amrex::Abort("NaNs !! ");
          }
 
+#ifdef AMREX_PARTICLES
+        for (int sp=0;sp<nspecies; sp++){
+           rhoY(i,j,k,sp)      += spray_src(i,j,k,first_spec+sp)*dt_incr;
+           if (spray_src(i,j,k,first_spec+sp) > 1e-12) {amrex::Print() <<" advance chem spray_src " << sp << " " << spray_src(i,j,k,first_spec+sp)*dt_incr << '\n';};
+        }
+        rhoY(i,j,k,nspecies)  += spray_src(i,j,k,first_spec+nspecies)*dt_incr;
+#endif
+
       });
 
     }
@@ -6841,6 +6878,10 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
     MultiFab::Subtract(React_new, mf_new, first_spec, 0, nspecies, 0);
 
     React_new.mult(-1/dt);
+
+#ifdef AMREX_PARTICLES
+     MultiFab::Subtract(React_new, rSpray, first_spec, 0, nspecies, 0);
+#endif
 
     MultiFab::Subtract(React_new, Force, 0, 0, nspecies, 0);
 
@@ -9006,6 +9047,7 @@ PeleLM::calc_divu (Real      time,
   MultiFab& RhoYdot = (use_IR) ? get_new_data(RhoYdot_Type) : RhoYdotTmp;
 #ifdef AMREX_PARTICLES
   MultiFab& spraydot = get_new_data(spraydot_Type);
+  showMF("spray",spraydot,"spraydot_calc_divu",level,0,parent->levelSteps(level));
 #endif // AMREX_PARTICLES
 
   if (!use_IR)
