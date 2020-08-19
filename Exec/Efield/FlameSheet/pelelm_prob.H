@@ -230,7 +230,7 @@ pelelm_initdata (int i, int j, int k,
     }
 
 #ifdef PLM_USE_EFIELD
-    state(i,j,k,DEF_nE) = 1.0;
+    state(i,j,k,DEF_nE) = std::max(0.0,massfrac[H_ID]) * 1.0e19;
     state(i,j,k,DEF_PhiV) = 0.0;
 #endif
 
