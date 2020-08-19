@@ -60,6 +60,12 @@
 #include <iamr_mol.H>
 #endif
 
+#ifdef PLM_USE_EFIELD
+#include <PeleLM_EF_Constant.H>
+#include <AMReX_MLPoisson.H>
+#include <AMReX_MLMG.H>
+#endif
+
 #include <AMReX_buildInfo.H>
 //fixme, for writesingle level plotfile
 #include<AMReX_PlotFileUtil.H>
@@ -208,6 +214,18 @@ std::string  PeleLM::ctrl_AChistory = "AC_History.dat";
 Vector<Real> PeleLM::ctrl_time_pts;
 Vector<Real> PeleLM::ctrl_velo_pts;
 Vector<Real> PeleLM::ctrl_cntl_pts;
+
+#ifdef PLM_USE_EFIELD
+int  PeleLM::nE;   
+int  PeleLM::iE_sp;
+int  PeleLM::PhiV;
+Real PeleLM::ef_PoissonTol;
+int  PeleLM::ef_PoissonMaxIter;
+int  PeleLM::ef_PoissonVerbose;
+int  PeleLM::ef_PoissonMaxOrder;
+BCRec  PeleLM::phiV_bc;
+GpuArray<Real,NUM_SPECIES> PeleLM::zk;
+#endif
 
 Vector<Real> PeleLM::typical_values;
 
@@ -511,6 +529,10 @@ PeleLM::Initialize ()
     }
 
   }
+
+#ifdef PLM_USE_EFIELD  
+  ef_init();
+#endif
 
 #ifdef AMREX_PARTICLES
   read_particle_params();
@@ -1874,6 +1896,11 @@ PeleLM::initData ()
   //
   initActiveControl();
 
+#ifdef PLM_USE_EFIELD
+  // Compute an elec. potential consistent with initial state
+  ef_solve_phiv(state[State_Type].curTime());
+#endif
+
   //
   // Initialize divU and dSdt.
   //
@@ -1904,6 +1931,8 @@ PeleLM::initData ()
 
   is_first_step_after_regrid = false;
   old_intersect_new          = grids;
+
+
 
 #ifdef AMREX_PARTICLES
   NavierStokesBase::initParticleData();
@@ -9166,3 +9195,7 @@ PeleLM::initActiveControl()
       }
    }
 }
+
+#ifdef PLM_USE_EFIELD
+#include <PeleLM_EF.cpp>
+#endif
