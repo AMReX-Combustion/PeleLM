@@ -10,6 +10,10 @@ namespace ProbParm
     extern AMREX_GPU_DEVICE_MANAGED  amrex::Real standoff;
     extern AMREX_GPU_DEVICE_MANAGED  amrex::Real pertmag;
 
+    extern AMREX_GPU_DEVICE_MANAGED  amrex::Real phiV_loy;
+    extern AMREX_GPU_DEVICE_MANAGED  amrex::Real phiV_hiy;
+
+
 extern AMREX_GPU_DEVICE_MANAGED unsigned int pmf_N;
 extern AMREX_GPU_DEVICE_MANAGED unsigned int pmf_M;
 extern AMREX_GPU_DEVICE_MANAGED bool pmf_do_average;

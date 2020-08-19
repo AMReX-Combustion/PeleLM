@@ -229,9 +229,9 @@ pelelm_initdata (int i, int j, int k,
       state(i,j,k,DEF_first_spec+n) = massfrac[n] * state(i,j,k,Density);
     }
 
-#ifdef PLM_USE_EFIELD    
-    state(i,j,k,DEF_nE) = 1.0; 
-    state(i,j,k,DEF_PhiV) = 0.0; 
+#ifdef PLM_USE_EFIELD
+    state(i,j,k,DEF_nE) = 1.0;
+    state(i,j,k,DEF_PhiV) = 0.0;
 #endif
 
 }
@@ -252,6 +252,10 @@ bcnormal(
   amrex::GpuArray<amrex::Real, NUM_SPECIES + 4> pmf_vals = {0.0};
   amrex::Real molefrac[NUM_SPECIES] = {0.0};
   amrex::Real massfrac[NUM_SPECIES] = {0.0};
+
+  for (int n = 0; n < DEF_NUM_STATE; n++){
+     s_ext[n] = 0.0;
+  }
 
   if (sgn == 1) {
     pmf(prob_hi[idir], prob_hi[idir], pmf_vals);
@@ -294,14 +298,19 @@ bcnormal(
     for (int n = 0; n < NUM_SPECIES; n++) {
       s_ext[DEF_first_spec+n] = massfrac[n] * s_ext[Density];
     }
-
-#ifdef PLM_USE_EFIELD    
-    s_ext[DEF_nE] = 0.0; 
-    s_ext[DEF_PhiV] = 0.0; 
-#endif
-
   }
 
+#ifdef PLM_USE_EFIELD
+  if (idir == 1) {  // y-dir
+    if ( sgn == 1 ) { // lo
+       s_ext[DEF_nE] = 0.0;
+       s_ext[DEF_PhiV] = ProbParm::phiV_loy;
+    } else {          // hi
+       s_ext[DEF_nE] = 0.0;
+       s_ext[DEF_PhiV] = ProbParm::phiV_hiy;
+    }
+  }
+#endif
 }
 
 AMREX_GPU_DEVICE

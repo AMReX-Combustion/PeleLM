@@ -6,6 +6,8 @@ namespace ProbParm
    AMREX_GPU_DEVICE_MANAGED  amrex::Real P_mean = 101325.0;
    AMREX_GPU_DEVICE_MANAGED  amrex::Real standoff = - 0.022;
    AMREX_GPU_DEVICE_MANAGED  amrex::Real pertmag = 0.0004;
+   AMREX_GPU_DEVICE_MANAGED  amrex::Real phiV_loy = 0.0;
+   AMREX_GPU_DEVICE_MANAGED  amrex::Real phiV_hiy = 0.0;
 
    AMREX_GPU_DEVICE_MANAGED unsigned int pmf_N = 0;
    AMREX_GPU_DEVICE_MANAGED unsigned int pmf_M = 0;
@@ -134,5 +136,7 @@ extern "C" {
 
         read_pmf(ProbParm::pmf_datafile);
 
+        pp.query("PhiV_y_lo", ProbParm::phiV_loy);
+        pp.query("PhiV_y_hi", ProbParm::phiV_hiy);
     }
 }

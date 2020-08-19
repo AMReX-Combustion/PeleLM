@@ -45,6 +45,7 @@ amr.max_grid_size   = 64
 prob.P_mean = 101325.0
 prob.standoff = -.022
 prob.pertmag = 0.0004
+prob.PhiV_y_hi = 1.0
 prob.pmf_datafile = "drm19_pmf.dat"
 
 # Refinement according to a species tracer
@@ -104,6 +105,10 @@ ns.unity_Le = 0
 ns.do_fillPatchUMAC=1
 ns.zeroBndryVisc=1
 ns.num_divu_iters =3
+
+# -----------------------  INPUTS TO EFIELD  -------------------------
+ef.phiV_lo_bc = Interior Dirichlet
+ef.phiV_hi_bc = Interior Dirichlet
 
 # ------------------  INPUTS TO CVODE CHEMISTRY ----------------------
 #peleLM.use_typ_vals_chem = 1
