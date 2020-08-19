@@ -6,5 +6,6 @@ namespace EFConst {
    extern AMREX_GPU_DEVICE_MANAGED amrex::Real eps0;          //Free space permittivity (C/(V.m))
    extern AMREX_GPU_DEVICE_MANAGED amrex::Real epsr;
    extern AMREX_GPU_DEVICE_MANAGED amrex::Real elemCharge;    //Coulomb per charge
+   extern AMREX_GPU_DEVICE_MANAGED amrex::Real Na;            //Avogadro's number
 }
 #endif

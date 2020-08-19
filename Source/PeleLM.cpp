@@ -62,6 +62,7 @@
 
 #ifdef PLM_USE_EFIELD
 #include <PeleLM_EF_Constant.H>
+#include <PeleLM_EF_K.H>
 #include <AMReX_MLPoisson.H>
 #include <AMReX_MLMG.H>
 #endif
@@ -216,6 +217,7 @@ Vector<Real> PeleLM::ctrl_velo_pts;
 Vector<Real> PeleLM::ctrl_cntl_pts;
 
 #ifdef PLM_USE_EFIELD
+int  PeleLM::ef_verbose;
 int  PeleLM::nE;   
 int  PeleLM::iE_sp;
 int  PeleLM::PhiV;
@@ -1052,6 +1054,10 @@ PeleLM::define_data ()
 #ifdef USE_WBAR
    // this will hold the transport coefficients for Wbar
    diffWbar_cc.define(grids,dmap,NUM_SPECIES,1);
+#endif
+
+#ifdef PLM_USE_EFIELD
+   ef_define_data();
 #endif
 }
 
@@ -4572,6 +4578,10 @@ PeleLM::advance_setup (Real time,
    calcDiffusivity_Wbar(time);
 #endif
 
+#ifdef PLM_USE_EFIELD
+   ef_advance_setup(time);
+#endif
+
    if (plot_reactions && level == 0)
    {
       for (int i = parent->finestLevel(); i >= 0; --i)
@@ -4952,6 +4962,9 @@ PeleLM::advance (Real time,
       calcDiffusivity(tnp1);
 #ifdef USE_WBAR
       calcDiffusivity_Wbar(tnp1);
+#endif
+#ifdef PLM_USE_EFIELD
+      ef_calc_transport(tnp1);
 #endif
       BL_PROFILE_VAR_STOP(PLM_DIFF);
 

@@ -1,2 +1,2 @@
 CEXE_sources +=
-CEXE_headers += PeleLM_EF.H PeleLM_EF_Constant.H
+CEXE_headers += PeleLM_EF.H PeleLM_EF_Constant.H PeleLM_EF_K.H

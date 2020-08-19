@@ -2,12 +2,14 @@ namespace EFConst{
     AMREX_GPU_DEVICE_MANAGED amrex::Real eps0 = 8.854187817e-12;          //Free space permittivity (C/(V.m))
     AMREX_GPU_DEVICE_MANAGED amrex::Real epsr = 1.0;
     AMREX_GPU_DEVICE_MANAGED amrex::Real elemCharge = 1.60217662e-19;     //Coulomb per charge
+    AMREX_GPU_DEVICE_MANAGED amrex::Real Na = 6.022e23;                   //Avogadro's number
 }
   
 void PeleLM::ef_init() {
     amrex::Print() << " Init EFIELD solve options \n";  
 
     // Params defaults
+    PeleLM::ef_verbose                = 0;
     PeleLM::nE                        = -1;
     PeleLM::PhiV                      = -1;
     PeleLM::ef_PoissonTol             = 1.0e-12;
@@ -54,6 +56,7 @@ void PeleLM::ef_init() {
       }
    }
 
+   pp.query("verbose",ef_verbose);
    pp.query("Poisson_tol",ef_PoissonTol);
    pp.query("Poisson_maxiter",ef_PoissonMaxIter);
    pp.query("Poisson_verbose",ef_PoissonVerbose);
@@ -61,8 +64,9 @@ void PeleLM::ef_init() {
  }
 
 void PeleLM::ef_solve_phiv(const Real &time) {
+   BL_PROFILE("PLM_EF::ef_solve_phiv()");
 
-   amrex::Print() << " Solve for electro-static field on level " << level << "\n";
+   if ( ef_verbose ) amrex::Print() << " Solve for electro-static field on level " << level << "\n";
 
    MultiFab& S = (time == state[State_Type].prevTime() ) ? get_old_data(State_Type) 
                                                          : get_new_data(State_Type);
@@ -132,7 +136,58 @@ void PeleLM::ef_solve_phiv(const Real &time) {
    mlmg.solve({&PhiV_alias}, {&rhs_poisson}, S_tol, S_tol_abs);
 
 // TODO: will need the flux later
+}
 
+void PeleLM::ef_define_data() {
+   BL_PROFILE("PLM_EF::ef_define_data()");
+
+   Ke_cc.define(grids,dmap,1,1);
+   De_cc.define(grids,dmap,1,1);
+}
+
+void PeleLM::ef_advance_setup(const Real &time) {
+   // Solve for phiV_time and get gradPhiV_tn
+   ef_solve_phiv(time);
+
+   // Calc De_time, Ke_time, Kspec_time
+   ef_calc_transport(time);
+
+   // Calc Udrift: here phiV_tnp1 = phiV_tn
+}
+
+void PeleLM::ef_calc_transport(const Real &time) {
+   BL_PROFILE("PLM_EF::ef_calc_transport()");
+
+   if ( ef_verbose ) amrex::Print() << " Compute EF transport prop. \n";
+
+   const TimeLevel whichTime = which_time(State_Type, time);
+
+   BL_ASSERT(whichTime == AmrOldTime || whichTime == AmrNewTime);
+
+   MultiFab& S = (whichTime == AmrOldTime) ? get_old_data(State_Type) : get_new_data(State_Type);
+
+   // Fillpatch the state
+   FillPatchIterator fpi(*this,S,Ke_cc.nGrow(),time,State_Type,first_spec,NUM_SPECIES+3);
+   MultiFab& S_cc = fpi.get_mf();
+
+#ifdef _OPENMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+   for (MFIter mfi(S_cc, TilingIfNotGPU()); mfi.isValid(); ++mfi)
+   {
+      const Box& gbx = mfi.growntilebox();
+      auto const& rhoY = S_cc.array(mfi,0);
+      auto const& T    = S_cc.array(mfi,NUM_SPECIES+1);
+      auto const& Ke   = Ke_cc.array(mfi);
+      auto const& De   = De_cc.array(mfi);
+      Real factor = PP_RU_MKS / ( EFConst::Na * EFConst::elemCharge );
+      amrex::ParallelFor(gbx, [rhoY, T, factor, Ke, De]
+      AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+      {
+         getKappaE(i,j,k,Ke);
+         getDiffE(i,j,k,factor,T,Ke,De);
+      });
+   }
 }
 
 // Setup BC conditions for linear Poisson solve on PhiV. Directly copied from the diffusion one ...
