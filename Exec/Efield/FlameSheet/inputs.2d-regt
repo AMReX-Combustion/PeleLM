@@ -107,6 +107,7 @@ ns.zeroBndryVisc=1
 ns.num_divu_iters =3
 
 # -----------------------  INPUTS TO EFIELD  -------------------------
+ef.verbose = 1
 ef.phiV_lo_bc = Interior Dirichlet
 ef.phiV_hi_bc = Interior Dirichlet
 
@@ -196,6 +197,6 @@ fab.format = NATIVE
 #fabarray.mfiter_tile_size = 8 8 8 
 amrex.regtest_reduction=1
 
-#amrex.fpe_trap_invalid=1
-#amrex.fpe_trap_overflow=1
-#amrex.fpe_trap_zero=1
+amrex.fpe_trap_invalid=1
+amrex.fpe_trap_overflow=1
+amrex.fpe_trap_zero=1
