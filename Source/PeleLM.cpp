@@ -6143,8 +6143,9 @@ PeleLM::advance (Real time,
         f.plus(a,box,box,first_spec,0,nspecies+1); // add A into RhoY and RhoH
         f.plus(r,box,box,0,0,nspecies); // no reactions for RhoH
 #ifdef AMREX_PARTICLES
-        f.plus(rSpray,box,box,first_spec+nspecies,nspecies,1);
-        f.plus(rSpray,box,box,first_spec,0,nspecies);
+        //f.plus(rSpray,box,box,first_spec+nspecies,nspecies,1);
+        //f.plus(rSpray,box,box,first_spec,0,nspecies);
+	      f.plus(rSpray,box,box,first_spec,0,nspecies+1);
 #endif
       }
     }
@@ -6725,6 +6726,7 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
 #ifdef AMREX_PARTICLES
     MultiFab&  spraySrc = get_new_data(spraydot_Type);
     MultiFab rSpray(ba, dm, spraySrc.nComp(), 0);
+    MultiFab RhoCpInv(ba, dm, 1, 0);
 #endif
 
     MultiFab diagTemp;
@@ -6778,6 +6780,7 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
       const auto&      frcing   = FTemp.array(Smfi);
 #ifdef AMREX_PARTICLES
       const auto&      spray_src = rSpray.array(Smfi);
+      //getCpmixGivenTY_pphys(RhoCpInv[Smfi],STemp[Smfi],STemp[Smfi],bx,nspecies+1,0,0);
 #endif
 
 //amrex::Print() << " NEW LOOP IN MFITER \n";
@@ -6800,7 +6803,6 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
       double tmp_src_vect[nspecies];
       double tmp_vect_energy[1];
       double tmp_src_vect_energy[1];
-
       For(bx,
       [&] AMREX_GPU_DEVICE (int i, int j, int k)
       {
@@ -6879,11 +6881,21 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
 
     React_new.mult(-1/dt);
 
-#ifdef AMREX_PARTICLES
-     MultiFab::Subtract(React_new, rSpray, first_spec, 0, nspecies, 0);
-#endif
+// #ifdef AMREX_PARTICLES
+//     showMF("spray",mf_old,"mf_old_advance_chem",level,parent->levelSteps(level));
+//     showMF("spray",mf_new,"mf_new_advance_chem",level,parent->levelSteps(level));
+//     showMF("spray",React_new,"React_new_advance_chem",level,parent->levelSteps(level));
+//     MultiFab::Subtract(React_new, rSpray, first_spec, 0, nspecies, 0);
+//     showMF("spray",rSpray,"rSpray_advance_chem",level,parent->levelSteps(level));
+// #endif
 
     MultiFab::Subtract(React_new, Force, 0, 0, nspecies, 0);
+
+#ifdef AMREX_PARTICLES
+  // ONLY TEST
+  React_new.setVal(0.);
+  showMF("spray",Force,"Force_advance_chem",level,parent->levelSteps(level));
+#endif
 
     if (do_diag)
     {
