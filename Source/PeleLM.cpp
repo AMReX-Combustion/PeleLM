@@ -5864,10 +5864,8 @@ PeleLM::advance (Real time,
       if (level < finest_level)
         setupGhostParticles(ghost_width);
 
-      MultiFab& spraydot = get_old_data(spraydot_Type);
+      MultiFab& spraydot = get_new_data(spraydot_Type);
       spraydot.setVal(0.);
-
-      SpraySourceTest.setVal(0.);
 
       // valid particles
       theSprayPC()->moveKickDrift(Sborder,spraydot,*u_mac,level, dt, time, false, false, tmp_src_width, true, where_width, Density, 0, Temp, RhoH, first_spec);
@@ -5879,9 +5877,6 @@ PeleLM::advance (Real time,
       // Miiiight need all Ghosts
       if (theGhostPC() != 0)
         theGhostPC()->moveKickDrift(Sborder,spraydot,*u_mac,level, dt, time, false, true, tmp_src_width, true, where_width, Density, 0, Temp, RhoH, first_spec);
-
-      MultiFab& spraydot_new = get_new_data(spraydot_Type);
-      spraydot_new.copy(spraydot,0,0,nspecies+3+AMREX_SPACEDIM);
 
       showMF("spray",spraydot,"spraydot",level,sdc_iter,parent->levelSteps(level));
 
@@ -6033,8 +6028,7 @@ PeleLM::advance (Real time,
           Sfab.mult(Sfab,gbox,gbox,Rcomp,RYcomp+n,1); // S[1:nsp] = Y
         }
 #ifdef AMREX_PARTICLES
-        f.plus(rSpray,gbox,gbox,first_spec,0,nspecies+1);
-        //f.plus(rSpray,gbox,gbox,first_spec+nspecies,nspecies,1);
+        f.plus(rSpray,gbox,gbox,first_spec,0,nspecies+1); // add spray species and enthalpy source terms
 #endif
         getCpmixGivenTY_pphys(RhoCpInv[mfi],Sfab,Sfab,gbox,Tcomp,RYcomp,0); // here, RhoCpInv = Cp
         RhoCpInv[mfi].invert(1.0,gbox,0,1);                                          // here, RhoCpInv = 1/(Cp)
@@ -6042,11 +6036,10 @@ PeleLM::advance (Real time,
         f.mult(RhoCpInv[mfi],gbox,0,nspecies,1);    // Scale, so that F[Temp]= (Dn[Temp]- Sum{hk.(Rk+Div(Fk))})/(Rho.Cp)
         f.copy(dn,gbox,0,gbox,0,nspecies);          // initialize RhoY forcing with Dn
         f.plus(r,gbox,gbox,0,0,nspecies);           // add R to RhoY, so that F[i] = Dn[i] + R[i]
-//#ifdef AMREX_PARTICLES
-//        f.plus(rSpray,gbox,gbox,first_spec,0,nspecies);
-//#endif
       }
     }
+
+    showMF("mysdc",Forcing,"sdc_F_A",level,sdc_iter,parent->levelSteps(level));
 
     BL_PROFILE_VAR_STOP(HTADV);
 
@@ -6143,12 +6136,12 @@ PeleLM::advance (Real time,
         f.plus(a,box,box,first_spec,0,nspecies+1); // add A into RhoY and RhoH
         f.plus(r,box,box,0,0,nspecies); // no reactions for RhoH
 #ifdef AMREX_PARTICLES
-        //f.plus(rSpray,box,box,first_spec+nspecies,nspecies,1);
-        //f.plus(rSpray,box,box,first_spec,0,nspecies);
-	      f.plus(rSpray,box,box,first_spec,0,nspecies+1);
+	      f.plus(rSpray,box,box,first_spec,0,nspecies+1); // add spray species and enthalpy source terms
 #endif
       }
     }
+
+    showMF("mysdc",Forcing,"sdc_F_dhat",level,sdc_iter,parent->levelSteps(level));
 
 #ifdef USE_WBAR
     const Real  cur_time  = state[State_Type].curTime();
@@ -6182,18 +6175,17 @@ PeleLM::advance (Real time,
     MultiFab::Subtract(Forcing,S_old,first_spec,0,nspecies+1,0);		// remove S_old term
     Forcing.mult(1/dt);
     MultiFab::Subtract(Forcing,get_new_data(RhoYdot_Type),0,0,nspecies,0);	// remove omegaDot term
-    // don't know right now if we should or should not do that
-#ifdef AMREX_PARTICLES
-//    MultiFab::Subtract(Forcing,get_new_data(spraydot_Type),first_spec,0,nspecies,0);
-    MultiFab::Subtract(Forcing,get_new_data(spraydot_Type),first_spec,0,nspecies+1,0);
-//    MultiFab::Subtract(Forcing,get_new_data(spraydot_Type),first_spec,0,nspecies,0);
-#endif
+
+//spray: leave spray source in forcing term
+
     showMF("mysdc",Forcing,"sdc_F_befAdvChem",level,sdc_iter,parent->levelSteps(level));
     showMF("mysdc",S_old,"sdc_Sold_befAdvChem",level,sdc_iter,parent->levelSteps(level));
     showMF("mysdc",S_new,"sdc_Snew_befAdvChem",level,sdc_iter,parent->levelSteps(level));
 
 // EM DEBUG: HERE DO WE NEED TO INTERPOLATE TO CENTROID BEFORE ADVANCING CHEMISTRY ?
     advance_chemistry(S_old,S_new,dt,Forcing,0);
+
+    showMF("mysdc",get_new_data(RhoYdot_Type),"sdc_React_new_afterAdvChem",level,sdc_iter,parent->levelSteps(level));
 
 #ifdef AMREX_USE_EB
   set_body_state(S_new);
@@ -6721,14 +6713,6 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
 
     DistributionMapping dm = getFuncCountDM(ba,ngrow);
 
-
-
-#ifdef AMREX_PARTICLES
-    MultiFab&  spraySrc = get_new_data(spraydot_Type);
-    MultiFab rSpray(ba, dm, spraySrc.nComp(), 0);
-    MultiFab RhoCpInv(ba, dm, 1, 0);
-#endif
-
     MultiFab diagTemp;
     MultiFab STemp(ba, dm, nspecies+3, 0);
     MultiFab fcnCntTemp(ba, dm, 1, 0);
@@ -6765,10 +6749,6 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
     STemp.copy(mf_old,first_spec,0,nspecies+3); // Parallel copy.
     FTemp.copy(Force);                          // Parallel copy.
 
-#ifdef AMREX_PARTICLES
-    rSpray.copy(spraySrc);
-#endif
-
 #ifdef _OPENMP
 #pragma omp parallel
 #endif
@@ -6778,10 +6758,6 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
       const Box&       bx       = Smfi.tilebox();
       const auto&      fcl      = fcnCntTemp.array(Smfi);
       const auto&      frcing   = FTemp.array(Smfi);
-#ifdef AMREX_PARTICLES
-      const auto&      spray_src = rSpray.array(Smfi);
-      //getCpmixGivenTY_pphys(RhoCpInv[Smfi],STemp[Smfi],STemp[Smfi],bx,nspecies+1,0,0);
-#endif
 
 //amrex::Print() << " NEW LOOP IN MFITER \n";
 #ifdef AMREX_USE_EB
@@ -6853,15 +6829,6 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
          if (rhoY(i,j,k,nspecies) != rhoY(i,j,k,nspecies)) {
             amrex::Abort("NaNs !! ");
          }
-
-#ifdef AMREX_PARTICLES
-        for (int sp=0;sp<nspecies; sp++){
-           rhoY(i,j,k,sp)      += spray_src(i,j,k,first_spec+sp)*dt_incr;
-           if (spray_src(i,j,k,first_spec+sp) > 1e-12) {amrex::Print() <<" advance chem spray_src " << sp << " " << spray_src(i,j,k,first_spec+sp)*dt_incr << '\n';};
-        }
-        rhoY(i,j,k,nspecies)  += spray_src(i,j,k,first_spec+nspecies)*dt_incr;
-#endif
-
       });
 
     }
@@ -6881,21 +6848,7 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
 
     React_new.mult(-1/dt);
 
-// #ifdef AMREX_PARTICLES
-//     showMF("spray",mf_old,"mf_old_advance_chem",level,parent->levelSteps(level));
-//     showMF("spray",mf_new,"mf_new_advance_chem",level,parent->levelSteps(level));
-//     showMF("spray",React_new,"React_new_advance_chem",level,parent->levelSteps(level));
-//     MultiFab::Subtract(React_new, rSpray, first_spec, 0, nspecies, 0);
-//     showMF("spray",rSpray,"rSpray_advance_chem",level,parent->levelSteps(level));
-// #endif
-
     MultiFab::Subtract(React_new, Force, 0, 0, nspecies, 0);
-
-#ifdef AMREX_PARTICLES
-  // ONLY TEST
-  React_new.setVal(0.);
-  showMF("spray",Force,"Force_advance_chem",level,parent->levelSteps(level));
-#endif
 
     if (do_diag)
     {
