@@ -65,6 +65,7 @@
 #include <PeleLM_EF_K.H>
 #include <AMReX_MLPoisson.H>
 #include <AMReX_MLMG.H>
+#include <GMRES.H>
 #endif
 
 #include <AMReX_buildInfo.H>
@@ -218,6 +219,8 @@ Vector<Real> PeleLM::ctrl_cntl_pts;
 
 #ifdef PLM_USE_EFIELD
 int  PeleLM::ef_verbose;
+int  PeleLM::ef_debug;
+int  PeleLM::ef_substep;
 int  PeleLM::nE;   
 int  PeleLM::iE_sp;
 int  PeleLM::PhiV;
@@ -225,6 +228,11 @@ Real PeleLM::ef_PoissonTol;
 int  PeleLM::ef_PoissonMaxIter;
 int  PeleLM::ef_PoissonVerbose;
 int  PeleLM::ef_PoissonMaxOrder;
+int  PeleLM::ef_use_PETSC_direct;
+Real PeleLM::ef_lambda_jfnk;
+int  PeleLM::ef_diffT_jfnk;
+int  PeleLM::ef_maxNewtonIter;
+Real PeleLM::ef_newtonTol;
 BCRec  PeleLM::phiV_bc;
 GpuArray<Real,NUM_SPECIES> PeleLM::zk;
 #endif
@@ -5166,6 +5174,11 @@ PeleLM::advance (Real time,
 #endif
 
     differential_diffusion_update(Forcing,0,Dhat,0,DDhat);
+
+#ifdef PLM_USE_EFIELD
+    MultiFab ForcingNe_al(grids,dmap,1,nGrowAdvForcing);
+    ef_solve_PNP(sdc_iter, dt, time, Dn, Dnp1, Dhat, ForcingNe_al);
+#endif
 
     BL_PROFILE_VAR_START(PLM_REAC);
     /////////////////////
