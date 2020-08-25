@@ -1431,7 +1431,7 @@ PeleLM::set_typical_values(bool is_restart)
       }
       typical_values_chem[NUM_SPECIES] = typical_values[Temp];
       SetTypValsODE(typical_values_chem);
-#ifndef USE_CUDA_SUNDIALS_PP
+#ifndef AMREX_USE_CUDA
       ReSetTolODE();
 #endif  
       }
@@ -5612,7 +5612,7 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
 
     BoxArray  ba           = mf_new.boxArray();
     DistributionMapping dm = mf_new.DistributionMap();
-#ifndef USE_CUDA_SUNDIALS_PP
+#ifndef AMREX_USE_CUDA
     //
     // Chop the grids to level out the chemistry work when on the CPU.
     // We want enough grids so that KNAPSACK works well,
@@ -5704,7 +5704,7 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
            frc_rhoH(i,j,k) *= 10.0;
         });
 
-#ifdef USE_CUDA_SUNDIALS_PP
+#ifdef AMREX_USE_CUDA
         const auto ec           = Gpu::ExecutionConfig(ncells);
         cudaError_t cuda_status = cudaSuccess;
 #endif
@@ -5712,7 +5712,7 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
         BL_PROFILE_VAR("React()", ReactInLoop);
         Real dt_incr     = dt;
         Real time_chem   = 0;
-#ifndef USE_CUDA_SUNDIALS_PP
+#ifndef AMREX_USE_CUDA
         /* Solve */
         int tmp_fctCn = react(bx, rhoY, frc_rhoY, temp, rhoH, frc_rhoH, fcl, mask, dt_incr, time_chem);
         dt_incr   = dt;
@@ -5738,7 +5738,7 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
            frc_rhoH(i,j,k) *= 0.1;
         });
 
-#ifdef USE_CUDA_SUNDIALS_PP
+#ifdef AMREX_USE_CUDA
         cuda_status = cudaStreamSynchronize(amrex::Gpu::gpuStream());
 #endif
 
