@@ -153,8 +153,8 @@ void PeleLM::ef_solve_phiv(const Real &time) {
 void PeleLM::ef_define_data() {
    BL_PROFILE("PLM_EF::ef_define_data()");
 
-   Ke_cc.define(grids,dmap,1,1);
-   De_cc.define(grids,dmap,1,1);
+   diff_e.define(this);
+   De_ec = diff_e.get();
 
    ef_state_old.define(grids,dmap,2,1); 
    ef_state_refGhostCell.define(grids,dmap,2,Godunov::hypgrow()); 
@@ -184,6 +184,10 @@ void PeleLM::ef_calc_transport(const Real &time) {
 
    MultiFab& S = (whichTime == AmrOldTime) ? get_old_data(State_Type) : get_new_data(State_Type);
 
+   // Get the cc transport coeffs. These are temporary.
+   MultiFab Ke_cc(grids,dmap,1,1);
+   MultiFab De_cc(grids,dmap,1,1);
+
    // Fillpatch the state
    FillPatchIterator fpi(*this,S,Ke_cc.nGrow(),time,State_Type,first_spec,NUM_SPECIES+3);
    MultiFab& S_cc = fpi.get_mf();
@@ -205,6 +209,34 @@ void PeleLM::ef_calc_transport(const Real &time) {
          getKappaE(i,j,k,Ke);
          getDiffE(i,j,k,factor,T,Ke,De);
       });
+   }
+
+   // CC -> EC transport coeffs. These are PeleLM class object used in the non-linear residual.
+   auto math_bc = fetchBCArray(State_Type,nE,1);
+   const Box& domain = geom.Domain();
+   bool use_harmonic_avg = def_harm_avg_cen2edge ? true : false;
+#ifdef _OPENMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+   for (MFIter mfi(De_cc,TilingIfNotGPU()); mfi.isValid();++mfi)
+   {
+      for (int dir = 0; dir < AMREX_SPACEDIM; dir++)
+      {
+         const Box ebx = mfi.nodaltilebox(dir);
+         const Box& edomain = amrex::surroundingNodes(domain,dir);
+         const auto& diff_c  = De_cc.array(mfi);
+         const auto& diff_ed = De_ec[dir]->array(mfi);
+         const auto bc_lo = fpi_phys_loc(math_bc[0].lo(dir));
+         const auto bc_hi = fpi_phys_loc(math_bc[0].hi(dir));
+         amrex::ParallelFor(ebx, [dir, bc_lo, bc_hi, use_harmonic_avg, diff_c, diff_ed, edomain]
+         AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+         {
+            int idx[3] = {i,j,k};
+            bool on_lo = ( ( bc_lo == HT_Edge ) && ( idx[dir] <= edomain.smallEnd(dir) ) );
+            bool on_hi = ( ( bc_hi == HT_Edge ) && ( idx[dir] >= edomain.bigEnd(dir) ) );
+            cen2edg_cpp( i, j, k, dir, 1, use_harmonic_avg, on_lo, on_hi, diff_c, diff_ed);
+         });
+      }
    }
 }
 
@@ -461,6 +493,9 @@ void PeleLM::ef_nlResidual(const Real      &dt_lcl,
    if ( ef_debug ) VisMF::Write(laplacian_term,"NLRes_phiVLap_"+std::to_string(level));
 
    // Diffusion term nE
+   MultiFab diffnE(grids, dmap, 1, 0);
+   compElecDiffusion(nE_a,diffnE);
+   if ( ef_debug ) VisMF::Write(laplacian_term,"NLRes_ElecDiff_"+std::to_string(level));
 
    // Advective term nE
 
@@ -512,7 +547,7 @@ void PeleLM::compPhiVLap(MultiFab& phi,
       phiV_crse.define(crselev.grids, crselev.dmap, 1, 0, MFInfo(), crselev.Factory());
       FillPatch(crselev, phiV_crse, 0, curtime, State_Type, PhiV, 1, 0);
       phiV_poisson.setCoarseFineBC(&phiV_crse, crse_ratio[0]);
-      if ( ef_debug ) VisMF::Write(phiV_crse,"NLRes_phiVCrse_Lap_"+std::to_string(level));
+//      if ( ef_debug ) VisMF::Write(phiV_crse,"NLRes_phiVCrse_Lap_"+std::to_string(level));
    }
    phiV_poisson.setLevelBC(0, &phi);
 
@@ -521,6 +556,58 @@ void PeleLM::compPhiVLap(MultiFab& phi,
    solver.apply({&phiLap},{&phi});
 
 // TODO: will need the flux (grad(phi))
+   FluxBoxes fluxb(this, 1, 0);
+   MultiFab** gradPhi = fluxb.get();
+   Array<MultiFab*,AMREX_SPACEDIM> fp{D_DECL(gradPhi[0],gradPhi[1],gradPhi[2])};
+   solver.getFluxes({fp},{&phi});
+   if ( ef_debug ) VisMF::Write(*gradPhi[0],"NLRes_gradPhiX_"+std::to_string(level));
+   if ( ef_debug ) VisMF::Write(*gradPhi[1],"NLRes_gradPhiY_"+std::to_string(level));
+}
+
+void PeleLM::compElecDiffusion(MultiFab& a_ne,
+                               MultiFab& elecDiff)
+{
+   // Set-up Poisson operator
+   LPInfo info;
+   info.setAgglomeration(1);
+   info.setConsolidation(1);
+   info.setMetricTerm(false);
+   info.setMaxCoarseningLevel(0);
+   MLABecLaplacian ne_lapl({geom}, {grids}, {dmap}, info);
+   ne_lapl.setMaxOrder(ef_PoissonMaxOrder);
+
+   // Set-up BC's
+   std::array<LinOpBCType,AMREX_SPACEDIM> mlmg_lobc;
+   std::array<LinOpBCType,AMREX_SPACEDIM> mlmg_hibc;
+   ef_set_neBC(mlmg_lobc, mlmg_hibc);
+   ne_lapl.setDomainBC(mlmg_lobc, mlmg_hibc);
+
+   MultiFab nE_crse;
+   if (level > 0) {
+      auto& crselev = getLevel(level-1);
+      nE_crse.define(crselev.grids, crselev.dmap, 1, 0, MFInfo(), crselev.Factory());
+      FillPatch(crselev, nE_crse, 0, curtime, State_Type, nE, 1, 0);
+      ne_lapl.setCoarseFineBC(&nE_crse, crse_ratio[0]);
+      if ( ef_debug ) VisMF::Write(nE_crse,"NLRes_nECrse_nELap_"+std::to_string(level));
+   }
+   ne_lapl.setLevelBC(0, &a_ne);
+   
+   // Coeffs    
+   ne_lapl.setScalars(0.0, 1.0);
+   VisMF::Write(*De_ec[0],"NLRes_DeX_"+std::to_string(level));
+   VisMF::Write(*De_ec[1],"NLRes_DeY_"+std::to_string(level));
+   Array<const MultiFab*,AMREX_SPACEDIM> bcoeffs{D_DECL(De_ec[0],De_ec[1],De_ec[2])};
+   ne_lapl.setBCoeffs(0, bcoeffs);
+
+   // LinearSolver to get divergence
+   MLMG solver(ne_lapl);
+   solver.apply({&elecDiff},{&a_ne});
+
+// TODO: will need the flux (grad(phi))
+   FluxBoxes fluxb(this, 1, 0);
+   MultiFab** ne_DiffFlux = fluxb.get();
+   Array<MultiFab*,AMREX_SPACEDIM> fp{D_DECL(ne_DiffFlux[0],ne_DiffFlux[1],ne_DiffFlux[2])};
+   solver.getFluxes({fp},{&a_ne});
 }
 
 void PeleLM::ef_bg_chrg(const Real      &dt_lcl,
@@ -572,6 +659,63 @@ void PeleLM::ef_set_PoissonBC(std::array<LinOpBCType,AMREX_SPACEDIM> &mlmg_lobc,
                               std::array<LinOpBCType,AMREX_SPACEDIM> &mlmg_hibc) {
 
     const BCRec& bc = get_desc_lst()[State_Type].getBC(PhiV);
+
+    for (int idim = 0; idim < AMREX_SPACEDIM; ++idim)
+    {
+        if (Geom().isPeriodic(idim))
+        {
+            mlmg_lobc[idim] = mlmg_hibc[idim] = LinOpBCType::Periodic;
+        }
+        else
+        {
+            int pbc = bc.lo(idim);
+            if (pbc == EXT_DIR)
+            {
+                mlmg_lobc[idim] = LinOpBCType::Dirichlet;
+            }
+            else if (pbc == FOEXTRAP      ||
+                     pbc == HOEXTRAP      ||
+                     pbc == REFLECT_EVEN)
+            {
+                mlmg_lobc[idim] = LinOpBCType::Neumann;
+            }
+            else if (pbc == REFLECT_ODD)
+            {
+                mlmg_lobc[idim] = LinOpBCType::reflect_odd;
+            }
+            else
+            {
+                mlmg_lobc[idim] = LinOpBCType::bogus;
+            }
+
+            pbc = bc.hi(idim);
+            if (pbc == EXT_DIR)
+            {
+                mlmg_hibc[idim] = LinOpBCType::Dirichlet;
+            }
+            else if (pbc == FOEXTRAP      ||
+                     pbc == HOEXTRAP      ||
+                     pbc == REFLECT_EVEN)
+            {
+                mlmg_hibc[idim] = LinOpBCType::Neumann;
+            }
+            else if (pbc == REFLECT_ODD)
+            {
+                mlmg_hibc[idim] = LinOpBCType::reflect_odd;
+            }
+            else
+            {
+                mlmg_hibc[idim] = LinOpBCType::bogus;
+            }
+        }
+    }
+}
+
+// Setup BC conditions for linear Poisson solve on PhiV. Directly copied from the diffusion one ...
+void PeleLM::ef_set_neBC(std::array<LinOpBCType,AMREX_SPACEDIM> &mlmg_lobc,
+                         std::array<LinOpBCType,AMREX_SPACEDIM> &mlmg_hibc) {
+
+    const BCRec& bc = get_desc_lst()[State_Type].getBC(nE);
 
     for (int idim = 0; idim < AMREX_SPACEDIM; ++idim)
     {

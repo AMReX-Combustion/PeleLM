@@ -13,8 +13,8 @@
    static amrex::BCRec   phiV_bc;   // Separate set of BC for PhiV
 
 // Extra transport properties for electrons and charged species
-   amrex::MultiFab            Ke_cc;
-   amrex::MultiFab            De_cc;
+   FluxBoxes diff_e;
+   amrex::MultiFab**          De_ec;
 
 // Scaling of non-linear system
    amrex::Real                 nE_scale;
@@ -82,6 +82,10 @@
    void compPhiVLap(amrex::MultiFab    &a_phi,
                     amrex::MultiFab    &phiLap);
 
+// Electron diffusion term
+   void compElecDiffusion(amrex::MultiFab    &a_nE,
+                          amrex::MultiFab    &elecDiff);
+
 // Provisional charge distribution
    void ef_bg_chrg(const amrex::Real      &dt,
                    const amrex::MultiFab  &Dn,
@@ -101,6 +105,10 @@
 // Setup PhiV BC for linear Poisson solve
    void ef_set_PoissonBC(std::array<amrex::LinOpBCType,AMREX_SPACEDIM> &mlmg_lobc,
                          std::array<amrex::LinOpBCType,AMREX_SPACEDIM> &mlmg_hibc);
+
+// Setup PhiV BC for linear Poisson solve
+   void ef_set_neBC(std::array<amrex::LinOpBCType,AMREX_SPACEDIM> &mlmg_lobc,
+                    std::array<amrex::LinOpBCType,AMREX_SPACEDIM> &mlmg_hibc);
 
 // Species additional properties (should be in PelePhysics probably)
    static amrex::GpuArray<amrex::Real, NUM_SPECIES> zk;
