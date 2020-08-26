@@ -47,6 +47,9 @@
    static int         ef_diffT_jfnk;            // Differencing type: 1 - one-sided first order, 2 - centered second order
    static int         ef_maxNewtonIter;         // Maximum number of newton iterations
    static amrex::Real ef_newtonTol;             // Tolerance of newton iteration (on inf. norm.)
+   static int         ef_GMRES_size;            // Size of the GMRES Krylov base
+   static amrex::Real ef_GMRES_reltol;          // Relarive tolerance of the GMRES solve
+   static int         ef_GMRES_maxRst;          // Maximum number of GMRES restart
 
    static void ef_init();        // Init EF params
 

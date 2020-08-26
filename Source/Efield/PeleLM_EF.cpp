@@ -23,6 +23,9 @@ void PeleLM::ef_init() {
     PeleLM::ef_diffT_jfnk             = 1;
     PeleLM::ef_maxNewtonIter          = 10;
     PeleLM::ef_newtonTol              = std::pow(1.0e-13,2.0/3.0);
+    PeleLM::ef_GMRES_size             = 20;
+    PeleLM::ef_GMRES_reltol           = 1.0e-10;
+    PeleLM::ef_GMRES_maxRst           = 1;
 
     for (int n = 0; n  < NUM_SPECIES; n++) 
     {
@@ -73,6 +76,9 @@ void PeleLM::ef_init() {
    pp.query("JFNK_difftype",ef_diffT_jfnk);
    pp.query("JFNK_maxNewton",ef_maxNewtonIter);
    pp.query("JFNK_newtonTol",ef_newtonTol);
+   pp.query("GMRES_restart_size",ef_GMRES_size);
+   pp.query("GMRES_rel_tol",ef_GMRES_reltol);
+   pp.query("GMRES_max_restart",ef_GMRES_maxRst);
  }
 
 void PeleLM::ef_solve_phiv(const Real &time) {
@@ -318,14 +324,24 @@ void PeleLM::ef_solve_PNP(      int      misdc,
 
    // Non-linear state & residual from FPI
    MultiFab::Copy(nl_state, ef_state_refGhostCell, 0, 0, 2, Godunov::hypgrow());
+   if ( ef_debug ) VisMF::Write(nl_state,"PrePNPState_"+std::to_string(level));
 
    // GMRES
+   GMRESSolver gmres;
+   int GMRES_tot_count = 0;
    if ( !ef_use_PETSC_direct ) {
-      GMRESSolver gmres;
-      //JtimesVFunc jtv = &PeleLM::jtimesv;
-      //gmres.setJtimesV(jtv);
+      gmres.define(this,ef_GMRES_size,2,1);        // 2 component in GMRES, 1 GC (needed ?)
+      JtimesVFunc jtv = &PeleLM::jtimesv;
+      gmres.setJtimesV(jtv);
+      NormFunc normF = &PeleLM::ef_normMF;         // Right now, same norm func as default in GMRES.
+      gmres.setNorm(normF);
+      //PrecondFunc prec = &PeleLM::applyPrec;
+      //gmres.setPrecond(prec);
+      gmres.setVerbose(1);
+      gmres.setMaxRestart(ef_GMRES_maxRst);
    }
 
+   int NK_tot_count = 0;
    for (int sstep = 0; sstep < ef_substep; sstep++) {
       curtime = prev_time + (sstep+1) * dtsub;
       // -----------------
@@ -346,7 +362,9 @@ void PeleLM::ef_solve_PNP(      int      misdc,
 
       // Initial NL residual: update residual scaling and preconditioner
       ef_nlResidual( dtsub, nl_state, nl_resid, true, true );
+      nl_resid.mult(-1.0);
       ef_normMF(nl_resid,nl_residNorm);
+      if ( ef_debug ) VisMF::Write(nl_resid,"NLResInit_Lvl"+std::to_string(level));
 
       // Check for convergence
       Real max_nlres = std::max(nl_resid.norm0(0),nl_resid.norm0(1));
@@ -368,27 +386,35 @@ void PeleLM::ef_solve_PNP(      int      misdc,
          // Verbose
          if ( ef_verbose ) {
             amrex::Print() << " Newton it: " << NK_ite << " L2**2 residual: " << 0.5*nl_residNorm*nl_residNorm
-                                                       << ". Linf residual: " << max_nlres;
+                                                       << ". Linf residual: " << max_nlres << "\n";
          }
 
          // Solve for Newton direction
          MultiFab newtonDir(grids,dmap,2,1);
          newtonDir.setVal(0.0);
          if ( !ef_use_PETSC_direct ) {
+            const Real S_tol     = ef_GMRES_reltol;
+            const Real S_tol_abs = max_nlres * ef_GMRES_reltol;
+            GMRES_tot_count += gmres.solve(newtonDir,nl_resid,S_tol_abs,S_tol);
+            if ( ef_debug ) VisMF::Write(newtonDir,"NLDir_NewtIte"+std::to_string(NK_ite)+"_Lvl"+std::to_string(level));
          } else {
-            //gmres.solve(newtonDir,nl_resid,1e-8,1e-8);
          }
 
          // Linesearch & update state: TODO
+         newtonDir.mult(-1.0);
          nl_state.plus(newtonDir,0,2,Godunov::hypgrow());
          ef_normMF(nl_state,nl_stateNorm);
          ef_nlResidual( dtsub, nl_state, nl_resid, false, true );
+         nl_resid.mult(-1.0);
+         if ( ef_debug ) VisMF::Write(nl_resid,"NLRes_NewtIte"+std::to_string(NK_ite)+"_Lvl"+std::to_string(level));
          ef_normMF(nl_resid,nl_residNorm);
+         max_nlres = std::max(nl_resid.norm0(0),nl_resid.norm0(1));
 
          // Exit condition
          exit_newton = testExitNewton(nl_resid,NK_ite);
 
       } while( !exit_newton );
+      NK_tot_count += NK_ite;
 
       // -----------------
       // Post Newton
@@ -413,19 +439,19 @@ void PeleLM::ef_solve_PNP(      int      misdc,
          });
       }
 
-      // If not last substep, update the 'old' state
+      // If not last substep, unscale nl_state and update 'old' state
       if ( sstep != ef_substep - 1 ) {
+         nl_state.mult(nE_scale,0,1);
+         nl_state.mult(phiV_scale,1,1);
          MultiFab::Copy(ef_state_old,nl_state,0,0,2,1);
-         // Old state is not scaled
-         ef_state_old.mult(nE_scale,0,1);
-         ef_state_old.mult(phiV_scale,1,1);
       }
       
    }
 
-   //GMRESSolver gmres;
-   //gmres.define(this,5,2,1);
-   //gmres.solve(dummy_sol,dummy_rhs,1e-8,1e-8);
+   // Update the state
+   MultiFab&  S = get_new_data(State_Type);
+   MultiFab::Copy(S,nl_state,0,nE,2,0);
+   if ( ef_debug ) VisMF::Write(nl_state,"PostPNPState_"+std::to_string(level));
 
    if ( ef_verbose )
    {
@@ -436,15 +462,17 @@ void PeleLM::ef_solve_PNP(      int      misdc,
      ParallelDescriptor::ReduceRealMin(mn,IOProc);
      ParallelDescriptor::ReduceRealMax(mx,IOProc);
 
-     //if ( !ef_use_PETSC_direct ) {
-     //   Real avgGMRES = (float)GMRES_tot_count/(float)NK_ite;
+     if ( !ef_use_PETSC_direct ) {
+        Real avgGMRES = (float)GMRES_tot_count/(float)NK_tot_count;
      //   Real avgMG = (float)MGitcount/(float)GMRES_tot_count;
-     //   amrex::Print() << "Avg GMRES/Newton: " << avgGMRES << "\n";
+        amrex::Print() << "Avg GMRES/Newton: " << avgGMRES << "\n";
      //   amrex::Print() << "Avg MGVcycl/GMRES: " << avgMG << "\n";
-     //}    
+     }    
      amrex::Print() << "PeleLM_EF::ef_solve_PNP(): lev: " << level << ", time: ["
                     << mn << " ... " << mx << "]\n";
    }
+
+   if ( level == 2 ) Abort("Stop right there");
 
 }
 
@@ -462,7 +490,7 @@ int PeleLM::testExitNewton(const MultiFab  &res,
       }
    }
 
-   if ( newtonIter > ef_maxNewtonIter ) {
+   if ( newtonIter >= ef_maxNewtonIter ) {
       exit = 1;
       amrex::Print() << " Max Newton iteration reached without convergence !!! \n";
    }
@@ -495,7 +523,7 @@ void PeleLM::ef_nlResidual(const Real      &dt_lcl,
    // Diffusion term nE
    MultiFab diffnE(grids, dmap, 1, 0);
    compElecDiffusion(nE_a,diffnE);
-   if ( ef_debug ) VisMF::Write(laplacian_term,"NLRes_ElecDiff_"+std::to_string(level));
+   if ( ef_debug ) VisMF::Write(diffnE,"NLRes_ElecDiff_"+std::to_string(level));
 
    // Advective term nE
 
@@ -503,6 +531,27 @@ void PeleLM::ef_nlResidual(const Real      &dt_lcl,
    // res(ne(:)) = dt * ( diff(:) + conv(:) + I_R(:) ) - ( ne(:) - ne_old(:) )
    // res(phiv(:)) = \Sum z_k * \tilde Y_k / q_e - ne + Lapl_PhiV
    a_nl_resid.setVal(0.0);
+#ifdef _OPENMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+   for (MFIter mfi(a_nl_resid,TilingIfNotGPU()); mfi.isValid(); ++mfi)
+   {
+      const Box& bx = mfi.tilebox();
+      auto const& lapPhiV  = laplacian_term.const_array(mfi);
+      auto const& ne_diff  = diffnE.const_array(mfi);
+      auto const& ne_curr  = nE_a.const_array(mfi);
+      auto const& ne_old   = ef_state_old.const_array(mfi,0);
+      auto const& charge   = bg_charge.const_array(mfi);
+      auto const& res_nE   = a_nl_resid.array(mfi,0);
+      auto const& res_phiV = a_nl_resid.array(mfi,1);
+      Real scalLap         = EFConst::eps0 * EFConst::epsr / EFConst::elemCharge;;
+      amrex::ParallelFor(bx, [ne_curr,ne_old,lapPhiV,ne_diff,charge,res_nE,res_phiV,dt_lcl,scalLap]
+      AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+      {
+         res_nE(i,j,k) = ne_old(i,j,k) - ne_curr(i,j,k) + dt_lcl * ( ne_diff(i,j,k) );
+         res_phiV(i,j,k) = 0.0;//lapPhiV(i,j,k) * scalLap - ne_curr(i,j,k) + charge(i,j,k);
+      });
+   }
 
    // Deal with scaling
    if ( update_res_scaling ) {
@@ -560,8 +609,8 @@ void PeleLM::compPhiVLap(MultiFab& phi,
    MultiFab** gradPhi = fluxb.get();
    Array<MultiFab*,AMREX_SPACEDIM> fp{D_DECL(gradPhi[0],gradPhi[1],gradPhi[2])};
    solver.getFluxes({fp},{&phi});
-   if ( ef_debug ) VisMF::Write(*gradPhi[0],"NLRes_gradPhiX_"+std::to_string(level));
-   if ( ef_debug ) VisMF::Write(*gradPhi[1],"NLRes_gradPhiY_"+std::to_string(level));
+//   if ( ef_debug ) VisMF::Write(*gradPhi[0],"NLRes_gradPhiX_"+std::to_string(level));
+//   if ( ef_debug ) VisMF::Write(*gradPhi[1],"NLRes_gradPhiY_"+std::to_string(level));
 }
 
 void PeleLM::compElecDiffusion(MultiFab& a_ne,
@@ -588,14 +637,12 @@ void PeleLM::compElecDiffusion(MultiFab& a_ne,
       nE_crse.define(crselev.grids, crselev.dmap, 1, 0, MFInfo(), crselev.Factory());
       FillPatch(crselev, nE_crse, 0, curtime, State_Type, nE, 1, 0);
       ne_lapl.setCoarseFineBC(&nE_crse, crse_ratio[0]);
-      if ( ef_debug ) VisMF::Write(nE_crse,"NLRes_nECrse_nELap_"+std::to_string(level));
+//      if ( ef_debug ) VisMF::Write(nE_crse,"NLRes_nECrse_nELap_"+std::to_string(level));
    }
    ne_lapl.setLevelBC(0, &a_ne);
    
    // Coeffs    
    ne_lapl.setScalars(0.0, 1.0);
-   VisMF::Write(*De_ec[0],"NLRes_DeX_"+std::to_string(level));
-   VisMF::Write(*De_ec[1],"NLRes_DeY_"+std::to_string(level));
    Array<const MultiFab*,AMREX_SPACEDIM> bcoeffs{D_DECL(De_ec[0],De_ec[1],De_ec[2])};
    ne_lapl.setBCoeffs(0, bcoeffs);
 
@@ -603,11 +650,15 @@ void PeleLM::compElecDiffusion(MultiFab& a_ne,
    MLMG solver(ne_lapl);
    solver.apply({&elecDiff},{&a_ne});
 
-// TODO: will need the flux (grad(phi))
+   elecDiff.mult(-1.0);
+
+// TODO: will need the flux
    FluxBoxes fluxb(this, 1, 0);
    MultiFab** ne_DiffFlux = fluxb.get();
    Array<MultiFab*,AMREX_SPACEDIM> fp{D_DECL(ne_DiffFlux[0],ne_DiffFlux[1],ne_DiffFlux[2])};
    solver.getFluxes({fp},{&a_ne});
+//   if ( ef_debug ) VisMF::Write(*ne_DiffFlux[0],"NLRes_nEDiffFlux_"+std::to_string(level));
+//   if ( ef_debug ) VisMF::Write(*ne_DiffFlux[1],"NLRes_nEDiffFlux_"+std::to_string(level));
 }
 
 void PeleLM::ef_bg_chrg(const Real      &dt_lcl,
@@ -646,7 +697,7 @@ void PeleLM::ef_bg_chrg(const Real      &dt_lcl,
 }
 
 void PeleLM::ef_normMF(const MultiFab &a_vec,
-                       Real &norm){
+                             Real &norm){
    norm = 0.0;
    for ( int comp = 0; comp < a_vec.nComp(); comp++ ) {
       norm += MultiFab::Dot(a_vec,comp,a_vec,comp,1,0);
