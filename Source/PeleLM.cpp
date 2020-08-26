@@ -233,6 +233,9 @@ Real PeleLM::ef_lambda_jfnk;
 int  PeleLM::ef_diffT_jfnk;
 int  PeleLM::ef_maxNewtonIter;
 Real PeleLM::ef_newtonTol;
+int  PeleLM::ef_GMRES_size;
+int  PeleLM::ef_GMRES_maxRst;
+Real PeleLM::ef_GMRES_reltol;
 BCRec  PeleLM::phiV_bc;
 GpuArray<Real,NUM_SPECIES> PeleLM::zk;
 #endif
