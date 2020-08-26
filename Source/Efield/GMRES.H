@@ -11,7 +11,7 @@
 
 typedef void (PeleLM::*JtimesVFunc) (const amrex::MultiFab& a_x, amrex::MultiFab& a_Ax);
 typedef void (PeleLM::*PrecondFunc) (const amrex::MultiFab& v, amrex::MultiFab& Pv);
-typedef void (PeleLM::*NormFunc)    (const amrex::MultiFab& MFin, amrex::Real norm);
+typedef void (PeleLM::*NormFunc)    (const amrex::MultiFab& MFin, amrex::Real& norm);
 
 class GMRESSolver
 {
@@ -31,6 +31,9 @@ class GMRESSolver
      void setJtimesV(JtimesVFunc a_jtv);
      void setPrecond(PrecondFunc a_prec);
      void setNorm(NormFunc a_norm);
+
+     void setVerbose(int a_v){ m_verbose = a_v;};
+     void setMaxRestart(int a_maxRestart){ m_restart = a_maxRestart;};
 
      JtimesVFunc jtimesv() const noexcept;
      PrecondFunc precond() const noexcept;
@@ -66,7 +69,7 @@ class GMRESSolver
      int m_verbose;
 
 //   GMRES attributes
-     int check_GramSchmidtOrtho;
+     int check_GramSchmidtOrtho = 1;
      bool m_converged;
      int m_krylovSize;
      int m_restart;

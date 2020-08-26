@@ -2,7 +2,10 @@
 
 using namespace amrex;
 
-GMRESSolver::GMRESSolver() {}
+GMRESSolver::GMRESSolver() {
+   m_verbose = 0;
+   m_restart = 1;
+}
 GMRESSolver::~GMRESSolver() {}
 
 void
@@ -90,11 +93,14 @@ GMRESSolver::solve(MultiFab& a_sol,
    AMREX_ALWAYS_ASSERT(m_jtv != nullptr);
    AMREX_ALWAYS_ASSERT(a_sol.nComp() == m_nComp && a_rhs.nComp() == m_nComp);
 
-   MEMBER_FUNC_PTR(*m_level,m_jtv)(a_sol,Ax);
-   return 0;
-
    initResNorm = computeResidualNorm(a_sol,a_rhs);                      // Initial resisual norm
-   targetResNorm = initResNorm * a_rel_tol;                              // Target relative tolerance
+   targetResNorm = initResNorm * a_rel_tol;                             // Target relative tolerance
+
+   if ( m_verbose ) amrex::Print() << "GMRES solve initial residual " << initResNorm << "\n";
+   if ( initResNorm < a_abs_tol ) {
+      amrex::Print() << "GMRES: no need for iterations";
+      return 0;
+   }
 
    iter_count = 0;
    restart_count = 0;
@@ -170,7 +176,7 @@ GMRESSolver::one_iter(const int iter, Real &resNorm)
 void
 GMRESSolver::appendBasisVector(const int iter, Vector<MultiFab>& Base)
 {
-   if ( m_prec != nullptr ) {
+   if ( m_prec == nullptr ) {
       MEMBER_FUNC_PTR(*m_level,m_jtv)(Base[iter],Base[iter+1]);
    } else {
       MEMBER_FUNC_PTR(*m_level,m_jtv)(Base[iter],Ax);
@@ -187,7 +193,7 @@ GMRESSolver::gramSchmidtOrtho(const int iter, Vector<MultiFab>& Base)
       MultiFab::Saxpy(KspBase[iter+1],GS_corr,KspBase[row],0,0,m_nComp,0);
       if ( check_GramSchmidtOrtho ) {
          Real Hcorr = MultiFab::Dot(KspBase[iter+1],0,KspBase[row],0,m_nComp,0);
-         if ( fabs(Hcorr) > 1.0e-15 ) {
+         if ( std::fabs(Hcorr) > 1.0e-15 ) {
             H[row][iter] += Hcorr;
             GS_corr = - Hcorr;
             MultiFab::Saxpy(KspBase[iter+1],GS_corr,KspBase[row],0,0,m_nComp,0);
@@ -249,6 +255,10 @@ GMRESSolver::computeResidual(const MultiFab& a_x, const MultiFab& a_rhs, MultiFa
 {
    BL_PROFILE("GMRESSolver::computeResidual()");
    MEMBER_FUNC_PTR(*m_level,m_jtv)(a_x,Ax);
-   MultiFab::Xpay(Ax, -1.0, a_rhs, 0, 0, m_nComp, 0);
-   if ( m_prec != nullptr ) MEMBER_FUNC_PTR(*m_level,m_prec)(Ax,a_res);
+   if ( m_prec != nullptr ) {
+      MultiFab::Xpay(Ax, -1.0, a_rhs, 0, 0, m_nComp, 0);
+      MEMBER_FUNC_PTR(*m_level,m_prec)(Ax,a_res);
+   } else {
+      MultiFab::LinComb(a_res,1.0,Ax,0,-1.0,a_rhs,0,0,m_nComp,0);
+   }
 }
