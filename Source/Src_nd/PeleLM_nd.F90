@@ -107,13 +107,13 @@ contains
       REAL_T :: cpmix, rho, rhoInv, tmp, mmw
       integer :: i, j, k, n
 
-      write(*,*) 'SIZE(rSprayDot,4)', SIZE(rSprayDot,4)
+      !write(*,*) 'SIZE(rSprayDot,4)', SIZE(rSprayDot,4)
 
       call CKWT(invmtw)
       do n = 1,NUM_SPECIES
          invmtw(n) = one / invmtw(n)
       end do
-      write(*,*) 'maxval rspraydot', MAXVAL(rSprayDot(:,:,:,1))
+      !write(*,*) 'maxval rspraydot', MAXVAL(rSprayDot(:,:,:,1))
       do k=lo(3),hi(3)
          do j=lo(2),hi(2)
             do i=lo(1),hi(1)
@@ -149,12 +149,18 @@ contains
                divu(i,j,k) = divu(i,j,k) + rSprayDot(i,j,k,1) * rhoInv
                do n=1,NUM_SPECIES
                   divu(i,j,k) = divu(i,j,k) + mmw * invmtw(n) * rSprayDot(i,j,k,1+n) * rhoInv
-                  if (abs(rSprayDot(i,j,k,1)) > 1d-12) write(*,*) 'S_spray_rhoY_', n, mmw * invmtw(n) * rSprayDot(i,j,k,1+n) * rhoInv
+                  !if (abs(rSprayDot(i,j,k,1)) > 1d-12) write(*,*) 'S_spray_rhoY_', n, mmw * invmtw(n) * rSprayDot(i,j,k,1+n) * rhoInv
                enddo
                divu(i,j,k) = divu(i,j,k) + rSprayDot(i,j,k,2+NUM_SPECIES) * rhoInv / cpmix / T(i,j,k)
+
+               !if (abs(rSprayDot(i,j,k,1)) > 1d-12) write(*,*) 'S_spray_rho', rSprayDot(i,j,k,1) * rhoInv
+               !if (abs(rSprayDot(i,j,k,2+NUM_SPECIES)) > 1d-12) write(*,*) 'S_spray_H', rSprayDot(i,j,k,2+NUM_SPECIES) * rhoInv / cpmix / T(i,j,k)
+
+               do n=1,NUM_SPECIES+2
+                 if (isnan(rSprayDot(i,j,k,n))) write(*,*) 'DETECTED NAN IN rSprayDot'
+               enddo
 #endif
-               if (abs(rSprayDot(i,j,k,1)) > 1d-12) write(*,*) 'S_spray_rho', rSprayDot(i,j,k,1) * rhoInv
-               if (abs(rSprayDot(i,j,k,2+NUM_SPECIES)) > 1d-12) write(*,*) 'S_spray_H', rSprayDot(i,j,k,2+NUM_SPECIES) * rhoInv / cpmix / T(i,j,k)
+
 
             enddo
          enddo

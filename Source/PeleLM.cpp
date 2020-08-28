@@ -2318,9 +2318,11 @@ PeleLM::init (AmrLevel& old)
   }
 
 #ifdef AMREX_PARTICLES
+amrex::Print() << "PeleLM::init, get spray source \n";
+const Real    tnp1s = oldht->state[spraydot_Type].curTime();
 MultiFab& spraydot = get_new_data(spraydot_Type);
 {
-  FillPatchIterator fpi(*oldht,spraydot,spraydot.nGrow(),tnp1,spraydot_Type,0,nspecies+6);
+  FillPatchIterator fpi(*oldht,spraydot,spraydot.nGrow(),tnp1s,spraydot_Type,0,nspecies+3+AMREX_SPACEDIM);
   const MultiFab& mf_fpi = fpi.get_mf();
 #ifdef _OPENMP
 #pragma omp parallel
@@ -2329,9 +2331,10 @@ MultiFab& spraydot = get_new_data(spraydot_Type);
   {
     const Box& vbx  = mfi.tilebox();
     const FArrayBox& pfab = mf_fpi[mfi];
-     spraydot[mfi].copy(pfab,vbx,0,vbx,0,nspecies+3+AMREX_SPACEDIM);
+    spraydot[mfi].copy(pfab,vbx,0,vbx,0,nspecies+3+AMREX_SPACEDIM);
   }
 }
+amrex::Print() << "PeleLM::init, get spray source done \n";
 #endif
 
   RhoH_to_Temp(get_new_data(State_Type));
@@ -5567,7 +5570,7 @@ PeleLM::predict_velocity (Real  dt)
 #else
 
 #ifdef AMREX_PARTICLES
-MultiFab& spraydot = get_old_data(spraydot_Type);
+MultiFab& spraydot = get_new_data(spraydot_Type);
 showMF("spray",spraydot,"spraydot_pred_vel",level,parent->levelSteps(level));
 #endif
 
@@ -5592,17 +5595,20 @@ showMF("spray",spraydot,"spraydot_pred_vel",level,parent->levelSteps(level));
 
 #ifdef AMREX_PARTICLES
       amrex::Print() << "Gonna do particle source term in predict vel" << '\n';
-      //FArrayBox& spraydot_FAB = spraydot[U_mfi];
-      const FArrayBox& spraydot_FAB = get_old_data(spraydot_Type)[U_mfi];
+      FArrayBox& spraydot_FAB = spraydot[U_mfi];
+      //const FArrayBox& spraydot_FAB = get_new_data(spraydot_Type)[U_mfi]; // should use old data? there's issues with that though right now
       //tforces.copy(spraydot_FAB,0,0,BL_SPACEDIM);
       tforces.plus(spraydot_FAB,0,0,BL_SPACEDIM);
       //tforces.setVal(1e6);
+
 #endif
 
       //
       // Compute the total forcing.
       //
       godunov->Sum_tf_gp_visc(tforces,0,visc_terms[U_mfi],0,Gp[U_mfi],0,rho_ptime[U_mfi],0);
+
+      //showMF("spray",tforces,"total_forcing_pred_vel",level,parent->levelSteps(level));
 
       D_TERM(bndry[0] = fetchBCArray(State_Type,bx,0,1);,
              bndry[1] = fetchBCArray(State_Type,bx,1,1);,
@@ -5834,8 +5840,10 @@ PeleLM::advance (Real time,
 
   if (fill_Sborder)
   {
-    FillPatch(*this, Sborder, nGrow_Sborder, time, State_Type, 0, NUM_STATE);
+    FillPatch(*this, Sborder, nGrow_Sborder, prev_time, State_Type, 0, NUM_STATE);
   }
+
+  showMF("spray",Sborder,"Sborder_before_sdc",level,parent->levelSteps(level));
 
   //nGrow_Sborder = 4; // FIXME: Why is this hardwired?
   if (fill_Sborder &&  Sborder.nGrow() < nGrow_Sborder) {
@@ -5859,6 +5867,9 @@ PeleLM::advance (Real time,
 
       int finest_level = parent->finestLevel();
 
+      //int nGrow = 1;
+      //particleRedistribute(level, nGrow, 0);
+
       //particle_redistribute(level,false);
 
       if (level < finest_level)
@@ -5867,18 +5878,40 @@ PeleLM::advance (Real time,
       MultiFab& spraydot = get_new_data(spraydot_Type);
       spraydot.setVal(0.);
 
+      bool updPart = true;
+      //bool updPart = false;
+      //if (sdc_iter == sdc_iterMAX){updPart = true;};
+
       // valid particles
-      theSprayPC()->moveKickDrift(Sborder,spraydot,*u_mac,level, dt, time, false, false, tmp_src_width, true, where_width, Density, 0, Temp, RhoH, first_spec);
+      theSprayPC()->moveKickDrift(Sborder,spraydot,*u_mac,level, dt, time, false, false, tmp_src_width, true, where_width, Density, 0, Temp, RhoH, first_spec, updPart);
 
       // Only need the coarsest virtual particles here.
       if (level < finest_level)
-        theVirtPC()->moveKickDrift(Sborder,spraydot,*u_mac,level, dt, time, true, false, tmp_src_width, true, where_width, Density, 0, Temp, RhoH, first_spec);
+        theVirtPC()->moveKickDrift(Sborder,spraydot,*u_mac,level, dt, time, true, false, tmp_src_width, true, where_width, Density, 0, Temp, RhoH, first_spec, updPart);
 
       // Miiiight need all Ghosts
       if (theGhostPC() != 0)
-        theGhostPC()->moveKickDrift(Sborder,spraydot,*u_mac,level, dt, time, false, true, tmp_src_width, true, where_width, Density, 0, Temp, RhoH, first_spec);
+        theGhostPC()->moveKickDrift(Sborder,spraydot,*u_mac,level, dt, time, false, true, tmp_src_width, true, where_width, Density, 0, Temp, RhoH, first_spec, updPart);
+
+      //if (time == 0.){spraydot.setVal(0.);};
 
       showMF("spray",spraydot,"spraydot",level,sdc_iter,parent->levelSteps(level));
+
+      const bool do_avg_down_spray = level < parent->finestLevel()
+        && getLevel(level+1).state[spraydot_Type].hasOldData();
+
+        amrex::Print() << "gonna do average_down_spray " << do_avg_down_spray << "\n";
+
+      if (do_avg_down_spray)
+      {
+        MultiFab& spraydot_new = get_new_data(spraydot_Type);
+        MultiFab& fine_spraydot = getLevel(level+1).get_old_data(spraydot_Type);
+        amrex::average_down(fine_spraydot, spraydot_new, getLevel(level+1).geom, geom,
+                             0, nspecies+3+AMREX_SPACEDIM, fine_ratio);
+
+        spraydot_new.FillBoundary(0,nspecies+3+AMREX_SPACEDIM, geom.periodicity());
+        Extrapolater::FirstOrderExtrap(spraydot_new, geom, 0, nspecies+3+AMREX_SPACEDIM);
+      }
 
     }
 #endif
@@ -5960,6 +5993,9 @@ PeleLM::advance (Real time,
 
     // MAC-project... and overwrite U^{ADV,*}
     BL_PROFILE_VAR_START(HTMAC);
+
+    amrex::Print() << "gonna do mac project now \n";
+    showMF("mac",mac_divu,"sdc_mac_divu",level,sdc_iter,parent->levelSteps(level));
     mac_project(time,dt,S_old,&mac_divu,nGrowAdvForcing,updateFluxReg);
 
     if (closed_chamber == 1 && level == 0 && Sbar != 0)
@@ -6068,31 +6104,45 @@ PeleLM::advance (Real time,
 
     // update rho since not affected by diffusion
     BL_PROFILE_VAR_START(HTADV);
+
+    showMF("mysdc",get_new_data(State_Type),"snew_before_scalar_adv_upd_rho",level,sdc_iter,parent->levelSteps(level));
+    showMF("mysdc",(*aofs),"aofs_before_scalar_adv_upd_rho",level,sdc_iter,parent->levelSteps(level));
+
     scalar_advection_update(dt, Density, Density);
+
+    showMF("mysdc",get_new_data(State_Type),"snew_after_scalar_adv_upd_rho",level,sdc_iter,parent->levelSteps(level));
 
     // do we need forcing term instead of this?
     #ifdef AMREX_PARTICLES
+        showMF("mysdc",get_new_data(State_Type),"snew_before_spray_rho_src",level,sdc_iter,parent->levelSteps(level));
+
         MultiFab&       S_new = get_new_data(State_Type);
-	BoxArray        ba    = S_new.boxArray();
-	DistributionMapping dm = getFuncCountDM(ba,2);
+        MultiFab&       spraydot = get_new_data(spraydot_Type);
+	      BoxArray        ba    = S_new.boxArray();
+	      DistributionMapping dm = getFuncCountDM(ba,2);
         MultiFab        tmp_mf(ba, dm, S_new.nComp(), 0);
 
     #ifdef _OPENMP
     (#pragma omp parallel
     #endif
-        for (MFIter mfi(S_new,true); mfi.isValid(); ++mfi)
+        //for (MFIter mfi(S_new,true); mfi.isValid(); ++mfi)
+        for (MFIter mfi(spraydot,true); mfi.isValid(); ++mfi)
         {
           const Box& box   = mfi.tilebox();
           FArrayBox& snew  = S_new[mfi];
           FArrayBox& tmp  = tmp_mf[mfi];
-          const FArrayBox& rSpray = get_new_data(spraydot_Type)[mfi];
+          const FArrayBox& rSpray = spraydot[mfi];
 
           tmp.copy( rSpray,box,Density,box,Density,1);
           tmp.mult(dt,box,Density,1);
           snew.plus(tmp,box,Density,Density,1);
         }
 
+        showMF("mysdc",spraydot,"spraydot_after_rho_upd",level,sdc_iter,parent->levelSteps(level));
+
     #endif
+
+    showMF("mysdc",get_new_data(State_Type),"snew_w_spray",level,sdc_iter,parent->levelSteps(level));
 
     make_rho_curr_time();
     BL_PROFILE_VAR_STOP(HTADV);
@@ -6141,6 +6191,7 @@ PeleLM::advance (Real time,
       }
     }
 
+    showMF("mysdc",get_new_data(RhoYdot_Type),"sdc_spraydot_F_dhat",level,sdc_iter,parent->levelSteps(level));
     showMF("mysdc",Forcing,"sdc_F_dhat",level,sdc_iter,parent->levelSteps(level));
 
 #ifdef USE_WBAR
@@ -6221,7 +6272,41 @@ PeleLM::advance (Real time,
     setThermoPress(tnp1);
     BL_PROFILE_VAR_STOP(HTMAC);
 
-    showMF("DBGSync",S_new,"DBGSync_Snew_end_sdc",level,sdc_iter,parent->levelSteps(level));
+    showMF("DBGSync",S_new,"DBGSync_Snew_end_sdc",level,sdc_iter,parent->levelSteps(level));// spray particle movekick part
+
+    #ifdef AMREX_PARTICLES
+      if (do_spray_particles && sdc_iter == sdc_iterMAX) {
+        FillPatch(*this, Sborder, nGrow_Sborder, tnp1, State_Type, 0, NUM_STATE);
+
+        showMF("spray",Sborder,"Sborder_after_sdc",level,parent->levelSteps(level));
+
+        MultiFab& spraydot = get_new_data(spraydot_Type);
+        spraydot.setVal(0.);
+
+        bool updPart = true;
+        theSprayPC()->moveKick(Sborder,spraydot,*u_mac,level, dt, time, false, false, tmp_src_width, Density, 0, Temp, RhoH, first_spec, updPart);
+
+        if (theGhostPC() != 0)
+          theGhostPC()->moveKick(Sborder,spraydot,*u_mac,level, dt, time, false, true, tmp_src_width, Density, 0, Temp, RhoH, first_spec, updPart);
+
+          const bool do_avg_down_spray = level < parent->finestLevel()
+            && getLevel(level+1).state[spraydot_Type].hasOldData();
+
+            amrex::Print() << "gonna do average_down_spray " << do_avg_down_spray << "\n";
+
+          if (do_avg_down_spray)
+          {
+            MultiFab& spraydot_new = get_new_data(spraydot_Type);
+            MultiFab& fine_spraydot = getLevel(level+1).get_old_data(spraydot_Type);
+            amrex::average_down(fine_spraydot, spraydot_new, getLevel(level+1).geom, geom,
+                                 0, nspecies+3+AMREX_SPACEDIM, fine_ratio);
+
+            spraydot_new.FillBoundary(0,nspecies+3+AMREX_SPACEDIM, geom.periodicity());
+            Extrapolater::FirstOrderExtrap(spraydot_new, geom, 0, nspecies+3+AMREX_SPACEDIM);
+          }
+
+      }
+    #endif
   }
 
   Dn.clear();
@@ -6868,6 +6953,7 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
       amrex::average_down(fine_React, React_new, getLevel(level+1).geom, geom,
                            0, nspecies, fine_ratio);
     }
+
     //
     // Ensure consistent grow cells.
     //
