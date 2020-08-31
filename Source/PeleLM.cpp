@@ -6119,8 +6119,8 @@ PeleLM::advance (Real time,
         MultiFab&       S_new = get_new_data(State_Type);
         MultiFab&       spraydot = get_new_data(spraydot_Type);
 	      BoxArray        ba    = S_new.boxArray();
-	      DistributionMapping dm = getFuncCountDM(ba,2);
-        MultiFab        tmp_mf(ba, dm, S_new.nComp(), 0);
+	      DistributionMapping dm = S_new.DistributionMap();
+        MultiFab        tmp_mf(ba, dm, S_new.nComp(), 2);
 
     #ifdef _OPENMP
     (#pragma omp parallel
