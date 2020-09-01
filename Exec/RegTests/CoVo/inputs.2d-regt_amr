@@ -1,5 +1,5 @@
 # ----------------  PROBLEM DEPENDENT INPUTS
-geometry.is_periodic = = 1 1
+geometry.is_periodic = = 1 1 1
 
 geometry.coord_sys = 0  # 0 => cart, 1 => RZ
 
@@ -25,12 +25,12 @@ amr.n_cell    = 32 32 32
 
 
 amr.v=1
-amr.max_level =  2            # maximum level number allowed
+amr.max_level =  1            # maximum level number allowed
 amr.ref_ratio       = 2 2 2 2 # refinement ratio
 amr.regrid_int      = 2       # how often to regrid
 amr.n_error_buf     = 4 4 4 4 # number of buffer cells in error est
 amr.grid_eff        = 0.9     # what constitutes an efficient grid
-amr.grid_eff        = 0.7     # what constitutes an efficient grid
+#amr.grid_eff        = 0.7     # what constitutes an efficient grid
 amr.blocking_factor = 8      # block factor in grid generation
 
 amr.checkpoint_files_output = 0
@@ -46,7 +46,7 @@ amr.max_grid_size   = 256
 
 #----------- PROBLEM PARAMETERS------------
 prob.meanFlowMag = 50.0
-prob.meanFlowDir = 1
+prob.meanFlowDir = 3
 prob.T_mean = 298.0
 prob.P_mean = 101325.
 prob.rvort  = 0.07
@@ -85,7 +85,7 @@ ns.min_rho_divu_ceiling = .01
 
 ns.fuelName        = N2
 ns.unity_Le = 0
-ns.hack_nochem = 1
+ns.hack_nochem = 0
 
 ns.do_active_control = 0
 
@@ -168,7 +168,7 @@ cg.cg_solver=1
 #
 fab.format = NATIVE
 
-fabarray.mfiter_tile_size = 1024 1024 1024
+fabarray.mfiter_tile_size = 8 8 8 
 
 ns.verbose = true
 
@@ -181,16 +181,19 @@ amr.magvort.max_level = 3
 amr.magvort.vorticity_greater = 500 
 
 
-ns.num_mac_sync_iter = 2
-ns.sdc_iterMAX = 2
+ns.num_mac_sync_iter = 1
+ns.sdc_iterMAX = 1
 
 # Refinement according to predefined box
-#amr.refinement_indicators = RefineBox  
-#amr.RefineBox.in_box_lo = 0.25 0.25   
-#amr.RefineBox.in_box_hi = 0.75 0.75 
+#amr.refinement_indicators = RefineBox RefineBox2
+#amr.RefineBox.in_box_lo = 0.2   0.2   
+#amr.RefineBox.in_box_hi = 0.23  0.23
+
+#amr.RefineBox2.in_box_lo = 0.9 0.6
+#amr.RefineBox2.in_box_hi = 0.99 0.63
 
 
-amr.restart = chk00032
+#amr.restart = chk00032
 
 # Embedded Boundary options
 eb2.geom_type    =  all_regular
@@ -198,3 +201,19 @@ eb2.geom_type    =  all_regular
 amrex.fpe_trap_invalid = 1
 amrex.fpe_trap_zero = 1
 amrex.fpe_trap_overflow = 1
+
+
+
+# for getting things started with eb skip some steps
+#ns.init_iter = 0
+#ns.do_mac_proj = 1
+# to turn off initial projections set to 0
+#ns.do_init_proj = 1
+# even if do_sync_proj = 0, might still do an initialSyncProj to get pressure
+#ns.do_sync_proj = 0
+#ns.do_MLsync_proj = 0
+
+
+
+ShowMF_Sets = DBGSync
+ShowMF_Dir = DebugMcSync
