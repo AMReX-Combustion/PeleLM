@@ -2065,6 +2065,8 @@ PeleLM::init ()
 void
 PeleLM::post_timestep (int crse_iteration)
 {
+  BL_PROFILE("PLM::post_timestep()");
+
   NavierStokesBase::post_timestep(crse_iteration);
 
   if (plot_reactions && level == 0)
@@ -4746,7 +4748,7 @@ PeleLM::advance (Real time,
                  int  iteration,
                  int  ncycle)
 {
-
+  BL_PROFILE("PLM::advance()");
   BL_PROFILE_VAR("PeleLM::advance::mac", PLM_MAC);
   if (closed_chamber == 1 && level == 0)
   {
@@ -5583,7 +5585,7 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
                            int             nCompF,
                            bool            use_stiff_solver)
 {
-  BL_PROFILE("HT:::advance_chemistry()");
+  BL_PROFILE("PLM::advance_chemistry()");
   
   const Real strt_time = ParallelDescriptor::second();
 
