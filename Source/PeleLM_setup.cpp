@@ -32,13 +32,8 @@
 #include <RegType.H>
 #include <AMReX_ParmParse.H>
 #include <AMReX_ErrorList.H>
-#include <Prob_F.H>
-#include <DERIVE_F.H>
 #include <AMReX_FArrayBox.H>
-#include <NAVIERSTOKES_F.H>
-#include <PeleLM_F.H>
 #include <AMReX_Utility.H>
-#include <NS_error_F.H>
 #include <EOS.H>
 #include <Transport.H>
 
@@ -339,7 +334,7 @@ PeleLM::variableSetUp ()
 #ifdef USE_SUNDIALS_PP
   SetTolFactODE(relative_tol_chem,absolute_tol_chem);
 #endif
-#ifdef USE_CUDA_SUNDIALS_PP
+#ifdef AMREX_USE_CUDA
   reactor_info(reactor_type,ncells_chem);
 #else
   reactor_init(reactor_type,ncells_chem);
@@ -741,7 +736,7 @@ PeleLM::variableSetUp ()
   //
   // Magnitude of vorticity.
   //
-  derive_lst.add("mag_vort",IndexType::TheCellType(),1,DeriveFunc3D(dermgvort),grow_box_by_one);
+  derive_lst.add("mag_vort",IndexType::TheCellType(),1,pelelm_mgvort,grow_box_by_one);
   derive_lst.addComponent("mag_vort",desc_lst,State_Type,Xvel,AMREX_SPACEDIM);
 
 #ifdef DO_LMC_FORCE

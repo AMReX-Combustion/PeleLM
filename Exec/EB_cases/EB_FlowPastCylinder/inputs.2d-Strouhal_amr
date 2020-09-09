@@ -13,10 +13,6 @@ geometry.prob_hi   = 0.12 0.04 0.005
 peleLM.lo_bc = Inflow  Interior Interior
 peleLM.hi_bc = Outflow Interior Interior
 
-
-#peleLM.lo_bc =  Outflow  Inflow
-#peleLM.hi_bc =  Outflow  Outflow
-
 #----------------------------TOP LEVEL INPUTS----------------------
 max_step  = 500000
 stop_time = 10.0
@@ -47,8 +43,10 @@ amr.derive_plot_vars=rhoRT mag_vort avg_pressure gradpx gradpy diveru mass_fract
 amr.grid_log        = grdlog  # name of grid logging file
 amr.max_grid_size   = 64 #32 
 
-amr.probin_file = probin.2d.Strouhal # This will default to file "probin" if not set
-
+prob.P_mean = 101325.0
+prob.T_mean = 298.0
+prob.MeanFlow = 5.0
+prob.FlowDir = 0
 
 # ------------------  INPUTS TO PHYSICS CLASS -------------------
 ns.dt_cutoff       = 5.e-10   # level 0 timestep below which we halt
@@ -81,15 +79,30 @@ ns.min_rho_divu_ceiling = .01
 
 ns.fuelName        = N2
 ns.unity_Le = 0
-ns.hack_nochem = 0
+ns.hack_nochem = 1
 ns.sdc_iterMAX = 2
+ns.refine_cutcells = 1
+peleLM.deltaT_norm_max = 1e-10
 
 ns.dpdt_option = 0
-ns.do_active_control = 0
 
 ns.do_fillPatchUMAC=1
 ns.zeroBndryVisc=1
 ns.num_divu_iters = 2
+
+# ------------------  INPUTS TO CVODE CHEMISTRY ----------------------
+#peleLM.use_typ_vals_chem = 1
+#peleLM.relative_tol_chem = 1.0e-8
+#peleLM.absolute_tol_chem = 1.0e-6
+ode.verbose = 0
+cvode.solve_type = dense
+ode.analytical_jacobian = 0
+
+# ----------------  INPUTS TO CONSTANT TRANSPORT -------------------
+transport.const_viscosity = 2.0e-05
+transport.const_bulk_viscosity = 0.0
+transport.const_conductivity = 0.0
+transport.const_diffusivity = 0.0
 
 # ------------------  INPUTS TO GODUNOV CLASS ----------------------
 godunov.slope_order = 4
@@ -106,7 +119,7 @@ proj.proj_tol       = 1.0e-12  # tolerence for projections
 proj.proj_abs_tol   = 1.0e-12
 proj.sync_tol       = 1.0e-12  # tolerence for projections
 proj.rho_wgt_vel_proj = 0      # 0 => const den proj, 1 => rho weighted
-nodal_proj.verbose    = 0 
+nodal_proj.verbose    = 0
 proj.filter_factor  = 0.0
 proj.do_outflow_bcs = 0
 proj.divu_minus_s_factor = .5
@@ -153,3 +166,9 @@ eb2.sphere_center = -.01  0.00  # don't forget probin: adv_dir !=1
 eb2.sphere_has_fluid_inside = 0
 eb2.small_volfrac = 1.0e-4
 
+nodal_proj.rtol =  1.0e-12
+nodal_proj.atol =  1.0e-12
+nodal_proj.verbose = 1
+amrex.fpe_trap_invalid = 1
+amrex.fpe_trap_zero = 1
+amrex.fpe_trap_overflow = 1

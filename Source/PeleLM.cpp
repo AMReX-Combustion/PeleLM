@@ -21,10 +21,6 @@
 #include <AMReX_ParmParse.H>
 #include <AMReX_ErrorList.H>
 #include <PeleLM.H>
-#include <PeleLM_F.H>
-#include <Prob_F.H>
-#include <DIFFUSION_F.H>
-#include <AMReX_MultiGrid.H>
 #include <AMReX_ArrayLim.H>
 #include <AMReX_SPACE.H>
 #include <AMReX_Interpolater.H>
@@ -1435,7 +1431,7 @@ PeleLM::set_typical_values(bool is_restart)
       }
       typical_values_chem[NUM_SPECIES] = typical_values[Temp];
       SetTypValsODE(typical_values_chem);
-#ifndef USE_CUDA_SUNDIALS_PP
+#ifndef AMREX_USE_CUDA
       ReSetTolODE();
 #endif  
       }
@@ -2069,6 +2065,8 @@ PeleLM::init ()
 void
 PeleLM::post_timestep (int crse_iteration)
 {
+  BL_PROFILE("PLM::post_timestep()");
+
   NavierStokesBase::post_timestep(crse_iteration);
 
   if (plot_reactions && level == 0)
@@ -2090,8 +2088,7 @@ PeleLM::post_timestep (int crse_iteration)
       MultiFab& Ydot_crse = *(clev.auxDiag["REACTIONS"]);
       MultiFab& Ydot_fine = *(flev.auxDiag["REACTIONS"]);
 
-      amrex::average_down(Ydot_fine, Ydot_crse, flev.geom, clev.geom,
-                           0, Ndiag, parent->refRatio(i-1));
+      clev.average_down(Ydot_fine, Ydot_crse, 0, Ndiag);
     }
   }
 }
@@ -2260,8 +2257,7 @@ PeleLM::post_init (Real stop_time)
       MultiFab& Divu_crse = crse_lev.get_new_data(Divu_Type);
       MultiFab& Divu_fine = fine_lev.get_new_data(Divu_Type);
 
-      amrex::average_down(Divu_fine, Divu_crse, fine_lev.geom, crse_lev.geom,
-                           0, 1, crse_lev.fine_ratio);
+      crse_lev.average_down(Divu_fine, Divu_crse, 0, 1);
     }
 
     // compute number of cells
@@ -2356,8 +2352,7 @@ PeleLM::post_init (Real stop_time)
           MultiFab& Divu_crse = crse_lev.get_new_data(Divu_Type);
           MultiFab& Divu_fine = fine_lev.get_new_data(Divu_Type);
 
-          amrex::average_down(Divu_fine, Divu_crse, fine_lev.geom, crse_lev.geom,
-                               0, 1, crse_lev.fine_ratio);
+	  crse_lev.average_down(Divu_fine, Divu_crse, 0, 1);
         }
       }
       //
@@ -2408,8 +2403,7 @@ PeleLM::post_init (Real stop_time)
         MultiFab&       S_fine  = getLevel(k+1).get_new_data(State_Type);
         MultiFab&       S_crse  = getLevel(k).get_new_data(State_Type);
 
-        amrex::average_down(S_fine, S_crse, fine_lev.geom, crse_lev.geom,
-                             Xvel, AMREX_SPACEDIM, getLevel(k).fine_ratio);
+	crse_lev.average_down(S_fine, S_crse, Xvel, AMREX_SPACEDIM);
       }
     }
     //
@@ -2641,8 +2635,7 @@ PeleLM::post_init_press (Real&        dt_init,
         MultiFab& Divu_crse = crse_lev.get_new_data(Divu_Type);
         MultiFab& Divu_fine = fine_lev.get_new_data(Divu_Type);
 
-        amrex::average_down(Divu_fine, Divu_crse, fine_lev.geom, crse_lev.geom,
-                             0, 1, crse_lev.fine_ratio);
+	crse_lev.average_down(Divu_fine, Divu_crse, 0, 1);
       }
 
       // compute Sbar and subtract from S
@@ -2666,8 +2659,7 @@ PeleLM::post_init_press (Real&        dt_init,
         MultiFab& Divu_crse = crse_lev.get_old_data(Divu_Type);
         MultiFab& Divu_fine = fine_lev.get_old_data(Divu_Type);
 
-        amrex::average_down(Divu_fine, Divu_crse, fine_lev.geom, crse_lev.geom,
-                             0, 1, crse_lev.fine_ratio);
+	crse_lev.average_down(Divu_fine, Divu_crse, 0, 1);
       }
 
       // compute Sbar and subtract from S
@@ -2782,8 +2774,7 @@ PeleLM::avgDown ()
    MultiFab&       S_crse    = get_new_data(State_Type);
    MultiFab&       S_fine    = fine_lev.get_new_data(State_Type);
 
-   amrex::average_down(S_fine, S_crse, fine_lev.geom, geom,
-                       0, S_crse.nComp(), fine_ratio);
+   average_down(S_fine, S_crse, 0, S_crse.nComp());
    //
    // Fill rho_ctime at the current and finer levels with the correct data.
    //
@@ -2824,8 +2815,7 @@ PeleLM::avgDown ()
      MultiFab& Divu_crse = get_new_data(Divu_Type);
      MultiFab& Divu_fine = fine_lev.get_new_data(Divu_Type);
 
-     amrex::average_down(Divu_fine, Divu_crse, fine_lev.geom, geom,
-                          0, Divu_crse.nComp(), fine_ratio);
+     average_down(Divu_fine, Divu_crse, 0, Divu_crse.nComp());
    }
 
    get_new_data(Dsdt_Type).setVal(0.0);
@@ -4758,7 +4748,7 @@ PeleLM::advance (Real time,
                  int  iteration,
                  int  ncycle)
 {
-
+  BL_PROFILE("PLM::advance()");
   BL_PROFILE_VAR("PeleLM::advance::mac", PLM_MAC);
   if (closed_chamber == 1 && level == 0)
   {
@@ -5595,7 +5585,7 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
                            int             nCompF,
                            bool            use_stiff_solver)
 {
-  BL_PROFILE("HT:::advance_chemistry()");
+  BL_PROFILE("PLM::advance_chemistry()");
   
   const Real strt_time = ParallelDescriptor::second();
 
@@ -5624,7 +5614,7 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
 
     BoxArray  ba           = mf_new.boxArray();
     DistributionMapping dm = mf_new.DistributionMap();
-#ifndef USE_CUDA_SUNDIALS_PP
+#ifndef AMREX_USE_CUDA
     //
     // Chop the grids to level out the chemistry work when on the CPU.
     // We want enough grids so that KNAPSACK works well,
@@ -5694,127 +5684,65 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
 #endif
     for (MFIter Smfi(STemp,amrex::TilingIfNotGPU()); Smfi.isValid(); ++Smfi)
     {
-        const Box&  bx       = Smfi.tilebox();
+        const Box& bx       = Smfi.tilebox();
         auto const& rhoY     = STemp.array(Smfi);
+        auto const& rhoH     = STemp.array(Smfi,NUM_SPECIES);
+        auto const& temp     = STemp.array(Smfi,NUM_SPECIES+1);
         auto const& fcl      = fcnCntTemp.array(Smfi);
-        auto const& frcing   = FTemp.array(Smfi);
+        auto const& frc_rhoY = FTemp.array(Smfi);
+        auto const& frc_rhoH = FTemp.array(Smfi, NUM_SPECIES);
         auto const& mask     = react_mask.array(Smfi);
-
-        const auto len       = amrex::length(bx);
-        const auto lo        = amrex::lbound(bx);
-        const auto hi        = amrex::ubound(bx);
-
         int ncells           = bx.numPts();
 
-#ifdef USE_CUDA_SUNDIALS_PP
+        // Convert MKS -> CGS
+        ParallelFor(bx, [rhoY,rhoH, frc_rhoY, frc_rhoH]
+        AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+        {
+           for (int n = 0; n < NUM_SPECIES; n++) {
+              rhoY(i,j,k,n) *= 1.0e-3;
+              frc_rhoY(i,j,k,n) *= 1.0e-3;
+           }
+           rhoH(i,j,k) *= 10.0;
+           frc_rhoH(i,j,k) *= 10.0;
+        });
+
+#ifdef AMREX_USE_CUDA
         const auto ec           = Gpu::ExecutionConfig(ncells);
         cudaError_t cuda_status = cudaSuccess;
 #endif
 
-        /* ALLOCS */
-        BL_PROFILE_VAR("advance_chemistry::Allocs", Allocs);
-        // rhoY,T
-        amrex::Real *tmp_vect; 
-        // rhoY_src_ext
-        amrex::Real *tmp_src_vect;
-        // rhoE/rhoH
-        amrex::Real *tmp_vect_energy;
-        amrex::Real *tmp_src_vect_energy;
-        int         *tmp_fctCn, *tmp_mask;
-#ifdef USE_CUDA_SUNDIALS_PP
-//        The_Arena()->alloc(tmp_vect, (NUM_SPECIES+1)*ncells*sizeof(amrex::Real));
-        cudaMallocManaged(&tmp_vect,            (NUM_SPECIES+1)*ncells*sizeof(amrex::Real));
-        cudaMallocManaged(&tmp_src_vect,        (NUM_SPECIES)*ncells*sizeof(amrex::Real));
-        cudaMallocManaged(&tmp_vect_energy,     ncells*sizeof(amrex::Real));
-        cudaMallocManaged(&tmp_src_vect_energy, ncells*sizeof(amrex::Real));
-        cudaMallocManaged(&tmp_fctCn,           ncells*sizeof(int));
-        cudaMallocManaged(&tmp_mask,            ncells*sizeof(int));
-#else
-        tmp_vect            =  new amrex::Real[ncells*(NUM_SPECIES+1)];
-        tmp_src_vect        =  new amrex::Real[ncells*(NUM_SPECIES)];
-        tmp_vect_energy     =  new amrex::Real[ncells];
-        tmp_src_vect_energy =  new amrex::Real[ncells];
-        tmp_fctCn           =  new int[ncells];
-        tmp_mask            =  new int[ncells];
-#endif
-        BL_PROFILE_VAR_STOP(Allocs);
-
-        /* Packing of data */
-        BL_PROFILE_VAR("Array_flatten()", ARRAY_FLATTEN);
-        amrex::ParallelFor(bx,
-        [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
-        {
-           int icell = (k-lo.z)*len.x*len.y + (j-lo.y)*len.x + (i-lo.x);
-           gpu_flatten(icell, i, j, k, rhoY, frcing, mask,
-                       tmp_vect, tmp_src_vect, tmp_vect_energy, tmp_src_vect_energy,
-                       tmp_fctCn, tmp_mask);  
-        });
-        BL_PROFILE_VAR_STOP(ARRAY_FLATTEN);
-
-
-        BL_PROFILE_VAR("React()", ReactInLoop);  
+        BL_PROFILE_VAR("React()", ReactInLoop);
         Real dt_incr     = dt;
         Real time_chem   = 0;
-        int reactor_type = 2;
+#ifndef AMREX_USE_CUDA
         /* Solve */
-#ifndef USE_CUDA_SUNDIALS_PP
-        Real p_local   = 1.0;
-        for (int i = 0; i < ncells; i++) {
-            if (tmp_mask[i] != -1 ){   // Regular & cut cells
-                tmp_fctCn[i] = react(tmp_vect + i*(NUM_SPECIES+1), tmp_src_vect + i*NUM_SPECIES,
-                                   tmp_vect_energy + i, tmp_src_vect_energy + i,
-#ifndef USE_SUNDIALS_PP
-                                   &p_local,
-#endif
-                                   dt_incr, time_chem);
-                dt_incr   = dt;
-                time_chem = 0;
-            } else {                   // Masked (covered) cells 
-                tmp_fctCn[i] = 0.0;
-            }
-        }
+        int tmp_fctCn = react(bx, rhoY, frc_rhoY, temp, rhoH, frc_rhoH, fcl, mask, dt_incr, time_chem);
+        dt_incr   = dt;
+        time_chem = 0;
 #else
-        tmp_fctCn[0] = react(tmp_vect, tmp_src_vect,
-                      tmp_vect_energy, tmp_src_vect_energy,
-                      dt_incr, time_chem,
-                      reactor_type, ncells, 
-                      amrex::Gpu::gpuStream());
+        int reactor_type = 2;
+        int tmp_fctCn = react(bx, rhoY, frc_rhoY, temp, rhoH, frc_rhoH, fcl, mask, 
+                              dt_incr, time_chem, reactor_type, amrex::Gpu::gpuStream());
         dt_incr = dt;
+        time_chem = 0;
 #endif
         BL_PROFILE_VAR_STOP(ReactInLoop);
 
-
-        /* Unpacking of data */
-        BL_PROFILE_VAR_START(ARRAY_FLATTEN);
-        amrex::ParallelFor(bx,
-        [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
+        // Convert CGS -> MKS
+        ParallelFor(bx, [rhoY,rhoH, frc_rhoY, frc_rhoH]
+        AMREX_GPU_DEVICE (int i, int j, int k) noexcept 
         {
-           int icell = (k-lo.z)*len.x*len.y + (j-lo.y)*len.x + (i-lo.x);
-           gpu_unflatten(icell, i, j, k, rhoY, fcl,
-                         tmp_vect, tmp_vect_energy, tmp_fctCn);  
+           for (int n = 0; n < NUM_SPECIES; n++) {
+              rhoY(i,j,k,n) *= 1.0e3;
+              frc_rhoY(i,j,k,n) *= 1.0e3;
+           }
+           rhoH(i,j,k) *= 0.1;
+           frc_rhoH(i,j,k) *= 0.1;
         });
-        BL_PROFILE_VAR_STOP(ARRAY_FLATTEN);
 
-        /* Deallocate */
-        BL_PROFILE_VAR_START(Allocs);
-#ifdef USE_CUDA_SUNDIALS_PP 
+#ifdef AMREX_USE_CUDA
         cuda_status = cudaStreamSynchronize(amrex::Gpu::gpuStream());
-
-        cudaFree(tmp_vect);
-        cudaFree(tmp_src_vect);
-        cudaFree(tmp_vect_energy);
-        cudaFree(tmp_src_vect_energy);
-        cudaFree(tmp_fctCn);
-	cudaFree(tmp_mask);
-#else
-        delete(tmp_vect);
-        delete(tmp_src_vect);
-        delete(tmp_vect_energy);
-        delete(tmp_src_vect_energy);
-        delete(tmp_fctCn);
-	delete(tmp_mask);
 #endif
-        BL_PROFILE_VAR_STOP(Allocs);
 
     }
 
@@ -5827,13 +5755,23 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
     //
     // Set React_new (I_R).
     //
-    MultiFab::Copy(React_new, mf_old, first_spec, 0, NUM_SPECIES, 0);
-
-    MultiFab::Subtract(React_new, mf_new, first_spec, 0, NUM_SPECIES, 0);
-
-    React_new.mult(-1/dt);
-
-    MultiFab::Subtract(React_new, Force, 0, 0, NUM_SPECIES, 0);
+#ifdef _OPENMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+    for (MFIter mfi(mf_old,amrex::TilingIfNotGPU()); mfi.isValid(); ++mfi)
+    {
+        const Box& bx         = mfi.tilebox();
+        auto const& rhoY_o    = mf_old.array(mfi,first_spec);
+        auto const& rhoY_n    = mf_new.array(mfi,first_spec);
+        auto const& frc_rhoY  = Force.array(mfi);
+        auto const& rhoYdot   = React_new.array(mfi);
+        Real dt_inv = 1.0/dt;
+        ParallelFor(bx, NUM_SPECIES, [rhoY_o, rhoY_n, frc_rhoY, rhoYdot, dt_inv]
+        AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
+        {
+           rhoYdot(i,j,k,n) = - ( rhoY_o(i,j,k,n) - rhoY_n(i,j,k,n) ) * dt_inv - frc_rhoY(i,j,k,n);
+        });
+    }
 
     if (do_diag)
     {
@@ -5850,8 +5788,7 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
     if (do_avg_down_chem)
     {
       MultiFab& fine_React = getLevel(level+1).get_old_data(RhoYdot_Type);
-      amrex::average_down(fine_React, React_new, getLevel(level+1).geom, geom,
-                           0, NUM_SPECIES, fine_ratio);
+      average_down(fine_React, React_new, 0, NUM_SPECIES);
     }
     //
     // Ensure consistent grow cells.
@@ -6201,7 +6138,7 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
          }
 
          // Advect RhoY
-         state_bc = fetchBCArray(State_Type,bx,first_spec,NUM_SPECIES+1);
+         state_bc = fetchBCArray(State_Type,bx,first_spec,NUM_SPECIES);
 
          godunov->AdvectScalars(bx, dx, dt, 
                                 D_DECL(  area[0][S_mfi],  area[1][S_mfi],  area[2][S_mfi]),
@@ -7018,8 +6955,7 @@ PeleLM::mac_sync ()
         MultiFab& S_crse_loc = crse_level.get_new_data(State_Type);
         MultiFab& S_fine_loc = fine_level.get_new_data(State_Type);
 
-        amrex::average_down(S_fine_loc, S_crse_loc, fine_level.geom, crse_level.geom,
-                            RhoRT, 1, crse_level.fine_ratio);
+	crse_level.average_down(S_fine_loc, S_crse_loc, RhoRT, 1);
       }
       PeleLM& fine_level = getLevel(level+1);
       showMF("DBGSync",fine_level.get_new_data(State_Type),"sdc_SnewFine_EndSyncIter",level+1,mac_sync_iter,parent->levelSteps(level));
@@ -7187,8 +7123,7 @@ PeleLM::mac_sync ()
      MultiFab& S_crse_loc = crse_level.get_new_data(State_Type);
      MultiFab& S_fine_loc = fine_level.get_new_data(State_Type);
 
-     amrex::average_down(S_fine_loc, S_crse_loc, fine_level.geom, crse_level.geom,
-                         RhoRT, 1, crse_level.fine_ratio);
+     crse_level.average_down(S_fine_loc, S_crse_loc, RhoRT, 1);
    }
    BL_PROFILE_VAR_STOP(PLM_SSYNC);
 
@@ -8060,7 +7995,7 @@ PeleLM::getDiffusivity_Wbar (MultiFab*  betaWbar[AMREX_SPACEDIM],
 #endif
 
 void
-PeleLM::zeroBoundaryVisc (MultiFab*  beta[BL_SPACEDIM],
+PeleLM::zeroBoundaryVisc (MultiFab*  beta[AMREX_SPACEDIM],
                           const Real time,
                           const int  state_comp,
                           const int  dst_comp,
@@ -8068,24 +8003,24 @@ PeleLM::zeroBoundaryVisc (MultiFab*  beta[BL_SPACEDIM],
 {
   BL_ASSERT(state_comp > Density);
 
-  const int isrz = (int) geom.IsRZ();
-  for (int dir = 0; dir < BL_SPACEDIM; dir++)
+  const auto geomdata = geom.data();
+
+  for (int dir = 0; dir < AMREX_SPACEDIM; dir++)
   {
 #ifdef _OPENMP
-#pragma omp parallel
+#pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
     {
-      Box edom = amrex::surroundingNodes(geom.Domain(),dir);
-  
-      for (MFIter mfi(*(beta[dir]),true); mfi.isValid(); ++mfi)
+      const Box edom = amrex::surroundingNodes(geom.Domain(),dir);
+      for (MFIter mfi(*(beta[dir]),TilingIfNotGPU()); mfi.isValid(); ++mfi)
       {
-        FArrayBox& beta_fab = (*(beta[dir]))[mfi];
         const Box& ebox     = amrex::surroundingNodes(mfi.growntilebox(),dir);
-        zero_visc(BL_TO_FORTRAN_N_ANYD(beta_fab,dst_comp),
-                  BL_TO_FORTRAN_BOX(ebox),
-                  BL_TO_FORTRAN_BOX(edom),
-                  geom.CellSize(), geom.ProbLo(), phys_bc.vect(),
-                  &dir, &isrz, &state_comp, &ncomp);
+        auto const& beta_arr = beta[dir]->array(mfi,dst_comp);
+        amrex::ParallelFor(ebox, [beta_arr,dir,geomdata,edom,state_comp,ncomp]
+        AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+        {
+          zero_visc(i, j, k, beta_arr, geomdata, edom, dir, state_comp, ncomp);
+        });
       }
     }
   }
@@ -8960,23 +8895,23 @@ PeleLM::activeControl(const int  step,
                         const amrex::Real* dx = geomdata.CellSize();
                         Real coor[3] = {0.0};
                         for       (int k = lo.z; k <= hi.z; ++k) {
-                           for    (int j = lo.y; j <= hi.y; ++j) {
-                              for (int i = lo.x; i <= hi.x; ++i) {
-                                 Real lcl_pos = 1.e37_rt;
-                                 if ( T_arr(i,j,k) > AC_Tcross ) {
-                                    int idx[AMREX_SPACEDIM] = {D_DECL(i,j,k)};
-                                    idx[AC_FlameDir] -= 1;
-                                    if ( T_arr(idx[0],idx[1],idx[2]) < AC_Tcross ) {
-                                       D_TERM(coor[0] = prob_lo[0] + (i+0.5)*dx[0];,
-                                              coor[1] = prob_lo[1] + (j+0.5)*dx[1];,
-                                              coor[2] = prob_lo[2] + (k+0.5)*dx[2];);
-                                       Real slope = ((T_arr(i,j,k) ) - T_arr(idx[0],idx[1],idx[2]))/dx[AC_FlameDir];
-                                       lcl_pos = coor[AC_FlameDir] - dx[AC_FlameDir] + ( AC_Tcross - T_arr(idx[0],idx[1],idx[2]) ) / slope;
+                            for    (int j = lo.y; j <= hi.y; ++j) {
+                                for (int i = lo.x; i <= hi.x; ++i) {
+                                    Real lcl_pos = 1.e37_rt;
+                                    if ( T_arr(i,j,k) > AC_Tcross ) {
+                                        int idx[3] = {i,j,k};
+                                        idx[AC_FlameDir] -= 1;
+                                        if ( T_arr(idx[0],idx[1],idx[2]) < AC_Tcross ) {
+                                            D_TERM(coor[0] = prob_lo[0] + (i+0.5)*dx[0];,
+                                                   coor[1] = prob_lo[1] + (j+0.5)*dx[1];,
+                                                   coor[2] = prob_lo[2] + (k+0.5)*dx[2];);
+                                            Real slope = ((T_arr(i,j,k) ) - T_arr(idx[0],idx[1],idx[2]))/dx[AC_FlameDir];
+                                            lcl_pos = coor[AC_FlameDir] - dx[AC_FlameDir] + ( AC_Tcross - T_arr(idx[0],idx[1],idx[2]) ) / slope;
+                                        }
                                     }
-                                 }
-                                 tmp_pos = amrex::min(tmp_pos,lcl_pos);
-                              }
-                           }
+                                    tmp_pos = amrex::min(tmp_pos,lcl_pos);
+                                }
+                            }
                         }
                         return tmp_pos;
                      });
@@ -9042,7 +8977,9 @@ PeleLM::activeControl(const int  step,
 
    //Real zbase_control += ctrl_V_in * dt + ctrl_dV * dt * dt;
    ctrl_V_in_old = ctrl_V_in;
-   ctrl_V_in += dt * ctrl_dV;
+   if ( dt > 0.0 ) {
+      ctrl_V_in += dt * ctrl_dV;
+   }
 
    Real slocal = 0.5 * (ctrl_V_in_old + ctrl_V_in) - (coft - ctrl_coftOld) / ( dt * ctrl_scale );
 
