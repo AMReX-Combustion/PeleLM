@@ -1,7 +1,7 @@
 TOP = ../../../../
 AMREX_HOME ?= ${TOP}/amrex
-IAMR_HOME ?= ${TOP}/IAMR
-PELELM_HOME ?= ${TOP}/PeleLM
+IAMR_HOME ?= ${TOP}/IAMR_dev
+PELELM_HOME ?= ${TOP}/PeleLM_dev
 
 #
 # Build configuration
@@ -15,7 +15,7 @@ USE_OMP         = FALSE
 PRECISION       = DOUBLE
 VERBOSE         = FALSE
 
-USE_EB = TRUE
+#USE_EB = TRUE
 
 TINY_PROFILE = FALSE
 #USE_WBAR = TRUE
@@ -23,14 +23,14 @@ TINY_PROFILE = FALSE
 DEFINES+=-DALWAYS_NEW_J
 
 #######################
-USE_SUNDIALS_3x4x = FALSE
-
-# Enable ht.velocity_plotfile option
-#USE_VELOCITY    = FALSE
-
-# Enable the restart-from-plotfile option (ht.pltfile)
-#  ... default this off because when on, code expects it to be used
-# USE_NEWMECH    = FALSE
+USE_SUNDIALS_PP = TRUE
+ifeq ($(USE_SUNDIALS_PP), TRUE)
+  # use KLU sparse features -- only useful if CVODE is used on CPU
+  USE_KLU_PP = FALSE
+  # Activates GPU version
+  USE_CUDA_SUNDIALS_PP = FALSE
+endif
+#######################
 
 # Choose model (from list below), and pmf file
 Chemistry_Model = air
@@ -48,7 +48,7 @@ Transport_dir := Constant
 Blocs   := .
 
 CEXE_sources +=
-F90EXE_sources += Prob_nd.F90 probdata.F90
+F90EXE_sources +=
 CEXE_headers += 
 FEXE_headers += 
 
