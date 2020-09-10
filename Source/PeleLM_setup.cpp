@@ -59,6 +59,7 @@ using namespace amrex;
 
 static Box the_same_box (const Box& b)    { return b;                 }
 static Box grow_box_by_one (const Box& b) { return amrex::grow(b,1); }
+static Box grow_box_by_two (const Box& b) { return amrex::grow(b,2); }
 static Box the_nodes (const Box& b) { return amrex::surroundingNodes(b); }
 
 
@@ -736,7 +737,7 @@ PeleLM::variableSetUp ()
   //
   // Magnitude of vorticity.
   //
-  derive_lst.add("mag_vort",IndexType::TheCellType(),1,pelelm_mgvort,grow_box_by_one);
+  derive_lst.add("mag_vort",IndexType::TheCellType(),1,pelelm_mgvort,grow_box_by_two);
   derive_lst.addComponent("mag_vort",desc_lst,State_Type,Xvel,AMREX_SPACEDIM);
 
 #ifdef DO_LMC_FORCE
