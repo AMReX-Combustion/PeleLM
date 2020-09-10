@@ -1,5 +1,5 @@
 # ----------------  PROBLEM DEPENDENT INPUTS
-geometry.is_periodic = 1 0 1
+geometry.is_periodic = 1 1 1
 
 geometry.coord_sys = 0  # 0 => cart, 1 => RZ
 
@@ -14,8 +14,8 @@ geometry.prob_hi   =  0.03125 0.5  0.03125
 peleLM.lo_bc = "Interior"  "Inflow" "Interior"
 peleLM.hi_bc = "Interior"  "Outflow" "Interior"
 
-#peleLM.lo_bc = "Interior"  "Interior" "Interior"
-#peleLM.hi_bc = "Interior"  "Interior" "Interior"
+peleLM.lo_bc = "Interior"  "Interior" "Interior"
+peleLM.hi_bc = "Interior"  "Interior" "Interior"
 
 
 #----------------------------TOP LEVEL INPUTS----------------------
@@ -25,8 +25,10 @@ stop_time = 10000.04
 #-------------------------AMR INPUTS----------------------------
 amr.n_cell    = 512 4096 512
 
+amr.n_cell    = 128 1024 128
+
 amr.v=1
-amr.max_level =  0           # maximum level number allowed
+amr.max_level =  1           # maximum level number allowed
 amr.ref_ratio       = 2 2 2 2 2 2 2 # refinement ratio
 amr.regrid_int      = 2       # how often to regrid
 amr.n_error_buf     = 4 4 4 4 4 4  # number of buffer cells in error est
@@ -119,7 +121,7 @@ proj.divu_minus_s_factor = 0.
 proj.proj_2 = 1
 
 # ------------------  INPUTS TO MACPROJ CLASS -------------------
-mac.mac_tol        = 1.0e-2 # tolerence for mac projections
+mac.mac_tol        = 1.0e-12 # tolerence for mac projections
 mac.mac_sync_tol   = 1.0e-12  # tolerence for mac SYNC projection
 mac.mac_abs_tol    = 1.0e-12
 mac.use_cg_solve   = 0
@@ -164,7 +166,7 @@ cg.cg_solver=1
 #
 fab.format = NATIVE
 
-fabarray.mfiter_tile_size = 256 256 256 
+fabarray.mfiter_tile_size =  1024 1024 1024
 
 # Embedded Boundary options
 #eb2.geom_type    =  all_regular
@@ -172,12 +174,14 @@ fabarray.mfiter_tile_size = 256 256 256
 # Add cylinders
 eb2.geom_type         =   "Inflow-Pipe"
 pipe.internal_flow  =   false
-pipe.radius1        =   0.009
-pipe.height1        =   0.004
+#pipe.radius1        =   0.009
+pipe.radius1        =   0.01
+pipe.height1        =   0.05
 pipe.direction1     =   1
-pipe.center1        =   0.0 0.0 .0
-pipe.radius2        =   0.0088
-pipe.height2        =   0.004
+pipe.center1        =   0.0 0.25 .0
+#pipe.radius2        =   0.0088
+pipe.radius2        =   0.005
+pipe.height2        =   0.05
 pipe.direction2     =   1
 pipe.center2        =   0.0 0.0 .0
 
@@ -186,3 +190,7 @@ pipe.center2        =   0.0 0.0 .0
 #ns.init_iter      = 0
 
 #amr.restart = chk00000 
+#
+amrex.fpe_trap_invalid=1
+amrex.fpe_trap_overflow=1
+amrex.fpe_trap_zero=1

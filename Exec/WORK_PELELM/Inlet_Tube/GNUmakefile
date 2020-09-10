@@ -8,8 +8,8 @@ PELELM_HOME ?= ${TOP}/PeleLM
 #
 
 DIM             = 3
-COMP            = intel
-DEBUG           = FALSE
+COMP            = gcc
+DEBUG           = TRUE
 USE_MPI         = TRUE
 USE_OMP         = FALSE
 PRECISION       = DOUBLE
