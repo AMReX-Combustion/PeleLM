@@ -474,7 +474,7 @@ getTransportCoeffUnityLe(int i, int j, int k,
 
    amrex::Real cpmix;
    EOS::TY2Cp(T(i,j,k), y, cpmix);
-   lambda(i,j,k) = mu_cgs * 1.0e-1_rt * PrInv / cpmix;   // Constant Prandtl number
+   lambda(i,j,k) = mu_cgs * 1.0e-1_rt * PrInv * cpmix;   // Constant Prandtl number
 }
 
 AMREX_GPU_HOST_DEVICE

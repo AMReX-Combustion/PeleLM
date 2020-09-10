@@ -1431,7 +1431,7 @@ PeleLM::set_typical_values(bool is_restart)
       }
       typical_values_chem[NUM_SPECIES] = typical_values[Temp];
       SetTypValsODE(typical_values_chem);
-#ifndef USE_CUDA_SUNDIALS_PP
+#ifndef AMREX_USE_CUDA
       ReSetTolODE();
 #endif  
       }
@@ -2065,6 +2065,8 @@ PeleLM::init ()
 void
 PeleLM::post_timestep (int crse_iteration)
 {
+  BL_PROFILE("PLM::post_timestep()");
+
   NavierStokesBase::post_timestep(crse_iteration);
 
   if (plot_reactions && level == 0)
@@ -2086,8 +2088,7 @@ PeleLM::post_timestep (int crse_iteration)
       MultiFab& Ydot_crse = *(clev.auxDiag["REACTIONS"]);
       MultiFab& Ydot_fine = *(flev.auxDiag["REACTIONS"]);
 
-      amrex::average_down(Ydot_fine, Ydot_crse, flev.geom, clev.geom,
-                           0, Ndiag, parent->refRatio(i-1));
+      clev.average_down(Ydot_fine, Ydot_crse, 0, Ndiag);
     }
   }
 }
@@ -2256,8 +2257,7 @@ PeleLM::post_init (Real stop_time)
       MultiFab& Divu_crse = crse_lev.get_new_data(Divu_Type);
       MultiFab& Divu_fine = fine_lev.get_new_data(Divu_Type);
 
-      amrex::average_down(Divu_fine, Divu_crse, fine_lev.geom, crse_lev.geom,
-                           0, 1, crse_lev.fine_ratio);
+      crse_lev.average_down(Divu_fine, Divu_crse, 0, 1);
     }
 
     // compute number of cells
@@ -2352,8 +2352,7 @@ PeleLM::post_init (Real stop_time)
           MultiFab& Divu_crse = crse_lev.get_new_data(Divu_Type);
           MultiFab& Divu_fine = fine_lev.get_new_data(Divu_Type);
 
-          amrex::average_down(Divu_fine, Divu_crse, fine_lev.geom, crse_lev.geom,
-                               0, 1, crse_lev.fine_ratio);
+	  crse_lev.average_down(Divu_fine, Divu_crse, 0, 1);
         }
       }
       //
@@ -2404,8 +2403,7 @@ PeleLM::post_init (Real stop_time)
         MultiFab&       S_fine  = getLevel(k+1).get_new_data(State_Type);
         MultiFab&       S_crse  = getLevel(k).get_new_data(State_Type);
 
-        amrex::average_down(S_fine, S_crse, fine_lev.geom, crse_lev.geom,
-                             Xvel, AMREX_SPACEDIM, getLevel(k).fine_ratio);
+	crse_lev.average_down(S_fine, S_crse, Xvel, AMREX_SPACEDIM);
       }
     }
     //
@@ -2637,8 +2635,7 @@ PeleLM::post_init_press (Real&        dt_init,
         MultiFab& Divu_crse = crse_lev.get_new_data(Divu_Type);
         MultiFab& Divu_fine = fine_lev.get_new_data(Divu_Type);
 
-        amrex::average_down(Divu_fine, Divu_crse, fine_lev.geom, crse_lev.geom,
-                             0, 1, crse_lev.fine_ratio);
+	crse_lev.average_down(Divu_fine, Divu_crse, 0, 1);
       }
 
       // compute Sbar and subtract from S
@@ -2662,8 +2659,7 @@ PeleLM::post_init_press (Real&        dt_init,
         MultiFab& Divu_crse = crse_lev.get_old_data(Divu_Type);
         MultiFab& Divu_fine = fine_lev.get_old_data(Divu_Type);
 
-        amrex::average_down(Divu_fine, Divu_crse, fine_lev.geom, crse_lev.geom,
-                             0, 1, crse_lev.fine_ratio);
+	crse_lev.average_down(Divu_fine, Divu_crse, 0, 1);
       }
 
       // compute Sbar and subtract from S
@@ -2778,8 +2774,7 @@ PeleLM::avgDown ()
    MultiFab&       S_crse    = get_new_data(State_Type);
    MultiFab&       S_fine    = fine_lev.get_new_data(State_Type);
 
-   amrex::average_down(S_fine, S_crse, fine_lev.geom, geom,
-                       0, S_crse.nComp(), fine_ratio);
+   average_down(S_fine, S_crse, 0, S_crse.nComp());
    //
    // Fill rho_ctime at the current and finer levels with the correct data.
    //
@@ -2820,8 +2815,7 @@ PeleLM::avgDown ()
      MultiFab& Divu_crse = get_new_data(Divu_Type);
      MultiFab& Divu_fine = fine_lev.get_new_data(Divu_Type);
 
-     amrex::average_down(Divu_fine, Divu_crse, fine_lev.geom, geom,
-                          0, Divu_crse.nComp(), fine_ratio);
+     average_down(Divu_fine, Divu_crse, 0, Divu_crse.nComp());
    }
 
    get_new_data(Dsdt_Type).setVal(0.0);
@@ -4754,7 +4748,7 @@ PeleLM::advance (Real time,
                  int  iteration,
                  int  ncycle)
 {
-
+  BL_PROFILE("PLM::advance()");
   BL_PROFILE_VAR("PeleLM::advance::mac", PLM_MAC);
   if (closed_chamber == 1 && level == 0)
   {
@@ -5591,7 +5585,7 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
                            int             nCompF,
                            bool            use_stiff_solver)
 {
-  BL_PROFILE("HT:::advance_chemistry()");
+  BL_PROFILE("PLM::advance_chemistry()");
   
   const Real strt_time = ParallelDescriptor::second();
 
@@ -5620,7 +5614,7 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
 
     BoxArray  ba           = mf_new.boxArray();
     DistributionMapping dm = mf_new.DistributionMap();
-#ifndef USE_CUDA_SUNDIALS_PP
+#ifndef AMREX_USE_CUDA
     //
     // Chop the grids to level out the chemistry work when on the CPU.
     // We want enough grids so that KNAPSACK works well,
@@ -5712,7 +5706,7 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
            frc_rhoH(i,j,k) *= 10.0;
         });
 
-#ifdef USE_CUDA_SUNDIALS_PP
+#ifdef AMREX_USE_CUDA
         const auto ec           = Gpu::ExecutionConfig(ncells);
         cudaError_t cuda_status = cudaSuccess;
 #endif
@@ -5720,7 +5714,7 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
         BL_PROFILE_VAR("React()", ReactInLoop);
         Real dt_incr     = dt;
         Real time_chem   = 0;
-#ifndef USE_CUDA_SUNDIALS_PP
+#ifndef AMREX_USE_CUDA
         /* Solve */
         int tmp_fctCn = react(bx, rhoY, frc_rhoY, temp, rhoH, frc_rhoH, fcl, mask, dt_incr, time_chem);
         dt_incr   = dt;
@@ -5746,7 +5740,7 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
            frc_rhoH(i,j,k) *= 0.1;
         });
 
-#ifdef USE_CUDA_SUNDIALS_PP
+#ifdef AMREX_USE_CUDA
         cuda_status = cudaStreamSynchronize(amrex::Gpu::gpuStream());
 #endif
 
@@ -5794,8 +5788,7 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
     if (do_avg_down_chem)
     {
       MultiFab& fine_React = getLevel(level+1).get_old_data(RhoYdot_Type);
-      amrex::average_down(fine_React, React_new, getLevel(level+1).geom, geom,
-                           0, NUM_SPECIES, fine_ratio);
+      average_down(fine_React, React_new, 0, NUM_SPECIES);
     }
     //
     // Ensure consistent grow cells.
@@ -6962,8 +6955,7 @@ PeleLM::mac_sync ()
         MultiFab& S_crse_loc = crse_level.get_new_data(State_Type);
         MultiFab& S_fine_loc = fine_level.get_new_data(State_Type);
 
-        amrex::average_down(S_fine_loc, S_crse_loc, fine_level.geom, crse_level.geom,
-                            RhoRT, 1, crse_level.fine_ratio);
+	crse_level.average_down(S_fine_loc, S_crse_loc, RhoRT, 1);
       }
       PeleLM& fine_level = getLevel(level+1);
       showMF("DBGSync",fine_level.get_new_data(State_Type),"sdc_SnewFine_EndSyncIter",level+1,mac_sync_iter,parent->levelSteps(level));
@@ -7131,8 +7123,7 @@ PeleLM::mac_sync ()
      MultiFab& S_crse_loc = crse_level.get_new_data(State_Type);
      MultiFab& S_fine_loc = fine_level.get_new_data(State_Type);
 
-     amrex::average_down(S_fine_loc, S_crse_loc, fine_level.geom, crse_level.geom,
-                         RhoRT, 1, crse_level.fine_ratio);
+     crse_level.average_down(S_fine_loc, S_crse_loc, RhoRT, 1);
    }
    BL_PROFILE_VAR_STOP(PLM_SSYNC);
 
@@ -8986,7 +8977,9 @@ PeleLM::activeControl(const int  step,
 
    //Real zbase_control += ctrl_V_in * dt + ctrl_dV * dt * dt;
    ctrl_V_in_old = ctrl_V_in;
-   ctrl_V_in += dt * ctrl_dV;
+   if ( dt > 0.0 ) {
+      ctrl_V_in += dt * ctrl_dV;
+   }
 
    Real slocal = 0.5 * (ctrl_V_in_old + ctrl_V_in) - (coft - ctrl_coftOld) / ( dt * ctrl_scale );
 
