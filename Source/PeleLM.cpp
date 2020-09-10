@@ -1300,7 +1300,7 @@ PeleLM::PeleLM (Amr&            papa,
 #ifdef AMREX_PARTICLES
   const int NUM_GROW = 2; // mr: not sure if that's right here, check!
   Sborder.define(grids,dmap,NUM_STATE,NUM_GROW,MFInfo(),Factory());
-  SpraySourceTest.define(grids,dmap,NUM_STATE,3,MFInfo(),Factory());
+  //SpraySourceTest.define(grids,dmap,NUM_STATE,3,MFInfo(),Factory());
 #endif
 
 }
@@ -5386,7 +5386,9 @@ PeleLM::set_spray_grid_info(int& amr_iteration,
   //      We define ghost cells at the coarser level to cover all iterations so
   //      we can't reduce this number as amr_iteration increases.
 
-  ghost_width = amr_ncycle + stencil_deposition_width;
+  ghost_width = 0;
+  if (parent->subCycle() && parent->maxLevel() > 0)
+    ghost_width += amr_ncycle + stencil_deposition_width;
 
   // *** where_width ***  is used
   //   *) to set how many cells the Where call in moveKickDrift tests = max of
@@ -5396,7 +5398,8 @@ PeleLM::set_spray_grid_info(int& amr_iteration,
   //     the number of cells out that a cell initially in the fine grid may
   //     have moved and we don't want to just lose it (we will redistribute it when we're done}
 
-  where_width =  std::max(ghost_width + (1-amr_iteration) - 1, amr_iteration);
+  where_width =
+    amrex::max(ghost_width + (1 - amr_iteration) - 1, amr_iteration);
 
   // *** spray_n_grow *** is used
   //   *) to determine how many ghost cells we need to fill in the MultiFab from
@@ -5405,8 +5408,7 @@ PeleLM::set_spray_grid_info(int& amr_iteration,
   //   *) the (1-iteration) arises because the ghost particles are created on the coarser
   //      level which means in iteration 2 the ghost particles may have moved 1 additional cell along
 
-  spray_n_grow = ghost_width + (1-amr_iteration) + (amr_iteration-1) +
-                     stencil_interpolation_width ;
+  spray_n_grow = ghost_width + stencil_interpolation_width;
 
   // *** tmp_src_width ***  is used
   //   *) to set how many ghost cells are needed in the tmp_src_ptr MultiFab that we
@@ -5867,6 +5869,26 @@ PeleLM::advance (Real time,
 
       int finest_level = parent->finestLevel();
 
+
+      //
+      // Check if I need to insert new particles
+      //
+      amrex::Real cur_time = state[State_Type].curTime();
+      int nstep = parent->levelSteps(0);
+
+      bool injectParts = theSprayPC()->
+        injectParticles(cur_time, dt, nstep, level, finest_level);
+      bool insertParts = theSprayPC()->
+        insertParticles(cur_time, dt, nstep, level, finest_level);
+
+      //
+      // Only redistribute if we injected or inserted particles
+      //
+      if (injectParts || insertParts) {
+	       // TODO: Determine the number of ghost cells needed here
+	       particle_redistribute(level);
+      }
+
       //int nGrow = 1;
       //particleRedistribute(level, nGrow, 0);
 
@@ -6112,7 +6134,6 @@ PeleLM::advance (Real time,
 
     showMF("mysdc",get_new_data(State_Type),"snew_after_scalar_adv_upd_rho",level,sdc_iter,parent->levelSteps(level));
 
-    // do we need forcing term instead of this?
     #ifdef AMREX_PARTICLES
         showMF("mysdc",get_new_data(State_Type),"snew_before_spray_rho_src",level,sdc_iter,parent->levelSteps(level));
 
