@@ -92,6 +92,10 @@ GMRESSolver::solve(MultiFab& a_sol,
 // Checks
    AMREX_ALWAYS_ASSERT(m_jtv != nullptr);
    AMREX_ALWAYS_ASSERT(a_sol.nComp() == m_nComp && a_rhs.nComp() == m_nComp);
+   if ( m_prec == nullptr ) Print() << "Using unpreconditioned GMRES ! Might take a while to converge ...\n";
+
+// Prepare for solve
+   prepareForSolve();
 
    initResNorm = computeResidualNorm(a_sol,a_rhs);                      // Initial resisual norm
    targetResNorm = initResNorm * a_rel_tol;                             // Target relative tolerance
@@ -109,6 +113,21 @@ GMRESSolver::solve(MultiFab& a_sol,
       restart_count++;
    } while( !m_converged && restart_count < m_restart );
    return iter_count;
+}
+
+void
+GMRESSolver::prepareForSolve()
+{
+   // Initilize or cleanup GMRES data
+   for ( int k = 0 ; k <= m_krylovSize ; ++k ) {
+      g[k] = 0.0;
+      y[k] = 0.0;
+      for ( int n = 0 ; n < m_krylovSize ; ++n ) {
+         H[k][n] = 0.0;
+      }
+      givens[k][0] = 0.0;
+      givens[k][1] = 0.0;
+   }
 }
 
 void

@@ -57,6 +57,8 @@ class GMRESSolver
 
      amrex::Real givensRotation(const int iter);
 
+     void prepareForSolve();
+
      void computeResidual(const amrex::MultiFab& a_x,
                           const amrex::MultiFab& a_rhs,
                           amrex::MultiFab& a_res);
