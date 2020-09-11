@@ -2193,9 +2193,7 @@ MultiFab::Copy(S_new,P_new,0,RhoRT,1,1);
   if (level == 0) {
     initParticles();
   } else {
-    // TODO: Determine how many ghost cells to use here
-    int nGrow = 0;
-    particleRedistribute(level - 1, nGrow, 0, false);
+    particle_redistribute(level);
   }
   amrex::Print() << "initData: done initializing particles" << '\n';
 #endif
@@ -5905,15 +5903,15 @@ PeleLM::advance (Real time,
       //if (sdc_iter == sdc_iterMAX){updPart = true;};
 
       // valid particles
-      theSprayPC()->moveKickDrift(Sborder,spraydot,*u_mac,level, dt, time, false, false, tmp_src_width, true, where_width, Density, 0, Temp, RhoH, first_spec, updPart);
+      theSprayPC()->moveKickDrift(Sborder,spraydot,level, dt, time, false, false, tmp_src_width, true, where_width, nullptr);
 
       // Only need the coarsest virtual particles here.
       if (level < finest_level)
-        theVirtPC()->moveKickDrift(Sborder,spraydot,*u_mac,level, dt, time, true, false, tmp_src_width, true, where_width, Density, 0, Temp, RhoH, first_spec, updPart);
+        theVirtPC()->moveKickDrift(Sborder,spraydot,level, dt, time, true, false, tmp_src_width, true, where_width, nullptr);
 
       // Miiiight need all Ghosts
       if (theGhostPC() != 0)
-        theGhostPC()->moveKickDrift(Sborder,spraydot,*u_mac,level, dt, time, false, true, tmp_src_width, true, where_width, Density, 0, Temp, RhoH, first_spec, updPart);
+        theGhostPC()->moveKickDrift(Sborder,spraydot,level, dt, time, false, true, tmp_src_width, true, where_width, nullptr);
 
       //if (time == 0.){spraydot.setVal(0.);};
 
@@ -6305,10 +6303,10 @@ PeleLM::advance (Real time,
         spraydot.setVal(0.);
 
         bool updPart = true;
-        theSprayPC()->moveKick(Sborder,spraydot,*u_mac,level, dt, time, false, false, tmp_src_width, Density, 0, Temp, RhoH, first_spec, updPart);
+        theSprayPC()->moveKick(Sborder,spraydot,level, dt, time, false, false, tmp_src_width, nullptr);
 
         if (theGhostPC() != 0)
-          theGhostPC()->moveKick(Sborder,spraydot,*u_mac,level, dt, time, false, true, tmp_src_width, Density, 0, Temp, RhoH, first_spec, updPart);
+          theGhostPC()->moveKick(Sborder,spraydot,level, dt, time, false, true, tmp_src_width, nullptr);
 
           const bool do_avg_down_spray = level < parent->finestLevel()
             && getLevel(level+1).state[spraydot_Type].hasOldData();
