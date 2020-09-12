@@ -15,7 +15,7 @@ peleLM.hi_bc = "Interior"  "Interior"
 
 #----------------------------TOP LEVEL INPUTS----------------------
 max_step  =  10000
-max_step  =  50
+max_step  =  20
 stop_time = 0.04
 
 #-------------------------AMR INPUTS----------------------------
@@ -151,3 +151,4 @@ cg.cg_solver=1
 fab.format = NATIVE
 
 fabarray.mfiter_tile_size = 8 8 8 
+amrex.regtest_reduction=1

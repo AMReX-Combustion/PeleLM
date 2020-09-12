@@ -3918,7 +3918,6 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
 
   showMF("mysdc",Dnew,"sdc_Dnew_afterDeltaTiter_inDDupdate",level,1,parent->levelSteps(level));
 
-  //
   // We have just performed the correction diffusion solve for Y_m and h
   // If updateFluxReg=T, we update VISCOUS flux registers:
   //   ADD Gamma_{m,AD}^(k+1),           (in flux[0:nspecies-1])
@@ -3929,7 +3928,9 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
   //
   if (do_reflux && updateFluxReg)
   {
-    for (int d = 0; d < BL_SPACEDIM; d++)
+    showMF("DBGSync",*SpecDiffusionFluxnp1[0],"DBGSync_DiffFluxX_Dhat",level,parent->levelSteps(level));
+    showMF("DBGSync",*SpecDiffusionFluxnp1[1],"DBGSync_DiffFluxY_Dhat",level,parent->levelSteps(level));
+    for (int d = 0; d < AMREX_SPACEDIM; d++)
     {
       if (level > 0)
       {
@@ -4019,8 +4020,6 @@ PeleLM::adjust_spec_diffusion_fluxes (MultiFab* const * flux,
 
 #endif
 
-
-
 #ifdef _OPENMP
 #pragma omp parallel
 #endif
@@ -4098,8 +4097,8 @@ PeleLM::adjust_spec_diffusion_fluxes (MultiFab* const * flux,
 
 void
 PeleLM::compute_enthalpy_fluxes (MultiFab* const*       flux,
-                                           const MultiFab* const* beta,
-                                           Real        time)
+                                 const MultiFab* const* beta,
+                                 Real                   time)
 {
   /*
     Build heat fluxes based on species fluxes, Gamma_m, and fill-patched cell-centered states
@@ -4910,20 +4909,30 @@ PeleLM::compute_differential_diffusion_fluxes (const MultiFab& S,
 
   if ( do_reflux && ( is_predictor || updateFluxReg ) )
   {
-    for (int d = 0; d < BL_SPACEDIM; d++)
+    if (is_predictor) {
+       showMF("DBGSync",*flux[0],"DBGSync_DiffFluxX_Dn",level,parent->levelSteps(level));
+       showMF("DBGSync",*flux[1],"DBGSync_DiffFluxY_Dn",level,parent->levelSteps(level));
+    }
+    if (updateFluxReg) {
+       showMF("DBGSync",*flux[0],"DBGSync_DiffFluxX_Dnp1",level,parent->levelSteps(level));
+       showMF("DBGSync",*flux[1],"DBGSync_DiffFluxY_Dnp1",level,parent->levelSteps(level));
+    }
+    for (int d = 0; d < AMREX_SPACEDIM; d++)
     {
       if (level > 0)
       {
         if (is_predictor)
         {
           const Real fac = (sdc_iterMAX==1) ? dt : 0.5*dt;
+          getViscFluxReg().FineAdd(*flux[d],d,0,first_spec,nspecies,fac);
           getAdvFluxReg().FineAdd(*flux[d],d,nspecies+1,RhoH,1,fac);
           getViscFluxReg().FineAdd(*flux[d],d,nspecies+2,RhoH,1,fac);
         }
         if (updateFluxReg)
         {
-          getAdvFluxReg().FineAdd(*flux[d],d,nspecies+1,RhoH,1,0.5*dt);
-          getViscFluxReg().FineAdd(*flux[d],d,nspecies+2,RhoH,1,0.5*dt);
+          getViscFluxReg().FineAdd(*flux[d],d,0,first_spec,nspecies,-0.5*dt);
+          getAdvFluxReg().FineAdd(*flux[d],d,nspecies+1,RhoH,1,-0.5*dt);
+          getViscFluxReg().FineAdd(*flux[d],d,nspecies+2,RhoH,1,-0.5*dt);
         }
       }
 
@@ -4932,13 +4941,15 @@ PeleLM::compute_differential_diffusion_fluxes (const MultiFab& S,
         if (is_predictor)
         {
           const Real fac = (sdc_iterMAX==1) ? dt : 0.5*dt;
+          getViscFluxReg(level+1).CrseInit((*flux[d]),d,0,first_spec,nspecies,-fac,FluxRegister::ADD);
           getAdvFluxReg(level+1).CrseInit((*flux[d]),d,nspecies+1,RhoH,1,-fac,FluxRegister::ADD);
           getViscFluxReg(level+1).CrseInit((*flux[d]),d,nspecies+2,RhoH,1,-fac,FluxRegister::ADD);
         }
         if (updateFluxReg)
         {
-          getAdvFluxReg(level+1).CrseInit((*flux[d]),d,nspecies+1,RhoH,1,-0.5*dt,FluxRegister::ADD);
-          getViscFluxReg(level+1).CrseInit((*flux[d]),d,nspecies+2,RhoH,1,-0.5*dt,FluxRegister::ADD);
+          getViscFluxReg(level+1).CrseInit((*flux[d]),d,0,first_spec,nspecies,0.5*dt,FluxRegister::ADD);
+          getAdvFluxReg(level+1).CrseInit((*flux[d]),d,nspecies+1,RhoH,1,0.5*dt,FluxRegister::ADD);
+          getViscFluxReg(level+1).CrseInit((*flux[d]),d,nspecies+2,RhoH,1,0.5*dt,FluxRegister::ADD);
         }
       }
     }
@@ -7282,7 +7293,7 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
 
 
   // Initialize accumulation for rho = Sum(rho.Y)
-  for (int d=0; d<BL_SPACEDIM; d++) {
+  for (int d=0; d<AMREX_SPACEDIM; d++) {
     EdgeState[d]->setVal(0);
     EdgeFlux[d]->setVal(0);
   }
@@ -7291,7 +7302,7 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
 #pragma omp parallel
 #endif
   {
-    FArrayBox edgeflux[BL_SPACEDIM], edgestate[BL_SPACEDIM], eR, eY, eH;
+    FArrayBox edgeflux[AMREX_SPACEDIM], edgestate[AMREX_SPACEDIM], eR, eY, eH;
     Vector<int> state_bc;
 
     for (MFIter S_mfi(Smf,true); S_mfi.isValid(); ++S_mfi)
@@ -7301,7 +7312,7 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
       const FArrayBox& divu = DivU[S_mfi];
       const FArrayBox& force = Force[S_mfi];
 
-      for (int d=0; d<BL_SPACEDIM; ++d)
+      for (int d=0; d<AMREX_SPACEDIM; ++d)
       {
 
         const Box& ebx = amrex::surroundingNodes(bx,d);
@@ -7325,7 +7336,7 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
 
 // Set flux, flux divergence, and face values for rho as sums of the corresponding RhoY quantities
       (*aofs)[S_mfi].setVal(0,bx,Density,1);
-      for (int d=0; d<BL_SPACEDIM; ++d)
+      for (int d=0; d<AMREX_SPACEDIM; ++d)
      {
        (*EdgeState[d])[S_mfi].setVal(0,bx);
        (*EdgeFlux[d])[S_mfi].setVal(0,bx);
@@ -7355,8 +7366,15 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
                              Sfab, Tcomp, 1, force, nspecies, divu, 0,
                              (*aofs)[S_mfi], Temp, advectionType, state_bc, FPU, volume[S_mfi]);
 
+      // Clean edge fluxes of temp otherwise sync term appears on tempe during mac_sync.
+      // It's not really used, but it's cleaner this way.
+      for (int d=0; d<AMREX_SPACEDIM; ++d) {
+         const Box& ebx = amrex::surroundingNodes(bx,d);
+         edgeflux[d].setVal(0.0,ebx,nspecies+2,1);
+      }
+
 // Compute RhoH on faces, store in nspecies+1 component of edgestate[d]
-      for (int d=0; d<BL_SPACEDIM; ++d)
+      for (int d=0; d<AMREX_SPACEDIM; ++d)
       {
 
         const Box& ebox = amrex::surroundingNodes(bx,d);
@@ -7382,6 +7400,13 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
         edgeflux[d].copy(edgestate[d],ebox,nspecies+1,ebox,nspecies+1,1);
       }
 
+      // Clean edgestate of temp otherwise sync term appears on tempe during mac_sync.
+      // It's not really used, but it's cleaner this way.
+      for (int d=0; d<AMREX_SPACEDIM; ++d) {
+         const Box& ebx = amrex::surroundingNodes(bx,d);
+         edgestate[d].setVal(0.0,ebx,nspecies+2,1);
+      }
+
 // Compute -Div(flux.Area) for RhoH, return Area-scaled (extensive) fluxes
 
       int avcomp = 0;
@@ -7394,7 +7419,7 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
                            volume[S_mfi], avcomp, (*aofs)[S_mfi], RhoH, iconserv);
 
 // Load up non-overlapping bits of edge states and fluxes into mfs
-      for (int d=0; d<BL_SPACEDIM; ++d)
+      for (int d=0; d<AMREX_SPACEDIM; ++d)
       {
         const Box& efbox = S_mfi.nodaltilebox(d);
         (*EdgeState[d])[S_mfi].copy(edgestate[d],efbox,0,efbox,Density,nspecies+1);
@@ -7496,6 +7521,7 @@ PeleLM::mac_sync ()
 
   Vector<std::unique_ptr<MultiFab> > S_new_sav(finest_level+1);
 
+  // Save new pre-sync S^{n+1,p} state for my level and all the finer ones
   for (int lev=level; lev<=finest_level; lev++)
   {
     const MultiFab& S_new_lev = getLevel(lev).get_new_data(State_Type);
@@ -7509,6 +7535,7 @@ PeleLM::mac_sync ()
   Vector<std::unique_ptr<MultiFab> > Ssync_sav(finest_level);
   Vector<std::unique_ptr<MultiFab> > Vsync_sav(finest_level);
 
+  // Save Sync RHS & Vsync for my level and all the finer ones (but the finest)
   for (int lev=level; lev<=finest_level-1; lev++)
   {
     const MultiFab& Ssync_lev = getLevel(lev).Ssync;
@@ -7528,6 +7555,8 @@ PeleLM::mac_sync ()
 
   ////////////////////////
   // begin mac_sync_iter loop here
+  // The loop allows an update of chi to ensure that the sync correction remains
+  // on the constrain.
   ////////////////////////
 
   MultiFab DeltaYsync(grids,dmap,nspecies,0,MFInfo(),Factory());
@@ -7540,15 +7569,26 @@ PeleLM::mac_sync ()
   {
     bool last_mac_sync_iter = (mac_sync_iter == num_mac_sync_iter-1);
 
-    for (int lev=level; lev<=finest_level-1; lev++)
-    {
-      MultiFab& Ssync_lev = getLevel(lev).Ssync;
-      MultiFab::Copy(Ssync_lev,*Ssync_sav[lev],0,0,numscal,1);
+    if ( mac_sync_iter != 0 ) {
+       // Restore saved copy of S_new^{n+1,p} state into S_new
+       for (int lev=level; lev<=finest_level; lev++)
+       {
+         MultiFab& S_new_lev = getLevel(lev).get_new_data(State_Type);
+         MultiFab::Copy(S_new_lev,*S_new_sav[lev],0,0,NUM_STATE,1);
+       }
 
-      MultiFab& Vsync_lev = getLevel(lev).Vsync;
-      MultiFab::Copy(Vsync_lev,*Vsync_sav[lev],0,0,BL_SPACEDIM,1);
+       // Restore stored Ssync/Vsync from the one saved before sync_iter
+       for (int lev=level; lev<=finest_level-1; lev++)
+       {
+         MultiFab& Ssync_lev = getLevel(lev).Ssync;
+         MultiFab::Copy(Ssync_lev,*Ssync_sav[lev],0,0,numscal,1);
+
+         MultiFab& Vsync_lev = getLevel(lev).Vsync;
+         MultiFab::Copy(Vsync_lev,*Vsync_sav[lev],0,0,AMREX_SPACEDIM,1);
+       }
     }
 
+    // Update back rho^{n+1,p} and rho^{n+1/2,p}
     make_rho_curr_time();
     get_rho_half_time();
 
@@ -7557,6 +7597,7 @@ PeleLM::mac_sync ()
     // compute U^{ADV,corr} in mac_sync_compute
     //
     bool subtract_avg = (closed_chamber && level == 0);
+//  TODO: offset is not used ... ?
     Real offset = 0.0;
 
     BL_PROFILE_VAR("HT::mac_sync::ucorr", HTUCORR);
@@ -7568,7 +7609,7 @@ PeleLM::mac_sync ()
 #endif
     for (int idim = 0; idim < AMREX_SPACEDIM; ++idim){
       const BoxArray& edgeba = getEdgeBoxArray(idim);
-      //
+
       // fixme? unsure how many ghost cells...
       Ucorr[idim]= new MultiFab(edgeba,dmap,1,ng,MFInfo(),Factory());
     }
@@ -7600,15 +7641,14 @@ PeleLM::mac_sync ()
     for (int i=0; i<sync_scheme.size(); ++i)
       if (sync_scheme[i] == ReAdvect)
         incr_sync[i] = 1;
-    //
+ 
     // After solving for mac_sync_phi in mac_sync_solve(), we
     // can now do the sync advect step in mac_sync_compute().
     // This consists of two steps
     //
-    // 1. compute U^{ADV,corr} as the gradient of mac_sync_phi
+    // 1. compute U^{ADV,corr} as the gradient of mac_sync_phi : done above now !
     // 2. add -D^MAC ( U^{ADV,corr} * rho * q)^{n+1/2} ) to flux registers,
     //    which already contain the delta F adv/diff flux mismatches
-    //
 
     BL_PROFILE_VAR("HT::mac_sync::Vsync", HTVSYNC);
     if (do_mom_diff == 0)
@@ -7638,12 +7678,12 @@ PeleLM::mac_sync ()
       }
     }
     BL_PROFILE_VAR_STOP(HTVSYNC);
-    showMF("DBGSync",Ssync,"sdc_Ssync_AfterMACSync",level,mac_sync_iter,parent->levelSteps(level));
     showMF("DBGSync",Vsync,"sdc_Vsync_AfterMACSync",level,mac_sync_iter,parent->levelSteps(level));
 
     //
     // Scalars.
     //
+    showMF("DBGSync",Ssync,"sdc_Ssync_BefMinusUcorr",level,mac_sync_iter,parent->levelSteps(level));
     BL_PROFILE_VAR("HT::mac_sync::Ssync", HTSSYNC);
     for (int comp=AMREX_SPACEDIM; comp<NUM_STATE; ++comp)
     {
@@ -7681,13 +7721,6 @@ PeleLM::mac_sync ()
     compute_Wbar_fluxes(curr_time,0.5);
 #endif
 
-    // Get a fresh copy of the {n+1,p} state into S_new
-    for (int lev=level; lev<=finest_level; lev++)
-    {
-      MultiFab& S_new_lev = getLevel(lev).get_new_data(State_Type);
-      MultiFab::Copy(S_new_lev,*S_new_sav[lev],0,0,NUM_STATE,1);
-    }
-
 #ifdef USE_WBAR
     // compute beta grad Wbar terms at {n+1,p}
     // internally added with values already stored in SpecDiffusionFluxWbar
@@ -7699,20 +7732,19 @@ PeleLM::mac_sync ()
     flux_divergence(DdWbar,0,fluxWbar,0,nspecies,-1);
 #endif
 
-    // DeltaYSsync = Y^{n+1,p} * (delta rho)^sync,
-    //       Ssync = Sync - DeltaYSync + DdWbar
+    // DeltaYSsync = Y^{n+1,p} * (delta rho)^sync
     {
       S_new.invert(1,Density,1,0);
-      MultiFab::Copy(DeltaYsync,S_new,first_spec,0,nspecies,0);
+      MultiFab::Copy(DeltaYsync,S_new,first_spec,0,nspecies,0);               // Get rho^{n+1,p} * Y^{n+1,p}
       for (int n=0; n<nspecies; ++n) {
-        MultiFab::Multiply(DeltaYsync,S_new,Density,n,1,0);
-        MultiFab::Multiply(DeltaYsync,Ssync,Density-AMREX_SPACEDIM,n,1,0);
+        MultiFab::Multiply(DeltaYsync,S_new,Density,n,1,0);                   // divide by rho^{n+1,p}
+        MultiFab::Multiply(DeltaYsync,Ssync,Density-AMREX_SPACEDIM,n,1,0);    // mult. by (delta rho)^sync
       }
       S_new.invert(1,Density,1,0);
     }
 
+    //  Ssync = Sync - DeltaYSync + DdWbar
     MultiFab::Subtract(Ssync,DeltaYsync,0,first_spec-AMREX_SPACEDIM,nspecies,0);
-
 #ifdef USE_WBAR
     MultiFab::Add(Ssync,DdWbar,0,first_spec-AMREX_SPACEDIM,nspecies,0);
 #endif
@@ -7757,27 +7789,32 @@ PeleLM::mac_sync ()
       // FIXME: Really wish there was a way to avoid this temporary....
       FluxBoxes fb_GammaKp1(this, nspecies+3, 0);
       MultiFab** GammaKp1 = fb_GammaKp1.get();
-      for (int d=0; d<BL_SPACEDIM; ++d) {
+      for (int d=0; d<AMREX_SPACEDIM; ++d) {
         MultiFab::Copy(*GammaKp1[d],*SpecDiffusionFluxnp1[d],0,0,nspecies+3,0); // get Gamma^{presync}
       }
 
-      MultiFab **betan = 0; // Only needed as a dummy arg to diffuse_scalar
+      MultiFab **betan = 0;                                         // Only needed as a dummy arg to diffuse_scalar
       FluxBoxes fb_betanp1(this, nspecies+1, 0);
       MultiFab **betanp1 = fb_betanp1.get();
-      getDiffusivity(betanp1, curr_time, first_spec, 0, nspecies); // species
-      getDiffusivity(betanp1, curr_time, Temp, nspecies, 1); // temperature (lambda)
-      compute_enthalpy_fluxes(GammaKp1,betanp1,curr_time); // Compute F[N+1], F[N=2]
+      getDiffusivity(betanp1, curr_time, first_spec, 0, nspecies);  // species
+      getDiffusivity(betanp1, curr_time, Temp, nspecies, 1);        // temperature (lambda)
+      compute_enthalpy_fluxes(GammaKp1,betanp1,curr_time);          // Compute F[N+1] = sum_m (H_m Gamma_m), 
+                                                                    //         F[N+2] = - lambda grad T
 
       MultiFab DT_pre(grids,dmap,1,0);
       MultiFab DD_pre(grids,dmap,1,0);
-      flux_divergence(DT_pre,0,SpecDiffusionFluxnp1,nspecies+2,1,-1);
-      flux_divergence(DD_pre,0,SpecDiffusionFluxnp1,nspecies+1,1,-1);
+      flux_divergence(DT_pre,0,GammaKp1,nspecies+2,1,-1);
+      flux_divergence(DD_pre,0,GammaKp1,nspecies+1,1,-1);
 
       // Diffuse species sync to get dGamma^{sync}, then form Gamma^{postsync} = Gamma^{presync} + dGamma^{sync}
+      // Before this call Ssync = \nabla \cdot \delta F_{rhoY} - \delta_ADV - Y^{n+1,p}\delta rho^{sync}
       differential_spec_diffuse_sync(dt, true, last_mac_sync_iter);
-      for (int d=0; d<BL_SPACEDIM; ++d) {
-        MultiFab::Add(*SpecDiffusionFluxnp1[d],*GammaKp1[d],0,0,nspecies+3,0);
+      // Ssync for species now contains rho^{n+1}(delta_Y)^sync
+
+      for (int d=0; d<AMREX_SPACEDIM; ++d) {
+        MultiFab::Add(*SpecDiffusionFluxnp1[d],*GammaKp1[d],0,0,nspecies,0);
       }
+
       //
       // For all species increment sync by (sync_for_rho)*Y_presync.
       // Before this, Ssync holds rho^{n+1} (delta Y)^sync
@@ -7787,9 +7824,10 @@ PeleLM::mac_sync ()
       MultiFab::Add(Ssync,DeltaYsync,0,first_spec-AMREX_SPACEDIM,nspecies,0);
       MultiFab::Add(S_new,Ssync,first_spec-AMREX_SPACEDIM,first_spec,nspecies,0);
 
-      // Rhs0 = RhoH^{presync} + dt/2 ( Ssync - D_T^{presync} - H^{presync} )
-      // Rhs = Rhs0 - RhoH^{postsync} + dt/2 ( D_T^{postsync} + H^{postsync} )
-      //
+      // Trying to solve for:
+      // \rho^{n+1} * Cp{n+1,\eta} * ∆T^{\eta+1} - dt / 2 \nabla \cdot \lambda^{n+1,p} \nabla ∆T^{\eta+1} = 
+      // \rho^{n+1,p}*h^{n+1,p} - \rho^{n+1}*h^{n+1,\eta} + dt*Ssync + dt/2*(DT^{n+1,\eta} - DT^{n+1,p} + H^{n+1,\eta} - H^{n+1,p})
+
       // Here Ssync contains refluxed enthalpy fluxes (from -lambda.Grad(T) and hm.Gamma_m)  FIXME: Make sure it does
       MultiFab Trhs0(grids,dmap,1,0);
       MultiFab Trhs(grids,dmap,1,0);
@@ -7798,13 +7836,16 @@ PeleLM::mac_sync ()
       MultiFab DeltaT(grids,dmap,1,0); DeltaT.setVal(0);
       MultiFab DT_post(grids,dmap,1,0);
       MultiFab DD_post(grids,dmap,1,0);
+      MultiFab DT_DD_Sum(grids,dmap,1,0);
 
       // Build the piece of the dT source terms that does not change with iterations
+      // Trhs0 = rho^{n+1,p}*h^{n+1,p} + dt*Ssync * dt/2*(-DT^{n+1,p}-H^{n+1,p})
       MultiFab::Copy(Trhs0,*S_new_sav[level],RhoH,0,1,0);
-      Trhs0.mult(1./dt);
-      MultiFab::Add(Trhs0,DT_pre,0,0,1,0);
-      MultiFab::Add(Trhs0,DD_pre,0,0,1,0);
-      MultiFab::Add(Trhs0,Ssync,RhoH-BL_SPACEDIM,0,1,0);
+      MultiFab::Copy(DT_DD_Sum,DT_pre,0,0,1,0);
+      MultiFab::Add(DT_DD_Sum,DD_pre,0,0,1,0);
+      DT_DD_Sum.mult(-0.5*dt);
+      MultiFab::Add(Trhs0,DT_DD_Sum,0,0,1,0);
+      MultiFab::Add(Trhs0,Ssync,RhoH-AMREX_SPACEDIM,0,1,0);
 
       // Initialize DT_post, DD_post from pre values
       MultiFab::Copy(DT_post,DT_pre,0,0,1,0);
@@ -7851,43 +7892,68 @@ PeleLM::mac_sync ()
 
         // Build Trhs
         MultiFab::Copy(Trhs,get_new_data(State_Type),RhoH,0,1,0);
-        Trhs.mult(-1/dt);
-        MultiFab::Add(Trhs,DT_post,0,0,1,0);
-        MultiFab::Add(Trhs,DD_post,0,0,1,0);
+        Trhs.mult(-1.0);
+        MultiFab::Copy(DT_DD_Sum,DT_post,0,0,1,0);
+        MultiFab::Add(DT_DD_Sum,DD_post,0,0,1,0);
+        DT_DD_Sum.mult(0.5*dt);
+        MultiFab::Add(Trhs,DT_DD_Sum,0,0,1,0);
         MultiFab::Add(Trhs,Trhs0,0,0,1,0);
+        showMF("DBGSync",Trhs,"sdc_Trhs_indeltaTiter",level,(mac_sync_iter+1)*1000+L,parent->levelSteps(level));
+        showMF("DBGSync",RhoCp_post,"sdc_RhoCp_post_indeltaTiter",level,(mac_sync_iter+1)*1000+L,parent->levelSteps(level));
 
         // Save current T value, guess deltaT=0
         MultiFab::Copy(Told,get_new_data(State_Type),Temp,0,1,0);
-        get_new_data(State_Type).setVal(0,Temp,1,0);
+        get_new_data(State_Type).setVal(0.0,Temp,1,1);
+        MultiFab deltaT(get_new_data(State_Type), amrex::make_alias, Temp, 1);
 
         int rho_flagT = 0; // Do not do rho-based hacking of the diffusion problem
         const Vector<int> diffuse_this_comp = {1};
         const bool add_hoop_stress = false; // Only true if sigma == Xvel && Geometry::IsRZ())
         const Diffusion::SolveMode& solve_mode = Diffusion::ONEPASS;
         const bool add_old_time_divFlux = false; // rhs contains the time-explicit diff terms already
-        const Real be_cn_theta_SDC = 1;
+        const Real be_cn_theta_SDC = 1.0;
         const int visc_coef_comp = Temp;
 
-        // Diffuse the sync.  On exit,
-        //      Snp1[0][temp] = rho^{postsync} * delT
-        //      SpecDiffusionFluxnp1[RhoH] = - lambda.Grad(delT)
-        diffusion->diffuse_scalar(Sn, Sn, Snp1, Snp1, Temp, 1, Density,
-                                  prev_time,curr_time,be_cn_theta_SDC,RhT,rho_flagT,
-                                  SpecDiffusionFluxn,SpecDiffusionFluxnp1,nspecies+2,
-                                  &Trhs,0,&RhoCp_post,0,
-                                  betan,betanp1,nspecies,visc_coef,visc_coef_comp,
-                                  crse_ratio,theBCs[Temp],geom,
-                                  solve_mode,add_old_time_divFlux,diffuse_this_comp);
+        // Set-up our own MG solver for the deltaT
+        LPInfo info;
+        info.setAgglomeration(1);
+        info.setConsolidation(1);
+        info.setMetricTerm(false);
+        MLABecLaplacian deltaTSyncOp({geom}, {grids}, {dmap}, info);
+        deltaTSyncOp.setMaxOrder(diffusion->maxOrder());
+        deltaTSyncOp.setScalars(1.0, dt*be_cn_theta_SDC);
+        deltaTSyncOp.setACoeffs(0.0, RhoCp_post);
 
-        deltaT_iter_norm = Snp1[0]->norm0(Temp);
+        AMREX_D_TERM(MultiFab lambdax(*betanp1[0], amrex::make_alias, nspecies, 1);,
+                     MultiFab lambday(*betanp1[1], amrex::make_alias, nspecies, 1);,
+                     MultiFab lambdaz(*betanp1[2], amrex::make_alias, nspecies, 1););
+        std::array<MultiFab*,AMREX_SPACEDIM> bcoeffs{AMREX_D_DECL(&lambdax,&lambday,&lambdaz)};
+        deltaTSyncOp.setBCoeffs(0.0,amrex::GetArrOfConstPtrs(bcoeffs));
+
+        std::array<LinOpBCType,AMREX_SPACEDIM> mlmg_lobc;
+        std::array<LinOpBCType,AMREX_SPACEDIM> mlmg_hibc;
+        const Vector<BCRec>& theBCs = AmrLevel::desc_lst[State_Type].getBCs();
+        const BCRec& bc = theBCs[Temp];
+        Diffusion::setDomainBC(mlmg_lobc, mlmg_hibc, bc); // Same for all comps, by assumption
+        deltaTSyncOp.setDomainBC(mlmg_lobc, mlmg_hibc);
+        deltaTSyncOp.setLevelBC(0, &deltaT);
+
+        MLMG deltaTSyncSolve(deltaTSyncOp);
+
+        const Real S_tol     = visc_tol;
+        const Real S_tol_abs = visc_tol * Trhs.norm0(0);
+
+        deltaTSyncSolve.solve({&deltaT}, {&Trhs}, S_tol, S_tol_abs); 
+
+        deltaT_iter_norm = deltaT.norm0(0);
         if (deltaT_verbose) {
           Print() << "DeltaTsync solve norm = " << deltaT_iter_norm << std::endl;
         }
 
-        showMF("DBGSync",*Snp1[0],"sdc_Snp1_inDeltaTiter_inSync",level,mac_sync_iter*1000+L,parent->levelSteps(level));
+        showMF("DBGSync",deltaT,"sdc_deltaT_indeltaTiter",level,(mac_sync_iter+1)*1000+L,parent->levelSteps(level));
+
         MultiFab::Add(get_new_data(State_Type),Told,0,Temp,1,0);
-        showMF("DBGSync",get_new_data(State_Type),"sdc_Snew_inDeltaTiter_inSync",level,mac_sync_iter*1000+L,parent->levelSteps(level));
-        compute_enthalpy_fluxes(SpecDiffusionFluxnp1,betanp1,curr_time); // Compute F[N+1], F[N=2]
+        compute_enthalpy_fluxes(SpecDiffusionFluxnp1,betanp1,curr_time); // Compute F[N+1], F[N+2]
         flux_divergence(DT_post,0,SpecDiffusionFluxnp1,nspecies+2,1,-1);
         flux_divergence(DD_post,0,SpecDiffusionFluxnp1,nspecies+1,1,-1);
 
@@ -7925,13 +7991,18 @@ PeleLM::mac_sync ()
       Abort("FIXME: Properly deal with do_diffuse_sync=0");
     }
 
+//  Construct the \delta(\rho h) from (post - pre) deltaT iters
+    MultiFab::Copy(Ssync,get_new_data(State_Type),RhoH,RhoH-AMREX_SPACEDIM,1,0);
+    MultiFab::Subtract(Ssync,*S_new_sav[level],RhoH,RhoH-AMREX_SPACEDIM,1,0);
+
+//  Update coarse post-sync temp from rhoH and rhoY
     RhoH_to_Temp(S_new);
     setThermoPress(curr_time);
 
-//    Ssync.setVal(0.0,Temp-AMREX_SPACEDIM,1);
     showMF("DBGSync",Ssync,"sdc_SsyncToInterp_inSyncIter",level,mac_sync_iter,parent->levelSteps(level));
     //
     // Interpolate the sync correction to the finer levels.
+    // Interpolate rhoY and rhoH Syncs and recompute rho and Temp on fine
     //
     Real mult = 1.0;
     Vector<int*>         sync_bc(grids.size());
@@ -7976,8 +8047,8 @@ PeleLM::mac_sync ()
           for (MFIter mfi(increment,true); mfi.isValid(); ++mfi)
           {
             const Box& box = mfi.tilebox();
-            increment[mfi].plus(increment[mfi],box,
-                                istate-AMREX_SPACEDIM,Density-AMREX_SPACEDIM,1);
+            increment[mfi].plus(increment[mfi],box,istate-AMREX_SPACEDIM,
+                                Density-AMREX_SPACEDIM,1);
           }
         }
       }
@@ -7990,7 +8061,6 @@ PeleLM::mac_sync ()
         S_new_lev[mfi].plus(increment[mfi],box,0,Density,numscal);
       }
       showMF("DBGSync",increment,"sdc_increment_inSync",level,mac_sync_iter,parent->levelSteps(level));
-      showMF("DBGSync",S_new_lev,"sdc_SnewAftIncr_inSync",level,mac_sync_iter,parent->levelSteps(level));
 
       if (last_mac_sync_iter)
       {
@@ -8003,7 +8073,6 @@ PeleLM::mac_sync ()
       //
       RhoH_to_Temp(S_new_lev);
       fine_level.setThermoPress(curr_time);
-      showMF("DBGSync",fine_level.get_new_data(State_Type),"sdc_SnewFine_BefRhoRTUpdate_SyncIter",level,mac_sync_iter,parent->levelSteps(level));
     }
 
     //
@@ -8025,7 +8094,7 @@ PeleLM::mac_sync ()
     showMF("DBGSync",fine_level.get_new_data(State_Type),"sdc_SnewFine_EndSyncIter",level+1,mac_sync_iter,parent->levelSteps(level));
     showMF("DBGSync",get_new_data(State_Type),"sdc_SnewCoarse_EndSyncIter",level,mac_sync_iter,parent->levelSteps(level));
 
-
+    // Compute chi increment and update chi_sync
     chi_sync_increment.setVal(0,0);
     calc_dpdt(curr_time,dt,chi_sync_increment,u_mac);
 
@@ -8362,7 +8431,7 @@ PeleLM::differential_spec_diffuse_sync (Real dt,
   getDiffusivity(betanp1, tnp1, first_spec, 0, nspecies); // species
 
   MultiFab Rhs(grids,dmap,nspecies,0,MFInfo(),Factory());
-  const int spec_Ssync_sComp = first_spec - BL_SPACEDIM;
+  const int spec_Ssync_sComp = first_spec - AMREX_SPACEDIM;
 
   //
   // Rhs and Ssync contain the RHS of DayBell:2000 Eq (18)
@@ -8382,6 +8451,8 @@ PeleLM::differential_spec_diffuse_sync (Real dt,
 
   const MultiFab& RhoHalftime = get_rho_half_time();
 
+  int sdc_theta = 1.0;
+
   for (int sigma = 0; sigma < nspecies; ++sigma)
   {
     //
@@ -8395,14 +8466,14 @@ PeleLM::differential_spec_diffuse_sync (Real dt,
     // on entry, Ssync = RHS for (delta Ytilde)^sync diffusive solve
     // on exit, Ssync = rho^{n+1} * (delta Ytilde)^sync
     // on exit, fluxSC = rhoD grad (delta Ytilde)^sync
-    diffusion->diffuse_Ssync(Ssync,ssync_ind,dt,be_cn_theta,
+    diffusion->diffuse_Ssync(Ssync,ssync_ind,dt,sdc_theta,
                              RhoHalftime,rho_flag[sigma],fluxSC,0,
                              betanp1,sigma,alpha,0);
     //
     // Pull fluxes into flux array
     // this is the rhoD grad (delta Ytilde)^sync terms in DayBell:2000 Eq (18)
     //
-    for (int d=0; d<BL_SPACEDIM; ++d)
+    for (int d=0; d<AMREX_SPACEDIM; ++d)
     {
       MultiFab::Copy(*SpecDiffusionFluxnp1[d],*fluxSC[d],0,sigma,1,0);
     }
@@ -8419,7 +8490,7 @@ PeleLM::differential_spec_diffuse_sync (Real dt,
   // if in the Wbar corrector, add the grad delta Wbar fluxes
   if (Wbar_corrector)
   {
-    for (int d=0; d<BL_SPACEDIM; ++d)
+    for (int d=0; d<AMREX_SPACEDIM; ++d)
     {
 #ifdef _OPENMP
 #pragma omp parallel
@@ -8466,7 +8537,7 @@ PeleLM::differential_spec_diffuse_sync (Real dt,
 #pragma omp parallel
 #endif
 {
-  FArrayBox update, efab[BL_SPACEDIM];
+  FArrayBox update, efab[AMREX_SPACEDIM];
 
   for (MFIter mfi(Ssync,true); mfi.isValid(); ++mfi)
   {
@@ -8514,7 +8585,7 @@ PeleLM::differential_spec_diffuse_sync (Real dt,
     update.plus(Rhs[iGrid],box,0,0,nspecies);
 
     // Ssync = "RHS from diffusion solve" + (dt/2) * div (delta gamma)
-    Ssync[mfi].copy(update,box,0,box,first_spec-BL_SPACEDIM,nspecies);
+    Ssync[mfi].copy(update,box,0,box,first_spec-AMREX_SPACEDIM,nspecies);
   }
 }
 
@@ -8524,7 +8595,7 @@ PeleLM::differential_spec_diffuse_sync (Real dt,
   //
   if (do_reflux && level > 0 && last_mac_sync_iter)
   {
-    for (int d=0; d<BL_SPACEDIM; ++d)
+    for (int d=0; d<AMREX_SPACEDIM; ++d)
     {
       getViscFluxReg().FineAdd(*SpecDiffusionFluxnp1[d],d,0,first_spec,nspecies,dt);
     }
@@ -8570,11 +8641,11 @@ PeleLM::reflux ()
   //   be divided by rho^(n+1) in NavierStokesBase::level_sync.
   //
   // take divergence of diffusive flux registers into cell-centered RHS
-  fr_visc.Reflux(Vsync,volume,scale,0,0,BL_SPACEDIM,geom);
+  fr_visc.Reflux(Vsync,volume,scale,0,0,AMREX_SPACEDIM,geom);
   if (do_reflux_visc)
-    fr_visc.Reflux(Ssync,volume,scale,BL_SPACEDIM,0,NUM_STATE-BL_SPACEDIM,geom);
+    fr_visc.Reflux(Ssync,volume,scale,AMREX_SPACEDIM,0,NUM_STATE-AMREX_SPACEDIM,geom);
 
-  showMF("sdcSync",Ssync,"sdc_Ssync_after_viscReflux",level);
+  showMF("DBGSync",Ssync,"sdc_Ssync_inReflux_AftVisc",level,parent->levelSteps(level));
 
   const MultiFab& RhoHalftime = get_rho_half_time();
 
@@ -8608,12 +8679,11 @@ PeleLM::reflux ()
       tmp.copy(RhoHalftime[mfi],0,0,1);
       tmp.invert(1);
 
-      for (int istate = BL_SPACEDIM; istate < NUM_STATE; istate++)
+      for (int istate = AMREX_SPACEDIM; istate < NUM_STATE; istate++)
       {
         if (advectionType[istate] == NonConservative)
         {
-          const int sigma = istate -  BL_SPACEDIM;
-
+          const int sigma = istate -  AMREX_SPACEDIM;
           Ssync[mfi].mult(tmp,bx,0,sigma,1);
         }
       }
@@ -8622,9 +8692,9 @@ PeleLM::reflux ()
     tmp.clear();
   }
   // take divergence of advective flux registers into cell-centered RHS
-  fr_adv.Reflux(Vsync,volume,scale,0,0,BL_SPACEDIM,geom);
-  fr_adv.Reflux(Ssync,volume,scale,BL_SPACEDIM,0,NUM_STATE-BL_SPACEDIM,geom);
-  showMF("sdcSync",Ssync,"sdc_Ssync_after_advReflux",level);
+  fr_adv.Reflux(Vsync,volume,scale,0,0,AMREX_SPACEDIM,geom);
+  fr_adv.Reflux(Ssync,volume,scale,AMREX_SPACEDIM,0,NUM_STATE-AMREX_SPACEDIM,geom);
+  showMF("DBGSync",Ssync,"sdc_Ssync_inReflux_AftAdvReflux",level,parent->levelSteps(level));
 
   BoxArray baf = getLevel(level+1).boxArray();
 
@@ -8651,7 +8721,7 @@ PeleLM::reflux ()
       }
     }
   }
-  showMF("sdcSync",Ssync,"sdc_Ssync_after_zero",level);
+  showMF("DBGSync",Ssync,"sdc_Ssync_inReflux_AftZerosFine",level,parent->levelSteps(level));
 
   if (verbose > 1)
   {

@@ -14,7 +14,7 @@ peleLM.lo_bc = "NoSlipWallIsotherm"  "NoSlipWallAdiab"
 peleLM.hi_bc = "NoSlipWallIsotherm"  "NoSlipWallAdiab"
 
 #----------------------------TOP LEVEL INPUTS----------------------
-max_step  =  5000
+max_step  =  20
 stop_time = 100.0
 
 #-------------------------AMR INPUTS----------------------------
@@ -149,3 +149,6 @@ cg.cg_solver=1
 fab.format = NATIVE
 
 fabarray.mfiter_tile_size = 8 8 8 
+
+#REGTEST flag
+amrex.regtest_reduction=1
