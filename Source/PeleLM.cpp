@@ -2612,40 +2612,38 @@ PeleLM::checkPoint (const std::string& dir,
   }
 
 #ifdef AMREX_PARTICLES
-   amrex::Print() << "Doing particle output\n";
-   amrex::Print() << "do_spray_particles "<< do_spray_particles <<"\n";
+  amrex::Print() << "Doing particle output\n";
 
-   const std::string ascii_spray_particle_file("Spray");
+  bool is_checkpoint = true;
 
-   bool is_checkpoint = true;
-
-   Vector<std::string> real_comp_names;
-   Vector<std::string>  int_comp_names;
-   real_comp_names.push_back("xvel");
-   real_comp_names.push_back("yvel");
-#if (BL_SPACEDIM > 2)
-   real_comp_names.push_back("zvel");
-#endif
-   real_comp_names.push_back("temperature");
-   real_comp_names.push_back("diam");
-   real_comp_names.push_back("density");
-   AMREX_ASSERT(real_comp_names.size()==NSR_SPR);
+  amrex::Vector<std::string> real_comp_names(pstateNum);
+  AMREX_D_TERM(real_comp_names[pstateVel] = "xvel";
+               , real_comp_names[pstateVel + 1] = "yvel";
+               , real_comp_names[pstateVel + 2] = "zvel";);
+  real_comp_names[pstateT] = "temperature";
+  real_comp_names[pstateDia] = "diam";
+  real_comp_names[pstateRho] = "density";
+  for (int sp = 0; sp != SPRAY_FUEL_NUM; ++sp) {
+    real_comp_names[pstateY + sp] = "spray_mf_" + PeleLM::sprayFuelNames[sp];
+  }
+  amrex::Vector<std::string> int_comp_names;
+  if (PeleLM::theSprayPC()) {
+    PeleLM::theSprayPC()->Checkpoint(
+      dir, "particles", is_checkpoint, real_comp_names, int_comp_names);
+  }
 
   if (PeleLM::theSprayPC())
   {
-       //PeleLM::theSprayPC()->Checkpoint(dir,"Spray",
-      //                               is_checkpoint,real_comp_names,int_comp_names);
-
-       // Here we write ascii information every time we write a checkpoint file
-       if (level == 0)
-       {
-         if (do_spray_particles==1) {
-           amrex::Print() << "Doing particle ascii writing\n";
-           //theSprayPC()->Checkpoint(dir, ascii_spray_particle_file);
-           std::string fname = "spray" + dir.substr (3,6) + "p3d";
-           theSprayPC()->WriteAsciiFile(fname);
-         }
-       }
+    // Here we write ascii information every time we write a checkpoint file
+    if (level == 0)
+    {
+      if (do_spray_particles==1) {
+	amrex::Print() << "Doing particle ascii writing\n";
+	//theSprayPC()->Checkpoint(dir, ascii_spray_particle_file);
+	std::string fname = "spray" + dir.substr (3,6) + "p3d";
+	theSprayPC()->WriteAsciiFile(fname);
+      }
+    }
   }
 #endif
 
