@@ -1003,6 +1003,13 @@ PeleLM::define_data ()
      raii_fbs.push_back(std::unique_ptr<FluxBoxes>{new FluxBoxes(this, NUM_SPECIES+3, nGrow)});
      SpecDiffusionFluxnp1 = raii_fbs.back()->get();
 
+#ifndef NDEBUG
+     for ( int i = 0; i<AMREX_SPACEDIM; i++) {
+       SpecDiffusionFluxnp1[i]->setVal(1.2345e40);
+       SpecDiffusionFluxn[i]->setVal(1.2345e40);
+     }
+#endif
+     
 #ifdef USE_WBAR
      raii_fbs.push_back(std::unique_ptr<FluxBoxes>{new FluxBoxes(this, NUM_SPECIES, nGrow)});
      SpecDiffusionFluxWbar = raii_fbs.back()->get();
