@@ -256,10 +256,9 @@ protected:
 
   virtual void avgDown () override; // Average down for all the state types.
   //
-  // Note: these two functions must be supplied in NS_setup.C
+  // Note: these two functions must be supplied.
   //       If divu (dsdt) is not included in the state, then
   //       they can be no-op functions
-  //       See example in the _tube_flow problem dependent directory
   //
   virtual void calc_divu (amrex::Real      time,
                           amrex::Real      dt,

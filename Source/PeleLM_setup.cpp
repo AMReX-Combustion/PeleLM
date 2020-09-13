@@ -19,7 +19,6 @@
 //             2) the boundary condition for rho h at a wall is ill defined
 //
 // "Divu_Type" means S, where divergence U = S
-// "Dsdt_Type" means pd S/pd t, where S is as above
 //
 // see variableSetUp on how to use or not use these types in the state
 //
@@ -117,13 +116,6 @@ int
 divu_bc[] =
 {
   INT_DIR, REFLECT_EVEN, REFLECT_EVEN, REFLECT_EVEN, REFLECT_EVEN, REFLECT_EVEN, REFLECT_EVEN, REFLECT_EVEN
-};
-
-static
-int
-dsdt_bc[] =
-{
-  INT_DIR, EXT_DIR, EXT_DIR, REFLECT_EVEN, REFLECT_EVEN, REFLECT_EVEN, EXT_DIR, EXT_DIR 
 };
 
 static
@@ -273,20 +265,6 @@ set_divu_bc (BCRec&       bc,
   {
     bc.setLo(i,divu_bc[lo_bc[i]]);
     bc.setHi(i,divu_bc[hi_bc[i]]);
-  }
-}
-
-static
-void
-set_dsdt_bc (BCRec&       bc,
-             const BCRec& phys_bc)
-{
-  const int* lo_bc = phys_bc.lo();
-  const int* hi_bc = phys_bc.hi();
-  for (int i = 0; i < AMREX_SPACEDIM; i++)
-  {
-    bc.setLo(i,dsdt_bc[lo_bc[i]]);
-    bc.setHi(i,dsdt_bc[hi_bc[i]]);
   }
 }
 
@@ -569,16 +547,6 @@ PeleLM::variableSetUp ()
 
   set_divu_bc(bc,phys_bc);
   desc_lst.setComponent(Divu_Type,Divu,"divu",bc,pelelm_bndryfunc3);
-  //
-  // Stick Dsdt_Type on the end of the descriptor list.
-  //
-  Dsdt_Type = desc_lst.size();
-	    
-  ngrow = 0;
-  desc_lst.addDescriptor(Dsdt_Type,IndexType::TheCellType(),StateDescriptor::Point,ngrow,1,
-                         &cell_cons_interp);
-  set_dsdt_bc(bc,phys_bc);
-  desc_lst.setComponent(Dsdt_Type,Dsdt,"dsdt",bc,pelelm_bndryfunc3);
   //
   // Add in the fcncall tracer type quantity.
   //
