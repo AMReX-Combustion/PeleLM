@@ -94,13 +94,11 @@ GMRESSolver::solve(MultiFab& a_sol,
    AMREX_ALWAYS_ASSERT(a_sol.nComp() == m_nComp && a_rhs.nComp() == m_nComp);
    if ( m_prec == nullptr ) Print() << "Using unpreconditioned GMRES ! Might take a while to converge ...\n";
 
-// Prepare for solve
-   prepareForSolve();
 
    initResNorm = computeResidualNorm(a_sol,a_rhs);                      // Initial resisual norm
    targetResNorm = initResNorm * a_rel_tol;                             // Target relative tolerance
 
-   if ( m_verbose ) amrex::Print() << "GMRES solve initial residual " << initResNorm << "\n";
+   if ( m_verbose > 0 ) amrex::Print() << "GMRES: initial residual = " << initResNorm << "\n";
    if ( initResNorm < a_abs_tol ) {
       amrex::Print() << "GMRES: no need for iterations";
       return 0;
@@ -109,9 +107,15 @@ GMRESSolver::solve(MultiFab& a_sol,
    iter_count = 0;
    restart_count = 0;
    do {
+//    Prepare for solve
+      prepareForSolve();
       one_restart(a_sol,a_rhs);
       restart_count++;
    } while( !m_converged && restart_count < m_restart );
+
+   Real finalResNorm = computeResidualNorm(a_sol,a_rhs);                // Final resisual norm
+   if ( m_verbose > 0 ) amrex::Print() << "GMRES: final residual, resid/resid0 = " << finalResNorm << ", "
+                                       << finalResNorm/initResNorm << "\n";
    return iter_count;
 }
 
@@ -135,7 +139,7 @@ GMRESSolver::one_restart(MultiFab& a_x, const MultiFab& a_rhs)
 {
    computeResidual(a_x,a_rhs,res);
    Real resNorm_0 = computeNorm(res);
-   if ( m_verbose ) amrex::Print() << "[Restart:"<< restart_count << "] initial relative res: " << resNorm_0/initResNorm << "\n";
+   if ( m_verbose > 1 ) amrex::Print() << "     [Restart:"<< restart_count << "] initial relative res: " << resNorm_0/initResNorm << "\n";
 
    // Initialize KspBase with normalized residual
    g[0] = resNorm_0;
@@ -174,7 +178,7 @@ GMRESSolver::one_restart(MultiFab& a_x, const MultiFab& a_rhs)
    // Compute solution update
    MultiFab update(m_grids,m_dmap,m_nComp,0);
    update.setVal(0.0);
-   for ( int i = 0; i <= k_end; ++i ) {
+   for ( int i = k_end; i >= 0; --i ) {
       MultiFab::Saxpy(update,y[i],KspBase[i], 0, 0, m_nComp, 0);
    }
 
@@ -186,7 +190,7 @@ void
 GMRESSolver::one_iter(const int iter, Real &resNorm)
 {
    BL_PROFILE("GMRESSolver::one_iter()");
-   if ( m_verbose ) amrex::Print() << "[Iter:" << iter_count << "] residual norm: " << resNorm / initResNorm << "\n";
+   if ( m_verbose > 1 ) amrex::Print() << "     [Iter:" << iter_count << "] residual norm: " << resNorm / initResNorm << "\n";
    appendBasisVector(iter,KspBase);
    gramSchmidtOrtho(iter,KspBase);
    resNorm = givensRotation(iter);
