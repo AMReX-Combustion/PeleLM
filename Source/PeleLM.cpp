@@ -6141,7 +6141,7 @@ PeleLM::advance (Real time,
 
     showMF("mysdc",get_new_data(State_Type),"snew_after_scalar_adv_upd_rho",level,sdc_iter,parent->levelSteps(level));
 
-    #ifdef AMREX_PARTICLES
+#ifdef AMREX_PARTICLES
         showMF("mysdc",get_new_data(State_Type),"snew_before_spray_rho_src",level,sdc_iter,parent->levelSteps(level));
 
         MultiFab&       S_new = get_new_data(State_Type);
@@ -6150,9 +6150,9 @@ PeleLM::advance (Real time,
 	      DistributionMapping dm = S_new.DistributionMap();
         MultiFab        tmp_mf(ba, dm, S_new.nComp(), 2);
 
-    #ifdef _OPENMP
-    (#pragma omp parallel
-    #endif
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
         //for (MFIter mfi(S_new,true); mfi.isValid(); ++mfi)
         for (MFIter mfi(spraydot,true); mfi.isValid(); ++mfi)
         {
@@ -6168,7 +6168,7 @@ PeleLM::advance (Real time,
 
         showMF("mysdc",spraydot,"spraydot_after_rho_upd",level,sdc_iter,parent->levelSteps(level));
 
-    #endif
+#endif
 
     showMF("mysdc",get_new_data(State_Type),"snew_w_spray",level,sdc_iter,parent->levelSteps(level));
 
