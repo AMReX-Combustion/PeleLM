@@ -52,4 +52,43 @@ ef_edge_state(int i,int j,int k, int n,
    return state_ed;
 }
 
+AMREX_GPU_HOST_DEVICE
+AMREX_FORCE_INLINE
+void
+cen2edg_upwind_cpp(int i, int j, int k,
+                   int dir,
+                   int ncomp,
+                   const bool                       on_lo,
+                   const bool                       on_hi,
+                   amrex::Array4<const amrex::Real> const& ueff,
+                   amrex::Array4<const amrex::Real> const& cfab,
+                   amrex::Array4<      amrex::Real> const& efab) noexcept
+{
+   using namespace amrex::literals;
+
+   // Default behavior: id_l -1 in dir
+   // Handle the BCs
+   // Need -1 in id_l and id_h in dir on low Dirichlet BC
+   // Need nothing on high Dirichlet BC
+   int  id_l[3] = {i,j,k};
+   int  id_h[3] = {i,j,k};
+   if (!on_lo ) {
+      if ( !on_hi ) {
+         id_l[dir] -= 1;
+      }
+   } else {
+      id_l[dir] -= 1;
+      id_h[dir] -= 1;
+   }
+
+   for (int n = 0; n < ncomp; n++) {
+      if ( ueff(i,j,k) > small_vel ) {
+         efab(i,j,k,n) = cfab(id_l[0],id_l[1],id_l[2],n);
+      } else if ( ueff(i,j,k) < -small_vel ) {
+         efab(i,j,k,n) = cfab(id_h[0],id_h[1],id_h[2],n);
+      } else {
+         efab(i,j,k,n) = 0.5_rt*(cfab(id_l[0],id_l[1],id_l[2],n) + cfab(id_h[0],id_h[1],id_h[2],n));
+      }
+   }
+}
 #endif
