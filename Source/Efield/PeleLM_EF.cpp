@@ -371,6 +371,9 @@ void PeleLM::ef_solve_PNP(      int      misdc,
       gmres.setMaxRestart(ef_GMRES_maxRst);
    }
 
+   // Need to create the preconditioner LinOp
+   PCLinOp_needUpdate = 1;
+
    int NK_tot_count = 0;
    for (int sstep = 0; sstep < ef_substep; sstep++) {
       curtime = prev_time + (sstep+1) * dtsub;
@@ -588,7 +591,7 @@ void PeleLM::ef_nlResidual(const Real      &dt_lcl,
       auto const& charge   = bg_charge.const_array(mfi);
       auto const& res_nE   = a_nl_resid.array(mfi,0);
       auto const& res_phiV = a_nl_resid.array(mfi,1);
-      Real scalLap         = EFConst::eps0 * EFConst::epsr / EFConst::elemCharge;;
+      Real scalLap         = EFConst::eps0 * EFConst::epsr / EFConst::elemCharge;
       amrex::ParallelFor(bx, [ne_curr,ne_old,lapPhiV,ne_diff,ne_adv,charge,res_nE,res_phiV,dt_lcl,scalLap]
       AMREX_GPU_DEVICE (int i, int j, int k) noexcept
       {
@@ -842,6 +845,115 @@ void PeleLM::compElecAdvection(MultiFab &a_ne,
 void PeleLM::ef_setUpPrecond (const Real &dt_lcl,
                               const MultiFab& a_nl_state) {
    BL_PROFILE("PLM_EF::ef_setUpPrecond()");
+
+   if ( PCLinOp_needUpdate ) {
+      LPInfo info;
+      info.setAgglomeration(1);
+      info.setConsolidation(1);
+      info.setMetricTerm(false);
+
+      if ( pnp_pc_drift != nullptr ) {
+         delete pnp_pc_drift;
+         delete pnp_pc_Stilda;
+         delete pnp_pc_diff;
+      }
+
+      pnp_pc_drift = new MLABecLaplacian({geom}, {grids}, {dmap}, info);
+      pnp_pc_Stilda = new MLABecLaplacian({geom}, {grids}, {dmap}, info);
+      pnp_pc_diff = new MLABecCecLaplacian({geom}, {grids}, {dmap}, info);
+
+      pnp_pc_Stilda->setMaxOrder(ef_PoissonMaxOrder);
+      pnp_pc_diff->setMaxOrder(ef_PoissonMaxOrder);
+      pnp_pc_drift->setMaxOrder(ef_PoissonMaxOrder);
+
+      PCLinOp_needUpdate = 0;
+   }
+
+   // Set diff/drift operator
+   {
+      pnp_pc_diff->setScalars(-nE_scale/FnE_scale, -dt_lcl*nE_scale/FnE_scale, dt_lcl*nE_scale/FnE_scale);
+      Real omega = 1.0;
+      pnp_pc_diff->setRelaxation(omega);
+      MultiFab dummy(grids,dmap,1,1);
+      dummy.setVal(1.0);
+      pnp_pc_diff->setACoeffs(0, dummy);
+      std::array<const MultiFab*,AMREX_SPACEDIM> bcoeffs{AMREX_D_DECL(De_ec[0],De_ec[1],De_ec[2])};
+      pnp_pc_diff->setBCoeffs(0, bcoeffs);
+      std::array<const MultiFab*,AMREX_SPACEDIM> ccoeffs{AMREX_D_DECL(&elec_Ueff[0],&elec_Ueff[1],&elec_Ueff[2])};
+      pnp_pc_diff->setCCoeffs(0, ccoeffs);
+   }
+
+   // Stilda and Drift LinOp
+   {
+      // Upwinded edge neKe values
+      MultiFab nEKe(grids,dmap,1,1);
+      MultiFab nE_a(a_nl_state,amrex::make_alias,0,1);  // State is not scale at this point
+#ifdef _OPENMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+      for (MFIter mfi(nEKe, TilingIfNotGPU()); mfi.isValid(); ++mfi)
+      {
+         const Box& gbx = mfi.growntilebox();
+         auto const& neke   = nEKe.array(mfi);
+         auto const& ne_arr = nE_a.const_array(mfi);
+         amrex::ParallelFor(gbx, [neke,ne_arr]
+         AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+         {
+            getKappaE(i,j,k,neke);
+            neke(i,j,k) *= ne_arr(i,j,k);
+         });
+      }
+
+      FluxBoxes edge_fb(this, 1, 1);
+      MultiFab** neKe_ec = edge_fb.get();
+      auto math_bc = fetchBCArray(State_Type,nE,1);
+      const Box& domain = geom.Domain();
+#ifdef _OPENMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+      for (MFIter mfi(nEKe, TilingIfNotGPU()); mfi.isValid(); ++mfi)
+      {
+         for (int dir = 0; dir < AMREX_SPACEDIM; dir++)
+         {
+            const Box ebx = mfi.nodaltilebox(dir);
+            const Box& edomain = amrex::surroundingNodes(domain,dir);
+            const auto& neke_c  = nEKe.array(mfi);
+            const auto& neke_ed = neKe_ec[dir]->array(mfi);
+            const auto& ueff_ed = elec_Ueff[dir].array(mfi);
+            const auto bc_lo = fpi_phys_loc(math_bc[0].lo(dir));
+            const auto bc_hi = fpi_phys_loc(math_bc[0].hi(dir));
+            amrex::ParallelFor(ebx, [dir, bc_lo, bc_hi, neke_c, neke_ed, ueff_ed, edomain]
+            AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+            {
+               int idx[3] = {i,j,k};
+               bool on_lo = ( ( bc_lo == HT_Edge ) && ( idx[dir] <= edomain.smallEnd(dir) ) );
+               bool on_hi = ( ( bc_hi == HT_Edge ) && ( idx[dir] >= edomain.bigEnd(dir) ) );
+               cen2edg_upwind_cpp( i, j, k, dir, 1, on_lo, on_hi, ueff_ed, neke_c, neke_ed);
+            });
+         }
+      }
+
+      pnp_pc_drift->setScalars(0.0,0.5*phiV_scale/FnE_scale*dt_lcl);
+      {
+         std::array<const MultiFab*,AMREX_SPACEDIM> bcoeffs{AMREX_D_DECL(neKe_ec[0],neKe_ec[1],neKe_ec[2])};
+         pnp_pc_drift->setBCoeffs(0, bcoeffs);
+      }
+      if ( ef_debug ) {
+         VisMF::Write(*neKe_ec[0],"PC_Drift_nEKe_edgeX_lvl"+std::to_string(level));
+         VisMF::Write(*neKe_ec[1],"PC_Drift_nEKe_edgeY_lvl"+std::to_string(level));
+      }
+
+      pnp_pc_Stilda->setScalars(0.0,-phiV_scale/FphiV_scale);
+      Real scalLap = EFConst::eps0 * EFConst::epsr / EFConst::elemCharge;
+      for (int dir = 0; dir < AMREX_SPACEDIM; dir++) {
+         neKe_ec[dir]->mult(0.5*dt_lcl,0,1);
+         neKe_ec[dir]->plus(scalLap,0,1);
+      }
+      {
+         std::array<const MultiFab*,AMREX_SPACEDIM> bcoeffs{AMREX_D_DECL(neKe_ec[0],neKe_ec[1],neKe_ec[2])};
+         pnp_pc_Stilda->setBCoeffs(0, bcoeffs);
+      }
+   }
 }
 
 void PeleLM::ef_applyPrecond (const MultiFab  &v,
