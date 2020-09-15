@@ -96,9 +96,13 @@ GMRESSolver::solve(MultiFab& a_sol,
 
 
    initResNorm = computeResidualNorm(a_sol,a_rhs);                      // Initial resisual norm
+   Real rhsNorm  = computeNorm(a_rhs);                                  // RHS norm
    targetResNorm = initResNorm * a_rel_tol;                             // Target relative tolerance
 
-   if ( m_verbose > 0 ) amrex::Print() << "GMRES: initial residual = " << initResNorm << "\n";
+   if ( m_verbose > 0 ) {
+      amrex::Print() << "GMRES: Initial rhs = " << rhsNorm << "\n";
+      amrex::Print() << "GMRES: Initial residual = " << initResNorm << "\n";
+   }
    if ( initResNorm < a_abs_tol ) {
       amrex::Print() << "GMRES: no need for iterations";
       return 0;
@@ -114,7 +118,7 @@ GMRESSolver::solve(MultiFab& a_sol,
    } while( !m_converged && restart_count < m_restart );
 
    Real finalResNorm = computeResidualNorm(a_sol,a_rhs);                // Final resisual norm
-   if ( m_verbose > 0 ) amrex::Print() << "GMRES: final residual, resid/resid0 = " << finalResNorm << ", "
+   if ( m_verbose > 0 ) amrex::Print() << "GMRES: Final residual, resid/resid0 = " << finalResNorm << ", "
                                        << finalResNorm/initResNorm << "\n";
    return iter_count;
 }
