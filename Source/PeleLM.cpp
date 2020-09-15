@@ -63,6 +63,7 @@
 #ifdef PLM_USE_EFIELD
 #include <PeleLM_EF_Constant.H>
 #include <PeleLM_EF_K.H>
+#include <AMReX_MLABecCecLaplacian.H>
 #include <AMReX_MLPoisson.H>
 #include <AMReX_MLMG.H>
 #include <GMRES.H>

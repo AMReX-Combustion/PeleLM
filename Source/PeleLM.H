@@ -7,6 +7,12 @@
 
 #include <AMReX_ForkJoin.H>
 
+#ifdef PLM_USE_EFIELD
+#include <AMReX_MLMG.H>
+#include <AMReX_MLABecLaplacian.H>
+#include <AMReX_MLABecCecLaplacian.H>
+#endif
+
 #include <mechanism.h>
 
 #include <list>
