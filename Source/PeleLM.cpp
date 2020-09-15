@@ -236,6 +236,7 @@ Real PeleLM::ef_newtonTol;
 int  PeleLM::ef_GMRES_size;
 int  PeleLM::ef_GMRES_maxRst;
 Real PeleLM::ef_GMRES_reltol;
+int  PeleLM::ef_GMRES_verbose;
 BCRec  PeleLM::phiV_bc;
 GpuArray<Real,NUM_SPECIES> PeleLM::zk;
 #endif
@@ -5180,6 +5181,7 @@ PeleLM::advance (Real time,
 
 #ifdef PLM_USE_EFIELD
     MultiFab ForcingNe_al(grids,dmap,1,nGrowAdvForcing);
+    ForcingNe_al.setVal(0.0);
     ef_solve_PNP(sdc_iter, dt, time, Dn, Dnp1, Dhat, ForcingNe_al);
 #endif
 
