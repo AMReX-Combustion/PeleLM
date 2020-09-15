@@ -15,12 +15,14 @@
 // Extra transport properties for electrons and charged species
    FluxBoxes diff_e;
    amrex::MultiFab**          De_ec;
+   FluxBoxes mob_e;
+   amrex::MultiFab**          Ke_ec;
 
 // Scaling of non-linear system
    amrex::Real                 nE_scale;
    amrex::Real                 phiV_scale;
-   amrex::Real                 FnE_scale;
-   amrex::Real                 FphiV_scale;
+   amrex::Real                 FnE_scale = 1.0;
+   amrex::Real                 FphiV_scale = 1.0;
 
 // Algo misc.
    amrex::Real                 dtsub;              // sub time step size
@@ -34,6 +36,7 @@
    amrex::MultiFab            bg_charge;
    amrex::MultiFab            nl_state;
    amrex::MultiFab            nl_resid;
+   amrex::MultiFab*           elec_Ueff;
 
 // PhiV poisson solve options
    static amrex::Real ef_PoissonTol;
@@ -50,6 +53,7 @@
    static int         ef_GMRES_size;            // Size of the GMRES Krylov base
    static amrex::Real ef_GMRES_reltol;          // Relarive tolerance of the GMRES solve
    static int         ef_GMRES_maxRst;          // Maximum number of GMRES restart
+   static int         ef_GMRES_verbose;         // GMRES verbosity
 
    static void ef_init();        // Init EF params
 
@@ -81,12 +85,31 @@
                             int                update_res_scaling = 0,
                             int                update_precond = 0);
 
+// grap phiV
+   void ef_calcGradPhiV(const amrex::Real&       a_time,
+                              amrex::MultiFab    &a_phiv,
+                              amrex::MultiFab*   gradphi[AMREX_SPACEDIM]);
+
+// Preconditioner
+   void ef_setUpPrecond(const amrex::Real  &dt,
+                        const amrex::MultiFab  &a_nl_state);
+
+   void ef_applyPrecond(const amrex::MultiFab  &v,
+                              amrex::MultiFab  &Pv);
+
 // Laplacian of phiV
    void compPhiVLap(amrex::MultiFab    &a_phi,
-                    amrex::MultiFab    &phiLap);
+                    amrex::MultiFab    &phiLap,
+                    amrex::MultiFab**  a_gphiV);
 
 // Electron diffusion term
    void compElecDiffusion(amrex::MultiFab    &a_nE,
+                          amrex::MultiFab    &elecDiff);
+
+// Electron diffusion term
+   void compElecAdvection(amrex::MultiFab    &a_nE,
+                          amrex::MultiFab    &a_phiV,
+                          amrex::MultiFab**  a_gphiV,
                           amrex::MultiFab    &elecDiff);
 
 // Provisional charge distribution
