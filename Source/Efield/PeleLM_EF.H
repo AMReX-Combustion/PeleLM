@@ -29,6 +29,7 @@
    amrex::Real                 curtime;            // current time within the sub-iteration
    amrex::Real                 nl_stateNorm;
    amrex::Real                 nl_residNorm;
+   int                         PCLinOp_needUpdate; // Flag to update the preconditioner linear operators
 
 // Class data
    amrex::MultiFab            ef_state_old;
@@ -39,6 +40,11 @@
    amrex::MultiFab*           elec_Ueff;
    FluxBoxes gphiV_fb;
    amrex::MultiFab**          gphiV_old;
+
+// Preconditioner data
+   amrex::MLABecCecLaplacian   *pnp_pc_diff = nullptr;
+   amrex::MLABecLaplacian      *pnp_pc_Stilda = nullptr;
+   amrex::MLABecLaplacian      *pnp_pc_drift = nullptr;
 
 // PhiV poisson solve options
    static amrex::Real ef_PoissonTol;
@@ -57,7 +63,7 @@
    static int         ef_GMRES_maxRst;          // Maximum number of GMRES restart
    static int         ef_GMRES_verbose;         // GMRES verbosity
 
-   static void ef_init();        // Init EF params
+   static void ef_init();                       // Init EF params
 
 // SDC predictor : solve for PhiV with 'old' state and compute ef transport properties
    void ef_advance_setup(const amrex::Real &time);
