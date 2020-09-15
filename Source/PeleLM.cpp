@@ -1300,7 +1300,6 @@ PeleLM::PeleLM (Amr&            papa,
 #ifdef AMREX_PARTICLES
   const int NUM_GROW = 2; // mr: not sure if that's right here, check!
   Sborder.define(grids,dmap,NUM_STATE,NUM_GROW,MFInfo(),Factory());
-  //SpraySourceTest.define(grids,dmap,NUM_STATE,3,MFInfo(),Factory());
 #endif
 
 }
@@ -2510,6 +2509,9 @@ PeleLM::post_restart ()
   if (do_spray_particles)
   {
     particlePostRestart(parent->theRestartFile());
+
+    const int NUM_GROW = 2; // mr: not sure if that's right here, check!
+    Sborder.define(grids,dmap,NUM_STATE,NUM_GROW,MFInfo(),Factory());
   }
 #endif
 
@@ -5850,8 +5852,8 @@ PeleLM::advance (Real time,
   if (fill_Sborder)
   {
     FillPatch(*this, Sborder, nGrow_Sborder, prev_time, State_Type, 0, NUM_STATE);
+    //FillPatch(*this, Sborder, nGrow_Sborder, time, State_Type, 0, NUM_STATE);
   }
-
   showMF("spray",Sborder,"Sborder_before_sdc",level,parent->levelSteps(level));
 
   //nGrow_Sborder = 4; // FIXME: Why is this hardwired?
@@ -6537,10 +6539,10 @@ PeleLM::advance (Real time,
   BL_PROFILE_VAR_STOP(HTPROJ);
 
 #ifdef AMREX_PARTICLES
-  if (theNSPC() != 0)
-  {
-    theNSPC()->AdvectWithUmac(u_mac, level, dt);
-  }
+  //  if (theNSPC() != 0)
+  //{
+  //  theNSPC()->AdvectWithUmac(u_mac, level, dt);
+  //}
 #endif
 
   BL_PROFILE_VAR("HT::advance::cleanup", HTCLEANUP);
