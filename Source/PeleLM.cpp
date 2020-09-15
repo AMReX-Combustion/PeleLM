@@ -5864,6 +5864,14 @@ PeleLM::advance (Real time,
   }
 #endif
 
+#ifdef AMREX_PARTICLES
+  // We must make a temporary spray source term to ensure number of ghost
+  // cells are correct
+  MultiFab tmp_spray_source(
+    grids,dmap, NUM_STATE, tmp_src_width, amrex::MFInfo(), Factory());
+  tmp_spray_source.setVal(0.);
+#endif
+  
   BL_PROFILE_VAR_NS("HT::advance::velocity_adv", HTVEL);
   for (int sdc_iter=1; sdc_iter<=sdc_iterMAX; ++sdc_iter)
   {
@@ -5914,35 +5922,24 @@ PeleLM::advance (Real time,
       //if (sdc_iter == sdc_iterMAX){updPart = true;};
 
       // valid particles
-      theSprayPC()->moveKickDrift(Sborder,spraydot,level, dt, time, false, false, tmp_src_width, true, where_width, nullptr);
+      theSprayPC()->moveKickDrift(Sborder,tmp_spray_source,level, dt, time, false, false, tmp_src_width, true, where_width, nullptr);
 
       // Only need the coarsest virtual particles here.
       if (level < finest_level)
-        theVirtPC()->moveKickDrift(Sborder,spraydot,level, dt, time, true, false, tmp_src_width, true, where_width, nullptr);
+        theVirtPC()->moveKickDrift(Sborder,tmp_spray_source,level, dt, time, true, false, tmp_src_width, true, where_width, nullptr);
 
       // Miiiight need all Ghosts
       if (theGhostPC() != 0)
-        theGhostPC()->moveKickDrift(Sborder,spraydot,level, dt, time, false, true, tmp_src_width, true, where_width, nullptr);
+        theGhostPC()->moveKickDrift(Sborder,tmp_spray_source,level, dt, time, false, true, tmp_src_width, true, where_width, nullptr);
 
-      //if (time == 0.){spraydot.setVal(0.);};
+      theSprayPC()->transferSource(
+        tmp_src_width, level, tmp_spray_source, spraydot);
 
       showMF("spray",spraydot,"spraydot",level,sdc_iter,parent->levelSteps(level));
 
       const bool do_avg_down_spray = level < parent->finestLevel()
         && getLevel(level+1).state[spraydot_Type].hasOldData();
 
-        amrex::Print() << "gonna do average_down_spray " << do_avg_down_spray << "\n";
-
-      if (do_avg_down_spray)
-      {
-        MultiFab& spraydot_new = get_new_data(spraydot_Type);
-        MultiFab& fine_spraydot = getLevel(level+1).get_old_data(spraydot_Type);
-        amrex::average_down(fine_spraydot, spraydot_new, getLevel(level+1).geom, geom,
-                             0, nspecies+3+AMREX_SPACEDIM, fine_ratio);
-
-        spraydot_new.FillBoundary(0,nspecies+3+AMREX_SPACEDIM, geom.periodicity());
-        Extrapolater::FirstOrderExtrap(spraydot_new, geom, 0, nspecies+3+AMREX_SPACEDIM);
-      }
 
     }
 #endif
@@ -6312,29 +6309,17 @@ PeleLM::advance (Real time,
 
         MultiFab& spraydot = get_new_data(spraydot_Type);
         spraydot.setVal(0.);
-
+	tmp_spray_source.setVal(0.);
+	
         bool updPart = true;
-        theSprayPC()->moveKick(Sborder,spraydot,level, dt, time, false, false, tmp_src_width, nullptr);
+        theSprayPC()->moveKick(Sborder,tmp_spray_source,level, dt, time, false, false, tmp_src_width, nullptr);
 
-        if (theGhostPC() != 0)
-          theGhostPC()->moveKick(Sborder,spraydot,level, dt, time, false, true, tmp_src_width, nullptr);
+        if (iteration != ncycle && theGhostPC() != 0)
+          theGhostPC()->moveKick(Sborder,tmp_spray_source,level, dt, time, false, true, tmp_src_width, nullptr);
 
-          const bool do_avg_down_spray = level < parent->finestLevel()
-            && getLevel(level+1).state[spraydot_Type].hasOldData();
-
-            amrex::Print() << "gonna do average_down_spray " << do_avg_down_spray << "\n";
-
-          if (do_avg_down_spray)
-          {
-            MultiFab& spraydot_new = get_new_data(spraydot_Type);
-            MultiFab& fine_spraydot = getLevel(level+1).get_old_data(spraydot_Type);
-            amrex::average_down(fine_spraydot, spraydot_new, getLevel(level+1).geom, geom,
-                                 0, nspecies+3+AMREX_SPACEDIM, fine_ratio);
-
-            spraydot_new.FillBoundary(0,nspecies+3+AMREX_SPACEDIM, geom.periodicity());
-            Extrapolater::FirstOrderExtrap(spraydot_new, geom, 0, nspecies+3+AMREX_SPACEDIM);
-          }
-
+	theSprayPC()->transferSource(
+	  tmp_src_width, level, tmp_spray_source, spraydot);
+	
       }
     #endif
   }
