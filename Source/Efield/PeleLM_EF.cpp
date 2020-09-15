@@ -184,6 +184,9 @@ void PeleLM::ef_define_data() {
       const BoxArray& edgeba = getEdgeBoxArray(d);
       elec_Ueff[d].define(edgeba, dmap, 1, 1);
    }
+
+   gphiV_fb.define(this);
+   gphiV_old = gphiV_fb.get();
 }
 
 void PeleLM::ef_advance_setup(const Real &time) {
@@ -343,6 +346,12 @@ void PeleLM::ef_solve_PNP(      int      misdc,
    MultiFab::Copy(ef_state_old,nEfpi_mf,0,0,2,1);                            // Copy into a storage to hold the old state
    MultiFab::Copy(ef_state_refGhostCell,nEfpi_mf,0,0,2,Godunov::hypgrow());  // Copy into a storage to hold the reference ghost cell value
 
+   // Need the gradient of old phiV
+   {
+      MultiFab phi_a(ef_state_old,amrex::make_alias,1,1);
+      ef_calcGradPhiV(prev_time,phi_a,gphiV_old);
+   }
+
    // Non-linear state & residual from FPI
    MultiFab::Copy(nl_state, ef_state_refGhostCell, 0, 0, 2, Godunov::hypgrow());
    if ( ef_debug ) VisMF::Write(nl_state,"PrePNPState_"+std::to_string(level));
@@ -464,6 +473,11 @@ void PeleLM::ef_solve_PNP(      int      misdc,
       nl_state.mult(phiV_scale,1,1);
       if ( sstep != ef_substep - 1 ) {
          MultiFab::Copy(ef_state_old,nl_state,0,0,2,1);
+         // Need to update the gradient of old phiV
+         {
+            MultiFab phi_a(ef_state_old,amrex::make_alias,1,1);
+            ef_calcGradPhiV(curtime,phi_a,gphiV_old);
+         }
       }
       
    }
@@ -600,11 +614,6 @@ void PeleLM::ef_nlResidual(const Real      &dt_lcl,
    if ( update_precond && !ef_use_PETSC_direct ) {
       ef_setUpPrecond(dt_lcl, nl_state_usc);
    }
-
-//   FluxBoxes fluxb(this, 1, 0);
-//   MultiFab** grad_phiV = fluxb.get();
-//   ef_calcGradPhiV(curtime,phi_a, grad_phiV);
-//   if ( level == 2 ) Abort("Stop right there");
 }
 
 void PeleLM::compPhiVLap(MultiFab& phi,
@@ -707,8 +716,8 @@ void PeleLM::compElecAdvection(MultiFab &a_ne,
       {
          const Box& bx = mfi.tilebox();
          auto const& ueff    = elec_Ueff[d].array(mfi);
-         auto const& gphi_o  = gphiV[d]->const_array(mfi);
-         auto const& gphi_c  = gphiV[d]->const_array(mfi); 
+         auto const& gphi_c  = gphiV[d]->const_array(mfi);
+         auto const& gphi_o  = gphiV_old[d]->const_array(mfi);
          auto const& umac    = u_mac[d].const_array(mfi); 
          auto const& kappa_e = Ke_ec[d]->const_array(mfi);
          amrex::ParallelFor(bx, [ueff, gphi_c, gphi_o, umac, kappa_e]

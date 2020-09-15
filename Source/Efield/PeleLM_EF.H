@@ -37,6 +37,8 @@
    amrex::MultiFab            nl_state;
    amrex::MultiFab            nl_resid;
    amrex::MultiFab*           elec_Ueff;
+   FluxBoxes gphiV_fb;
+   amrex::MultiFab**          gphiV_old;
 
 // PhiV poisson solve options
    static amrex::Real ef_PoissonTol;
