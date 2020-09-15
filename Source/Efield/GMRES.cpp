@@ -110,6 +110,7 @@ GMRESSolver::solve(MultiFab& a_sol,
 
    iter_count = 0;
    restart_count = 0;
+   m_converged = false;
    do {
 //    Prepare for solve
       prepareForSolve();
@@ -215,21 +216,21 @@ void
 GMRESSolver::gramSchmidtOrtho(const int iter, Vector<MultiFab>& Base)
 {
    for ( int row = 0; row <= iter; ++row ) {
-      H[row][iter] = MultiFab::Dot(KspBase[iter+1],0,KspBase[row],0,m_nComp,0);
+      H[row][iter] = MultiFab::Dot(Base[iter+1],0,Base[row],0,m_nComp,0);
       Real GS_corr = - H[row][iter];
-      MultiFab::Saxpy(KspBase[iter+1],GS_corr,KspBase[row],0,0,m_nComp,0);
+      MultiFab::Saxpy(Base[iter+1],GS_corr,Base[row],0,0,m_nComp,0);
       if ( check_GramSchmidtOrtho ) {
-         Real Hcorr = MultiFab::Dot(KspBase[iter+1],0,KspBase[row],0,m_nComp,0);
+         Real Hcorr = MultiFab::Dot(Base[iter+1],0,Base[row],0,m_nComp,0);
          if ( std::fabs(Hcorr) > 1.0e-15 ) {
             H[row][iter] += Hcorr;
             GS_corr = - Hcorr;
-            MultiFab::Saxpy(KspBase[iter+1],GS_corr,KspBase[row],0,0,m_nComp,0);
+            MultiFab::Saxpy(Base[iter+1],GS_corr,Base[row],0,0,m_nComp,0);
          }
       }
    }
-   Real normNewVec = computeNorm(KspBase[iter+1]);
+   Real normNewVec = computeNorm(Base[iter+1]);
    H[iter+1][iter] = normNewVec;
-   if ( normNewVec > 0 ) KspBase[iter+1].mult(1.0/normNewVec);
+   if ( normNewVec > 0 ) Base[iter+1].mult(1.0/normNewVec);
 }
 
 Real
