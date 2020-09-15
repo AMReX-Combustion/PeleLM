@@ -8,4 +8,5 @@ namespace EFConst {
    extern AMREX_GPU_DEVICE_MANAGED amrex::Real elemCharge;    //Coulomb per charge
    extern AMREX_GPU_DEVICE_MANAGED amrex::Real Na;            //Avogadro's number
 }
+static constexpr amrex::Real small_vel = 1.e-10;
 #endif
