@@ -238,6 +238,8 @@ int  PeleLM::ef_GMRES_size;
 int  PeleLM::ef_GMRES_maxRst;
 Real PeleLM::ef_GMRES_reltol;
 int  PeleLM::ef_GMRES_verbose;
+Real PeleLM::ef_PC_MG_Tol;
+int  PeleLM::ef_PC_fixedIter;
 BCRec  PeleLM::phiV_bc;
 GpuArray<Real,NUM_SPECIES> PeleLM::zk;
 #endif
