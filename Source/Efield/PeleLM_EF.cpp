@@ -534,7 +534,7 @@ int PeleLM::testExitNewton(const MultiFab  &res,
       }
    }
 
-   if ( newtonIter >= ef_maxNewtonIter ) {
+   if ( newtonIter >= ef_maxNewtonIter && exit == 0 ) {
       exit = 1;
       amrex::Print() << " Max Newton iteration reached without convergence !!! \n";
    }
@@ -576,7 +576,7 @@ void PeleLM::newtonInitialGuess(const Real      &dt_lcl,
    Real nE_adv_dt = 1.0e20;
    for (int dir = 0; dir < AMREX_SPACEDIM; ++dir) {
       Real umax = elec_Ueff[dir].norm0(0);
-      nE_adv_dt = amrex::min(nE_adv_dt,umax/dx[0]);
+      nE_adv_dt = amrex::min(nE_adv_dt,dx[0]/umax);
    }
 
    nE_adv_dt = amrex::min(dt_lcl,nE_adv_dt);
@@ -994,6 +994,10 @@ void PeleLM::ef_setUpPrecond (const Real &dt_lcl,
       for (int dir = 0; dir < AMREX_SPACEDIM; dir++) {
          neKe_ec[dir]->mult(0.5*dt_lcl,0,1);
          neKe_ec[dir]->plus(scalLap,0,1);
+      }
+      if ( ef_debug ) {
+         VisMF::Write(*neKe_ec[0],"PC_Stilda_nEKepLap_edgeX_lvl"+std::to_string(level));
+         VisMF::Write(*neKe_ec[1],"PC_Stilda_nEKepLap_edgeY_lvl"+std::to_string(level));
       }
       {
          std::array<const MultiFab*,AMREX_SPACEDIM> bcoeffs{AMREX_D_DECL(neKe_ec[0],neKe_ec[1],neKe_ec[2])};
