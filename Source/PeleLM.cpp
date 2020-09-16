@@ -8158,18 +8158,6 @@ PeleLM::calc_dpdt (Real      time,
    }
 }
 
-//
-// Function to use if Divu_Type and Dsdt_Type are in the state.
-//
-void
-PeleLM::calc_dsdt (Real      /*time*/,
-                   Real      /*dt*/,
-                   MultiFab& /*dsdt*/)
-{
-  // dsdt no longer used
-}
-
-
 void
 PeleLM::RhoH_to_Temp (MultiFab& S,
                       int       nGrow,
