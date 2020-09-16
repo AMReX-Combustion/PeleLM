@@ -257,16 +257,12 @@ protected:
   virtual void avgDown () override; // Average down for all the state types.
   //
   // Note: these two functions must be supplied.
-  //       If divu (dsdt) is not included in the state, then
+  //       If divu is not included in the state, then
   //       they can be no-op functions
   //
   virtual void calc_divu (amrex::Real      time,
                           amrex::Real      dt,
                           amrex::MultiFab& divu) override;
-
-  virtual void calc_dsdt (amrex::Real      time,
-                          amrex::Real      dt,
-                          amrex::MultiFab& dsdt) override;
 
   virtual void calcViscosity (const amrex::Real time,
                               const amrex::Real dt,
