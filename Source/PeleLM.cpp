@@ -1,6 +1,5 @@
 //
 // "Divu_Type" means S, where divergence U = S
-// "Dsdt_Type" means pd S/pd t, where S is as above
 // "RhoYchemProd_Type" means -omega_l/rho, i.e., the mass rate of decrease of species l due
 //             to kinetics divided by rho
 //
@@ -79,7 +78,6 @@ const Real Real_MAX = DBL_MAX;
 const int  GEOM_GROW   = 1;
 const int  PRESS_GROW  = 1;
 const int  DIVU_GROW   = 1;
-const int  DSDT_GROW   = 1;
 const Real bogus_value =  1.e20;
 const int  DQRAD_GROW  = 1;
 const int  YDOT_GROW   = 1;
@@ -908,9 +906,6 @@ PeleLM::PeleLM ()
    if (!have_divu)
       amrex::Abort("have_divu MUST be true");
 
-   if (!have_dsdt)
-      amrex::Abort("have_dsdt MUST be true");
-
    // p_amb_old and p_amb_new contain the old-time and new-time
    // pressure at level 0.  For closed chamber problems they change over time.
    // set p_amb_old and new if they haven't been set yet
@@ -954,9 +949,6 @@ PeleLM::PeleLM (Amr&            papa,
 
   if (!have_divu)
     amrex::Abort("have_divu MUST be true");
-
-  if (!have_dsdt)
-    amrex::Abort("have_dsdt MUST be true");
 
   // p_amb_old and p_amb_new contain the old-time and new-time
   // pressure at level 0.  For closed chamber problems they change over time.
@@ -1011,6 +1003,13 @@ PeleLM::define_data ()
      raii_fbs.push_back(std::unique_ptr<FluxBoxes>{new FluxBoxes(this, NUM_SPECIES+3, nGrow)});
      SpecDiffusionFluxnp1 = raii_fbs.back()->get();
 
+#ifndef NDEBUG
+     for ( int i = 0; i<AMREX_SPACEDIM; i++) {
+       SpecDiffusionFluxnp1[i]->setVal(1.2345e40);
+       SpecDiffusionFluxn[i]->setVal(1.2345e40);
+     }
+#endif
+     
 #ifdef USE_WBAR
      raii_fbs.push_back(std::unique_ptr<FluxBoxes>{new FluxBoxes(this, NUM_SPECIES, nGrow)});
      SpecDiffusionFluxWbar = raii_fbs.back()->get();
@@ -1121,7 +1120,6 @@ PeleLM::init_once ()
    //
    int ydot_good = RhoYdot_Type >= 0 && RhoYdot_Type <  desc_lst.size()
                                      && RhoYdot_Type != Divu_Type
-                                     && RhoYdot_Type != Dsdt_Type
                                      && RhoYdot_Type != State_Type;
 
 
@@ -1875,7 +1873,7 @@ PeleLM::initData ()
   initActiveControl();
 
   //
-  // Initialize divU and dSdt.
+  // Initialize divU
   //
   if (have_divu)
   {
@@ -1893,8 +1891,6 @@ PeleLM::initData ()
 
     calc_divu(tnp1,dtin,Divu_new);
     
-    if (have_dsdt)
-      get_new_data(Dsdt_Type).setVal(0.0);
   }
 
   if (state[Press_Type].descriptor()->timeType() == StateDescriptor::Point) 
@@ -2797,7 +2793,7 @@ PeleLM::avgDown ()
    amrex::average_down_nodal(P_fine,P_crse,fine_ratio);
  
    //
-   // Next average down divu and dSdT at new time.
+   // Next average down divu at new time.
    //
    if (hack_noavgdivu) 
    {
@@ -2817,8 +2813,6 @@ PeleLM::avgDown ()
 
      average_down(Divu_fine, Divu_crse, 0, Divu_crse.nComp());
    }
-
-   get_new_data(Dsdt_Type).setVal(0.0);
 
    if (verbose > 1)
    {
@@ -3704,8 +3698,8 @@ PeleLM::compute_enthalpy_fluxes (MultiFab* const*       flux,
          });
       }
    }
-
 #endif
+
   //
   // Now we construct the actual fluxes: sum[ (species flux).(species enthalpy) ]
   //
@@ -5297,8 +5291,6 @@ PeleLM::advance (Real time,
          }
       }
    }
-   get_new_data(Dsdt_Type).setVal(0.0);
-   get_old_data(Dsdt_Type).setVal(0.0);
    BL_PROFILE_VAR_STOP(PLM_PROJ);
 
    //
@@ -8169,13 +8161,12 @@ PeleLM::calc_dpdt (Real      time,
 //
 // Function to use if Divu_Type and Dsdt_Type are in the state.
 //
-
 void
-PeleLM::calc_dsdt (Real      time,
-                   Real      dt,
-                   MultiFab& dsdt)
+PeleLM::calc_dsdt (Real      /*time*/,
+                   Real      /*dt*/,
+                   MultiFab& /*dsdt*/)
 {
-  dsdt.setVal(0);
+  // dsdt no longer used
 }
 
 
