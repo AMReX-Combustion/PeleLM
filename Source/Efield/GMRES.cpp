@@ -104,7 +104,7 @@ GMRESSolver::solve(MultiFab& a_sol,
       amrex::Print() << "GMRES: Initial residual = " << initResNorm << "\n";
    }
    if ( initResNorm < a_abs_tol ) {
-      amrex::Print() << "GMRES: no need for iterations";
+      amrex::Print() << "GMRES: no need for iterations \n";
       return 0;
    }
 
