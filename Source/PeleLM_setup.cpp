@@ -504,12 +504,12 @@ PeleLM::variableSetUp ()
                          StateDescriptor::Interval,1,1,
                          &node_bilinear_interp);
 
-  amrex::StateDescriptor::BndryFunc pelelm_bndryfunc2(pelelm_press_fill);
-  pelelm_bndryfunc2.setRunOnGPU(true);  // I promise the bc function will launch gpu kernels.
+  amrex::StateDescriptor::BndryFunc pelelm_nodal_bf(pelelm_press_fill);
+  pelelm_nodal_bf.setRunOnGPU(true);  // I promise the bc function will launch gpu kernels.
 
 
   set_pressure_bc(bc,phys_bc);
-  desc_lst.setComponent(Press_Type,Pressure,"pressure",bc,pelelm_bndryfunc2);
+  desc_lst.setComponent(Press_Type,Pressure,"pressure",bc,pelelm_nodal_bf);
 #else
   desc_lst.addDescriptor(Press_Type,IndexType::TheNodeType(),
                          StateDescriptor::Point,1,1,
@@ -540,19 +540,23 @@ PeleLM::variableSetUp ()
   desc_lst.addDescriptor(Divu_Type,IndexType::TheCellType(),StateDescriptor::Point,ngrow,1,
                          &cell_cons_interp);
 
-  amrex::StateDescriptor::BndryFunc pelelm_bndryfunc3(pelelm_fillEdges);
-  pelelm_bndryfunc3.setRunOnGPU(true);  // I promise the bc function will launch gpu kernels.
-
-
+  // EXT_DIR ghost cells should never actually get used, just need something computable 
+  amrex::StateDescriptor::BndryFunc pelelm_divu_bf(pelelm_dummy_fill);
+  pelelm_divu_bf.setRunOnGPU(true);  // I promise the bc function will launch gpu kernels.
 
   set_divu_bc(bc,phys_bc);
-  desc_lst.setComponent(Divu_Type,Divu,"divu",bc,pelelm_bndryfunc3);
+  desc_lst.setComponent(Divu_Type,Divu,"divu",bc,pelelm_divu_bf);
   //
   // Add in the fcncall tracer type quantity.
   //
   FuncCount_Type = desc_lst.size();
   desc_lst.addDescriptor(FuncCount_Type, IndexType::TheCellType(),StateDescriptor::Point,0, 1, &cell_cons_interp);
-  desc_lst.setComponent(FuncCount_Type, 0, "FuncCount", bc, pelelm_bndryfunc3);
+  
+  amrex::StateDescriptor::BndryFunc pelelm_dummy_bf(pelelm_dummy_fill);
+  pelelm_dummy_bf.setRunOnGPU(true);  // I promise the bc function will launch gpu kernels.
+
+  desc_lst.setComponent(FuncCount_Type, 0, "FuncCount", bc, pelelm_dummy_bf);
+
   rhoydotSetUp();
   //
   // rho_temp
@@ -936,7 +940,7 @@ PeleLM::rhoydotSetUp()
                          &lincc_interp);
 
 
-  amrex::StateDescriptor::BndryFunc pelelm_bndryfunc(pelelm_fillEdges);
+  amrex::StateDescriptor::BndryFunc pelelm_bndryfunc(pelelm_dummy_fill);
   pelelm_bndryfunc.setRunOnGPU(true);  // I promise the bc function will launch gpu kernels.
 
 	
