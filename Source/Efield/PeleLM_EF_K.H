@@ -31,7 +31,7 @@ getDiffE(int i, int j, int k,
 AMREX_GPU_HOST_DEVICE
 AMREX_FORCE_INLINE
 amrex::Real
-ef_edge_state(int i,int j,int k, int n,
+ef_edge_state(int i,int j,int k,
               int dir,
               amrex::Array4<amrex::Real const> const& state,
               amrex::Array4<amrex::Real const> const& effvel ) noexcept
