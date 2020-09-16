@@ -27,6 +27,8 @@ void PeleLM::ef_init() {
     PeleLM::ef_GMRES_reltol           = 1.0e-10;
     PeleLM::ef_GMRES_maxRst           = 1;
     PeleLM::ef_GMRES_verbose          = 0;
+    PeleLM::ef_PC_fixedIter           = -1;
+    PeleLM::ef_PC_MG_Tol              = 1.0e-6;
 
     for (int n = 0; n  < NUM_SPECIES; n++) 
     {
@@ -82,6 +84,8 @@ void PeleLM::ef_init() {
    pp.query("GMRES_rel_tol",ef_GMRES_reltol);
    pp.query("GMRES_max_restart",ef_GMRES_maxRst);
    pp.query("GMRES_verbose",ef_GMRES_verbose);
+   pp.query("Precond_MG_tol",ef_PC_MG_Tol);
+   pp.query("Precond_fixedIter",ef_PC_fixedIter);
  }
 
 void PeleLM::ef_solve_phiv(const Real &time) {
@@ -98,9 +102,6 @@ void PeleLM::ef_solve_phiv(const Real &time) {
    MultiFab PhiV_alias(S,amrex::make_alias,PhiV,1);
 
 // Get RHS: charge distribution
-   const auto geomdata = geom.data();
-   const Real* dx = geom.CellSize();
-   const amrex::Real* prob_lo = geomdata.ProbLo();
 #ifdef _OPENMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
@@ -111,15 +112,13 @@ void PeleLM::ef_solve_phiv(const Real &time) {
       auto const& rhoY   = S.const_array(mfi,first_spec);
       auto const& nE_arr = S.const_array(mfi,nE);
       Real        factor = -1.0 / ( EFConst::eps0  * EFConst::epsr);
-      amrex::ParallelFor(bx, [rhs, rhoY, nE_arr, factor, dx, prob_lo]
+      amrex::ParallelFor(bx, [rhs, rhoY, nE_arr, factor]
       AMREX_GPU_DEVICE (int i, int j, int k) noexcept
       {
          rhs(i,j,k) = - nE_arr(i,j,k) * EFConst::elemCharge * factor;
          for (int n = 0; n < NUM_SPECIES; n++) {
             rhs(i,j,k) += zk[n] * rhoY(i,j,k,n) * factor;
          }
-//         Real y = prob_lo[1] + dx[1] * (j+0.5);
-//         rhs(i,j,k) += 1.0e5 * std::exp(-(y-0.016)*(y-0.016)/(2.0*0.002*0.002));
       });
    }
 
@@ -360,7 +359,7 @@ void PeleLM::ef_solve_PNP(      int      misdc,
    GMRESSolver gmres;
    int GMRES_tot_count = 0;
    if ( !ef_use_PETSC_direct ) {
-      gmres.define(this,ef_GMRES_size,2,0);        // 2 component in GMRES, 1 GC (needed ?)
+      gmres.define(this,ef_GMRES_size,2,1);        // 2 component in GMRES, 1 GC (needed ?)
       JtimesVFunc jtv = &PeleLM::jtimesv;
       gmres.setJtimesV(jtv);
       NormFunc normF = &PeleLM::ef_normMF;         // Right now, same norm func as default in GMRES.
@@ -373,6 +372,7 @@ void PeleLM::ef_solve_PNP(      int      misdc,
 
    // Need to create the preconditioner LinOp
    PCLinOp_needUpdate = 1;
+   PCMLMG_needUpdate = 1;
 
    int NK_tot_count = 0;
    for (int sstep = 0; sstep < ef_substep; sstep++) {
@@ -388,9 +388,12 @@ void PeleLM::ef_solve_PNP(      int      misdc,
          amrex::Print() << "(" << sstep << ") ne scaling: " << nE_scale << "\n";
          amrex::Print() << "(" << sstep << ") phiV scaling: " << phiV_scale << "\n";
       }
+
       // Compute the background charge distribution
       ef_bg_chrg((sstep+1)*dtsub, Dn, Dnp1, Dhat);
 
+      // Newton initial guess
+      newtonInitialGuess(dtsub,nl_state);
       ef_normMF(nl_state,nl_stateNorm);
 
       // Initial NL residual: update residual scaling and preconditioner
@@ -424,7 +427,7 @@ void PeleLM::ef_solve_PNP(      int      misdc,
 
          // Solve for Newton direction
          MultiFab newtonDir(grids,dmap,2,1);
-         newtonDir.setVal(0.0);
+         newtonDir.setVal(0.0,0,2,1);
          if ( !ef_use_PETSC_direct ) {
             const Real S_tol     = ef_GMRES_reltol;
             const Real S_tol_abs = max_nlres * ef_GMRES_reltol;
@@ -482,7 +485,7 @@ void PeleLM::ef_solve_PNP(      int      misdc,
             ef_calcGradPhiV(curtime,phi_a,gphiV_old);
          }
       }
-      
+
    }
 
    // Update the state
@@ -537,6 +540,64 @@ int PeleLM::testExitNewton(const MultiFab  &res,
    }
 
    return exit;
+}
+
+void PeleLM::newtonInitialGuess(const Real      &dt_lcl,
+                                      MultiFab  &a_nl_state) { 
+
+   // Get the unscaled non-linear state
+   MultiFab nl_state_usc(grids,dmap,2,Godunov::hypgrow());
+   MultiFab::Copy(nl_state_usc, a_nl_state, 0, 0, 2, Godunov::hypgrow());
+   nl_state_usc.mult(nE_scale,0,1);
+   nl_state_usc.mult(phiV_scale,1,1);
+
+   // Get aliases to make it easier
+   MultiFab nE_usc(nl_state_usc,amrex::make_alias,0,1);
+   MultiFab phi_usc(nl_state_usc,amrex::make_alias,1,1);
+   MultiFab a_nE(a_nl_state,amrex::make_alias,0,1);
+   MultiFab a_phi(a_nl_state,amrex::make_alias,1,1);
+
+   // Lap(PhiV) and grad(PhiV)
+   FluxBoxes gphi_fb(this, 1, 0);
+   MultiFab** gphiV = gphi_fb.get();
+   MultiFab laplacian_term(grids, dmap, 1, 0);
+   compPhiVLap(phi_usc,laplacian_term,gphiV);
+
+   // Diffusion term nE
+   MultiFab diffnE(grids, dmap, 1, 0);
+   compElecDiffusion(nE_usc,diffnE);
+
+   // Advective term nE
+   MultiFab advnE(grids, dmap, 1, 0);
+   compElecAdvection(nE_usc,phi_usc,gphiV,advnE);
+
+   // Get an estimate of the electron advective step size
+   const Real* dx = geom.CellSize();
+   Real nE_adv_dt = 1.0e20;
+   for (int dir = 0; dir < AMREX_SPACEDIM; ++dir) {
+      Real umax = elec_Ueff[dir].norm0(0);
+      nE_adv_dt = amrex::min(nE_adv_dt,umax/dx[0]);
+   }
+
+   nE_adv_dt = amrex::min(dt_lcl,nE_adv_dt);
+
+   // Advance explicitly electron AD at nE_adv_dt
+#ifdef _OPENMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+   for (MFIter mfi(a_nl_state,TilingIfNotGPU()); mfi.isValid(); ++mfi)
+   {
+      const Box& bx = mfi.tilebox();
+      auto const& ne_diff  = diffnE.const_array(mfi);
+      auto const& ne_adv   = advnE.const_array(mfi);
+      auto const& ne_curr  = a_nE.array(mfi);
+      Real nE_scale_inv = 1.0 / nE_scale;
+      amrex::ParallelFor(bx, [ne_curr,ne_diff,ne_adv,nE_adv_dt,nE_scale_inv]
+      AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+      {
+         ne_curr(i,j,k) += nE_adv_dt * nE_scale_inv * ( ne_diff(i,j,k) + ne_adv(i,j,k) );
+      });
+   }
 }
 
 void PeleLM::ef_nlResidual(const Real      &dt_lcl,
@@ -596,7 +657,7 @@ void PeleLM::ef_nlResidual(const Real      &dt_lcl,
       AMREX_GPU_DEVICE (int i, int j, int k) noexcept
       {
          res_nE(i,j,k) = ne_old(i,j,k) - ne_curr(i,j,k) + dt_lcl * ( ne_diff(i,j,k) + ne_adv(i,j,k) );
-         res_phiV(i,j,k) = 0.0;//lapPhiV(i,j,k) * scalLap - ne_curr(i,j,k) + charge(i,j,k);
+         res_phiV(i,j,k) = lapPhiV(i,j,k) * scalLap - ne_curr(i,j,k) + charge(i,j,k);
       });
    }
 
@@ -733,26 +794,14 @@ void PeleLM::compElecAdvection(MultiFab &a_ne,
    if ( ef_debug ) VisMF::Write(elec_Ueff[0],"NLRes_ElecUeffX_"+std::to_string(level));
    if ( ef_debug ) VisMF::Write(elec_Ueff[1],"NLRes_ElecUeffY_"+std::to_string(level));
 
-   const Real time  = state[State_Type].curTime(); // current time
-   const Real* dx        = geom.CellSize();
-
    MultiFab nE_new(grids,dmap,1,1);
    nE_new.setVal(0.0);
    MultiFab::Copy(nE_new,a_ne,0,0,1,1);
    nE_new.FillBoundary();
 
-   Real dt_short = 0.00; //* dt;
-
    {
       FArrayBox cflux[AMREX_SPACEDIM];
       FArrayBox edgstate[AMREX_SPACEDIM];
-      Vector<int> state_bc;
-
-      // Not using the classical aofs and so on, so I need to trick godunov
-      // into using Conservative ne adv
-      Vector<AdvectionForm> advectionTypeLcl;
-      advectionTypeLcl.resize(1);
-      advectionTypeLcl[0] = Conservative;
 
 #ifdef _OPENMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
@@ -765,7 +814,6 @@ void PeleLM::compElecAdvection(MultiFab &a_ne,
                        const Box& zbx = mfi.grownnodaltilebox(2,0);); 
 
          // data arrays
-         state_bc = fetchBCArray(State_Type,bx,nE,1);
          auto const& ne_arr = nE_new.array(mfi);
          auto const& ne_adv = elecAdv.array(mfi);
          AMREX_D_TERM( Array4<Real const> u = elec_Ueff[0].const_array(mfi);,
@@ -790,18 +838,18 @@ void PeleLM::compElecAdvection(MultiFab &a_ne,
          amrex::ParallelFor(xbx, [ne_arr,u,xstate]
          AMREX_GPU_DEVICE (int i, int j, int k) noexcept
          {
-            xstate(i,j,k) = ef_edge_state(i,j,k,0,0,ne_arr,u);
+            xstate(i,j,k) = ef_edge_state(i,j,k,0,ne_arr,u);
          });
          amrex::ParallelFor(ybx, [ne_arr,v,ystate]
          AMREX_GPU_DEVICE (int i, int j, int k) noexcept
          {
-            ystate(i,j,k) = ef_edge_state(i,j,k,0,0,ne_arr,v);
+            ystate(i,j,k) = ef_edge_state(i,j,k,1,ne_arr,v);
          });
 #if ( AMREX_SPACEDIM ==3 )
          amrex::ParallelFor(zbx, [ne_arr,w,zstate]
          AMREX_GPU_DEVICE (int i, int j, int k) noexcept
          {
-            zstate(i,j,k) = ef_edge_state(i,j,k,0,0,ne_arr,w);
+            zstate(i,j,k) = ef_edge_state(i,j,k,2,ne_arr,w);
          });
 #endif
 
@@ -874,9 +922,7 @@ void PeleLM::ef_setUpPrecond (const Real &dt_lcl,
       pnp_pc_diff->setScalars(-nE_scale/FnE_scale, -dt_lcl*nE_scale/FnE_scale, dt_lcl*nE_scale/FnE_scale);
       Real omega = 1.0;
       pnp_pc_diff->setRelaxation(omega);
-      MultiFab dummy(grids,dmap,1,1);
-      dummy.setVal(1.0);
-      pnp_pc_diff->setACoeffs(0, dummy);
+      pnp_pc_diff->setACoeffs(0, 1.0);
       std::array<const MultiFab*,AMREX_SPACEDIM> bcoeffs{AMREX_D_DECL(De_ec[0],De_ec[1],De_ec[2])};
       pnp_pc_diff->setBCoeffs(0, bcoeffs);
       std::array<const MultiFab*,AMREX_SPACEDIM> ccoeffs{AMREX_D_DECL(&elec_Ueff[0],&elec_Ueff[1],&elec_Ueff[2])};
@@ -954,12 +1000,123 @@ void PeleLM::ef_setUpPrecond (const Real &dt_lcl,
          pnp_pc_Stilda->setBCoeffs(0, bcoeffs);
       }
    }
+
+   // Set up the domainBCs
+   std::array<LinOpBCType,AMREX_SPACEDIM> ne_lobc, ne_hibc;
+   std::array<LinOpBCType,AMREX_SPACEDIM> phiV_lobc, phiV_hibc;
+   ef_set_PoissonBC(phiV_lobc, phiV_hibc);
+   ef_set_neBC(ne_lobc,ne_hibc);
+   pnp_pc_Stilda->setDomainBC(phiV_lobc, phiV_hibc);
+   pnp_pc_diff->setDomainBC(ne_lobc, ne_hibc);
+   pnp_pc_drift->setDomainBC(phiV_lobc, phiV_hibc);
+
+   // Trigger update of the MLMGs
+   PCMLMG_needUpdate = 1;
+
 }
 
 void PeleLM::ef_applyPrecond (const MultiFab  &v,
                                     MultiFab  &Pv) {
    BL_PROFILE("PLM_EF::ef_applyPrecond()");
-   MultiFab::Copy(Pv, v, 0, 0, 2, 0);
+
+   //MultiFab::Copy(Pv, v, 0, 0, 2, 0);
+   //return;
+
+   // Set up some aliases to make things easier
+   MultiFab a_ne(v,amrex::make_alias,0,1);
+   MultiFab a_phiV(v,amrex::make_alias,1,1);
+   MultiFab a_Pne(Pv,amrex::make_alias,0,1);
+   MultiFab a_PphiV(Pv,amrex::make_alias,1,1);
+
+   // TODO: I need to initialize the result to zero otherwise MLMG goes nuts
+   // or do I ?
+   a_Pne.setVal(0.0,0,1,1);
+   a_PphiV.setVal(0.0,0,1,1);
+
+   // Set up the linear solvers BCs
+   pnp_pc_diff->setLevelBC(0, &a_Pne);
+   pnp_pc_drift->setLevelBC(0, &a_PphiV);
+   pnp_pc_Stilda->setLevelBC(0, &a_PphiV);
+
+   // Set Coarse/Fine BCs
+   // Assumes it should be at zero.
+   if ( level > 0 ) {
+      pnp_pc_diff->setCoarseFineBC(nullptr, crse_ratio[0]);
+      pnp_pc_drift->setCoarseFineBC(nullptr, crse_ratio[0]);
+      pnp_pc_Stilda->setCoarseFineBC(nullptr, crse_ratio[0]);
+   }
+
+   // Create MLMGs
+   if ( PCMLMG_needUpdate ) {
+      if ( mg_diff != nullptr ) {
+         delete mg_diff;
+         delete mg_drift;
+         delete mg_Stilda;
+      }
+      mg_diff = new MLMG(*pnp_pc_diff);
+      mg_drift = new MLMG(*pnp_pc_drift);
+      mg_Stilda = new MLMG(*pnp_pc_Stilda);
+
+      PCMLMG_needUpdate = 0;
+   }
+
+   mg_diff->setVerbose(0);
+   mg_drift->setVerbose(0);
+   mg_Stilda->setVerbose(0);
+   if ( ef_PC_fixedIter > 0 ) {
+      mg_diff->setFixedIter(ef_PC_fixedIter);
+      mg_drift->setFixedIter(ef_PC_fixedIter);
+      mg_Stilda->setFixedIter(ef_PC_fixedIter);
+   }
+
+
+   Real S_tol     = ef_PC_MG_Tol;
+   Real S_tol_abs = a_ne.norm0() * ef_PC_MG_Tol;
+
+   // Most inner mat
+   // --                --
+   // | [dtD-I]^-1     0 |
+   // |                  |
+   // |       0        I |
+   // --                --
+   mg_diff->solve({&a_Pne}, {&a_ne}, S_tol, S_tol_abs);
+   MultiFab::Copy(a_PphiV,a_phiV,0,0,1,0);
+
+   // Assembling mat
+   // --       --
+   // |  I    0 |
+   // |         |
+   // | -Ie   I |
+   // --       --
+   MultiFab::Saxpy(a_PphiV,nE_scale/FphiV_scale,a_Pne,0,0,1,0);
+
+   // PhiV estimate mat
+   // --         --
+   // | I     0   |
+   // |           |
+   // | 0   S*^-1 |
+   // --         --
+   S_tol_abs = a_PphiV.norm0() * ef_PC_MG_Tol;
+   MultiFab temp(grids,dmap,1,1);
+   temp.setVal(0.0,0,1,0);
+   mg_Stilda->solve({&temp},{&a_PphiV}, S_tol, S_tol_abs);
+   MultiFab::Copy(a_PphiV, temp, 0, 0, 1, 0);
+
+
+   // Final mat
+   // --                          --
+   // | I       -[dtD - I]^-1 dtDr |
+   // |                            |
+   // | 0                I         |
+   // --                          --
+   mg_drift->apply({&temp},{&a_PphiV});
+   S_tol_abs = temp.norm0() * ef_PC_MG_Tol;
+   MultiFab temp2(grids,dmap,1,1);
+   temp2.setVal(0.0,0,1,0);
+   mg_diff->solve({&temp2},{&temp}, S_tol, S_tol_abs);
+   temp2.mult(-1.0);
+   MultiFab::Add(a_Pne,temp2,0,0,1,0);
+
 }
 
 void PeleLM::ef_calcGradPhiV(const Real&    time_lcl,
@@ -1008,10 +1165,6 @@ void PeleLM::ef_bg_chrg(const Real      &dt_lcl,
                         const MultiFab  &Dnp1,
                         const MultiFab  &Dhat) {
 
-   const auto geomdata = geom.data();
-   const Real* dx = geom.CellSize();
-   const amrex::Real* prob_lo = geomdata.ProbLo();
-
 #ifdef _OPENMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
@@ -1026,7 +1179,7 @@ void PeleLM::ef_bg_chrg(const Real      &dt_lcl,
       auto const& rhoYdot  = get_new_data(RhoYdot_Type).const_array(mfi);
       auto const& charge   = bg_charge.array(mfi);
       Real        factor = 1.0 / EFConst::elemCharge;
-      amrex::ParallelFor(bx, [dt_lcl, rhoYold, adv_arr, dn_arr, dnp1_arr, dhat_arr, rhoYdot, charge, factor, prob_lo, dx]
+      amrex::ParallelFor(bx, [dt_lcl, rhoYold, adv_arr, dn_arr, dnp1_arr, dhat_arr, rhoYdot, charge, factor]
       AMREX_GPU_DEVICE (int i, int j, int k) noexcept
       {
          charge(i,j,k) = 0.0;
@@ -1039,8 +1192,6 @@ void PeleLM::ef_bg_chrg(const Real      &dt_lcl,
             charge(i,j,k) += zk[n] * rhoYprov;
          }
          charge(i,j,k) *= factor;
-//         Real y = prob_lo[1] + dx[1] * (j+0.5);
-//         charge(i,j,k) += 1.0e5 * std::exp(-(y-0.016)*(y-0.016)/(2.0*0.002*0.002));
       });
    }
 }

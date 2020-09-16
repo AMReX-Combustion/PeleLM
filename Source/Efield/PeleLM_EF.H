@@ -30,6 +30,7 @@
    amrex::Real                 nl_stateNorm;
    amrex::Real                 nl_residNorm;
    int                         PCLinOp_needUpdate; // Flag to update the preconditioner linear operators
+   int                         PCMLMG_needUpdate;  // Flag to update the preconditioner MLMGs
 
 // Class data
    amrex::MultiFab            ef_state_old;
@@ -43,8 +44,11 @@
 
 // Preconditioner data
    amrex::MLABecCecLaplacian   *pnp_pc_diff = nullptr;
-   amrex::MLABecLaplacian      *pnp_pc_Stilda = nullptr;
    amrex::MLABecLaplacian      *pnp_pc_drift = nullptr;
+   amrex::MLABecLaplacian      *pnp_pc_Stilda = nullptr;
+   amrex::MLMG                 *mg_diff = nullptr;
+   amrex::MLMG                 *mg_drift = nullptr;
+   amrex::MLMG                 *mg_Stilda = nullptr;
 
 // PhiV poisson solve options
    static amrex::Real ef_PoissonTol;
@@ -62,6 +66,10 @@
    static amrex::Real ef_GMRES_reltol;          // Relarive tolerance of the GMRES solve
    static int         ef_GMRES_maxRst;          // Maximum number of GMRES restart
    static int         ef_GMRES_verbose;         // GMRES verbosity
+
+// Schur preconditioner options
+   static amrex::Real ef_PC_MG_Tol;             // Preconditioner linear solver tolerance
+   static int         ef_PC_fixedIter;          // Preconditioner fixed number of iterations
 
    static void ef_init();                       // Init EF params
 
@@ -85,6 +93,10 @@
                      const amrex::MultiFab  &Dnp1,
                      const amrex::MultiFab  &Dhat,
                            amrex::MultiFab  &ForcingnE);
+
+// newton Initial guess
+   void newtonInitialGuess(const amrex::Real      &a_dt,
+                                 amrex::MultiFab  &a_nl_state);
 
 // non-linear residual function
    void ef_nlResidual(const amrex::Real        &dt,
