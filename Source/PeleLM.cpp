@@ -5605,13 +5605,8 @@ showMF("spray",spraydot,"spraydot_pred_vel",level,parent->levelSteps(level));
       getForce(tforces,bx,1,Xvel,BL_SPACEDIM,prev_time,Ufab,Smf[U_mfi],0);
 
 #ifdef AMREX_PARTICLES
-      amrex::Print() << "Gonna do particle source term in predict vel" << '\n';
       FArrayBox& spraydot_FAB = spraydot[U_mfi];
-      //const FArrayBox& spraydot_FAB = get_new_data(spraydot_Type)[U_mfi]; // should use old data? there's issues with that though right now
-      //tforces.copy(spraydot_FAB,0,0,BL_SPACEDIM);
       tforces.plus(spraydot_FAB,0,0,BL_SPACEDIM);
-      //tforces.setVal(1e6);
-
 #endif
 
       //
