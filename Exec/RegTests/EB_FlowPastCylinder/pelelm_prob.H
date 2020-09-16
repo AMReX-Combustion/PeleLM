@@ -31,7 +31,7 @@ pelelm_initdata (int i, int j, int k,
 
     amrex::Real Yt[NUM_SPECIES];
 
-    Yt[0] = 0.233*(1.0 + ProbParm::delta_blob*exp(-dist/(2.0 * ProbParm::RC)));
+    Yt[0] = 0.233;
     Yt[1] = 1.0 - Yt[0];
 
 
