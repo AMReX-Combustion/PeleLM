@@ -806,6 +806,55 @@ PeleLM::variableSetUp ()
   derive_lst.add("mag_vort",IndexType::TheCellType(),1,pelelm_mgvort,grow_box_by_one);
   derive_lst.addComponent("mag_vort",desc_lst,State_Type,Xvel,AMREX_SPACEDIM);
 
+#ifdef PLM_USE_EFIELD
+  //
+  // Charge distribution
+  //
+  derive_lst.add("chargedistrib",IndexType::TheCellType(),1,pelelm_dercd,the_same_box);
+  derive_lst.addComponent("chargedistrib",desc_lst,State_Type,nE,1);
+  derive_lst.addComponent("chargedistrib",desc_lst,State_Type,first_spec,NUM_SPECIES);
+  //
+  // Electric field X direction.
+  //
+  derive_lst.add("efieldx",IndexType::TheCellType(),1,pelelm_derefx,grow_box_by_one);
+  derive_lst.addComponent("efieldx",desc_lst,State_Type,PhiV,1);
+  //
+  // Electric field Y direction.
+  //
+  derive_lst.add("efieldy",IndexType::TheCellType(),1,pelelm_derefy,grow_box_by_one);
+  derive_lst.addComponent("efieldy",desc_lst,State_Type,PhiV,1);
+#if (AMREX_SPACEDIM == 3)
+  //
+  // Electric field Z direction.
+  //
+  derive_lst.add("efieldz",IndexType::TheCellType(),1,pelelm_derefz,grow_box_by_one);
+  derive_lst.addComponent("efieldz",desc_lst,State_Type,PhiV,1);
+#endif
+  //
+  // Lorentz forces X direction.
+  //
+  derive_lst.add("LorentzFx",IndexType::TheCellType(),1,pelelm_derLorentzx,grow_box_by_one);
+  derive_lst.addComponent("LorentzFx",desc_lst,State_Type,PhiV,1);
+  derive_lst.addComponent("LorentzFx",desc_lst,State_Type,nE,1);
+  derive_lst.addComponent("LorentzFx",desc_lst,State_Type,first_spec,NUM_SPECIES);
+  //
+  // Lorentz forces Y direction.
+  //
+  derive_lst.add("LorentzFy",IndexType::TheCellType(),1,pelelm_derLorentzy,grow_box_by_one);
+  derive_lst.addComponent("LorentzFy",desc_lst,State_Type,PhiV,1);
+  derive_lst.addComponent("LorentzFy",desc_lst,State_Type,nE,1);
+  derive_lst.addComponent("LorentzFy",desc_lst,State_Type,first_spec,NUM_SPECIES);
+#if (AMREX_SPACEDIM == 3)
+  //
+  // Lorentz forces Z direction.
+  //
+  derive_lst.add("LorentzFz",IndexType::TheCellType(),1,pelelm_derLorentzz,grow_box_by_one);
+  derive_lst.addComponent("LorentzFz",desc_lst,State_Type,PhiV,1);
+  derive_lst.addComponent("LorentzFz",desc_lst,State_Type,nE,1);
+  derive_lst.addComponent("LorentzFz",desc_lst,State_Type,first_spec,NUM_SPECIES);
+#endif
+#endif
+
 #ifdef DO_LMC_FORCE
   //
   // forcing - used to calculate the rate of injection of energy

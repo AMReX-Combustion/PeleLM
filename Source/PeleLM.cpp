@@ -8365,6 +8365,26 @@ PeleLM::getForce(FArrayBox&       force,
    {
       makeForce(i,j,k, scomp, ncomp, pseudo_gravity, time, grav, dV_control, dx, velocity, scalars, f);
    });
+
+#ifdef PLM_USE_EFIELD
+   // Add lorentz force in momemtum equation
+   if ( scomp == 0 ) {
+      const auto& rhoY    = Scal.const_array(first_spec - Density + scalScomp);
+      const auto& ne_arr  = Scal.const_array(nE - Density + scalScomp);
+      const auto& phi_arr = Scal.const_array(PhiV - Density + scalScomp);
+      amrex::GpuArray<amrex::Real,NUM_SPECIES> zk_lcl;
+      for (int n=0; n<NUM_SPECIES; ++n) {
+         zk_lcl[n] = zk[n];
+      }
+      GpuArray<int,3> blo = bx.loVect3d();
+      GpuArray<int,3> bhi = bx.hiVect3d();
+      amrex::ParallelFor(bx, [f, rhoY, ne_arr, phi_arr, time, dx, zk_lcl, scomp, ncomp, blo, bhi]
+      AMREX_GPU_DEVICE(int i, int j, int k) noexcept
+      {
+         addLorentzForce(i,j,k, scomp, ncomp, blo, bhi, time, dx, zk_lcl, rhoY, ne_arr, phi_arr, f);
+      });
+   }
+#endif
 }
 
 void

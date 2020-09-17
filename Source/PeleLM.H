@@ -244,10 +244,6 @@ public:
   static amrex::Real Zox;
   static bool        mixture_fraction_ready;
 
-#if !defined(AMREX_USE_CUDA)
-protected:
-#endif
-
   ////////////////////////////////////////////////////////////////////////////
   //    Overriding Virtual Functions in NavierStokesBase                    //
   ////////////////////////////////////////////////////////////////////////////
@@ -343,10 +339,6 @@ protected:
   virtual int timestamp_num_extras () override;
   virtual void timestamp_add_extras (int lev, amrex::Real time, amrex::MultiFab& mf) override;
   static void read_particle_params ();
-#endif
-
-#if !defined(AMREX_USE_CUDA)
-private:
 #endif
 
   // enum YdotAction { HT_EstimateYdotNew, HT_ImproveYdotOld, HT_LeaveYdotAlone };

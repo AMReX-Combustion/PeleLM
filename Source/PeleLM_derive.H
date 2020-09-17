@@ -86,4 +86,38 @@ void pelelm_mgvort (const amrex::Box& bx, amrex::FArrayBox& derfab, int dcomp, i
                     const amrex::FArrayBox& datafab, const amrex::Geometry& geomdata,
                     amrex::Real time, const int* bcrec, int level);
 
+#ifdef PLM_USE_EFIELD
+
+void pelelm_dercd (const amrex::Box& bx, amrex::FArrayBox& derfab, int dcomp, int ncomp,
+                   const amrex::FArrayBox& datafab, const amrex::Geometry& geomdata,
+                   amrex::Real time, const int* bcrec, int level);
+
+void pelelm_derefx (const amrex::Box& bx, amrex::FArrayBox& derfab, int dcomp, int ncomp,
+                    const amrex::FArrayBox& datafab, const amrex::Geometry& geomdata,
+                    amrex::Real time, const int* bcrec, int level);
+
+void pelelm_derefy (const amrex::Box& bx, amrex::FArrayBox& derfab, int dcomp, int ncomp,
+                    const amrex::FArrayBox& datafab, const amrex::Geometry& geomdata,
+                    amrex::Real time, const int* bcrec, int level);
+
+void pelelm_derLorentzx (const amrex::Box& bx, amrex::FArrayBox& derfab, int dcomp, int ncomp,
+                         const amrex::FArrayBox& datafab, const amrex::Geometry& geomdata,
+                         amrex::Real time, const int* bcrec, int level);
+
+void pelelm_derLorentzy (const amrex::Box& bx, amrex::FArrayBox& derfab, int dcomp, int ncomp,
+                         const amrex::FArrayBox& datafab, const amrex::Geometry& geomdata,
+                         amrex::Real time, const int* bcrec, int level);
+
+#if (AMREX_SPACEDIM == 3)
+void pelelm_derefz (const amrex::Box& bx, amrex::FArrayBox& derfab, int dcomp, int ncomp,
+                    const amrex::FArrayBox& datafab, const amrex::Geometry& geomdata,
+                    amrex::Real time, const int* bcrec, int level);
+
+void pelelm_derLorentzz (const amrex::Box& bx, amrex::FArrayBox& derfab, int dcomp, int ncomp,
+                         const amrex::FArrayBox& datafab, const amrex::Geometry& geomdata,
+                         amrex::Real time, const int* bcrec, int level);
+#endif
+
+#endif
+
 #endif

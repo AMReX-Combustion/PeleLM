@@ -210,10 +210,18 @@ pelelm_initdata (int i, int j, int k,
 
     state(i,j,k,Xvel) = 0;
 #if ( AMREX_SPACEDIM == 2 ) 
-    state(i,j,k,Yvel) = pmf_vals[1]*1e-2;
+    if ( ProbParm::Vin > 0.0 ) {
+       state(i,j,k,Yvel) = ProbParm::Vin;
+    } else {
+       state(i,j,k,Yvel) = pmf_vals[1]*1e-2;
+    }
 #elif ( AMREX_SPACEDIM == 3 ) 
     state(i,j,k,Yvel) = 0;
-    state(i,j,k,Zvel) = pmf_vals[1]*1e-2;
+    if ( ProbParm::Vin > 0.0 ) {
+       state(i,j,k,Zvel) = ProbParm::Vin;
+    } else {
+       state(i,j,k,Zvel) = pmf_vals[1]*1e-2;
+    }
 #endif
 
     amrex::Real rho_cgs, P_cgs;
@@ -230,7 +238,7 @@ pelelm_initdata (int i, int j, int k,
     }
 
 #ifdef PLM_USE_EFIELD
-    state(i,j,k,DEF_nE) = std::max(0.0,massfrac[H_ID]) * 1.0e19;
+    state(i,j,k,DEF_nE) = std::max(0.0,massfrac[H_ID]) * 1.0e22;
     state(i,j,k,DEF_PhiV) = 0.0;
 #endif
 
@@ -263,10 +271,18 @@ bcnormal(
     if (!ACParm::ctrl_active || time <= 0.0) {
        s_ext[Xvel] = 0.0;
 #if ( AMREX_SPACEDIM == 2 )
-       s_ext[Yvel] = pmf_vals[1]*1e-2;
+       if ( ProbParm::Vin > 0.0 ) {
+          s_ext[Yvel] = ProbParm::Vin;
+       } else {
+          s_ext[Yvel] = pmf_vals[1]*1e-2;
+       }
 #elif (AMREX_SPACEDIM == 3)
        s_ext[Yvel] = 0.0;
-       s_ext[Zvel] = pmf_vals[1]*1e-2;
+       if ( ProbParm::Vin > 0.0 ) {
+          s_ext[Zvel] = ProbParm::Vin;
+       } else {
+          s_ext[Zvel] = pmf_vals[1]*1e-2;
+       }
 #endif
     } else {
        s_ext[Xvel] = 0.0;

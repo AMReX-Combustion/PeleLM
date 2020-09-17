@@ -864,3 +864,7 @@ void pelelm_mgvort (const Box& bx, FArrayBox& derfab, int dcomp, int ncomp,
         });
     }
 }
+
+#ifdef PLM_USE_EFIELD
+#include <PeleLM_EF_derive.cpp>
+#endif

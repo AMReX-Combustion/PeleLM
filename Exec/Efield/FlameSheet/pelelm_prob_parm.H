@@ -9,6 +9,7 @@ namespace ProbParm
     extern AMREX_GPU_DEVICE_MANAGED  amrex::Real P_mean;
     extern AMREX_GPU_DEVICE_MANAGED  amrex::Real standoff;
     extern AMREX_GPU_DEVICE_MANAGED  amrex::Real pertmag;
+    extern AMREX_GPU_DEVICE_MANAGED  amrex::Real Vin;
 
     extern AMREX_GPU_DEVICE_MANAGED  amrex::Real phiV_loy;
     extern AMREX_GPU_DEVICE_MANAGED  amrex::Real phiV_hiy;
