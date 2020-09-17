@@ -5370,33 +5370,37 @@ PeleLM::set_htt_hmixTYP ()
 
 #ifdef AMREX_PARTICLES
 void
-PeleLM::set_spray_grid_info(int& amr_iteration,
-                           int& amr_ncycle,
-                           int& ghost_width,
-                           int& where_width,
-                           int& spray_n_grow,
-                           int& tmp_src_width)
+PeleLM::setSprayGridInfo(const int amr_iteration,
+                         const int amr_ncycle,
+			 int& ghost_width,
+			 int& where_width,
+			 int& spray_n_grow,
+			 int& tmp_src_width)
 {
-  // A particle in cell (i) can affect cell values in (i-1) to (i+1)
+  // TODO: Re-evaluate these numbers and include the particle cfl into the
+  // calcuation A particle in cell (i) can affect cell values in (i-1) to (i+1)
   int stencil_deposition_width = 1;
 
-  // A particle in cell (i) may need information from cell values in (i-1) to (i+1)
-  //   to update its position (typically via interpolation of the acceleration from the grid)
+  // A particle in cell (i) may need information from cell values in (i-1) to
+  // (i+1)
+  //   to update its position (typically via interpolation of the acceleration
+  //   from the grid)
   int stencil_interpolation_width = 1;
 
   // A particle that starts in cell (i + amr_ncycle) can reach
   //   cell (i) in amr_ncycle number of steps .. after "amr_iteration" steps
-  //   the particle has to be within (i + amr_ncycle+1-amr_iteration) to reach cell (i)
-  //   in the remaining (amr_ncycle-amr_iteration) steps
+  //   the particle has to be within (i + amr_ncycle+1-amr_iteration) to reach
+  //   cell (i) in the remaining (amr_ncycle-amr_iteration) steps
 
   // *** ghost_width ***  is used
-  //   *) to set how many cells are used to hold ghost particles i.e copies of particles
-  //      that live on (level-1) can affect the grid over all of the amr_ncycle steps.
-  //      We define ghost cells at the coarser level to cover all iterations so
-  //      we can't reduce this number as amr_iteration increases.
+  //   *) to set how many cells are used to hold ghost particles i.e copies of
+  //   particles
+  //      that live on (level-1) can affect the grid over all of the amr_ncycle
+  //      steps. We define ghost cells at the coarser level to cover all
+  //      iterations so we can't reduce this number as amr_iteration increases.
 
   ghost_width = 0;
-  if (parent->subCycle() && parent->maxLevel() > 0)
+  if (parent->subCycle() && parent->finestLevel() > 0)
     ghost_width += amr_ncycle + stencil_deposition_width;
 
   // *** where_width ***  is used
@@ -5405,7 +5409,8 @@ PeleLM::set_spray_grid_info(int& amr_iteration,
   //      the minus 1 arises because this occurs *after* the move} and
   //     {amr_iteration}:
   //     the number of cells out that a cell initially in the fine grid may
-  //     have moved and we don't want to just lose it (we will redistribute it when we're done}
+  //     have moved and we don't want to just lose it (we will redistribute it
+  //     when we're done}
 
   where_width =
     amrex::max(ghost_width + (1 - amr_iteration) - 1, amr_iteration);
@@ -5413,19 +5418,19 @@ PeleLM::set_spray_grid_info(int& amr_iteration,
   // *** spray_n_grow *** is used
   //   *) to determine how many ghost cells we need to fill in the MultiFab from
   //      which the particle interpolates its acceleration
-  //   *) to set how many cells the Where call in moveKickDrift tests = (grav.nGrow()-2).
-  //   *) the (1-iteration) arises because the ghost particles are created on the coarser
-  //      level which means in iteration 2 the ghost particles may have moved 1 additional cell along
 
   spray_n_grow = ghost_width + stencil_interpolation_width;
 
   // *** tmp_src_width ***  is used
-  //   *) to set how many ghost cells are needed in the tmp_src_ptr MultiFab that we
-  //      define inside moveKickDrift and moveKick.   This needs to be big enough
-  //      to hold the contribution from all the particles within ghost_width so that
-  //      we don't have to test on whether the particles are trying to write out of bounds
+  //   *) to set how many ghost cells are needed in the tmp_src_ptr MultiFab
+  //   that we
+  //      define inside moveKickDrift and moveKick.   This needs to be big
+  //      enough to hold the contribution from all the particles within
+  //      ghost_width so that we don't have to test on whether the particles are
+  //      trying to write out of bounds
 
-  tmp_src_width = ghost_width + stencil_deposition_width;
+  tmp_src_width = stencil_deposition_width;
+  if (level > 0) tmp_src_width += ghost_width;
 }
 #endif
 
@@ -5833,7 +5838,7 @@ PeleLM::advance (Real time,
   int where_width = 0;
   int spray_n_grow = 0;
   int tmp_src_width = 0;
-  set_spray_grid_info(iteration,ncycle,ghost_width,where_width,spray_n_grow,tmp_src_width);
+  setSprayGridInfo(iteration,ncycle,ghost_width,where_width,spray_n_grow,tmp_src_width);
 
   if (do_spray_particles)
   {
