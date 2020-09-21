@@ -15,7 +15,7 @@ peleLM.hi_bc = "Interior"  "Interior" "Interior"
 
 
 #----------------------------TOP LEVEL INPUTS----------------------
-max_step  =  20000
+max_step  = 10 
 stop_time = 0.04
 
 #-------------------------AMR INPUTS----------------------------
@@ -28,21 +28,21 @@ amr.v=1
 amr.max_level =  2            # maximum level number allowed
 amr.ref_ratio       = 2 2 2 2 # refinement ratio
 amr.regrid_int      = 2       # how often to regrid
-amr.n_error_buf     = 4 4 4 4 # number of buffer cells in error est
+amr.n_error_buf     = 2 2 2 2 # number of buffer cells in error est
 amr.grid_eff        = 0.9     # what constitutes an efficient grid
 amr.grid_eff        = 0.7     # what constitutes an efficient grid
 amr.blocking_factor = 8      # block factor in grid generation
 
 amr.checkpoint_files_output = 0
 amr.check_file      = chk     # root name of checkpoint file
-amr.check_int       = 1       # number of timesteps between checkpoints
+amr.check_int       = 10       # number of timesteps between checkpoints
 
 amr.plot_file       = plt_
-amr.plot_int        = 1 
+amr.plot_int        = 10 
 amr.derive_plot_vars=rhoRT mag_vort avg_pressure gradpx gradpy diveru cc_transport_coeffs mass_fractions
 
 amr.grid_log        = grdlog  # name of grid logging file
-amr.max_grid_size   = 256
+amr.max_grid_size   = 32
 
 #----------- PROBLEM PARAMETERS------------
 prob.meanFlowMag = 50.0
@@ -101,7 +101,7 @@ cvode.solve_type = dense
 ode.analytical_jacobian = 0
 
 # ----------------  INPUTS TO CONSTANT TRANSPORT -------------------
-transport.const_viscosity = 0.0
+transport.const_viscosity = 0.001
 transport.const_bulk_viscosity = 0.0
 transport.const_conductivity = 0.0
 transport.const_diffusivity = 0.0
@@ -180,17 +180,8 @@ amr.refinement_indicators = magvort
 amr.magvort.max_level = 3
 amr.magvort.vorticity_greater = 500 
 
-
 ns.num_mac_sync_iter = 2
 ns.sdc_iterMAX = 2
-
-# Refinement according to predefined box
-#amr.refinement_indicators = RefineBox  
-#amr.RefineBox.in_box_lo = 0.25 0.25   
-#amr.RefineBox.in_box_hi = 0.75 0.75 
-
-
-#amr.restart = chk00032
 
 # Embedded Boundary options
 eb2.geom_type    =  all_regular
@@ -200,14 +191,3 @@ amrex.fpe_trap_zero = 1
 amrex.fpe_trap_overflow = 1
 
 
-
-# for getting things started with eb skip some steps
-#ns.init_iter = 0
-#ns.do_mac_proj = 1
-# to turn off initial projections set to 0
-#ns.do_init_proj = 1
-# even if do_sync_proj = 0, might still do an initialSyncProj to get pressure
-#ns.do_sync_proj = 0
-#ns.do_MLsync_proj = 0
-
-#ns.num_mac_sync_iter = 0

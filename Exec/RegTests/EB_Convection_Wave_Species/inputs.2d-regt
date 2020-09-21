@@ -75,7 +75,7 @@ ns.min_rho_divu_ceiling = .01
 
 ns.fuelName        = N2
 ns.unity_Le = 0
-ns.hack_nochem = 1
+ns.hack_nochem = 0
 ns.sdc_iterMAX = 2
 
 
