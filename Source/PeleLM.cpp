@@ -4696,12 +4696,6 @@ PeleLM::predict_velocity (Real  dt)
 
 #endif
 
-//for (MFIter mfi(Umf,TilingIfNotGPU()); mfi.isValid(); ++mfi)
-//   {
-//amrex::Print() << (u_mac[1])[mfi];
-//}
-
-
    D_TERM( showMF("mac",u_mac[0],"pv_umac0",level);,
            showMF("mac",u_mac[1],"pv_umac1",level);,
            showMF("mac",u_mac[2],"pv_umac2",level););
@@ -6126,13 +6120,6 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
                         dt, godunov_use_ppm, godunov_use_forces_in_trans, false );
 }
 
-  for (int d=0; d<AMREX_SPACEDIM; ++d)
-  { 
-    EdgeState[d]->FillBoundary(geom.periodicity());
-    EdgeFlux[d]->FillBoundary(geom.periodicity());
-  }
-aofs->FillBoundary(geom.periodicity());
-
   // Set flux, flux divergence, and face values for rho as sums of the corresponding RhoY quantities
 #ifdef _OPENMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
@@ -6154,8 +6141,7 @@ aofs->FillBoundary(geom.periodicity());
 
     for (int dir=0; dir<AMREX_SPACEDIM; dir++)
     {
-//      const Box& ebx = S_mfi.grownnodaltilebox(dir,EdgeState[dir]->nGrow());
-const Box& ebx =amrex::surroundingNodes(bx,dir);
+      const Box& ebx =amrex::surroundingNodes(bx,dir);
       auto const& rho    = EdgeState[dir]->array(S_mfi,Density);
       auto const& rho_F  = EdgeFlux[dir]->array(S_mfi,Density);
       auto const& rhoY   = EdgeState[dir]->array(S_mfi,first_spec);
@@ -6172,13 +6158,6 @@ const Box& ebx =amrex::surroundingNodes(bx,dir);
       });
     }
   }
-
-  for (int d=0; d<AMREX_SPACEDIM; ++d)
-  { 
-    EdgeState[d]->FillBoundary(geom.periodicity());
-    EdgeFlux[d]->FillBoundary(geom.periodicity());
-  }
-aofs->FillBoundary(geom.periodicity());
 
   // Extrapolate Temp, then compute flux divergence and value for RhoH from face values of T,Y,Rho
 {
@@ -6199,20 +6178,6 @@ aofs->FillBoundary(geom.periodicity());
                        dt, godunov_use_ppm, godunov_use_forces_in_trans, false );
 
 }
-
-
-
-  for (int d=0; d<AMREX_SPACEDIM; ++d)
-  {
-EdgeFlux[d]->setVal(0.0,Temp,2);
-}
-
-  for (int d=0; d<AMREX_SPACEDIM; ++d)
-  { 
-    EdgeState[d]->FillBoundary(geom.periodicity());
-    EdgeFlux[d]->FillBoundary(geom.periodicity());
-  }
-aofs->FillBoundary(geom.periodicity());
 
   // Compute RhoH on faces, store in NUM_SPECIES+1 component of edgestate[d]
 #ifdef _OPENMP
@@ -6240,12 +6205,6 @@ aofs->FillBoundary(geom.periodicity());
   }
 }
 
-  for (int d=0; d<AMREX_SPACEDIM; ++d)
-  { 
-    EdgeState[d]->FillBoundary(geom.periodicity());
-    EdgeFlux[d]->FillBoundary(geom.periodicity());
-  }
-
 {
   Vector<BCRec> math_bcs(1);
   math_bcs = fetchBCArray(State_Type, RhoH, 1);
@@ -6253,13 +6212,6 @@ aofs->FillBoundary(geom.periodicity());
   amrex::Gpu::DeviceVector<int> iconserv;
   iconserv.resize(1, 0);
   iconserv[0] = (advectionType[RhoH] == Conservative) ? 1 : 0;
-
-for (MFIter S_mfi(Smf,TilingIfNotGPU()); S_mfi.isValid(); ++S_mfi)
-      {
-//amrex::Print() << (*aofs)[S_mfi];
-//amrex::Print() << (*EdgeState[0])[S_mfi];
-//amrex::Print() << (*EdgeFlux[0])[S_mfi];
-}
 
   Godunov::ComputeAofs(*aofs, RhoH, 1,
                        Smf, NUM_SPECIES+1,
@@ -6271,39 +6223,7 @@ for (MFIter S_mfi(Smf,TilingIfNotGPU()); S_mfi.isValid(); ++S_mfi)
 }
 
 
-for (MFIter S_mfi(Smf,TilingIfNotGPU()); S_mfi.isValid(); ++S_mfi)
-      {
-//amrex::Print() << (*aofs)[S_mfi];
-//amrex::Print() << (*EdgeState[0])[S_mfi];
-//amrex::Print() << (*EdgeFlux[0])[S_mfi];
-}
-
-  for (int d=0; d<AMREX_SPACEDIM; ++d)
-  {
-    EdgeState[d]->FillBoundary(geom.periodicity());
-    EdgeFlux[d]->FillBoundary(geom.periodicity());
-  }
-
-aofs->FillBoundary(geom.periodicity());
-
-
-  for (int dir=0; dir<AMREX_SPACEDIM; dir++) {
-//    EdgeState[dir]->setVal(0.0);
-//    EdgeFlux[dir]->setVal(0.0);
-  }
-//aofs->setVal(0.);
-
-
 #endif
-
-for (MFIter S_mfi(Smf,TilingIfNotGPU()); S_mfi.isValid(); ++S_mfi)
-      {
-//amrex::Print() << (*aofs)[S_mfi];
-//amrex::Print() << (*EdgeFlux[0])[S_mfi];
-//amrex::Print() << (*EdgeState[0])[S_mfi];
-}
-
-
 
    D_TERM(showMF("sdc",*EdgeState[0],"sdc_ESTATE_x",level,parent->levelSteps(level));,
           showMF("sdc",*EdgeState[1],"sdc_ESTATE_y",level,parent->levelSteps(level));,
