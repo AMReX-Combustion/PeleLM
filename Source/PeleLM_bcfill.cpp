@@ -21,6 +21,7 @@ struct PeleLMdummyFill
     const int bcomp,
     const int orig_comp) const
   {
+    //amrex::Abort("PeleLMdummyFill: Need to write fill for external Dirichlet (BCType::ext_dir)");
 
     const int* domlo = geom.Domain().loVect();
     const int* domhi = geom.Domain().hiVect();
@@ -90,6 +91,7 @@ struct PeleLMNodalFillExtDir
     const int orig_comp) const
   {
     // do something for external Dirichlet (BCType::ext_dir)
+    amrex::Abort("PeleLMNodalFillExtDir: Need to write fill for external Dirichlet (BCType::ext_dir)");
   }
 };
 
@@ -108,6 +110,7 @@ struct PeleLMFaceFillExtDir
     const int orig_comp) const
   {
     // do something for external Dirichlet (BCType::ext_dir)
+    amrex::Abort("PeleLMFaceFillExtDir: Need to write fill for external Dirichlet (BCType::ext_dir)");
   }
 };
 
