@@ -21,8 +21,6 @@ struct PeleLMdummyFill
     const int bcomp,
     const int orig_comp) const
   {
-    //amrex::Abort("PeleLMdummyFill: Need to write fill for external Dirichlet (BCType::ext_dir)");
-
     const int* domlo = geom.Domain().loVect();
     const int* domhi = geom.Domain().hiVect();
     
@@ -36,13 +34,13 @@ struct PeleLMdummyFill
     int idir = 0;
     if ((bc[idir] == amrex::BCType::ext_dir) and (iv[idir] < domlo[idir])) {
 
-	 dest(iv, dcomp) = s_ext[orig_comp];
+	 dest(iv, dcomp) = s_ext[0];
     
     } else if (
        (bc[idir + AMREX_SPACEDIM] == amrex::BCType::ext_dir) and
        (iv[idir] > domhi[idir])) {
 
-	 dest(iv, dcomp) = s_ext[orig_comp];
+	 dest(iv, dcomp) = s_ext[0];
     }
 
 
@@ -50,13 +48,13 @@ struct PeleLMdummyFill
     idir = 1;
     if ((bc[idir] == amrex::BCType::ext_dir) and (iv[idir] < domlo[idir])) {
 
-	 dest(iv, dcomp) = s_ext[orig_comp];
+      dest(iv, dcomp) = s_ext[0];
 
     } else if (
        (bc[idir + AMREX_SPACEDIM] == amrex::BCType::ext_dir) and
        (iv[idir] > domhi[idir])) {
 
-	 dest(iv, dcomp) = s_ext[orig_comp];
+	 dest(iv, dcomp) = s_ext[0];
     }
 
 #if AMREX_SPACEDIM == 3
@@ -64,13 +62,13 @@ struct PeleLMdummyFill
     idir = 2;
     if ((bc[idir] == amrex::BCType::ext_dir) and (iv[idir] < domlo[idir])) {
 
-	 dest(iv, dcomp) = s_ext[orig_comp];
+	 dest(iv, dcomp) = s_ext[0];
 
     } else if (
        (bc[idir + AMREX_SPACEDIM] == amrex::BCType::ext_dir) and
        (iv[idir] > domhi[idir])) {
 
-	  dest(iv, dcomp) = s_ext[orig_comp];
+	  dest(iv, dcomp) = s_ext[0];
     }
 #endif
   }
