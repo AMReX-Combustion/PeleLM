@@ -24,13 +24,13 @@ amr.n_cell    = 128 64
 
 
 amr.v=1
-amr.max_level =  2            # maximum level number allowed
+amr.max_level =  1            # maximum level number allowed
 amr.ref_ratio       = 2 2 2 2 # refinement ratio
 amr.regrid_int      = 2       # how often to regrid
-amr.n_error_buf     = 1 1 1 2 # number of buffer cells in error est
+amr.n_error_buf     = 2 2 2 2 # number of buffer cells in error est
 amr.grid_eff        = 0.9     # what constitutes an efficient grid
 amr.grid_eff        = 0.7     # what constitutes an efficient grid
-amr.blocking_factor = 16      # block factor in grid generation
+amr.blocking_factor = 8      # block factor in grid generation
 
 amr.checkpoint_files_output = 0
 amr.check_file      = chk     # root name of checkpoint file
@@ -41,7 +41,7 @@ amr.plot_int        = 150
 amr.derive_plot_vars=rhoRT mag_vort avg_pressure gradpx gradpy diveru mass_fractions rhoY rhominsumrhoY
 
 amr.grid_log        = grdlog  # name of grid logging file
-amr.max_grid_size   = 64 #32 
+amr.max_grid_size   = 8 #32 
 
 amr.probin_file = probin.2d.regt  # This will default to file "probin" if not set
 
@@ -96,6 +96,21 @@ diffuse.use_tensor_cg_solve = 0
 diffuse.v = 0
 diffuse.Rhs_in_abs_tol = 1
 
+# ------------------  INPUTS TO CVODE CHEMISTRY ----------------------
+#peleLM.use_typ_vals_chem = 1
+#peleLM.relative_tol_chem = 1.0e-8
+#peleLM.absolute_tol_chem = 1.0e-6
+cvode.solve_type = dense
+ode.analytical_jacobian = 0
+
+# ----------------  INPUTS TO CONSTANT TRANSPORT -------------------
+transport.const_viscosity = 0.0
+transport.const_bulk_viscosity = 0.0
+transport.const_conductivity = 0.0
+transport.const_diffusivity = 0.0
+
+prob.meanFlowMag = 10.0
+
 # ------------------  INPUTS TO PROJECTION CLASS -------------------
 proj.proj_tol       = 1.0e-12  # tolerence for projections
 proj.proj_abs_tol   = 1.0e-12
@@ -139,7 +154,7 @@ proj.v = 2
 #
 fab.format = NATIVE
 
-#fabarray.mfiter_tile_size = 8 8 8
+fabarray.mfiter_tile_size = 1024 1024 1024
 
 # Embedded Boundary options
 eb2.geom_type     = sphere

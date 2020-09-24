@@ -258,18 +258,13 @@ public:
 
   virtual void avgDown () override; // Average down for all the state types.
   //
-  // Note: these two functions must be supplied in NS_setup.C
-  //       If divu (dsdt) is not included in the state, then
+  // Note: these two functions must be supplied.
+  //       If divu is not included in the state, then
   //       they can be no-op functions
-  //       See example in the _tube_flow problem dependent directory
   //
   virtual void calc_divu (amrex::Real      time,
                           amrex::Real      dt,
                           amrex::MultiFab& divu) override;
-
-  virtual void calc_dsdt (amrex::Real      time,
-                          amrex::Real      dt,
-                          amrex::MultiFab& dsdt) override;
 
   virtual void calcViscosity (const amrex::Real time,
                               const amrex::Real dt,
@@ -728,7 +723,13 @@ void pelelm_press_fill (amrex::Box const& bx, amrex::FArrayBox& data,
                  const amrex::Vector<amrex::BCRec>& bcr, const int bcomp,
                  const int scomp);
 
-void pelelm_fillEdges  (amrex::Box const& bx, amrex::FArrayBox& data,
+void pelelm_face_fill  (amrex::Box const& bx, amrex::FArrayBox& data,
+                 const int dcomp, const int numcomp,
+                 amrex::Geometry const& geom, const amrex::Real time,
+                 const amrex::Vector<amrex::BCRec>& bcr, const int bcomp,
+                 const int scomp);
+
+void pelelm_dummy_fill  (amrex::Box const& bx, amrex::FArrayBox& data,
                  const int dcomp, const int numcomp,
                  amrex::Geometry const& geom, const amrex::Real time,
                  const amrex::Vector<amrex::BCRec>& bcr, const int bcomp,

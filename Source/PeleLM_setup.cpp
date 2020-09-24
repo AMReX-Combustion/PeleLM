@@ -19,7 +19,6 @@
 //             2) the boundary condition for rho h at a wall is ill defined
 //
 // "Divu_Type" means S, where divergence U = S
-// "Dsdt_Type" means pd S/pd t, where S is as above
 //
 // see variableSetUp on how to use or not use these types in the state
 //
@@ -59,6 +58,7 @@ using namespace amrex;
 
 static Box the_same_box (const Box& b)    { return b;                 }
 static Box grow_box_by_one (const Box& b) { return amrex::grow(b,1); }
+static Box grow_box_by_two (const Box& b) { return amrex::grow(b,2); }
 static Box the_nodes (const Box& b) { return amrex::surroundingNodes(b); }
 
 
@@ -116,13 +116,6 @@ int
 divu_bc[] =
 {
   INT_DIR, REFLECT_EVEN, REFLECT_EVEN, REFLECT_EVEN, REFLECT_EVEN, REFLECT_EVEN, REFLECT_EVEN, REFLECT_EVEN
-};
-
-static
-int
-dsdt_bc[] =
-{
-  INT_DIR, EXT_DIR, EXT_DIR, REFLECT_EVEN, REFLECT_EVEN, REFLECT_EVEN, EXT_DIR, EXT_DIR 
 };
 
 static
@@ -318,20 +311,6 @@ set_divu_bc (BCRec&       bc,
 
 static
 void
-set_dsdt_bc (BCRec&       bc,
-             const BCRec& phys_bc)
-{
-  const int* lo_bc = phys_bc.lo();
-  const int* hi_bc = phys_bc.hi();
-  for (int i = 0; i < AMREX_SPACEDIM; i++)
-  {
-    bc.setLo(i,dsdt_bc[lo_bc[i]]);
-    bc.setHi(i,dsdt_bc[hi_bc[i]]);
-  }
-}
-
-static
-void
 set_species_bc (BCRec&       bc,
                 const BCRec& phys_bc)
 {
@@ -375,7 +354,7 @@ PeleLM::variableSetUp ()
 #ifdef USE_SUNDIALS_PP
   SetTolFactODE(relative_tol_chem,absolute_tol_chem);
 #endif
-#ifdef USE_CUDA_SUNDIALS_PP
+#ifdef AMREX_USE_CUDA
   reactor_info(reactor_type,ncells_chem);
 #else
   reactor_init(reactor_type,ncells_chem);
@@ -592,12 +571,12 @@ PeleLM::variableSetUp ()
                          StateDescriptor::Interval,1,1,
                          &node_bilinear_interp);
 
-  amrex::StateDescriptor::BndryFunc pelelm_bndryfunc2(pelelm_press_fill);
-  pelelm_bndryfunc2.setRunOnGPU(true);  // I promise the bc function will launch gpu kernels.
+  amrex::StateDescriptor::BndryFunc pelelm_nodal_bf(pelelm_press_fill);
+  pelelm_nodal_bf.setRunOnGPU(true);  // I promise the bc function will launch gpu kernels.
 
 
   set_pressure_bc(bc,phys_bc);
-  desc_lst.setComponent(Press_Type,Pressure,"pressure",bc,pelelm_bndryfunc2);
+  desc_lst.setComponent(Press_Type,Pressure,"pressure",bc,pelelm_nodal_bf);
 #else
   desc_lst.addDescriptor(Press_Type,IndexType::TheNodeType(),
                          StateDescriptor::Point,1,1,
@@ -628,29 +607,23 @@ PeleLM::variableSetUp ()
   desc_lst.addDescriptor(Divu_Type,IndexType::TheCellType(),StateDescriptor::Point,ngrow,1,
                          &cell_cons_interp);
 
-  amrex::StateDescriptor::BndryFunc pelelm_bndryfunc3(pelelm_fillEdges);
-  pelelm_bndryfunc3.setRunOnGPU(true);  // I promise the bc function will launch gpu kernels.
-
-
+  // EXT_DIR ghost cells should never actually get used, just need something computable 
+  amrex::StateDescriptor::BndryFunc pelelm_divu_bf(pelelm_dummy_fill);
+  pelelm_divu_bf.setRunOnGPU(true);  // I promise the bc function will launch gpu kernels.
 
   set_divu_bc(bc,phys_bc);
-  desc_lst.setComponent(Divu_Type,Divu,"divu",bc,pelelm_bndryfunc3);
-  //
-  // Stick Dsdt_Type on the end of the descriptor list.
-  //
-  Dsdt_Type = desc_lst.size();
-	    
-  ngrow = 0;
-  desc_lst.addDescriptor(Dsdt_Type,IndexType::TheCellType(),StateDescriptor::Point,ngrow,1,
-                         &cell_cons_interp);
-  set_dsdt_bc(bc,phys_bc);
-  desc_lst.setComponent(Dsdt_Type,Dsdt,"dsdt",bc,pelelm_bndryfunc3);
+  desc_lst.setComponent(Divu_Type,Divu,"divu",bc,pelelm_divu_bf);
   //
   // Add in the fcncall tracer type quantity.
   //
   FuncCount_Type = desc_lst.size();
   desc_lst.addDescriptor(FuncCount_Type, IndexType::TheCellType(),StateDescriptor::Point,0, 1, &cell_cons_interp);
-  desc_lst.setComponent(FuncCount_Type, 0, "FuncCount", bc, pelelm_bndryfunc3);
+  
+  amrex::StateDescriptor::BndryFunc pelelm_dummy_bf(pelelm_dummy_fill);
+  pelelm_dummy_bf.setRunOnGPU(true);  // I promise the bc function will launch gpu kernels.
+
+  desc_lst.setComponent(FuncCount_Type, 0, "FuncCount", bc, pelelm_dummy_bf);
+
   rhoydotSetUp();
   //
   // rho_temp
@@ -803,7 +776,7 @@ PeleLM::variableSetUp ()
   //
   // Magnitude of vorticity.
   //
-  derive_lst.add("mag_vort",IndexType::TheCellType(),1,pelelm_mgvort,grow_box_by_one);
+  derive_lst.add("mag_vort",IndexType::TheCellType(),1,pelelm_mgvort,grow_box_by_two);
   derive_lst.addComponent("mag_vort",desc_lst,State_Type,Xvel,AMREX_SPACEDIM);
 
 #ifdef PLM_USE_EFIELD
@@ -1083,7 +1056,7 @@ PeleLM::rhoydotSetUp()
                          &lincc_interp);
 
 
-  amrex::StateDescriptor::BndryFunc pelelm_bndryfunc(pelelm_fillEdges);
+  amrex::StateDescriptor::BndryFunc pelelm_bndryfunc(pelelm_dummy_fill);
   pelelm_bndryfunc.setRunOnGPU(true);  // I promise the bc function will launch gpu kernels.
 
 	

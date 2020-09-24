@@ -7,6 +7,74 @@
 
 using namespace amrex;
 
+struct PeleLMdummyFill
+{
+  AMREX_GPU_DEVICE
+  void operator()(
+    const amrex::IntVect& iv,
+    amrex::Array4<amrex::Real> const& dest,
+    const int dcomp,
+    const int numcomp,
+    amrex::GeometryData const& geom,
+    const amrex::Real time,
+    const amrex::BCRec* bcr,
+    const int bcomp,
+    const int orig_comp) const
+  {
+
+    const int* domlo = geom.Domain().loVect();
+    const int* domhi = geom.Domain().hiVect();
+    
+    const int* bc = bcr->data();
+
+    // Shouldn't actually ever use this, just need something computable.
+    // Set to some ridiculous value so we know if it does get used.
+    amrex::Real s_ext[1] = {1.2345e40};
+
+    // xlo and xhi
+    int idir = 0;
+    if ((bc[idir] == amrex::BCType::ext_dir) and (iv[idir] < domlo[idir])) {
+
+	 dest(iv, dcomp) = s_ext[orig_comp];
+    
+    } else if (
+       (bc[idir + AMREX_SPACEDIM] == amrex::BCType::ext_dir) and
+       (iv[idir] > domhi[idir])) {
+
+	 dest(iv, dcomp) = s_ext[orig_comp];
+    }
+
+
+    // ylo and yhi
+    idir = 1;
+    if ((bc[idir] == amrex::BCType::ext_dir) and (iv[idir] < domlo[idir])) {
+
+	 dest(iv, dcomp) = s_ext[orig_comp];
+
+    } else if (
+       (bc[idir + AMREX_SPACEDIM] == amrex::BCType::ext_dir) and
+       (iv[idir] > domhi[idir])) {
+
+	 dest(iv, dcomp) = s_ext[orig_comp];
+    }
+
+#if AMREX_SPACEDIM == 3
+    // zlo and zhi
+    idir = 2;
+    if ((bc[idir] == amrex::BCType::ext_dir) and (iv[idir] < domlo[idir])) {
+
+	 dest(iv, dcomp) = s_ext[orig_comp];
+
+    } else if (
+       (bc[idir + AMREX_SPACEDIM] == amrex::BCType::ext_dir) and
+       (iv[idir] > domhi[idir])) {
+
+	  dest(iv, dcomp) = s_ext[orig_comp];
+    }
+#endif
+  }
+};
+
 struct PeleLMNodalFillExtDir
 {
   AMREX_GPU_DEVICE
@@ -21,11 +89,11 @@ struct PeleLMNodalFillExtDir
     const int bcomp,
     const int orig_comp) const
   {
-           // do something for external Dirichlet (BCType::ext_dir)
+    // do something for external Dirichlet (BCType::ext_dir)
   }
 };
 
-struct PeleLMEdgeFillExtDir
+struct PeleLMFaceFillExtDir
 {
   AMREX_GPU_DEVICE
   void operator()(
@@ -39,7 +107,7 @@ struct PeleLMEdgeFillExtDir
     const int bcomp,
     const int orig_comp) const
   {
-           // do something for external Dirichlet (BCType::ext_dir)
+    // do something for external Dirichlet (BCType::ext_dir)
   }
 };
 
@@ -57,7 +125,7 @@ struct PeleLMCCFillExtDir
     const int bcomp,
     const int orig_comp) const
   {
-            // do something for external Dirichlet (BCType::ext_dir)
+    // do something for external Dirichlet (BCType::ext_dir)
 
     const int* domlo = geom.Domain().loVect();
     const int* domhi = geom.Domain().hiVect();
@@ -76,6 +144,10 @@ struct PeleLMCCFillExtDir
     int idir = 0;
     if ((bc[idir] == amrex::BCType::ext_dir) and (iv[idir] < domlo[idir])) {
 
+         //
+         // Fill s_ext with the EXT_DIR BC value
+         // bcnormal() is defined in pelelm_prob.H in problem directory in /Exec
+         //
          bcnormal(x, s_ext, idir, 1, time, geom);
 
          if (orig_comp == Xvel){
@@ -304,6 +376,7 @@ struct PeleLMCCFillExtDir
  }
 };
 
+
 // bx                  : Cells outside physical domain and inside bx are filled.
 // data, dcomp, numcomp: Fill numcomp components of data starting from dcomp.
 // bcr, bcomp          : bcr[bcomp] specifies BC for component dcomp and so on.
@@ -322,7 +395,7 @@ void pelelm_cc_ext_fill (Box const& bx, FArrayBox& data,
 }
 
 
-void pelelm_fillEdges (Box const& bx, FArrayBox& data,
+void pelelm_face_fill (Box const& bx, FArrayBox& data,
                  const int dcomp, const int numcomp,
                  Geometry const& geom, const Real time,
                  const Vector<BCRec>& bcr, const int bcomp,
@@ -332,7 +405,7 @@ void pelelm_fillEdges (Box const& bx, FArrayBox& data,
 // The GpuBndryFuncFab routine is not yet supporting Edge Face data
 // but it is called here so that it will automatically work when amrex support will be ok
 
-        GpuBndryFuncFab<PeleLMEdgeFillExtDir> gpu_bndry_func(PeleLMEdgeFillExtDir{});
+        GpuBndryFuncFab<PeleLMFaceFillExtDir> gpu_bndry_func(PeleLMFaceFillExtDir{});
         gpu_bndry_func(bx,data,dcomp,numcomp,geom,time,bcr,bcomp,scomp);
 
 }
@@ -346,6 +419,18 @@ void pelelm_press_fill (Box const& bx, FArrayBox& data,
 {
 
         GpuBndryFuncFab<PeleLMNodalFillExtDir> gpu_bndry_func(PeleLMNodalFillExtDir{});
+        gpu_bndry_func(bx,data,dcomp,numcomp,geom,time,bcr,bcomp,scomp);
+
+}
+
+void pelelm_dummy_fill (Box const& bx, FArrayBox& data,
+                 const int dcomp, const int numcomp,
+                 Geometry const& geom, const Real time,
+                 const Vector<BCRec>& bcr, const int bcomp,
+                 const int scomp)
+{
+
+        GpuBndryFuncFab<PeleLMdummyFill> gpu_bndry_func(PeleLMdummyFill{});
         gpu_bndry_func(bx,data,dcomp,numcomp,geom,time,bcr,bcomp,scomp);
 
 }
