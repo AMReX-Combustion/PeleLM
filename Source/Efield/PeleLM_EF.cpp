@@ -4,9 +4,9 @@ namespace EFConst{
     AMREX_GPU_DEVICE_MANAGED amrex::Real elemCharge = 1.60217662e-19;     //Coulomb per charge
     AMREX_GPU_DEVICE_MANAGED amrex::Real Na = 6.022e23;                   //Avogadro's number
 }
-  
+
 void PeleLM::ef_init() {
-    amrex::Print() << " Init EFIELD solve options \n";  
+    amrex::Print() << " Init EFIELD solve options \n";
 
     // Params defaults
     PeleLM::ef_verbose                = 0;
@@ -30,13 +30,13 @@ void PeleLM::ef_init() {
     PeleLM::ef_PC_fixedIter           = -1;
     PeleLM::ef_PC_MG_Tol              = 1.0e-6;
 
-    for (int n = 0; n  < NUM_SPECIES; n++) 
+    for (int n = 0; n  < NUM_SPECIES; n++)
     {
       PeleLM::zk[n] = 0.0;
     }
 
-//  Abort if EB + Efield    
-#ifdef AMREX_USE_EB    
+//  Abort if EB + Efield
+#ifdef AMREX_USE_EB
     Abort("No support for EB + Efield yet");
 #endif
 
@@ -51,18 +51,18 @@ void PeleLM::ef_init() {
    {    
       if (!lo_bc[i].compare("Interior")){
          phiV_bc.setLo(i,0);
-      } else if (!lo_bc[i].compare("Dirichlet")) { 
+      } else if (!lo_bc[i].compare("Dirichlet")) {
          phiV_bc.setLo(i,1);
-      } else if (!lo_bc[i].compare("Neumann")) { 
+      } else if (!lo_bc[i].compare("Neumann")) {
          phiV_bc.setLo(i,2);
       } else {
          amrex::Abort("Wrong PhiV bc. Should be : Interior, Dirichlet or Neumann");
       }
       if (!hi_bc[i].compare("Interior")){
          phiV_bc.setHi(i,0);
-      } else if (!hi_bc[i].compare("Dirichlet")) { 
+      } else if (!hi_bc[i].compare("Dirichlet")) {
          phiV_bc.setHi(i,1);
-      } else if (!hi_bc[i].compare("Neumann")) { 
+      } else if (!hi_bc[i].compare("Neumann")) {
          phiV_bc.setHi(i,2);
       } else {
          amrex::Abort("Wrong PhiV bc. Should be : Interior, Dirichlet or Neumann");
@@ -93,12 +93,12 @@ void PeleLM::ef_solve_phiv(const Real &time) {
 
    if ( ef_verbose ) amrex::Print() << " Solve for electro-static field on level " << level << "\n";
 
-   MultiFab& S = (time == state[State_Type].prevTime() ) ? get_old_data(State_Type) 
+   MultiFab& S = (time == state[State_Type].prevTime() ) ? get_old_data(State_Type)
                                                          : get_new_data(State_Type);
 
    MultiFab rhs_poisson(grids,dmap,1,1);
 
-// Get alias to PhiV in S     
+// Get alias to PhiV in S
    MultiFab PhiV_alias(S,amrex::make_alias,PhiV,1);
 
 // Get RHS: charge distribution
@@ -123,7 +123,7 @@ void PeleLM::ef_solve_phiv(const Real &time) {
    }
 
 // Set-up solver tolerances
-   const Real S_tol     = ef_PoissonTol; 
+   const Real S_tol     = ef_PoissonTol;
    const Real S_tol_abs = std::max(rhs_poisson.norm0(),PhiV_alias.norm0()) * ef_PoissonTol;
 
 // Set-up Poisson solver
@@ -132,7 +132,7 @@ void PeleLM::ef_solve_phiv(const Real &time) {
    info.setConsolidation(1);
    info.setMetricTerm(false);
 
-   MLPoisson phiV_poisson({geom}, {grids}, {dmap}, info);   
+   MLPoisson phiV_poisson({geom}, {grids}, {dmap}, info);
    phiV_poisson.setMaxOrder(ef_PoissonMaxOrder);
 
 // Set-up BC's
@@ -145,7 +145,7 @@ void PeleLM::ef_solve_phiv(const Real &time) {
    if (level > 0) {
       auto& crselev = getLevel(level-1);
       phiV_crse.define(crselev.grids, crselev.dmap, 1, 0, MFInfo(), crselev.Factory());
-      FillPatch(crselev,phiV_crse,0,time, State_Type, PhiV, 1, 0);   
+      FillPatch(crselev,phiV_crse,0,time, State_Type, PhiV, 1, 0);
       phiV_poisson.setCoarseFineBC(&phiV_crse, crse_ratio[0]);
    }
    MultiFab PhiVmf(grids,dmap,1,1,MFInfo(),Factory());
@@ -172,11 +172,11 @@ void PeleLM::ef_define_data() {
    mob_e.define(this);
    Ke_ec = mob_e.get();
 
-   ef_state_old.define(grids,dmap,2,1); 
-   ef_state_refGhostCell.define(grids,dmap,2,Godunov::hypgrow()); 
-   bg_charge.define(grids,dmap,1,1); 
-   nl_state.define(grids,dmap,2,Godunov::hypgrow());
-   nl_resid.define(grids,dmap,2,Godunov::hypgrow());
+   ef_state_old.define(grids,dmap,2,1);
+   ef_state_refGhostCell.define(grids,dmap,2,2);
+   bg_charge.define(grids,dmap,1,1);
+   nl_state.define(grids,dmap,2,2);
+   nl_resid.define(grids,dmap,2,2);
 
    elec_Ueff = new MultiFab[AMREX_SPACEDIM];
    for (int d = 0; d < AMREX_SPACEDIM; ++d) {
@@ -255,7 +255,7 @@ void PeleLM::ef_calc_transport(const Real &time) {
          const auto& kappa_ed = Ke_ec[dir]->array(mfi);
          const auto bc_lo = fpi_phys_loc(math_bc[0].lo(dir));
          const auto bc_hi = fpi_phys_loc(math_bc[0].hi(dir));
-         amrex::ParallelFor(ebx, [dir, bc_lo, bc_hi, use_harmonic_avg, diff_c, diff_ed, 
+         amrex::ParallelFor(ebx, [dir, bc_lo, bc_hi, use_harmonic_avg, diff_c, diff_ed,
                                   kappa_c, kappa_ed, edomain]
          AMREX_GPU_DEVICE (int i, int j, int k) noexcept
          {
@@ -285,8 +285,8 @@ void PeleLM::jtimesv(const MultiFab &v,
 
    if ( ef_diffT_jfnk == 1 ) {
       // Create perturbed state
-      MultiFab S_pert(grids,dmap,2,Godunov::hypgrow());
-      MultiFab::Copy(S_pert, nl_state, 0, 0, 2, Godunov::hypgrow());
+      MultiFab S_pert(grids,dmap,2,2);
+      MultiFab::Copy(S_pert, nl_state, 0, 0, 2, 2);
       MultiFab::Saxpy(S_pert,delta_pert,v, 0, 0, 2 ,0);
 
       // Get perturbed residual
@@ -299,10 +299,10 @@ void PeleLM::jtimesv(const MultiFab &v,
       Jv.mult(-1.0/delta_pert);
    } else if ( ef_diffT_jfnk == 2 ) {
       // Create perturbed states
-      MultiFab S_pertm(grids,dmap,2,Godunov::hypgrow());
-      MultiFab S_pertp(grids,dmap,2,Godunov::hypgrow());
-      MultiFab::Copy(S_pertp, nl_state, 0, 0, 2, Godunov::hypgrow());
-      MultiFab::Copy(S_pertm, nl_state, 0, 0, 2, Godunov::hypgrow());
+      MultiFab S_pertm(grids,dmap,2,2);
+      MultiFab S_pertp(grids,dmap,2,2);
+      MultiFab::Copy(S_pertp, nl_state, 0, 0, 2, 2);
+      MultiFab::Copy(S_pertm, nl_state, 0, 0, 2, 2);
       MultiFab::Saxpy(S_pertp,delta_pert,v, 0, 0, 2 ,0);
       MultiFab::Saxpy(S_pertm,-delta_pert,v, 0, 0, 2 ,0);
 
@@ -340,10 +340,10 @@ void PeleLM::ef_solve_PNP(      int      misdc,
 
    // Get a copy of the old nE and PhiV into ef_state_old
    Real prev_time = state[State_Type].prevTime();
-   FillPatchIterator nEfpi(*this,ef_state_refGhostCell,Godunov::hypgrow(),prev_time,State_Type,nE,2);
+   FillPatchIterator nEfpi(*this,ef_state_refGhostCell,2,prev_time,State_Type,nE,2);
    MultiFab& nEfpi_mf = nEfpi.get_mf();
    MultiFab::Copy(ef_state_old,nEfpi_mf,0,0,2,1);                            // Copy into a storage to hold the old state
-   MultiFab::Copy(ef_state_refGhostCell,nEfpi_mf,0,0,2,Godunov::hypgrow());  // Copy into a storage to hold the reference ghost cell value
+   MultiFab::Copy(ef_state_refGhostCell,nEfpi_mf,0,0,2,2);  // Copy into a storage to hold the reference ghost cell value
 
    // Need the gradient of old phiV
    {
@@ -352,7 +352,7 @@ void PeleLM::ef_solve_PNP(      int      misdc,
    }
 
    // Non-linear state & residual from FPI
-   MultiFab::Copy(nl_state, ef_state_refGhostCell, 0, 0, 2, Godunov::hypgrow());
+   MultiFab::Copy(nl_state, ef_state_refGhostCell, 0, 0, 2, 2);
    if ( ef_debug ) VisMF::Write(nl_state,"PrePNPState_"+std::to_string(level));
 
    // GMRES
@@ -543,11 +543,11 @@ int PeleLM::testExitNewton(const MultiFab  &res,
 }
 
 void PeleLM::newtonInitialGuess(const Real      &dt_lcl,
-                                      MultiFab  &a_nl_state) { 
+                                      MultiFab  &a_nl_state) {
 
    // Get the unscaled non-linear state
-   MultiFab nl_state_usc(grids,dmap,2,Godunov::hypgrow());
-   MultiFab::Copy(nl_state_usc, a_nl_state, 0, 0, 2, Godunov::hypgrow());
+   MultiFab nl_state_usc(grids,dmap,2,2);
+   MultiFab::Copy(nl_state_usc, a_nl_state, 0, 0, 2, 2);
    nl_state_usc.mult(nE_scale,0,1);
    nl_state_usc.mult(phiV_scale,1,1);
 
@@ -608,8 +608,8 @@ void PeleLM::ef_nlResidual(const Real      &dt_lcl,
    BL_PROFILE("PLM_EF::ef_nlResidual()");
 
    // Get the unscaled non-linear state
-   MultiFab nl_state_usc(grids,dmap,2,Godunov::hypgrow());
-   MultiFab::Copy(nl_state_usc, a_nl_state, 0, 0, 2, Godunov::hypgrow());
+   MultiFab nl_state_usc(grids,dmap,2,2);
+   MultiFab::Copy(nl_state_usc, a_nl_state, 0, 0, 2, 2);
    nl_state_usc.mult(nE_scale,0,1);
    nl_state_usc.mult(phiV_scale,1,1);
 
@@ -782,7 +782,7 @@ void PeleLM::compElecAdvection(MultiFab &a_ne,
          auto const& ueff    = elec_Ueff[d].array(mfi);
          auto const& gphi_c  = gphiV[d]->const_array(mfi);
          auto const& gphi_o  = gphiV_old[d]->const_array(mfi);
-         auto const& umac    = u_mac[d].const_array(mfi); 
+         auto const& umac    = u_mac[d].const_array(mfi);
          auto const& kappa_e = Ke_ec[d]->const_array(mfi);
          amrex::ParallelFor(bx, [ueff, gphi_c, gphi_o, umac, kappa_e]
          AMREX_GPU_DEVICE (int i, int j, int k) noexcept
@@ -810,8 +810,8 @@ void PeleLM::compElecAdvection(MultiFab &a_ne,
          const Box& bx  = mfi.tilebox();
          const Box& gbx = mfi.growntilebox(1);
          AMREX_D_TERM( const Box& xbx = mfi.grownnodaltilebox(0,0);,
-                       const Box& ybx = mfi.grownnodaltilebox(1,0);, 
-                       const Box& zbx = mfi.grownnodaltilebox(2,0);); 
+                       const Box& ybx = mfi.grownnodaltilebox(1,0);,
+                       const Box& zbx = mfi.grownnodaltilebox(2,0););
 
          // data arrays
          auto const& ne_arr = nE_new.array(mfi);
@@ -825,7 +825,7 @@ void PeleLM::compElecAdvection(MultiFab &a_ne,
                        cflux[1].resize(ybx,1);,
                        cflux[2].resize(zbx,1););
          AMREX_D_TERM( edgstate[0].resize(xbx,1);,
-                       edgstate[1].resize(ybx,1);, 
+                       edgstate[1].resize(ybx,1);,
                        edgstate[2].resize(zbx,1););
          AMREX_D_TERM( Array4<Real> xstate = edgstate[0].array();,
                        Array4<Real> ystate = edgstate[1].array();,
