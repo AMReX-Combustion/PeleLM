@@ -504,7 +504,7 @@ PeleLM::variableSetUp ()
                          StateDescriptor::Interval,1,1,
                          &node_bilinear_interp);
 
-  amrex::StateDescriptor::BndryFunc pelelm_nodal_bf(pelelm_press_fill);
+  amrex::StateDescriptor::BndryFunc pelelm_nodal_bf(pelelm_dummy_fill);
   pelelm_nodal_bf.setRunOnGPU(true);  // I promise the bc function will launch gpu kernels.
 
 
