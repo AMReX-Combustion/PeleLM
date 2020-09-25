@@ -4653,25 +4653,22 @@ PeleLM::predict_velocity (Real  dt)
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
     {
-        FArrayBox tforces;
-
         for (MFIter U_mfi(Umf,TilingIfNotGPU()); U_mfi.isValid(); ++U_mfi)
         {
             Box bx=U_mfi.tilebox();
             FArrayBox& Ufab = Umf[U_mfi];
-            auto const  gbx  = grow(bx,ngrow);
-            tforces.resize(gbx,AMREX_SPACEDIM);
+            auto const  gbx = U_mfi.growntilebox(ngrow);
 
             if (getForceVerbose) {
                 Print() << "---\nA - Predict velocity:\n Calling getForce...\n";
             }
 
-            getForce(tforces,gbx,ngrow,Xvel,AMREX_SPACEDIM,prev_time,Ufab,Smf[U_mfi],0);
+            getForce(forcing_term[U_mfi],gbx,ngrow,Xvel,AMREX_SPACEDIM,prev_time,Ufab,Smf[U_mfi],0);
 
             //
             // Compute the total forcing.
             //
-            auto const& tf   = tforces.array();
+            auto const& tf   = forcing_term.array(U_mfi,Xvel);
             auto const& visc = visc_terms.const_array(U_mfi,Xvel);
             auto const& gp   = Gp.const_array(U_mfi);
             auto const& rho  = rho_ptime.const_array(U_mfi);
@@ -4681,8 +4678,6 @@ PeleLM::predict_velocity (Real  dt)
             {
                 tf(i,j,k,n) = ( tf(i,j,k,n) + visc(i,j,k,n) - gp(i,j,k,n) ) / rho(i,j,k);
             });
-
-            forcing_term[U_mfi].copy<RunOn::Host>(tforces,0,0,AMREX_SPACEDIM);
         }
     }
 
