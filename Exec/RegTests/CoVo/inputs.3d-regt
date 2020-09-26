@@ -167,6 +167,6 @@ ns.do_LES = 0
 ns.LES_model = Smagorinsky
 #ns.LES_model = Sigma
 ns.smago_Cs_cst = 0.18
-vode.solve_type = dense
+cvode.solve_type = dense
 ode.analytical_jacobian = 0
 
