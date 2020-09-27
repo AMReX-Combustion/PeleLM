@@ -119,6 +119,13 @@ mac.mac_abs_tol    = 1.0e-12
 mac.use_cg_solve   = 0
 mac.do_outflow_bcs = 0
 
+# ------------------  INPUTS TO CVODE CHEMISTRY ----------------------
+#peleLM.use_typ_vals_chem = 1
+#peleLM.relative_tol_chem = 1.0e-8
+#peleLM.absolute_tol_chem = 1.0e-6
+cvode.solve_type = dense
+ode.analytical_jacobian = 0
+
 #--------------------------MISC/UNSORTED INPUTS-----------------------------
 
 mg.smooth_on_cg_unstable=1
