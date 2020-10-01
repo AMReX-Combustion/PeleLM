@@ -4728,6 +4728,8 @@ PeleLM::advance (Real time,
                  int  ncycle)
 {
   BL_PROFILE("PLM::advance()");
+
+  //====================================
   BL_PROFILE_VAR("PeleLM::advance::mac", PLM_MAC);
   if (closed_chamber == 1 && level == 0)
   {
@@ -4735,8 +4737,9 @@ PeleLM::advance (Real time,
     p_amb_new = p_amb_old;
   }
   BL_PROFILE_VAR_STOP(PLM_MAC);
+  //====================================
 
-  BL_PROFILE_REGION_START("R::PeleLM::advance()[src_sdc]");
+  BL_PROFILE_REGION_START("PeleLM::advance()");
   BL_PROFILE("PeleLM::advance()[src_sdc]");
   is_predictor = true;
   updateFluxReg = false;
@@ -4754,11 +4757,11 @@ PeleLM::advance (Real time,
                    << " with dt = "         << dt << '\n';
   }
 
+  //====================================
+  BL_PROFILE_VAR("PeleLM::advance::setup", PLM_SETUP);
   // swaps old and new states for all state types
   // then copies each of the old state types into the new state types
-  BL_PROFILE_VAR("PeleLM::advance::setup", PLM_SETUP);
   advance_setup(time,dt,iteration,ncycle);
-  BL_PROFILE_VAR_STOP(PLM_SETUP);
 
   MultiFab& S_new = get_new_data(State_Type);
   MultiFab& S_old = get_old_data(State_Type);
@@ -4787,6 +4790,8 @@ PeleLM::advance (Real time,
       reset_typical_values(get_old_data(State_Type));
     }
   }
+  BL_PROFILE_VAR_STOP(PLM_SETUP);
+  //====================================
 
   if (do_check_divudt)
   {
@@ -4795,6 +4800,7 @@ PeleLM::advance (Real time,
 
   Real dt_test = 0.0;
 
+  //====================================
   BL_PROFILE_VAR("PeleLM::advance::diffusion", PLM_DIFF);
   if (floor_species == 1)
   {
@@ -4812,17 +4818,18 @@ PeleLM::advance (Real time,
         });
      }
   }
-  BL_PROFILE_VAR_STOP(PLM_DIFF);
 
   // Build a copy of old-time rho with grow cells for use in the diffusion solves
-  BL_PROFILE_VAR_START(PLM_DIFF);
   make_rho_prev_time();
   BL_PROFILE_VAR_STOP(PLM_DIFF);
+  //====================================
 
-  // compute old-time thermodynamic pressure
+  //====================================
   BL_PROFILE_VAR_START(PLM_MAC);
+  // compute old-time thermodynamic pressure
   setThermoPress(prev_time);  
   BL_PROFILE_VAR_STOP(PLM_MAC);
+  //====================================
 
   MultiFab Dn(grids,dmap,NUM_SPECIES+2,nGrowAdvForcing,MFInfo(),Factory());
   MultiFab DDn(grids,dmap,1,nGrowAdvForcing,MFInfo(),Factory());
@@ -4834,19 +4841,23 @@ PeleLM::advance (Real time,
   //  (Note that coeffs at tn and tnp1 were intialized in _setup)
   if (verbose) amrex::Print() << "Computing Dn, DDn, and DWbar \n";
 
+  //====================================
   BL_PROFILE_VAR_START(PLM_DIFF);
   bool include_Wbar_terms = true;
   compute_differential_diffusion_terms(Dn,DDn,prev_time,dt,include_Wbar_terms);
   BL_PROFILE_VAR_STOP(PLM_DIFF);
+  //====================================
 
   /*
     You could compute instantaneous I_R here but for now it's using either the
     previous step or divu_iter's version of I_R.  Either way, we have to make 
     sure that the nGrowAdvForcing grow cells have something reasonable in them
   */
+  //====================================
   BL_PROFILE_VAR("PeleLM::advance::reactions", PLM_REAC);
   set_reasonable_grow_cells_for_R(tnp1);
   BL_PROFILE_VAR_STOP(PLM_REAC);
+  //====================================
 
   // copy old state into new state for Dn and DDn.
   // Note: this was already done for scalars, transport coefficients,
@@ -4860,6 +4871,7 @@ PeleLM::advance (Real time,
   MultiFab chi_increment(grids,dmap,1,nGrowAdvForcing,MFInfo(),Factory());
   MultiFab mac_divu(grids,dmap,1,nGrowAdvForcing,MFInfo(),Factory());
 
+  //====================================
   BL_PROFILE_VAR_START(PLM_DIFF);
 #ifdef _OPENMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
@@ -4887,6 +4899,7 @@ PeleLM::advance (Real time,
      });
   }
   BL_PROFILE_VAR_STOP(PLM_DIFF);
+  //====================================
 
   is_predictor = false;
 
@@ -4899,38 +4912,42 @@ PeleLM::advance (Real time,
 
     if (sdc_iter > 1)
     {
+      //====================================
       // compute new-time transport coefficients
       BL_PROFILE_VAR_START(PLM_DIFF);
       calcDiffusivity(tnp1);
 #ifdef USE_WBAR
       calcDiffusivity_Wbar(tnp1);
 #endif
-      BL_PROFILE_VAR_STOP(PLM_DIFF);
 
       // compute Dnp1 and DDnp1 iteratively lagged
-      BL_PROFILE_VAR_START(PLM_DIFF);
       bool include_Wbar_terms_np1 = true;
       compute_differential_diffusion_terms(Dnp1,DDnp1,tnp1,dt,include_Wbar_terms_np1);
       BL_PROFILE_VAR_STOP(PLM_DIFF);
+      //====================================
 
+      //====================================
       // compute new-time DivU with instantaneous reaction rates
       BL_PROFILE_VAR_START(PLM_MAC);
       calc_divu(tnp1, dt, get_new_data(Divu_Type));
       BL_PROFILE_VAR_STOP(PLM_MAC);
+      //====================================
     }
 
+    //====================================
     // compute U^{ADV,*}
     BL_PROFILE_VAR_START(PLM_VEL);
     dt_test = predict_velocity(dt);
     BL_PROFILE_VAR_STOP(PLM_VEL);
+    //====================================
 
-    // create S^{n+1/2} by averaging old and new
+    //====================================
     BL_PROFILE_VAR_START(PLM_MAC);
+    // create S^{n+1/2} by averaging old and new
 
     MultiFab Forcing(grids,dmap,NUM_SPECIES+1,nGrowAdvForcing,MFInfo(),Factory());
     Forcing.setBndry(1.e30);
     FillPatch(*this,mac_divu,nGrowAdvForcing,time+0.5*dt,Divu_Type,0,1,0);
-    BL_PROFILE_VAR_STOP(PLM_MAC);
 
     // compute new-time thermodynamic pressure and chi_increment
     setThermoPress(tnp1);
@@ -4973,7 +4990,6 @@ PeleLM::advance (Real time,
     }
 
     // MAC-project... and overwrite U^{ADV,*}
-    BL_PROFILE_VAR_START(PLM_MAC);
     mac_project(time,dt,S_old,&mac_divu,nGrowAdvForcing,updateFluxReg);
 
     if (closed_chamber == 1 && level == 0 && Sbar != 0)
@@ -4981,14 +4997,17 @@ PeleLM::advance (Real time,
       mac_divu.plus(Sbar,0,1); // add Sbar back to mac_divu
     }
     BL_PROFILE_VAR_STOP(PLM_MAC);
+    //====================================
 
-    //
+    //====================================
+    // Scalar advection TPROF
+    BL_PROFILE_VAR("PeleLM::advance::scal_advection", PLM_ADV);
+    if (verbose) amrex::Print() << "A (SDC iter " << sdc_iter << ")\n";
     // Compute A (advection terms) with F = Dn + R
     //
     //  F[Temp] = ( Div(lambda.Grad(T)) - Sum{ hk.( R_k + Div( Fk ) ) } )/(rho.Cp)    NOTE: DD added below
     //          = ( D[N+1] + Sum{ hk.( R_k + D[k] ) } ) / (rho.Cp)
     //
-    BL_PROFILE_VAR("PeleLM::advance::advection", PLM_ADV);
     Forcing.setVal(0.0);
 
     int sComp = std::min(RhoH, std::min((int)Density, std::min((int)first_spec,(int)Temp) ) );
@@ -5025,33 +5044,32 @@ PeleLM::advance (Real time,
           buildAdvectionForcing( i, j, k, rho, rhoY, T, dn, ddn, r, dp0dt_d, closed_ch_d, fY, fT );
        });
     }
-    BL_PROFILE_VAR_STOP(PLM_ADV);
 
-    BL_PROFILE_VAR_START(PLM_ADV);
     Forcing.FillBoundary(0,NUM_SPECIES+1,geom.periodicity());
-    BL_PROFILE_VAR_STOP(PLM_ADV);
 
-    if (verbose) amrex::Print() << "A (SDC iter " << sdc_iter << ")\n";
-    BL_PROFILE_VAR_START(PLM_ADV);
     aofs->setVal(1.e30,aofs->nGrow());
 
     compute_scalar_advection_fluxes_and_divergence(Forcing,mac_divu,dt);
-    BL_PROFILE_VAR_STOP(PLM_ADV);
     showMF("DBGSync",u_mac[0],"DBGSync_umacX",level,sdc_iter,parent->levelSteps(level));
     showMF("DBGSync",u_mac[1],"DBGSync_umacY",level,sdc_iter,parent->levelSteps(level));
     
     // update rho since not affected by diffusion
-    BL_PROFILE_VAR_START(PLM_ADV);
     scalar_advection_update(dt, Density, Density);
     make_rho_curr_time();
-    BL_PROFILE_VAR_STOP(PLM_ADV);
 
-    //
+    BL_PROFILE_VAR_STOP(PLM_ADV);
+    // Close Scalar advection TPROF
+    //==================================== 
+
+    //==================================== 
+    // Open Scalar diffusion TPROF
+    BL_PROFILE_VAR_START(PLM_DIFF);
+    if (verbose) amrex::Print() << "D (SDC iter " << sdc_iter << ")\n";
     // Compute Dhat, diffuse with F
     //                 = A + R + 0.5(Dn + Dnp1) - Dnp1 + Dhat + 0.5(DDn + DDnp1) - DDnp1 + DDHat
     //                 = A + R + 0.5(Dn - Dnp1) + Dhat + 0.5(DDn - DDnp1) + DDhat
     // 
-    BL_PROFILE_VAR_START(PLM_DIFF);
+
     Forcing.setVal(0.0);
 
     // Get the Wbar term is required
@@ -5105,8 +5123,13 @@ PeleLM::advance (Real time,
 #endif
 
     differential_diffusion_update(Forcing,0,Dhat,0,DDhat);
+    BL_PROFILE_VAR_STOP(PLM_DIFF);
+    // Close Scalar diffusion TPROF
+    //==================================== 
 
+    //==================================== 
     BL_PROFILE_VAR_START(PLM_REAC);
+    if (verbose) amrex::Print() << "R (SDC iter " << sdc_iter << ")\n";
     /////////////////////
     // Compute R (F = A + 0.5(Dn - Dnp1 + DDn - DDnp1) + Dhat + DDhat )
     // hack: for advance_chemistry, use same Forcing used for species eqn (just subtract S_old and the omegaDot term)
@@ -5145,7 +5168,10 @@ PeleLM::advance (Real time,
 #endif
     RhoH_to_Temp(S_new);
     BL_PROFILE_VAR_STOP(PLM_REAC);
+    // Close species chemistry TPROF
+    //====================================
 
+    //====================================
     BL_PROFILE_VAR_START(PLM_DIFF);
     if (floor_species == 1)
     {
@@ -5164,16 +5190,19 @@ PeleLM::advance (Real time,
        }
     }
     BL_PROFILE_VAR_STOP(PLM_DIFF);
+    //====================================
 
     showMF("mysdc",S_new,"sdc_Snew_end_sdc",level,sdc_iter,parent->levelSteps(level));
     showMF("mysdc",S_old,"sdc_Sold_end_sdc",level,sdc_iter,parent->levelSteps(level));
 
     state_stats(S_new);
-    if (verbose) amrex::Print() << "DONE WITH R (SDC corrector " << sdc_iter << ")\n";
+    if (verbose) amrex::Print() << "DONE WITH (SDC corrector " << sdc_iter << ")\n";
 
+    //====================================
     BL_PROFILE_VAR_START(PLM_MAC);
     setThermoPress(tnp1);
     BL_PROFILE_VAR_STOP(PLM_MAC);
+    //====================================
 
     showMF("DBGSync",S_new,"DBGSync_Snew_end_sdc",level,sdc_iter,parent->levelSteps(level));
   }
@@ -5228,6 +5257,7 @@ PeleLM::advance (Real time,
       }
    }
 
+   //====================================
    BL_PROFILE_VAR_START(PLM_DIFF);
    calcDiffusivity(tnp1);
 #ifdef USE_WBAR
@@ -5235,21 +5265,23 @@ PeleLM::advance (Real time,
 #endif
    calcViscosity(tnp1,dt,iteration,ncycle);
    BL_PROFILE_VAR_STOP(PLM_DIFF);
+   //====================================
 
    //
    // Set the dependent value of RhoRT to be the thermodynamic pressure.  By keeping this in
    // the state, we can use the average down stuff to be sure that RhoRT_avg is avg(RhoRT),
    // not ave(Rho)avg(R)avg(T), which seems to give the p-relax stuff in the mac Rhs troubles.
    //
+   //====================================
    BL_PROFILE_VAR_START(PLM_MAC);
    setThermoPress(tnp1);
    BL_PROFILE_VAR_STOP(PLM_MAC);
+   //====================================
 
+   //====================================
    BL_PROFILE_VAR("PeleLM::advance::project", PLM_PROJ);
    calc_divu(time+dt, dt, get_new_data(Divu_Type));
-   BL_PROFILE_VAR_STOP(PLM_PROJ);
 
-   BL_PROFILE_VAR_START(PLM_PROJ);
    if (!NavierStokesBase::initial_step && level != parent->finestLevel())
    {
       //
@@ -5277,11 +5309,13 @@ PeleLM::advance (Real time,
       }
    }
    BL_PROFILE_VAR_STOP(PLM_PROJ);
+   //====================================
 
+   //====================================
+   BL_PROFILE_VAR_START(PLM_VEL);
    //
    // Add the advective and other terms to get velocity (or momentum) at t^{n+1}.
    //
-   BL_PROFILE_VAR_START(PLM_VEL);
    
    if (do_mom_diff == 0) {
       velocity_advection(dt);
@@ -5289,7 +5323,10 @@ PeleLM::advance (Real time,
    
    velocity_update(dt);
    BL_PROFILE_VAR_STOP(PLM_VEL);
+   //====================================
 
+   //====================================
+   BL_PROFILE_VAR_START(PLM_PROJ);
    // compute chi correction
    // place to take dpdt stuff out of nodal project
    //    calc_dpdt(tnp1,dt,chi_increment,u_mac);
@@ -5298,7 +5335,6 @@ PeleLM::advance (Real time,
    // subtract mean from divu
    Real Sbar_old = 0;
    Real Sbar_new = 0;
-   BL_PROFILE_VAR_START(PLM_PROJ);
    if (closed_chamber == 1 && level == 0)
    {
       MultiFab& divu_old = get_old_data(Divu_Type);
@@ -5348,6 +5384,7 @@ PeleLM::advance (Real time,
       if (level > 0 && iteration == 1) p_avg.setVal(0);
    }
    BL_PROFILE_VAR_STOP(PLM_PROJ);
+   //====================================
 
 #ifdef AMREX_PARTICLES
    if (theNSPC() != 0)
@@ -5356,9 +5393,11 @@ PeleLM::advance (Real time,
    }
 #endif
 
+   //====================================
    BL_PROFILE_VAR("PeleLM::advance::cleanup", PLM_CLEANUP);
    advance_cleanup(iteration,ncycle);
    BL_PROFILE_VAR_STOP(PLM_CLEANUP);
+   //====================================
 
    //
    // Update estimate for allowable time step.
@@ -5376,6 +5415,7 @@ PeleLM::advance (Real time,
 
    state_stats(S_new);
    
+   //====================================
    BL_PROFILE_VAR_START(PLM_MAC);
    // during initialization, reset time 0 ambient pressure
    if (closed_chamber == 1 && level == 0 && !initial_step)
@@ -5383,8 +5423,9 @@ PeleLM::advance (Real time,
       p_amb_old = p_amb_new;
    }
    BL_PROFILE_VAR_STOP(PLM_MAC);
+   //====================================
 
-   BL_PROFILE_REGION_STOP("R::PeleLM::advance()[src_sdc]");
+   BL_PROFILE_REGION_STOP("PeleLM::advance()");
 
    return dt_test;
 }
