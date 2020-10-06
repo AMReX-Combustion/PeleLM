@@ -44,7 +44,7 @@ amr.grid_log        = grdlog  # name of grid logging file
 amr.max_grid_size   = 128
 
 prob.P_mean = 101325.0
-prob.standoff = -.021
+prob.standoff = -.023
 prob.pertmag = 0.0004
 prob.Vin = 8.0
 prob.PhiV_y_hi = 20000.0
