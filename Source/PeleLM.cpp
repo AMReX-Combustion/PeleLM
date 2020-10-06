@@ -5885,7 +5885,7 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
   {
      Vector<BCRec> math_bcs(NUM_SPECIES);
      math_bcs = fetchBCArray(State_Type, first_spec,NUM_SPECIES);
-     BCRec  const* d_bcrec_ptr = &(m_bcrec_scalars.dataPtr())[first_spec-Density];
+     BCRec  const* d_bcrec_ptr = &(m_bcrec_scalars_d.dataPtr())[first_spec-Density];
 
      MOL::ComputeAofs( *aofs, first_spec, NUM_SPECIES, Smf, rhoYcomp,
                        D_DECL(u_mac[0],u_mac[1],u_mac[2]),
@@ -5984,7 +5984,7 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
   {
     Vector<BCRec> math_bcs(1);
     math_bcs = fetchBCArray(State_Type, Temp, 1);
-    BCRec  const* d_bcrec_ptr = &(m_bcrec_scalars.dataPtr())[Temp-Density];
+    BCRec  const* d_bcrec_ptr = &(m_bcrec_scalars_d.dataPtr())[Temp-Density];
 
     MOL::ComputeAofs( *aofs, Temp, 1, Smf, Tcomp,
 		      D_DECL(u_mac[0],u_mac[1],u_mac[2]),
@@ -6086,7 +6086,7 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
   {
      Vector<BCRec> math_bcs(1);
      math_bcs = fetchBCArray(State_Type, RhoH, 1);
-     BCRec  const* d_bcrec_ptr = &(m_bcrec_scalars.dataPtr())[RhoH-Density];
+     BCRec  const* d_bcrec_ptr = &(m_bcrec_scalars_d.dataPtr())[RhoH-Density];
 
      MOL::ComputeAofs( *aofs, RhoH, 1, Smf, NUM_SPECIES+1,
 		       D_DECL(u_mac[0],u_mac[1],u_mac[2]),
@@ -6135,7 +6135,7 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
 
   // Advect RhoY 
 {
-  BCRec  const* d_bcrec_ptr = &(m_bcrec_scalars.dataPtr())[first_spec-Density];
+  BCRec  const* d_bcrec_ptr = &(m_bcrec_scalars_d.dataPtr())[first_spec-Density];
     
   amrex::Gpu::DeviceVector<int> iconserv;
   iconserv.resize(NUM_SPECIES, 0);
@@ -6194,7 +6194,7 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
 
   // Extrapolate Temp, then compute flux divergence and value for RhoH from face values of T,Y,Rho
 {
-  BCRec  const* d_bcrec_ptr = &(m_bcrec_scalars.dataPtr())[Temp-Density];
+  BCRec  const* d_bcrec_ptr = &(m_bcrec_scalars_d.dataPtr())[Temp-Density];
   
   amrex::Gpu::DeviceVector<int> iconserv;
   iconserv.resize(1, 0);
@@ -6238,7 +6238,7 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
 }
 
 {
-  BCRec  const* d_bcrec_ptr = &(m_bcrec_scalars.dataPtr())[RhoH-Density];
+  BCRec  const* d_bcrec_ptr = &(m_bcrec_scalars_d.dataPtr())[RhoH-Density];
 
   amrex::Gpu::DeviceVector<int> iconserv;
   iconserv.resize(1, 0);
