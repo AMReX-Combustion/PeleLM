@@ -1048,6 +1048,9 @@ PeleLM::rhoydotSetUp()
   RhoYdot_Type       = desc_lst.size();
   const int ngrow = 1;
   int nrhoydot = NUM_SPECIES;
+#ifdef PLM_USE_EFIELD
+  nrhoydot += 1;
+#endif
 
   amrex::Print() << "RhoYdot_Type, nrhoydot = " << RhoYdot_Type << ' ' << nrhoydot << '\n';
 
@@ -1055,21 +1058,20 @@ PeleLM::rhoydotSetUp()
                          StateDescriptor::Point,ngrow,nrhoydot,
                          &lincc_interp);
 
-
   amrex::StateDescriptor::BndryFunc pelelm_bndryfunc(pelelm_dummy_fill);
   pelelm_bndryfunc.setRunOnGPU(true);  // I promise the bc function will launch gpu kernels.
 
-	
-  //const StateDescriptor& d_cell = desc_lst[State_Type];
-
   BCRec bc;	
   set_rhoydot_bc(bc,phys_bc);
-  for (int i = 0; i < nrhoydot; i++)
+  for (int i = 0; i < NUM_SPECIES; i++)
   {
     const std::string name = "I_R[rhoY("+spec_names[i]+")]";
     desc_lst.setComponent(RhoYdot_Type, i, name.c_str(), bc,
                           pelelm_bndryfunc, &lincc_interp, 0, nrhoydot-1);
   }
+#ifdef PLM_USE_EFIELD
+    const std::string name = "I_R[nE]";
+    desc_lst.setComponent(RhoYdot_Type, NUM_SPECIES, name.c_str(), bc,
+                          pelelm_bndryfunc, &lincc_interp, 0, nrhoydot-1);
+#endif
 }
-
-
