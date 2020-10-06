@@ -14,7 +14,7 @@ peleLM.lo_bc = "Interior"  "Interior"
 peleLM.hi_bc = "Interior"  "Interior"
 
 #----------------------------TOP LEVEL INPUTS----------------------
-max_step  =  20000
+max_step  =  20
 stop_time = 0.04
 
 #-------------------------AMR INPUTS----------------------------

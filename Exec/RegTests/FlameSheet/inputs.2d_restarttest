@@ -9,8 +9,8 @@ geometry.prob_hi   = .016 .016 .016
 # >>>>>>>>>>>>>  BC FLAGS <<<<<<<<<<<<<<<<
 # Interior, Inflow, Outflow, Symmetry,
 # SlipWallAdiab, NoSlipWallAdiab, SlipWallIsotherm, NoSlipWallIsotherm
-peleLM.lo_bc = "Interior"  "Inflow"
-peleLM.hi_bc = "Interior"  "Outflow"
+peleLM.lo_bc = Interior  Inflow
+peleLM.hi_bc = Interior  Outflow
 
 #----------------------------TOP LEVEL INPUTS----------------------
 max_step  =  10000
@@ -42,7 +42,11 @@ amr.derive_plot_vars=rhoRT mag_vort avg_pressure gradpx gradpy diveru mass_fract
 amr.grid_log        = grdlog  # name of grid logging file
 amr.max_grid_size   = 64
 
-amr.probin_file = probin.3d.test # This will default to file "probin" if not set
+#amr.probin_file = probin.3d.test # This will default to file "probin" if not set
+prob.P_mean = 101325.0
+prob.standoff = -.022
+prob.pertmag = 0.0004
+prob.pmf_datafile = "drm19_pmf.dat"
 
 # Refinement according to a species tracer
 amr.refinement_indicators = flame_tracer
@@ -118,6 +122,13 @@ mac.mac_sync_tol   = 1.0e-12   # tolerence for mac SYNC projection
 mac.mac_abs_tol    = 1.0e-12
 mac.use_cg_solve   = 0
 mac.do_outflow_bcs = 0
+
+# ------------------  INPUTS TO CVODE CHEMISTRY ----------------------
+#peleLM.use_typ_vals_chem = 1
+#peleLM.relative_tol_chem = 1.0e-8
+#peleLM.absolute_tol_chem = 1.0e-6
+cvode.solve_type = dense
+ode.analytical_jacobian = 0
 
 #--------------------------MISC/UNSORTED INPUTS-----------------------------
 
