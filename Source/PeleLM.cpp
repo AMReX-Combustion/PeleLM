@@ -1982,9 +1982,14 @@ PeleLM::compute_instantaneous_reaction_rates (MultiFab&       R,
                                               int             nGrow,
                                               HowToFillGrow   how)
 {
+   int nrhoYdot = NUM_SPECIES;
+#ifdef PLM_USE_EFIELD
+   nrhoYdot += 1;
+#endif
+
    if (hack_nochem)
    {
-      R.setVal(0.0,0,NUM_SPECIES,R.nGrow());
+      R.setVal(0.0,0,nrhoYdot,R.nGrow());
       return;
    }
 
@@ -1994,7 +1999,7 @@ PeleLM::compute_instantaneous_reaction_rates (MultiFab&       R,
 
    if ((nGrow>0) && (how == HT_ZERO_GROW_CELLS))
    {
-       R.setBndry(0,0,NUM_SPECIES);
+       R.setBndry(0,0,nrhoYdot);
    }
 
 // TODO: the mask is not used right now.
@@ -2019,19 +2024,30 @@ PeleLM::compute_instantaneous_reaction_rates (MultiFab&       R,
       auto const& mask    = maskMF.array(mfi);
       auto const& rhoYdot = R.array(mfi);
 
+#ifdef PLM_USE_EFIELD
+      auto const& nearr = S.array(mfi,nE);
+      auto const& nEdot = R.array(mfi,NUM_SPECIES);
+      amrex::ParallelFor(bx, [rhoY, rhoH, T, nearr, mask, rhoYdot, nEdot]
+      AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+      {
+         reactionRateRhoY_EF( i, j, k, rhoY, rhoH, T, nearr, mask,
+                              rhoYdot, nEdot );
+      });
+#else
       amrex::ParallelFor(bx, [rhoY, rhoH, T, mask, rhoYdot]
       AMREX_GPU_DEVICE (int i, int j, int k) noexcept
       {
          reactionRateRhoY( i, j, k, rhoY, rhoH, T, mask,
                            rhoYdot );
       });
+#endif
    }
 
    if ((nGrow>0) && (how == HT_EXTRAP_GROW_CELLS))
    {
-      R.FillBoundary(0,NUM_SPECIES, geom.periodicity());
+      R.FillBoundary(0,nrhoYdot, geom.periodicity());
       BL_ASSERT(R.nGrow() == 1);
-      Extrapolater::FirstOrderExtrap(R, geom, 0, NUM_SPECIES);
+      Extrapolater::FirstOrderExtrap(R, geom, 0, nrhoYdot);
    }
 
    if (verbose > 1)
@@ -2054,6 +2070,11 @@ PeleLM::init (AmrLevel& old)
    PeleLM* oldht    = (PeleLM*) &old;
    const Real    tnp1 = oldht->state[State_Type].curTime();
 
+   int nrhoYdot = NUM_SPECIES;
+#ifdef PLM_USE_EFIELD
+   nrhoYdot += 1;
+#endif
+
    //
    // Get good version of rhoYdot and Function count
    //
@@ -2061,7 +2082,7 @@ PeleLM::init (AmrLevel& old)
    MultiFab& FuncCount = get_new_data(FuncCount_Type);
    RhoH_to_Temp(get_new_data(State_Type));
 
-   FillPatchIterator Ydotfpi(*oldht,Ydot,Ydot.nGrow(),tnp1,RhoYdot_Type,0,NUM_SPECIES);
+   FillPatchIterator Ydotfpi(*oldht,Ydot,Ydot.nGrow(),tnp1,RhoYdot_Type,0,nrhoYdot);
    const MultiFab& Ydot_old = Ydotfpi.get_mf();
 
    FillPatchIterator FctCntfpi(*oldht,FuncCount,FuncCount.nGrow(),tnp1,FuncCount_Type,0,1);
@@ -2077,10 +2098,10 @@ PeleLM::init (AmrLevel& old)
       auto const& rhoYdot_o = Ydot_old.array(mfi); 
       auto const& FctCnt_n  = FuncCount.array(mfi); 
       auto const& FctCnt_o  = FuncCount_old.array(mfi); 
-      amrex::ParallelFor(bx, [rhoYdot_n, rhoYdot_o, FctCnt_n, FctCnt_o]
+      amrex::ParallelFor(bx, [rhoYdot_n, rhoYdot_o, FctCnt_n, FctCnt_o, nrhoYdot]
       AMREX_GPU_DEVICE (int i, int j, int k) noexcept
       {
-         for (int n = 0; n < NUM_SPECIES; n++) {
+         for (int n = 0; n < nrhoYdot; n++) {
             rhoYdot_n(i,j,k,n) = rhoYdot_o(i,j,k,n);
          }
          FctCnt_n(i,j,k) = FctCnt_o(i,j,k);
@@ -2101,7 +2122,11 @@ PeleLM::init ()
    //
    // Get best ydot data.
    //
-   FillCoarsePatch(get_new_data(RhoYdot_Type),0,tnp1,RhoYdot_Type,0,NUM_SPECIES);
+   int nrhoYdot = NUM_SPECIES;
+#ifdef PLM_USE_EFIELD
+   nrhoYdot += 1;
+#endif
+   FillCoarsePatch(get_new_data(RhoYdot_Type),0,tnp1,RhoYdot_Type,0,nrhoYdot);
 
    RhoH_to_Temp(get_new_data(State_Type));
    get_new_data(State_Type).setBndry(1.e30);
@@ -2374,7 +2399,13 @@ PeleLM::post_init (Real stop_time)
         MultiFab Forcing_tmp(S_new.boxArray(),S_new.DistributionMap(),NUM_SPECIES+1,0,MFInfo(),getLevel(k).Factory());
         Forcing_tmp.setVal(0);
 
+#ifdef PLM_USE_EFIELD
+        MultiFab Forcing_nEtmp(S_new.boxArray(),S_new.DistributionMap(),1,0,MFInfo(),getLevel(k).Factory());
+        Forcing_nEtmp.setVal(0);
+        getLevel(k).advance_chemistry(S_new,S_tmp,dt_save[k]/2.0,Forcing_tmp,Forcing_nEtmp,0);
+#else
         getLevel(k).advance_chemistry(S_new,S_tmp,dt_save[k]/2.0,Forcing_tmp,0);
+#endif
       }
     }
     //
@@ -5169,9 +5200,9 @@ PeleLM::advance (Real time,
     differential_diffusion_update(Forcing,0,Dhat,0,DDhat);
 
 #ifdef PLM_USE_EFIELD
-    MultiFab ForcingNe_al(grids,dmap,1,nGrowAdvForcing);
-    ForcingNe_al.setVal(0.0);
-    ef_solve_PNP(sdc_iter, dt, time, Dn, Dnp1, Dhat, ForcingNe_al);
+    MultiFab ForcingNe(grids,dmap,1,nGrowAdvForcing,MFInfo(),Factory());
+    ForcingNe.setVal(0.0);
+    ef_solve_PNP(sdc_iter, dt, time, Dn, Dnp1, Dhat, ForcingNe);
 #endif
 
     BL_PROFILE_VAR_START(PLM_REAC);
@@ -5206,7 +5237,11 @@ PeleLM::advance (Real time,
     showMF("mysdc",S_old,"sdc_Sold_befAdvChem",level,sdc_iter,parent->levelSteps(level));
     showMF("mysdc",S_new,"sdc_Snew_befAdvChem",level,sdc_iter,parent->levelSteps(level));
 
+#ifdef PLM_USE_EFIELD
+    advance_chemistry(S_old,S_new,dt,Forcing,ForcingNe,0);
+#else
     advance_chemistry(S_old,S_new,dt,Forcing,0);
+#endif
 
 #ifdef AMREX_USE_EB
     set_body_state(S_new);
@@ -5627,6 +5662,9 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
                            MultiFab&       mf_new,
                            Real            dt,
                            const MultiFab& Force,
+#ifdef PLM_USE_EFIELD
+                           const MultiFab& nEForce,
+#endif
                            int             nCompF,
                            bool            use_stiff_solver)
 {
@@ -5644,6 +5682,10 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
     MultiFab::Saxpy(mf_new,dt,Force,0,first_spec,NUM_SPECIES+1,0);
     get_new_data(RhoYdot_Type).setVal(0);
     get_new_data(FuncCount_Type).setVal(0);
+#ifdef PLM_USE_EFIELD
+    MultiFab::Copy(mf_new,mf_old,nE,nE,1,0);
+    MultiFab::Saxpy(mf_new,dt,nEForce,0,nE,1,0);
+#endif
   }
   else
   {
@@ -5659,6 +5701,7 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
 
     BoxArray  ba           = mf_new.boxArray();
     DistributionMapping dm = mf_new.DistributionMap();
+
 #ifndef AMREX_USE_CUDA
     //
     // Chop the grids to level out the chemistry work when on the CPU.
@@ -5692,15 +5735,55 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
 
     MultiFab STemp(ba, dm, NUM_SPECIES+3, 0);
     MultiFab FTemp(ba, dm, Force.nComp(), 0);
+    MultiFab fcnCntTemp(ba, dm, 1, 0);
 
     STemp.copy(mf_old,first_spec,0,NUM_SPECIES+3); // Parallel copy.
-    FTemp.copy(Force);                          // Parallel copy.
-#else
-    MultiFab STemp(mf_old, amrex::make_alias, first_spec, NUM_SPECIES+3);
-    MultiFab FTemp(Force, amrex::make_alias, 0, Force.nComp());
+    FTemp.copy(Force);                             // Parallel copy.
+
+#ifdef PLM_USE_EFIELD
+    MultiFab nE_Temp(ba, dm, 1, 0);
+    MultiFab nEF_Temp(ba, dm, 1, 0);
+    nE_Temp.copy(mf_old,nE,0,1); // Parallel copy.
+    nEF_Temp.copy(nEForce);
+    // Pass nE -> rhoY_e & FnE -> FrhoY_e
+#ifdef _OPENMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+    for (MFIter Smfi(STemp,amrex::TilingIfNotGPU()); Smfi.isValid(); ++Smfi)
+    {
+        const Box& bx       = Smfi.tilebox();
+        auto const& rhoYe   = STemp.array(Smfi,E_ID);
+        auto const& nE      = nE_Temp.array(Smfi);
+        auto const& FrhoYe  = FTemp.array(Smfi,E_ID);
+        auto const& FnE     = nEF_Temp.array(Smfi);
+        Real mwt[NUM_SPECIES];
+        EOS::molecular_weight(mwt);
+        ParallelFor(bx, [rhoYe,nE,FrhoYe,FnE,mwt]
+        AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+        {
+           rhoYe(i,j,k)  = nE(i,j,k) / EFConst::Na * mwt[E_ID];
+           FrhoYe(i,j,k) = FnE(i,j,k) / EFConst::Na * mwt[E_ID];
+        });
+    }
 #endif
 
-    MultiFab fcnCntTemp(ba, dm, 1, 0);
+#else
+    MultiFab STemp(grids, dmap, NUM_SPECIES+3, 0);
+    MultiFab FTemp(grids, dmap, Force.nComp(), 0);
+    MultiFab fcnCntTemp(grids, dmap, 1, 0);
+
+    STemp.copy(mf_old,first_spec,0,NUM_SPECIES+3);
+    FTemp.copy(Force);
+
+#ifdef PLM_USE_EFIELD
+    MultiFab nE_Temp(grids, dmap, 1, 0);
+    MultiFab nEF_Temp(grids, dmap, 1, 0);
+    nE_Temp.copy(mf_old,nE,0,1);
+    nEF_Temp.copy(nEForce);
+#endif
+
+#endif
+
     MultiFab diagTemp;
 
     // Setup a mask for chemistry. Right used only for EB.
@@ -5751,26 +5834,21 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
            frc_rhoH(i,j,k) *= 10.0;
         });
 
-#ifdef AMREX_USE_CUDA
-        const auto ec           = Gpu::ExecutionConfig(ncells);
-        cudaError_t cuda_status = cudaSuccess;
-#endif
-
         BL_PROFILE_VAR("React()", ReactInLoop);
         Real dt_incr     = dt;
         Real time_chem   = 0;
 #ifndef AMREX_USE_CUDA
         /* Solve */
         int tmp_fctCn = react(bx, rhoY, frc_rhoY, temp, rhoH, frc_rhoH, fcl, mask, dt_incr, time_chem);
-        dt_incr   = dt;
-        time_chem = 0;
 #else
+        const auto ec           = Gpu::ExecutionConfig(ncells);
+        cudaError_t cuda_status = cudaSuccess;
         int reactor_type = 2;
         int tmp_fctCn = react(bx, rhoY, frc_rhoY, temp, rhoH, frc_rhoH, fcl, mask, 
                               dt_incr, time_chem, reactor_type, amrex::Gpu::gpuStream());
+#endif
         dt_incr = dt;
         time_chem = 0;
-#endif
         BL_PROFILE_VAR_STOP(ReactInLoop);
 
         // Convert CGS -> MKS
@@ -5792,6 +5870,28 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
     }
 
     FTemp.clear();
+
+#ifdef PLM_USE_EFIELD
+    // Pass rhoY_e -> nE
+#ifdef _OPENMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+    for (MFIter Smfi(STemp,amrex::TilingIfNotGPU()); Smfi.isValid(); ++Smfi)
+    {
+        const Box& bx       = Smfi.tilebox();
+        auto const& rhoYe   = STemp.array(Smfi,E_ID);
+        auto const& nE      = nE_Temp.array(Smfi);
+        Real mwt[NUM_SPECIES];
+        EOS::molecular_weight(mwt);
+        ParallelFor(bx, [rhoYe,nE,mwt]
+        AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+        {
+           nE(i,j,k) = rhoYe(i,j,k) * EFConst::Na / mwt[E_ID];
+           rhoYe(i,j,k) = 0.0;
+        });
+    }
+    mf_new.copy(nE_Temp,0,nE,1); // Parallel copy.
+#endif
 
     mf_new.copy(STemp,0,first_spec,NUM_SPECIES+3); // Parallel copy.
 
@@ -5816,6 +5916,18 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
         {
            rhoYdot(i,j,k,n) = - ( rhoY_o(i,j,k,n) - rhoY_n(i,j,k,n) ) * dt_inv - frc_rhoY(i,j,k,n);
         });
+
+#ifdef PLM_USE_EFIELD
+        auto const& nE_o    = mf_old.array(mfi,nE);
+        auto const& nE_n    = mf_new.array(mfi,nE);
+        auto const& frc_nE  = nEForce.array(mfi);
+        auto const& nEdot   = React_new.array(mfi,NUM_SPECIES);
+        ParallelFor(bx, [nE_o, nE_n, frc_nE, nEdot, dt_inv]
+        AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+        {
+           nEdot(i,j,k) = - ( nE_o(i,j,k) - nE_n(i,j,k) ) * dt_inv - frc_nE(i,j,k);
+        });
+#endif
     }
 
     if (do_diag)
@@ -5827,13 +5939,18 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
     MultiFab& FC = get_new_data(FuncCount_Type);
     FC.copy(fcnCntTemp,0,0,1,0,std::min(ngrow,FC.nGrow()));
     fcnCntTemp.clear();
+
     //
     // Approximate covered crse chemistry (I_R) with averaged down fine I_R from previous time step.
     //
+    int nrhoYdot = NUM_SPECIES;
+#ifdef PLM_USE_EFIELD
+    nrhoYdot += 1;
+#endif
     if (do_avg_down_chem)
     {
       MultiFab& fine_React = getLevel(level+1).get_old_data(RhoYdot_Type);
-      average_down(fine_React, React_new, 0, NUM_SPECIES);
+      average_down(fine_React, React_new, 0, nrhoYdot);
     }
     //
     // Ensure consistent grow cells.
@@ -5841,8 +5958,8 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
     if (ngrow > 0)
     {
       BL_ASSERT(React_new.nGrow() == 1);
-      React_new.FillBoundary(0,NUM_SPECIES, geom.periodicity());
-      Extrapolater::FirstOrderExtrap(React_new, geom, 0, NUM_SPECIES);
+      React_new.FillBoundary(0,nrhoYdot, geom.periodicity());
+      Extrapolater::FirstOrderExtrap(React_new, geom, 0, nrhoYdot);
     }
   }
 
@@ -8094,18 +8211,23 @@ PeleLM::calc_divu (Real      time,
 
    MultiFab& RhoYdot = (use_IR) ? get_new_data(RhoYdot_Type) : RhoYdotTmp;
 
+   int nrhoydot = NUM_SPECIES;
+#ifdef PLM_USE_EFIELD
+   nrhoydot += 1;
+#endif
+
    if (!use_IR)
    {
      if (time == 0)
      {
        // initial projection, set omegadot to zero
-       RhoYdot.define(grids,dmap,NUM_SPECIES,0,MFInfo(),Factory());
+       RhoYdot.define(grids,dmap,nrhoydot,0,MFInfo(),Factory());
        RhoYdot.setVal(0.0);
      }
      else if (dt > 0)
      {
        // init_iter or regular time step, use instantaneous omegadot
-       RhoYdot.define(grids,dmap,NUM_SPECIES,0,MFInfo(),Factory());
+       RhoYdot.define(grids,dmap,nrhoydot,0,MFInfo(),Factory());
        compute_instantaneous_reaction_rates(RhoYdot,S,time,nGrow);
      }
      else

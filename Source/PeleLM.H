@@ -226,12 +226,22 @@ public:
 
   amrex::Real predict_velocity (amrex::Real dt);
     
+#ifdef PLM_USE_EFIELD
+  void advance_chemistry (amrex::MultiFab&       mf_old,
+                          amrex::MultiFab&       mf_new,
+                          amrex::Real            dt,
+                          const amrex::MultiFab& Force,
+                          const amrex::MultiFab& nEForce,
+                          int             nCompF,
+                          bool            use_stiff_solver = true);
+#else
   void advance_chemistry (amrex::MultiFab&       mf_old,
                           amrex::MultiFab&       mf_new,
                           amrex::Real            dt,
                           const amrex::MultiFab& Force,
                           int             nCompF,
                           bool            use_stiff_solver = true);
+#endif
 
   void compute_scalar_advection_fluxes_and_divergence (const amrex::MultiFab& Force,
                                                        const amrex::MultiFab& divu,
