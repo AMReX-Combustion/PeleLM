@@ -30,9 +30,11 @@ void PeleLM::ef_init() {
     PeleLM::ef_PC_fixedIter           = -1;
     PeleLM::ef_PC_MG_Tol              = 1.0e-6;
 
-    for (int n = 0; n  < NUM_SPECIES; n++)
-    {
-      PeleLM::zk[n] = 0.0;
+    // Get the charge per unit mass
+    Real zk[NUM_SPECIES];
+    EOS::charge_mass(zk);
+    for (int k = 0; k < NUM_SPECIES; k++) {
+       PeleLM::zk[k] = zk[k];
     }
 
 //  Abort if EB + Efield
