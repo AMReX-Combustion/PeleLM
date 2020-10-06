@@ -135,4 +135,52 @@ addLorentzForce(int i, int j, int k,
    force(i,j,k,2) -= ne(i,j,k) * EFConst::elemCharge * EFz;
 #endif
 }
+
+AMREX_GPU_HOST_DEVICE
+inline
+void
+reactionRateRhoY_EF(int i, int j, int k,
+                    amrex::Array4<const amrex::Real> const& rhoY,
+                    amrex::Array4<const amrex::Real> const& rhoH,
+                    amrex::Array4<const amrex::Real> const& T,
+                    amrex::Array4<const amrex::Real> const& nE,
+                    amrex::Array4<int>         const& mask,
+                    amrex::Array4<      amrex::Real> const& rhoYdot,
+                    amrex::Array4<      amrex::Real> const& nEdot) noexcept
+{
+   using namespace amrex::literals;
+
+   // Get rho from rhoY. Is there a better way ?
+   amrex::Real rho = 0.0_rt;
+   amrex::Real rhoinv;
+   for (int n = 0; n < NUM_SPECIES; n++) {
+      rho += rhoY(i,j,k,n);
+   }
+   rhoinv = 1.0_rt / rho;
+   amrex::Real y[NUM_SPECIES];
+   for (int n = 0; n < NUM_SPECIES; n++) {
+      y[n] = rhoY(i,j,k,n) * rhoinv;
+   }
+
+   // Get Y[e] from nE
+   amrex::Real mw[NUM_SPECIES];
+   EOS::molecular_weight(mw);
+   y[E_ID] = nE(i,j,k) / EFConst::Na * mw[E_ID] * rhoinv;
+
+   // Get T from Y/H. Was done like that before.
+   amrex::Real Tloc = T(i,j,k);
+   amrex::Real H = rhoH(i,j,k) * rhoinv * 1.0e4_rt;      // Include MKS -> CGS conversion
+   EOS::HY2T(H, y, Tloc);
+
+   // Get wdot. Don't like the temporary wdot there ...
+   rho = rho * 0.001_rt;                                 // rho MKS -> CGS
+   amrex::Real wdot[NUM_SPECIES];
+   EOS::RTY2WDOT(rho, Tloc, y, wdot);
+   for (int n = 0; n < NUM_SPECIES; n++) {
+      rhoYdot(i,j,k,n) = wdot[n] * 1000.0_rt;            // CGS -> MKS conversion
+   }
+   nEdot(i,j,k) = wdot[E_ID] * EFConst::Na * 1.0e6;
+   rhoYdot(i,j,k,E_ID) = 0.0;
+}
+
 #endif
