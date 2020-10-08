@@ -4863,6 +4863,11 @@ PeleLM::advance (Real time,
   const int num_diff = NUM_STATE-AMREX_SPACEDIM-1;
   calcViscosity(prev_time,dt,iteration,ncycle);
   calcDiffusivity(prev_time);
+#ifdef PLM_USE_EFIELD
+  ef_calc_transport(prev_time);
+  MultiFab::Copy(KSpec_new,KSpec_old, 0, 0, NUM_SPECIES, KSpec_new.nGrow());
+  ef_calcUDriftSpec(prev_time);
+#endif
 
   MultiFab::Copy(*viscnp1_cc, *viscn_cc, 0, 0, 1, viscn_cc->nGrow());
   MultiFab::Copy(*diffnp1_cc, *diffn_cc, 0, 0, num_diff, diffn_cc->nGrow());
@@ -5006,6 +5011,7 @@ PeleLM::advance (Real time,
 #endif
 #ifdef PLM_USE_EFIELD
       ef_calc_transport(tnp1);
+      ef_calcUDriftSpec(tnp1);
 #endif
       BL_PROFILE_VAR_STOP(PLM_DIFF);
 
@@ -5798,8 +5804,8 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
         ParallelFor(bx, [rhoYe,nE,FrhoYe,FnE,mwt]
         AMREX_GPU_DEVICE (int i, int j, int k) noexcept
         {
-           rhoYe(i,j,k)  = nE(i,j,k) / EFConst::Na * mwt[E_ID];
-           FrhoYe(i,j,k) = FnE(i,j,k) / EFConst::Na * mwt[E_ID];
+           rhoYe(i,j,k)  = nE(i,j,k) / EFConst::Na * mwt[E_ID] * 0.001;
+           FrhoYe(i,j,k) = FnE(i,j,k) / EFConst::Na * mwt[E_ID] * 0.001;
         });
     }
 #endif
@@ -5918,12 +5924,12 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
         const Box& bx       = Smfi.tilebox();
         auto const& rhoYe   = STemp.array(Smfi,E_ID);
         auto const& nE      = nE_Temp.array(Smfi);
-        Real mwt[NUM_SPECIES];
-        EOS::molecular_weight(mwt);
-        ParallelFor(bx, [rhoYe,nE,mwt]
+        Real imwt[NUM_SPECIES];
+        EOS::inv_molecular_weight(imwt);
+        ParallelFor(bx, [rhoYe,nE,imwt]
         AMREX_GPU_DEVICE (int i, int j, int k) noexcept
         {
-           nE(i,j,k) = rhoYe(i,j,k) * EFConst::Na / mwt[E_ID];
+           nE(i,j,k) = rhoYe(i,j,k) * EFConst::Na * imwt[E_ID] * 1000.0;
            rhoYe(i,j,k) = 0.0;
         });
     }
