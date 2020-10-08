@@ -3,6 +3,7 @@
 
 #include <AMReX_REAL.H>
 #include <PeleLM_EF_Constant.H>
+#include <mechanism.h>
 
 AMREX_GPU_HOST_DEVICE
 AMREX_FORCE_INLINE
@@ -13,6 +14,28 @@ getKappaE(int i, int j, int k,
    using namespace amrex::literals;
 
    Ke(i,j,k) = 0.4_rt;
+}
+
+AMREX_GPU_HOST_DEVICE
+AMREX_FORCE_INLINE
+void
+getKappaSp(int i, int j, int k,
+           amrex::Real const mwt[NUM_SPECIES],
+           amrex::GpuArray<amrex::Real, NUM_SPECIES> a_zk,
+           amrex::Array4<      amrex::Real> const& rhoY,
+           amrex::Array4<      amrex::Real> const& rhoD,
+           amrex::Array4<const amrex::Real> const& T,
+           amrex::Array4<      amrex::Real> const& Ksp) noexcept
+{
+   using namespace amrex::literals;
+   amrex::Real rho = 0.0;
+   for (int n = 0; n < NUM_SPECIES; n++) {
+      rho += rhoY(i,j,k,n);
+   }
+   for (int n = 0; n < NUM_SPECIES; n++) {
+      Ksp(i,j,k,n) = rhoD(i,j,k,n) * mwt[n] * 0.0001 * a_zk[n] / ( rho * PP_RU_MKS * T(i,j,k) );
+      if ( n == E_ID ) Ksp(i,j,k,n) = 0.0;         // Set the E species mobility to zero. Electron are treated separately.
+   }
 }
 
 AMREX_GPU_HOST_DEVICE
@@ -165,7 +188,7 @@ reactionRateRhoY_EF(int i, int j, int k,
    // Get Y[e] from nE
    amrex::Real mw[NUM_SPECIES];
    EOS::molecular_weight(mw);
-   y[E_ID] = nE(i,j,k) / EFConst::Na * mw[E_ID] * rhoinv;
+   y[E_ID] = nE(i,j,k) / EFConst::Na * mw[E_ID] * 0.001 * rhoinv;
 
    // Get T from Y/H. Was done like that before.
    amrex::Real Tloc = T(i,j,k);

@@ -17,6 +17,8 @@
    amrex::MultiFab**          De_ec;
    FluxBoxes mob_e;
    amrex::MultiFab**          Ke_ec;
+   amrex::MultiFab            KSpec_old;     // Need both old and new since adv is at t^n+1/2
+   amrex::MultiFab            KSpec_new;
 
 // Scaling of non-linear system
    amrex::Real                 nE_scale;
@@ -41,6 +43,7 @@
    amrex::MultiFab*           elec_Ueff;
    FluxBoxes gphiV_fb;
    amrex::MultiFab**          gphiV_old;
+   amrex::MultiFab*           Udrift_spec;
 
 // Preconditioner data
    amrex::MLABecCecLaplacian   *pnp_pc_diff = nullptr;
@@ -84,6 +87,9 @@
 
 // Compute EF related transport properties: Kp_sp, Kp_e, Diff_e
    void ef_calc_transport(const amrex::Real &time);
+
+// Compute species drift velocity
+   void ef_calcUDriftSpec(const amrex::Real &time);
 
 // Solve PNP function: return updated PhiV and nE
    void ef_solve_PNP(             int       misdc,
