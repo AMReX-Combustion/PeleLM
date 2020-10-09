@@ -61,7 +61,6 @@ extern "C" {
               amrex::Print() << " Unknown prob.gaussian_type ! Should be Spec or Temp \n";
               amrex::Abort();
            }
-           pp.query("gaussian_type", ProbParm::gauss_type);
            pp.query("meanFlowDir", ProbParm::meanFlowDir);
            pp.query("meanFlowMag", ProbParm::meanFlowMag);
         } else if ( type == "DiffusedGaussian" ) {
