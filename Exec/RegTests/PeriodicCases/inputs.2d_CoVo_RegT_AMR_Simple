@@ -7,8 +7,8 @@ geometry.prob_hi     = 1.0 1.0 1.0     # x_hi y_hi (z_hi)
 # >>>>>>>>>>>>>  BC FLAGS <<<<<<<<<<<<<<<<
 # Interior, Inflow, Outflow, Symmetry,
 # SlipWallAdiab, NoSlipWallAdiab, SlipWallIsotherm, NoSlipWallIsotherm
-peleLM.lo_bc = "Interior"  "Interior"
-peleLM.hi_bc = "Interior"  "Interior"
+peleLM.lo_bc = Interior  Interior
+peleLM.hi_bc = Interior  Interior
 
 #-------------------------AMR CONTROL----------------------------
 amr.n_cell          = 32 32 32         # Level 0 number of cells in each direction   
@@ -41,7 +41,7 @@ amr.grid_log            = grdlog       # name of grid logging file
 #----------------------- PROBLEM PARAMETERS---------------------
 prob.T_mean       = 298.0
 prob.P_mean       = 101325.
-prob.type         = "ConvectedVortex"
+prob.type         = ConvectedVortex
 prob.meanFlowMag  = 50.0
 prob.meanFlowDir  = 3
 prob.rvort        = 0.07
@@ -121,15 +121,6 @@ mac.mac_sync_tol         = 1.0e-12     # tolerence for mac SYNC projection
 mac.mac_abs_tol          = 1.0e-12
 mac.do_outflow_bcs       = 0
 mac.v                    = 0
-
-# Select form of FAB output: default is NATIVE
-#
-#   ASCII  (this is very slow)
-#   NATIVE (native binary form on machine -- the default)
-#   IEEE32 (useful if you want 32bit files when running in double precision)
-#   8BIT   (eight-bit run-length-encoded)
-#
-fab.format = NATIVE
 
 #--------------------------OMP TILE INPUTS-----------------------------
 #fabarray.mfiter_tile_size = 8 8 8
