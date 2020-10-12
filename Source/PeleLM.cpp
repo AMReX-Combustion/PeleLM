@@ -4658,7 +4658,7 @@ PeleLM::predict_velocity (Real  dt)
                 Print() << "---\nA - Predict velocity:\n Calling getForce...\n";
             }
 
-            getForce(forcing_term[U_mfi],gbx,ngrow,Xvel,AMREX_SPACEDIM,prev_time,Ufab,Smf[U_mfi],0);
+            getForce(forcing_term[U_mfi],gbx,Xvel,AMREX_SPACEDIM,prev_time,Ufab,Smf[U_mfi],0);
 
             //
             // Compute the total forcing.
@@ -8268,7 +8268,6 @@ PeleLM::RhoH_to_Temp (MultiFab& S,
 void
 PeleLM::getForce(FArrayBox&       force,
                  const Box&       bx,
-                 int              ngrow,
                  int              scomp,
                  int              ncomp,
                  const Real       time,
