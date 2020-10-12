@@ -12,12 +12,13 @@ This folder contains a set of fully periodic cases used to test PeleLM advection
 
 Convergence testing
 ----------------------
-The "ConvectedVortex" and "ConvectedGaussian" cases allow to measure the convergence rate of error as the grid is refined. To this end, two scripts are provided:
- - `multiRuns.py` starts a batch of simulation at increasing resolution.
- - `pprocConvOrder.py` will run the fcompare AMReX tool to extract the error of each simulation and draw convergence plots.
+The "ConvectedVortex" and "ConvectedGaussian" cases allow to measure the convergence rate of the error as the grid is refined. To this end, two scripts are provided:
+ - `multiRuns.py` starts a batch of simulations at increasing resolution.
+ - `pprocConvOrder.py` will run the fcompare AMReX tool to extract the error from each simulation and draw convergence plots.
 Details on the tunable parameters of these are provided in the header part of each one. For instance, to use these scripts to evaluate the convergence order of the momentum equation advection term, use the following:
 
 `./multiRuns.py --test_name Convergence_COVO --input_file inputs.2d_CoVo_Conv_pos45d`
 
 `./pprocConvOrder.py <path_to_fcompare.exe> --test_name Convergence_COVO`
+
 Note that you will need to provide a path the AMReX fcompare tool executable in order to extract the error. 
