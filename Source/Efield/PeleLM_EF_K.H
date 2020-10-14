@@ -33,7 +33,7 @@ getKappaSp(int i, int j, int k,
       rho += rhoY(i,j,k,n);
    }
    for (int n = 0; n < NUM_SPECIES; n++) {
-      Ksp(i,j,k,n) = rhoD(i,j,k,n) * mwt[n] * 0.0001 * a_zk[n] / ( rho * PP_RU_MKS * T(i,j,k) );
+      Ksp(i,j,k,n) = rhoD(i,j,k,n) * mwt[n] * 0.001 * a_zk[n] / ( rho * PP_RU_MKS * T(i,j,k) );
       if ( n == E_ID ) Ksp(i,j,k,n) = 0.0;         // Set the E species mobility to zero. Electron are treated separately.
    }
 }
@@ -134,16 +134,31 @@ addLorentzForce(int i, int j, int k,
 {
    using namespace amrex::literals;
    // Electric field. Use 1-sided stencil in the force ghost cells.
-   amrex::Real EFx = - 0.5_rt / dx[0] * ( phiV(i+1,j,k) - phiV(i-1,j,k) );
-   if ( i == bxlo[0] ) EFx = - 1.0_rt / dx[0] * ( phiV(i+1,j,k) - phiV(i,j,k) );
-   if ( i == bxhi[0] ) EFx = - 1.0_rt / dx[0] * ( phiV(i,j,k) - phiV(i-1,j,k) );
-   amrex::Real EFy = - 0.5_rt / dx[1] * ( phiV(i,j+1,k) - phiV(i,j-1,k) );
-   if ( j == bxlo[1] ) EFy = - 1.0_rt / dx[1] * ( phiV(i,j+1,k) - phiV(i,j,k) );
-   if ( j == bxhi[1] ) EFy = - 1.0_rt / dx[1] * ( phiV(i,j,k) - phiV(i,j-1,k) );
+   amrex::Real EFx;
+   if ( i == bxlo[0] ) {
+      EFx = - 1.0_rt / dx[0] * ( phiV(i+1,j,k) - phiV(i,j,k) );
+   } else if ( i == bxhi[0] ) {
+      EFx = - 1.0_rt / dx[0] * ( phiV(i,j,k) - phiV(i-1,j,k) );
+   } else {
+      EFx = - 0.5_rt / dx[0] * ( phiV(i+1,j,k) - phiV(i-1,j,k) );
+   }
+   amrex::Real EFy;
+   if ( j == bxlo[1] ) {
+      EFy = - 1.0_rt / dx[1] * ( phiV(i,j+1,k) - phiV(i,j,k) );
+   } else if ( j == bxhi[1] ) {
+      EFy = - 1.0_rt / dx[1] * ( phiV(i,j,k) - phiV(i,j-1,k) );
+   } else {
+      EFy = - 0.5_rt / dx[1] * ( phiV(i,j+1,k) - phiV(i,j-1,k) );
+   }
 #if ( AMREX_SPACEDIM == 3 )
-   amrex::Real EFz = - 0.5_rt / dx[2] * ( phiV(i,j,k+1) - phiV(i,j,k-1) );
-   if ( k == bxlo[2] ) EFz = - 1.0_rt / dx[2] * ( phiV(i,j,k+1) - phiV(i,j,k) );
-   if ( k == bxhi[2] ) EFz = - 1.0_rt / dx[2] * ( phiV(i,j,k) - phiV(i,j,k-1) );
+   amrex::Real EFz;
+   if ( k == bxlo[2] ) {
+      EFz = - 1.0_rt / dx[2] * ( phiV(i,j,k+1) - phiV(i,j,k) );
+   } else if ( k == bxhi[2] ) {
+      EFz = - 1.0_rt / dx[2] * ( phiV(i,j,k) - phiV(i,j,k-1) );
+   } else {
+      EFz = - 0.5_rt / dx[2] * ( phiV(i,j,k+1) - phiV(i,j,k-1) );
+   }
 #endif
    for (int n = 0; n < NUM_SPECIES; n++) {
       force(i,j,k,0) += a_zk[n] * rhoY(i,j,k,n) * EFx;
