@@ -1650,6 +1650,16 @@ PeleLM::estTimeStep ()
       amrex::Print() << "PeleLM::estTimeStep(): timestep reduced from "
                      << ns_estdt << " to " << estdt << '\n';
 
+#ifdef PLM_USE_EFIELD
+   ns_estdt = estdt;
+   Real  ion_estdt = ef_estTimeStep();
+   estdt = std::min(estdt, ion_estdt);
+
+   if (estdt < ns_estdt && verbose)
+      amrex::Print() << "PeleLM::estTimeStep(): efield timestep reduced from "
+                     << ns_estdt << " to " << estdt << '\n';
+#endif
+
    if (verbose > 1)
    {
       const int IOProc   = ParallelDescriptor::IOProcessorNumber();
@@ -2710,11 +2720,11 @@ PeleLM::post_init_press (Real&        dt_init,
       {
         PeleLM&   fine_lev = getLevel(k+1);
         PeleLM&   crse_lev = getLevel(k);
-	    
+
         MultiFab& Divu_crse = crse_lev.get_new_data(Divu_Type);
         MultiFab& Divu_fine = fine_lev.get_new_data(Divu_Type);
 
-	crse_lev.average_down(Divu_fine, Divu_crse, 0, 1);
+        crse_lev.average_down(Divu_fine, Divu_crse, 0, 1);
       }
 
       // compute Sbar and subtract from S
@@ -2728,17 +2738,17 @@ PeleLM::post_init_press (Real&        dt_init,
         }
         divu_lev.plus(-Sbar_new,0,1);
       }
-	  
+
       // ensure divu_old is average down so computing deltaS = S - Sbar works for multilevel
       for (int k = finest_level-1; k >= 0; k--)
       {
         PeleLM&   fine_lev = getLevel(k+1);
         PeleLM&   crse_lev = getLevel(k);
-		  
+
         MultiFab& Divu_crse = crse_lev.get_old_data(Divu_Type);
         MultiFab& Divu_fine = fine_lev.get_old_data(Divu_Type);
 
-	crse_lev.average_down(Divu_fine, Divu_crse, 0, 1);
+        crse_lev.average_down(Divu_fine, Divu_crse, 0, 1);
       }
 
       // compute Sbar and subtract from S
@@ -2760,7 +2770,7 @@ PeleLM::post_init_press (Real&        dt_init,
       projector->initialSyncProject(0,sig,parent->dtLevel(0),tnp1,
                                     havedivu);
     }
-	
+
     if (closed_chamber == 1)
     {
       // restore S_new
@@ -6322,6 +6332,10 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
     EdgeFlux[dir]->setVal(0.0);
   }
 
+#ifdef PLM_USE_EFIELD
+  FArrayBox cfluxDrift[AMREX_SPACEDIM];
+#endif
+
   // Advect RhoY 
 {
   Vector<BCRec> math_bcs(NUM_SPECIES);
@@ -6334,6 +6348,17 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
      iconserv[comp] = (advectionType[first_spec+comp] == Conservative) ? 1 : 0;
   }
 
+#ifdef PLM_USE_EFIELD
+  Godunov::ComputeAofsEF(*aofs, first_spec, NUM_SPECIES,
+                         Smf, rhoYcomp,
+                         AMREX_D_DECL( u_mac[0], u_mac[1], u_mac[2] ),
+                         AMREX_D_DECL( Udrift_spec[0], Udrift_spec[1], Udrift_spec[2] ),
+                         AMREX_D_DECL(*EdgeState[0], *EdgeState[1], *EdgeState[2]), first_spec, false,
+                         AMREX_D_DECL(*EdgeFlux[0], *EdgeFlux[1], *EdgeFlux[2]), first_spec,
+                         Force, 0, DivU, math_bcs, geom, iconserv,
+                         dt, godunov_use_ppm, godunov_use_forces_in_trans, false );
+//  VisMF::Write(*aofs,"aofsEF_lvl0_t"+std::to_string(prev_time*1000.0));
+#else
   Godunov::ComputeAofs(*aofs, first_spec, NUM_SPECIES,
                         Smf, rhoYcomp,
                         AMREX_D_DECL( u_mac[0], u_mac[1], u_mac[2] ),
@@ -6341,6 +6366,8 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
                         AMREX_D_DECL(*EdgeFlux[0], *EdgeFlux[1], *EdgeFlux[2]), first_spec,
                         Force, 0, DivU, math_bcs, geom, iconserv,
                         dt, godunov_use_ppm, godunov_use_forces_in_trans, false );
+//  VisMF::Write(*aofs,"aofs_lvl0_t"+std::to_string(prev_time*1000.0));
+#endif
 }
 
   // Set flux, flux divergence, and face values for rho as sums of the corresponding RhoY quantities
