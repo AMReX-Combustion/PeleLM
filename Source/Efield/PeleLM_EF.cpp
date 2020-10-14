@@ -1012,6 +1012,8 @@ void PeleLM::ef_setUpPrecond (const Real &dt_lcl,
          VisMF::Write(*neKe_ec[1],"PC_Drift_nEKe_edgeY_lvl"+std::to_string(level));
       }
 
+      // Get the diagonal of pnp_pc_diff
+
       pnp_pc_Stilda->setScalars(0.0,-phiV_scale/FphiV_scale);
       Real scalLap = EFConst::eps0 * EFConst::epsr / EFConst::elemCharge;
       for (int dir = 0; dir < AMREX_SPACEDIM; dir++) {
@@ -1304,7 +1306,6 @@ PeleLM::ef_estTimeStep()
    MultiFab&   U_new = get_new_data(State_Type);
    ef_calc_transport(cur_time);
    ef_calcUDriftSpec(cur_time);
-   VisMF::Write(Udrift_spec[1],"pnp_Uydrift");
 
    // Get the cell centered max of effective velocity accross all directions
    // for each species
