@@ -91,6 +91,9 @@
 // Compute species drift velocity
    void ef_calcUDriftSpec(const amrex::Real &time);
 
+// Estimate ion effective velocity time step
+   amrex::Real ef_estTimeStep();
+
 // Solve PNP function: return updated PhiV and nE
    void ef_solve_PNP(             int       misdc,
                      const amrex::Real      &dt,

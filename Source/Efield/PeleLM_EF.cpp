@@ -49,8 +49,8 @@ void PeleLM::ef_init() {
    Vector<std::string> hi_bc(AMREX_SPACEDIM);
    pp.getarr("phiV_lo_bc",lo_bc,0,AMREX_SPACEDIM);
    pp.getarr("phiV_hi_bc",hi_bc,0,AMREX_SPACEDIM);
-   for (int i = 0; i < AMREX_SPACEDIM; i++) 
-   {    
+   for (int i = 0; i < AMREX_SPACEDIM; i++)
+   {
       if (!lo_bc[i].compare("Interior")){
          phiV_bc.setLo(i,0);
       } else if (!lo_bc[i].compare("Dirichlet")) {
@@ -255,7 +255,6 @@ void PeleLM::ef_calc_transport(const Real &time) {
    }
    if ( ef_debug ) {
       std::string timetag = (whichTime == AmrOldTime) ? "old" : "new";
-      VisMF::Write(diff,"DiffSpec"+timetag+"_Lvl"+std::to_string(level));
       VisMF::Write(Kspec,"KappaSpec"+timetag+"_Lvl"+std::to_string(level));
    }
 
@@ -414,6 +413,7 @@ void PeleLM::ef_solve_PNP(      int      misdc,
 
       // Compute the background charge distribution
       ef_bg_chrg((sstep+1)*dtsub, Dn, Dnp1, Dhat);
+      if ( ef_debug ) VisMF::Write(bg_charge,"NL_BGcharge_"+std::to_string(level));
 
       // Newton initial guess
       newtonInitialGuess(dtsub,nl_state);
@@ -517,8 +517,6 @@ void PeleLM::ef_solve_PNP(      int      misdc,
    if ( ef_debug ) VisMF::Write(nl_state,"PostPNPState_"+std::to_string(level));
    //ef_solve_phiv(time+dt);
    //if ( time == state[State_Type].curTime() ) Print() << " Updating new PhiV\n";
-   //if ( ef_debug ) VisMF::Write(S,"PostPNPandEFState_"+std::to_string(level));
-
 
    if ( ef_verbose )
    {
@@ -534,7 +532,7 @@ void PeleLM::ef_solve_PNP(      int      misdc,
      //   Real avgMG = (float)MGitcount/(float)GMRES_tot_count;
         amrex::Print() << "Avg GMRES/Newton: " << avgGMRES << "\n";
      //   amrex::Print() << "Avg MGVcycl/GMRES: " << avgMG << "\n";
-     }    
+     }
      amrex::Print() << "PeleLM_EF::ef_solve_PNP(): lev: " << level << ", time: ["
                     << mn << " ... " << mx << "]\n";
    }
@@ -602,6 +600,8 @@ void PeleLM::newtonInitialGuess(const Real      &dt_lcl,
       nE_adv_dt = amrex::min(nE_adv_dt,dx[0]/umax);
    }
 
+   ParallelDescriptor::ReduceRealMin(nE_adv_dt);
+
    nE_adv_dt = amrex::min(dt_lcl,nE_adv_dt);
 
    // Advance explicitly electron AD at nE_adv_dt
@@ -618,7 +618,7 @@ void PeleLM::newtonInitialGuess(const Real      &dt_lcl,
       amrex::ParallelFor(bx, [ne_curr,ne_diff,ne_adv,nE_adv_dt,nE_scale_inv]
       AMREX_GPU_DEVICE (int i, int j, int k) noexcept
       {
-         ne_curr(i,j,k) += nE_adv_dt * nE_scale_inv * ( ne_diff(i,j,k) + ne_adv(i,j,k) );
+         ne_curr(i,j,k) += 0.0 * nE_adv_dt * nE_scale_inv * ( ne_diff(i,j,k) + ne_adv(i,j,k) );
       });
    }
 }
@@ -766,8 +766,8 @@ void PeleLM::compElecDiffusion(MultiFab& a_ne,
       ne_lapl.setCoarseFineBC(&nE_crse, crse_ratio[0]);
    }
    ne_lapl.setLevelBC(0, &a_ne);
-   
-   // Coeffs    
+
+   // Coeffs
    ne_lapl.setScalars(0.0, 1.0);
    Array<const MultiFab*,AMREX_SPACEDIM> bcoeffs{D_DECL(De_ec[0],De_ec[1],De_ec[2])};
    ne_lapl.setBCoeffs(0, bcoeffs);
@@ -1191,20 +1191,37 @@ void PeleLM::ef_calcUDriftSpec(const Real &time){
 
    // Get CC t^n+1/2 species mobilities
    MultiFab KSpec_half(grids,dmap,NUM_SPECIES,1);
+   if ( time > 0.0 ) {   // Not initial time step
 #ifdef _OPENMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
-   for (MFIter mfi(KSpec_old,TilingIfNotGPU()); mfi.isValid();++mfi)
-   {
-      const Box& gbx = mfi.growntilebox();
-      const auto& Ksp_o  = KSpec_old.array(mfi);
-      const auto& Ksp_n  = KSpec_new.array(mfi);
-      const auto& Ksp_h  = KSpec_half.array(mfi);
-      amrex::ParallelFor(gbx, NUM_SPECIES, [Ksp_o,Ksp_n,Ksp_h]
-      AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
+      for (MFIter mfi(KSpec_old,TilingIfNotGPU()); mfi.isValid();++mfi)
       {
-         Ksp_h(i,j,k,n) = 0.5 * ( Ksp_o(i,j,k,n) + Ksp_n(i,j,k,n) );
-      });
+         const Box& gbx = mfi.growntilebox();
+         const auto& Ksp_o  = KSpec_old.array(mfi);
+         const auto& Ksp_n  = KSpec_new.array(mfi);
+         const auto& Ksp_h  = KSpec_half.array(mfi);
+         amrex::ParallelFor(gbx, NUM_SPECIES, [Ksp_o,Ksp_n,Ksp_h]
+         AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
+         {
+            Ksp_h(i,j,k,n) = 0.5 * ( Ksp_o(i,j,k,n) + Ksp_n(i,j,k,n) );
+         });
+      }
+   } else {
+#ifdef _OPENMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+      for (MFIter mfi(KSpec_new,TilingIfNotGPU()); mfi.isValid();++mfi)
+      {
+         const Box& gbx = mfi.growntilebox();
+         const auto& Ksp_n  = KSpec_new.array(mfi);
+         const auto& Ksp_h  = KSpec_half.array(mfi);
+         amrex::ParallelFor(gbx, NUM_SPECIES, [Ksp_n,Ksp_h]
+         AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
+         {
+            Ksp_h(i,j,k,n) = Ksp_n(i,j,k,n);
+         });
+      }
    }
 
    // CC -> EC
@@ -1239,17 +1256,18 @@ void PeleLM::ef_calcUDriftSpec(const Real &time){
 
    // Get old and new gPhiV
    MultiFab& S = get_new_data(State_Type);
-   FillPatchIterator fpi_old(*this,S,1,AmrOldTime,State_Type,PhiV,1);
+   Real prev_time = state[State_Type].prevTime();
+   FillPatchIterator fpi_old(*this,S,1,prev_time,State_Type,PhiV,1);
    MultiFab& phiV_old = fpi_old.get_mf();
-   FillPatchIterator fpi_new(*this,S,1,AmrNewTime,State_Type,PhiV,1);
+   FillPatchIterator fpi_new(*this,S,1,time,State_Type,PhiV,1);
    MultiFab& phiV_new = fpi_new.get_mf();
 
    FluxBoxes fb_old(this, 1, 0);
    FluxBoxes fb_new(this, 1, 0);
    MultiFab** gphiV_o = fb_old.get();
    MultiFab** gphiV_n = fb_new.get();
-   ef_calcGradPhiV(AmrOldTime, phiV_old, gphiV_o);
-   ef_calcGradPhiV(AmrNewTime, phiV_new, gphiV_n);
+   ef_calcGradPhiV(prev_time, phiV_old, gphiV_o);
+   ef_calcGradPhiV(time, phiV_new, gphiV_n);
 
    // Build drift velo with time centered gPhiV and Ksp
    for (int dir = 0; dir < AMREX_SPACEDIM; dir++)
@@ -1259,7 +1277,7 @@ void PeleLM::ef_calcUDriftSpec(const Real &time){
 #endif
       for (MFIter mfi(Udrift_spec[dir],TilingIfNotGPU()); mfi.isValid();++mfi)
       {
-         const Box bx = mfi.validbox();
+         const Box bx = mfi.tilebox();
          const auto& Ksp_ec = KSpec_ec[dir]->const_array(mfi);
          const auto& gp_o   = gphiV_o[dir]->const_array(mfi);
          const auto& gp_n   = gphiV_n[dir]->const_array(mfi);
@@ -1276,6 +1294,77 @@ void PeleLM::ef_calcUDriftSpec(const Real &time){
          VisMF::Write(Udrift_spec[d],"SpecUdrift_Dir"+std::to_string(d)+"_lvl"+std::to_string(level));
       }
    }
+}
+
+Real
+PeleLM::ef_estTimeStep()
+{
+   Real ion_estdt = 1.0e20;
+   const Real  cur_time = state[State_Type].curTime();
+   MultiFab&   U_new = get_new_data(State_Type);
+   ef_calc_transport(cur_time);
+   ef_calcUDriftSpec(cur_time);
+   VisMF::Write(Udrift_spec[1],"pnp_Uydrift");
+
+   // Get the cell centered max of effective velocity accross all directions
+   // for each species
+   MultiFab UeffMax_ccavg(grids, dmap, NUM_SPECIES, 0);
+#ifdef _OPENMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+   for (MFIter mfi(UeffMax_ccavg,TilingIfNotGPU()); mfi.isValid();++mfi)
+   {
+      const Box bx = mfi.tilebox();
+      AMREX_D_TERM( const auto& udr  = Udrift_spec[0].const_array(mfi);,
+                    const auto& vdr  = Udrift_spec[1].const_array(mfi);,
+                    const auto& wdr  = Udrift_spec[2].const_array(mfi););
+      AMREX_D_TERM( const auto& u    = U_new.const_array(mfi,Xvel);,
+                    const auto& v    = U_new.const_array(mfi,Yvel);,
+                    const auto& w    = U_new.const_array(mfi,Zvel););
+      const auto& Ueff_arr = UeffMax_ccavg.array(mfi);
+      amrex::ParallelFor(bx, NUM_SPECIES, [Ueff_arr,AMREX_D_DECL(udr,vdr,wdr),AMREX_D_DECL(u,v,w)]
+      AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
+      {
+         Ueff_arr(i,j,k,n) = 0.0;
+         Ueff_arr(i,j,k,n) = amrex::max(Ueff_arr(i,j,k,n),std::abs(u(i,j,k)+0.5*(udr(i,j,k,n)+udr(i+1,j,k,n))));
+         Ueff_arr(i,j,k,n) = amrex::max(Ueff_arr(i,j,k,n),std::abs(v(i,j,k)+0.5*(vdr(i,j,k,n)+vdr(i,j+1,k,n))));
+#if AMREX_SPACEDIM == 3
+         Ueff_arr(i,j,k,n) = amrex::max(Ueff_arr(i,j,k,n),std::abs(w(i,j,k)+0.5*(wdr(i,j,k,n)+wdr(i,j,k+1,n))));
+#endif
+      });
+   }
+
+   const auto dx = geom.CellSizeArray();
+   amrex::Real cfl_lcl = cfl;
+   ion_estdt = amrex::ReduceMin(UeffMax_ccavg, 0, [dx,cfl_lcl]
+      AMREX_GPU_HOST_DEVICE (Box const& bx, Array4<Real const> const& ueffm) noexcept -> Real
+      {
+         using namespace amrex::literals;
+         const auto lo = amrex::lbound(bx);
+         const auto hi = amrex::ubound(bx);
+#if !defined(__CUDACC__) || (__CUDACC_VER_MAJOR__ != 9) || (__CUDACC_VER_MINOR__ != 2)
+         amrex::Real velmax = std::numeric_limits<amrex::Real>::min();
+#else
+         amrex::Real velmax = -1.e37_rt;
+#endif
+         for       (int k = lo.z; k <= hi.z; ++k) {
+            for    (int j = lo.y; j <= hi.y; ++j) {
+               for (int i = lo.x; i <= hi.x; ++i) {
+                  // max accross species
+                  amrex::Real velmaxsp = -1.e20_rt;
+                  for ( int n = 0; n < NUM_SPECIES; n++ ) {
+                     velmaxsp = amrex::max(velmaxsp,ueffm(i,j,k,n));
+                  }
+                  velmax = amrex::max(velmax,velmaxsp);
+               }
+            }
+         }
+         return dx[0]/velmax*cfl_lcl;
+      });
+
+   ParallelDescriptor::ReduceRealMin(ion_estdt);
+
+   return ion_estdt;
 }
 
 void PeleLM::ef_bg_chrg(const Real      &dt_lcl,
