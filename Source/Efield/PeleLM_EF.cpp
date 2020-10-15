@@ -208,7 +208,7 @@ void PeleLM::ef_advance_setup(const Real &time) {
 void PeleLM::ef_calc_transport(const Real &time) {
    BL_PROFILE("PLM_EF::ef_calc_transport()");
 
-   if ( ef_verbose ) amrex::Print() << " Compute EF transport prop. \n";
+   if ( ef_verbose ) amrex::Print() << " Compute EF transport prop.\n";
 
    const TimeLevel whichTime = which_time(State_Type, time);
 
@@ -486,14 +486,14 @@ void PeleLM::ef_solve_PNP(      int      misdc,
          const Box& bx = mfi.tilebox();
          auto const& old_nE   = ef_state_old.const_array(mfi);
          auto const& new_nE   = nl_state.const_array(mfi);
-         auto const& I_R_nE   = get_new_data(RhoYdot_Type).const_array(mfi);
+         auto const& I_R_nE   = get_new_data(RhoYdot_Type).const_array(mfi,NUM_SPECIES);
          auto const& force    = ForcingnE.array(mfi);
          Real scaling         = nE_scale;
          Real dtinv           = 1.0 / dtsub;
          amrex::ParallelFor(bx, [old_nE, new_nE, I_R_nE, force, dtinv, scaling]
          AMREX_GPU_DEVICE (int i, int j, int k) noexcept
          {
-            force(i,j,k) += (new_nE(i,j,k) * scaling - old_nE(i,j,k)) * dtinv; // - I_R_nE(i,j,k);
+            force(i,j,k) += (new_nE(i,j,k) * scaling - old_nE(i,j,k)) * dtinv - I_R_nE(i,j,k);
          });
       }
 
@@ -657,6 +657,8 @@ void PeleLM::ef_nlResidual(const Real      &dt_lcl,
    compElecAdvection(nE_a,phi_a,gphiV,advnE);
    if ( ef_debug ) VisMF::Write(advnE,"NLRes_ElecAdv_"+std::to_string(level));
 
+   if ( ef_debug ) VisMF::Write(get_new_data(RhoYdot_Type),"NLres_IRnE_"+std::to_string(level));
+
    // Assemble the non-linear residual
    // res(ne(:)) = dt * ( diff(:) + conv(:) + I_R(:) ) - ( ne(:) - ne_old(:) )
    // res(phiv(:)) = \Sum z_k * \tilde Y_k / q_e - ne + Lapl_PhiV
@@ -667,6 +669,7 @@ void PeleLM::ef_nlResidual(const Real      &dt_lcl,
    for (MFIter mfi(a_nl_resid,TilingIfNotGPU()); mfi.isValid(); ++mfi)
    {
       const Box& bx = mfi.tilebox();
+      auto const& I_R_nE   = get_new_data(RhoYdot_Type).const_array(mfi,NUM_SPECIES);
       auto const& lapPhiV  = laplacian_term.const_array(mfi);
       auto const& ne_diff  = diffnE.const_array(mfi);
       auto const& ne_adv   = advnE.const_array(mfi);
@@ -676,10 +679,10 @@ void PeleLM::ef_nlResidual(const Real      &dt_lcl,
       auto const& res_nE   = a_nl_resid.array(mfi,0);
       auto const& res_phiV = a_nl_resid.array(mfi,1);
       Real scalLap         = EFConst::eps0 * EFConst::epsr / EFConst::elemCharge;
-      amrex::ParallelFor(bx, [ne_curr,ne_old,lapPhiV,ne_diff,ne_adv,charge,res_nE,res_phiV,dt_lcl,scalLap]
+      amrex::ParallelFor(bx, [ne_curr,ne_old,lapPhiV,I_R_nE,ne_diff,ne_adv,charge,res_nE,res_phiV,dt_lcl,scalLap]
       AMREX_GPU_DEVICE (int i, int j, int k) noexcept
       {
-         res_nE(i,j,k) = ne_old(i,j,k) - ne_curr(i,j,k) + dt_lcl * ( ne_diff(i,j,k) + ne_adv(i,j,k) );
+         res_nE(i,j,k) = ne_old(i,j,k) - ne_curr(i,j,k) + dt_lcl * ( ne_diff(i,j,k) + ne_adv(i,j,k) + I_R_nE(i,j,k) );
          res_phiV(i,j,k) = lapPhiV(i,j,k) * scalLap - ne_curr(i,j,k) + charge(i,j,k);
       });
    }
@@ -1014,7 +1017,8 @@ void PeleLM::ef_setUpPrecond (const Real &dt_lcl,
 
       // Get the diagonal of pnp_pc_diff
 
-      pnp_pc_Stilda->setScalars(0.0,-phiV_scale/FphiV_scale);
+      //pnp_pc_Stilda->setScalars(0.0,-phiV_scale/FphiV_scale);
+      pnp_pc_Stilda->setScalars(0.0,-1.0);
       Real scalLap = EFConst::eps0 * EFConst::epsr / EFConst::elemCharge;
       for (int dir = 0; dir < AMREX_SPACEDIM; dir++) {
          neKe_ec[dir]->mult(0.5*dt_lcl,0,1);
@@ -1128,6 +1132,8 @@ void PeleLM::ef_applyPrecond (const MultiFab  &v,
    S_tol_abs = a_PphiV.norm0() * ef_PC_MG_Tol;
    MultiFab temp(grids,dmap,1,1);
    temp.setVal(0.0,0,1,0);
+   // Scale the solve RHS
+   a_PphiV.mult(FphiV_scale/phiV_scale);
    mg_Stilda->solve({&temp},{&a_PphiV}, S_tol, S_tol_abs);
    MultiFab::Copy(a_PphiV, temp, 0, 0, 1, 0);
 
@@ -1189,11 +1195,12 @@ void PeleLM::ef_calcGradPhiV(const Real&    time_lcl,
 
 }
 
-void PeleLM::ef_calcUDriftSpec(const Real &time){
+void PeleLM::ef_calcUDriftSpec(const Real &time,
+                               int   use_instant_coeff){
 
    // Get CC t^n+1/2 species mobilities
    MultiFab KSpec_half(grids,dmap,NUM_SPECIES,1);
-   if ( time > 0.0 ) {   // Not initial time step
+   if ( time > 0.0 && !use_instant_coeff ) {   // Not initial time step or using instantaneous diff coeff
 #ifdef _OPENMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
@@ -1305,7 +1312,7 @@ PeleLM::ef_estTimeStep()
    const Real  cur_time = state[State_Type].curTime();
    MultiFab&   U_new = get_new_data(State_Type);
    ef_calc_transport(cur_time);
-   ef_calcUDriftSpec(cur_time);
+   ef_calcUDriftSpec(cur_time,1);      // Use instantaneous diffusion coefficients.
 
    // Get the cell centered max of effective velocity accross all directions
    // for each species

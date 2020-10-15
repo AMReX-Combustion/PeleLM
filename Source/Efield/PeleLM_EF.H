@@ -89,7 +89,8 @@
    void ef_calc_transport(const amrex::Real &time);
 
 // Compute species drift velocity
-   void ef_calcUDriftSpec(const amrex::Real &time);
+   void ef_calcUDriftSpec(const amrex::Real &time,
+                          int use_instant_coeff = 0);
 
 // Estimate ion effective velocity time step
    amrex::Real ef_estTimeStep();
