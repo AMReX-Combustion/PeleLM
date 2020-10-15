@@ -2189,6 +2189,12 @@ PeleLM::post_restart ()
    int step    = parent->levelSteps(0);
    int is_restart = 1;
 
+#ifdef PLM_USE_EFIELD
+   // Need those to evaluate the time step size for efield
+   const Real ctime  = state[State_Type].curTime();
+   calcDiffusivity(ctime);
+#endif
+
    activeControl(step,is_restart,0.0,crse_dt);
 }
 
@@ -7924,6 +7930,7 @@ void
 PeleLM::calcDiffusivity (const Real time)
 {
    BL_PROFILE("PLM::calcDiffusivity()");
+
 
    const TimeLevel whichTime = which_time(State_Type, time);
    BL_ASSERT(whichTime == AmrOldTime || whichTime == AmrNewTime);
