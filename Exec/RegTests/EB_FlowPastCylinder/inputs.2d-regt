@@ -100,7 +100,7 @@ diffuse.Rhs_in_abs_tol = 1
 #peleLM.use_typ_vals_chem = 1
 #peleLM.relative_tol_chem = 1.0e-8
 #peleLM.absolute_tol_chem = 1.0e-6
-cvode.solve_type = dense
+cvode.solve_type = GMRES
 ode.analytical_jacobian = 0
 
 # ----------------  INPUTS TO CONSTANT TRANSPORT -------------------
