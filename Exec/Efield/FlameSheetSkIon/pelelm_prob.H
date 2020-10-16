@@ -193,9 +193,6 @@ pelelm_initdata (int i, int j, int k,
               1.017 * std::sin(2 * Pi * 5 * (x - 0.0033) / L_x) *
                 std::sin(2 * Pi * 6 * (y - 0.018) / L_y) +
               0.982 * std::sin(2 * Pi * 5 * (x - 0.014234) / L_x));
-
-
-
     }
 
     y1 = (z - ProbParm::standoff - 0.5*dx[2] + pert);
@@ -214,11 +211,43 @@ pelelm_initdata (int i, int j, int k,
 #ifdef PLM_USE_EFIELD
     amrex::Real mw[NUM_SPECIES];
     EOS::molecular_weight(mw);
-    state(i,j,k,DEF_nE) = std::max(0.0,massfrac[E_ID]) * EFConst::Na / mw[E_ID];
+    amrex::Real zk[NUM_SPECIES];
+    EOS::charge_mass(zk);
+    massfrac[E_ID] = 0.0;
+    amrex::Real sum = 0.0;
+    for (int n = 0; n < NUM_SPECIES; n++) {
+       massfrac[n] = std::max(0.0,massfrac[n]);
+       if ( n != N2_ID ) sum += massfrac[n];
+    }
+    massfrac[N2_ID] = 1.0 - sum;
+    amrex::Real chargeDist = 0.0;
+    for (int n = 0; n < NUM_SPECIES; n++) {
+       chargeDist += massfrac[n] * zk[n];
+    }
+    if ( chargeDist < 0.0 ) {
+       amrex::Real sum_pos_ion = 0.0;
+       amrex::Real mean_zk_pos_ion = 0.0;
+       for (int n = 0; n < NUM_SPECIES; n++) {
+          if ( zk[n] > 0.0 ) {
+             sum_pos_ion += massfrac[n];
+             mean_zk_pos_ion += massfrac[n] * zk[n];
+          }
+       }
+       for (int n = 0; n < NUM_SPECIES; n++) {
+          if ( zk[n] > 0.0 ) {
+             massfrac[N2_ID] += massfrac[n] / sum_pos_ion * chargeDist / mean_zk_pos_ion * sum_pos_ion;
+             massfrac[n] -= massfrac[n] / sum_pos_ion * chargeDist / mean_zk_pos_ion * sum_pos_ion;   
+          }
+       }
+
+    }
+    chargeDist = 0.0;
+    for (int n = 0; n < NUM_SPECIES; n++) {
+       chargeDist += massfrac[n] * zk[n];
+    }
+    state(i,j,k,DEF_nE) = std::max(1.0e-24,chargeDist/EFConst::elemCharge);
     state(i,j,k,DEF_PhiV) = 0.0;
 #endif
-
-    massfrac[N2_ID] += massfrac[E_ID];
 
     state(i,j,k,Xvel) = 0;
 #if ( AMREX_SPACEDIM == 2 ) 
