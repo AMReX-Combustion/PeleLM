@@ -38,12 +38,7 @@
 
 #include <PeleLM_derive.H>
 #include <IndexDefines.H>
-
-#ifdef USE_SUNDIALS_PP
 #include <reactor.h>
-#else
-#include <reactor_F.H>
-#endif
 
 using namespace amrex;
 
