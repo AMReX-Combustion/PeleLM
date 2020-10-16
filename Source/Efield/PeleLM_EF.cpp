@@ -29,6 +29,7 @@ void PeleLM::ef_init() {
     PeleLM::ef_GMRES_verbose          = 0;
     PeleLM::ef_PC_fixedIter           = -1;
     PeleLM::ef_PC_MG_Tol              = 1.0e-6;
+    PeleLM::ef_PC_approx              = 1;
 
     // Get the charge per unit mass
     Real zk[NUM_SPECIES];
@@ -88,6 +89,7 @@ void PeleLM::ef_init() {
    pp.query("GMRES_verbose",ef_GMRES_verbose);
    pp.query("Precond_MG_tol",ef_PC_MG_Tol);
    pp.query("Precond_fixedIter",ef_PC_fixedIter);
+   pp.query("Precond_SchurApprox",ef_PC_approx);
  }
 
 void PeleLM::ef_solve_phiv(const Real &time) {
@@ -530,7 +532,7 @@ void PeleLM::ef_solve_PNP(      int      misdc,
      if ( !ef_use_PETSC_direct ) {
         Real avgGMRES = (float)GMRES_tot_count/(float)NK_tot_count;
      //   Real avgMG = (float)MGitcount/(float)GMRES_tot_count;
-        amrex::Print() << "Avg GMRES/Newton: " << avgGMRES << "\n";
+        amrex::Print() << "[" << misdc << "] dt: " << dt << " - Avg GMRES/Newton: " << avgGMRES << "\n";
      //   amrex::Print() << "Avg MGVcycl/GMRES: " << avgMG << "\n";
      }
      amrex::Print() << "PeleLM_EF::ef_solve_PNP(): lev: " << level << ", time: ["
@@ -955,11 +957,24 @@ void PeleLM::ef_setUpPrecond (const Real &dt_lcl,
       pnp_pc_diff->setCCoeffs(0, ccoeffs);
    }
 
+   MultiFab diagDiff;
+   if ( ef_PC_approx == 2 ) {
+      diagDiff.define(grids,dmap,1,1);
+      pnp_pc_diff->getDiagonal(diagDiff);
+      diagDiff.mult(FnE_scale/nE_scale);
+      diagDiff.FillBoundary(0,1, geom.periodicity());
+      Extrapolater::FirstOrderExtrap(diagDiff, geom, 0, 1);   
+   }
+
    // Stilda and Drift LinOp
    {
       // Upwinded edge neKe values
       MultiFab nEKe(grids,dmap,1,1);
       MultiFab nE_a(a_nl_state,amrex::make_alias,0,1);  // State is not scale at this point
+      MultiFab Schur_nEKe;
+      if ( ef_PC_approx == 2 ) {
+         Schur_nEKe.define(grids,dmap,1,1);
+      }
 #ifdef _OPENMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
@@ -968,16 +983,28 @@ void PeleLM::ef_setUpPrecond (const Real &dt_lcl,
          const Box& gbx = mfi.growntilebox();
          auto const& neke   = nEKe.array(mfi);
          auto const& ne_arr = nE_a.const_array(mfi);
-         amrex::ParallelFor(gbx, [neke,ne_arr]
+         auto const& Schur  = ( ef_PC_approx == 2 ) ? Schur_nEKe.array(mfi) : nEKe.array(mfi);
+         auto const& diag_a = ( ef_PC_approx == 2 ) ? diagDiff.array(mfi) : nEKe.array(mfi);
+         int do_Schur = ( ef_PC_approx == 2 ) ? 1 : 0;
+         amrex::ParallelFor(gbx, [neke,Schur,diag_a,ne_arr,dt_lcl,do_Schur]
          AMREX_GPU_DEVICE (int i, int j, int k) noexcept
          {
             getKappaE(i,j,k,neke);
             neke(i,j,k) *= ne_arr(i,j,k);
+            if ( do_Schur ) {
+               Schur(i,j,k) = - dt_lcl * 0.5 * neke(i,j,k) / diag_a(i,j,k);
+            }
          });
+      }
+      if ( ef_debug ) {
+         if (ef_PC_approx == 2) VisMF::Write(Schur_nEKe,"PC_SchurnEKe_cc_lvl"+std::to_string(level));
+         VisMF::Write(nEKe,"PC_nEKe_cc_lvl"+std::to_string(level));
       }
 
       FluxBoxes edge_fb(this, 1, 1);
       MultiFab** neKe_ec = edge_fb.get();
+      FluxBoxes Schur_edge_fb(this, 1, 1);
+      MultiFab** Schur_neKe_ec = Schur_edge_fb.get();
       auto math_bc = fetchBCArray(State_Type,nE,1);
       const Box& domain = geom.Domain();
 #ifdef _OPENMP
@@ -989,18 +1016,22 @@ void PeleLM::ef_setUpPrecond (const Real &dt_lcl,
          {
             const Box ebx = mfi.nodaltilebox(dir);
             const Box& edomain = amrex::surroundingNodes(domain,dir);
-            const auto& neke_c  = nEKe.array(mfi);
-            const auto& neke_ed = neKe_ec[dir]->array(mfi);
-            const auto& ueff_ed = elec_Ueff[dir].array(mfi);
+            const auto& neke_c    = nEKe.array(mfi);
+            const auto& neke_ed   = neKe_ec[dir]->array(mfi);
+            const auto& Schur_c   = ( ef_PC_approx == 2 ) ? Schur_nEKe.array(mfi) : nEKe.array(mfi);
+            const auto& Schur_ed  = ( ef_PC_approx == 2 ) ? Schur_neKe_ec[dir]->array(mfi) : neKe_ec[dir]->array(mfi);
+            const auto& ueff_ed   = elec_Ueff[dir].array(mfi);
             const auto bc_lo = fpi_phys_loc(math_bc[0].lo(dir));
             const auto bc_hi = fpi_phys_loc(math_bc[0].hi(dir));
-            amrex::ParallelFor(ebx, [dir, bc_lo, bc_hi, neke_c, neke_ed, ueff_ed, edomain]
+            int do_Schur = ( ef_PC_approx == 2 ) ? 1 : 0;
+            amrex::ParallelFor(ebx, [dir, bc_lo, bc_hi, neke_c, neke_ed, Schur_c, Schur_ed, ueff_ed, edomain, do_Schur]
             AMREX_GPU_DEVICE (int i, int j, int k) noexcept
             {
                int idx[3] = {i,j,k};
                bool on_lo = ( ( bc_lo == HT_Edge ) && ( idx[dir] <= edomain.smallEnd(dir) ) );
                bool on_hi = ( ( bc_hi == HT_Edge ) && ( idx[dir] >= edomain.bigEnd(dir) ) );
                cen2edg_upwind_cpp( i, j, k, dir, 1, on_lo, on_hi, ueff_ed, neke_c, neke_ed);
+               if ( do_Schur ) cen2edg_upwind_cpp( i, j, k, dir, 1, on_lo, on_hi, ueff_ed, Schur_c, Schur_ed);
             });
          }
       }
@@ -1015,22 +1046,35 @@ void PeleLM::ef_setUpPrecond (const Real &dt_lcl,
          VisMF::Write(*neKe_ec[1],"PC_Drift_nEKe_edgeY_lvl"+std::to_string(level));
       }
 
-      // Get the diagonal of pnp_pc_diff
-
-      //pnp_pc_Stilda->setScalars(0.0,-phiV_scale/FphiV_scale);
-      pnp_pc_Stilda->setScalars(0.0,-1.0);
-      Real scalLap = EFConst::eps0 * EFConst::epsr / EFConst::elemCharge;
-      for (int dir = 0; dir < AMREX_SPACEDIM; dir++) {
-         neKe_ec[dir]->mult(0.5*dt_lcl,0,1);
-         neKe_ec[dir]->plus(scalLap,0,1);
-      }
-      if ( ef_debug ) {
-         VisMF::Write(*neKe_ec[0],"PC_Stilda_nEKepLap_edgeX_lvl"+std::to_string(level));
-         VisMF::Write(*neKe_ec[1],"PC_Stilda_nEKepLap_edgeY_lvl"+std::to_string(level));
-      }
-      {
-         std::array<const MultiFab*,AMREX_SPACEDIM> bcoeffs{AMREX_D_DECL(neKe_ec[0],neKe_ec[1],neKe_ec[2])};
-         pnp_pc_Stilda->setBCoeffs(0, bcoeffs);
+      if ( ef_PC_approx == 1 ) {                      // Simple identity approx
+         pnp_pc_Stilda->setScalars(0.0,-1.0);
+         Real scalLap = EFConst::eps0 * EFConst::epsr / EFConst::elemCharge;
+         for (int dir = 0; dir < AMREX_SPACEDIM; dir++) {
+            neKe_ec[dir]->mult(0.5*dt_lcl,0,1);
+            neKe_ec[dir]->plus(scalLap,0,1);
+         }
+         if ( ef_debug ) {
+            VisMF::Write(*neKe_ec[0],"PC_Stilda_nEKepLap_edgeX_lvl"+std::to_string(level));
+            VisMF::Write(*neKe_ec[1],"PC_Stilda_nEKepLap_edgeY_lvl"+std::to_string(level));
+         }
+         {
+            std::array<const MultiFab*,AMREX_SPACEDIM> bcoeffs{AMREX_D_DECL(neKe_ec[0],neKe_ec[1],neKe_ec[2])};
+            pnp_pc_Stilda->setBCoeffs(0, bcoeffs);
+         }
+      } else if ( ef_PC_approx == 2 ) {               // Inverse diagonal approx
+         pnp_pc_Stilda->setScalars(0.0,-1.0);
+         Real scalLap = EFConst::eps0 * EFConst::epsr / EFConst::elemCharge;
+         for (int dir = 0; dir < AMREX_SPACEDIM; dir++) {
+            Schur_neKe_ec[dir]->plus(scalLap,0,1);
+         }
+         if ( ef_debug ) {
+            VisMF::Write(*Schur_neKe_ec[0],"PC_Stilda2_nEKepLap_edgeX_lvl"+std::to_string(level));
+            VisMF::Write(*Schur_neKe_ec[1],"PC_Stilda2_nEKepLap_edgeY_lvl"+std::to_string(level));
+         }
+         {
+            std::array<const MultiFab*,AMREX_SPACEDIM> bcoeffs{AMREX_D_DECL(Schur_neKe_ec[0],Schur_neKe_ec[1],Schur_neKe_ec[2])};
+            pnp_pc_Stilda->setBCoeffs(0, bcoeffs);
+         }
       }
    }
 

@@ -73,6 +73,7 @@
 // Schur preconditioner options
    static amrex::Real ef_PC_MG_Tol;             // Preconditioner linear solver tolerance
    static int         ef_PC_fixedIter;          // Preconditioner fixed number of iterations
+   static int         ef_PC_approx;             // Type of approximation of Stilda
 
    static void ef_init();                       // Init EF params
 

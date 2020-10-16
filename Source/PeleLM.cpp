@@ -240,6 +240,7 @@ Real PeleLM::ef_GMRES_reltol;
 int  PeleLM::ef_GMRES_verbose;
 Real PeleLM::ef_PC_MG_Tol;
 int  PeleLM::ef_PC_fixedIter;
+int  PeleLM::ef_PC_approx;
 BCRec  PeleLM::phiV_bc;
 GpuArray<Real,NUM_SPECIES> PeleLM::zk;
 #endif
