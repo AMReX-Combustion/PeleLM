@@ -40,11 +40,7 @@
 #include <AMReX_AmrData.H>
 #endif
 
-#ifdef USE_SUNDIALS_PP
 #include <reactor.h>
-#else
-#include <reactor_F.H>
-#endif
 
 #include <Prob_F.H>
 #include <NAVIERSTOKES_F.H>

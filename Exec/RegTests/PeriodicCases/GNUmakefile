@@ -23,11 +23,7 @@ TINY_PROFILE = FALSE
 
 #######################
 USE_SUNDIALS_PP = TRUE
-ifeq ($(USE_SUNDIALS_PP), TRUE)
-  # use KLU sparse features -- only useful if CVODE is used on CPU
-  USE_KLU_PP = FALSE
-endif
-#######################
+
 # Choose model (from list below), and pmf file
 Chemistry_Model = air
 
