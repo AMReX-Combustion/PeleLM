@@ -221,4 +221,71 @@ reactionRateRhoY_EF(int i, int j, int k,
    rhoYdot(i,j,k,E_ID) = 0.0;
 }
 
+AMREX_GPU_DEVICE
+AMREX_FORCE_INLINE
+void
+pelelm_initdata_ef (int i, int j, int k,
+                    amrex::Array4<amrex::Real> const& state,
+                    amrex::GeometryData const& geomdata)
+{
+    // Got the mass fractions from the pltfile
+    // Get rid of E species and get the charge
+    state(i,j,k,DEF_first_spec+N2_ID) += state(i,j,k,DEF_first_spec+E_ID);
+    state(i,j,k,DEF_first_spec+E_ID) = 0.0;
+
+    amrex::Real zk[NUM_SPECIES];
+    EOS::charge_mass(zk);
+    amrex::Real chargeDist = 0.0;
+    for (int n = 0; n < NUM_SPECIES; n++) {
+       chargeDist += state(i,j,k,DEF_first_spec+n) * zk[n];
+    }
+
+    // Clean up places where charge dist < 0
+    if ( chargeDist < 0.0 ) {
+       amrex::Real sum_pos_ion = 0.0;
+       amrex::Real mean_zk_pos_ion = 0.0;
+       for (int n = 0; n < NUM_SPECIES; n++) {
+          if ( zk[n] > 0.0 ) {
+             sum_pos_ion += state(i,j,k,DEF_first_spec+n);
+             mean_zk_pos_ion += state(i,j,k,DEF_first_spec+n) * zk[n];
+          }
+       }
+       for (int n = 0; n < NUM_SPECIES; n++) {
+          if ( zk[n] > 0.0 ) {
+             state(i,j,k,DEF_first_spec+N2_ID) += state(i,j,k,DEF_first_spec+n) 
+                                                / sum_pos_ion * chargeDist / mean_zk_pos_ion * sum_pos_ion;
+             state(i,j,k,DEF_first_spec+n) -= state(i,j,k,DEF_first_spec+n) 
+                                             / sum_pos_ion * chargeDist / mean_zk_pos_ion * sum_pos_ion;
+          }
+       }
+    }
+
+    // Get the electron number density such that electro-neutral.
+    chargeDist = 0.0;
+    for (int n = 0; n < NUM_SPECIES; n++) {
+        chargeDist += state(i,j,k,DEF_first_spec+n) * zk[n];
+    }
+    state(i,j,k,DEF_nE) = std::max(1.0e-24,chargeDist/EFConst::elemCharge);
+    state(i,j,k,DEF_PhiV) = 0.0;
+
+    amrex::Real rho_cgs, P_cgs;
+    P_cgs = ProbParm::P_mean * 10.0;
+
+    amrex::Real massfrac[NUM_SPECIES] = {0.0};
+    for (int n = 0; n < NUM_SPECIES; n++) {
+        massfrac[n] = state(i,j,k,DEF_first_spec+n);
+    }
+    EOS::PYT2R(P_cgs, massfrac, state(i,j,k,DEF_Temp), rho_cgs);
+    state(i,j,k,Density) = rho_cgs * 1.0e3;            // CGS -> MKS conversion
+
+    EOS::TY2H(state(i,j,k,DEF_Temp), massfrac, state(i,j,k,DEF_RhoH));
+    state(i,j,k,DEF_RhoH) = state(i,j,k,DEF_RhoH) * 1.0e-4 * state(i,j,k,Density);   // CGS -> MKS conversion
+
+    for (int n = 0; n < NUM_SPECIES; n++) {
+       state(i,j,k,DEF_first_spec+n) = massfrac[n] * state(i,j,k,Density);
+    }
+
+    state(i,j,k,DEF_nE) *= state(i,j,k,Density);
+}
+
 #endif

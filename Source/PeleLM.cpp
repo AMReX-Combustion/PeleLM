@@ -68,6 +68,8 @@
 #include <AMReX_MLPoisson.H>
 #include <AMReX_MLMG.H>
 #include <GMRES.H>
+#include <AMReX_DataServices.H>
+#include <AMReX_AmrData.H>
 #endif
 
 #include <AMReX_buildInfo.H>
@@ -1745,6 +1747,10 @@ PeleLM::initData ()
   MultiFab&   P_new    = get_new_data(Press_Type);
   const Real  cur_time = state[State_Type].curTime();
 
+  const auto geomdata = geom.data();
+  S_new.setVal(0.0);
+  P_new.setVal(0.0);
+
 #ifdef BL_USE_NEWMECH
   //
   // This code has a few drawbacks.  It assumes that the physical
@@ -1771,7 +1777,7 @@ PeleLM::initData ()
     // This calls ParallelDescriptor::EndParallel() and exit()
     //
     DataServices::Dispatch(DataServices::ExitRequest, NULL);
-    
+
   AmrData&                  amrData     = dataServices.AmrDataRef();
   Vector<std::string> names;
   EOS::speciesNames(names);
@@ -1805,9 +1811,61 @@ PeleLM::initData ()
   if (verbose) amrex::Print() << "initData: finished init from pltfile" << '\n';
 #endif
 
-  const auto geomdata = geom.data();
-  S_new.setVal(0.0);
-  P_new.setVal(0.0);
+#ifdef PLM_USE_EFIELD
+  // Restarting from a non-efield simulation plot file
+  ParmParse pp("ef");
+  std::string pltfile;
+  int do_restart_plt = 0;
+  pp.query("restart_nonEF", do_restart_plt);
+  if ( do_restart_plt ) {
+     pp.query("restart_plt", pltfile);
+     if (pltfile.empty())
+       amrex::Abort("You must specify `pltfile'");
+     if (verbose)
+       amrex::Print() << "Efield restart from pltfile: reading data from: " << pltfile << '\n';
+
+     DataServices::SetBatchMode();
+     Amrvis::FileType fileType(Amrvis::NEWPLT);
+     DataServices dataServices(pltfile, fileType);
+
+     if (!dataServices.AmrDataOk())
+       //
+       // This calls ParallelDescriptor::EndParallel() and exit()
+       //
+       DataServices::Dispatch(DataServices::ExitRequest, NULL);
+
+     Vector<std::string> names;
+     EOS::speciesNames(names);
+     AmrData&             amrData     = dataServices.AmrDataRef();
+     Vector<std::string>  plotnames   = amrData.PlotVarNames();
+
+     int idT = -1, idX = -1, idfirstSpec = -1;
+     for (int i = 0; i < plotnames.size(); ++i)
+     {
+        if (plotnames[i] == "temp")       idT = i;
+        if (plotnames[i] == "x_velocity") idX = i;
+        if (plotnames[i] == "Y("+names[0]+")") idfirstSpec = i;
+     }
+
+     //
+     // In the plotfile the mass fractions directly follow the velocities.
+     //
+     for (int i = 0; i < AMREX_SPACEDIM; i++)
+     {
+        amrData.FillVar(S_new, level, plotnames[idX+i], Xvel+i);
+        amrData.FlushGrids(idX+i);
+     }
+     amrData.FillVar(S_new, level, plotnames[idT], Temp);
+     amrData.FlushGrids(idT);
+     for (int i = 0; i < NUM_SPECIES; i++)
+     {
+        amrData.FillVar(S_new, level, plotnames[idfirstSpec+i], first_spec+i);
+        amrData.FlushGrids(idfirstSpec+i);
+     }
+
+     if (verbose) amrex::Print() << "Efield restart: finished init from pltfile" << '\n';
+  }
+#endif
 
 #ifdef _OPENMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
@@ -1820,8 +1878,8 @@ PeleLM::initData ()
       amrex::ParallelFor(box,
       [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
       {
-#ifdef BL_USE_NEWMECH
-        amrex::Abort("USE_NEWMECH feature no longer working and has to be fixed/redone");
+#ifdef PLM_USE_EFIELD
+        pelelm_initdata_ef(i, j, k, sfab, geomdata);
 #else
         pelelm_initdata(i, j, k, sfab, geomdata);
 #endif

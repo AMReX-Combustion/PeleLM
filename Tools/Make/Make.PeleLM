@@ -18,6 +18,7 @@ ifeq ($(USE_EFIELD),TRUE)
     USERSuffix += .EF
     DEFINES += -DPLM_USE_EFIELD
     Bdirs += $(PELELM_HOME)/Source/Efield
+    Pdirs += $(AMREX_HOME)/Src/Extern/amrdata
 endif
 
 ifeq ($(shell uname),Darwin)
