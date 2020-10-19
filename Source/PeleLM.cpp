@@ -5650,16 +5650,13 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
     }
 
     dm = getFuncCountDM(ba,ngrow);
+#endif
 
     MultiFab STemp(ba, dm, NUM_SPECIES+3, 0);
     MultiFab FTemp(ba, dm, Force.nComp(), 0);
 
     STemp.copy(mf_old,first_spec,0,NUM_SPECIES+3); // Parallel copy.
     FTemp.copy(Force);                          // Parallel copy.
-#else
-    MultiFab STemp(mf_old, amrex::make_alias, first_spec, NUM_SPECIES+3);
-    MultiFab FTemp(Force, amrex::make_alias, 0, Force.nComp());
-#endif
 
     MultiFab fcnCntTemp(ba, dm, 1, 0);
     MultiFab diagTemp;
@@ -5734,16 +5731,14 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
 #endif
         BL_PROFILE_VAR_STOP(ReactInLoop);
 
-        // Convert CGS -> MKS
+	// Convert CGS -> MKS
         ParallelFor(bx, [rhoY,rhoH, frc_rhoY, frc_rhoH]
         AMREX_GPU_DEVICE (int i, int j, int k) noexcept 
         {
            for (int n = 0; n < NUM_SPECIES; n++) {
               rhoY(i,j,k,n) *= 1.0e3;
-              frc_rhoY(i,j,k,n) *= 1.0e3;
            }
            rhoH(i,j,k) *= 0.1;
-           frc_rhoH(i,j,k) *= 0.1;
         });
 
 #ifdef AMREX_USE_CUDA
