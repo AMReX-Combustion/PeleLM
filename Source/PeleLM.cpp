@@ -5732,7 +5732,7 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
         BL_PROFILE_VAR_STOP(ReactInLoop);
 
 	// Convert CGS -> MKS
-        ParallelFor(bx, [rhoY,rhoH, frc_rhoY, frc_rhoH]
+        ParallelFor(bx, [rhoY,rhoH]
         AMREX_GPU_DEVICE (int i, int j, int k) noexcept 
         {
            for (int n = 0; n < NUM_SPECIES; n++) {
