@@ -244,6 +244,7 @@ Real PeleLM::ef_PC_MG_Tol;
 int  PeleLM::ef_PC_fixedIter;
 int  PeleLM::ef_PC_approx;
 BCRec  PeleLM::phiV_bc;
+BCRec  PeleLM::phiV_pol;
 GpuArray<Real,NUM_SPECIES> PeleLM::zk;
 #endif
 
@@ -8309,7 +8310,7 @@ PeleLM::zeroBoundaryVisc (MultiFab*  beta[AMREX_SPACEDIM],
         amrex::ParallelFor(ebox, [beta_arr,dir,geomdata,edom,state_comp,ncomp]
         AMREX_GPU_DEVICE (int i, int j, int k) noexcept
         {
-          zero_visc(i, j, k, beta_arr, geomdata, edom, dir, state_comp, ncomp);
+           zero_visc(i, j, k, beta_arr, geomdata, edom, dir, state_comp, ncomp);
         });
       }
     }

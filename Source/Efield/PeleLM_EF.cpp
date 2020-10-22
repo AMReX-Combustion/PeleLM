@@ -72,6 +72,34 @@ void PeleLM::ef_init() {
       }
    }
 
+   // Get the polarity of BCs
+   pp.getarr("phiV_polarity_lo",lo_bc,0,AMREX_SPACEDIM);
+   pp.getarr("phiV_polarity_hi",hi_bc,0,AMREX_SPACEDIM);
+   for (int i = 0; i < AMREX_SPACEDIM; i++) {
+      if (!lo_bc[i].compare("Neutral")){
+         phiV_pol.setLo(i,0);
+      } else if (!lo_bc[i].compare("Anode")) {     // Pos. elec = 1
+         phiV_pol.setLo(i,1);
+         BL_ASSERT(phiV_bc.lo(i)==1);
+      } else if (!lo_bc[i].compare("Cathode")) {   // Neg. elec = 2
+         phiV_pol.setLo(i,2);
+         BL_ASSERT(phiV_bc.lo(i)==1);
+      } else {
+         amrex::Abort("Wrong PhiV polarity. Should be : Neutral, Anode or Cathode");
+      }
+      if (!hi_bc[i].compare("Neutral")){
+         phiV_pol.setHi(i,0);
+      } else if (!hi_bc[i].compare("Anode")) {     // Pos. elec = 1
+         phiV_pol.setHi(i,1);
+         BL_ASSERT(phiV_bc.hi(i)==1);
+      } else if (!hi_bc[i].compare("Cathode")) {   // Neg. elec = 2
+         phiV_pol.setHi(i,2);
+         BL_ASSERT(phiV_bc.hi(i)==1);
+      } else {
+         amrex::Abort("Wrong PhiV polarity. Should be : Neutral, Anode or Cathode");
+      }
+   }
+
    pp.query("verbose",ef_verbose);
    pp.query("debug",ef_debug);
    pp.query("Poisson_tol",ef_PoissonTol);
@@ -958,12 +986,15 @@ void PeleLM::ef_setUpPrecond (const Real &dt_lcl,
    }
 
    MultiFab diagDiff;
-   if ( ef_PC_approx == 2 ) {
+   if ( ef_PC_approx == 2 || ef_PC_approx == 3) {
       diagDiff.define(grids,dmap,1,1);
       pnp_pc_diff->getDiagonal(diagDiff);
       diagDiff.mult(FnE_scale/nE_scale);
       diagDiff.FillBoundary(0,1, geom.periodicity());
       Extrapolater::FirstOrderExtrap(diagDiff, geom, 0, 1);   
+      if ( ef_PC_approx == 3) {
+         diagDiff.plus(-1.0,0,1,1);
+      }
    }
 
    // Stilda and Drift LinOp
@@ -1075,6 +1106,8 @@ void PeleLM::ef_setUpPrecond (const Real &dt_lcl,
             std::array<const MultiFab*,AMREX_SPACEDIM> bcoeffs{AMREX_D_DECL(Schur_neKe_ec[0],Schur_neKe_ec[1],Schur_neKe_ec[2])};
             pnp_pc_Stilda->setBCoeffs(0, bcoeffs);
          }
+      } else if ( ef_PC_approx == 3 ) {               // Inverse diagonal approx
+         pnp_pc_Stilda->setScalars(0.0,-1.0);
       }
    }
 
@@ -1463,6 +1496,59 @@ void PeleLM::ef_normMF(const MultiFab &a_vec,
    }
    norm = std::sqrt(norm);
 }
+
+
+BCRec
+PeleLM::hack_bc_charged_spec(const int &charge,
+                             const BCRec &bc_in) {
+
+   BCRec bc_hacked;
+
+   const int* lo_bc = bc_in.lo();
+   const int* hi_bc = bc_in.hi();
+   for (int i = 0; i < AMREX_SPACEDIM; i++)
+   {
+      int lo = lo_bc[i];
+      int hi = hi_bc[i];
+      // 3 = EXT_DIR, 2 = FOEXTRAP
+      // Spec is In/Out and it's cathode (neg electrode)
+      if ( ( lo_bc[i] == 3 || lo_bc[i] == 2 ) &&
+           ( phiV_pol.lo(i) == 2 ) ) {
+         if ( charge > 0 ) { // Outflow for cation
+            lo = 2;
+         } else {            // Dirich = 0 for anion
+            lo = 3;
+         }
+      } else if ( ( lo_bc[i] == 3 || lo_bc[i] == 2 ) &&
+                  ( phiV_pol.lo(i) == 1 ) ) {
+         if ( charge > 0 ) { // Dirich = 0 for cation
+            lo = 3;
+         } else {            // Outflow for anion
+            lo = 2;
+         }
+      }
+      if ( ( hi_bc[i] == 3 || hi_bc[i] == 2 ) &&
+           ( phiV_pol.hi(i) == 2 ) ) {
+         if ( charge > 0 ) { // Outflow for cation
+            hi = 2;
+         } else {            // Dirich = 0 for anion
+            hi = 3;
+         }
+      } else if ( ( hi_bc[i] == 3 || hi_bc[i] == 2 ) &&
+                  ( phiV_pol.hi(i) == 1 ) ) {
+         if ( charge > 0 ) { // Dirich = 0 for cation
+            hi = 3;
+         } else {            // Outflow for anion
+            hi = 2;
+         }
+      }
+      bc_hacked.setLo(i,lo);
+      bc_hacked.setHi(i,hi);
+   }
+   return bc_hacked;
+}
+
+
 
 // Setup BC conditions for linear Poisson solve on PhiV. Directly copied from the diffusion one ...
 void PeleLM::ef_set_PoissonBC(std::array<LinOpBCType,AMREX_SPACEDIM> &mlmg_lobc,

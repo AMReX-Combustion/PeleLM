@@ -11,6 +11,7 @@
    static int         PhiV;      // electric potential
 
    static amrex::BCRec   phiV_bc;   // Separate set of BC for PhiV
+   static amrex::BCRec   phiV_pol;  // Polarity of PhiV BCs
 
 // Extra transport properties for electrons and charged species
    FluxBoxes diff_e;
@@ -158,6 +159,9 @@
                         amrex::Real  &norm);
 
    void jtimesv(const amrex::MultiFab  &x, amrex::MultiFab  &Ax);
+
+   static amrex::BCRec hack_bc_charged_spec(const int &chrg,
+                                            const amrex::BCRec &bc_in);
 
 // Setup PhiV BC for linear Poisson solve
    void ef_set_PoissonBC(std::array<amrex::LinOpBCType,AMREX_SPACEDIM> &mlmg_lobc,
