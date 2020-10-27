@@ -47,7 +47,7 @@ else
 	# USE_NEWMECH    = FALSE
 	
 	# Choose model (from list below), and pmf file
-	Chemistry_Model = drm19
+	Chemistry_Model = CH4_ion_LuSk_light
 #	fEXE_sources += drm19Soln_seed_0.50.f
 	
 	#Chemistry_Model = LIDRYER

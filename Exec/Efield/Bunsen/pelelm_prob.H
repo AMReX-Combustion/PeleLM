@@ -172,8 +172,6 @@ pelelm_initdata (int i, int j, int k,
           amrex::Real pl1_angle = std::atan(0.01/ProbParm::slot_width);
           y1 = - ( x - ProbParm::splitx - ProbParm::slot_width ) * std::cos(pl1_angle) + y * std::sin(pl1_angle);
           y2 =   ( x - ProbParm::splitx - ProbParm::slot_width ) * std::sin(pl1_angle) + y * std::cos(pl1_angle);
-          y1 *= 100.0;
-          y2 *= 100.0;
           y1 += ProbParm::standoff;
           y2 += ProbParm::standoff;
 
@@ -189,8 +187,6 @@ pelelm_initdata (int i, int j, int k,
           amrex::Real pl1_angle = std::atan(-0.01/ProbParm::slot_width);
           y1 = ( x - ProbParm::splitx + ProbParm::slot_width ) * std::cos(pl1_angle) - y * std::sin(pl1_angle);
           y2 = ( x - ProbParm::splitx + ProbParm::slot_width ) * std::sin(pl1_angle) + y * std::cos(pl1_angle);
-          y1 *= 100.0;
-          y2 *= 100.0;
           y1 += ProbParm::standoff;
           y2 += ProbParm::standoff;
 
@@ -239,7 +235,6 @@ bcnormal(
 {
   const amrex::Real* prob_lo = geomdata.ProbLo();
   const amrex::Real* prob_hi = geomdata.ProbHi();
-  amrex::GpuArray<amrex::Real, NUM_SPECIES + 4> pmf_vals = {0.0};
   amrex::Real massfrac_air[NUM_SPECIES] = {0.0};
   amrex::Real massfrac_jet[NUM_SPECIES] = {0.0};
 
@@ -262,16 +257,15 @@ bcnormal(
   }
 
   if (idir == 1 && sgn == 1) {
-    pmf(prob_hi[idir], prob_hi[idir], pmf_vals);
-
     s_ext[Xvel] = 0.0;
+    amrex::Real rad = 0.0;
     if ( zone == 3 ) {
-       amrex::Real rad = std::abs(x[0]-ProbParm::splitx);
+       rad = std::abs(x[0]-ProbParm::splitx);
        s_ext[Yvel] = ProbParm::Vin * ( 1.0 - (rad/ProbParm::slot_width) * (rad/ProbParm::slot_width) );
     } else if ( zone == 1 ) {
-       amrex::Real rad = std::abs(x[0]-ProbParm::splitx);
-       s_ext[Yvel] = ProbParm::Vcoflow * ( 1.0 + rad/0.025);
-       if ( rad <= ProbParm::slot_width*1.2 ) s_ext[Yvel] = 0.0;
+       rad = std::abs(x[0]-ProbParm::splitx);
+       s_ext[Yvel] = ProbParm::Vcoflow * ( 1.0 + (rad)/0.025);
+       if ( rad <= ProbParm::slot_width*1.4 ) s_ext[Yvel] = 0.0;
     }
 
     s_ext[DEF_Temp] = 300.0;
@@ -335,5 +329,13 @@ zero_visc (int i, int j, int k,
     const amrex::Real y = prob_lo[1] + (j+0.5)*dx[1];
     const amrex::Real x = prob_lo[0] + (i+0.5)*dx[0];
 
+   amrex::Real rad = std::abs(x-ProbParm::splitx);
+   if (  rad >= ProbParm::slot_width &&
+         rad <= ProbParm::slot_width*1.4 &&
+         j <= dBox.smallEnd(1)) {
+      for (int n = 0; n < nComp; n++ ) {
+         beta(i,j,k,n) = 0.0;
+      }
+   }
 }
 #endif

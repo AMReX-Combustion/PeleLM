@@ -1,0 +1,216 @@
+# ----------------  PROBLEM DEPENDENT INPUTS
+geometry.is_periodic = 0 0
+
+geometry.coord_sys = 0  # 0 => cart, 1 => RZ
+
+geometry.prob_lo   = -0.025 0. 0.
+geometry.prob_hi   =  0.025 .025 .01
+
+# >>>>>>>>>>>>>  BC FLAGS <<<<<<<<<<<<<<<<
+# Interior, Inflow, Outflow, Symmetry,
+# SlipWallAdiab, NoSlipWallAdiab, SlipWallIsotherm, NoSlipWallIsotherm
+peleLM.lo_bc = Outflow  Inflow
+peleLM.hi_bc = Outflow  Outflow
+
+#----------------------------TOP LEVEL INPUTS----------------------
+max_step  =  13906
+max_step  =  20000
+stop_time = 4.00
+
+#-------------------------AMR INPUTS----------------------------
+amr.n_cell    = 64 64 64
+amr.n_cell    = 128 128 128
+amr.n_cell    = 64 128 32
+amr.n_cell    = 480 288 128
+amr.n_cell    = 128 64
+amr.n_cell    = 256 128
+#amr.n_cell    = 512 256
+
+amr.v=1
+amr.max_level =  0            # maximum level number allowed
+amr.ref_ratio       = 2 2 2 2 # refinement ratio
+amr.regrid_int      = 2       # how often to regrid
+amr.n_error_buf     = 1 1 1 2 # number of buffer cells in error est
+amr.grid_eff        = 0.9     # what constitutes an efficient grid
+amr.grid_eff        = 0.7     # what constitutes an efficient grid
+amr.blocking_factor = 16      # block factor in grid generation
+
+amr.checkpoint_files_output = 1
+amr.check_file      = chkEF     # root name of checkpoint file
+amr.check_int       = 100       # number of timesteps between checkpoints
+amr.restart         = chkEF13990
+
+amr.plot_file       = pltEF
+amr.plot_int        = 20
+amr.derive_plot_vars= rhoRT mag_vort avg_pressure gradpx gradpy diveru mass_fractions rhominsumrhoY cpmix enthalpy efieldx efieldy chargedistrib LorentzFx LorentzFy
+
+amr.grid_log        = grdlog  # name of grid logging file
+amr.max_grid_size   = 128
+
+prob.P_mean = 101325.0
+prob.standoff = 0.015
+prob.pertmag = 0.0000
+prob.Vin = 2.0
+prob.Vcoflow = 0.4
+prob.slot_width = 0.003
+prob.PhiV_x_lo = 0.0
+prob.PhiV_x_hi = -16000.0
+prob.pmf_datafile = pmf_CH4Air_1p0.txt
+
+# Refinement according to a species tracer
+amr.refinement_indicators = flame_tracer gradT
+amr.flame_tracer.max_level = 3
+amr.flame_tracer.value_greater = 1.e-6
+amr.flame_tracer.field_name = Y(H)
+
+# Refinement according to temperature and gradient of temperature
+#amr.refinement_indicators = lo_temp gradT
+#amr.lo_temp.max_level = 2
+#amr.lo_temp.value_less = 500
+#amr.lo_temp.field_name = temp
+
+amr.gradT.max_level = 2
+amr.gradT.adjacent_difference_greater = 200
+amr.gradT.field_name = temp
+
+# Refinement according to the vorticity, no field_name needed
+#amr.refinement_indicators = magvort
+#amr.magvort.max_level = 3
+#amr.magvort.vorticity_greater = 300
+
+# ------------------  INPUTS TO PHYSICS CLASS -------------------
+ns.dt_cutoff       = 1.e-11   # level 0 timestep below which we halt
+ns.visc_tol        = 1.0e-12  # tolerence for viscous solves
+ns.visc_abs_tol    = 1.0e-12  # tolerence for viscous solves
+ns.cfl            = 0.7       # cfl number for hyperbolic system
+ns.init_shrink    = 1.0       # scale back initial timestep
+ns.init_shrink    = 0.001       # scale back initial timestep
+ns.change_max     = 1.1       # scale back initial timestep
+ns.init_iter      = 2        # number of init iters to def pressure
+ns.gravity        = 0        # body force  (gravity in MKS units)
+ns.sum_interval   = 1        # timesteps between computing mass
+ns.do_reflux      = 1        # 1 => do refluxing
+ns.do_mac_proj    = 1        # 1 => do MAC projection
+
+ns.do_sync_proj   = 1        # 1 => do Sync Project
+ns.do_MLsync_proj = 1
+ns.do_divu_sync = 0
+ns.divu_relax_factor   = 0.0
+
+ns.be_cn_theta = 0.5
+
+ns.do_temp = 1
+
+ns.do_diffuse_sync = 1
+ns.do_reflux_visc  = 1
+
+ns.divu_ceiling = 1
+ns.divu_dt_factor = .4
+ns.min_rho_divu_ceiling = .01
+ns.sdc_iterMAX = 1
+peleLM.deltaT_verbose = 1
+peleLM.num_deltaT_iters_MAX = 20
+
+ns.fuelName        = CH4
+ns.unity_Le = 0
+
+ns.do_fillPatchUMAC=1
+ns.zeroBndryVisc=1
+ns.num_divu_iters =2
+ns.sdc_iterMAX = 2
+
+# -----------------------  INPUTS TO EFIELD  -------------------------
+ef.verbose = 1
+ef.debug = 0
+ef.JFNK_Substeps = 1
+ef.JFNK_maxNewton = 8
+ef.JFNK_lambda = 5.0e-8
+ef.JFNK_newtonTol = 2e-8
+ef.GMRES_restart_size = 20
+ef.GMRES_verbose = 2
+ef.GMRES_max_restart = 4
+ef.GMRES_rel_tol = 1.0e-6
+ef.Precond_fixedIter = 12
+#ef.Precond_MG_tol = 1.0e-7
+ef.Precond_SchurApprox = 2
+ef.JFNK_difftype = 2
+ef.Poisson_tol = 1.0e-11
+ef.Poisson_verbose = 0
+ef.phiV_lo_bc = Dirichlet Neumann
+ef.phiV_hi_bc = Dirichlet Neumann
+ef.phiV_polarity_lo = Anode   Neutral
+ef.phiV_polarity_hi = Cathode Neutral
+
+ef.restart_nonEF = 1
+ef.restart_plt = plt10000
+
+# ------------------  INPUTS TO CVODE CHEMISTRY ----------------------
+#peleLM.use_typ_vals_chem = 1
+peleLM.relative_tol_chem = 1.0e-11
+peleLM.absolute_tol_chem = 1.0e-11
+cvode.solve_type = dense
+ode.analytical_jacobian = 0
+
+# ------------------  INPUTS TO ACTIVE CONTROL  ----------------------
+active_control.on = 0                              # Use AC ?
+active_control.use_temp = 1                        # Default in fuel mass, rather use iso-T position ?
+active_control.temperature = 1300.0                # Value of iso-T ?
+active_control.tau = 1.0e-4                        # Control tau (should ~ 10 dt)
+active_control.height = 0.0070                     # Where is the flame held ? Default assumes coordinate along Y in 2D or Z in 3D.
+active_control.v = 1                               # verbose
+active_control.velMax = 1.5                        # Optional: limit inlet velocity
+active_control.changeMax = 0.2                     # Optional: limit inlet velocity changes (absolute)
+active_control.flameDir  = 1                       # Optional: flame main direction. Default: AMREX_SPACEDIM-1
+
+# ------------------  INPUTS TO GODUNOV CLASS ----------------------
+godunov.slope_order = 4
+
+# ------------------  INPUTS TO DIFFUSION CLASS --------------------
+diffuse.max_order = 4
+diffuse.tensor_max_order = 4
+diffuse.v = 0
+diffuse.Rhs_in_abs_tol = 1
+
+# ------------------  INPUTS TO PROJECTION CLASS -------------------
+proj.proj_tol       = 1.0e-12  # tolerence for projections
+proj.proj_abs_tol   = 1.0e-12
+proj.sync_tol       = 1.0e-12  # tolerence for projections
+proj.rho_wgt_vel_proj = 0      # 0 => const den proj, 1 => rho weighted
+nodal_proj.verbose          = 0
+proj.filter_factor  = 0.0
+proj.do_outflow_bcs = 0
+proj.divu_minus_s_factor = .5
+proj.divu_minus_s_factor = 0.
+proj.proj_2 = 1
+
+# ------------------  INPUTS TO MACPROJ CLASS -------------------
+mac.mac_tol        = 1.0e-12  # tolerence for mac projections
+mac.mac_sync_tol   = 1.0e-12   # tolerence for mac SYNC projection
+mac.mac_abs_tol    = 1.0e-12
+mac.do_outflow_bcs = 0
+
+#--------------------------MISC/UNSORTED INPUTS-----------------------------
+
+ns.htt_tempmin=1.0
+ns.htt_tempmax=2.5
+ns.v = 1
+mac.v = 2
+proj.v = 1
+ns.do_group_bndry_fills = 1
+
+#
+# Select form of FAB output: default is NATIVE
+#
+#   ASCII  (this is very slow)
+#   NATIVE (native binary form on machine -- the default)
+#   IEEE32 (useful if you want 32bit files when running in double precision)
+#   8BIT   (eight-bit run-length-encoded)
+#
+fab.format = NATIVE
+
+#fabarray.mfiter_tile_size = 8 8 8 
+amrex.regtest_reduction=1
+
+amrex.fpe_trap_invalid=1
+amrex.fpe_trap_overflow=1
+amrex.fpe_trap_zero=1
