@@ -1876,15 +1876,27 @@ PeleLM::initData ()
       const Box& box = mfi.validbox();
       auto sfab = S_new.array(mfi);
 
+#ifdef PLM_USE_EFIELD
+      if ( do_restart_plt ) {
+         amrex::ParallelFor(box,
+         [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+         {
+           pelelm_initdata_ef(i, j, k, sfab, geomdata);
+         });
+      } else {
+         amrex::ParallelFor(box,
+         [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+         {
+           pelelm_initdata(i, j, k, sfab, geomdata);
+         });
+      }
+#else
       amrex::ParallelFor(box,
       [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
       {
-#ifdef PLM_USE_EFIELD
-        pelelm_initdata_ef(i, j, k, sfab, geomdata);
-#else
         pelelm_initdata(i, j, k, sfab, geomdata);
-#endif
       });
+#endif
   }
 
   showMFsub("1D",S_new,stripBox,"1D_S",level);
@@ -5361,13 +5373,21 @@ PeleLM::advance (Real time,
 #endif
        for (MFIter mfi(S_new,TilingIfNotGPU()); mfi.isValid(); ++mfi)
        {
-          const Box& bx = mfi.tilebox();            
-          auto const& rhoY    = S_new.array(mfi,first_spec);  
+          const Box& bx = mfi.tilebox();
+          auto const& rhoY    = S_new.array(mfi,first_spec);
           amrex::ParallelFor(bx, [rhoY]
           AMREX_GPU_DEVICE (int i, int j, int k) noexcept
           {
              fabMinMax( i, j, k, NUM_SPECIES, 0.0, Real_MAX, rhoY);
           });
+#ifdef PLM_USE_EFIELD
+          auto const& ne_arr   = S_new.array(mfi,nE);
+          amrex::ParallelFor(bx, [ne_arr]
+          AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+          {
+             fabMinMax( i, j, k, 1, 0.0, Real_MAX, ne_arr);
+          });
+#endif
        }
     }
     BL_PROFILE_VAR_STOP(PLM_DIFF);
