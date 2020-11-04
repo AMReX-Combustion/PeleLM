@@ -77,14 +77,14 @@ ns.min_rho_divu_ceiling = .01
 ns.fuelName        = N2
 ns.unity_Le = 0
 ns.hack_nochem = 1
-ns.sdc_iterMAX = 2
+ns.sdc_iterMAX = 1
 peleLM.deltaT_norm_max = 1e-10
 
 ns.dpdt_option = 0
 
 ns.do_fillPatchUMAC=1
 ns.zeroBndryVisc=1
-ns.num_divu_iters = 2
+ns.num_divu_iters = 1
 
 # ------------------  INPUTS TO CVODE CHEMISTRY ----------------------
 #peleLM.use_typ_vals_chem = 1
