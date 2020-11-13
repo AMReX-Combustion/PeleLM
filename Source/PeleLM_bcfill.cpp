@@ -139,6 +139,12 @@ struct PeleLMCCFillExtDir
 
     const int* bc = bcr->data();
 
+    //amrex::Print() << " in bcfill orig " << orig_comp 
+    //               << " # numcomp " << numcomp << " bcs: lo.x " << bc[0]
+    //                                                << " hi.x " << bc[0 + AMREX_SPACEDIM] 
+    //                                                << " lo.y " << bc[1]
+    //                                                << " hi.y " << bc[1 + AMREX_SPACEDIM] << "\n";
+
     amrex::Real s_ext[DEF_NUM_STATE] = {0.0};
 
     // xlo and xhi
@@ -159,10 +165,10 @@ struct PeleLMCCFillExtDir
          else if (orig_comp == Density){
              dest(iv, dcomp) = s_ext[Density];
          }
-         else if (orig_comp == DEF_first_spec){
-           for (int n = 0; n < NUM_SPECIES; n++) {
-             dest(iv, dcomp + n) = s_ext[DEF_first_spec+n];
-           }
+         else if (orig_comp >= DEF_first_spec && orig_comp < DEF_first_spec+NUM_SPECIES){
+          // for (int n = 0; n < NUM_SPECIES; n++) {
+             dest(iv, dcomp) = s_ext[orig_comp];
+         //  }
          }
          else if (orig_comp == DEF_RhoH){
             dest(iv, dcomp) = s_ext[DEF_RhoH];
@@ -196,10 +202,10 @@ struct PeleLMCCFillExtDir
          else if (orig_comp == Density){
              dest(iv, dcomp) = s_ext[Density];
          }
-         else if (orig_comp == DEF_first_spec){
-           for (int n = 0; n < NUM_SPECIES; n++) {
-             dest(iv, dcomp + n) = s_ext[DEF_first_spec+n];
-           }
+         else if (orig_comp >= DEF_first_spec && orig_comp < DEF_first_spec+NUM_SPECIES){
+          // for (int n = 0; n < NUM_SPECIES; n++) {
+             dest(iv, dcomp) = s_ext[orig_comp];
+         //  }
          }
          else if (orig_comp == DEF_RhoH){
             dest(iv, dcomp) = s_ext[DEF_RhoH];
@@ -235,10 +241,10 @@ struct PeleLMCCFillExtDir
          else if (orig_comp == Density){
              dest(iv, dcomp) = s_ext[Density];
          }
-         else if (orig_comp == DEF_first_spec){
-           for (int n = 0; n < NUM_SPECIES; n++) {
-             dest(iv, dcomp + n) = s_ext[DEF_first_spec+n];
-           }
+         else if (orig_comp >= DEF_first_spec && orig_comp < DEF_first_spec+NUM_SPECIES){
+          // for (int n = 0; n < NUM_SPECIES; n++) {
+             dest(iv, dcomp) = s_ext[orig_comp];
+         //  }
          }
          else if (orig_comp == DEF_RhoH){
             dest(iv, dcomp) = s_ext[DEF_RhoH];
@@ -272,10 +278,10 @@ struct PeleLMCCFillExtDir
          else if (orig_comp == Density){
              dest(iv, dcomp) = s_ext[Density];
          }
-         else if (orig_comp == DEF_first_spec){
-           for (int n = 0; n < NUM_SPECIES; n++) {
-             dest(iv, dcomp + n) = s_ext[DEF_first_spec+n];
-           }
+         else if (orig_comp >= DEF_first_spec && orig_comp < DEF_first_spec+NUM_SPECIES){
+          // for (int n = 0; n < NUM_SPECIES; n++) {
+             dest(iv, dcomp) = s_ext[orig_comp];
+         //  }
          }
          else if (orig_comp == DEF_RhoH){
             dest(iv, dcomp) = s_ext[DEF_RhoH];
@@ -312,10 +318,10 @@ struct PeleLMCCFillExtDir
          else if (orig_comp == Density){
              dest(iv, dcomp) = s_ext[Density];
          }
-         else if (orig_comp == DEF_first_spec){
-           for (int n = 0; n < NUM_SPECIES; n++) {
-             dest(iv, dcomp + n) = s_ext[DEF_first_spec+n];
-           }
+         else if (orig_comp >= DEF_first_spec && orig_comp < DEF_first_spec+NUM_SPECIES){
+          // for (int n = 0; n < NUM_SPECIES; n++) {
+             dest(iv, dcomp) = s_ext[orig_comp];
+         //  }
          }
          else if (orig_comp == DEF_RhoH){
             dest(iv, dcomp) = s_ext[DEF_RhoH];
@@ -349,10 +355,10 @@ struct PeleLMCCFillExtDir
          else if (orig_comp == Density){
              dest(iv, dcomp) = s_ext[Density];
          }
-         else if (orig_comp == DEF_first_spec){
-           for (int n = 0; n < NUM_SPECIES; n++) {
-             dest(iv, dcomp + n) = s_ext[DEF_first_spec+n];
-           }
+         else if (orig_comp >= DEF_first_spec && orig_comp < DEF_first_spec+NUM_SPECIES){
+          // for (int n = 0; n < NUM_SPECIES; n++) {
+             dest(iv, dcomp) = s_ext[orig_comp];
+         //  }
          }
          else if (orig_comp == DEF_RhoH){
             dest(iv, dcomp) = s_ext[DEF_RhoH];
@@ -389,10 +395,8 @@ void pelelm_cc_ext_fill (Box const& bx, FArrayBox& data,
                  const Vector<BCRec>& bcr, const int bcomp,
                  const int scomp)
 {
-
         GpuBndryFuncFab<PeleLMCCFillExtDir> gpu_bndry_func(PeleLMCCFillExtDir{});
         gpu_bndry_func(bx,data,dcomp,numcomp,geom,time,bcr,bcomp,scomp);
-
 }
 
 
