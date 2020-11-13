@@ -485,18 +485,27 @@ PeleLM::variableSetUp ()
   name.resize(NUM_SPECIES);
 
   set_species_bc(bc,phys_bc);
+#ifdef PLM_USE_EFIELD
+  int charges[NUM_SPECIES];
+  CKCHRG(charges);
+#endif
 
   for (int i = 0; i < NUM_SPECIES; i++)
   {
     bcs[i]  = bc;
     name[i] = "rho.Y(" + spec_names[i] + ")";
+#ifdef PLM_USE_EFIELD
+    if ( charges[i] != 0 ) {
+       bcs[i]  = hack_bc_charged_spec(charges[i],bc);
+    }
+#endif
+    desc_lst.setComponent(State_Type,
+                          first_spec+i,
+                          name[i],
+                          bcs[i],
+                          pelelm_bndryfunc,
+                          &cell_cons_interp);
   }
-  desc_lst.setComponent(State_Type,
-                        first_spec,
-                        name,
-                        bcs,
-                        pelelm_bndryfunc,
-                        &cell_cons_interp);
           
   //
   // ***************  DEFINE RhoRT **************************
