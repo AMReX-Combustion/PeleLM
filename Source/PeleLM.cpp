@@ -3029,7 +3029,7 @@ PeleLM::diffusionFJDriver(ForkJoin&                   fj,
                   const Vector<Real>&         visc_coef,
                   int                         visc_coef_comp,
                   const IntVect&              cratio,
-                  const BCRec&                bc,
+                  const Vector<BCRec>&        bcs,      
                   const Geometry&             in_geom,
                   bool                        add_hoop_stress,
                   const Diffusion::SolveMode& solve_mode,
@@ -3098,7 +3098,7 @@ PeleLM::diffusionFJDriver(ForkJoin&                   fj,
                              prev_time,curr_time,be_cn_theta,*rho_half_mf,rho_flag,
                              &(fluxn[0]),&(fluxnp1[0]),fluxComp,delta_rhs,rhsComp,
                              alpha_in,alpha_in_comp,&(betan[0]),&(betanp1[0]),betaComp,
-                             cratio,bc,in_geom,
+                             cratio,bcs,in_geom,
                              solve_mode,add_old_time_divFlux,is_diffusive);
 }
 
@@ -3130,7 +3130,7 @@ PeleLM::diffuse_scalar_fj  (const Vector<MultiFab*>&  S_old,
                             const MultiFab&           theVolume,
                             const MultiFab* const*    theArea,
                             const IntVect&            cratio,
-                            const BCRec&              bc,
+                            const Vector<BCRec>&      bcs,
                             const Geometry&           theGeom,
                             bool                      add_hoop_stress,
                             const Diffusion::SolveMode& solve_mode,
@@ -3147,7 +3147,7 @@ PeleLM::diffuse_scalar_fj  (const Vector<MultiFab*>&  S_old,
                                   prev_time,curr_time,be_cn_theta,rho_mid,rho_flag,
                                   fluxn,fluxnp1,fluxComp,delta_rhs,rhsComp,
                                   alpha_in,alpha_in_comp,betan,betanp1,betaComp,
-                                  cratio,bc,theGeom,
+                                  cratio,bcs,theGeom,
                                   solve_mode,add_old_time_divFlux,diffuse_this_comp);
   }
   else
@@ -3233,7 +3233,7 @@ PeleLM::diffuse_scalar_fj  (const Vector<MultiFab*>&  S_old,
     fj.reg_mf_vec(GetVecOfPtrs(theArea,0,1),"area",ForkJoin::Strategy::duplicate,ForkJoin::Intent::in);
 
     fj.fork_join(
-      [=,&bc,&theGeom,&visc_coef] (ForkJoin &f)
+      [=,&bcs,&theGeom,&visc_coef] (ForkJoin &f)
       {
         diffusionFJDriver(f,
                           prev_time,
@@ -3243,7 +3243,7 @@ PeleLM::diffuse_scalar_fj  (const Vector<MultiFab*>&  S_old,
                           visc_coef,
                           visc_coef_comp,
                           cratio,
-                          bc,
+                          bcs,
                           theGeom,
                           add_hoop_stress,
                           solve_mode,
@@ -3339,11 +3339,11 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
    }
 
    const int rho_flag = Diffusion::set_rho_flag(diffusionType[first_spec]);
-   const BCRec& bc = theBCs[first_spec];
-   for (int icomp=1; icomp<NUM_SPECIES; ++icomp) {
-     AMREX_ALWAYS_ASSERT(rho_flag == Diffusion::set_rho_flag(diffusionType[first_spec+icomp]));
-     AMREX_ALWAYS_ASSERT(bc == theBCs[first_spec+icomp]);
-   }
+   //const BCRec& bc = theBCs[first_spec];
+   //for (int icomp=1; icomp<NUM_SPECIES; ++icomp) {
+   //  AMREX_ALWAYS_ASSERT(rho_flag == Diffusion::set_rho_flag(diffusionType[first_spec+icomp]));
+   //  AMREX_ALWAYS_ASSERT(bc == theBCs[first_spec+icomp]);
+   //}
 
    const bool add_hoop_stress = false; // Only true if sigma == Xvel && Geometry::IsRZ())
    const Diffusion::SolveMode& solve_mode = Diffusion::ONEPASS;
@@ -3366,7 +3366,7 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
                      SpecDiffusionFluxn,SpecDiffusionFluxnp1,fluxComp,
                      delta_rhs,rhsComp,alpha,alphaComp,
                      betan,betanp1,betaComp,visc_coef,visc_coef_comp,
-                     volume,a,crse_ratio,theBCs[bc_comp],geom,
+                     volume,a,crse_ratio,theBCs,geom,
                      add_hoop_stress,solve_mode,add_old_time_divFlux,diffuse_comp);
 
 // Here we apply to covered cells the saved reference state data 
@@ -3499,6 +3499,9 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
          Snp1[1]->setVal(0.0,Temp,1,1);
       }
 
+      Vector<BCRec> theOneBC;      
+      theOneBC.resize(1);
+      theOneBC[0] = theBCs[Temp];
       int rho_flagT = 0; // Do not do rho-based hacking of the diffusion problem
       const Vector<int> diffuse_this_comp = {1};
       diffusion->diffuse_scalar(Sn, Sn, Snp1, Snp1, Temp, 1, Rho_comp,
@@ -3506,7 +3509,7 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
                                 SpecDiffusionFluxn,SpecDiffusionFluxnp1,NUM_SPECIES+2,
                                 &Trhs,0,&RhoCp,0,
                                 betan,betanp1,NUM_SPECIES,
-                                crse_ratio,theBCs[Temp],geom,
+                                crse_ratio,theOneBC,geom,
                                 solve_mode,add_old_time_divFlux,diffuse_this_comp);
 
 #ifdef AMREX_USE_EB
@@ -4175,18 +4178,19 @@ PeleLM::compute_differential_diffusion_fluxes (const MultiFab& S,
 
    const Vector<BCRec>& theBCs = AmrLevel::desc_lst[State_Type].getBCs();
    const int rho_flag = 2;
-   const BCRec& bc = theBCs[first_spec];
-   for (int icomp=1; icomp<NUM_SPECIES; ++icomp) {
-      AMREX_ALWAYS_ASSERT(bc == theBCs[first_spec+icomp]);
-   }
+//   for (int icomp=1; icomp<NUM_SPECIES; ++icomp) {
+//      AMREX_ALWAYS_ASSERT(bc == theBCs[first_spec+icomp]);
+//   }
 
-   std::array<LinOpBCType,AMREX_SPACEDIM> mlmg_lobc;
-   std::array<LinOpBCType,AMREX_SPACEDIM> mlmg_hibc;
-   Diffusion::setDomainBC(mlmg_lobc, mlmg_hibc, bc); // Same for all comps, by assumption
-   op.setDomainBC(mlmg_lobc, mlmg_hibc);
 
    for (int icomp = 0; icomp < NUM_SPECIES+1; ++icomp)
    {
+
+      const BCRec& bc = theBCs[first_spec+icomp];
+      std::array<LinOpBCType,AMREX_SPACEDIM> mlmg_lobc;
+      std::array<LinOpBCType,AMREX_SPACEDIM> mlmg_hibc;
+      Diffusion::setDomainBC(mlmg_lobc, mlmg_hibc, bc); // Same for all comps, by assumption
+      op.setDomainBC(mlmg_lobc, mlmg_hibc);
       const int sigma = first_spec + icomp;
       {
          if (has_coarse_data) {
@@ -4232,6 +4236,8 @@ PeleLM::compute_differential_diffusion_fluxes (const MultiFab& S,
 
    //
    // Modify update/fluxes to preserve flux sum = 0 (conservatively correct Gamma_m)
+   // TODO : here I only get the first spec to select a BC for all the BC while correcting. Might need all the BCs.
+   const BCRec& bc = theBCs[first_spec];
    adjust_spec_diffusion_fluxes(flux, S, bc, time);
 
    // build heat fluxes based on species fluxes, Gamma_m, and cell-centered states
