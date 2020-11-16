@@ -173,15 +173,17 @@ where :math:`\beta` is Bilger's coupling function, and subscript :math:`ox` and 
 
 Specifying dirichlet ``Inflow`` conditions in `PeleLM` can seem daunting at first. But it is actually a very flexible process. We walk the user through the details of it for the Triple Flame case just described. The files involved are:
 
-- ``probdata.F90``, where the input variables (``*_in`` and ``*_bc``) are defined (they are part of the ``probdata_module`` module)
-- ``Prob_nd.F90``, where these input variables are filled -- only once at the beginning of the program:
+- ``pelelm_prob_parm.H``, assemble in a C++ namespace ``ProbParm`` the input variables as well as other variables used in the initialization process.
+- ``pelelm_prob.cpp``, initialize and provide default values to the entries of ``ProbParm`` and allow the user to pass run-time value using the `AMReX` parser (``ParmParse``). In the present case, the parser will read the parameters in the ``PROBLEM PARAMETERS`` block: ::
 
-  - ``*_in`` are filled based on what is defined under the ``&fortin`` namelist in the ``probin.2d.test``
-  - ``*_bc`` are filled in the routine ``setupbc()``. They are usually a function of the ``*_in`` variables. In our case, a simple copy for the velocity and temperature.
+    prob.P_mean = 101325.0
+    prob.T_in = 300.0
+    prob.V_in = 0.85
+    prob.Zst = 0.055
   
-- ``user_defined_fcts_nd.F90``, where the ``*_bc`` variables are used in the routine ``bcfunction()`` which is called every time step to prescribe the dirichlet inflow conditions.
+- finally, ``pelelm_prob.H`` contains the ``pelelm_initdata`` and ``bcnormal`` functions responsible for generating the initial and boundary conditions, resspectively.
 
-Note that in our specific case, we compute the input value of the mass fractions (Y) *directly* in ``bcfunction()``, using the ``probdata_module`` variable ``H2_enrich``. We do not need any additional information, because we hard coded the hyperbolic tangent profile of :math:`z` (see previous formula) and there is a direct relation with the mass fraction profiles. The interested reader can look at the function ``set_Y_from_Ksi`` and ``set_Y_from_Phi`` in ``user_defined_fcts_nd.F90``.
+Note that in our specific case, we compute the input value of the mass fractions (Y) *directly* in ``bcnormal``, using the ``ProbParm`` variables. We do not need any additional information, because we hard coded the hyperbolic tangent profile of :math:`z` (see previous formula) and there is a direct relation with the mass fraction profiles. The interested reader can look at the function ``set_Y_from_Ksi`` and ``set_Y_from_Phi`` in ``pelelm_prob.H``.
 
 
 Initial solution
@@ -225,6 +227,7 @@ Next comes the build configuration block: ::
    DEBUG           = FALSE
    USE_MPI         = TRUE
    USE_OMP         = FALSE
+   USE_CUDA        = FALSE
    PRECISION       = DOUBLE
    VERBOSE         = FALSE
    TINY_PROFILE    = FALSE
@@ -239,9 +242,13 @@ Here, the methane kinetic model ``drm19``, containing 21 species is employed. Th
 
     Eos_dir       := Fuego
     Reactions_dir := Fuego
-    Transport_dir := EGLib
+    Transport_dir := Simple
 
-Note finally that in this case, the default chemical kinetic ODE integrator employed in `PeleLM` is selected (DVODE). To switch to a more efficient ODE integrator, the user can (not mandatory) activate the use of `CVODE <https://computing.llnl.gov/projects/sundials/cvode>`_ by switiching the ``USE_SUNDIALS_PP`` flag to ``TRUE``. The user will be required to follow the instructions provided in the `PelePhysics documentation <https://pelephysics.readthedocs.io/en/latest/GettingStarted.html#sec-getcvode>`_ in order to install CVODE and necessary librairies.
+Finally, `PeleLM` utilizes the chemical kinetic ODE integrator `CVODE <https://computing.llnl.gov/projects/sundials/cvode>`_. This Third Party Librabry (TPL) is not shipped with the `PeleLM` distribution but can be readily installed through the makefile system of `PeleLM`. To do so, type in the following command: ::
+
+    make TPL
+
+Note that the installation of `CVODE` requires CMake 3.12.1 or higher.
 
 You are now ready to build your first `PeleLM` executable !! Type in: ::
 
@@ -293,7 +300,7 @@ You finally have all the information necessary to run the first of several steps
 
     ./PeleLM2d.gnu.MPI.ex inputs.2d-regt
 
-A lot of information is printed directly on the screen during a `PeleLM` simulation, but it will not be detailed in the present tutorial. If you which to store these information for later analysis, you can instead use: ::
+A lot of information is printed directly on the screen during a `PeleLM` simulation, but it will not be detailed in the present tutorial. If you wish to store these information for later analysis, you can instead use: ::
 
     ./PeleLM2d.gnu.MPI.ex inputs.2d-regt > logCheckInitialSolution.dat &
     
@@ -352,28 +359,25 @@ flame blow-off or flashback. In the present configuration, the position of the f
 at each time step (using an isoline of temperature) and the input velocity is adjusted to maintain 
 its location at a fixed distance from the inlet (1 cm in the present case). 
 
-This option is activated in the ``inputs.2d-regt`` file: ::
+The parameters of the active control are listed in ``INPUTS TO ACTIVE CONTROL``block of ``inputs.2d-regt``: ::
 
-    #---------------------PHYSICS CONTROL------------------------
-    ns.do_active_control_temp = 1               # Use control by temperature
-    ns.temp_control           = 1400.0          # Temperature threshold for control 
+    # --------------  INPUTS TO ACTIVE CONTROL  -----------------
+    active_control.on = 1                  # Use AC ?
+    active_control.use_temp = 1            # Default in fuel mass, rather use iso-T position ?
+    active_control.temperature = 1400.0    # Value of iso-T ?
+    active_control.tau = 5.0e-5            # Control tau (should ~ 10 dt)
+    active_control.height = 0.01           # Where is the flame held ? Default assumes coordinate along Y in 2D or Z in 3D.
+    active_control.v = 1                   # verbose
+    active_control.velMax = 2.0            # Optional: limit inlet velocity
+    active_control.changeMax = 0.2         # Optional: limit inlet velocity changes (absolute)
+    active_control.flameDir  = 1           # Optional: flame main direction. Default: AMREX_SPACEDIM-1
+    active_control.pseudo_gravity = 1      # Optional: add density proportional force to compensate for the acceleration 
+                                           #           of the gas due to inlet velocity changes
 
-The first keyword activates the active control (based on the temperature field), and the value of the isoline of temperature
-is chosen via the second one. The parameters controling the relaxation of the inlet velocity to
-the steady state velocity of the triple flame are specified in the ``&control`` namelist 
-in the ``probin.2d.test`` file. This block reads: ::
-
-    &control
-    tau_control = 1.0e-4
-    h_control = 0.0098
-    changeMax_control = .05 
-    controlVelMax = 2.0 
-    pseudo_gravity = 1 
-    /
-    
-``tau_control`` is a relaxation time scale, that should be of the order of the simulation time-step. 
-``h_control`` is the user-defined location where the triple flame should settle, ``changeMax_control`` and ``controlVelMax`` control the maximum velocity increment and maximum inlet velocity, respectively. The user is referred to [CAMCS2006]_ for an overview of the method and corresponding parameters.
-The ``pseudo_gravity`` tirggers a manufactured force added to the momemtum equation to compensate for the acceleration of different density gases.
+The first keyword activates the active control and the second one specify that the flame will be tracked based on an iso-line of temperature, the value of which is provided in the third keyword. The following parameters controls the relaxation of the inlet velocity to
+the steady state velocity of the triple flame. ``tau`` is a relaxation time scale, that should be of the order of ten times the simulation time-step. 
+``height`` is the user-defined location where the triple flame should settle, ``changeMax`` and ``velMax`` control the maximum velocity increment and maximum inlet velocity, respectively. The user is referred to [CAMCS2006]_ for an overview of the method and corresponding parameters.
+The ``pseudo_gravity`` triggers a manufactured force added to the momemtum equation to compensate for the acceleration of different density gases.
 
 Once these paremeters are set, you continue the previous simulation by uncommenting the first two lines of the ``IO CONTROL`` block in the input file: ::
 
@@ -419,7 +423,7 @@ Refinement of the computation
 Before going further, it is important to look at the results of the current simulation. The left panel of Fig. :numref:`fig:CoarseField` 
 displays the temperature field, while a zoom-in of the flame edge region colored by several important variables 
 is provided on the right side. 
-Note that `DivU` the `HeatRelease` and the `CH4_consumption` are good markers of the reaction/diffusion processes in our case.
+Note that `DivU`, the `HeatRelease` and the `CH4_consumption` are good markers of the reaction/diffusion processes in our case.
 What is striking from these images is the lack of resolution of the triple flame, particularly in the reaction zone. 
 We also clearly see square unsmooth shapes in the field of intermediate species, where `Y(HCO)` is found to closely match the region of high `CH4_consumption` while `Y(CH3O)` is located closer to the cold gases, on the outer layer of the triple flame.
 
@@ -435,7 +439,7 @@ We also clearly see square unsmooth shapes in the field of intermediate species,
      | |f| |
      +-----+
 
-Our first level of refinement must specifically target the reactive layer of the flame. As seen from Fig. :numref:`fig:CoarseField`, one can choose from several variables to reach that goal. In the following, we will use the HCO species as a tracer of the flame position. Start be increasing the number of AMR level by one in the `AMR CONTROL` block: ::
+Our first level of refinement must specifically target the reactive layer of the flame. As seen from Fig. :numref:`fig:CoarseField`, one can choose from several variables to reach that goal. In the following, we will use the HCO species as a tracer of the flame position. Start by increasing the number of AMR levels by one in the `AMR CONTROL` block: ::
 
     amr.max_level       = 2          # maximum level number allowed
 
@@ -456,7 +460,7 @@ Then provide a definition of the new refinement critera in the `REFINEMENT CONTR
     amr.flame_tracer.value_greater = 3.0e-6
     amr.flame_tracer.field_name    = Y(HCO)
 
-The first line simply declare a set of refinement indicators which subsequently defined. For each indicator, the user can provide a limit up to which AMR level this indicator will be used to refine. Then there are multiple possibility to specify the actual criterion: ``value_greater``, ``value_less``, ``vorticity_greater`` or ``adjacent_difference_greater``. In each case, the user specify a threshold value and the name of variable on which it applies (except for the ``vorticity_greater``). In the example above, the grid is refined up to level 1 at the location wheres the temperature is above 800 K or where the temperature difference between adjacent cells exceed 300 K. These two criteria were used up to that point. The last indicator will now enable to add level 2 grid patches at location where the flame tracer (`Y(HCO)`) is above 3.0e-6.
+The first line simply declares a set of refinement indicators which are subsequently defined. For each indicator, the user can provide a limit up to which AMR level this indicator will be used to refine. Then there are multiple possibilities to specify the actual criterion: ``value_greater``, ``value_less``, ``vorticity_greater`` or ``adjacent_difference_greater``. In each case, the user specify a threshold value and the name of variable on which it applies (except for the ``vorticity_greater``). In the example above, the grid is refined up to level 1 at the location wheres the temperature is above 800 K or where the temperature difference between adjacent cells exceed 300 K. These two criteria were used up to that point. The last indicator will now enable to add level 2 grid patches at location where the flame tracer (`Y(HCO)`) is above 3.0e-6.
 
 With these new parameters, update the `checkpoint` file from which to restart: ::
 
@@ -465,8 +469,6 @@ With these new parameters, update the `checkpoint` file from which to restart: :
 and increase the ``max_step`` to 2600 and start the simulation again ! ::
 
     mpirun -n 4 ./PeleLM2d.gnu.MPI.ex inputs.2d-regt > log3Levels.dat &
-
-
 
 Analysis
 -----------------------
