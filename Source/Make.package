@@ -3,3 +3,7 @@ CEXE_headers += PeleLM.H  ArrayViewEXT.H BoxLib_Data_Dump.H PeleLM_K.H PeleLM_de
 
 CEXE_headers += pelelm_prob.H pelelm_prob_parm.H PeleLM_parm.H
 CEXE_sources += pelelm_prob.cpp
+
+ifeq ($(USE_PARTICLES), TRUE)
+  CEXE_sources += Particle.cpp
+endif

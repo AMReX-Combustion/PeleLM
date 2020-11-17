@@ -91,6 +91,16 @@ endif
 #
 SKIP_NS_SPECIFIC_CODE = TRUE
 
+ifeq ($(USE_PARTICLES), TRUE)
+  DEFINES += -DSPRAY_PELE_LM
+  DEFINES += -DSPRAY_FUEL_NUM=$(SPRAY_FUEL_NUM)
+  ifeq ($(USE_SPRAY_SOA), TRUE)
+    DEFINES += -DUSE_SPRAY_SOA
+  endif
+  Bpack += $(PELEC_MP_HOME)/Source/PP_Spray/Make.package
+  Blocs += $(PELEC_MP_HOME)/Source/PP_Spray
+endif
+
 # IAMR
 Bdirs += $(IAMR_HOME)/Source
 Bdirs += $(IAMR_HOME)/Source/Src_$(DIM)d
@@ -107,14 +117,15 @@ Pdirs   += $(AMREX_HOME)/Src/Base
 Pdirs   += $(AMREX_HOME)/Src/AmrCore
 Pdirs   += $(AMREX_HOME)/Src/Amr
 Pdirs   += $(AMREX_HOME)/Src/Boundary
-ifeq ($(USE_PARTICLES), TRUE)
-  Pdirs += $(AMREX_HOME)/Src/Particle
-endif
 Pdirs   += $(AMREX_HOME)/Src/LinearSolvers/MLMG
 Pdirs   += $(AMREX_HOME)/Src/LinearSolvers/Projections
 
 ifeq ($(USE_EB), TRUE)
   Pdirs   += $(AMREX_HOME)/Src/EB
+endif
+
+ifeq ($(USE_PARTICLES), TRUE)
+  Pdirs += $(AMREX_HOME)/Src/Particle
 endif
 
 Bpack	+= $(foreach dir, $(Pdirs), $(dir)/Make.package)

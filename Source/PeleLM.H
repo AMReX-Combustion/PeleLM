@@ -13,6 +13,11 @@
 #include <map>
 #include <utility>
 
+#ifdef AMREX_PARTICLES
+#include <AMReX_Particles.H>
+#include "SprayParticles.H"
+#endif
+
 //
 // Note: define TEMPERATURE if you want a variable T in the 
 //       State_Type part of the state
@@ -166,6 +171,120 @@ public:
   virtual void init (amrex::AmrLevel& old) override;
 
   virtual void initData () override;
+#ifdef AMREX_PARTICLES
+  //
+  // Read particle-related inputs
+  //
+  static void readParticleParams();
+  //
+  // Define particle related variables
+  //
+  static void defineParticles();
+  //
+  // Initialize particle locations and velocities (and strengths if relevant)
+  //
+  void initParticles();
+  //
+  // Timestamp particles
+  //
+  void particleTimestamp(int ngrow);
+  //
+  // Default verbosity of Particle class
+  //
+  static int particle_verbose;
+  //
+  // How to initialize at restart
+  //
+  void particlePostRestart(const std::string& restart_file, bool is_checkpoint = true);
+
+  //
+  // Redistribute
+  //
+  virtual void particle_redistribute(int lbase = 0, bool init_part = false) override;
+
+  //
+  // Setup ghost and virtual particles and do moveKickDrift
+  //
+  void particleMKD(const bool        use_virt_parts,
+                   const bool        use_ghost_parts,
+                   const amrex::Real time,
+                   const amrex::Real dt,
+                   const int         ghost_width,
+                   const int         spray_n_grow,
+                   const int         tmp_src_width,
+                   const int         where_width,
+                   amrex::MultiFab&  tmp_spray_source);
+
+  //
+  // Do the moveKick for active and ghost particles
+  //
+  void particleMK(const amrex::Real time,
+                  const amrex::Real dt,
+                  const int         spray_n_grow,
+                  const int         tmp_src_width,
+                  const int         amr_iteration,
+                  const int         amr_ncycle,
+                  amrex::MultiFab&  tmp_spray_source);
+
+  //
+  // Setup virtual particles if necessary
+  //
+  void setupVirtualParticles();
+  //
+  // Remove virtual particles if necessary
+  //
+  void removeVirtualParticles();
+  //
+  // Setup ghost particles (for finer levels) if necessary
+  //
+  void setupGhostParticles(int ngrow);
+  //
+  // Remove ghost particles (for this level) if necessary
+  //
+  void removeGhostParticles();
+  //
+  // Estimate timestep for particles
+  //
+  void particleEstTimeStep(amrex::Real& est_dt);
+
+  //
+  // Default cfl of particles in Particle class
+  //
+  static amrex::Real particle_cfl;
+  //
+  // Should we write particles into plotfiles?
+  //
+  static int write_particle_plotfiles;
+  //
+  // Should we write particle ascii files?
+  //
+  static int write_spray_ascii_files;
+
+  void setSprayGridInfo(const int amr_iteration,
+                        const int amr_ncycle,
+                        int&      ghost_width,
+                        int&      where_width,
+                        int&      spray_n_grow,
+                        int&      tmp_src_width);
+
+  /// A state array with ghost zones
+  amrex::MultiFab Sborder;
+
+  static int particle_mass_tran;
+  static int particle_heat_tran;
+  static int particle_mom_tran;
+  static amrex::Vector<std::string> sprayFuelNames;
+  static amrex::Real sprayRefT;
+
+  /// Index locations into particle state
+  static int pstateVel;
+  static int pstateT;
+  static int pstateDia;
+  static int pstateRho;
+  static int pstateY;
+  static int pstateNum;
+
+#endif
   //
   // Contains operations to be done only after a full coarse timestep.
   //
@@ -209,6 +328,9 @@ public:
   static void variableSetUp ();
 
   static void rhoydotSetUp ();
+#ifdef AMREX_PARTICLES
+  static void spraydotSetUp ();
+#endif
   //
   // Cleanup data descriptors at end of run.
   //
@@ -288,7 +410,8 @@ protected:
                          const amrex::Real       time,
                          const amrex::FArrayBox& Vel,
                          const amrex::FArrayBox& Scal,
-                         int                     scalScomp) override;
+                         int                     scalScomp,
+                         const amrex::MFIter&    mfi) override;
 
 
   virtual void mac_sync () override;
@@ -328,9 +451,11 @@ protected:
   static void Finalize ();
     
 #ifdef AMREX_PARTICLES
-  virtual int timestamp_num_extras () override;
-  virtual void timestamp_add_extras (int lev, amrex::Real time, amrex::MultiFab& mf) override;
-  static void read_particle_params ();
+  static int       do_spray_particles;
+  static SprayParticleContainer* theSprayPC ();
+  static SprayParticleContainer* theVirtPC ();
+  static SprayParticleContainer* theGhostPC ();
+  amrex::MultiFab old_sources;
 #endif
 
 #if !defined(AMREX_USE_CUDA)
@@ -656,6 +781,9 @@ private:
   static int         unity_Le;
   static int         FuncCount_Type;
   static int         RhoYdot_Type;
+#ifdef AMREX_PARTICLES
+  static int         spraydot_Type;
+#endif
   static int         divu_ceiling;
   static amrex::Real min_rho_divu_ceiling;
   static amrex::Real divu_dt_factor;
