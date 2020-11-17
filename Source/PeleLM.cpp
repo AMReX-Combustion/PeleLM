@@ -8807,6 +8807,7 @@ PeleLM::writePlotFile (const std::string& dir,
     const char* githash1 = buildInfoGetGitHash(1);
     const char* githash2 = buildInfoGetGitHash(2);
     const char* githash3 = buildInfoGetGitHash(3);
+    const char* githash4 = buildInfoGetGitHash(4);
     if (strlen(githash1) > 0) {
       jobInfoFile << "PeleLM git hash: " << githash1 << "\n";
     }
@@ -8815,6 +8816,9 @@ PeleLM::writePlotFile (const std::string& dir,
     }
     if (strlen(githash3) > 0) {
       jobInfoFile << "IAMR   git hash: " << githash3 << "\n";
+    }
+    if (strlen(githash4) > 0) {
+      jobInfoFile << "PelePhysics git hash: " << githash4 << "\n";
     }
 
     jobInfoFile << "\n\n";
