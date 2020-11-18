@@ -19,5 +19,5 @@ jobs:
     - name: Build
       run: |
         cd Exec/RegTests/FlameSheet/
-        make TPL COMP=gnu USE_MPI=FALSE TOP=$PWD/build
-        make -j 2 COMP=gnu USE_MPI=FALSE TOP=$PWD/build
+        make TPL COMP=gnu USE_MPI=FALSE AMREX_HOME=$PWD/build/amrex IAMR_HOME=$PWD/build/IAMR PELE_PHYSICS_HOME=$PWD/build/PelePhysics PELELM_HOME=$PWD
+        make -j 2 COMP=gnu USE_MPI=FALSE AMREX_HOME=$PWD/build/amrex IAMR_HOME=$PWD/build/IAMR PELE_PHYSICS_HOME=$PWD/build/PelePhysics PELELM_HOME=$PWD
