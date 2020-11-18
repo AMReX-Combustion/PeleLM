@@ -461,6 +461,10 @@ private:
 
   void initActiveControl();
 
+  static void parseComposition(amrex::Vector<std::string> compositionIn,
+                               std::string                compositionType,
+                               amrex::Real               *massFrac);
+
   void state_stats (amrex::MultiFab& S);
 
   void zeroBoundaryVisc (amrex::MultiFab*  beta[AMREX_SPACEDIM],

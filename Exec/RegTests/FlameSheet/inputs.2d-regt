@@ -105,6 +105,11 @@ ns.do_fillPatchUMAC=1
 ns.zeroBndryVisc=1
 ns.num_divu_iters =3
 
+peleLM.mixtureFraction.format = Cantera
+peleLM.mixtureFraction.type = mole
+peleLM.mixtureFraction.oxidTank = O2:0.21 N2:0.79
+peleLM.mixtureFraction.fuelTank = CH4:0.0414 H2:0.0412
+
 # ------------------  INPUTS TO CVODE CHEMISTRY ----------------------
 #peleLM.use_typ_vals_chem = 1
 #peleLM.relative_tol_chem = 1.0e-8
