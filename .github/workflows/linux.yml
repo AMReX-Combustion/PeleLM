@@ -11,17 +11,18 @@ jobs:
   FS2D:
     name: FS2D GNU NOMPI
     runs-on: ubuntu-latest
-    env: {CXXFLAGS: "-Werror -Wshadow -Woverloaded-virtual -Wunreachable-code"}
+    env: 
+      {CXXFLAGS: "-Werror -Wshadow -Woverloaded-virtual -Wunreachable-code"}
     steps:
     - uses: actions/checkout@v2
     - name: Clone Dependencies
       run: Tools/CloneDeps.sh
     - name: Build
       env:
-         AMREX_HOME: ${PWD}/build/amrex
-         IAMR_HOME: ${PWD}/build/IAMR
-         PELE_PHYSICS_HOME: ${PWD}/build/PelePhysics
-         PELELM_HOME: ${PWD}
+         AMREX_HOME: ${GITHUB_WORKSPACE}/build/amrex
+         IAMR_HOME: ${GITHUB_WORKSPACE}/build/IAMR
+         PELE_PHYSICS_HOME: ${GITHUB_WORKSPACE}/build/PelePhysics
+         PELELM_HOME: ${GITHUB_WORKSPACE}
       run: |
         cd Exec/RegTests/FlameSheet/
         make TPL COMP=gnu USE_MPI=FALSE
