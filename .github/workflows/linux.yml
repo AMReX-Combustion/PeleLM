@@ -16,7 +16,7 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - name: System Dependencies
-      run: .github/workflow/dependencies/dependencies.sh
+      run: .github/workflows/dependencies/dependencies.sh
     - name: Clone Dependencies
       run: Tools/CloneDeps.sh
     - name: Build
@@ -39,7 +39,7 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - name: System Dependencies
-      run: .github/workflow/dependencies/dependencies.sh
+      run: .github/workflows/dependencies/dependencies.sh
     - name: Clone Dependencies
       run: Tools/CloneDeps.sh
     - name: Build
