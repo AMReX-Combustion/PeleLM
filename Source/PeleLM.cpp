@@ -5246,14 +5246,6 @@ PeleLM::advance (Real time,
     
     // update rho since not affected by diffusion
     scalar_advection_update(dt, Density, Density);
-// #ifdef AMREX_PARTICLES
-//     {
-//       showMF("mysdc",get_new_data(State_Type),"snew_before_spray_rho_src",level,sdc_iter,parent->levelSteps(level));
-//       MultiFab& S_new = get_new_data(State_Type);
-//       MultiFab& spraydot = get_new_data(spraydot_Type);
-//       MultiFab::Saxpy(S_new, dt, spraydot, Density, Density, 1, 0);
-//     }
-// #endif
     make_rho_curr_time();
 
     BL_PROFILE_VAR_STOP(PLM_ADV);
@@ -5540,14 +5532,8 @@ PeleLM::advance (Real time,
       velocity_advection(dt);
    }
 
-// #ifdef AMREX_PARTICLES
-//   MultiFab& spraydot = get_old_data(spraydot_Type);
-// #endif
-  velocity_update(dt
-// #ifdef AMREX_PARTICLES
-//                   , spraydot
-// #endif
-                  );
+   velocity_update(dt);
+
    BL_PROFILE_VAR_STOP(PLM_VEL);
    //====================================
 

@@ -990,7 +990,8 @@ PeleLM::spraydotSetUp()
   spraydot_Type = desc_lst.size();
   const int ngrow = 1;
 
-  const int nspraydot = NUM_SPECIES+AMREX_SPACEDIM+3; //species + density + momentum + temp + enth
+ // species + density + momentum + enth + temp + rhoRT
+  const int nspraydot = NUM_SPECIES+AMREX_SPACEDIM+4;
 
   desc_lst.addDescriptor(spraydot_Type,IndexType::TheCellType(),
                          StateDescriptor::Point,ngrow,nspraydot,
@@ -1035,7 +1036,11 @@ PeleLM::spraydotSetUp()
   name = "I_R_spray_temp";
   desc_lst.setComponent(spraydot_Type, curComp, name.c_str(), bc,
                         pelelm_bndryfunc, &lincc_interp, curComp, curComp);
+  curComp++;
 
+  name = "I_R_spray_rhoRT";
+  desc_lst.setComponent(spraydot_Type, curComp, name.c_str(), bc,
+                        pelelm_bndryfunc, &lincc_interp, curComp, curComp);
 }
 #endif
 
