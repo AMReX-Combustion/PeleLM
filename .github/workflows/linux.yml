@@ -1,10 +1,11 @@
 name: CI_linux                                                                                                                                            
 
-on: workflow_dispatch
-#  push:
-#    branches: [ feature_CI ]
-#  pull_request:
-#    branches: [ feature_CI ]
+on: 
+   workflow_dispatch:
+   push:
+     branches: [ development ]
+   pull_request:
+     branches: [ development ]
 
 jobs:
    #Build the 2D FlameSheet RegTest with GNU7.5 and no MPI support
