@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-echo "Getting PeleLM dependencies ... "
+echo "Getting PeleLM dependencies - tests ... "
 export PELELM_HOME=${PWD}/..
 mkdir build
 git clone https://github.com/AMReX-Codes/amrex.git build/amrex
