@@ -19,5 +19,5 @@ jobs:
     - name: Build
       run: |
         cd Exec/RegTests/FlameSheet/
-        make TPL COMP=gnu USE_MPI=FALSE TOP=$PATH/build
-        make -j 2 COMP=gnu USE_MPI=FALSE TOP=$PATH/build
+        make TPL COMP=gnu USE_MPI=FALSE TOP=$PWD/build
+        make -j 2 COMP=gnu USE_MPI=FALSE TOP=$PWD/build
