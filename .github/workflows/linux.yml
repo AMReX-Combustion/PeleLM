@@ -7,70 +7,94 @@ on: workflow_dispatch
 #    branches: [ feature_CI ]
 
 jobs:
-  # Build the 2D FlameSheet RegTest with GNU7.5 and no MPI support
-  #  FS2D_NoMPI:
-  #    name: GNU@7.5 NOMPI [FS2D]
-  #    runs-on: ubuntu-latest
-  #    env: 
-  #      {CXXFLAGS: "-Werror -Wshadow -Woverloaded-virtual -Wunreachable-code"}
-  #    steps:
-  #    - uses: actions/checkout@v2
-  #    - name: System Dependencies
-  #      run: .github/workflows/dependencies/dependencies.sh
-  #    - name: Repo Dependencies
-  #      run: Tools/CloneDeps.sh
-  #    - name: Build
-  #      env:
-  #         AMREX_HOME: ${GITHUB_WORKSPACE}/build/amrex
-  #         IAMR_HOME: ${GITHUB_WORKSPACE}/build/IAMR
-  #         PELE_PHYSICS_HOME: ${GITHUB_WORKSPACE}/build/PelePhysics
-  #         PELELM_HOME: ${GITHUB_WORKSPACE}
-  #      run: |
-  #        cd Exec/RegTests/FlameSheet/
-  #        make TPL COMP=gnu USE_MPI=FALSE
-  #        make -j 2 COMP=gnu USE_MPI=FALSE
-  #
-  #  # Build the 2D FlameSheet RegTest with GNU7.5 and MPI support
-  #  FS2D_MPI:
-  #    name: GNU@7.5 MPI [FS2D]
-  #    runs-on: ubuntu-latest
-  #    env: 
-  #      {CXXFLAGS: "-Werror -Wshadow -Woverloaded-virtual -Wunreachable-code"}
-  #    steps:
-  #    - uses: actions/checkout@v2
-  #    - name: System Dependencies
-  #      run: .github/workflows/dependencies/dependencies.sh
-  #    - name: Repo Dependencies
-  #      run: Tools/CloneDeps.sh
-  #    - name: Build
-  #      env:
-  #         AMREX_HOME: ${GITHUB_WORKSPACE}/build/amrex
-  #         IAMR_HOME: ${GITHUB_WORKSPACE}/build/IAMR
-  #         PELE_PHYSICS_HOME: ${GITHUB_WORKSPACE}/build/PelePhysics
-  #         PELELM_HOME: ${GITHUB_WORKSPACE}
-  #      run: |
-  #        cd Exec/RegTests/FlameSheet/
-  #        make TPL COMP=gnu
-  #        make -j 2 COMP=gnu
+   Build the 2D FlameSheet RegTest with GNU7.5 and no MPI support
+    FS2D_NoMPI:
+      name: GNU@7.5 NOMPI [FS2D]
+      runs-on: ubuntu-latest
+      env: 
+        {CXXFLAGS: "-Werror -Wshadow -Woverloaded-virtual -Wunreachable-code"}
+      steps:
+      - uses: actions/checkout@v2
+      - name: System Dependencies
+        run: .github/workflows/dependencies/dependencies.sh
+      - name: Repo Dependencies
+        run: Tools/CloneDeps.sh
+      - name: Build
+        env:
+           AMREX_HOME: ${GITHUB_WORKSPACE}/build/amrex
+           IAMR_HOME: ${GITHUB_WORKSPACE}/build/IAMR
+           PELE_PHYSICS_HOME: ${GITHUB_WORKSPACE}/build/PelePhysics
+           PELELM_HOME: ${GITHUB_WORKSPACE}
+        run: |
+          cd Exec/RegTests/FlameSheet/
+          make TPL COMP=gnu USE_MPI=FALSE
+          make -j 2 COMP=gnu USE_MPI=FALSE
+  
+    # Build the 2D FlameSheet RegTest with GNU7.5 and MPI support
+    FS2D_MPI:
+      name: GNU@7.5 MPI [FS2D]
+      runs-on: ubuntu-latest
+      env: 
+        {CXXFLAGS: "-Werror -Wshadow -Woverloaded-virtual -Wunreachable-code"}
+      steps:
+      - uses: actions/checkout@v2
+      - name: System Dependencies
+        run: .github/workflows/dependencies/dependencies.sh
+      - name: Repo Dependencies
+        run: Tools/CloneDeps.sh
+      - name: Build
+        env:
+           AMREX_HOME: ${GITHUB_WORKSPACE}/build/amrex
+           IAMR_HOME: ${GITHUB_WORKSPACE}/build/IAMR
+           PELE_PHYSICS_HOME: ${GITHUB_WORKSPACE}/build/PelePhysics
+           PELELM_HOME: ${GITHUB_WORKSPACE}
+        run: |
+          cd Exec/RegTests/FlameSheet/
+          make TPL COMP=gnu
+          make -j 2 COMP=gnu
+
+    # Build the 3D FlameSheet RegTest with GNU7.5 and MPI support
+    FS3D_MPI:
+      name: GNU@7.5 MPI [FS3D]
+      runs-on: ubuntu-latest
+      env: 
+        {CXXFLAGS: "-Werror -Wshadow -Woverloaded-virtual -Wunreachable-code"}
+      steps:
+      - uses: actions/checkout@v2
+      - name: System Dependencies
+        run: .github/workflows/dependencies/dependencies.sh
+      - name: Repo Dependencies
+        run: Tools/CloneDeps.sh
+      - name: Build
+        env:
+           AMREX_HOME: ${GITHUB_WORKSPACE}/build/amrex
+           IAMR_HOME: ${GITHUB_WORKSPACE}/build/IAMR
+           PELE_PHYSICS_HOME: ${GITHUB_WORKSPACE}/build/PelePhysics
+           PELELM_HOME: ${GITHUB_WORKSPACE}
+        run: |
+          cd Exec/RegTests/FlameSheet/
+          make TPL COMP=gnu DIM=3
+          make -j 2 COMP=gnu DIM=3
 
   # Build the 2D FlameSheet RegTest with CUDA and MPI support
-  FS2D_CUDA:
-    name: CUDA@9.1.85 GNU@4.8.5 CUDA [FS2D]
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v2
-    - name: System Dependencies
-      run: .github/workflows/dependencies/dependencies_nvcc.sh
-    - name: Repo Dependencies
-      run: Tools/CloneDeps.sh
-    - name: Build
-      env:
-         AMREX_HOME: ${GITHUB_WORKSPACE}/build/amrex
-         IAMR_HOME: ${GITHUB_WORKSPACE}/build/IAMR
-         PELE_PHYSICS_HOME: ${GITHUB_WORKSPACE}/build/PelePhysics
-         PELELM_HOME: ${GITHUB_WORKSPACE}
-      run: |
-        cd Exec/RegTests/FlameSheet/
-        make help CC=$(which gcc-4.8) CXX=$(which g++-4.8) FC=$(which g++-4.8) F90=$(which g++-4.8) NVCC_HOST_COMP=$(which g++-4.8) USE_CUDA=TRUE
-        make TPL CC=$(which gcc-4.8) CXX=$(which g++-4.8) FC=$(which g++-4.8) F90=$(which g++-4.8) NVCC_HOST_COMP=$(which g++-4.8) USE_CUDA=TRUE
-        make -j 2 CC=$(which gcc-4.8) CXX=$(which g++-4.8) FC=$(which g++-4.8) F90=$(which g++-4.8) NVCC_HOST_COMP=$(which g++-4.8) USE_CUDA=TRUE
+  # TODO: Sundials compile fail with CUDA 9.1.
+  #FS2D_CUDA:
+  #  name: CUDA@9.1.85 GNU@4.8.5 CUDA [FS2D]
+  #  runs-on: ubuntu-latest
+  #  steps:
+  #  - uses: actions/checkout@v2
+  #  - name: System Dependencies
+  #    run: .github/workflows/dependencies/dependencies_nvcc.sh
+  #  - name: Repo Dependencies
+  #    run: Tools/CloneDeps.sh
+  #  - name: Build
+  #    env:
+  #       AMREX_HOME: ${GITHUB_WORKSPACE}/build/amrex
+  #       IAMR_HOME: ${GITHUB_WORKSPACE}/build/IAMR
+  #       PELE_PHYSICS_HOME: ${GITHUB_WORKSPACE}/build/PelePhysics
+  #       PELELM_HOME: ${GITHUB_WORKSPACE}
+  #    run: |
+  #      cd Exec/RegTests/FlameSheet/
+  #      make help CC=$(which gcc-4.8) CXX=$(which g++-4.8) FC=$(which g++-4.8) F90=$(which g++-4.8) NVCC_HOST_COMP=$(which g++-4.8) USE_CUDA=TRUE CUDA_ARCH=60
+  #      make TPL CC=$(which gcc-4.8) CXX=$(which g++-4.8) FC=$(which g++-4.8) F90=$(which g++-4.8) NVCC_HOST_COMP=$(which g++-4.8) USE_CUDA=TRUE CUDA_ARCH=60
+  #      make -j 2 CC=$(which gcc-4.8) CXX=$(which g++-4.8) FC=$(which g++-4.8) F90=$(which g++-4.8) NVCC_HOST_COMP=$(which g++-4.8) USE_CUDA=TRUE CUDA_ARCH=60
