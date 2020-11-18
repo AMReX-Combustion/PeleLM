@@ -1,0 +1,23 @@
+name: CI_linux                                                                                                                                            
+
+on:
+  push:
+    branches: [ feature_CI ]
+  pull_request:
+    branches: [ feature_CI ]
+
+jobs:
+  # Build the 2D FlameSheet RegTest with GNU and no MPI support
+  FS2D:
+    name: [FS2D] GNU - No MPI
+    runs-on: ubuntu-latest
+    env: {CXXFLAGS: "-Werror -Wshadow -Woverloaded-virtual -Wunreachable-code"}
+    steps:
+    - uses: actions/checkout@v2
+    - name: Clone Dependencies
+      run: Tools/CloneDeps.sh
+    - name: Build
+      run: |
+        cd Exec/RegTests/FlameSheet/
+        make TPL
+        make -j 2 COMP=gnu USE_MPI=FALSE
