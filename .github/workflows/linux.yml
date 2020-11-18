@@ -7,14 +7,16 @@ on: workflow_dispatch
 #    branches: [ feature_CI ]
 
 jobs:
-  # Build the 2D FlameSheet RegTest with GNU and no MPI support
-  FS2D:
-    name: FS2D GNU NOMPI
+  # Build the 2D FlameSheet RegTest with GNU7.5 and no MPI support
+  FS2D_NoMPI:
+    name: GNU@7.5 NOMPI [FS2D]
     runs-on: ubuntu-latest
     env: 
       {CXXFLAGS: "-Werror -Wshadow -Woverloaded-virtual -Wunreachable-code"}
     steps:
     - uses: actions/checkout@v2
+    - name: System Dependencies
+      run: .github/workflow/dependencies/dependencies.sh
     - name: Clone Dependencies
       run: Tools/CloneDeps.sh
     - name: Build
@@ -27,3 +29,26 @@ jobs:
         cd Exec/RegTests/FlameSheet/
         make TPL COMP=gnu USE_MPI=FALSE
         make -j 2 COMP=gnu USE_MPI=FALSE
+
+  # Build the 2D FlameSheet RegTest with GNU7.5 and MPI support
+  FS2D_MPI:
+    name: GNU@7.5 MPI [FS2D]
+    runs-on: ubuntu-latest
+    env: 
+      {CXXFLAGS: "-Werror -Wshadow -Woverloaded-virtual -Wunreachable-code"}
+    steps:
+    - uses: actions/checkout@v2
+    - name: System Dependencies
+      run: .github/workflow/dependencies/dependencies.sh
+    - name: Clone Dependencies
+      run: Tools/CloneDeps.sh
+    - name: Build
+      env:
+         AMREX_HOME: ${GITHUB_WORKSPACE}/build/amrex
+         IAMR_HOME: ${GITHUB_WORKSPACE}/build/IAMR
+         PELE_PHYSICS_HOME: ${GITHUB_WORKSPACE}/build/PelePhysics
+         PELELM_HOME: ${GITHUB_WORKSPACE}
+      run: |
+        cd Exec/RegTests/FlameSheet/
+        make TPL COMP=gnu
+        make -j 2 COMP=gnu
