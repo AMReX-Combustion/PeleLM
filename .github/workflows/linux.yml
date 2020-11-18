@@ -9,7 +9,7 @@ on:
 jobs:
   # Build the 2D FlameSheet RegTest with GNU and no MPI support
   FS2D:
-    name: [FS2D] GNU - No MPI
+    name: FS2D GNU NOMPI
     runs-on: ubuntu-latest
     env: {CXXFLAGS: "-Werror -Wshadow -Woverloaded-virtual -Wunreachable-code"}
     steps:
