@@ -7,7 +7,7 @@ on: workflow_dispatch
 #    branches: [ feature_CI ]
 
 jobs:
-   Build the 2D FlameSheet RegTest with GNU7.5 and no MPI support
+   #Build the 2D FlameSheet RegTest with GNU7.5 and no MPI support
     FS2D_NoMPI:
       name: GNU@7.5 NOMPI [FS2D]
       runs-on: ubuntu-latest
@@ -29,7 +29,7 @@ jobs:
           cd Exec/RegTests/FlameSheet/
           make TPL COMP=gnu USE_MPI=FALSE
           make -j 2 COMP=gnu USE_MPI=FALSE
-  
+
     # Build the 2D FlameSheet RegTest with GNU7.5 and MPI support
     FS2D_MPI:
       name: GNU@7.5 MPI [FS2D]
