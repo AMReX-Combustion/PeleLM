@@ -7200,11 +7200,11 @@ void
 PeleLM::compute_Wbar_fluxes(Real time,
                             Real increment_flag)
 {
-   BL_PROFILE("HT::compute_Wbar_fluxes()");
+   BL_PROFILE("PLM::compute_Wbar_fluxes()");
 
    // allocate edge-beta for Wbar
    FluxBoxes fb_betaWbar(this, NUM_SPECIES, 0);
-   MultiFab** betaWbar =fb_betaWbar.get();
+   MultiFab** betaWbar = fb_betaWbar.get();
 
    // average transport coefficients for Wbar to edges
    getDiffusivity_Wbar(betaWbar,time);
@@ -7225,8 +7225,8 @@ PeleLM::compute_Wbar_fluxes(Real time,
    for (MFIter mfi(mf,TilingIfNotGPU()); mfi.isValid(); ++mfi)
    {
       const Box& gbx = mfi.growntilebox(); 
-      auto const& rho     = mf.array(mfi,0);
-      auto const& rhoY    = mf.array(mfi,1);
+      auto const& rho     = mf.const_array(mfi,0);
+      auto const& rhoY    = mf.const_array(mfi,1);
       auto const& Wbar_ar = Wbar.array(mfi); 
       amrex::ParallelFor(gbx, [rho, rhoY, Wbar_ar]
       AMREX_GPU_DEVICE (int i, int j, int k) noexcept
@@ -7331,7 +7331,7 @@ PeleLM::compute_Wbar_fluxes(Real time,
             amrex::ParallelFor(vbx, [gradWbar_ar, betaWbar_ar, wbarFlux]
             AMREX_GPU_DEVICE (int i, int j, int k) noexcept
             {
-               for (int n = 0; n <= NUM_SPECIES; n++) {
+               for (int n = 0; n < NUM_SPECIES; n++) {
                   wbarFlux(i,j,k,n) = - betaWbar_ar(i,j,k,n) * gradWbar_ar(i,j,k);
                }   
             });
@@ -7339,7 +7339,7 @@ PeleLM::compute_Wbar_fluxes(Real time,
             amrex::ParallelFor(vbx, [gradWbar_ar, betaWbar_ar, wbarFlux]
             AMREX_GPU_DEVICE (int i, int j, int k) noexcept
             {
-               for (int n = 0; n <= NUM_SPECIES; n++) {
+               for (int n = 0; n < NUM_SPECIES; n++) {
                   wbarFlux(i,j,k,n) -= betaWbar_ar(i,j,k,n) * gradWbar_ar(i,j,k);
                }   
             });
@@ -7347,7 +7347,6 @@ PeleLM::compute_Wbar_fluxes(Real time,
       }
    }
 }
-
 #endif
 
 void
@@ -7828,8 +7827,6 @@ PeleLM::calcDiffusivity_Wbar (const Real time)
 {
    BL_PROFILE("PLM::calcDiffusivity_Wbar()");
 
-   Abort("Fix Dwbar");
-
    const TimeLevel whichTime = which_time(State_Type, time);
    BL_ASSERT(whichTime == AmrOldTime || whichTime == AmrNewTime);
 
@@ -8003,7 +8000,7 @@ void
 PeleLM::getDiffusivity_Wbar (MultiFab*  betaWbar[AMREX_SPACEDIM],
                              const Real time)	   
 {
-  BL_PROFILE("HT::getDiffusivity_Wbar()");
+  BL_PROFILE("PLM::getDiffusivity_Wbar()");
 
   MultiFab& diff = diffWbar_cc;
 
@@ -8045,8 +8042,9 @@ PeleLM::getDiffusivity_Wbar (MultiFab*  betaWbar[AMREX_SPACEDIM],
    }
 #endif
 
-  if (zeroBndryVisc > 0)
+  if (zeroBndryVisc > 0) {
     zeroBoundaryVisc(betaWbar, time, AMREX_SPACEDIM+1, 0, NUM_SPECIES);
+  }
 }
 #endif
 
