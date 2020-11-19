@@ -80,7 +80,7 @@ jobs:
   # Build the 2D FlameSheet RegTest with CUDA and MPI support
   # TODO: Sundials compile fail with CUDA 9.1.
   FS2D_CUDA:
-    name: CUDA@10.0.2 [FS2D]
+    name: CUDA@10.2 [FS2D]
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
