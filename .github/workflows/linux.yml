@@ -80,7 +80,7 @@ jobs:
   # Build the 2D FlameSheet RegTest with CUDA and MPI support
   # TODO: Sundials compile fail with CUDA 9.1.
   FS2D_CUDA:
-    name: CUDA@11.0.2 [FS2D]
+    name: CUDA@10.0.2 [FS2D]
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
@@ -97,6 +97,7 @@ jobs:
       run: |
         export PATH=/usr/local/nvidia/bin:/usr/local/cuda/bin:${PATH}
         export LD_LIBRARY_PATH=/usr/local/nvidia/lib:/usr/local/nvidia/lib64:${LD_LIBRARY_PATH}
+        nvcc --version
         cd Exec/RegTests/FlameSheet/
         make help COMP=gnu USE_CUDA=TRUE
         make TPL COMP=gnu USE_CUDA=TRUE
