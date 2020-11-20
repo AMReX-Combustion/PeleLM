@@ -3264,7 +3264,9 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
 
 #ifdef USE_WBAR
    // add lagged grad Wbar fluxes (SpecDiffusionFluxWbar) to time-advanced 
-   // species diffusion fluxes (SpecDiffusionFluxnp1)
+   // species diffusion fluxes (SpecDiffusionFluxnp1)(kp1) at this point.
+   // These fluxes are similar to the one we put into the RHS in advance() since they are not
+   // solved implicitly.
 #ifdef _OPENMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
@@ -4823,7 +4825,6 @@ PeleLM::advance (Real time,
   calcDiffusivity_Wbar(prev_time);
 #endif
 
-
   MultiFab::Copy(*viscnp1_cc, *viscn_cc, 0, 0, 1, viscn_cc->nGrow());
   MultiFab::Copy(*diffnp1_cc, *diffn_cc, 0, 0, num_diff, diffn_cc->nGrow());
   
@@ -4835,8 +4836,6 @@ PeleLM::advance (Real time,
       reset_typical_values(get_old_data(State_Type));
     }
   }
-  BL_PROFILE_VAR_STOP(PLM_SETUP);
-  //====================================
 
   if (do_check_divudt)
   {
@@ -4844,6 +4843,8 @@ PeleLM::advance (Real time,
   }
 
   Real dt_test = 0.0;
+  BL_PROFILE_VAR_STOP(PLM_SETUP);
+  //====================================
 
   //====================================
   BL_PROFILE_VAR("PeleLM::advance::diffusion", PLM_DIFF);
@@ -4876,37 +4877,37 @@ PeleLM::advance (Real time,
   BL_PROFILE_VAR_STOP(PLM_MAC);
   //====================================
 
+  //====================================
+  BL_PROFILE_VAR_START(PLM_DIFF);
+  // Compute Dn and DDn (based on state at tn)
+  // (Note that coeffs at tn and tnp1 were intialized in above)
   MultiFab Dn(grids,dmap,NUM_SPECIES+2,nGrowAdvForcing,MFInfo(),Factory());
   MultiFab DDn(grids,dmap,1,nGrowAdvForcing,MFInfo(),Factory());
 #ifdef USE_WBAR
   MultiFab DWbar(grids,dmap,NUM_SPECIES,nGrowAdvForcing,MFInfo(),Factory());
 #endif
 
-  // Compute Dn and DDn (based on state at tn)
-  //  (Note that coeffs at tn and tnp1 were intialized in _setup)
-  if (verbose) amrex::Print() << "Computing Dn, DDn, and DWbar \n";
+  if (verbose) amrex::Print() << "Computing Dn & DDn \n";
 
-  //====================================
-  BL_PROFILE_VAR_START(PLM_DIFF);
   bool include_Wbar_terms = true;
   compute_differential_diffusion_terms(Dn,DDn,prev_time,dt,include_Wbar_terms);
   BL_PROFILE_VAR_STOP(PLM_DIFF);
   //====================================
 
+  //====================================
+  BL_PROFILE_VAR("PeleLM::advance::reactions", PLM_REAC);
   /*
     You could compute instantaneous I_R here but for now it's using either the
     previous step or divu_iter's version of I_R.  Either way, we have to make 
     sure that the nGrowAdvForcing grow cells have something reasonable in them
   */
-  //====================================
-  BL_PROFILE_VAR("PeleLM::advance::reactions", PLM_REAC);
   set_reasonable_grow_cells_for_R(tnp1);
   BL_PROFILE_VAR_STOP(PLM_REAC);
   //====================================
 
   // copy old state into new state for Dn and DDn.
-  // Note: this was already done for scalars, transport coefficients,
-  // and divu in advance_setup
+  // Note: this was already done above for transport coefficients
+  // and in advance_setup for scalar & divu
 
   MultiFab Dnp1(grids,dmap,NUM_SPECIES+2,nGrowAdvForcing,MFInfo(),Factory());
   MultiFab DDnp1(grids,dmap,1,nGrowAdvForcing,MFInfo(),Factory());
@@ -4949,6 +4950,7 @@ PeleLM::advance (Real time,
   is_predictor = false;
 
   BL_PROFILE_VAR_NS("PeleLM::advance::velocity_adv", PLM_VEL);
+
   for (int sdc_iter=1; sdc_iter<=sdc_iterMAX; ++sdc_iter)
   {
 
@@ -5119,8 +5121,9 @@ PeleLM::advance (Real time,
 
     // Get the Wbar term is required
 #ifdef USE_WBAR
+    // Compute Wbar fluxes from state np1k (lagged), add divergence to RHS
+    // They will be added to the Fnp1kp1 directly in diff_diff_update()
     const Real  cur_time  = state[State_Type].curTime();
-    // Update Wbar fluxes, add divergence to RHS
     compute_Wbar_fluxes(cur_time,0);
     flux_divergence(DWbar,0,SpecDiffusionFluxWbar,0,NUM_SPECIES,-1);
 #endif
