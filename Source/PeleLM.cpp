@@ -3268,7 +3268,7 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
 #ifdef _OPENMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
-   for (MFIter mfi(*SpecDiffusionFluxWbar[0],TilingIfNotGPU()); mfi.isValid(); ++mfi)
+   for (MFIter mfi(*Sn[0],TilingIfNotGPU()); mfi.isValid(); ++mfi)
    {
       for (int dir=0; dir<AMREX_SPACEDIM; ++dir)
       {
@@ -6583,7 +6583,7 @@ PeleLM::mac_sync ()
       // Delete Ucorr; we're done with it.
       //
       for (int idim = 0; idim < AMREX_SPACEDIM; ++idim)
-	delete Ucorr[idim];
+         delete Ucorr[idim];
 
       Ssync.mult(dt); // Turn this into an increment over dt
 
@@ -6591,7 +6591,7 @@ PeleLM::mac_sync ()
       // compute beta grad Wbar terms using the latest version of the post-sync state
       // Initialize containers first here, 1/2 is for C-N sync, dt mult later with everything else
       for (int dir=0; dir<AMREX_SPACEDIM; ++dir) {
-         (*SpecDiffusionFluxWbar[dir]).setVal(0.);
+         (*SpecDiffusionFluxWbar[dir]).setVal(0.0);
       }
       compute_Wbar_fluxes(curr_time,0.5);
       // compute beta grad Wbar terms at {n+1,p}
@@ -7438,7 +7438,7 @@ PeleLM::differential_spec_diffuse_sync (Real dt,
 #ifdef _OPENMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
-      for (MFIter mfi(*SpecDiffusionFluxWbar[0],TilingIfNotGPU()); mfi.isValid(); ++mfi)
+      for (MFIter mfi(Rhs,TilingIfNotGPU()); mfi.isValid(); ++mfi)
       {
          for (int dir=0; dir<AMREX_SPACEDIM; ++dir)
          {
