@@ -1948,7 +1948,6 @@ PeleLM::initData ()
 #endif
 
     calc_divu(tnp1,dtin,Divu_new);
-    
   }
 
   if (state[Press_Type].descriptor()->timeType() == StateDescriptor::Point) 
@@ -4103,8 +4102,6 @@ PeleLM::compute_differential_diffusion_fluxes (const MultiFab& S,
       // No multiplication by dt here.
       Diffusion::computeExtensiveFluxes(mg, Soln, flux, fluxComp+icomp, 1, &geom, b);
    }
-//VisMF::Write(*flux[0],"flux_after_getFluxes_x");
-//VisMF::Write(*flux[1],"flux_after_getFluxes_y"); 
 
    Soln.clear();
 
@@ -7266,12 +7263,13 @@ PeleLM::compute_Wbar_fluxes(Real time,
 
    const int nGrowCrse = 1;
 
+   MultiFab Wbar_crse;
    if (level > 0)
    {
       auto& crselev = getLevel(level-1);
 
       // Define Wbar coarse
-      MultiFab Wbar_crse(crselev.boxArray(), crselev.DistributionMap(), 1, nGrowCrse);
+      Wbar_crse.define(crselev.boxArray(), crselev.DistributionMap(), 1, nGrowCrse);
 
       // Get fillpatched coarse rho and rhoY
       FillPatchIterator fpic(crselev,Wbar_crse,nGrowCrse,time,State_Type,Density,NUM_SPECIES+1);
