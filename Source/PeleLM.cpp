@@ -4590,10 +4590,6 @@ PeleLM::advance_setup (Real time,
 
    RhoH_to_Temp(get_old_data(State_Type));
 
-#ifdef USE_WBAR
-   calcDiffusivity_Wbar(time);
-#endif
-
    if (plot_reactions && level == 0)
    {
       for (int i = parent->finestLevel(); i >= 0; --i)
@@ -4823,6 +4819,10 @@ PeleLM::advance (Real time,
   const int num_diff = NUM_STATE-AMREX_SPACEDIM-1;
   calcViscosity(prev_time,dt,iteration,ncycle);
   calcDiffusivity(prev_time);
+#ifdef USE_WBAR
+  calcDiffusivity_Wbar(prev_time);
+#endif
+
 
   MultiFab::Copy(*viscnp1_cc, *viscn_cc, 0, 0, 1, viscn_cc->nGrow());
   MultiFab::Copy(*diffnp1_cc, *diffn_cc, 0, 0, num_diff, diffn_cc->nGrow());
