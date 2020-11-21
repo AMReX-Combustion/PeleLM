@@ -499,7 +499,6 @@ getTfromHY(int i, int j, int k,
    T(i,j,k) = T_loc;
 }
 
-#ifdef USE_WBAR
 AMREX_GPU_HOST_DEVICE
 inline
 void
@@ -529,7 +528,6 @@ getBetaWbar(int i, int j, int k,
       DWbar(i,j,k,n) = rhoDi(i,j,k,n) * y[n] / Wbar;
    }
 }
-#endif
 
 AMREX_GPU_HOST_DEVICE
 inline

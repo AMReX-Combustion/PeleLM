@@ -345,9 +345,7 @@ private:
                                      const amrex::BCRec&      bc,
                                      amrex::Real              time);
 
-#ifdef USE_WBAR
   void calcDiffusivity_Wbar (const amrex::Real time);
-#endif
 
   void calc_dpdt (amrex::Real      time,
                   amrex::Real      dt,
@@ -392,11 +390,9 @@ private:
                             amrex::MultiFab& P,
                                    int       pComp);
 
-#ifdef USE_WBAR
   void compute_Wbar_fluxes(amrex::Real time,
                            int         inc_flag,
                            amrex::Real inc_coeff);
-#endif
 
   void define_data ();
 
@@ -428,10 +424,8 @@ private:
                        const int dst_comp,
                        const int num_comp);
 
-#ifdef USE_WBAR
   void getDiffusivity_Wbar (amrex::MultiFab* diffusivity[BL_SPACEDIM],
                             const amrex::Real time);
-#endif
 
   amrex::DistributionMapping getFuncCountDM (const amrex::BoxArray& bxba, int ngrow);
 
@@ -599,10 +593,8 @@ private:
   amrex::MultiFab**  SpecDiffusionFluxn;
   amrex::MultiFab**  SpecDiffusionFluxnp1;
 
-#ifdef USE_WBAR
   amrex::MultiFab**  SpecDiffusionFluxWbar;
   amrex::MultiFab diffWbar_cc;
-#endif
 
   static bool                     plot_reactions;
   static bool                     plot_consumption;
@@ -659,6 +651,7 @@ private:
   static int         do_OT_radiation;
   static int         do_heat_sink;
   static int         unity_Le;
+  static int         use_wbar;
   static int         FuncCount_Type;
   static int         RhoYdot_Type;
   static int         divu_ceiling;
