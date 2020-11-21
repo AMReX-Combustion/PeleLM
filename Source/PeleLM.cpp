@@ -4109,7 +4109,7 @@ PeleLM::compute_differential_diffusion_fluxes (const MultiFab& S,
 
 #ifdef USE_WBAR
    if (include_Wbar_fluxes) {
-      compute_Wbar_fluxes(time,0);
+      compute_Wbar_fluxes(time,0,1.0);
       for (int d=0; d<AMREX_SPACEDIM; ++d) {
          MultiFab::Add(*flux[d],*SpecDiffusionFluxWbar[d],0,fluxComp,NUM_SPECIES,0);
       }
@@ -5124,7 +5124,7 @@ PeleLM::advance (Real time,
     // Compute Wbar fluxes from state np1k (lagged), add divergence to RHS
     // They will be added to the Fnp1kp1 directly in diff_diff_update()
     const Real  cur_time  = state[State_Type].curTime();
-    compute_Wbar_fluxes(cur_time,0);
+    compute_Wbar_fluxes(cur_time,0,1.0);
     flux_divergence(DWbar,0,SpecDiffusionFluxWbar,0,NUM_SPECIES,-1);
 #endif
 
@@ -5307,6 +5307,7 @@ PeleLM::advance (Real time,
 
    //====================================
    BL_PROFILE_VAR_START(PLM_DIFF);
+   // Update transport coefficient with post-SDC state
    calcDiffusivity(tnp1);
 #ifdef USE_WBAR
    calcDiffusivity_Wbar(tnp1);
@@ -6420,6 +6421,11 @@ PeleLM::mac_sync ()
       showMF("DBGSync",*Vsync_sav[lev],"sdc_Vsync_BeginSync",level,0,parent->levelSteps(level));
    }
 
+#ifdef USE_WBAR
+      // compute (overwrite) beta grad Wbar terms using the pre-sync state
+      compute_Wbar_fluxes(curr_time,0,1.0);
+#endif
+
    ////////////////////////
    // begin mac_sync_iter loop here
    // The loop allows an update of chi to ensure that the sync correction remains
@@ -6591,20 +6597,15 @@ PeleLM::mac_sync ()
       Ssync.mult(dt); // Turn this into an increment over dt
 
 #ifdef USE_WBAR
-      // compute beta grad Wbar terms using the latest version of the post-sync state
-      // Initialize containers first here, 1/2 is for C-N sync, dt mult later with everything else
-      for (int dir=0; dir<AMREX_SPACEDIM; ++dir) {
-         (*SpecDiffusionFluxWbar[dir]).setVal(0.0);
-      }
-      compute_Wbar_fluxes(curr_time,0.5);
-      // compute beta grad Wbar terms at {n+1,p}
-      // internally added with values already stored in SpecDiffusionFluxWbar
-      compute_Wbar_fluxes(curr_time,-0.5);
+      // Substract pre-sync beta grad Wbar fluxes
+      // If mac_sync_iter = 0 -> dWbar fluxes == 0, otherwise post-sync - pre-sync
+      compute_Wbar_fluxes(curr_time,1,-1.0);
 
       // take divergence of beta grad delta Wbar
       MultiFab DdWbar(grids,dmap,NUM_SPECIES,nGrowAdvForcing);
       MultiFab* const * fluxWbar = SpecDiffusionFluxWbar;
       flux_divergence(DdWbar,0,fluxWbar,0,NUM_SPECIES,-1);
+      DdWbar.mult(dt);
 #endif
 
 #ifdef _OPENMP
@@ -6716,7 +6717,8 @@ PeleLM::mac_sync ()
 
          // Diffuse species sync to get dGamma^{sync}, then form Gamma^{postsync} = Gamma^{presync} + dGamma^{sync}
          // Before this call Ssync = \nabla \cdot \delta F_{rhoY} - \delta_ADV - Y^{n+1,p}\delta rho^{sync}
-         differential_spec_diffuse_sync(dt, true, last_mac_sync_iter);
+         bool include_deltaWbar = true;
+         differential_spec_diffuse_sync(dt, include_deltaWbar, last_mac_sync_iter);
          // Ssync for species now contains rho^{n+1}(delta_Y)^sync
 
          for (int d=0; d<AMREX_SPACEDIM; ++d) {
@@ -6731,17 +6733,22 @@ PeleLM::mac_sync ()
          MultiFab::Add(Ssync,DeltaYsync,0,first_spec-AMREX_SPACEDIM,NUM_SPECIES,0);
          MultiFab::Add(S_new,Ssync,first_spec-AMREX_SPACEDIM,first_spec,NUM_SPECIES,0);
 
+#ifdef USE_WBAR
+         // compute (overwrite) beta grad Wbar terms using the post-sync state
+         compute_Wbar_fluxes(curr_time,0,1.0);
+#endif
+
          // Trying to solve for:
          // \rho^{n+1} * Cp{n+1,\eta} * ∆T^{\eta+1} - dt / 2 \nabla \cdot \lambda^{n+1,p} \nabla ∆T^{\eta+1} = 
          // \rho^{n+1,p}*h^{n+1,p} - \rho^{n+1}*h^{n+1,\eta} + dt*Ssync + dt/2*(DT^{n+1,\eta} - DT^{n+1,p} + H^{n+1,\eta} - H^{n+1,p})
 
-         // Here Ssync contains refluxed enthalpy fluxes (from -lambda.Grad(T) and hm.Gamma_m)  FIXME: Make sure it does
+         // Here Ssync contains refluxed enthalpy fluxes (from -lambda.Grad(T) and hm.Gamma_m)
          MultiFab Trhs(grids,dmap,1,0,MFInfo(),Factory());
          MultiFab Told(grids,dmap,1,0,MFInfo(),Factory());
          MultiFab RhoCp_post(grids,dmap,1,0,MFInfo(),Factory());
          MultiFab DiffTerms_post(grids,dmap,2,0,MFInfo(),Factory());
 
-         Print() << "Starting deltaT iters in mac_sync... " << std::endl;
+         if (deltaT_verbose) Print() << "Starting deltaT iters in mac_sync... " << std::endl;
 
          Real deltaT_iter_norm = 0;
          for (int L=0; L<num_deltaT_iters_MAX && (L==0 || deltaT_iter_norm >= deltaT_norm_max); ++L)
@@ -7198,7 +7205,8 @@ PeleLM::mac_sync ()
 #ifdef USE_WBAR
 void
 PeleLM::compute_Wbar_fluxes(Real time,
-                            Real increment_flag)
+                            int increment_flag,
+                            Real increment_coeff)
 {
    BL_PROFILE("PLM::compute_Wbar_fluxes()");
 
@@ -7337,11 +7345,11 @@ PeleLM::compute_Wbar_fluxes(Real time,
                }   
             });
          } else {                                     // Increment wbar fluxes
-            amrex::ParallelFor(vbx, [gradWbar_ar, betaWbar_ar, wbarFlux]
+            amrex::ParallelFor(vbx, [gradWbar_ar, betaWbar_ar, wbarFlux, increment_coeff]
             AMREX_GPU_DEVICE (int i, int j, int k) noexcept
             {
                for (int n = 0; n < NUM_SPECIES; n++) {
-                  wbarFlux(i,j,k,n) -= betaWbar_ar(i,j,k,n) * gradWbar_ar(i,j,k);
+                  wbarFlux(i,j,k,n) -= increment_coeff * betaWbar_ar(i,j,k,n) * gradWbar_ar(i,j,k);
                }   
             });
          }

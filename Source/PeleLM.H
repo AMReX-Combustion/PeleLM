@@ -394,7 +394,8 @@ private:
 
 #ifdef USE_WBAR
   void compute_Wbar_fluxes(amrex::Real time,
-                           amrex::Real inc);
+                           int         inc_flag,
+                           amrex::Real inc_coeff);
 #endif
 
   void define_data ();
