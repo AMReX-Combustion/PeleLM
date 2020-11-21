@@ -374,7 +374,7 @@ PeleLM::Initialize ()
   PeleLM::Zfu = -1;
   PeleLM::Zox = -1;
   PeleLM::mixture_fraction_ready    = false;
-  PeleLM::unity_Le                  = 1;
+  PeleLM::unity_Le                  = 0;
   PeleLM::use_wbar                  = 1;
   PeleLM::htt_tempmin               = 298.0;
   PeleLM::htt_tempmax               = 40000.;
@@ -437,6 +437,7 @@ PeleLM::Initialize ()
     if (verbose) amrex::Print() << "PeleLM::read_params: Le=1, setting Sc = Pr" << '\n';
   }
 
+  pp.query("use_wbar",use_wbar);
   pp.query("sdc_iterMAX",sdc_iterMAX);
   pp.query("num_mac_sync_iter",num_mac_sync_iter);
 
@@ -1025,11 +1026,6 @@ PeleLM::define_data ()
    // HACK for debugging
    if (level==0)
       stripBox = getStrip(geom);
-
-   if (use_wbar) {
-      // this will hold the transport coefficients for Wbar
-      diffWbar_cc.define(grids,dmap,NUM_SPECIES,1);
-   }
 }
 
 void
@@ -1945,9 +1941,6 @@ PeleLM::initData ()
     state[State_Type].setTimeLevel(tnp1,dt,dt);
 
     calcDiffusivity(tnp1);
-    if (use_wbar) {
-       calcDiffusivity_Wbar(tnp1);
-    }
 
     calc_divu(tnp1,dtin,Divu_new);
   }
@@ -4821,9 +4814,6 @@ PeleLM::advance (Real time,
   const int num_diff = NUM_STATE-AMREX_SPACEDIM-1;
   calcViscosity(prev_time,dt,iteration,ncycle);
   calcDiffusivity(prev_time);
-  if (use_wbar) {
-     calcDiffusivity_Wbar(prev_time);
-  }
 
   MultiFab::Copy(*viscnp1_cc, *viscn_cc, 0, 0, 1, viscn_cc->nGrow());
   MultiFab::Copy(*diffnp1_cc, *diffn_cc, 0, 0, num_diff, diffn_cc->nGrow());
@@ -4964,9 +4954,6 @@ PeleLM::advance (Real time,
       // compute new-time transport coefficients
       BL_PROFILE_VAR_START(PLM_DIFF);
       calcDiffusivity(tnp1);
-      if (use_wbar) {
-         calcDiffusivity_Wbar(tnp1);
-      }
 
       // compute Dnp1 and DDnp1 iteratively lagged
       bool include_Wbar_terms_np1 = true;
@@ -5307,9 +5294,6 @@ PeleLM::advance (Real time,
    BL_PROFILE_VAR_START(PLM_DIFF);
    // Update transport coefficient with post-SDC state
    calcDiffusivity(tnp1);
-   if (use_wbar) {
-      calcDiffusivity_Wbar(tnp1);
-   }
    calcViscosity(tnp1,dt,iteration,ncycle);
    BL_PROFILE_VAR_STOP(PLM_DIFF);
    //====================================
@@ -7204,12 +7188,10 @@ PeleLM::compute_Wbar_fluxes(Real time,
 {
    BL_PROFILE("PLM::compute_Wbar_fluxes()");
 
-   // allocate edge-beta for Wbar
-   FluxBoxes fb_betaWbar(this, NUM_SPECIES, 0);
-   MultiFab** betaWbar = fb_betaWbar.get();
-
-   // average transport coefficients for Wbar to edges
-   getDiffusivity_Wbar(betaWbar,time);
+   // average species transport coefficients to edged
+   FluxBoxes fb_beta(this, NUM_SPECIES, 0);
+   MultiFab **beta = fb_beta.get();
+   getDiffusivity(beta, time, first_spec, 0, NUM_SPECIES); // species
 
    int nGrowOp = 1;
 
@@ -7318,32 +7300,84 @@ PeleLM::compute_Wbar_fluxes(Real time,
    std::array<MultiFab*,AMREX_SPACEDIM> fp{AMREX_D_DECL(gradWbar[0],gradWbar[1],gradWbar[2])};
    mg.getFluxes({fp},{&Wbar},MLLinOp::Location::FaceCentroid);
 
+   Vector<BCRec> math_bc(1);
+   math_bc = fetchBCArray(State_Type,first_spec,1);
+
+   const Box& domain = geom.Domain();
+   bool use_harmonic_avg = def_harm_avg_cen2edge ? true : false;
+
 #ifdef _OPENMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif   
+   FArrayBox rhoY_ed;
    for (MFIter mfi(Wbar,TilingIfNotGPU()); mfi.isValid(); ++mfi)
    {
       for (int d=0; d<AMREX_SPACEDIM; ++d) 
       {
-         const Box&  vbx = mfi.nodaltilebox(d);
-         auto const& gradWbar_ar  = gradWbar[d]->array(mfi);
-         auto const& betaWbar_ar  = betaWbar[d]->array(mfi);
-         auto const& wbarFlux     = SpecDiffusionFluxWbar[d]->array(mfi);
+         // Get edge centered rhoYs
+         const Box ebx = mfi.nodaltilebox(d);
+         rhoY_ed.resize(ebx,NUM_SPECIES); 
+         Elixir rhoY_el = rhoY_ed.elixir();
+
+         const Box& edomain = amrex::surroundingNodes(domain,d);
+         const auto& rhoY_arr   = mf.array(mfi,1);     // mf from FPI on Density+rhoYs
+         const auto& rhoYed_arr = rhoY_ed.array(0);
+         const auto bc_lo = fpi_phys_loc(math_bc[0].lo(d));
+         const auto bc_hi = fpi_phys_loc(math_bc[0].hi(d));
+         amrex::ParallelFor(ebx, [d, bc_lo, bc_hi, use_harmonic_avg, rhoY_arr, rhoYed_arr, edomain]
+         AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+         {
+            int idx[3] = {i,j,k};
+            bool on_lo = ( ( bc_lo == HT_Edge ) && ( idx[d] <= edomain.smallEnd(d) ) );
+            bool on_hi = ( ( bc_hi == HT_Edge ) && ( idx[d] >= edomain.bigEnd(d) ) );
+            cen2edg_cpp( i, j, k, d, NUM_SPECIES, use_harmonic_avg, on_lo, on_hi, rhoY_arr, rhoYed_arr);
+         });
+
+         auto const& rhoY        = rhoY_ed.array(0);
+         auto const& gradWbar_ar = gradWbar[d]->array(mfi);
+         auto const& beta_ar     = beta[d]->array(mfi);
+         auto const& wbarFlux    = SpecDiffusionFluxWbar[d]->array(mfi);
 
          if ( increment_flag == 0 ) {                 // Overwrite wbar fluxes
-            amrex::ParallelFor(vbx, [gradWbar_ar, betaWbar_ar, wbarFlux]
+            amrex::ParallelFor(ebx, [gradWbar_ar, beta_ar, rhoY, wbarFlux]
             AMREX_GPU_DEVICE (int i, int j, int k) noexcept
             {
+               // Get Wbar from rhoYs
+               amrex::Real rho = 0.0;
+               amrex::Real rho_inv;
                for (int n = 0; n < NUM_SPECIES; n++) {
-                  wbarFlux(i,j,k,n) = - betaWbar_ar(i,j,k,n) * gradWbar_ar(i,j,k);
+                  rho += rhoY(i,j,k,n);
+               }
+               rho_inv = 1.0 / rho;
+               amrex::Real y[NUM_SPECIES];
+               for (int n = 0; n < NUM_SPECIES; n++) {
+                  y[n] = rhoY(i,j,k,n) * rho_inv;
+               }
+               amrex::Real Wbar;
+               EOS::Y2WBAR(y, Wbar);
+               for (int n = 0; n < NUM_SPECIES; n++) {
+                  wbarFlux(i,j,k,n) = - y[n] / Wbar * beta_ar(i,j,k,n) * gradWbar_ar(i,j,k);
                }   
             });
          } else {                                     // Increment wbar fluxes
-            amrex::ParallelFor(vbx, [gradWbar_ar, betaWbar_ar, wbarFlux, increment_coeff]
+            amrex::ParallelFor(ebx, [gradWbar_ar, beta_ar, rhoY, wbarFlux, increment_coeff]
             AMREX_GPU_DEVICE (int i, int j, int k) noexcept
             {
+               // Get Wbar from rhoYs
+               amrex::Real rho = 0.0;
+               amrex::Real rho_inv;
                for (int n = 0; n < NUM_SPECIES; n++) {
-                  wbarFlux(i,j,k,n) -= increment_coeff * betaWbar_ar(i,j,k,n) * gradWbar_ar(i,j,k);
+                  rho += rhoY(i,j,k,n);
+               }
+               rho_inv = 1.0 / rho;
+               amrex::Real y[NUM_SPECIES];
+               for (int n = 0; n < NUM_SPECIES; n++) {
+                  y[n] = rhoY(i,j,k,n) * rho_inv;
+               }
+               amrex::Real Wbar;
+               EOS::Y2WBAR(y, Wbar);
+               for (int n = 0; n < NUM_SPECIES; n++) {
+                  wbarFlux(i,j,k,n) -= increment_coeff * y[n] / Wbar * beta_ar(i,j,k,n) * gradWbar_ar(i,j,k);
                }   
             });
          }
@@ -7822,42 +7856,6 @@ PeleLM::calcDiffusivity (const Real time)
 }
 
 void
-PeleLM::calcDiffusivity_Wbar (const Real time)
-{
-   BL_PROFILE("PLM::calcDiffusivity_Wbar()");
-
-   const TimeLevel whichTime = which_time(State_Type, time);
-   BL_ASSERT(whichTime == AmrOldTime || whichTime == AmrNewTime);
-
-   MultiFab& diff       = (whichTime == AmrOldTime) ? (*diffn_cc) : (*diffnp1_cc);
-   MultiFab& S = (whichTime == AmrOldTime) ? get_old_data(State_Type) : get_new_data(State_Type);
-
-   const int nGrow      = diff.nGrow();
-   BL_ASSERT(diffWbar_cc.nGrow() >= nGrow);
-
-   // Fillpatch the state   
-   FillPatchIterator fpi(*this,S,nGrow,time,State_Type,first_spec,NUM_SPECIES);
-   MultiFab& S_cc = fpi.get_mf();
-
-#ifdef _OPENMP
-#pragma omp parallel if (Gpu::notInLaunchRegion())
-#endif
-   for (MFIter mfi(S_cc,TilingIfNotGPU()); mfi.isValid();++mfi)
-   {
-      const Box& gbx = mfi.growntilebox();
-      auto const& rhoY    = S_cc.array(mfi,0);
-      auto const& rhoD    = diff.array(mfi,0);
-      auto const& DWbar   = diffWbar_cc.array(mfi,0);
-
-      amrex::ParallelFor(gbx, [rhoY, rhoD, DWbar]
-      AMREX_GPU_DEVICE (int i, int j, int k) noexcept
-      {
-         getBetaWbar( i, j, k, rhoY, rhoD, DWbar);
-      });
-   }
-}
-
-void
 PeleLM::getViscosity (MultiFab* viscosity[AMREX_SPACEDIM],
                       const Real time)
 {
@@ -7932,7 +7930,7 @@ PeleLM::getDiffusivity (MultiFab* diffusivity[AMREX_SPACEDIM],
                         const int dst_comp,
                         const int ncomp)
 {
-   BL_PROFILE("HT::getDiffusivity()");
+   BL_PROFILE("PLM::getDiffusivity()");
    BL_ASSERT(state_comp > Density);
    BL_ASSERT(diffusivity[0]->nComp() >= dst_comp+ncomp);
    BL_ASSERT( ( state_comp == first_spec && ncomp == NUM_SPECIES ) ||
@@ -7991,57 +7989,6 @@ PeleLM::getDiffusivity (MultiFab* diffusivity[AMREX_SPACEDIM],
    if (zeroBndryVisc > 0) {
       zeroBoundaryVisc(diffusivity,time,state_comp,dst_comp,ncomp);
    }
-}
-
-void
-PeleLM::getDiffusivity_Wbar (MultiFab*  betaWbar[AMREX_SPACEDIM],
-                             const Real time)	   
-{
-  BL_PROFILE("PLM::getDiffusivity_Wbar()");
-
-  MultiFab& diff = diffWbar_cc;
-
-#ifdef AMREX_USE_EB
-   // EB : use EB CCentroid -> FCentroid
-   auto math_bc = fetchBCArray(State_Type,first_spec,NUM_SPECIES);
-   EB_interp_CellCentroid_to_FaceCentroid(*diff, D_DECL(*betaWbar[0],*betaWbar[1],*betaWbar[2]), 
-                                          0, 0, NUM_SPECIES, geom, math_bc);
-   EB_set_covered_faces({D_DECL(*betaWbar[0],*betaWbar[1],*betaWbar[2])},0.0);
-
-#else
-   // NON-EB : simply use center_to_edge_fancy
-   auto math_bc = fetchBCArray(State_Type,Temp,1);
-   const Box& domain = geom.Domain();
-   bool use_harmonic_avg = def_harm_avg_cen2edge ? true : false;
-
-#ifdef _OPENMP
-#pragma omp parallel if (Gpu::notInLaunchRegion())
-#endif
-   for (MFIter mfi(diff,TilingIfNotGPU()); mfi.isValid(); ++mfi)
-   {
-      for (int dir = 0; dir < AMREX_SPACEDIM; dir++)
-      {
-         const Box ebx = mfi.nodaltilebox(dir);
-         const Box& edomain = amrex::surroundingNodes(domain,dir);
-         const auto& diff_c  = diff.array(mfi,0);
-         const auto& diff_ed = betaWbar[dir]->array(mfi,0);
-         const auto bc_lo = fpi_phys_loc(math_bc[0].lo(dir));
-         const auto bc_hi = fpi_phys_loc(math_bc[0].hi(dir));
-         amrex::ParallelFor(ebx, [dir, bc_lo, bc_hi, use_harmonic_avg, diff_c, diff_ed, edomain]
-         AMREX_GPU_DEVICE (int i, int j, int k) noexcept
-         {
-            int idx[3] = {i,j,k};
-            bool on_lo = ( ( bc_lo == HT_Edge ) && ( idx[dir] <= edomain.smallEnd(dir) ) );
-            bool on_hi = ( ( bc_hi == HT_Edge ) && ( idx[dir] >= edomain.bigEnd(dir) ) );
-            cen2edg_cpp( i, j, k, dir, NUM_SPECIES, use_harmonic_avg, on_lo, on_hi, diff_c, diff_ed);
-         });
-      }
-   }
-#endif
-
-  if (zeroBndryVisc > 0) {
-    zeroBoundaryVisc(betaWbar, time, AMREX_SPACEDIM+1, 0, NUM_SPECIES);
-  }
 }
 
 void

@@ -594,7 +594,6 @@ private:
   amrex::MultiFab**  SpecDiffusionFluxnp1;
 
   amrex::MultiFab**  SpecDiffusionFluxWbar;
-  amrex::MultiFab diffWbar_cc;
 
   static bool                     plot_reactions;
   static bool                     plot_consumption;
