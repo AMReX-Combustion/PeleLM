@@ -28,12 +28,14 @@
 #include <AMReX_MLABecLaplacian.H>
 #include <AMReX_MLMG.H>
 #include <NS_util.H>
+#include <AMReX_GpuContainers.H>
 
 #include <PPHYS_CONSTANTS.H>
 #include <PeleLM_K.H>
 #include <pelelm_prob.H>
 #include <pelelm_prob_parm.H>
 #include <PeleLM_parm.H>
+#include <pmf_data.H>
 
 #if defined(BL_USE_NEWMECH) || defined(BL_USE_VELOCITY)
 #include <AMReX_DataServices.H>
@@ -1809,6 +1811,7 @@ PeleLM::initData ()
   S_new.setVal(0.0);
   P_new.setVal(0.0);
 
+  PmfData const* lpmfdata = pmf_data_g;
 #ifdef _OPENMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
@@ -1823,7 +1826,7 @@ PeleLM::initData ()
 #ifdef BL_USE_NEWMECH
         amrex::Abort("USE_NEWMECH feature no longer working and has to be fixed/redone");
 #else
-        pelelm_initdata(i, j, k, sfab, geomdata);
+        pelelm_initdata(i, j, k, sfab, geomdata, lpmfdata);
 #endif
       });
   }
@@ -9117,10 +9120,26 @@ PeleLM::initActiveControl()
    }
 
    // Extract data from bc: assumes flow comes in from lo side of ctrl_flameDir
-   amrex::Real s_ext[DEF_NUM_STATE] = {0.0};
-   amrex::Real x[AMREX_SPACEDIM] = {D_DECL(problo[0],problo[1],problo[2])};
+   PmfData const* lpmfdata = pmf_data_g;
+   amrex::Gpu::DeviceVector<amrex::Real> s_ext_v(DEF_NUM_STATE);
+   amrex::Real* s_ext_d = s_ext_v.data();
+   amrex::Real x[AMREX_SPACEDIM] = {AMREX_D_DECL(problo[0],problo[1],problo[2])};
    x[ctrl_flameDir] -= 1.0;
-   bcnormal(x, s_ext, ctrl_flameDir, 1, -1.0, geom.data());
+   const int ctrl_flameDir_l = ctrl_flameDir;
+   const amrex::Real time_l = -1.0;
+   const auto geomdata = geom.data();
+   Box dumbx({AMREX_D_DECL(0,0,0)},{AMREX_D_DECL(0,0,0)});
+   amrex::ParallelFor(dumbx, [x,s_ext_d,ctrl_flameDir_l,time_l,geomdata, lpmfdata]
+   AMREX_GPU_DEVICE(int i, int j, int k) noexcept
+   {
+      bcnormal(x, s_ext_d, ctrl_flameDir_l, 1, time_l, geomdata, lpmfdata);
+   });
+   amrex::Real s_ext[DEF_NUM_STATE];
+#if AMREX_USE_GPU
+   amrex::Gpu::dtoh_memcpy(s_ext,s_ext_d,sizeof(amrex::Real)*DEF_NUM_STATE);
+#else
+   std::memcpy(s_ext,s_ext_d,sizeof(amrex::Real)*DEF_NUM_STATE);
+#endif
 
    if ( !ctrl_use_temp ) {
       // Get the fuel rhoY
