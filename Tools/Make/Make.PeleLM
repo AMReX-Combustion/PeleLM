@@ -9,11 +9,6 @@ include $(AMREX_HOME)/Tools/GNUMake/Make.defs
 
 Bdirs += $(PELELM_HOME)/Source
 
-ifeq ($(USE_WBAR),TRUE)
-    USERSuffix += .WBAR
-    DEFINES += -DUSE_WBAR
-endif
-
 ifeq ($(shell uname),Darwin)
   LDFLAGS += -headerpad_max_install_names
   all: $(executable)
