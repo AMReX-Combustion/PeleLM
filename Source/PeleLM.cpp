@@ -136,7 +136,6 @@ int  PeleLM::do_reflux_visc;
 int  PeleLM::RhoYdot_Type;
 #ifdef AMREX_PARTICLES
 int  PeleLM::spraydot_Type;
-static bool plot_spraydot;
 #endif
 int  PeleLM::FuncCount_Type;
 int  PeleLM::divu_ceiling;
@@ -909,6 +908,17 @@ PeleLM::PeleLM ()
 #ifdef USE_WBAR
    SpecDiffusionFluxWbar  = 0;
 #endif
+#ifdef AMREX_PARTICLES
+  int nGrowS = 4;
+  if (level > 0 && do_spray_particles) {
+    int cRefRatio = parent->MaxRefRatio(level - 1);
+    if (cRefRatio > 4)
+      amrex::Abort("Spray particles not supported for ref_ratio > 4");
+    else if (cRefRatio > 2)
+      nGrowS += 3;
+  }
+  Sborder.define(grids, dmap, NUM_STATE, nGrowS, amrex::MFInfo(), Factory());
+#endif
 }
 
 PeleLM::PeleLM (Amr&            papa,
@@ -950,7 +960,7 @@ PeleLM::PeleLM (Amr&            papa,
 #ifdef AMREX_PARTICLES
   int nGrowS = 4;
   if (level > 0 && do_spray_particles) {
-    int cRefRatio = papa.MaxRefRatio(level - 1);
+    int cRefRatio = parent->MaxRefRatio(level - 1);
     if (cRefRatio > 4)
       amrex::Abort("Spray particles not supported for ref_ratio > 4");
     else if (cRefRatio > 2)
@@ -1867,6 +1877,27 @@ PeleLM::initData ()
   //
   initActiveControl();
 
+#ifdef AMREX_PARTICLES
+  if (do_spray_particles) {
+    if (level == 0) {
+      initParticles();
+    } else {
+      particle_redistribute(level - 1);
+      // TODO: Fix this hack and figure out why
+      // it is needed on levels > 0
+      const Real dt = 1.;
+      const Real tnp1 = state[Divu_Type].curTime();
+      int tmp_src_width = 2;
+      MultiFab tmp_spray_source(
+        grids, dmap, NUM_STATE, tmp_src_width, amrex::MFInfo(), Factory());
+      tmp_spray_source.setVal(0.);
+      int nGrow_Sborder = 4;
+      FillPatch(*this, Sborder, nGrow_Sborder, 0., State_Type, 0, NUM_STATE);
+      particleMK(tnp1, 0., nGrow_Sborder, tmp_src_width, 1, 2, tmp_spray_source);
+    }
+  }
+#endif
+
   //
   // Initialize divU
   //
@@ -1895,14 +1926,6 @@ PeleLM::initData ()
 
   is_first_step_after_regrid = false;
   old_intersect_new          = grids;
-
-#ifdef AMREX_PARTICLES
-  if (level == 0) {
-    initParticles();
-  } else {
-    particle_redistribute(level - 1);
-  }
-#endif
 }
 
 void
@@ -2039,11 +2062,10 @@ PeleLM::init (AmrLevel& old)
    }
 #ifdef AMREX_PARTICLES
    {
-     const Real    tnp1s = oldht->state[spraydot_Type].curTime();
+     const Real tnp1s = oldht->state[spraydot_Type].curTime();
      MultiFab& spraydot = get_new_data(spraydot_Type);
-     const int ccomp = NUM_SPECIES + 3 + AMREX_SPACEDIM;
-     FillPatchIterator fpi(*oldht, spraydot, spraydot.nGrow(),
-                           tnp1s, spraydot_Type, 0, ccomp);
+     const int ccomp = NUM_SPECIES + 4 + AMREX_SPACEDIM;
+     FillPatchIterator fpi(*oldht, spraydot, spraydot.nGrow(), tnp1s, spraydot_Type, 0, ccomp);
      const MultiFab& mf_fpi = fpi.get_mf();
      MultiFab::Copy(spraydot, mf_fpi, 0, 0, ccomp, 0);
    }
@@ -2065,7 +2087,7 @@ PeleLM::init ()
    //
    FillCoarsePatch(get_new_data(RhoYdot_Type),0,tnp1,RhoYdot_Type,0,NUM_SPECIES);
 #ifdef AMREX_PARTICLES
-   FillCoarsePatch(get_new_data(spraydot_Type),0,tnp1,spraydot_Type,0,NUM_SPECIES+3+AMREX_SPACEDIM);
+   FillCoarsePatch(get_new_data(spraydot_Type),0,tnp1,spraydot_Type,0,NUM_SPECIES+4+AMREX_SPACEDIM);
 #endif
 
    RhoH_to_Temp(get_new_data(State_Type));
@@ -2148,10 +2170,7 @@ PeleLM::post_restart ()
    int is_restart = 1;
 #ifdef AMREX_PARTICLES
    if (do_spray_particles)
-     {
-       particlePostRestart(parent->theRestartFile());
-       Sborder.define(grids,dmap,NUM_STATE,NUM_GROW,MFInfo(),Factory());
-     }
+     particlePostRestart(parent->theRestartFile());
 #endif
    activeControl(step,is_restart,0.0,crse_dt);
 }
@@ -2271,19 +2290,9 @@ PeleLM::checkPoint (const std::string& dir,
 #ifdef AMREX_PARTICLES
   if (PeleLM::theSprayPC()) {
     bool is_checkpoint = true;
-    amrex::Vector<std::string> real_comp_names(pstateNum);
-    AMREX_D_TERM(real_comp_names[pstateVel] = "xvel";
-                 , real_comp_names[pstateVel + 1] = "yvel";
-                 , real_comp_names[pstateVel + 2] = "zvel";);
-    real_comp_names[pstateT] = "temperature";
-    real_comp_names[pstateDia] = "diam";
-    real_comp_names[pstateRho] = "density";
-    for (int sp = 0; sp != SPRAY_FUEL_NUM; ++sp) {
-      real_comp_names[pstateY + sp] = "spray_mf_" + PeleLM::sprayFuelNames[sp];
-    }
-    amrex::Vector<std::string> int_comp_names;
-    PeleLM::theSprayPC()->Checkpoint(
-      dir, "particles", is_checkpoint, real_comp_names, int_comp_names);
+    int write_ascii = 0; // Not for checkpoint intervals
+    PeleLM::theSprayPC()->SprayParticleIO(
+      level, is_checkpoint, write_ascii, dir, PeleLM::sprayFuelNames);
   }
 #endif
 }
@@ -2833,6 +2842,10 @@ PeleLM::resetState (Real time,
 
    state[FuncCount_Type].reset();
    state[FuncCount_Type].setTimeLevel(time,dt_old,dt_new);
+#ifdef AMREX_PARTICLES
+   state[spraydot_Type].reset();
+   state[spraydot_Type].setTimeLevel(time,dt_old,dt_new);
+#endif
 }
 
 void
@@ -4246,12 +4259,21 @@ PeleLM::scalar_advection_update (Real dt,
       auto const& snew   = S_new.array(mfi);
       auto const& sold   = S_old.array(mfi);
       auto const& adv    = aofs->array(mfi);
-
-      amrex::ParallelFor(bx, [snew, sold, adv, dt, first_scalar, last_scalar]
+#ifdef AMREX_PARTICLES
+      auto const& spraydot = get_new_data(spraydot_Type).array(mfi);
+#endif
+      amrex::ParallelFor(bx, [snew, sold, adv, dt, first_scalar, last_scalar
+#ifdef AMREX_PARTICLES
+                              , spraydot
+#endif
+                              ]
       AMREX_GPU_DEVICE (int i, int j, int k) noexcept
       {
          for (int n = first_scalar; n <= last_scalar; n++) {
             snew(i,j,k,n) = sold(i,j,k,n) + dt * adv(i,j,k,n);
+#ifdef AMREX_PARTICLES
+            snew(i,j,k,n) += dt * spraydot(i,j,k,n);
+#endif
          }
       });
    }
@@ -4589,73 +4611,6 @@ PeleLM::set_htt_hmixTYP ()
    }
 }
 
-#ifdef AMREX_PARTICLES
-void
-PeleLM::setSprayGridInfo(
-  const int amr_iteration,
-  const int amr_ncycle,
-  int& ghost_width,
-  int& where_width,
-  int& spray_n_grow,
-  int& tmp_src_width)
-{
-  // TODO: Re-evaluate these numbers and include the particle cfl into the
-  // calcuation A particle in cell (i) can affect cell values in (i-1) to (i+1)
-  int stencil_deposition_width = 1;
-
-  // A particle in cell (i) may need information from cell values in (i-1) to
-  // (i+1)
-  //   to update its position (typically via interpolation of the acceleration
-  //   from the grid)
-  int stencil_interpolation_width = 1;
-
-  // A particle that starts in cell (i + amr_ncycle) can reach
-  //   cell (i) in amr_ncycle number of steps .. after "amr_iteration" steps
-  //   the particle has to be within (i + amr_ncycle+1-amr_iteration) to reach
-  //   cell (i) in the remaining (amr_ncycle-amr_iteration) steps
-
-  // *** ghost_width ***  is used
-  //   *) to set how many cells are used to hold ghost particles i.e copies of
-  //   particles that live on (level) that can affect the grid on level+1 over the
-  //   total number of cycles on level+1, which is equal to the refinement ratio
-
-  ghost_width = 0;
-  if (level < parent->finestLevel() && parent->finestLevel() > 0)
-    ghost_width = parent->MaxRefRatio(level);
-  int ghost_num = 0;
-  if (parent->subCycle() && parent->finestLevel() > 0)
-    ghost_num += amr_ncycle + stencil_deposition_width;
-
-  // *** where_width ***  is used
-  //   *) to set how many cells the Where call in moveKickDrift tests = max of
-  //     {ghost_width + (1-amr_iteration) - 1}:
-  //      the minus 1 arises because this occurs *after* the move} and
-  //     {amr_iteration}:
-  //     the number of cells out that a cell initially in the fine grid may
-  //     have moved and we don't want to just lose it (we will redistribute it
-  //     when we're done}
-
-  where_width = amr_ncycle + amr_ncycle/2 - amr_iteration;
-
-  // *** spray_n_grow *** is used
-  //   *) to determine how many ghost cells we need to fill in the MultiFab from
-  //      which the particle interpolates its acceleration
-
-  spray_n_grow = ghost_num + stencil_interpolation_width;
-
-  // *** tmp_src_width ***  is used
-  //   *) to set how many ghost cells are needed in the tmp_src_ptr MultiFab
-  //   that we
-  //      define inside moveKickDrift and moveKick.   This needs to be big
-  //      enough to hold the contribution from all the particles within
-  //      ghost_width so that we don't have to test on whether the particles are
-  //      trying to write out of bounds
-
-  tmp_src_width = stencil_deposition_width;
-  if (level > 0) tmp_src_width += ghost_num;
-}
-#endif
-
 void
 PeleLM::advance_setup (Real time,
                        Real dt,
@@ -4774,10 +4729,6 @@ PeleLM::predict_velocity (Real  dt)
    //
    // Non-EB version
    //
-#ifdef AMREX_PARTICLES
-   MultiFab& spraydot = get_new_data(spraydot_Type);
-   showMF("spray",spraydot,"spraydot_pred_vel",level,parent->levelSteps(level));
-#endif
    const int ngrow = 1;
    MultiFab Gp(grids, dmap, AMREX_SPACEDIM,ngrow);
    getGradP(Gp, prev_pres_time);
@@ -4905,23 +4856,18 @@ PeleLM::advance (Real time,
 
 #ifdef AMREX_PARTICLES
   int nGrow_Sborder = 2; //mr: set to 1 for now, is this ok?
-  bool use_ghost_parts = false; // Use ghost particles
-  bool use_virt_parts = false;  // Use virtual particles
-  if (parent->finestLevel() > 0 && level < parent->finestLevel())
-  {
-    use_ghost_parts = true;
-    use_virt_parts = true;
-  }
 
   int ghost_width = 0;
   int where_width = 0;
   int spray_n_grow = 0;
   int tmp_src_width = 0;
-  setSprayGridInfo(
-    iteration,ncycle,ghost_width,where_width,spray_n_grow,tmp_src_width);
-
-  if (do_spray_particles)
-  {
+  if (do_spray_particles) {
+    int finest_level = parent->finestLevel();
+    int finer_ref = 0;
+    if (level < finest_level) finer_ref = parent->MaxRefRatio(level);
+    theSprayPC()->setSprayGridInfo(
+      level, finest_level, ncycle, iteration, finer_ref,
+      ghost_width, where_width, spray_n_grow, tmp_src_width);
     nGrow_Sborder = std::max(nGrow_Sborder, spray_n_grow);
     FillPatch(*this, Sborder, nGrow_Sborder, prev_time, State_Type, 0, NUM_STATE);
   }
@@ -5082,7 +5028,7 @@ PeleLM::advance (Real time,
     {
       if (do_spray_particles)
         AMREX_ASSERT(PeleLM::theSprayPC() != 0);
-        particleMKD(use_virt_parts, use_ghost_parts, time, dt, ghost_width, spray_n_grow,
+        particleMKD(time, dt, ghost_width, spray_n_grow,
                     tmp_src_width, where_width, tmp_spray_source);
     }
 #endif
@@ -8522,14 +8468,10 @@ PeleLM::getForce(FArrayBox&       force,
       makeForce(i,j,k, scomp, ncomp, pseudo_gravity, time, grav, dV_control, dx, velocity, scalars, f);
    });
 #ifdef AMREX_PARTICLES
-   const FArrayBox& sprayforce = get_new_data(spraydot_Type)[mfi];
-   if (scomp == 0) {
-     force.plus<RunOn::Host>(sprayforce, Xvel, 0, AMREX_SPACEDIM);
-   }
-   if (scomp+ncomp > AMREX_SPACEDIM - 1) {
-     int startcomp = amrex::max(scomp, AMREX_SPACEDIM);
-     int numcomp = scomp + ncomp - startcomp;
-     force.plus<RunOn::Host>(sprayforce, startcomp, startcomp, numcomp);
+   // Velocity forcing
+   if (scomp == Xvel && ncomp == AMREX_SPACEDIM && do_spray_particles) {
+     const FArrayBox& sprayforce = get_new_data(spraydot_Type)[mfi];
+     force.plus<RunOn::Device>(sprayforce, bx, Xvel, Xvel, AMREX_SPACEDIM);
    }
 #endif
 }
@@ -8979,36 +8921,10 @@ PeleLM::writePlotFile (const std::string& dir,
 
   VisMF::Write(plotMF,TheFullPath,how);
 #ifdef AMREX_PARTICLES
-  bool is_checkpoint = false;
-
   if (PeleLM::theSprayPC()) {
-    amrex::Vector<std::string> real_comp_names(pstateNum);
-    AMREX_D_TERM(real_comp_names[pstateVel] = "xvel";
-                 , real_comp_names[pstateVel + 1] = "yvel";
-                 , real_comp_names[pstateVel + 2] = "zvel";);
-    real_comp_names[pstateT] = "temperature";
-    real_comp_names[pstateDia] = "diam";
-    real_comp_names[pstateRho] = "density";
-    for (int sp = 0; sp != SPRAY_FUEL_NUM; ++sp) {
-      real_comp_names[pstateY + sp] = "spray_mf_" + PeleLM::sprayFuelNames[sp];
-    }
-    amrex::Vector<std::string> int_comp_names;
-    PeleLM::theSprayPC()->Checkpoint(
-      dir, "particles", is_checkpoint, real_comp_names, int_comp_names);
-    // Here we write ascii information every time we write a checkpoint file
-    if (level == 0) {
-      if (do_spray_particles == 1 && write_spray_ascii_files == 1) {
-        // TODO: Would be nice to be able to use file_name_digits
-        // instead of doing this
-        int strlen = dir.length();
-        // Remove the ".temp" from the directory
-        std::string dirout = dir.substr(0, strlen - 5);
-        size_t num_start_loc = dirout.find_last_not_of("0123456789") + 1;
-        std::string fname =
-          "spray" + dirout.substr(num_start_loc, strlen) + ".p3d";
-        PeleLM::theSprayPC()->WriteAsciiFile(fname);
-      }
-    }
+    bool is_checkpoint = false;
+    PeleLM::theSprayPC()->SprayParticleIO(
+      level, is_checkpoint, write_spray_ascii_files, dir, PeleLM::sprayFuelNames);
   }
 #endif
 }

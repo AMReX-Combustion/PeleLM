@@ -205,9 +205,7 @@ public:
   //
   // Setup ghost and virtual particles and do moveKickDrift
   //
-  void particleMKD(const bool        use_virt_parts,
-                   const bool        use_ghost_parts,
-                   const amrex::Real time,
+  void particleMKD(const amrex::Real time,
                    const amrex::Real dt,
                    const int         ghost_width,
                    const int         spray_n_grow,
@@ -259,13 +257,6 @@ public:
   // Should we write particle ascii files?
   //
   static int write_spray_ascii_files;
-
-  void setSprayGridInfo(const int amr_iteration,
-                        const int amr_ncycle,
-                        int&      ghost_width,
-                        int&      where_width,
-                        int&      spray_n_grow,
-                        int&      tmp_src_width);
 
   /// A state array with ghost zones
   amrex::MultiFab Sborder;
@@ -449,13 +440,12 @@ protected:
   static void Initialize_specific ();
   static void init_mixture_fraction ();
   static void Finalize ();
-    
+
 #ifdef AMREX_PARTICLES
   static int       do_spray_particles;
   static SprayParticleContainer* theSprayPC ();
   static SprayParticleContainer* theVirtPC ();
   static SprayParticleContainer* theGhostPC ();
-  amrex::MultiFab old_sources;
 #endif
 
 #if !defined(AMREX_USE_CUDA)

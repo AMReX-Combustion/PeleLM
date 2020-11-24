@@ -990,7 +990,7 @@ PeleLM::spraydotSetUp()
   spraydot_Type = desc_lst.size();
   const int ngrow = 1;
 
- // species + density + momentum + enth + temp + rhoRT
+  // species + density + momentum + enth + temp + rhoRT
   const int nspraydot = NUM_SPECIES+AMREX_SPACEDIM+4;
 
   desc_lst.addDescriptor(spraydot_Type,IndexType::TheCellType(),

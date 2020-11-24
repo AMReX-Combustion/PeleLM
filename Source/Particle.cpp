@@ -328,10 +328,7 @@ PeleLM::initParticles()
   if (do_spray_particles) {
     AMREX_ASSERT(theSprayPC() == 0);
     // Whether we need to use ghost and virtual particles
-    bool gvParticles = false;
-    if (parent->subCycle()) {
-      gvParticles = true;
-    }
+    bool gvParticles = true;
 
     SprayPC = new SprayParticleContainer(parent, &phys_bc, parcelSize);
     theSprayPC()->SetVerbose(particle_verbose);
@@ -355,6 +352,9 @@ PeleLM::initParticles()
     } else if (particle_init_function > 0) {
       theSprayPC()->InitSprayParticles();
     }
+    if (particle_verbose > 1)
+      amrex::Print() << "Total number of initial particles " <<
+        theSprayPC()->TotalNumberOfParticles(false, false) << std::endl;
   }
   particles_initialized = true;
 }
@@ -396,9 +396,7 @@ PeleLM::particlePostRestart(const std::string& restart_file, bool is_checkpoint)
 }
 
 void
-PeleLM::particleMKD (const bool       use_virt_parts,
-                     const bool       use_ghost_parts,
-                     const Real       time,
+PeleLM::particleMKD (const Real       time,
                      const Real       dt,
                      const int        ghost_width,
                      const int        spray_n_grow,
@@ -434,14 +432,14 @@ PeleLM::particleMKD (const bool       use_virt_parts,
   //
   // Setup the virtual particles that represent particles on finer levels
   //
-  if (level < finest_level && use_virt_parts)
+  if (level < finest_level)
     setupVirtualParticles();
 
   //
   // Make a copy of the particles on this level into ghost particles
   // for the finer level
   //
-  if (use_ghost_parts)
+  if (level < finest_level)
     setupGhostParticles(ghost_width);
 
   // Advance the particle velocities to the half-time and the positions to
@@ -461,7 +459,7 @@ PeleLM::particleMKD (const bool       use_virt_parts,
     true, // Move the particles
     where_width);
   // Only need the coarsest virtual particles here.
-  if (level < finest_level && use_virt_parts)
+  if (level < finest_level)
     theVirtPC()->moveKickDrift(
       Sborder, tmp_spray_source,
       level, dt, time, true, false,
@@ -479,6 +477,7 @@ PeleLM::particleMKD (const bool       use_virt_parts,
   // on all particle types
   theSprayPC()->transferSource(
     tmp_src_width, level, tmp_spray_source, spraydot);
+  spraydot.FillBoundary(geom.periodicity());
 }
 
 void
@@ -495,10 +494,13 @@ PeleLM::particleMK (const Real       time,
     level, dt, time, false, false,
     spray_n_grow, tmp_src_width);
 
-  // Virtual particles will be recreated, so we need not kick them.
-  // TODO: Is this true with SDC iterations??
+  if (level < parent->finestLevel())
+    theVirtPC()->moveKick(
+      Sborder, tmp_spray_source,
+      level, dt, time, true, false,
+      spray_n_grow, tmp_src_width);
   // Ghost particles need to be kicked except during the final iteration.
-  if (amr_iteration != amr_ncycle && theGhostPC() != 0)
+  if (theGhostPC() != 0)
     theGhostPC()->moveKick(
       Sborder, tmp_spray_source,
       level, dt, time, false, true,
@@ -507,6 +509,7 @@ PeleLM::particleMK (const Real       time,
   spraydot.setVal(0.);
   theSprayPC()->transferSource(
     tmp_src_width, level, tmp_spray_source, spraydot);
+  spraydot.FillBoundary(geom.periodicity());
 }
 
 // TODO: This has not been checked or updated, use with caution
