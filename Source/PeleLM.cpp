@@ -157,6 +157,7 @@ Real PeleLM::Zfu;
 Real PeleLM::Zox;
 bool PeleLM::mixture_fraction_ready;
 int  PeleLM::unity_Le;
+int  PeleLM::use_wbar;
 Real PeleLM::htt_tempmin;
 Real PeleLM::htt_tempmax;
 Real PeleLM::htt_hmixTYP;
@@ -353,7 +354,8 @@ PeleLM::Initialize ()
   PeleLM::Zfu = -1;
   PeleLM::Zox = -1;
   PeleLM::mixture_fraction_ready    = false;
-  PeleLM::unity_Le                  = 1;
+  PeleLM::unity_Le                  = 0;
+  PeleLM::use_wbar                  = 1;
   PeleLM::htt_tempmin               = 298.0;
   PeleLM::htt_tempmax               = 40000.;
   PeleLM::htt_hmixTYP               = -1.;
@@ -415,6 +417,7 @@ PeleLM::Initialize ()
     if (verbose) amrex::Print() << "PeleLM::read_params: Le=1, setting Sc = Pr" << '\n';
   }
 
+  pp.query("use_wbar",use_wbar);
   pp.query("sdc_iterMAX",sdc_iterMAX);
   pp.query("num_mac_sync_iter",num_mac_sync_iter);
 
@@ -905,9 +908,6 @@ PeleLM::PeleLM ()
    EdgeFlux               = 0;
    SpecDiffusionFluxn     = 0;
    SpecDiffusionFluxnp1   = 0;
-#ifdef USE_WBAR
-   SpecDiffusionFluxWbar  = 0;
-#endif
 #ifdef AMREX_PARTICLES
   int nGrowS = 4;
   if (level > 0 && do_spray_particles) {
@@ -919,6 +919,9 @@ PeleLM::PeleLM ()
   }
   Sborder.define(grids, dmap, NUM_STATE, nGrowS, amrex::MFInfo(), Factory());
 #endif
+   if (use_wbar) {
+      SpecDiffusionFluxWbar  = 0;
+   }
 }
 
 PeleLM::PeleLM (Amr&            papa,
@@ -1009,10 +1012,10 @@ PeleLM::define_data ()
      }
 #endif
      
-#ifdef USE_WBAR
-     raii_fbs.push_back(std::unique_ptr<FluxBoxes>{new FluxBoxes(this, NUM_SPECIES, nGrow)});
-     SpecDiffusionFluxWbar = raii_fbs.back()->get();
-#endif
+     if (use_wbar) {
+        raii_fbs.push_back(std::unique_ptr<FluxBoxes>{new FluxBoxes(this, NUM_SPECIES, nGrow)});
+        SpecDiffusionFluxWbar = raii_fbs.back()->get();
+     }
    }
 
    for (const auto& kv : auxDiag_names)
@@ -1024,11 +1027,6 @@ PeleLM::define_data ()
    // HACK for debugging
    if (level==0)
       stripBox = getStrip(geom);
-
-#ifdef USE_WBAR
-   // this will hold the transport coefficients for Wbar
-   diffWbar_cc.define(grids,dmap,NUM_SPECIES,1);
-#endif
 }
 
 void
@@ -1268,7 +1266,7 @@ PeleLM::restart (Amr&          papa,
 void
 PeleLM::init_mixture_fraction()
 {
-      // Get fuel and oxy tank composition
+      // Get default fuel and oxy tank composition
       Vector<std::string> specNames;
       EOS::speciesNames(specNames);
       amrex::Real YF[NUM_SPECIES], YO[NUM_SPECIES];
@@ -1278,6 +1276,66 @@ PeleLM::init_mixture_fraction()
          if (!specNames[i].compare("O2"))  YO[i] = 0.233;
          if (!specNames[i].compare("N2"))  YO[i] = 0.767;
          if (!specNames[i].compare(fuelName)) YF[i] = 1.0;
+      }
+
+      // Overwrite with user-defined value if provided in input file
+      ParmParse pp("peleLM");
+      std::string MFformat;
+      int hasUserMF = pp.contains("mixtureFraction.format");
+      if ( hasUserMF ) {
+         pp.query("mixtureFraction.format", MFformat);
+         if ( !MFformat.compare("Cantera")) {             // use a Cantera-like format with <SpeciesName>:<Value>, default in 0.0
+            std::string MFCompoType;
+            pp.query("mixtureFraction.type", MFCompoType);
+            Vector<std::string> compositionIn;
+            int entryCount = pp.countval("mixtureFraction.oxidTank");
+            compositionIn.resize(entryCount);
+            pp.getarr("mixtureFraction.oxidTank",compositionIn,0,entryCount);
+            parseComposition(compositionIn, MFCompoType, YO);
+            entryCount = pp.countval("mixtureFraction.fuelTank");
+            compositionIn.resize(entryCount);
+            pp.getarr("mixtureFraction.fuelTank",compositionIn,0,entryCount);
+            parseComposition(compositionIn, MFCompoType, YF);
+         } else if ( !MFformat.compare("RealList")) {     // use a list of Real. MUST contains an entry for each species in the mixture
+            std::string MFCompoType;
+            pp.query("mixtureFraction.type", MFCompoType);
+            if ( !MFCompoType.compare("mass") ) {
+               int entryCount = pp.countval("mixtureFraction.oxidTank");
+               AMREX_ALWAYS_ASSERT(entryCount==NUM_SPECIES);
+               Vector<amrex::Real> compositionIn(NUM_SPECIES);
+               pp.getarr("mixtureFraction.oxidTank",compositionIn,0,NUM_SPECIES);
+               for (int i=0; i<NUM_SPECIES; ++i) {
+                  YO[i] = compositionIn[i];
+               }
+               entryCount = pp.countval("mixtureFraction.fuelTank");
+               AMREX_ALWAYS_ASSERT(entryCount==NUM_SPECIES);
+               pp.getarr("mixtureFraction.fuelTank",compositionIn,0,NUM_SPECIES);
+               for (int i=0; i<NUM_SPECIES; ++i) {
+                  YF[i] = compositionIn[i];
+               }
+            } else if ( !MFCompoType.compare("mole") ) {
+               amrex::Real XF[NUM_SPECIES], XO[NUM_SPECIES];
+               int entryCount = pp.countval("mixtureFraction.oxidTank");
+               AMREX_ALWAYS_ASSERT(entryCount==NUM_SPECIES);
+               Vector<amrex::Real> compositionIn(NUM_SPECIES);
+               pp.getarr("mixtureFraction.oxidTank",compositionIn,0,NUM_SPECIES);
+               for (int i=0; i<NUM_SPECIES; ++i) {
+                  XO[i] = compositionIn[i];
+               }
+               entryCount = pp.countval("mixtureFraction.fuelTank");
+               AMREX_ALWAYS_ASSERT(entryCount==NUM_SPECIES);
+               pp.getarr("mixtureFraction.fuelTank",compositionIn,0,NUM_SPECIES);
+               for (int i=0; i<NUM_SPECIES; ++i) {
+                  XF[i] = compositionIn[i];
+               }
+               EOS::X2Y(XO, YO);
+               EOS::X2Y(XF, YF);
+            } else {
+               Abort("Unknown mixtureFraction.type ! Should be 'mass' or 'mole'");
+            }
+         } else {
+            Abort("Unknown mixtureFraction.format ! Should be 'Cantera' or 'RealList'");
+         }
       }
 
       // Only interested in CHON -in that order. Compute Bilger weights
@@ -1911,12 +1969,8 @@ PeleLM::initData ()
     state[State_Type].setTimeLevel(tnp1,dt,dt);
 
     calcDiffusivity(tnp1);
-#ifdef USE_WBAR
-    calcDiffusivity_Wbar(tnp1);
-#endif
 
     calc_divu(tnp1,dtin,Divu_new);
-    
   }
 
   if (state[Press_Type].descriptor()->timeType() == StateDescriptor::Point) 
@@ -3293,27 +3347,29 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
    set_body_state(*Sn[0]);
 #endif
 
-#ifdef USE_WBAR
-   // add lagged grad Wbar fluxes (SpecDiffusionFluxWbar) to time-advanced 
-   // species diffusion fluxes (SpecDiffusionFluxnp1)
+   if (use_wbar) {
+      // add lagged grad Wbar fluxes (SpecDiffusionFluxWbar) to time-advanced 
+      // species diffusion fluxes (SpecDiffusionFluxnp1)(kp1) at this point.
+      // These fluxes are similar to the one we put into the RHS in advance() since they are not
+      // solved implicitly.
 #ifdef _OPENMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
-   for (MFIter mfi(*SpecDiffusionFluxWbar[0],TilingIfNotGPU()); mfi.isValid(); ++mfi)
-   {
-      for (int dir=0; dir<AMREX_SPACEDIM; ++dir)
+      for (MFIter mfi(*Sn[0],TilingIfNotGPU()); mfi.isValid(); ++mfi)
       {
-         const Box& ebx = mfi.nodaltilebox(dir);
-         auto const& flux_spec = SpecDiffusionFluxnp1[dir]->array(mfi);
-         auto const& flux_wbar = SpecDiffusionFluxWbar[dir]->array(mfi);
-         amrex::ParallelFor(ebx, NUM_SPECIES, [ flux_spec, flux_wbar ]
-         AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
+         for (int dir=0; dir<AMREX_SPACEDIM; ++dir)
          {
-             flux_spec(i,j,k,n) += flux_wbar(i,j,k,n);
-         });
+            const Box& ebx = mfi.nodaltilebox(dir);
+            auto const& flux_spec = SpecDiffusionFluxnp1[dir]->array(mfi);
+            auto const& flux_wbar = SpecDiffusionFluxWbar[dir]->array(mfi);
+            amrex::ParallelFor(ebx, NUM_SPECIES, [ flux_spec, flux_wbar ]
+            AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
+            {
+                flux_spec(i,j,k,n) += flux_wbar(i,j,k,n);
+            });
+         }
       }
    }
-#endif
 
    //
    // Modify/update new-time fluxes to ensure sum of species fluxes = 0, then compute Dnew[m] = -Div(flux[m])
@@ -4133,19 +4189,15 @@ PeleLM::compute_differential_diffusion_fluxes (const MultiFab& S,
       // No multiplication by dt here.
       Diffusion::computeExtensiveFluxes(mg, Soln, flux, fluxComp+icomp, 1, &geom, b);
    }
-//VisMF::Write(*flux[0],"flux_after_getFluxes_x");
-//VisMF::Write(*flux[1],"flux_after_getFluxes_y"); 
 
    Soln.clear();
 
-#ifdef USE_WBAR
-   if (include_Wbar_fluxes) {
-      compute_Wbar_fluxes(time,0);
+   if (use_wbar && include_Wbar_fluxes) {
+      compute_Wbar_fluxes(time,0,1.0);
       for (int d=0; d<AMREX_SPACEDIM; ++d) {
          MultiFab::Add(*flux[d],*SpecDiffusionFluxWbar[d],0,fluxComp,NUM_SPECIES,0);
       }
    }
-#endif
 
    //
    // Modify update/fluxes to preserve flux sum = 0 (conservatively correct Gamma_m)
@@ -4410,9 +4462,9 @@ PeleLM::compute_differential_diffusion_terms (MultiFab& D,
    const TimeLevel whichTime = which_time(State_Type,time);
    BL_ASSERT(whichTime == AmrOldTime || whichTime == AmrNewTime);
    MultiFab* const * flux = (whichTime == AmrOldTime) ? SpecDiffusionFluxn : SpecDiffusionFluxnp1;
-#ifdef USE_WBAR
-   MultiFab* const * fluxWbar = SpecDiffusionFluxWbar;
-#endif
+   if (use_wbar) {
+      MultiFab* const * fluxWbar = SpecDiffusionFluxWbar;
+   }
 
    //
    // Compute/adjust species fluxes/heat flux/conduction, save in class data
@@ -4631,10 +4683,6 @@ PeleLM::advance_setup (Real time,
    make_rho_curr_time();
 
    RhoH_to_Temp(get_old_data(State_Type));
-
-#ifdef USE_WBAR
-   calcDiffusivity_Wbar(time);
-#endif
 
    if (plot_reactions && level == 0)
    {
@@ -4907,8 +4955,6 @@ PeleLM::advance (Real time,
       reset_typical_values(get_old_data(State_Type));
     }
   }
-  BL_PROFILE_VAR_STOP(PLM_SETUP);
-  //====================================
 
   if (do_check_divudt)
   {
@@ -4916,6 +4962,8 @@ PeleLM::advance (Real time,
   }
 
   Real dt_test = 0.0;
+  BL_PROFILE_VAR_STOP(PLM_SETUP);
+  //====================================
 
   //====================================
   BL_PROFILE_VAR("PeleLM::advance::diffusion", PLM_DIFF);
@@ -4948,37 +4996,38 @@ PeleLM::advance (Real time,
   BL_PROFILE_VAR_STOP(PLM_MAC);
   //====================================
 
-  MultiFab Dn(grids,dmap,NUM_SPECIES+2,nGrowAdvForcing,MFInfo(),Factory());
-  MultiFab DDn(grids,dmap,1,nGrowAdvForcing,MFInfo(),Factory());
-#ifdef USE_WBAR
-  MultiFab DWbar(grids,dmap,NUM_SPECIES,nGrowAdvForcing,MFInfo(),Factory());
-#endif
-
-  // Compute Dn and DDn (based on state at tn)
-  //  (Note that coeffs at tn and tnp1 were intialized in _setup)
-  if (verbose) amrex::Print() << "Computing Dn, DDn, and DWbar \n";
-
   //====================================
   BL_PROFILE_VAR_START(PLM_DIFF);
+  // Compute Dn and DDn (based on state at tn)
+  // (Note that coeffs at tn and tnp1 were intialized in above)
+  MultiFab Dn(grids,dmap,NUM_SPECIES+2,nGrowAdvForcing,MFInfo(),Factory());
+  MultiFab DDn(grids,dmap,1,nGrowAdvForcing,MFInfo(),Factory());
+  MultiFab DWbar;
+  if (use_wbar) {
+     DWbar.define(grids,dmap,NUM_SPECIES,nGrowAdvForcing,MFInfo(),Factory());
+  }
+
+  if (verbose) amrex::Print() << "Computing Dn & DDn \n";
+
   bool include_Wbar_terms = true;
   compute_differential_diffusion_terms(Dn,DDn,prev_time,dt,include_Wbar_terms);
   BL_PROFILE_VAR_STOP(PLM_DIFF);
   //====================================
 
+  //====================================
+  BL_PROFILE_VAR("PeleLM::advance::reactions", PLM_REAC);
   /*
     You could compute instantaneous I_R here but for now it's using either the
     previous step or divu_iter's version of I_R.  Either way, we have to make 
     sure that the nGrowAdvForcing grow cells have something reasonable in them
   */
-  //====================================
-  BL_PROFILE_VAR("PeleLM::advance::reactions", PLM_REAC);
   set_reasonable_grow_cells_for_R(tnp1);
   BL_PROFILE_VAR_STOP(PLM_REAC);
   //====================================
 
   // copy old state into new state for Dn and DDn.
-  // Note: this was already done for scalars, transport coefficients,
-  // and divu in advance_setup
+  // Note: this was already done above for transport coefficients
+  // and in advance_setup for scalar & divu
 
   MultiFab Dnp1(grids,dmap,NUM_SPECIES+2,nGrowAdvForcing,MFInfo(),Factory());
   MultiFab DDnp1(grids,dmap,1,nGrowAdvForcing,MFInfo(),Factory());
@@ -5021,6 +5070,7 @@ PeleLM::advance (Real time,
   is_predictor = false;
 
   BL_PROFILE_VAR_NS("PeleLM::advance::velocity_adv", PLM_VEL);
+
   for (int sdc_iter=1; sdc_iter<=sdc_iterMAX; ++sdc_iter)
   {
 #ifdef AMREX_PARTICLES
@@ -5041,9 +5091,6 @@ PeleLM::advance (Real time,
       // compute new-time transport coefficients
       BL_PROFILE_VAR_START(PLM_DIFF);
       calcDiffusivity(tnp1);
-#ifdef USE_WBAR
-      calcDiffusivity_Wbar(tnp1);
-#endif
 
       // compute Dnp1 and DDnp1 iteratively lagged
       bool include_Wbar_terms_np1 = true;
@@ -5210,12 +5257,13 @@ PeleLM::advance (Real time,
     Forcing.setVal(0.0);
 
     // Get the Wbar term is required
-#ifdef USE_WBAR
-    const Real  cur_time  = state[State_Type].curTime();
-    // Update Wbar fluxes, add divergence to RHS
-    compute_Wbar_fluxes(cur_time,0);
-    flux_divergence(DWbar,0,SpecDiffusionFluxWbar,0,NUM_SPECIES,-1);
-#endif
+    if (use_wbar) {
+       // Compute Wbar fluxes from state np1k (lagged), add divergence to RHS
+       // They will be added to the Fnp1kp1 directly in diff_diff_update()
+       const Real  cur_time  = state[State_Type].curTime();
+       compute_Wbar_fluxes(cur_time,0,1.0);
+       flux_divergence(DWbar,0,SpecDiffusionFluxWbar,0,NUM_SPECIES,-1);
+    }
 
 #ifdef _OPENMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
@@ -5232,32 +5280,28 @@ PeleLM::advance (Real time,
         auto const& a       = aofs->array(mfi,first_spec);
         auto const& fY      = Forcing.array(mfi,0);
         auto const& fT      = Forcing.array(mfi,NUM_SPECIES);
-#ifdef USE_WBAR
-        auto const& dwbar   = DWbar.array(mfi);
-#endif
 #ifdef AMREX_PARTICLES
         auto const& spraydot_Y = get_new_data(spraydot_Type).array(mfi,DEF_first_spec);
         auto const& spraydot_RhoH = get_new_data(spraydot_Type).array(mfi,DEF_RhoH);
 #endif
+        int use_wbar_lcl    = use_wbar;
+        auto const& dwbar   = (use_wbar) ? DWbar.array(mfi) : Dn.array(mfi,0);
         Real        dp0dt_d = dp0dt;
         int     closed_ch_d = closed_chamber;
 
-        amrex::ParallelFor(bx, [dn, ddn, dnp1k, ddnp1k, 
-#ifdef USE_WBAR
-                                dwbar,
-#endif
+        amrex::ParallelFor(bx, [dn, ddn, dnp1k, ddnp1k, dwbar,
 #ifdef AMREX_PARTICLES
                                 spraydot_Y, spraydot_RhoH,
 #endif
-                                r, a, fY, fT, dp0dt_d, closed_ch_d]
+                                r, a, fY, fT, dp0dt_d, closed_ch_d, use_wbar_lcl]
         AMREX_GPU_DEVICE (int i, int j, int k) noexcept
         {
            buildDiffusionForcing( i, j, k, dn, ddn, dnp1k, ddnp1k, r, a, dp0dt_d, closed_ch_d, fY, fT );
-#ifdef USE_WBAR
-           for (int n = 0; n < NUM_SPECIES; n++) {
-              fY(i,j,k,n) += dwbar(i,j,k,n);
+           if (use_wbar_lcl) {
+              for (int n = 0; n < NUM_SPECIES; n++) {
+                 fY(i,j,k,n) += dwbar(i,j,k,n);
+              }
            }
-#endif
 #ifdef AMREX_PARTICLES
            for (int n = 0; n < NUM_SPECIES; n++) {
              fY(i,j,k,n) += spraydot_Y(i,j,k,n);
@@ -5416,10 +5460,8 @@ PeleLM::advance (Real time,
 
    //====================================
    BL_PROFILE_VAR_START(PLM_DIFF);
+   // Update transport coefficient with post-SDC state
    calcDiffusivity(tnp1);
-#ifdef USE_WBAR
-   calcDiffusivity_Wbar(tnp1);
-#endif
    calcViscosity(tnp1,dt,iteration,ncycle);
    BL_PROFILE_VAR_STOP(PLM_DIFF);
    //====================================
@@ -6523,6 +6565,11 @@ PeleLM::mac_sync ()
       showMF("DBGSync",*Vsync_sav[lev],"sdc_Vsync_BeginSync",level,0,parent->levelSteps(level));
    }
 
+   if (use_wbar) {
+      // compute (overwrite) beta grad Wbar terms using the pre-sync state
+      compute_Wbar_fluxes(curr_time,0,1.0);
+   }
+
    ////////////////////////
    // begin mac_sync_iter loop here
    // The loop allows an update of chi to ensure that the sync correction remains
@@ -6689,26 +6736,22 @@ PeleLM::mac_sync ()
       // Delete Ucorr; we're done with it.
       //
       for (int idim = 0; idim < AMREX_SPACEDIM; ++idim)
-	delete Ucorr[idim];
+         delete Ucorr[idim];
 
       Ssync.mult(dt); // Turn this into an increment over dt
 
-#ifdef USE_WBAR
-      // compute beta grad Wbar terms using the latest version of the post-sync state
-      // Initialize containers first here, 1/2 is for C-N sync, dt mult later with everything else
-      for (int dir=0; dir<AMREX_SPACEDIM; ++dir) {
-         (*SpecDiffusionFluxWbar[dir]).setVal(0.);
-      }
-      compute_Wbar_fluxes(curr_time,0.5);
-      // compute beta grad Wbar terms at {n+1,p}
-      // internally added with values already stored in SpecDiffusionFluxWbar
-      compute_Wbar_fluxes(curr_time,-0.5);
+      MultiFab DdWbar;
+      if (use_wbar) {
+         // Substract pre-sync beta grad Wbar fluxes
+         // If mac_sync_iter = 0 -> dWbar fluxes == 0, otherwise post-sync - pre-sync
+         compute_Wbar_fluxes(curr_time,1,-1.0);
 
-      // take divergence of beta grad delta Wbar
-      MultiFab DdWbar(grids,dmap,NUM_SPECIES,nGrowAdvForcing);
-      MultiFab* const * fluxWbar = SpecDiffusionFluxWbar;
-      flux_divergence(DdWbar,0,fluxWbar,0,NUM_SPECIES,-1);
-#endif
+         // take divergence of beta grad delta Wbar
+         DdWbar.define(grids,dmap,NUM_SPECIES,nGrowAdvForcing);
+         MultiFab* const * fluxWbar = SpecDiffusionFluxWbar;
+         flux_divergence(DdWbar,0,fluxWbar,0,NUM_SPECIES,-1);
+         DdWbar.mult(dt);
+      }
 
 #ifdef _OPENMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
@@ -6721,24 +6764,20 @@ PeleLM::mac_sync ()
          auto const& dYsync   = DeltaYsync.array(mfi);
          auto const& drhosync = Ssync.array(mfi,Density-AMREX_SPACEDIM);
          auto const& ssync    = Ssync.array(mfi,first_spec-AMREX_SPACEDIM);
-#ifdef USE_WBAR
-         auto const& dwbar    = DdWbar.array(mfi);
-#endif
+         int use_wbar_lcl     = use_wbar;
+         auto const& dwbar    = (use_wbar) ? DdWbar.array(mfi) : DeltaYsync.array(mfi);
 
-         amrex::ParallelFor(bx, [rho, rhoY, dYsync, drhosync,
-#ifdef USE_WBAR
-                                 dwbar,
-#endif
-                                 ssync ]
+         amrex::ParallelFor(bx, [rho, rhoY, dYsync, drhosync, dwbar,
+                                 ssync, use_wbar_lcl]
          AMREX_GPU_DEVICE (int i, int j, int k) noexcept
          {
             Real rhoinv = 1.0/rho(i,j,k);
             for (int n = 0; n < NUM_SPECIES; n++) {
                dYsync(i,j,k,n) = rhoY(i,j,k,n) * rhoinv * drhosync(i,j,k);   // DeltaYSsync = Y^{n+1,p} * (delta rho)^sync
                ssync(i,j,k,n) -= dYsync(i,j,k,n);                            // Ssync = Ssync - DeltaYSync
-#ifdef USE_WBAR
-               ssync(i,j,k,n) += dwbar(i,j,k,n);                             // Ssync = Ssync + DdWbar
-#endif
+               if (use_wbar_lcl) {
+                  ssync(i,j,k,n) += dwbar(i,j,k,n);                          // Ssync = Ssync + DdWbar
+               }
             }
          });
       }
@@ -6819,7 +6858,8 @@ PeleLM::mac_sync ()
 
          // Diffuse species sync to get dGamma^{sync}, then form Gamma^{postsync} = Gamma^{presync} + dGamma^{sync}
          // Before this call Ssync = \nabla \cdot \delta F_{rhoY} - \delta_ADV - Y^{n+1,p}\delta rho^{sync}
-         differential_spec_diffuse_sync(dt, true, last_mac_sync_iter);
+         bool include_deltaWbar = true;
+         differential_spec_diffuse_sync(dt, include_deltaWbar, last_mac_sync_iter);
          // Ssync for species now contains rho^{n+1}(delta_Y)^sync
 
          for (int d=0; d<AMREX_SPACEDIM; ++d) {
@@ -6834,17 +6874,22 @@ PeleLM::mac_sync ()
          MultiFab::Add(Ssync,DeltaYsync,0,first_spec-AMREX_SPACEDIM,NUM_SPECIES,0);
          MultiFab::Add(S_new,Ssync,first_spec-AMREX_SPACEDIM,first_spec,NUM_SPECIES,0);
 
+         if (use_wbar) {
+            // compute (overwrite) beta grad Wbar terms using the post-sync state
+            compute_Wbar_fluxes(curr_time,0,1.0);
+         }
+
          // Trying to solve for:
          // \rho^{n+1} * Cp{n+1,\eta} * ∆T^{\eta+1} - dt / 2 \nabla \cdot \lambda^{n+1,p} \nabla ∆T^{\eta+1} = 
          // \rho^{n+1,p}*h^{n+1,p} - \rho^{n+1}*h^{n+1,\eta} + dt*Ssync + dt/2*(DT^{n+1,\eta} - DT^{n+1,p} + H^{n+1,\eta} - H^{n+1,p})
 
-         // Here Ssync contains refluxed enthalpy fluxes (from -lambda.Grad(T) and hm.Gamma_m)  FIXME: Make sure it does
+         // Here Ssync contains refluxed enthalpy fluxes (from -lambda.Grad(T) and hm.Gamma_m)
          MultiFab Trhs(grids,dmap,1,0,MFInfo(),Factory());
          MultiFab Told(grids,dmap,1,0,MFInfo(),Factory());
          MultiFab RhoCp_post(grids,dmap,1,0,MFInfo(),Factory());
          MultiFab DiffTerms_post(grids,dmap,2,0,MFInfo(),Factory());
 
-         Print() << "Starting deltaT iters in mac_sync... " << std::endl;
+         if (deltaT_verbose) Print() << "Starting deltaT iters in mac_sync... " << std::endl;
 
          Real deltaT_iter_norm = 0;
          for (int L=0; L<num_deltaT_iters_MAX && (L==0 || deltaT_iter_norm >= deltaT_norm_max); ++L)
@@ -7298,19 +7343,17 @@ PeleLM::mac_sync ()
 
 }
 
-#ifdef USE_WBAR
 void
 PeleLM::compute_Wbar_fluxes(Real time,
-                            Real increment_flag)
+                            int increment_flag,
+                            Real increment_coeff)
 {
-   BL_PROFILE("HT::compute_Wbar_fluxes()");
+   BL_PROFILE("PLM::compute_Wbar_fluxes()");
 
-   // allocate edge-beta for Wbar
-   FluxBoxes fb_betaWbar(this, NUM_SPECIES, 0);
-   MultiFab** betaWbar =fb_betaWbar.get();
-
-   // average transport coefficients for Wbar to edges
-   getDiffusivity_Wbar(betaWbar,time);
+   // average species transport coefficients to edged
+   FluxBoxes fb_beta(this, NUM_SPECIES, 0);
+   MultiFab **beta = fb_beta.get();
+   getDiffusivity(beta, time, first_spec, 0, NUM_SPECIES); // species
 
    int nGrowOp = 1;
 
@@ -7328,8 +7371,8 @@ PeleLM::compute_Wbar_fluxes(Real time,
    for (MFIter mfi(mf,TilingIfNotGPU()); mfi.isValid(); ++mfi)
    {
       const Box& gbx = mfi.growntilebox(); 
-      auto const& rho     = mf.array(mfi,0);
-      auto const& rhoY    = mf.array(mfi,1);
+      auto const& rho     = mf.const_array(mfi,0);
+      auto const& rhoY    = mf.const_array(mfi,1);
       auto const& Wbar_ar = Wbar.array(mfi); 
       amrex::ParallelFor(gbx, [rho, rhoY, Wbar_ar]
       AMREX_GPU_DEVICE (int i, int j, int k) noexcept
@@ -7369,12 +7412,13 @@ PeleLM::compute_Wbar_fluxes(Real time,
 
    const int nGrowCrse = 1;
 
+   MultiFab Wbar_crse;
    if (level > 0)
    {
       auto& crselev = getLevel(level-1);
 
       // Define Wbar coarse
-      MultiFab Wbar_crse(crselev.boxArray(), crselev.DistributionMap(), 1, nGrowCrse);
+      Wbar_crse.define(crselev.boxArray(), crselev.DistributionMap(), 1, nGrowCrse);
 
       // Get fillpatched coarse rho and rhoY
       FillPatchIterator fpic(crselev,Wbar_crse,nGrowCrse,time,State_Type,Density,NUM_SPECIES+1);
@@ -7418,40 +7462,90 @@ PeleLM::compute_Wbar_fluxes(Real time,
    std::array<MultiFab*,AMREX_SPACEDIM> fp{AMREX_D_DECL(gradWbar[0],gradWbar[1],gradWbar[2])};
    mg.getFluxes({fp},{&Wbar},MLLinOp::Location::FaceCentroid);
 
+   Vector<BCRec> math_bc(1);
+   math_bc = fetchBCArray(State_Type,first_spec,1);
+
+   const Box& domain = geom.Domain();
+   bool use_harmonic_avg = def_harm_avg_cen2edge ? true : false;
+
 #ifdef _OPENMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif   
+   FArrayBox rhoY_ed;
    for (MFIter mfi(Wbar,TilingIfNotGPU()); mfi.isValid(); ++mfi)
    {
       for (int d=0; d<AMREX_SPACEDIM; ++d) 
       {
-         const Box&  vbx = mfi.nodaltilebox(d);
-         auto const& gradWbar_ar  = gradWbar[d]->array(mfi);
-         auto const& betaWbar_ar  = betaWbar[d]->array(mfi);
-         auto const& wbarFlux     = SpecDiffusionFluxWbar[d]->array(mfi);
+         // Get edge centered rhoYs
+         const Box ebx = mfi.nodaltilebox(d);
+         rhoY_ed.resize(ebx,NUM_SPECIES); 
+         Elixir rhoY_el = rhoY_ed.elixir();
+
+         const Box& edomain = amrex::surroundingNodes(domain,d);
+         const auto& rhoY_arr   = mf.array(mfi,1);     // mf from FPI on Density+rhoYs
+         const auto& rhoYed_arr = rhoY_ed.array(0);
+         const auto bc_lo = fpi_phys_loc(math_bc[0].lo(d));
+         const auto bc_hi = fpi_phys_loc(math_bc[0].hi(d));
+         amrex::ParallelFor(ebx, [d, bc_lo, bc_hi, use_harmonic_avg, rhoY_arr, rhoYed_arr, edomain]
+         AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+         {
+            int idx[3] = {i,j,k};
+            bool on_lo = ( ( bc_lo == HT_Edge ) && ( idx[d] <= edomain.smallEnd(d) ) );
+            bool on_hi = ( ( bc_hi == HT_Edge ) && ( idx[d] >= edomain.bigEnd(d) ) );
+            cen2edg_cpp( i, j, k, d, NUM_SPECIES, use_harmonic_avg, on_lo, on_hi, rhoY_arr, rhoYed_arr);
+         });
+
+         auto const& rhoY        = rhoY_ed.array(0);
+         auto const& gradWbar_ar = gradWbar[d]->array(mfi);
+         auto const& beta_ar     = beta[d]->array(mfi);
+         auto const& wbarFlux    = SpecDiffusionFluxWbar[d]->array(mfi);
 
          if ( increment_flag == 0 ) {                 // Overwrite wbar fluxes
-            amrex::ParallelFor(vbx, [gradWbar_ar, betaWbar_ar, wbarFlux]
+            amrex::ParallelFor(ebx, [gradWbar_ar, beta_ar, rhoY, wbarFlux]
             AMREX_GPU_DEVICE (int i, int j, int k) noexcept
             {
-               for (int n = 0; n <= NUM_SPECIES; n++) {
-                  wbarFlux(i,j,k,n) = - betaWbar_ar(i,j,k,n) * gradWbar_ar(i,j,k);
+               // Get Wbar from rhoYs
+               amrex::Real rho = 0.0;
+               amrex::Real rho_inv;
+               for (int n = 0; n < NUM_SPECIES; n++) {
+                  rho += rhoY(i,j,k,n);
+               }
+               rho_inv = 1.0 / rho;
+               amrex::Real y[NUM_SPECIES];
+               for (int n = 0; n < NUM_SPECIES; n++) {
+                  y[n] = rhoY(i,j,k,n) * rho_inv;
+               }
+               amrex::Real Wbar;
+               EOS::Y2WBAR(y, Wbar);
+               for (int n = 0; n < NUM_SPECIES; n++) {
+                  wbarFlux(i,j,k,n) = - y[n] / Wbar * beta_ar(i,j,k,n) * gradWbar_ar(i,j,k);
                }   
             });
          } else {                                     // Increment wbar fluxes
-            amrex::ParallelFor(vbx, [gradWbar_ar, betaWbar_ar, wbarFlux]
+            amrex::ParallelFor(ebx, [gradWbar_ar, beta_ar, rhoY, wbarFlux, increment_coeff]
             AMREX_GPU_DEVICE (int i, int j, int k) noexcept
             {
-               for (int n = 0; n <= NUM_SPECIES; n++) {
-                  wbarFlux(i,j,k,n) -= betaWbar_ar(i,j,k,n) * gradWbar_ar(i,j,k);
+               // Get Wbar from rhoYs
+               amrex::Real rho = 0.0;
+               amrex::Real rho_inv;
+               for (int n = 0; n < NUM_SPECIES; n++) {
+                  rho += rhoY(i,j,k,n);
+               }
+               rho_inv = 1.0 / rho;
+               amrex::Real y[NUM_SPECIES];
+               for (int n = 0; n < NUM_SPECIES; n++) {
+                  y[n] = rhoY(i,j,k,n) * rho_inv;
+               }
+               amrex::Real Wbar;
+               EOS::Y2WBAR(y, Wbar);
+               for (int n = 0; n < NUM_SPECIES; n++) {
+                  wbarFlux(i,j,k,n) -= increment_coeff * y[n] / Wbar * beta_ar(i,j,k,n) * gradWbar_ar(i,j,k);
                }   
             });
          }
       }
    }
 }
-
-#endif
 
 void
 PeleLM::differential_spec_diffuse_sync (Real dt,
@@ -7537,14 +7631,13 @@ PeleLM::differential_spec_diffuse_sync (Real dt,
    fb_betanp1.clear();
    fb_fluxSC.clear();
 
-#ifdef USE_WBAR
    // if in the Wbar corrector, add the grad delta Wbar fluxes
-   if (Wbar_corrector)
+   if (use_wbar && Wbar_corrector)
    {
 #ifdef _OPENMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
-      for (MFIter mfi(*SpecDiffusionFluxWbar[0],TilingIfNotGPU()); mfi.isValid(); ++mfi)
+      for (MFIter mfi(Rhs,TilingIfNotGPU()); mfi.isValid(); ++mfi)
       {
          for (int dir=0; dir<AMREX_SPACEDIM; ++dir)
          {
@@ -7559,7 +7652,6 @@ PeleLM::differential_spec_diffuse_sync (Real dt,
          }
       }
    }
-#endif
 
    //
    // Modify update/fluxes to preserve flux sum = 0
@@ -7925,46 +8017,6 @@ PeleLM::calcDiffusivity (const Real time)
    }
 }
 
-#ifdef USE_WBAR
-void
-PeleLM::calcDiffusivity_Wbar (const Real time)
-{
-   BL_PROFILE("PLM::calcDiffusivity_Wbar()");
-
-   Abort("Fix Dwbar");
-
-   const TimeLevel whichTime = which_time(State_Type, time);
-   BL_ASSERT(whichTime == AmrOldTime || whichTime == AmrNewTime);
-
-   MultiFab& diff       = (whichTime == AmrOldTime) ? (*diffn_cc) : (*diffnp1_cc);
-   MultiFab& S = (whichTime == AmrOldTime) ? get_old_data(State_Type) : get_new_data(State_Type);
-
-   const int nGrow      = diff.nGrow();
-   BL_ASSERT(diffWbar_cc.nGrow() >= nGrow);
-
-   // Fillpatch the state   
-   FillPatchIterator fpi(*this,S,nGrow,time,State_Type,first_spec,NUM_SPECIES);
-   MultiFab& S_cc = fpi.get_mf();
-
-#ifdef _OPENMP
-#pragma omp parallel if (Gpu::notInLaunchRegion())
-#endif
-   for (MFIter mfi(S_cc,TilingIfNotGPU()); mfi.isValid();++mfi)
-   {
-      const Box& gbx = mfi.growntilebox();
-      auto const& rhoY    = S_cc.array(mfi,0);
-      auto const& rhoD    = diff.array(mfi,0);
-      auto const& DWbar   = diffWbar_cc.array(mfi,0);
-
-      amrex::ParallelFor(gbx, [rhoY, rhoD, DWbar]
-      AMREX_GPU_DEVICE (int i, int j, int k) noexcept
-      {
-         getBetaWbar( i, j, k, rhoY, rhoD, DWbar);
-      });
-   }
-}
-#endif
-
 void
 PeleLM::getViscosity (MultiFab* viscosity[AMREX_SPACEDIM],
                       const Real time)
@@ -8040,7 +8092,7 @@ PeleLM::getDiffusivity (MultiFab* diffusivity[AMREX_SPACEDIM],
                         const int dst_comp,
                         const int ncomp)
 {
-   BL_PROFILE("HT::getDiffusivity()");
+   BL_PROFILE("PLM::getDiffusivity()");
    BL_ASSERT(state_comp > Density);
    BL_ASSERT(diffusivity[0]->nComp() >= dst_comp+ncomp);
    BL_ASSERT( ( state_comp == first_spec && ncomp == NUM_SPECIES ) ||
@@ -8100,58 +8152,6 @@ PeleLM::getDiffusivity (MultiFab* diffusivity[AMREX_SPACEDIM],
       zeroBoundaryVisc(diffusivity,time,state_comp,dst_comp,ncomp);
    }
 }
-
-#ifdef USE_WBAR
-void
-PeleLM::getDiffusivity_Wbar (MultiFab*  betaWbar[AMREX_SPACEDIM],
-                             const Real time)	   
-{
-  BL_PROFILE("HT::getDiffusivity_Wbar()");
-
-  MultiFab& diff = diffWbar_cc;
-
-#ifdef AMREX_USE_EB
-   // EB : use EB CCentroid -> FCentroid
-   auto math_bc = fetchBCArray(State_Type,first_spec,NUM_SPECIES);
-   EB_interp_CellCentroid_to_FaceCentroid(*diff, D_DECL(*betaWbar[0],*betaWbar[1],*betaWbar[2]), 
-                                          0, 0, NUM_SPECIES, geom, math_bc);
-   EB_set_covered_faces({D_DECL(*betaWbar[0],*betaWbar[1],*betaWbar[2])},0.0);
-
-#else
-   // NON-EB : simply use center_to_edge_fancy
-   auto math_bc = fetchBCArray(State_Type,Temp,1);
-   const Box& domain = geom.Domain();
-   bool use_harmonic_avg = def_harm_avg_cen2edge ? true : false;
-
-#ifdef _OPENMP
-#pragma omp parallel if (Gpu::notInLaunchRegion())
-#endif
-   for (MFIter mfi(diff,TilingIfNotGPU()); mfi.isValid(); ++mfi)
-   {
-      for (int dir = 0; dir < AMREX_SPACEDIM; dir++)
-      {
-         const Box ebx = mfi.nodaltilebox(dir);
-         const Box& edomain = amrex::surroundingNodes(domain,dir);
-         const auto& diff_c  = diff.array(mfi,0);
-         const auto& diff_ed = betaWbar[dir]->array(mfi,0);
-         const auto bc_lo = fpi_phys_loc(math_bc[0].lo(dir));
-         const auto bc_hi = fpi_phys_loc(math_bc[0].hi(dir));
-         amrex::ParallelFor(ebx, [dir, bc_lo, bc_hi, use_harmonic_avg, diff_c, diff_ed, edomain]
-         AMREX_GPU_DEVICE (int i, int j, int k) noexcept
-         {
-            int idx[3] = {i,j,k};
-            bool on_lo = ( ( bc_lo == HT_Edge ) && ( idx[dir] <= edomain.smallEnd(dir) ) );
-            bool on_hi = ( ( bc_hi == HT_Edge ) && ( idx[dir] >= edomain.bigEnd(dir) ) );
-            cen2edg_cpp( i, j, k, dir, NUM_SPECIES, use_harmonic_avg, on_lo, on_hi, diff_c, diff_ed);
-         });
-      }
-   }
-#endif
-
-  if (zeroBndryVisc > 0)
-    zeroBoundaryVisc(betaWbar, time, AMREX_SPACEDIM+1, 0, NUM_SPECIES);
-}
-#endif
 
 void
 PeleLM::zeroBoundaryVisc (MultiFab*  beta[AMREX_SPACEDIM],
@@ -9343,5 +9343,59 @@ PeleLM::initActiveControl()
          Print() << " Active control based on fuel mass activated."
                  << " Maintaining the flame at " << ctrl_h << " in " << ctrl_flameDir << " direction. \n";
       }
+   }
+}
+
+void
+PeleLM::parseComposition(Vector<std::string> compositionIn,
+                         std::string         compositionType,
+                         Real               *massFrac)
+{
+   Real compoIn[NUM_SPECIES] = {0.0};
+
+   // Get species names
+   Vector<std::string> specNames;
+   EOS::speciesNames(specNames);
+
+   // For each entry in the user-provided composition, parse name and value
+   std::string delimiter = ":";
+   int specCountIn = compositionIn.size();
+   for (int i = 0; i < specCountIn; i++ ) {
+      int sep = compositionIn[i].find(delimiter);
+      if ( sep == std::string::npos ) {
+         Abort("Error parsing '"+compositionIn[i]+"' --> unable to find delimiter :");
+      }
+      std::string specNameIn = compositionIn[i].substr(0, sep);
+      Real value = std::stod(compositionIn[i].substr(sep+1,compositionIn[i].length()));
+      int foundIt = 0;
+      for (int k = 0; k < NUM_SPECIES; k++ ) {
+         if ( specNameIn == specNames[k] ) {
+            compoIn[k] = value;
+            foundIt = 1;
+         }
+      }
+      if ( !foundIt ) {
+         Abort("Error parsing '"+compositionIn[i]+"' --> unable to match to any species name");
+      }
+   }
+
+   // Ensure that it sums to 1.0:
+   Real sum = 0.0;
+   for (int k = 0; k < NUM_SPECIES; k++ ) {
+      sum += compoIn[k];
+   }
+   for (int k = 0; k < NUM_SPECIES; k++ ) {
+      compoIn[k] /= sum;
+   }
+
+   // Fill the massFrac array, convert from mole fraction if necessary
+   if ( compositionType == "mass" ) {                // mass
+      for (int i = 0; i < NUM_SPECIES; i++ ) {
+         massFrac[i] = compoIn[i];
+      }
+   } else if ( compositionType == "mole" ) {         // mole
+      EOS::X2Y(compoIn,massFrac);
+   } else {
+      Abort("Unknown mixtureFraction.type ! Should be 'mass' or 'mole'");
    }
 }

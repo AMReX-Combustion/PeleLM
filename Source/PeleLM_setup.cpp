@@ -285,6 +285,15 @@ std::string PeleLM::productName     = "CO2";
 Vector<std::string> PeleLM::consumptionName(1);
 static std::string oxidizerName     = "O2";
 
+//
+// Get EB-aware interpolater when needed
+//
+#ifdef AMREX_USE_EB  
+  static auto& cc_interp = eb_cell_cons_interp;
+#else
+  static auto& cc_interp = cell_cons_interp;
+#endif
+
 
 void
 PeleLM::variableSetUp ()
@@ -370,11 +379,11 @@ PeleLM::variableSetUp ()
   //
   // **************  DEFINE VELOCITY VARIABLES  ********************
   //
-   bool state_data_extrap = false;
-    bool store_in_checkpoint = true;
-  desc_lst.addDescriptor(State_Type,IndexType::TheCellType(),StateDescriptor::Point,1,NUM_STATE,
-                         &cell_cons_interp,state_data_extrap,store_in_checkpoint);
-
+  bool state_data_extrap = false;
+  bool store_in_checkpoint = true;
+  desc_lst.addDescriptor(State_Type,IndexType::TheCellType(),
+			 StateDescriptor::Point,1,NUM_STATE,
+			 &cc_interp,state_data_extrap,store_in_checkpoint);
 
   amrex::StateDescriptor::BndryFunc pelelm_bndryfunc(pelelm_cc_ext_fill);
   pelelm_bndryfunc.setRunOnGPU(true);  // I promise the bc function will launch gpu kernels.
@@ -409,15 +418,13 @@ PeleLM::variableSetUp ()
   // Set range of combination limit to include rho, rhoh and species, if they exist
   //
   set_scalar_bc(bc,phys_bc);
-  desc_lst.setComponent(State_Type,Density,"density",bc,pelelm_bndryfunc,
-                        &cell_cons_interp);
+  desc_lst.setComponent(State_Type,Density,"density",bc,pelelm_bndryfunc);
 
   //
   // **************  DEFINE RHO*H  ********************
   //
   set_rhoh_bc(bc,phys_bc);
-  desc_lst.setComponent(State_Type,RhoH,"rhoh",bc,pelelm_bndryfunc,
-                        &cell_cons_interp);
+  desc_lst.setComponent(State_Type,RhoH,"rhoh",bc,pelelm_bndryfunc);
   //
   // **************  DEFINE TEMPERATURE  ********************
   //
@@ -440,8 +447,7 @@ PeleLM::variableSetUp ()
                         first_spec,
                         name,
                         bcs,
-                        pelelm_bndryfunc,
-                        &cell_cons_interp);
+                        pelelm_bndryfunc);
           
   //
   // ***************  DEFINE TRACER and RhoRT **************************
@@ -533,7 +539,7 @@ PeleLM::variableSetUp ()
   Divu_Type = desc_lst.size();
   ngrow = 1;
   desc_lst.addDescriptor(Divu_Type,IndexType::TheCellType(),StateDescriptor::Point,ngrow,1,
-                         &cell_cons_interp);
+                         &cc_interp);
 
   // EXT_DIR ghost cells should never actually get used, just need something computable 
   amrex::StateDescriptor::BndryFunc pelelm_divu_bf(pelelm_dummy_fill);
@@ -545,7 +551,7 @@ PeleLM::variableSetUp ()
   // Add in the fcncall tracer type quantity.
   //
   FuncCount_Type = desc_lst.size();
-  desc_lst.addDescriptor(FuncCount_Type, IndexType::TheCellType(),StateDescriptor::Point,0, 1, &cell_cons_interp);
+  desc_lst.addDescriptor(FuncCount_Type, IndexType::TheCellType(),StateDescriptor::Point,0, 1, &cc_interp);
   
   amrex::StateDescriptor::BndryFunc pelelm_dummy_bf(pelelm_dummy_fill);
   pelelm_dummy_bf.setRunOnGPU(true);  // I promise the bc function will launch gpu kernels.
@@ -773,7 +779,7 @@ PeleLM::variableSetUp ()
   Vector<std::string> mix_and_diss(2);
   mix_and_diss[0] = "mixture_fraction";
   mix_and_diss[1] = "Scalar_diss";
-  derive_lst.add("mixfrac",IndexType::TheCellType(),2,mix_and_diss,pelelm_dermixanddiss,grow_box_by_one,&lincc_interp);
+  derive_lst.add("mixfrac",IndexType::TheCellType(),2,mix_and_diss,pelelm_dermixanddiss,grow_box_by_one,&cc_interp);
   derive_lst.addComponent("mixfrac",desc_lst,State_Type,Density,1);
   derive_lst.addComponent("mixfrac",desc_lst,State_Type,Temp,1);
   derive_lst.addComponent("mixfrac",desc_lst,State_Type,first_spec,NUM_SPECIES);
@@ -942,7 +948,7 @@ PeleLM::rhoydotSetUp()
 
   desc_lst.addDescriptor(RhoYdot_Type,IndexType::TheCellType(),
                          StateDescriptor::Point,ngrow,nrhoydot,
-                         &lincc_interp);
+                         &cc_interp);
 
 
   amrex::StateDescriptor::BndryFunc pelelm_bndryfunc(pelelm_dummy_fill);
@@ -957,7 +963,7 @@ PeleLM::rhoydotSetUp()
   {
     const std::string name = "I_R[rhoY("+spec_names[i]+")]";
     desc_lst.setComponent(RhoYdot_Type, i, name.c_str(), bc,
-                          pelelm_bndryfunc, &lincc_interp, 0, nrhoydot-1);
+                          pelelm_bndryfunc, &cc_interp, 0, nrhoydot-1);
   }
 }
 

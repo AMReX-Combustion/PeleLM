@@ -20,7 +20,6 @@ VERBOSE         = FALSE
 USE_EB = TRUE
 
 TINY_PROFILE = FALSE
-#USE_WBAR = TRUE
 
 #######################
 USE_SUNDIALS_PP = TRUE
