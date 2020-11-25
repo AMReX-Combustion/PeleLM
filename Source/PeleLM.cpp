@@ -5779,7 +5779,7 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
         });
 
 #ifdef AMREX_USE_GPU
-        streamSynchronize(amrex::Gpu::gpuStream());
+        Gpu::Device::streamSynchronize();
 #endif
 
     }
