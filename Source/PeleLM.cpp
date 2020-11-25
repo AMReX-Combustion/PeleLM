@@ -6588,7 +6588,7 @@ PeleLM::mac_sync ()
          compute_Wbar_fluxes(curr_time,1,-1.0);
 
          // take divergence of beta grad delta Wbar
-         DdWbar.define(grids,dmap,NUM_SPECIES,nGrowAdvForcing);
+         DdWbar.define(grids,dmap,NUM_SPECIES,nGrowAdvForcing,MFInfo(),Factory());
          MultiFab* const * fluxWbar = SpecDiffusionFluxWbar;
          flux_divergence(DdWbar,0,fluxWbar,0,NUM_SPECIES,-1);
          DdWbar.mult(dt);
