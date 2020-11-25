@@ -1,35 +1,33 @@
-TOP = ../../../../
-AMREX_HOME ?= ${TOP}/amrex
-IAMR_HOME ?= ${TOP}/IAMR_dev
-PELELM_HOME ?= ${TOP}/PeleLM_dev
+TOP = ../../../..
+AMREX_HOME         ?= ${TOP}/amrex
+IAMR_HOME          ?= ${TOP}/IAMR
+PELELM_HOME        ?= ${TOP}/PeleLM
+PELE_PHYSICS_HOME  ?= ${TOP}/PelePhysics
 
 #
 # Build configuration
 #
 
+# AMREX options
 DIM             = 2
+USE_EB          = TRUE
+
+# Compiler / parrallel paradigms
 COMP            = gnu
-DEBUG           = TRUE
 USE_MPI         = TRUE
 USE_OMP         = FALSE
+USE_CUDA        = FALSE
+USE_HIP         = FALSE
+
+# MISC options
+DEBUG           = FALSE
 PRECISION       = DOUBLE
 VERBOSE         = FALSE
+TINY_PROFILE    = FALSE
 
-USE_EB = TRUE
-
-TINY_PROFILE = FALSE
-
-DEFINES+=-DALWAYS_NEW_J
-
-#######################
+# CVODE
 USE_SUNDIALS_PP = TRUE
-ifeq ($(USE_SUNDIALS_PP), TRUE)
-  # use KLU sparse features -- only useful if CVODE is used on CPU
-  USE_KLU_PP = FALSE
-  # Activates GPU version
-  USE_CUDA_SUNDIALS_PP = FALSE
-endif
-#######################
+USE_KLU_PP      = FALSE
 
 # Choose model (from list below), and pmf file
 Chemistry_Model = air

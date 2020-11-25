@@ -70,18 +70,16 @@ cvode.solve_type           = dense     # Linear solver type for Newton direction
 ode.analytical_jacobian    = 0         # Use analytical Jacobian
 
 #------------  INPUTS TO CONSTANT TRANSPORT -----------------
-transport.const_viscosity        = 2.0e-05
+transport.const_viscosity        = 0.0
 transport.const_bulk_viscosity   = 0.0
 transport.const_conductivity     = 0.0
 transport.const_diffusivity      = 0.0
 
 #------------  INPUTS FOR EMBEDED BOUNDARIES ----------------
-eb2.geom_type                    = cylinder
-eb2.cylinder_radius              = 0.0060
-eb2.cylinder_direction           = 2
-eb2.cylinder_center              = -.01  0.00 0.00
-eb2.cylinder_has_fluid_inside    = 0
-eb2.cylinder.internal_flow       = false
+eb2.geom_type                    = sphere
+eb2.sphere_radius                =  0.0060
+eb2.sphere_center                = -.01  0.00
+eb2.sphere_has_fluid_inside      = 0
 eb2.small_volfrac                = 1.0e-4
 
 # ---------------------------------------------------------------
