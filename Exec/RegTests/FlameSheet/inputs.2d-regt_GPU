@@ -1,5 +1,5 @@
 #----------------------DOMAIN DEFINITION------------------------
-geometry.is_periodic = 1 1 0              # For each dir, 0: non-perio, 1: periodic
+geometry.is_periodic = 1 0                # For each dir, 0: non-perio, 1: periodic
 geometry.coord_sys   = 0                  # 0 => cart, 1 => RZ
 geometry.prob_lo     = 0.0 0.0 0.0        # x_lo y_lo (z_lo)
 geometry.prob_hi     = 0.016 0.016 0.016  # x_hi y_hi (z_hi)
@@ -7,13 +7,13 @@ geometry.prob_hi     = 0.016 0.016 0.016  # x_hi y_hi (z_hi)
 # >>>>>>>>>>>>>  BC FLAGS <<<<<<<<<<<<<<<<
 # Interior, Inflow, Outflow, Symmetry,
 # SlipWallAdiab, NoSlipWallAdiab, SlipWallIsotherm, NoSlipWallIsotherm
-peleLM.lo_bc = Interior  Interior Inflow
-peleLM.hi_bc = Interior  Interior Outflow
+peleLM.lo_bc = Interior  Inflow
+peleLM.hi_bc = Interior  Outflow
 
 #-------------------------AMR CONTROL----------------------------
 amr.n_cell          = 32 32 32         # Level 0 number of cells in each direction   
 amr.v               = 1                # AMR verbose
-amr.max_level       = 0                # maximum level number allowed
+amr.max_level       = 2                # maximum level number allowed
 amr.ref_ratio       = 2 2 2 2          # refinement ratio
 amr.regrid_int      = 2                # how often to regrid
 amr.n_error_buf     = 1 1 2 2          # number of buffer cells in error est
@@ -22,7 +22,7 @@ amr.blocking_factor = 16               # block factor in grid generation (min bo
 amr.max_grid_size   = 64               # max box size
 
 #----------------------TIME STEPING CONTROL----------------------
-max_step            = 5               # maximum number of time steps    
+max_step            = 20               # maximum number of time steps    
 stop_time           = 0.04             # final physical time
 ns.cfl              = 0.3              # cfl number for hyperbolic system
 ns.init_shrink      = 0.0001           # scale back initial timestep
@@ -85,7 +85,7 @@ ns.num_mac_sync_iter = 2               # Number of mac_sync iterations
 #peleLM.use_typ_vals_chem = 1          # Use species/temp typical values in CVODE   
 #peleLM.relative_tol_chem = 1.0e-8     # CVODE relative tolerance
 #peleLM.absolute_tol_chem = 1.0e-6     # CVODE absolute tolerance
-cvode.solve_type = dense               # CVODE Linear solve type (for Newton direction) 
+cvode.solve_type = GMRES               # CVODE Linear solve type (for Newton direction) 
 ode.analytical_jacobian = 0            # Provide analytical jacobian (from Fuego) ?
 
 # ------------------  INPUTS TO ACTIVE CONTROL  ----------------------
@@ -97,7 +97,7 @@ active_control.height = 0.0070         # Where is the flame held ? Default assum
 active_control.v = 1                   # verbose
 active_control.velMax = 1.5            # Optional: limit inlet velocity
 active_control.changeMax = 0.2         # Optional: limit inlet velocity changes (absolute)
-active_control.flameDir  = 2           # Optional: flame main direction. Default: AMREX_SPACEDIM-1
+active_control.flameDir  = 1           # Optional: flame main direction. Default: AMREX_SPACEDIM-1
 
 # ---------------------------------------------------------------
 # ------------------  ADVANCED USER INPUTS ----------------------
