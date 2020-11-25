@@ -1487,7 +1487,7 @@ PeleLM::set_typical_values(bool is_restart)
       }
       typical_values_chem[NUM_SPECIES] = typical_values[Temp];
       SetTypValsODE(typical_values_chem);
-#ifndef AMREX_USE_CUDA
+#ifndef AMREX_USE_GPU
       ReSetTolODE();
 #endif  
       }
@@ -1601,11 +1601,7 @@ PeleLM::estTimeStep ()
          using namespace amrex::literals;
          const auto lo = amrex::lbound(bx);
          const auto hi = amrex::ubound(bx);
-#if !defined(__CUDACC__) || (__CUDACC_VER_MAJOR__ != 9) || (__CUDACC_VER_MINOR__ != 2)
-         amrex::Real dt = std::numeric_limits<amrex::Real>::max();
-#else
          amrex::Real dt = 1.e37_rt;
-#endif
          for       (int k = lo.z; k <= hi.z; ++k) {
             for    (int j = lo.y; j <= hi.y; ++j) {
                for (int i = lo.x; i <= hi.x; ++i) {
@@ -1627,11 +1623,7 @@ PeleLM::estTimeStep ()
          using namespace amrex::literals;
          const auto lo = amrex::lbound(bx);
          const auto hi = amrex::ubound(bx);
-#if !defined(__CUDACC__) || (__CUDACC_VER_MAJOR__ != 9) || (__CUDACC_VER_MINOR__ != 2)
-         amrex::Real dt = std::numeric_limits<amrex::Real>::max();
-#else
          amrex::Real dt = 1.e37_rt;
-#endif
          for       (int k = lo.z; k <= hi.z; ++k) {
             for    (int j = lo.y; j <= hi.y; ++j) {
                for (int i = lo.x; i <= hi.x; ++i) {
@@ -5666,7 +5658,7 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
 
     BoxArray  ba           = mf_new.boxArray();
     DistributionMapping dm = mf_new.DistributionMap();
-#ifndef AMREX_USE_CUDA
+#ifndef AMREX_USE_GPU
     //
     // Chop the grids to level out the chemistry work when on the CPU.
     // We want enough grids so that KNAPSACK works well,
@@ -5755,15 +5747,14 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
            frc_rhoH(i,j,k) *= 10.0;
         });
 
-#ifdef AMREX_USE_CUDA
-        const auto ec           = Gpu::ExecutionConfig(ncells);
-        cudaError_t cuda_status = cudaSuccess;
+#ifdef AMREX_USE_GPU
+        const auto ec = Gpu::ExecutionConfig(ncells);
 #endif
 
         BL_PROFILE_VAR("React()", ReactInLoop);
         Real dt_incr     = dt;
         Real time_chem   = 0;
-#ifndef AMREX_USE_CUDA
+#ifndef AMREX_USE_GPU
         /* Solve */
         int tmp_fctCn = react(bx, rhoY, frc_rhoY, temp, rhoH, frc_rhoH, fcl, mask, dt_incr, time_chem);
         dt_incr   = dt;
@@ -5777,7 +5768,7 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
 #endif
         BL_PROFILE_VAR_STOP(ReactInLoop);
 
-	// Convert CGS -> MKS
+        // Convert CGS -> MKS
         ParallelFor(bx, [rhoY,rhoH]
         AMREX_GPU_DEVICE (int i, int j, int k) noexcept 
         {
@@ -5787,8 +5778,8 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
            rhoH(i,j,k) *= 0.1;
         });
 
-#ifdef AMREX_USE_CUDA
-        cuda_status = cudaStreamSynchronize(amrex::Gpu::gpuStream());
+#ifdef AMREX_USE_GPU
+        streamSynchronize(amrex::Gpu::gpuStream());
 #endif
 
     }
