@@ -1,8 +1,8 @@
 #----------------------DOMAIN DEFINITION------------------------
 geometry.is_periodic = 0 1 1              # For each dir, 0: non-perio, 1: periodic
 geometry.coord_sys   = 0                  # 0 => cart, 1 => RZ
-geometry.prob_lo     = -0.02 -0.02 0.0    # x_lo y_lo (z_lo)
-geometry.prob_hi     =  0.06  0.02 0.005  # x_hi y_hi (z_hi)
+geometry.prob_lo     = -0.02 -0.02 -0.01    # x_lo y_lo (z_lo)
+geometry.prob_hi     =  0.06  0.02  0.01  # x_hi y_hi (z_hi)
 
 # >>>>>>>>>>>>>  BC FLAGS <<<<<<<<<<<<<<<<
 # Interior, Inflow, Outflow, Symmetry,
@@ -73,11 +73,19 @@ ns.num_mac_sync_iter = 2               # Number of mac_sync iterations
 cvode.solve_type           = dense     # Linear solver type for Newton direction
 ode.analytical_jacobian    = 0         # Use analytical Jacobian
 
+#------------  INPUTS TO CONSTANT TRANSPORT -----------------
+transport.const_viscosity        = 2.0e-05
+transport.const_bulk_viscosity   = 0.0
+transport.const_conductivity     = 0.0
+transport.const_diffusivity      = 0.0
+
 #------------  INPUTS FOR EMBEDED BOUNDARIES ----------------
-eb2.geom_type                    = sphere
-eb2.sphere_radius                = 0.0034
-eb2.sphere_center                = 0.0015 0.00
-eb2.sphere_has_fluid_inside      = 0
+eb2.geom_type                    = cylinder
+eb2.cylinder_radius              = 0.0034
+eb2.cylinder_direction           = 2
+eb2.cylinder_center              = 0.0015 0.00 0.00
+eb2.cylinder_has_fluid_inside    = 0
+eb2.cylinder.internal_flow       = false
 eb2.small_volfrac                = 1.0e-4
 
 # ---------------------------------------------------------------
@@ -110,9 +118,9 @@ diffuse.tensor_max_order = 4
 diffuse.v                = 0
 
 # ------------------  INPUTS TO PROJECTION CLASS -------------------
-proj.proj_tol            = 1.0e-12     # tolerence for projections
-proj.proj_abs_tol        = 1.0e-12 
-proj.sync_tol            = 1.0e-12     # tolerence for projections
+proj.proj_tol            = 1.0e-11     # tolerence for projections
+proj.proj_abs_tol        = 1.0e-11 
+proj.sync_tol            = 1.0e-11     # tolerence for projections
 proj.rho_wgt_vel_proj    = 0           # 0 => const den proj, 1 => rho weighted
 proj.do_outflow_bcs      = 0
 proj.divu_minus_s_factor = .5
@@ -122,9 +130,9 @@ nodal_proj.verbose       = 0
 proj.v                   = 0
 
 # ------------------  INPUTS TO MACPROJ CLASS -------------------
-mac.mac_tol              = 1.0e-12     # tolerence for mac projections
-mac.mac_sync_tol         = 1.0e-12     # tolerence for mac SYNC projection
-mac.mac_abs_tol          = 1.0e-12
+mac.mac_tol              = 1.0e-11     # tolerence for mac projections
+mac.mac_sync_tol         = 1.0e-11     # tolerence for mac SYNC projection
+mac.mac_abs_tol          = 1.0e-11
 mac.do_outflow_bcs       = 0
 mac.v                    = 0
 
