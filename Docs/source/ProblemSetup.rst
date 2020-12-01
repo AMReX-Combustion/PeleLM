@@ -29,62 +29,63 @@ the user's initialization function, ``FORT_INITDATA``, that must be provided:
 
 ::
 
-  // Initialize phi_new by calling a Fortran routine.
-  // MFIter = MultiFab Iterator
-  for (MFIter snewmfi(S_new); snewmfi.isValid(); ++snewmfi)
+  // Initialize S_new by calling a user routine
+  for (MFIter snewmfi(S_new,true); snewmfi.isValid(); ++snewmfi)
   {
-    const int  i       = snewmfi.index();
-    RealBox    gridloc = RealBox(grids[i],geom.CellSize(),geom.ProbLo());
-    const Box& vbx     = snewmfi.validbox();
-    const int* lo      = vbx.loVect();
-    const int* hi      = vbx.hiVect();
-    const int* s_lo    = S_new[snewmfi].loVect();
-    const int* s_hi    = S_new[snewmfi].hiVect();
-    const int* p_lo    = P_new[snewmfi].loVect();
-    const int* p_hi    = P_new[snewmfi].hiVect();
+    const Box&  vbx = snewmfi.tilebox();
+    RealBox gridloc = RealBox(vbx,geom.CellSize(),geom.ProbLo());
 
-    FORT_INITDATA (&level,&cur_time,lo,hi,&ns,
-                   S_new[snewmfi].dataPtr(Xvel),
-                   S_new[snewmfi].dataPtr(BL_SPACEDIM),
-                   ARLIM(s_lo), ARLIM(s_hi),
-                   P_new[snewmfi].dataPtr(),
-                   ARLIM(p_lo), ARLIM(p_hi),
-                   dx,gridloc.lo(),gridloc.hi() );
+    init_data (&level, &cur_time,
+               BL_TO_FORTRAN_BOX(vbx), &ns,
+               S_new[snewmfi].dataPtr(Xvel),
+               BL_TO_FORTRAN_N_ANYD(S_new[snewmfi],AMREX_SPACEDIM),
+               BL_TO_FORTRAN_ANYD(P_new[snewmfi]),
+               dx, AMREX_ZFILL(gridloc.lo()), AMREX_ZFILL(gridloc.hi()) );
   }
 
-The associated fortran routine must shape the arrays accordingly, and fill the data:
+The associated user function (here, defined in fortran) must shape the arrays accordingly, and fill the data:
 
 ::
 
-      subroutine FORT_INITDATA(level,time,lo,hi,nscal,
-     &                         vel,scal,DIMS(state),press,DIMS(press),
-     &                         delta,xlo,xhi)
+   subroutine init_data(level, time, lo, hi, nscal, &
+                        vel, scal, s_lo, s_hi, press, p_lo, p_hi, &
+                        delta, xlo, xhi) &
+                        bind(C, name="init_data")
+
       implicit none
-      integer    level, nscal
-      integer    lo(SDIM), hi(SDIM)
-      integer    DIMDEC(state)
-      integer    DIMDEC(press)
-      REAL_T     xlo(SDIM), xhi(SDIM)
-      REAL_T     time, delta(SDIM)
-      REAL_T     vel(DIMV(state),SDIM)
-      REAL_T    scal(DIMV(state),nscal)
-      REAL_T   press(DIMV(press))
-      integer i, j, n
+      integer, intent(in) :: level, nscal
+      integer, intent(in) :: lo(3), hi(3)
+      integer, intent(in) :: s_lo(3), s_hi(3)
+      integer, intent(in) :: p_lo(3), p_hi(3)
+      REAL_T, intent(in)  :: xlo(3), xhi(3)
+      REAL_T, intent(in)  :: time, delta(3)
+      REAL_T, dimension(s_lo(1):s_hi(1),s_lo(2):s_hi(2),s_lo(3):s_hi(3),dim), intent(out) :: vel
+      REAL_T, dimension(s_lo(1):s_hi(1),s_lo(2):s_hi(2),s_lo(3):s_hi(3),nscal), intent(out) :: scal
+      REAL_T, dimension(p_lo(1):p_hi(1),p_lo(2):p_hi(2),p_lo(3):p_hi(3)), intent(out) :: press
 
-      press(:,:) = 0.d0
-      do j = lo(2), hi(2)
-         y = (float(j)+.5d0)*delta(2)+domnlo(2)
-         do i = lo(1), hi(1)
-            x = (float(i)+.5d0)*delta(1)+domnlo(1)
-            scal(i,j,1:n) = ...
-            vel(i,j,1:2) = ...
-         enddo
-      enddo
-      end
+      REAL_T  :: x, y, z
+      integer :: i, j, k, n
 
-Note that in this f77 example, the Fortran is preprocessed to define ``SDIM``, ``REAL_T``, ``DIMS``, ``DIMV``
-convenience macros (TODO: clean this up...). Also, the user will need to know the order and definition of
-each state component.  The variables, and their order, are set for all problems setups in the function:
+      do k = lo(3), hi(3)
+         z = (float(k)+.5d0)*delta(3)+domnlo(3)
+         do j = lo(2), hi(2)
+            y = (float(j)+.5d0)*delta(2)+domnlo(2)
+            do i = lo(1), hi(1)
+               x = (float(i)+.5d0)*delta(1)+domnlo(1)
+
+               scal(i,j,k,1) = ...
+               scal(i,j,k,2) = ...
+               
+               vel(i,j,k,1)  = ...
+               vel(i,j,k,2)  = ...
+               vel(i,j,k,3)  = ...
+            end do
+         end do
+      end do
+   end subroutine init_data
+
+Note that the user will need to know the order and definition of each state component.  The variables, and their order, are
+set for all problems setups in the function:
 
 ::
 
@@ -144,76 +145,87 @@ files, evaluating functional forms, etc.
 
 ::
 
-      subroutine FORT_DENFILL (den,DIMS(den),domlo,domhi,delta,xlo,time,bc)
+    subroutine den_fill (den, d_lo, d_hi, &
+                         domlo, domhi, delta, &
+                         xlo, time, bc)&
+                         bind(C, name="den_fill")
+      
       implicit none
+      integer :: d_lo(3), d_hi(3)
+      integer :: bc(dim,2)
+      integer :: domlo(3), domhi(3)
+      REAL_T  :: delta(3), xlo(3), time
+      REAL_T, dimension(d_lo(1):d_hi(1),d_lo(2):d_hi(2),d_lo(3):d_hi(3)) :: den
+      integer :: i, j, k
 
-      integer DIMDEC(den), bc(SDIM,2)
-      integer domlo(SDIM), domhi(SDIM)
-      REAL_T  delta(SDIM), xlo(SDIM), time
-      REAL_T  den(DIMV(den))
+      call amrex_filccn ( d_lo, d_hi, den, d_lo, d_hi, 1, domlo, domhi, delta, xlo, bc)
 
-      include 'cdwrk.H'
-      include 'bc.H'
-      include 'probdata.H`
-      
-      integer i, j
-      REAL_T  y, x
-      REAL_T  u, v, rho, Yl(0:maxspec-1), T, h
-
-      integer lo(SDIM), hi(SDIM)
-
-      lo(1) = ARG_L1(den)
-      lo(2) = ARG_L2(den)
-      hi(1) = ARG_H1(den)
-      hi(2) = ARG_H2(den)
-
-      call filcc (den,DIMS(den),domlo,domhi,delta,xlo,bc)
-
-      if (bc(1,1).eq.EXT_DIR.and.lo(1).lt.domlo(1)) then
-         do i = lo(1), domlo(1)-1
-            x = (float(i)+.5)*delta(1)+domnlo(1)
-            do j = lo(2), hi(2)
-               y = (float(j)+.5)*delta(2)+domnlo(2)
-               call bcfunction(x,y,time,u,v,rho,Yl,T,h,delta,.false.)
-               den(i,j) = rho
+      ! X-low boundary
+      if ((bc(1,1)==EXT_DIR).and.(d_lo(1)<domlo(1))) then
+         do i = d_lo(1), domlo(1)-1
+            do k = d_lo(3), d_hi(3)
+               do j = d_lo(2), d_hi(2)
+                  den(i,j,k) = ...
+               enddo
             enddo
          enddo
       endif
       
-      if (bc(1,2).eq.EXT_DIR.and.hi(1).gt.domhi(1)) then
-         do i = domhi(1)+1, hi(1)
-            x = (float(i)+.5)*delta(1)+domnlo(1)
-            do j = lo(2), hi(2)
-               y = (float(j)+.5)*delta(2)+domnlo(2)
-               call bcfunction(x,y,time,u,v,rho,Yl,T,h,delta,.false.)
-               den(i,j) = rho
+      ! X-hi boundary
+      if ((bc(1,2)==EXT_DIR).and.(d_hi(1)>domhi(1))) then
+         do i = domhi(1)+1, d_hi(1)
+            do k = d_lo(3), d_hi(3)
+               do j = d_lo(2), d_hi(2)
+                  den(i,j,k) = ...
+               enddo
             enddo
          enddo
       endif    
 
-      if (bc(2,1).eq.EXT_DIR.and.lo(2).lt.domlo(2)) then
-         do j = lo(2), domlo(2)-1
-            y = (float(j)+.5)*delta(2)+domnlo(2)
-            do i = lo(1), hi(1)
-               x = (float(i)+.5)*delta(1)+domnlo(1)
-               call bcfunction(x,y,time,u,v,rho,Yl,T,h,delta,.false.)
-               den(i,j) = rho
+      ! Y-low boundary
+      if ((bc(2,1)==EXT_DIR).and.(d_lo(2)<domlo(2))) then
+         do j = d_lo(2), domlo(2)-1
+            do k = d_lo(3), d_hi(3)
+               do i = d_lo(1), d_hi(1)
+                  den(i,j,k) = ...
+               enddo
             enddo
          enddo
       endif    
       
-      if (bc(2,2).eq.EXT_DIR.and.hi(2).gt.domhi(2)) then
-         do j = domhi(2)+1, hi(2)
-            y = (float(j)+.5)*delta(2)+domnlo(2)
-            do i = lo(1), hi(1)
-               x = (float(i)+.5)*delta(1)+domnlo(1)
-               call bcfunction(x,y,time,u,v,rho,Yl,T,h,delta,.false.)
-               den(i,j) = rho
+      ! Y-hi boundary
+      if ((bc(2,2)==EXT_DIR).and.(d_hi(2)>domhi(2))) then
+         do j = domhi(2)+1, d_hi(2)
+            do k = d_lo(3),d_hi(3)
+               do i = d_lo(1), d_hi(1)
+                  den(i,j,k) = ...
+               enddo
             enddo
          enddo
       endif
 
-      end
+      ! Z-low boundary
+      if ((bc(3,1)==EXT_DIR).and.(d_lo(3)<domlo(3))) then
+         do k = d_lo(3), domlo(3)-1
+            do j = d_lo(2), d_hi(2)
+               do i = d_lo(1), d_hi(1)
+                  den(i,j,k) = ...
+               enddo
+            enddo
+         enddo
+      endif    
+      
+      ! Z-hi boundary
+      if ((bc(3,2)==EXT_DIR).and.(d_hi(3)>domhi(3))) then
+         do k = domhi(3)+1, d_hi(3)
+            do j = d_lo(2), d_hi(2)
+               do i = d_lo(1), d_hi(1)
+                  den(i,j,k) = ...
+               enddo
+            enddo
+         enddo
+      endif
+   end subroutine den_fill
 
 Note that although the array structure to be filled contains valid cell-centered state data where it
 overlaps the valid domain, the values set in the grow cells of the container will be applied on the
