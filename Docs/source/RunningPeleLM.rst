@@ -487,6 +487,138 @@ can be plotted very easily to monitor the time step.
 `PeleLM` algorithm controls
 ---------------------------
 
+The following parameters affect detailed aspects of the PeleLM integration algorithm
+
+- ``ns.do_diffuse_sync``: Debugging flag, do or skip diffusion of the mac_sync (int; default: 1)
+
+- ``ns.do_reflux_visc``: Debugging flag, do or skip the viscous reflux step (int; default: 1)
+
+- ``ns.do_active_control``: Turn on active control of the inflow velocity (int; default: 0)
+
+- ``ns.do_active_control_temp``: Turn on active control of the temperature (int; default: 0)
+
+- ``ns.temp_control``: The control temperature, used in ``ns.do_active_control_temp=1``(Real; default: -1)
+
+- ``ns.v``: Overall timestepping verbosity (int; default: 1)
+
+- ``ns.divu_ceiling``: DEPRECATED (int; default: )
+
+- ``ns.divu_dt_factor``: Safety factor on the estimated ``divu_dt`` (Real; default: 1)
+
+- ``ns.min_rho_divu_ceiling``: Minmimum density for computing the ``divu_dt`` (Real; default: 0.1)
+
+- ``ns.htt_tempmin``: Minimum allowable temperature during Newtons solves to compute T from RhoH and composition (Real; default: 250)
+
+- ``ns.htt_tempmax``: Maximum allowable temperature during Newtons solves to compute T from RhoH and composition (Real; default: 3000)
+
+- ``ns.floor_species``: Flag, should the species be floored to zero throughout the time-stepping algorithm (int; default: 0)
+
+- ``ns.do_set_rho_to_species_sum``: Flag, show the density be replaced by the sum of the species density throughout the time-stepping algorithm (int; default: 1)
+
+- ``ns.num_divu_iters``: Number of passes during initialization that the dt is adjusted for the purposes of computing divu prior to init_iters (int; default: 3)
+
+- ``ns.do_not_use_funccount``: Flag, do not use work estimate to rebalance workloads during chemistry advance (int; default: 0)
+
+- ``ns.schmidt``: Deprecated (int; default: )
+
+- ``ns.prandtl``: Deprecated (int; default: )
+
+- ``ns.unity_Le``: Deprecated (int; default: )
+
+- ``ns.sdc_iterMAX``: Maximum number of SDC iterations in the level advance (int; default: 1)
+
+- ``ns.num_mac_sync_iter``: Maximum number of iterations taken during the mac_sync operation for the correction velocity (int; default: 1)
+
+- ``ns.thickening_factor``: A multiplier that is applied to both the transport and reaction rates to artificially thicken a computed flame while preserving its propagation speed (int; default: 1)
+
+- ``ns.hack_nochem``: Debug flag to shut off chemical reactions in the level advance (int; default: 0)
+
+- ``ns.hack_nospecdiff``: Debug flag to shut off species transport in the level advance (int; default: 0)
+
+- ``ns.hack_noavgdivu``: Flag, do not average down divu, and thus replace the velocity divergence computed on covered coarse cells (int; default: 1)
+
+- ``ns.do_check_divudt``: Flag, check after the fact if the divu dt condition was violated, now that we have the mac velocities (int; default: 1)
+
+- ``ns.avg_down_chem``: Flag, rather than doing chemical advance on covered coarse cells, average down the reaction source from fine cells of the previous time step (an attempt to avoid computing chemistry with averaged down states) (int; default: 0)
+
+- ``ns.reset_typical_vals_int``: Interval (in coarse time steps) between resetting the typical values of all states via scanning the solution (int; default: -1 [do no reset])
+
+- ``ns.do_OT_radiation``: Flag, add optically-thin radiative energy loss (phenomenalogical expressions bassed on specific molecules present in the run) (int; default: 0)
+
+- ``ns.do_heat_sink``: Flag, add user-specific term to inject/remove energy locally (int; default: 0)
+
+- ``ns.use_tranlib``: Deprecated (int; default: )
+
+- ``ns.turbFile``: Deprecated (int; default: )
+
+- ``ns.zeroBndryVisc``: Flag, call user function to modify transport coefficients on cell faces at the physical domain (in order to effectively change a local boundary condition from Dirichlet to Neumann) (int; default: 1)
+
+- ``ns.scal_diff_coefs``: Deprecated (int; default: )
+
+- ``amr.probin_file``: Name of text file to search for Fortran namelists used to set problem-specific setup/helper variables (int; default: probin)
+
+- ``ShowMF_Sets``: Debugging tool, write all ShowMF MultiFabs tagged with one of the strings listed here (list of string; default: "")
+
+- ``ShowMF_Dir``: Debugging tool, Folder where the ShowMF sets are written (int; default: )
+
+- ``ShowMF_Verbose``: Debugging tool, write to stdio whenever ShowMF sets are written (int; default: 0)
+
+- ``ShowMF_Check_Nans``: Debugging tool, flag to check for NaNs in the ShowMF sets begin written (int; default: 0)
+
+- ``ShowMF_Fab_Format``: Debugging tool, format of ShowMF set files (string; default: )
+
+- ``peleLM.num_forkjoin_tasks``: Number of fork-join tasks that the species implicit diffusion solves are split into (int; default: 1)
+
+- ``peleLM.forkjoin_verbose``: Flag, write to stdio some info while forking diffusion work (int; default: )
+
+- ``peleLM.num_deltaT_iters_MAX``: Maximum number of iterations taken to iterative advance the enthalpy equation via temperature solves(int; default: )
+
+- ``peleLM.deltaT_norm_max``: Tolerance of iterative solve for iterative enthalpy solve (Real; default: 1.e-12)
+
+- ``peleLM.deltaT_verbose``: Flag, write to stdio some info during ierative enthalpy solve (int; default: 0)
+
+- ``ht.chem_box_chop_threshold``: Parameter used when refining box layout for chemistry solves (int; default: )
+
+- ``ht.plot_reactions``: Flag, add reactions to plotfiles (int; default: 0)
+
+- ``ht.plot_consumption``: Flag, add rate of consumption to plotfiles (int; default: 0)
+
+- ``ht.plot_auxDiags``: Flag, compute auxiliary diagnostics when doing reactions (int; default: 0)
+
+- ``ht.plot_heat_release``: Flag, add heat release to plotfiles (int; default: 0)
+
+- ``ht.new_T_threshold``: DEPRECATED (int; default: )
+
+- ``ht.do_curvature_sample``: Flag, add curvature of the temperature field to plotfiles (int; default: 0)
+
+- ``ht.typValY_NAME``: Override the typical value used for the chemical species, NAME (int; default: -1 (do not override))
+
+- ``ht.typValY_Temp``: Override the typical value used for the temperature (int; default: -1 (do not override))
+
+- ``ht.typValY_RhoH``: Override the typical value used for the RhoH (int; default: -1 (do not override))
+
+- ``ht.typValY_Vel``: Override the typical value used for the velocity (int; default: -1 (do not override))
+
+- ``ht.pltfile``: Name of pltfile to use for initializing data based on previous calculation (string; default: <blank>)
+
+- ``ht.velocity_plotfile``: Name of a plotfile to use for initializing the velocity field based on a previous calculation (stribng; default: <blank>)
+
+- ``ht.plot_rhoydot``: Flag, add rhoY of all chemical species to plotfiels (int; default: 0)
+
+- ``ns.fuelName``: Name of species to associate with the fuel (string; default: <blank>)
+
+- ``ns.consumptionName``: Name(s) of species to plot the consumption of if ``plot_consumption = 1`` (int; default: <blank>)
+
+- ``ns.oxidizerName``: Name of species to associate with the oxidizer (string; default: <blank>)
+
+- ``ns.productName``: Name of species to associate with the product (string; default: <blank>)
+
+- ``ns.flameTracName``: Name of species to associate with a flame tracer (string; default: <blank>)
+
+- ``ns.do_group_bndry_fills``: DEPRECATED (int; default: )
+
+- ``ns.speciesScaleFile``: Name of a file containing species scales (string; default: <blank>)
+
+- ``ns.verbose_vode``: Flag, write to stdout information associated with the chemistry solve (int; default: )
 
 
-Here, we document `PeleLM`-specific controls. --TODO
