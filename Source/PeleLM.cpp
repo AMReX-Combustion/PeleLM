@@ -1945,11 +1945,6 @@ PeleLM::initData ()
     calc_divu(tnp1,dtin,Divu_new);
   }
 
-  if (state[Press_Type].descriptor()->timeType() == StateDescriptor::Point) 
-  {
-    get_new_data(Dpdt_Type).setVal(0);
-  }
-
   is_first_step_after_regrid = false;
   old_intersect_new          = grids;
 
