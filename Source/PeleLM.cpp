@@ -7304,6 +7304,7 @@ PeleLM::compute_Wbar_fluxes(Real time,
 #ifdef _OPENMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif   
+   {
    FArrayBox rhoY_ed;
    for (MFIter mfi(Wbar,TilingIfNotGPU()); mfi.isValid(); ++mfi)
    {
@@ -7377,6 +7378,7 @@ PeleLM::compute_Wbar_fluxes(Real time,
             });
          }
       }
+   }
    }
 }
 
