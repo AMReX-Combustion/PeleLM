@@ -14,7 +14,7 @@ peleLM.hi_bc = Interior  Outflow
 
 #----------------------------TOP LEVEL INPUTS----------------------
 max_step  =  10000
-max_step  =  20
+max_step  =  10
 stop_time = 4.00
 
 #-------------------------AMR INPUTS----------------------------
@@ -23,7 +23,7 @@ amr.n_cell    = 32 32 32
 amr.n_cell    = 64 64 64
 
 amr.v=1
-amr.max_level =  1            # maximum level number allowed
+amr.max_level =  2            # maximum level number allowed
 amr.ref_ratio       = 2 2 2 2 # refinement ratio
 amr.regrid_int      = 2       # how often to regrid
 amr.n_error_buf     = 1 1 1 2 # number of buffer cells in error est
