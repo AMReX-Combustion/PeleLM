@@ -967,7 +967,7 @@ PeleLM::PeleLM (Amr&            papa,
     if (cRefRatio > 4)
       amrex::Abort("Spray particles not supported for ref_ratio > 4");
     else if (cRefRatio > 2)
-      nGrowS += 2;
+      nGrowS += 3;
   }
   Sborder.define(grids, dmap, NUM_STATE, nGrowS, amrex::MFInfo(), Factory());
 #endif
@@ -1656,7 +1656,8 @@ PeleLM::estTimeStep ()
                      << estdt << ", " << divu_dt << '\n';
    }
 #ifdef AMREX_PARTICLES
-   particleEstTimeStep(estdt);
+   if (do_spray_particles)
+     particleEstTimeStep(estdt);
 #endif
    estdt = std::min(estdt, divu_dt);
 
@@ -1941,17 +1942,6 @@ PeleLM::initData ()
       initParticles();
     } else {
       particle_redistribute(level - 1);
-      // TODO: Fix this hack and figure out why
-      // it is needed on levels > 0
-      const Real dt = 1.;
-      const Real tnp1 = state[Divu_Type].curTime();
-      int tmp_src_width = 2;
-      MultiFab tmp_spray_source(
-        grids, dmap, NUM_STATE, tmp_src_width, amrex::MFInfo(), Factory());
-      tmp_spray_source.setVal(0.);
-      int nGrow_Sborder = 4;
-      FillPatch(*this, Sborder, nGrow_Sborder, 0., State_Type, 0, NUM_STATE);
-      particleMK(tnp1, 0., nGrow_Sborder, tmp_src_width, 1, 2, tmp_spray_source);
     }
   }
 #endif
@@ -2342,7 +2332,8 @@ PeleLM::checkPoint (const std::string& dir,
       }
   }
 #ifdef AMREX_PARTICLES
-  if (PeleLM::theSprayPC()) {
+  if (PeleLM::theSprayPC() && do_spray_particles)
+  {
     bool is_checkpoint = true;
     int write_ascii = 0; // Not for checkpoint intervals
     PeleLM::theSprayPC()->SprayParticleIO(
@@ -2425,6 +2416,10 @@ PeleLM::post_init (Real stop_time)
   // Estimate the initial timestepping.
   //
   post_init_estDT(dt_init,nc_save,dt_save,stop_time);
+#ifdef AMREX_PARTICLES
+  if (do_spray_particles)
+    particleEstTimeStep(dt_init);
+#endif
   //
   // Better estimate needs dt to estimate divu
   //
@@ -2550,9 +2545,7 @@ PeleLM::post_init (Real stop_time)
     //
 #ifdef AMREX_PARTICLES
     if (do_spray_particles)
-      {
-        particleEstTimeStep(dt_init2);
-      }
+      particleEstTimeStep(dt_init2);
 #endif
     dt_init = std::min(dt_init,dt_init2);
     Vector<Real> dt_level(finest_level+1,dt_init);
@@ -2899,6 +2892,17 @@ PeleLM::resetState (Real time,
 #ifdef AMREX_PARTICLES
    state[spraydot_Type].reset();
    state[spraydot_Type].setTimeLevel(time,dt_old,dt_new);
+   if (do_spray_particles)
+   {
+     removeVirtualParticles();
+     removeGhostParticles();
+     if (level == 0) {
+       theSprayPC()->RemoveParticlesAtLevel(level);
+       initParticles();
+     } else {
+       particle_redistribute(level - 1);
+     }
+   }
 #endif
 }
 
@@ -5074,12 +5078,11 @@ PeleLM::advance (Real time,
   for (int sdc_iter=1; sdc_iter<=sdc_iterMAX; ++sdc_iter)
   {
 #ifdef AMREX_PARTICLES
-    if (sdc_iter == 1)
+    if (sdc_iter == 1 && do_spray_particles)
     {
-      if (do_spray_particles)
-        AMREX_ASSERT(PeleLM::theSprayPC() != 0);
-        particleMKD(time, dt, ghost_width, spray_n_grow,
-                    tmp_src_width, where_width, tmp_spray_source);
+      AMREX_ASSERT(PeleLM::theSprayPC() != 0);
+      particleMKD(time, dt, ghost_width, spray_n_grow,
+                  tmp_src_width, where_width, tmp_spray_source);
     }
 #endif
     if (sdc_iter == sdc_iterMAX)
@@ -8921,7 +8924,8 @@ PeleLM::writePlotFile (const std::string& dir,
 
   VisMF::Write(plotMF,TheFullPath,how);
 #ifdef AMREX_PARTICLES
-  if (PeleLM::theSprayPC()) {
+  if (PeleLM::theSprayPC() && do_spray_particles)
+  {
     bool is_checkpoint = false;
     PeleLM::theSprayPC()->SprayParticleIO(
       level, is_checkpoint, write_spray_ascii_files, dir, PeleLM::sprayFuelNames);

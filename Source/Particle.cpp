@@ -8,7 +8,6 @@ using namespace amrex;
 #ifdef AMREX_PARTICLES
 
 namespace {
-bool particles_initialized = false;
 bool virtual_particles_set = false;
 //
 // Containers for the real "active" Particles
@@ -41,6 +40,8 @@ RemoveParticlesOnExit()
   delete VirtPC;
   VirtPC = 0;
 }
+std::string particle_init_file;
+int particle_init_function = 1;
 } // namespace
 
 int PeleLM::do_spray_particles = 1; // martin: why does reading and setting not work properly?
@@ -54,13 +55,6 @@ int PeleLM::particle_heat_tran = 0;
 int PeleLM::particle_mom_tran = 0;
 Vector<std::string> PeleLM::sprayFuelNames;
 Real PeleLM::sprayRefT;
-
-namespace {
-std::string particle_init_file;
-int particle_init_function = 1;
-std::string timestamp_dir;
-std::vector<int> timestamp_indices;
-} // namespace
 
 SprayParticleContainer*
 PeleLM::theSprayPC()
@@ -184,10 +178,6 @@ PeleLM::readParticleParams()
   //
   // ppp.query("restart_from_nonparticle_chkfile",
   // restart_from_nonparticle_chkfile);
-  //
-  // The directory in which to store timestamp files.
-  //
-  ppp.query("timestamp_dir", timestamp_dir);
   //
   // Only the I/O processor makes the directory if it doesn't already exist.
   //
@@ -317,7 +307,7 @@ PeleLM::initParticles()
 {
   BL_PROFILE("PeleLM::initParticles()");
 
-  if (level > 0 || particles_initialized)
+  if (level > 0)
     return;
 
   //
@@ -356,7 +346,6 @@ PeleLM::initParticles()
       amrex::Print() << "Total number of initial particles " <<
         theSprayPC()->TotalNumberOfParticles(false, false) << std::endl;
   }
-  particles_initialized = true;
 }
 
 void
@@ -466,7 +455,7 @@ PeleLM::particleMKD (const Real       time,
       spray_n_grow, tmp_src_width, true, where_width);
 
   // Miiiight need all Ghosts
-  if (theGhostPC() != 0)
+  if (theGhostPC() != 0 && level != 0)
     theGhostPC()->moveKickDrift(
       Sborder, tmp_spray_source,
       level, dt, time, false, true,
@@ -500,7 +489,7 @@ PeleLM::particleMK (const Real       time,
       level, dt, time, true, false,
       spray_n_grow, tmp_src_width);
   // Ghost particles need to be kicked except during the final iteration.
-  if (theGhostPC() != 0)
+  if (theGhostPC() != 0 && level != 0)
     theGhostPC()->moveKick(
       Sborder, tmp_spray_source,
       level, dt, time, false, true,
@@ -513,7 +502,7 @@ PeleLM::particleMK (const Real       time,
 }
 
 // TODO: This has not been checked or updated, use with caution
-#ifdef FALSE_TEST
+#if 0
 std::unique_ptr<MultiFab>
 PeleLM::particleDerive(const std::string& name, Real time, int ngrow)
 {
@@ -664,69 +653,7 @@ PeleLM::particle_redistribute(int lbase, bool init_part)
 void
 PeleLM::particleTimestamp(int ngrow)
 {
-#if 1
-  return;
   amrex::Abort("Need to fill in PeleLM::TimestampParticles");
-#else
-  static bool first = true;
-  static int imax = -1;
-  if (first) {
-    first = false;
-
-    ParmParse ppp("particles");
-
-    // have to do it here, not in read_particle_params, because Density, ...,
-    // are set after read_particle_params is called.
-
-    int timestamp_density = 1;
-    ppp.query("timestamp_density", timestamp_density);
-    if (timestamp_density) {
-      timestamp_indices.push_back(Density);
-      amrex::Print() << "Density = " << Density << std::endl;
-    }
-
-    int timestamp_temperature = 0;
-    ppp.query("timestamp_temperature", timestamp_temperature);
-    if (timestamp_temperature) {
-      timestamp_indices.push_back(Temp);
-      amrex::Print() << "Temp = " << Temp << std::endl;
-    }
-
-    if (!timestamp_indices.empty()) {
-      imax = *(
-        amrex::max_element(timestamp_indices.begin(), timestamp_indices.end()));
-    }
-  }
-
-  if (theSprayPC() && !timestamp_dir.empty()) {
-    std::string basename = timestamp_dir;
-
-    if (basename[basename.length() - 1] != '/')
-      basename += '/';
-
-    basename += "Timestamp";
-
-    int finest_level = parent->finestLevel();
-    Real time = state[State_Type].curTime();
-
-    for (int lev = level; lev <= finest_level; lev++) {
-      if (theSprayPC()->NumberOfParticlesAtLevel(lev) <= 0)
-        continue;
-
-      MultiFab& S_new = parent->getLevel(lev).get_new_data(State_Type);
-
-      if (imax >= 0) { // FillPatchIterator will fail otherwise
-        int ng = (lev == level) ? ngrow : 1;
-        FillPatchIterator fpi(
-          parent->getLevel(lev), S_new, ng, time, State_Type, 0, imax + 1);
-        const MultiFab& S = fpi.get_mf();
-        theSprayPC()->Timestamp(basename, S, lev, time, timestamp_indices);
-      } else {
-        theSprayPC()->Timestamp(basename, S_new, lev, time, timestamp_indices);
-      }
-    }
-  }
-#endif
 }
 
 #endif
