@@ -67,6 +67,9 @@ VPATH_LOCATIONS   += $(REACTIONS_HOME) $(REACTIONS_PATH)
 
 #endif
 
+# PP/Utilities
+include $(PELE_PHYSICS_HOME)/Utility/Make.package
+
 # Transport
 TRAN_PATH := $(TRAN_HOME)/$(strip $(Transport_dir))
 include $(TRAN_PATH)/Make.package

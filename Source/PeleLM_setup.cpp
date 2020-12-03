@@ -317,7 +317,7 @@ PeleLM::variableSetUp ()
 #ifdef USE_SUNDIALS_PP
   SetTolFactODE(relative_tol_chem,absolute_tol_chem);
 #endif
-#ifdef AMREX_USE_CUDA
+#ifdef AMREX_USE_GPU
   reactor_info(reactor_type,ncells_chem);
 #else
   reactor_init(reactor_type,ncells_chem);
@@ -499,8 +499,6 @@ PeleLM::variableSetUp ()
   //
   // ---- pressure
   //
-  // the #if 1 makes this a simpler problem CAR
-#if 1
   desc_lst.addDescriptor(Press_Type,IndexType::TheNodeType(),
                          StateDescriptor::Interval,1,1,
                          &node_bilinear_interp);
@@ -511,24 +509,6 @@ PeleLM::variableSetUp ()
 
   set_pressure_bc(bc,phys_bc);
   desc_lst.setComponent(Press_Type,Pressure,"pressure",bc,pelelm_nodal_bf);
-#else
-  desc_lst.addDescriptor(Press_Type,IndexType::TheNodeType(),
-                         StateDescriptor::Point,1,1,
-                         &node_bilinear_interp,true);
-
-  set_pressure_bc(bc,phys_bc);
-  desc_lst.setComponent(Press_Type,Pressure,"pressure",bc,BndryFunc(press_fill));
-
-  //
-  // ---- time derivative of pressure
-  //
-  Dpdt_Type = desc_lst.size();
-  desc_lst.addDescriptor(Dpdt_Type,IndexType::TheNodeType(),
-                         StateDescriptor::Interval,1,1,
-                         &node_bilinear_interp);
-  set_pressure_bc(bc,phys_bc);
-  desc_lst.setComponent(Dpdt_Type,Dpdt,"dpdt",bc,BndryFunc(press_fill));
-#endif
   //
   // ---- right hand side of divergence constraint.
   //

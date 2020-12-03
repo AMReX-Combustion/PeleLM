@@ -3,18 +3,19 @@
 
 #include <AMReX_Geometry.H>
 #include <AMReX_FArrayBox.H>
-#include "pelelm_prob_parm.H"
 
-//#include <NavierStokesBase.H>
+#include "pelelm_prob_parm.H"
+#include <pmf_data.H>
 #include <IndexDefines.H>
 #include <EOS.H>
 
 AMREX_GPU_DEVICE
-inline
+AMREX_FORCE_INLINE
 void
 pelelm_initdata (int i, int j, int k, 
                  amrex::Array4<amrex::Real> const& state,
-                 amrex::GeometryData const& geomdata)
+                 amrex::GeometryData const& geomdata,
+                 PmfData const * /*pmf_data*/)
 {
 
     const amrex::Real* prob_lo = geomdata.ProbLo();
@@ -65,7 +66,8 @@ bcnormal(
   const int idir,
   const int sgn,
   const amrex::Real time,
-  amrex::GeometryData const& geomdata)
+  amrex::GeometryData const& geomdata,
+  PmfData const * /*pmf_data*/)
 {
   const amrex::Real* prob_lo = geomdata.ProbLo();
   const amrex::Real* prob_hi = geomdata.ProbHi();
@@ -110,7 +112,7 @@ s_ext[DEF_Temp] = ProbParm::T_mean;
 }
 
 AMREX_GPU_DEVICE
-inline
+AMREX_FORCE_INLINE
 void
 zero_visc (int i, int j, int k,
            amrex::Array4<amrex::Real> const& beta,

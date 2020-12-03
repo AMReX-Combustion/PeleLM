@@ -351,7 +351,7 @@ public:
   static amrex::Real Zox;
   static bool        mixture_fraction_ready;
 
-#if !defined(AMREX_USE_CUDA)
+#if !defined(AMREX_USE_GPU)
 protected:
 #endif
 
@@ -448,7 +448,7 @@ protected:
   static SprayParticleContainer* theGhostPC ();
 #endif
 
-#if !defined(AMREX_USE_CUDA)
+#if !defined(AMREX_USE_GPU)
 private:
 #endif
 

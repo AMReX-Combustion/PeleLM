@@ -1,64 +1,79 @@
 #----------------------DOMAIN DEFINITION------------------------
-geometry.is_periodic = 0 1 1              # For each dir, 0: non-perio, 1: periodic
+geometry.is_periodic = 1 0                # For each dir, 0: non-perio, 1: periodic
 geometry.coord_sys   = 0                  # 0 => cart, 1 => RZ
-geometry.prob_lo     = -0.02 -0.02 0.0    # x_lo y_lo (z_lo)
-geometry.prob_hi     =  0.06  0.02 0.005  # x_hi y_hi (z_hi)
+geometry.prob_lo     = 0.0 0.0 0.0        # x_lo y_lo (z_lo)
+geometry.prob_hi     = 0.016 0.016 0.016  # x_hi y_hi (z_hi)
 
 # >>>>>>>>>>>>>  BC FLAGS <<<<<<<<<<<<<<<<
 # Interior, Inflow, Outflow, Symmetry,
 # SlipWallAdiab, NoSlipWallAdiab, SlipWallIsotherm, NoSlipWallIsotherm
-peleLM.lo_bc = Inflow  Interior Interior
-peleLM.hi_bc = Outflow Interior Interior
+peleLM.lo_bc = Interior  Inflow
+peleLM.hi_bc = Interior  Outflow
 
 #-------------------------AMR CONTROL----------------------------
-amr.n_cell          = 128 64 32        # Level 0 number of cells in each direction   
+amr.n_cell          = 32 32 32         # Level 0 number of cells in each direction   
 amr.v               = 1                # AMR verbose
-amr.max_level       = 1                # maximum level number allowed
+amr.max_level       = 2                # maximum level number allowed
 amr.ref_ratio       = 2 2 2 2          # refinement ratio
 amr.regrid_int      = 2                # how often to regrid
-amr.n_error_buf     = 2 2 2 2          # number of buffer cells in error est
+amr.n_error_buf     = 1 1 2 2          # number of buffer cells in error est
 amr.grid_eff        = 0.7              # what constitutes an efficient grid
 amr.blocking_factor = 16               # block factor in grid generation (min box size)
 amr.max_grid_size   = 64               # max box size
 
 #----------------------TIME STEPING CONTROL----------------------
 max_step            = 20               # maximum number of time steps    
-stop_time           = 10.0             # final physical time
-ns.cfl              = 0.2              # cfl number for hyperbolic system
-ns.init_shrink      = 0.001            # scale back initial timestep
+stop_time           = 0.04             # final physical time
+ns.cfl              = 0.3              # cfl number for hyperbolic system
+ns.init_shrink      = 0.0001           # scale back initial timestep
 ns.change_max       = 1.1              # max timestep size increase
-ns.dt_cutoff        = 5.e-11           # level 0 timestep below which we halt
+ns.dt_cutoff        = 5.e-10           # level 0 timestep below which we halt
 
 #-------------------------IO CONTROL----------------------------
 amr.checkpoint_files_output = 0
 amr.check_file          = chk          # root name of checkpoint file
 amr.check_int           = 5            # number of timesteps between checkpoints
 amr.plot_file           = plt_         # root name of plot file
-amr.plot_int            = 20000        # number of timesteps between plot files
-amr.derive_plot_vars    = rhoRT mag_vort avg_pressure gradpx gradpy
+amr.plot_int            = 100          # number of timesteps between plot files
+amr.derive_plot_vars    = rhoRT mag_vort avg_pressure gradpx gradpy sumRhoYdot mass_fractions molweight rhominsumrhoY cc_transport_coeffs cpmix mixfrac_only enthalpy
 amr.grid_log            = grdlog       # name of grid logging file
 
 #----------------------- PROBLEM PARAMETERS---------------------
-prob.P_mean       = 101325.0
-prob.T_mean       = 298.0
-prob.MeanFlow     = 15.0
-prob.FlowDir      = 0
-prob.pmf_datafile = "pmf_040_01Atm.dat"
+prob.P_mean = 101325.0
+prob.standoff = -.022
+prob.pertmag = 0.0004
+prob.pmf_datafile = "drm19_pmf.dat"
 
 #--------------------REFINEMENT CONTROL------------------------
-amr.refinement_indicators = gradT
-amr.gradT.max_level       = 3
-amr.gradT.adjacent_difference_greater = 100
-amr.gradT.field_name      = temp
+amr.refinement_indicators = flame_tracer 
+amr.flame_tracer.max_level     = 3
+amr.flame_tracer.value_greater = 1.e-6
+amr.flame_tracer.field_name    = Y(H)
 
-# Refine the EB
-ns.refine_cutcells        = 1
+# Refinement according to temperature and gradient of temperature
+#amr.refinement_indicators = lo_temp gradT
+#amr.lo_temp.max_level = 2
+#amr.lo_temp.value_less = 500
+#amr.lo_temp.field_name = temp
+
+#amr.gradT.max_level = 2
+#amr.gradT.adjacent_difference_greater = 300
+#amr.gradT.field_name = temp
+
+# Refinement according to the vorticity, no field_name needed
+#amr.refinement_indicators = magvort
+#amr.magvort.max_level = 3
+#amr.magvort.vorticity_greater = 300
 
 #---------------------PHYSICS CONTROL------------------------
 ns.fuelName          = H2              # Fuel species name
 ns.unity_Le          = 0               # Use unity Le number transport ?
 ns.hack_nochem       = 0               # Bypass chemistry ? 0: no, 1: yes
 ns.gravity           = 0               # body force  (gravity in MKS units)
+peleLM.mixtureFraction.format = Cantera
+peleLM.mixtureFraction.type   = mole
+peleLM.mixtureFraction.oxidTank = O2:0.21 N2:0.79
+peleLM.mixtureFraction.fuelTank = CH4:0.0414 H2:0.0412
 
 #--------------------NUMERICS CONTROL------------------------
 ns.init_iter         = 3               # Number of initial iterations to def pressure
@@ -66,19 +81,23 @@ ns.num_divu_iters    = 1               # Number of DivU iteration at initializat
 ns.sdc_iterMAX       = 2               # Number of SDC iterations
 ns.num_mac_sync_iter = 2               # Number of mac_sync iterations
 
-#--------------  INPUTS TO CVODE CHEMISTRY ------------------
-#peleLM.use_typ_vals_chem  = 1         # Use typical value to scale CVODE residual
-#peleLM.relative_tol_chem  = 1.0e-8    # CVODE relative tol
-#peleLM.absolute_tol_chem  = 1.0e-6    # CVODE absolute tol
-cvode.solve_type           = dense     # Linear solver type for Newton direction
-ode.analytical_jacobian    = 0         # Use analytical Jacobian
+# ------------------  INPUTS TO CVODE CHEMISTRY ----------------------
+#peleLM.use_typ_vals_chem = 1          # Use species/temp typical values in CVODE   
+#peleLM.relative_tol_chem = 1.0e-8     # CVODE relative tolerance
+#peleLM.absolute_tol_chem = 1.0e-6     # CVODE absolute tolerance
+cvode.solve_type = GMRES               # CVODE Linear solve type (for Newton direction) 
+ode.analytical_jacobian = 0            # Provide analytical jacobian (from Fuego) ?
 
-#------------  INPUTS FOR EMBEDED BOUNDARIES ----------------
-eb2.geom_type                    = sphere
-eb2.sphere_radius                = 0.0034
-eb2.sphere_center                = 0.0015 0.00
-eb2.sphere_has_fluid_inside      = 0
-eb2.small_volfrac                = 1.0e-4
+# ------------------  INPUTS TO ACTIVE CONTROL  ----------------------
+active_control.on = 0                  # Use AC ?
+active_control.use_temp = 1            # Default in fuel mass, rather use iso-T position ?
+active_control.temperature = 1300.0    # Value of iso-T ?
+active_control.tau = 1.0e-4            # Control tau (should ~ 10 dt)
+active_control.height = 0.0070         # Where is the flame held ? Default assumes coordinate along Y in 2D or Z in 3D.
+active_control.v = 1                   # verbose
+active_control.velMax = 1.5            # Optional: limit inlet velocity
+active_control.changeMax = 0.2         # Optional: limit inlet velocity changes (absolute)
+active_control.flameDir  = 1           # Optional: flame main direction. Default: AMREX_SPACEDIM-1
 
 # ---------------------------------------------------------------
 # ------------------  ADVANCED USER INPUTS ----------------------

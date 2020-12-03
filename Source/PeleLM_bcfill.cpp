@@ -3,6 +3,8 @@
 #include <AMReX_PhysBCFunct.H>
 #include <IndexDefines.H>
 #include <pelelm_prob.H>
+#include <PeleLM.H>
+#include <pmf_data.H>
 
 
 using namespace amrex;
@@ -114,6 +116,12 @@ struct PeleLMFaceFillExtDir
 
 struct PeleLMCCFillExtDir
 {
+  PmfData const* lpmfdata;
+
+  AMREX_GPU_HOST
+  constexpr PeleLMCCFillExtDir(PmfData const* a_pmf_data)
+      : lpmfdata(a_pmf_data) {}
+
   AMREX_GPU_DEVICE
   void operator()(
     const amrex::IntVect& iv,
@@ -149,7 +157,7 @@ struct PeleLMCCFillExtDir
          // Fill s_ext with the EXT_DIR BC value
          // bcnormal() is defined in pelelm_prob.H in problem directory in /Exec
          //
-         bcnormal(x, s_ext, idir, 1, time, geom);
+         bcnormal(x, s_ext, idir, 1, time, geom, lpmfdata);
 
          if (orig_comp == Xvel){
            for (int n = 0; n < AMREX_SPACEDIM; n++) {
@@ -178,7 +186,7 @@ struct PeleLMCCFillExtDir
        (bc[idir + AMREX_SPACEDIM] == amrex::BCType::ext_dir) and
        (iv[idir] > domhi[idir])) {
 
-         bcnormal(x, s_ext, idir, -1, time, geom);
+         bcnormal(x, s_ext, idir, -1, time, geom, lpmfdata);
 
          if (orig_comp == Xvel){
            for (int n = 0; n < AMREX_SPACEDIM; n++) {
@@ -209,7 +217,7 @@ struct PeleLMCCFillExtDir
     idir = 1;
     if ((bc[idir] == amrex::BCType::ext_dir) and (iv[idir] < domlo[idir])) {
 
-         bcnormal(x, s_ext, idir, +1, time, geom);
+         bcnormal(x, s_ext, idir, +1, time, geom, lpmfdata);
 
          if (orig_comp == Xvel){
            for (int n = 0; n < AMREX_SPACEDIM; n++) {
@@ -238,7 +246,7 @@ struct PeleLMCCFillExtDir
        (bc[idir + AMREX_SPACEDIM] == amrex::BCType::ext_dir) and
        (iv[idir] > domhi[idir])) {
 
-         bcnormal(x, s_ext, idir, -1, time, geom);
+         bcnormal(x, s_ext, idir, -1, time, geom, lpmfdata);
 
          if (orig_comp == Xvel){
            for (int n = 0; n < AMREX_SPACEDIM; n++) {
@@ -270,7 +278,7 @@ struct PeleLMCCFillExtDir
     idir = 2;
     if ((bc[idir] == amrex::BCType::ext_dir) and (iv[idir] < domlo[idir])) {
 
-         bcnormal(x, s_ext, idir, +1, time, geom);
+         bcnormal(x, s_ext, idir, +1, time, geom, lpmfdata);
 
          if (orig_comp == Xvel){
            for (int n = 0; n < AMREX_SPACEDIM; n++) {
@@ -299,7 +307,7 @@ struct PeleLMCCFillExtDir
        (bc[idir + AMREX_SPACEDIM] == amrex::BCType::ext_dir) and
        (iv[idir] > domhi[idir])) {
 
-         bcnormal(x, s_ext, idir, -1, time, geom);
+         bcnormal(x, s_ext, idir, -1, time, geom, lpmfdata);
 
          if (orig_comp == Xvel){
            for (int n = 0; n < AMREX_SPACEDIM; n++) {
@@ -342,7 +350,7 @@ void pelelm_cc_ext_fill (Box const& bx, FArrayBox& data,
                  const int scomp)
 {
 
-        GpuBndryFuncFab<PeleLMCCFillExtDir> gpu_bndry_func(PeleLMCCFillExtDir{});
+        GpuBndryFuncFab<PeleLMCCFillExtDir> gpu_bndry_func(PeleLMCCFillExtDir{pmf_data_g});
         gpu_bndry_func(bx,data,dcomp,numcomp,geom,time,bcr,bcomp,scomp);
 
 }
