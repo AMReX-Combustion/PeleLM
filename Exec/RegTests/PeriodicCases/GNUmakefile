@@ -1,27 +1,32 @@
-TOP = ../../../../
-AMREX_HOME ?= ${TOP}/amrex
-IAMR_HOME ?= ${TOP}/IAMR
-PELELM_HOME ?= ${TOP}/PeleLM
+TOP = ../../../..
+AMREX_HOME         ?= ${TOP}/amrex
+IAMR_HOME          ?= ${TOP}/IAMR
+PELELM_HOME        ?= ${TOP}/PeleLM
+PELE_PHYSICS_HOME  ?= ${TOP}/PelePhysics
 
 #
 # Build configuration
 #
 
+# AMREX options
 DIM             = 2
+
+# Compiler / parrallel paradigms
 COMP            = gnu
-DEBUG           = FALSE
 USE_MPI         = TRUE
 USE_OMP         = FALSE
 USE_CUDA        = FALSE
+USE_HIP         = FALSE
+
+# MISC options
+DEBUG           = FALSE
 PRECISION       = DOUBLE
 VERBOSE         = FALSE
+TINY_PROFILE    = FALSE
 
-TINY_PROFILE = FALSE
-#USE_EB = FALSE
-#DEFINES+=-DALWAYS_NEW_J
-
-#######################
+# CVODE
 USE_SUNDIALS_PP = TRUE
+USE_KLU_PP      = FALSE
 
 # Choose model (from list below), and pmf file
 Chemistry_Model = air

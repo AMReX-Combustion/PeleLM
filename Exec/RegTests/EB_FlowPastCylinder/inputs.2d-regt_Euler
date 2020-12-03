@@ -1,8 +1,8 @@
 #----------------------DOMAIN DEFINITION------------------------
 geometry.is_periodic = 0 1 1              # For each dir, 0: non-perio, 1: periodic
 geometry.coord_sys   = 0                  # 0 => cart, 1 => RZ
-geometry.prob_lo     = -0.02 -0.02 0.0    # x_lo y_lo (z_lo)
-geometry.prob_hi     =  0.06  0.02 0.005  # x_hi y_hi (z_hi)
+geometry.prob_lo     = -0.04 -0.04 0.0    # x_lo y_lo (z_lo)
+geometry.prob_hi     =  0.12  0.04 0.005  # x_hi y_hi (z_hi)
 
 # >>>>>>>>>>>>>  BC FLAGS <<<<<<<<<<<<<<<<
 # Interior, Inflow, Outflow, Symmetry,
@@ -25,9 +25,9 @@ amr.max_grid_size   = 64               # max box size
 max_step            = 20               # maximum number of time steps    
 stop_time           = 10.0             # final physical time
 ns.cfl              = 0.2              # cfl number for hyperbolic system
-ns.init_shrink      = 0.001            # scale back initial timestep
+ns.init_shrink      = 0.01             # scale back initial timestep
 ns.change_max       = 1.1              # max timestep size increase
-ns.dt_cutoff        = 5.e-11           # level 0 timestep below which we halt
+ns.dt_cutoff        = 5.e-10           # level 0 timestep below which we halt
 
 #-------------------------IO CONTROL----------------------------
 amr.checkpoint_files_output = 0
@@ -39,23 +39,19 @@ amr.derive_plot_vars    = rhoRT mag_vort avg_pressure gradpx gradpy
 amr.grid_log            = grdlog       # name of grid logging file
 
 #----------------------- PROBLEM PARAMETERS---------------------
-prob.P_mean       = 101325.0
-prob.T_mean       = 298.0
-prob.MeanFlow     = 15.0
-prob.FlowDir      = 0
-prob.pmf_datafile = "pmf_040_01Atm.dat"
+prob.meanFlowMag  = 10.0
 
 #--------------------REFINEMENT CONTROL------------------------
-amr.refinement_indicators = gradT
-amr.gradT.max_level       = 3
-amr.gradT.adjacent_difference_greater = 100
-amr.gradT.field_name      = temp
+# Refinement according to the vorticity, no field_name needed
+amr.refinement_indicators     = magvort
+amr.magvort.max_level         = 3
+amr.magvort.vorticity_greater = 500 
 
 # Refine the EB
-ns.refine_cutcells        = 1
+ns.refine_cutcells            = 1
 
 #---------------------PHYSICS CONTROL------------------------
-ns.fuelName          = H2              # Fuel species name
+ns.fuelName          = N2              # Fuel species name
 ns.unity_Le          = 0               # Use unity Le number transport ?
 ns.hack_nochem       = 0               # Bypass chemistry ? 0: no, 1: yes
 ns.gravity           = 0               # body force  (gravity in MKS units)
@@ -73,10 +69,16 @@ ns.num_mac_sync_iter = 2               # Number of mac_sync iterations
 cvode.solve_type           = dense     # Linear solver type for Newton direction
 ode.analytical_jacobian    = 0         # Use analytical Jacobian
 
+#------------  INPUTS TO CONSTANT TRANSPORT -----------------
+transport.const_viscosity        = 0.0
+transport.const_bulk_viscosity   = 0.0
+transport.const_conductivity     = 0.0
+transport.const_diffusivity      = 0.0
+
 #------------  INPUTS FOR EMBEDED BOUNDARIES ----------------
 eb2.geom_type                    = sphere
-eb2.sphere_radius                = 0.0034
-eb2.sphere_center                = 0.0015 0.00
+eb2.sphere_radius                =  0.0060
+eb2.sphere_center                = -.01  0.00
 eb2.sphere_has_fluid_inside      = 0
 eb2.small_volfrac                = 1.0e-4
 

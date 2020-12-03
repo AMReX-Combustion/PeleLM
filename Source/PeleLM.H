@@ -238,7 +238,7 @@ public:
   static amrex::Real Zox;
   static bool        mixture_fraction_ready;
 
-#if !defined(AMREX_USE_CUDA)
+#if !defined(AMREX_USE_GPU)
 protected:
 #endif
 
@@ -333,7 +333,7 @@ protected:
   static void read_particle_params ();
 #endif
 
-#if !defined(AMREX_USE_CUDA)
+#if !defined(AMREX_USE_GPU)
 private:
 #endif
 

@@ -317,7 +317,7 @@ PeleLM::variableSetUp ()
 #ifdef USE_SUNDIALS_PP
   SetTolFactODE(relative_tol_chem,absolute_tol_chem);
 #endif
-#ifdef AMREX_USE_CUDA
+#ifdef AMREX_USE_GPU
   reactor_info(reactor_type,ncells_chem);
 #else
   reactor_init(reactor_type,ncells_chem);
