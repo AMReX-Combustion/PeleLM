@@ -24,7 +24,7 @@ amr.max_grid_size   = 64               # max box size
 #----------------------TIME STEPING CONTROL----------------------
 max_step            = 50000            # maximum number of time steps    
 stop_time           = 0.04             # final physical time
-ns.cfl              = 0.7              # cfl number for hyperbolic system
+ns.cfl              = 0.5              # cfl number for hyperbolic system
 ns.init_shrink      = 0.0001           # scale back initial timestep
 ns.change_max       = 1.1              # max timestep size increase
 ns.dt_cutoff        = 5.e-10           # level 0 timestep below which we halt
@@ -35,7 +35,7 @@ amr.check_file          = chk          # root name of checkpoint file
 amr.check_int           = 5            # number of timesteps between checkpoints
 amr.plot_file           = plt_         # root name of plot file
 amr.plot_int            = 20000        # number of timesteps between plot files
-amr.derive_plot_vars    = rhoRT mag_vort avg_pressure gradpx gradpy diveru cc_transport_coeffs
+amr.derive_plot_vars    = rhoRT mag_vort avg_pressure gradpx gradpy diveru mass_fractions
 amr.grid_log            = grdlog       # name of grid logging file
 
 #----------------------- PROBLEM PARAMETERS---------------------
@@ -48,7 +48,7 @@ prob.gaussian_rad  = 0.1
 prob.gaussian_x0   = 0.5
 prob.gaussian_y0   = 0.5
 prob.gaussian_ampl = 0.1
-prob.gaussian_type = Spec
+prob.gaussian_type = Temp
 
 #--------------------REFINEMENT CONTROL------------------------
 #amr.refinement_indicators = highO2
