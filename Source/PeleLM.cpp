@@ -87,14 +87,6 @@ const int  LinOp_grow  = 1;
 static Real              typical_RhoH_value_default = -1.e10;
 static const std::string typical_values_filename("typical_values.fab");
 
-namespace ACParm
-{
-   AMREX_GPU_DEVICE_MANAGED unsigned int ctrl_active = 0;
-   AMREX_GPU_DEVICE_MANAGED amrex::Real  ctrl_dV = 0.0;
-   AMREX_GPU_DEVICE_MANAGED amrex::Real  ctrl_V_in = 0.0;
-   AMREX_GPU_DEVICE_MANAGED amrex::Real  ctrl_tBase = 0.0;
-}
-
 namespace
 {
   bool initialized = false;
@@ -176,6 +168,9 @@ bool PeleLM::avg_down_chem;
 int  PeleLM::reset_typical_vals_int=-1;
 Real PeleLM::typical_Y_val_min=1.e-10;
 std::map<std::string,Real> PeleLM::typical_values_FileVals;
+
+std::unique_ptr<ProbParm> PeleLM::prob_parm;
+std::unique_ptr<ACParm> PeleLM::ac_parm;
 
 std::string                                PeleLM::turbFile;
 std::map<std::string, Vector<std::string> > PeleLM::auxDiag_names;
@@ -895,7 +890,8 @@ PeleLM::variableCleanUp ()
    ShowMF_Sets.clear();
    auxDiag_names.clear();
    typical_values.clear();
-
+   prob_parm.reset();
+   ac_parm.reset();
 }
 
 PeleLM::PeleLM ()
@@ -917,11 +913,11 @@ PeleLM::PeleLM ()
    // can modify these later
    if (p_amb_old == -1.0)
    {
-      p_amb_old = ProbParm::P_mean;
+      p_amb_old = prob_parm->P_mean;
    }
    if (p_amb_new == -1.0)
    {
-      p_amb_new = ProbParm::P_mean;
+      p_amb_new = prob_parm->P_mean;
    }
 
    updateFluxReg = false;
@@ -961,11 +957,11 @@ PeleLM::PeleLM (Amr&            papa,
   // can modify these later
   if (p_amb_old == -1.0)
   {
-    p_amb_old = ProbParm::P_mean;
+    p_amb_old = prob_parm->P_mean;
   }
   if (p_amb_new == -1.0)
   {
-    p_amb_new = ProbParm::P_mean;
+    p_amb_new = prob_parm->P_mean;
   }
 
   updateFluxReg = false;
@@ -1350,9 +1346,21 @@ PeleLM::init_mixture_fraction()
       // Compute each species weight for the Bilger formulation based on elemental compo
       // Only interested in CHON -in that order.
       int ecompCHON[NUM_SPECIES*4];
-      amrex::Real mwt[NUM_SPECIES];
       EOS::element_compositionCHON(ecompCHON);
-      EOS::molecular_weight(mwt);
+      amrex::Gpu::DeviceVector<amrex::Real> mwt_v(NUM_SPECIES);
+      amrex::Real* mwt_d = mwt_v.data();
+      Box dumbx({AMREX_D_DECL(0,0,0)},{AMREX_D_DECL(0,0,0)});
+      amrex::ParallelFor(dumbx, [mwt_d]
+      AMREX_GPU_DEVICE(int i, int j, int k) noexcept
+      { 
+         EOS::molecular_weight(mwt_d);
+      });
+      amrex::Real mwt[NUM_SPECIES];
+#if AMREX_USE_GPU
+      amrex::Gpu::dtoh_memcpy(mwt,mwt_d,sizeof(amrex::Real)*NUM_SPECIES);
+#else
+      std::memcpy(mwt,mwt_d,sizeof(amrex::Real)*NUM_SPECIES);
+#endif
       Zfu = 0.0;
       Zox = 0.0;
       for (int i=0; i<NUM_SPECIES; ++i) {
@@ -1803,7 +1811,9 @@ PeleLM::initData ()
   S_new.setVal(0.0);
   P_new.setVal(0.0);
 
+  ProbParm const* lprobparm = prob_parm.get();
   PmfData const* lpmfdata = pmf_data_g;
+
 #ifdef _OPENMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
@@ -1818,7 +1828,7 @@ PeleLM::initData ()
 #ifdef BL_USE_NEWMECH
         amrex::Abort("USE_NEWMECH feature no longer working and has to be fixed/redone");
 #else
-        pelelm_initdata(i, j, k, sfab, geomdata, lpmfdata);
+        pelelm_initdata(i, j, k, sfab, geomdata, *lprobparm, lpmfdata);
 #endif
       });
   }
@@ -9027,9 +9037,9 @@ PeleLM::activeControl(const int  step,
    ctrl_coftOld = coft;
 
    // Pass dV and ctrl_V_in to GPU compliant problem routines
-   ACParm::ctrl_V_in = ctrl_V_in;
-   ACParm::ctrl_dV = ctrl_dV;
-   ACParm::ctrl_tBase = ctrl_tBase;
+   ac_parm->ctrl_V_in = ctrl_V_in;
+   ac_parm->ctrl_dV = ctrl_dV;
+   ac_parm->ctrl_tBase = ctrl_tBase;
 
    // Verbose
    if ( ctrl_verbose && !restart) {
@@ -9092,7 +9102,7 @@ PeleLM::initActiveControl()
    if ( !ctrl_active ) return;
 
    // Activate AC in problem specific / GPU compliant sections
-   ACParm::ctrl_active = ctrl_active;
+   ac_parm->ctrl_active = ctrl_active;
 
    // Resize vector for temporal average
    ctrl_time_pts.resize(ctrl_NavgPts+1,-1.0);
@@ -9108,6 +9118,8 @@ PeleLM::initActiveControl()
    }
 
    // Extract data from bc: assumes flow comes in from lo side of ctrl_flameDir
+   ProbParm const* lprobparm = prob_parm.get();
+   ACParm const* lacparm = ac_parm.get(); 
    PmfData const* lpmfdata = pmf_data_g;
    amrex::Gpu::DeviceVector<amrex::Real> s_ext_v(DEF_NUM_STATE);
    amrex::Real* s_ext_d = s_ext_v.data();
@@ -9117,10 +9129,10 @@ PeleLM::initActiveControl()
    const amrex::Real time_l = -1.0;
    const auto geomdata = geom.data();
    Box dumbx({AMREX_D_DECL(0,0,0)},{AMREX_D_DECL(0,0,0)});
-   amrex::ParallelFor(dumbx, [x,s_ext_d,ctrl_flameDir_l,time_l,geomdata, lpmfdata]
+   amrex::ParallelFor(dumbx, [x,s_ext_d,ctrl_flameDir_l,time_l,geomdata,lprobparm,lacparm, lpmfdata]
    AMREX_GPU_DEVICE(int i, int j, int k) noexcept
    {
-      bcnormal(x, s_ext_d, ctrl_flameDir_l, 1, time_l, geomdata, lpmfdata);
+      bcnormal(x, s_ext_d, ctrl_flameDir_l, 1, time_l, geomdata, *lprobparm, *lacparm, lpmfdata);
    });
    amrex::Real s_ext[DEF_NUM_STATE];
 #if AMREX_USE_GPU
@@ -9150,7 +9162,7 @@ PeleLM::initActiveControl()
    ctrl_V_in_old = ctrl_V_in;
 
    // Pass V_in to bc
-   ACParm::ctrl_V_in = ctrl_V_in;
+   ac_parm->ctrl_V_in = ctrl_V_in;
 
    if ( ctrl_verbose && ctrl_active ) {
       if ( ctrl_use_temp ) {

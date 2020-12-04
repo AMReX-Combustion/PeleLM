@@ -300,6 +300,9 @@ PeleLM::variableSetUp ()
 {
   BL_ASSERT(desc_lst.size() == 0);
 
+  prob_parm.reset(new ProbParm{});
+  ac_parm.reset(new ACParm{});
+
   for (int dir = 0; dir < BL_SPACEDIM; dir++)
   {
     phys_bc.setLo(dir,SlipWall);
