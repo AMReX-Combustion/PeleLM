@@ -55,7 +55,7 @@ jobs:
         make -j 2 COMP=gnu
   
   # Build the 2D FlameSheet RegTest with GNU7.5 and MPI+OMP support
-  FS2D_MPI:
+  FS2D_MPIOMP:
     name: GNU@7.5 MPI OMP [FS2D]
     runs-on: ubuntu-latest
     env: 
