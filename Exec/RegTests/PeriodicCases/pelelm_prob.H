@@ -150,7 +150,7 @@ pelelm_initdata (int i, int j, int k,
 
 }
 
-AMREX_GPU_HOST_DEVICE
+AMREX_GPU_DEVICE
 AMREX_FORCE_INLINE
 void
 bcnormal(
