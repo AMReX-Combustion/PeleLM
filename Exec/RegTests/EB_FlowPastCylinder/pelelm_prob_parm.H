@@ -2,17 +2,18 @@
 #define PELELM_PROB_PARM_H_
 
 #include <AMReX_REAL.H>
-#include <AMReX_GpuQualifiers.H>
+#include <AMReX_GpuMemory.H>
 
-namespace ProbParm
+using namespace amrex::literals;
+
+struct ProbParm
+   : amrex::Gpu::Managed
 {
-    extern AMREX_GPU_DEVICE_MANAGED  amrex::Real meanFlowMag;
-    extern AMREX_GPU_DEVICE_MANAGED  amrex::Real T_mean;
-    extern AMREX_GPU_DEVICE_MANAGED  amrex::Real P_mean;
-    extern AMREX_GPU_DEVICE_MANAGED  amrex::Real delta_blob;
-    extern AMREX_GPU_DEVICE_MANAGED  amrex::Real xblob;
-    extern AMREX_GPU_DEVICE_MANAGED  amrex::Real RC;
-
-}
-
+    amrex::Real meanFlowMag = 3.0;
+    amrex::Real T_mean      = 298.0;
+    amrex::Real P_mean      = 101325.0;
+    amrex::Real delta_blob  = 2.0e-1;
+    amrex::Real xblob       = 0.0;
+    amrex::Real RC          = 0.02e-1;
+};
 #endif
