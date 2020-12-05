@@ -2261,6 +2261,10 @@ PeleLM::post_regrid (int lbase,
       }
    }
    make_rho_curr_time();
+#ifdef AMREX_PARTICLES
+  if (do_spray_particles && theSprayPC() != 0 && level == lbase)
+    particle_redistribute(lbase);
+#endif
 }
 
 void
@@ -4897,7 +4901,7 @@ PeleLM::advance (Real time,
   const Real tnp1  = state[State_Type].curTime();
 
 #ifdef AMREX_PARTICLES
-  int nGrow_Sborder = 2; //mr: set to 1 for now, is this ok?
+  int nGrow_Sborder = 4; //mr: set to 1 for now, is this ok?
 
   int ghost_width = 0;
   int where_width = 0;
