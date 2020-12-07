@@ -3,9 +3,11 @@
 
 #include <AMReX_Geometry.H>
 #include <AMReX_FArrayBox.H>
+#include <AMReX_ParmParse.H>
 
 #include "pelelm_prob_parm.H"
 #include <pmf_data.H>
+#include <PeleLM_parm.H>
 #include <IndexDefines.H>
 #include <EOS.H>
 
@@ -15,6 +17,7 @@ void
 pelelm_initdata (int i, int j, int k, 
                  amrex::Array4<amrex::Real> const& state,
                  amrex::GeometryData const& geomdata,
+                 ProbParm const& prob_parm,
                  PmfData const * /*pmf_data*/)
 {
 
@@ -26,24 +29,33 @@ pelelm_initdata (int i, int j, int k,
     const amrex::Real y = prob_lo[1] + (j+0.5)*dx[1];
     const amrex::Real x = prob_lo[0] + (i+0.5)*dx[0];
 
-    amrex::Real dist = sqrt(pow(x-ProbParm::xblob,2.) );
-
-    state(i,j,k,DEF_Temp) = ProbParm::T_mean;
-
     amrex::Real Yt[NUM_SPECIES];
 
-    Yt[0] = 0.233;
-    Yt[1] = 1.0 - Yt[0];
+    if ( prob_parm.probType == 0 ) {
+       state(i,j,k,DEF_Temp) = prob_parm.T_mean;
+       Yt[0] = 0.233;
+       Yt[1] = 1.0 - Yt[0];
+    } else {
+       amrex::Real dist = std::sqrt(std::pow(x-prob_parm.xwave,2.) );
+       if ( prob_parm.wave_type == 0 ) {
+          state(i,j,k,DEF_Temp) = prob_parm.T_mean;
+          Yt[0] = 0.233*(1.0 + prob_parm.delta_wave*std::exp(-dist/(2.0 * prob_parm.RC)));
+          Yt[1] = 1.0 - Yt[0];
+       } else {
+          state(i,j,k,DEF_Temp) = prob_parm.T_mean * ( 1.0 + prob_parm.delta_wave*std::exp(-dist/(2.0 * prob_parm.RC)));
+          Yt[0] = 0.233;
+          Yt[1] = 1.0 - Yt[0];
+       }
+    }
 
-
-    state(i,j,k,Xvel) = ProbParm::meanFlowMag;
+    state(i,j,k,Xvel) = prob_parm.meanFlowMag;
     state(i,j,k,Yvel) = 0.0;
 #if (AMREX_SPACEDIM == 3)
     state(i,j,k,Zvel) = 0.0;
 #endif
 
     amrex::Real rho_cgs, P_cgs;
-    P_cgs = ProbParm::P_mean * 10.0;
+    P_cgs = prob_parm.P_mean * 10.0;
 
     EOS::PYT2R(P_cgs, Yt, state(i,j,k,DEF_Temp), rho_cgs);
     state(i,j,k,Density) = rho_cgs * 1.0e3;            // CGS -> MKS conversion
@@ -57,7 +69,7 @@ pelelm_initdata (int i, int j, int k,
 
 }
 
-AMREX_GPU_HOST_DEVICE
+AMREX_GPU_DEVICE
 AMREX_FORCE_INLINE
 void
 bcnormal(
@@ -67,6 +79,8 @@ bcnormal(
   const int sgn,
   const amrex::Real time,
   amrex::GeometryData const& geomdata,
+  ProbParm const& prob_parm,
+  ACParm const& /*ac_parm*/,
   PmfData const * /*pmf_data*/)
 {
   const amrex::Real* prob_lo = geomdata.ProbLo();
@@ -74,13 +88,13 @@ bcnormal(
 
   if (sgn == 1) {
 
-s_ext[Xvel] = ProbParm::meanFlowMag;
+s_ext[Xvel] = prob_parm.meanFlowMag;
 s_ext[Yvel] = 0.0;
 #if (AMREX_SPACEDIM == 3)
 s_ext[Zvel] = 0.0;
 #endif
 
-s_ext[DEF_Temp] = ProbParm::T_mean;
+s_ext[DEF_Temp] = prob_parm.T_mean;
 
     amrex::Real Yt[NUM_SPECIES];
     Yt[0] = 0.233;
@@ -88,12 +102,12 @@ s_ext[DEF_Temp] = ProbParm::T_mean;
 
 
     amrex::Real rho_cgs, P_cgs, RhoH_temp;
-    P_cgs = ProbParm::P_mean * 10.0;
+    P_cgs = prob_parm.P_mean * 10.0;
 
-    EOS::PYT2R(P_cgs, Yt, ProbParm::T_mean, rho_cgs);
+    EOS::PYT2R(P_cgs, Yt, prob_parm.T_mean, rho_cgs);
     s_ext[Density] = rho_cgs * 1.0e3;            // CGS -> MKS conversion
 
-    EOS::TY2H(ProbParm::T_mean, Yt, RhoH_temp);
+    EOS::TY2H(prob_parm.T_mean, Yt, RhoH_temp);
     s_ext[DEF_RhoH] = RhoH_temp * 1.0e-4 * s_ext[Density];   // CGS -> MKS conversion
 
     for (int n = 0; n < NUM_SPECIES; n++) {

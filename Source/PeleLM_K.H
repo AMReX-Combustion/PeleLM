@@ -9,8 +9,8 @@
 #include <Transport.H>
 #include <cmath>
 
-AMREX_GPU_HOST_DEVICE
-inline
+AMREX_GPU_DEVICE
+AMREX_FORCE_INLINE
 void
 gpu_flatten(int icell, int i, int j, int k,  
             amrex::Array4<amrex::Real> const& rhoY,
@@ -33,8 +33,8 @@ gpu_flatten(int icell, int i, int j, int k,
     tmp_EBmask[icell]          = EBmask(i,j,k);
 }
 
-AMREX_GPU_HOST_DEVICE
-inline
+AMREX_GPU_DEVICE
+AMREX_FORCE_INLINE
 void
 gpu_unflatten(int icell, int i, int j, int k,
               amrex::Array4<amrex::Real> const& rhoY,
@@ -52,8 +52,8 @@ gpu_unflatten(int icell, int i, int j, int k,
    fcl(i,j,k) = tmp_FCount[icell];
 }
 
-AMREX_GPU_HOST_DEVICE
-inline
+AMREX_GPU_DEVICE
+AMREX_FORCE_INLINE
 void
 reactionRateRhoY(int i, int j, int k,
                  amrex::Array4<const amrex::Real> const& rhoY,
@@ -90,8 +90,8 @@ reactionRateRhoY(int i, int j, int k,
    }
 }
 
-AMREX_GPU_HOST_DEVICE
-inline
+AMREX_GPU_DEVICE
+AMREX_FORCE_INLINE
 void
 getPGivenRTY(int i, int j, int k,
              amrex::Array4<const amrex::Real> const& rho,
@@ -114,8 +114,8 @@ getPGivenRTY(int i, int j, int k,
 }
 
 // This kernel returns directly rhoHmix
-AMREX_GPU_HOST_DEVICE
-inline
+AMREX_GPU_DEVICE
+AMREX_FORCE_INLINE
 void
 getRHmixGivenTY(int i, int j, int k,
                 amrex::Array4<const amrex::Real> const& rho,
@@ -135,8 +135,8 @@ getRHmixGivenTY(int i, int j, int k,
    Hmix(i,j,k) = Hmix(i,j,k) * 1.0e-4_rt * rho(i,j,k);   // CGS -> MKS conversion
 }
 
-AMREX_GPU_HOST_DEVICE
-inline
+AMREX_GPU_DEVICE
+AMREX_FORCE_INLINE
 void
 getMwmixGivenRY(int i, int j, int k,
                 amrex::Array4<const amrex::Real> const& rho,
@@ -155,8 +155,8 @@ getMwmixGivenRY(int i, int j, int k,
    Mwmix(i,j,k) = Mwmix(i,j,k) * 0.001_rt;            // CGS -> MKS conversion
 }
 
-AMREX_GPU_HOST_DEVICE
-inline
+AMREX_GPU_DEVICE
+AMREX_FORCE_INLINE
 void
 getHGivenT(int i, int j, int k,
            amrex::Array4<const amrex::Real> const& T,
@@ -172,8 +172,8 @@ getHGivenT(int i, int j, int k,
    
 }
 
-AMREX_GPU_HOST_DEVICE
-inline
+AMREX_GPU_DEVICE
+AMREX_FORCE_INLINE
 void
 buildAdvectionForcing(int i, int j, int k,
                       amrex::Array4<const amrex::Real> const& rho,
@@ -218,8 +218,8 @@ buildAdvectionForcing(int i, int j, int k,
 
 }
 
-AMREX_GPU_HOST_DEVICE
-inline
+AMREX_GPU_DEVICE
+AMREX_FORCE_INLINE
 void
 getCpmixGivenRYT(int i, int j, int k,
                  amrex::Array4<const amrex::Real> const& rho,
@@ -239,8 +239,8 @@ getCpmixGivenRYT(int i, int j, int k,
    cpmix(i,j,k) *= 0.0001_rt;                         // CGS -> MKS conversion
 }
 
-AMREX_GPU_HOST_DEVICE
-inline
+AMREX_GPU_DEVICE
+AMREX_FORCE_INLINE
 void
 getTGivenHY(int i, int j, int k,
             amrex::Array4<const amrex::Real> const& rho,
@@ -260,8 +260,8 @@ getTGivenHY(int i, int j, int k,
    EOS::HY2T(H, y, T(i,j,k));
 }
 
-AMREX_GPU_HOST_DEVICE
-inline
+AMREX_GPU_DEVICE
+AMREX_FORCE_INLINE
 void
 compute_divu(int i, int j, int k,
              amrex::Array4<const amrex::Real> const& rhoY,
@@ -307,8 +307,8 @@ compute_divu(int i, int j, int k,
    }
 }
 
-AMREX_GPU_HOST_DEVICE
-inline
+AMREX_GPU_DEVICE
+AMREX_FORCE_INLINE
 void
 fabMinMax(int i, int j, int k,
           int           ncomp,  
@@ -323,8 +323,8 @@ fabMinMax(int i, int j, int k,
    }
 }
 
-AMREX_GPU_HOST_DEVICE
-inline
+AMREX_GPU_DEVICE
+AMREX_FORCE_INLINE
 amrex::Real
 getGammaInv(int i, int j, int k,
          amrex::Array4<const amrex::Real> const& rhoY,
@@ -354,8 +354,8 @@ getGammaInv(int i, int j, int k,
    return gammainv;
 }
 
-AMREX_GPU_HOST_DEVICE
-inline
+AMREX_GPU_DEVICE
+AMREX_FORCE_INLINE
 void
 getRhoGivenTYP(int i, int j, int k,
                amrex::Array4<const amrex::Real> const& T,
@@ -376,8 +376,8 @@ getRhoGivenTYP(int i, int j, int k,
    rho(i,j,k) = rho_cgs * 1.0e3_rt;            // CGS -> MKS conversion
 }
 
-AMREX_GPU_HOST_DEVICE
-inline
+AMREX_GPU_DEVICE
+AMREX_FORCE_INLINE
 void
 getTransportCoeff(int i, int j, int k,
                   amrex::Array4<const amrex::Real> const& rhoY,
@@ -428,8 +428,8 @@ getTransportCoeff(int i, int j, int k,
    mu(i,j,k) = mu_cgs * 1.0e-1_rt;
 }
 
-AMREX_GPU_HOST_DEVICE
-inline
+AMREX_GPU_DEVICE
+AMREX_FORCE_INLINE
 void
 getTransportCoeffUnityLe(int i, int j, int k,
                          amrex::Real                      const& ScInv,
@@ -477,8 +477,8 @@ getTransportCoeffUnityLe(int i, int j, int k,
    lambda(i,j,k) = mu_cgs * 1.0e-1_rt * PrInv * cpmix;   // Constant Prandtl number
 }
 
-AMREX_GPU_HOST_DEVICE
-inline
+AMREX_GPU_DEVICE
+AMREX_FORCE_INLINE
 void
 getTfromHY(int i, int j, int k,
            amrex::Array4<const amrex::Real> const& rho,
@@ -499,8 +499,8 @@ getTfromHY(int i, int j, int k,
    T(i,j,k) = T_loc;
 }
 
-AMREX_GPU_HOST_DEVICE
-inline
+AMREX_GPU_DEVICE
+AMREX_FORCE_INLINE
 void
 getVelViscosity(int i, int j, int k,
                 amrex::Array4<const amrex::Real> const& rhoY,
@@ -538,8 +538,8 @@ getVelViscosity(int i, int j, int k,
    mu(i,j,k) = mu_cgs * 1.0e-1_rt;
 }
 
-AMREX_GPU_HOST_DEVICE
-inline
+AMREX_GPU_DEVICE
+AMREX_FORCE_INLINE
 void
 getConductivity(int i, int j, int k,
                 amrex::Array4<const amrex::Real> const& rhoY,
@@ -577,14 +577,14 @@ getConductivity(int i, int j, int k,
    lambda(i,j,k) = lambda_cgs * 1.0e-5_rt;
 }
 
-AMREX_GPU_HOST_DEVICE
-inline
+AMREX_GPU_DEVICE
+AMREX_FORCE_INLINE
 void
 fluxDivergence(int i, int j, int k,
                int ncomp,
-               D_DECL(amrex::Array4<const amrex::Real>     const& fluxX,
-                      amrex::Array4<const amrex::Real>     const& fluxY,
-                      amrex::Array4<const amrex::Real>     const& fluxZ),
+               AMREX_D_DECL(amrex::Array4<const amrex::Real>     const& fluxX,
+                            amrex::Array4<const amrex::Real>     const& fluxY,
+                            amrex::Array4<const amrex::Real>     const& fluxZ),
                amrex::Array4<const        amrex::Real>     const& vol,
                const amrex::Real                                & scaling,
                amrex::Array4<      amrex::Real>            const& div) noexcept
@@ -594,15 +594,15 @@ fluxDivergence(int i, int j, int k,
    amrex::Real factor = scaling / vol(i,j,k);
 
    for (int n = 0; n < ncomp; n++) {
-      div(i,j,k,n) = D_TERM (  ( fluxX(i+1,j,k,n) - fluxX(i,j,k,n) ),
-                             + ( fluxY(i,j+1,k,n) - fluxY(i,j,k,n) ),
-                             + ( fluxZ(i,j,k+1,n) - fluxZ(i,j,k,n) ));
+      div(i,j,k,n) = AMREX_D_TERM (  ( fluxX(i+1,j,k,n) - fluxX(i,j,k,n) ),
+                                   + ( fluxY(i,j+1,k,n) - fluxY(i,j,k,n) ),
+                                   + ( fluxZ(i,j,k+1,n) - fluxZ(i,j,k,n) ));
       div(i,j,k,n) *= factor;
    }
 }
 
-AMREX_GPU_HOST_DEVICE
-inline
+AMREX_GPU_DEVICE
+AMREX_FORCE_INLINE
 void
 buildDiffusionForcing(int i, int j, int k,
                       amrex::Array4<const amrex::Real> const& dn,
@@ -627,8 +627,8 @@ buildDiffusionForcing(int i, int j, int k,
    if ( closed_chamber == 1 ) forceT(i,j,k) += dp0dt;
 }
 
-AMREX_GPU_HOST_DEVICE
-inline
+AMREX_GPU_DEVICE
+AMREX_FORCE_INLINE
 void
 calcMixtFrac(int i, int j, int k,
                 amrex::Real                      const& ZO,
@@ -648,8 +648,8 @@ calcMixtFrac(int i, int j, int k,
    mixt_frac(i,j,k) = ( mixt_frac(i,j,k) - ZO ) * denom_inv;
 }
 
-AMREX_GPU_HOST_DEVICE
-inline
+AMREX_GPU_DEVICE
+AMREX_FORCE_INLINE
 void
 check_divu_dt(int i, int j, int k,
               int                                          const& check_type,
@@ -660,9 +660,9 @@ check_divu_dt(int i, int j, int k,
               amrex::Array4<const amrex::Real>             const& vel,
               amrex::Array4<const amrex::Real>             const& divu,
               amrex::Array4<const amrex::Real>             const& vol,
-              D_DECL(amrex::Array4<const amrex::Real>      const& areaX,
-                     amrex::Array4<const amrex::Real>      const& areaY,
-                     amrex::Array4<const amrex::Real>      const& areaZ),
+              AMREX_D_DECL(amrex::Array4<const amrex::Real>      const& areaX,
+                           amrex::Array4<const amrex::Real>      const& areaY,
+                           amrex::Array4<const amrex::Real>      const& areaZ),
               amrex::Real                                  const& dt) noexcept
 {
    using namespace amrex::literals;
@@ -677,22 +677,22 @@ check_divu_dt(int i, int j, int k,
       }
    } else if ( check_type == 2 ) {                    // Check based rho * divU + u \cdot grad rho
       denom = rho(i,j,k) * divu(i,j,k) +
-              D_TERM(  vel(i,j,k,0) * ( rho(i+1,j,k) - rho(i-1,j,k) ) * dxinv[0],
-                     + vel(i,j,k,1) * ( rho(i,j+1,k) - rho(i,j-1,k) ) * dxinv[1],
-                     + vel(i,j,k,2) * ( rho(i,j,k+1) - rho(i,j,k-1) ) * dxinv[2] );
+              AMREX_D_TERM(  vel(i,j,k,0) * ( rho(i+1,j,k) - rho(i-1,j,k) ) * dxinv[0],
+                           + vel(i,j,k,1) * ( rho(i,j+1,k) - rho(i,j-1,k) ) * dxinv[1],
+                           + vel(i,j,k,2) * ( rho(i,j,k+1) - rho(i,j,k-1) ) * dxinv[2] );
       if ( denom > 0.0_rt ) {
          dtcell = (rho_is_okay) ? ( rho(i,j,k) - rhomin ) / denom : std::abs( rho(i,j,k) ) / denom;
       }
    } else if ( check_type == 3 ) {                    // Check based on div (rho U)
-      D_TERM( amrex::Real fxlo = 0.25_rt * ( (rho(i,j,k)+rho(i-1,j,k)) * (vel(i,j,k,0)+vel(i-1,j,k,0)) );,
-              amrex::Real fylo = 0.25_rt * ( (rho(i,j,k)+rho(i,j-1,k)) * (vel(i,j,k,1)+vel(i,j-1,k,1)) );,
-              amrex::Real fzlo = 0.25_rt * ( (rho(i,j,k)+rho(i,j,k-1)) * (vel(i,j,k,2)+vel(i,j,k-1,2)) ););
-      D_TERM( amrex::Real fxhi = 0.25_rt * ( (rho(i,j,k)+rho(i+1,j,k)) * (vel(i,j,k,0)+vel(i+1,j,k,0)) );,
-              amrex::Real fyhi = 0.25_rt * ( (rho(i,j,k)+rho(i,j+1,k)) * (vel(i,j,k,1)+vel(i,j+1,k,1)) );,
-              amrex::Real fzhi = 0.25_rt * ( (rho(i,j,k)+rho(i,j,k+1)) * (vel(i,j,k,2)+vel(i,j,k+1,2)) ););
-      denom = D_TERM (  areaX(i+1,j,k) * fxhi - areaX(i,j,k) * fxlo,
-                      + areaY(i,j+1,k) * fyhi - areaY(i,j,k) * fylo,
-                      + areaZ(i,j,k+1) * fzhi - areaZ(i,j,k) * fzlo );
+      AMREX_D_TERM( amrex::Real fxlo = 0.25_rt * ( (rho(i,j,k)+rho(i-1,j,k)) * (vel(i,j,k,0)+vel(i-1,j,k,0)) );,
+                    amrex::Real fylo = 0.25_rt * ( (rho(i,j,k)+rho(i,j-1,k)) * (vel(i,j,k,1)+vel(i,j-1,k,1)) );,
+                    amrex::Real fzlo = 0.25_rt * ( (rho(i,j,k)+rho(i,j,k-1)) * (vel(i,j,k,2)+vel(i,j,k-1,2)) ););
+      AMREX_D_TERM( amrex::Real fxhi = 0.25_rt * ( (rho(i,j,k)+rho(i+1,j,k)) * (vel(i,j,k,0)+vel(i+1,j,k,0)) );,
+                    amrex::Real fyhi = 0.25_rt * ( (rho(i,j,k)+rho(i,j+1,k)) * (vel(i,j,k,1)+vel(i,j+1,k,1)) );,
+                    amrex::Real fzhi = 0.25_rt * ( (rho(i,j,k)+rho(i,j,k+1)) * (vel(i,j,k,2)+vel(i,j,k+1,2)) ););
+      denom = AMREX_D_TERM (  areaX(i+1,j,k) * fxhi - areaX(i,j,k) * fxlo,
+                            + areaY(i,j+1,k) * fyhi - areaY(i,j,k) * fylo,
+                            + areaZ(i,j,k+1) * fzhi - areaZ(i,j,k) * fzlo );
       denom /= vol(i,j,k);
       if ( denom > 0.0_rt ) {
          dtcell = (rho_is_okay) ? ( rho(i,j,k) - rhomin ) / denom : std::abs( rho(i,j,k) ) / denom;
@@ -707,7 +707,7 @@ check_divu_dt(int i, int j, int k,
 
 // Full est_divu_dt function - TODO: not available due to limitation of amrex::ReduceMin
 AMREX_GPU_HOST_DEVICE
-inline
+AMREX_FORCE_INLINE
 amrex::Real
 est_divu_dt(int i, int j, int k,
             int                                          const& step_type,
@@ -718,9 +718,9 @@ est_divu_dt(int i, int j, int k,
             amrex::Array4<const amrex::Real>             const& vel,
             amrex::Array4<const amrex::Real>             const& divu,
             amrex::Array4<const amrex::Real>             const& vol,
-            D_DECL(amrex::Array4<const amrex::Real>      const& areaX,
-                   amrex::Array4<const amrex::Real>      const& areaY,
-                   amrex::Array4<const amrex::Real>      const& areaZ)) noexcept
+            AMREX_D_DECL(amrex::Array4<const amrex::Real>      const& areaX,
+                         amrex::Array4<const amrex::Real>      const& areaY,
+                         amrex::Array4<const amrex::Real>      const& areaZ)) noexcept
 {
    using namespace amrex::literals;
 
@@ -735,23 +735,23 @@ est_divu_dt(int i, int j, int k,
       }
    } else if ( step_type == 2 ) {                    // Check based rho * divU + u \cdot grad rho
       denom = rho(i,j,k) * divu(i,j,k) +
-              D_TERM(  vel(i,j,k,0) * ( rho(i+1,j,k) - rho(i-1,j,k) ) * dxinv[0],
-                     + vel(i,j,k,1) * ( rho(i,j+1,k) - rho(i,j-1,k) ) * dxinv[1],
-                     + vel(i,j,k,2) * ( rho(i,j,k+1) - rho(i,j,k-1) ) * dxinv[2] );
+              AMREX_D_TERM(  vel(i,j,k,0) * ( rho(i+1,j,k) - rho(i-1,j,k) ) * dxinv[0],
+                           + vel(i,j,k,1) * ( rho(i,j+1,k) - rho(i,j-1,k) ) * dxinv[1],
+                           + vel(i,j,k,2) * ( rho(i,j,k+1) - rho(i,j,k-1) ) * dxinv[2] );
       if ( denom > 0.0_rt ) {
          dtcell = (rho_is_okay) ? ( rho(i,j,k) - rhomin ) / denom : std::abs( rho(i,j,k) ) / denom;
          dtcell *= dtfactor;
       }
    } else if ( step_type == 3 ) {                    // Check based on div (rho U)
-      D_TERM( amrex::Real fxlo = 0.25_rt * ( (rho(i,j,k)+rho(i-1,j,k)) * (vel(i,j,k,0)+vel(i-1,j,k,0)) );,
-              amrex::Real fylo = 0.25_rt * ( (rho(i,j,k)+rho(i,j-1,k)) * (vel(i,j,k,1)+vel(i,j-1,k,1)) );,
-              amrex::Real fzlo = 0.25_rt * ( (rho(i,j,k)+rho(i,j,k-1)) * (vel(i,j,k,2)+vel(i,j,k-1,2)) ););
-      D_TERM( amrex::Real fxhi = 0.25_rt * ( (rho(i,j,k)+rho(i+1,j,k)) * (vel(i,j,k,0)+vel(i+1,j,k,0)) );,
-              amrex::Real fyhi = 0.25_rt * ( (rho(i,j,k)+rho(i,j+1,k)) * (vel(i,j,k,1)+vel(i,j+1,k,1)) );,
-              amrex::Real fzhi = 0.25_rt * ( (rho(i,j,k)+rho(i,j,k+1)) * (vel(i,j,k,2)+vel(i,j,k+1,2)) ););
-      denom = D_TERM (  areaX(i+1,j,k) * fxhi - areaX(i,j,k) * fxlo,
-                      + areaY(i,j+1,k) * fyhi - areaY(i,j,k) * fylo,
-                      + areaZ(i,j,k+1) * fzhi - areaZ(i,j,k) * fzlo );
+      AMREX_D_TERM( amrex::Real fxlo = 0.25_rt * ( (rho(i,j,k)+rho(i-1,j,k)) * (vel(i,j,k,0)+vel(i-1,j,k,0)) );,
+                    amrex::Real fylo = 0.25_rt * ( (rho(i,j,k)+rho(i,j-1,k)) * (vel(i,j,k,1)+vel(i,j-1,k,1)) );,
+                    amrex::Real fzlo = 0.25_rt * ( (rho(i,j,k)+rho(i,j,k-1)) * (vel(i,j,k,2)+vel(i,j,k-1,2)) ););
+      AMREX_D_TERM( amrex::Real fxhi = 0.25_rt * ( (rho(i,j,k)+rho(i+1,j,k)) * (vel(i,j,k,0)+vel(i+1,j,k,0)) );,
+                    amrex::Real fyhi = 0.25_rt * ( (rho(i,j,k)+rho(i,j+1,k)) * (vel(i,j,k,1)+vel(i,j+1,k,1)) );,
+                    amrex::Real fzhi = 0.25_rt * ( (rho(i,j,k)+rho(i,j,k+1)) * (vel(i,j,k,2)+vel(i,j,k+1,2)) ););
+      denom = AMREX_D_TERM (  areaX(i+1,j,k) * fxhi - areaX(i,j,k) * fxlo,
+                            + areaY(i,j+1,k) * fyhi - areaY(i,j,k) * fylo,
+                            + areaZ(i,j,k+1) * fzhi - areaZ(i,j,k) * fzlo );
       denom /= vol(i,j,k);
       if ( denom > 0.0_rt ) {
          dtcell = (rho_is_okay) ? ( rho(i,j,k) - rhomin ) / denom : std::abs( rho(i,j,k) ) / denom;
@@ -763,7 +763,7 @@ est_divu_dt(int i, int j, int k,
 
 // DivuCeiling type 1 est_divu_dt function
 AMREX_GPU_HOST_DEVICE
-inline
+AMREX_FORCE_INLINE
 amrex::Real
 est_divu_dt_1(int i, int j, int k,
               int                                          const& step_type,
@@ -789,7 +789,7 @@ est_divu_dt_1(int i, int j, int k,
 
 // DivuCeiling type 2 est_divu_dt function
 AMREX_GPU_HOST_DEVICE
-inline
+AMREX_FORCE_INLINE
 amrex::Real
 est_divu_dt_2(int i, int j, int k,
               int                                          const& step_type,
@@ -808,9 +808,9 @@ est_divu_dt_2(int i, int j, int k,
    bool rho_is_okay = (rho(i,j,k) > rhomin);
 
    denom = rho(i,j,k) * divu(i,j,k) +
-           D_TERM(  vel(i,j,k,0) * ( rho(i+1,j,k) - rho(i-1,j,k) ) * dxinv[0],
-                  + vel(i,j,k,1) * ( rho(i,j+1,k) - rho(i,j-1,k) ) * dxinv[1],
-                  + vel(i,j,k,2) * ( rho(i,j,k+1) - rho(i,j,k-1) ) * dxinv[2] );
+           AMREX_D_TERM(  vel(i,j,k,0) * ( rho(i+1,j,k) - rho(i-1,j,k) ) * dxinv[0],
+                        + vel(i,j,k,1) * ( rho(i,j+1,k) - rho(i,j-1,k) ) * dxinv[1],
+                        + vel(i,j,k,2) * ( rho(i,j,k+1) - rho(i,j,k-1) ) * dxinv[2] );
    if ( denom > 0.0_rt ) {
       dtcell = (rho_is_okay) ? ( rho(i,j,k) - rhomin ) / denom : std::abs( rho(i,j,k) ) / denom;
       dtcell *= dtfactor;
@@ -818,8 +818,8 @@ est_divu_dt_2(int i, int j, int k,
    return dtcell;
 }
 
-AMREX_GPU_HOST_DEVICE
-inline
+AMREX_GPU_DEVICE
+AMREX_FORCE_INLINE
 void
 repair_flux(int i, int j, int k,
             int dir,
@@ -860,8 +860,8 @@ repair_flux(int i, int j, int k,
 
 }
 
-AMREX_GPU_HOST_DEVICE
-inline
+AMREX_GPU_DEVICE
+AMREX_FORCE_INLINE
 void
 repair_flux_eb(int i, int j, int k,
                int dir,
@@ -902,8 +902,8 @@ repair_flux_eb(int i, int j, int k,
 
 }
 
-AMREX_GPU_HOST_DEVICE
-inline
+AMREX_GPU_DEVICE
+AMREX_FORCE_INLINE
 void
 cen2edg_cpp(int i, int j, int k,
             int dir,
@@ -948,8 +948,8 @@ cen2edg_cpp(int i, int j, int k,
 }
 
 
-AMREX_GPU_HOST_DEVICE
-inline
+AMREX_GPU_DEVICE
+AMREX_FORCE_INLINE
 void
 makeForce(int i, int j, int k,
           int                                     scomp,

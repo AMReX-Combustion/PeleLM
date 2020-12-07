@@ -39,6 +39,7 @@ amr.derive_plot_vars    = rhoRT mag_vort avg_pressure gradpx gradpy
 amr.grid_log            = grdlog       # name of grid logging file
 
 #----------------------- PROBLEM PARAMETERS---------------------
+prob.type         = VortexShedding
 prob.meanFlowMag  = 10.0
 
 #--------------------REFINEMENT CONTROL------------------------

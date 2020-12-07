@@ -2,13 +2,15 @@
 #define PELELM_PROB_PARM_H_
 
 #include <AMReX_REAL.H>
-#include <AMReX_GpuQualifiers.H>
+#include <AMReX_GpuMemory.H>
 
-namespace ProbParm
+using namespace amrex::literals;
+
+struct ProbParm
+   : amrex::Gpu::Managed
 {
-    extern AMREX_GPU_DEVICE_MANAGED  amrex::Real P_mean;
-    extern AMREX_GPU_DEVICE_MANAGED  amrex::Real standoff;
-    extern AMREX_GPU_DEVICE_MANAGED  amrex::Real pertmag;
-}
-
+    amrex::Real P_mean   = 101325.0_rt;
+    amrex::Real standoff = 0.0_rt;
+    amrex::Real pertmag  = 0.0004_rt;
+};
 #endif
