@@ -582,9 +582,9 @@ inline
 void
 fluxDivergence(int i, int j, int k,
                int ncomp,
-               D_DECL(amrex::Array4<const amrex::Real>     const& fluxX,
-                      amrex::Array4<const amrex::Real>     const& fluxY,
-                      amrex::Array4<const amrex::Real>     const& fluxZ),
+               AMREX_D_DECL(amrex::Array4<const amrex::Real>     const& fluxX,
+                            amrex::Array4<const amrex::Real>     const& fluxY,
+                            amrex::Array4<const amrex::Real>     const& fluxZ),
                amrex::Array4<const        amrex::Real>     const& vol,
                const amrex::Real                                & scaling,
                amrex::Array4<      amrex::Real>            const& div) noexcept
@@ -594,9 +594,9 @@ fluxDivergence(int i, int j, int k,
    amrex::Real factor = scaling / vol(i,j,k);
 
    for (int n = 0; n < ncomp; n++) {
-      div(i,j,k,n) = D_TERM (  ( fluxX(i+1,j,k,n) - fluxX(i,j,k,n) ),
-                             + ( fluxY(i,j+1,k,n) - fluxY(i,j,k,n) ),
-                             + ( fluxZ(i,j,k+1,n) - fluxZ(i,j,k,n) ));
+      div(i,j,k,n) = AMREX_D_TERM (  ( fluxX(i+1,j,k,n) - fluxX(i,j,k,n) ),
+                                   + ( fluxY(i,j+1,k,n) - fluxY(i,j,k,n) ),
+                                   + ( fluxZ(i,j,k+1,n) - fluxZ(i,j,k,n) ));
       div(i,j,k,n) *= factor;
    }
 }
@@ -660,9 +660,9 @@ check_divu_dt(int i, int j, int k,
               amrex::Array4<const amrex::Real>             const& vel,
               amrex::Array4<const amrex::Real>             const& divu,
               amrex::Array4<const amrex::Real>             const& vol,
-              D_DECL(amrex::Array4<const amrex::Real>      const& areaX,
-                     amrex::Array4<const amrex::Real>      const& areaY,
-                     amrex::Array4<const amrex::Real>      const& areaZ),
+              AMREX_D_DECL(amrex::Array4<const amrex::Real>      const& areaX,
+                           amrex::Array4<const amrex::Real>      const& areaY,
+                           amrex::Array4<const amrex::Real>      const& areaZ),
               amrex::Real                                  const& dt) noexcept
 {
    using namespace amrex::literals;
@@ -677,22 +677,22 @@ check_divu_dt(int i, int j, int k,
       }
    } else if ( check_type == 2 ) {                    // Check based rho * divU + u \cdot grad rho
       denom = rho(i,j,k) * divu(i,j,k) +
-              D_TERM(  vel(i,j,k,0) * ( rho(i+1,j,k) - rho(i-1,j,k) ) * dxinv[0],
-                     + vel(i,j,k,1) * ( rho(i,j+1,k) - rho(i,j-1,k) ) * dxinv[1],
-                     + vel(i,j,k,2) * ( rho(i,j,k+1) - rho(i,j,k-1) ) * dxinv[2] );
+              AMREX_D_TERM(  vel(i,j,k,0) * ( rho(i+1,j,k) - rho(i-1,j,k) ) * dxinv[0],
+                           + vel(i,j,k,1) * ( rho(i,j+1,k) - rho(i,j-1,k) ) * dxinv[1],
+                           + vel(i,j,k,2) * ( rho(i,j,k+1) - rho(i,j,k-1) ) * dxinv[2] );
       if ( denom > 0.0_rt ) {
          dtcell = (rho_is_okay) ? ( rho(i,j,k) - rhomin ) / denom : std::abs( rho(i,j,k) ) / denom;
       }
    } else if ( check_type == 3 ) {                    // Check based on div (rho U)
-      D_TERM( amrex::Real fxlo = 0.25_rt * ( (rho(i,j,k)+rho(i-1,j,k)) * (vel(i,j,k,0)+vel(i-1,j,k,0)) );,
-              amrex::Real fylo = 0.25_rt * ( (rho(i,j,k)+rho(i,j-1,k)) * (vel(i,j,k,1)+vel(i,j-1,k,1)) );,
-              amrex::Real fzlo = 0.25_rt * ( (rho(i,j,k)+rho(i,j,k-1)) * (vel(i,j,k,2)+vel(i,j,k-1,2)) ););
-      D_TERM( amrex::Real fxhi = 0.25_rt * ( (rho(i,j,k)+rho(i+1,j,k)) * (vel(i,j,k,0)+vel(i+1,j,k,0)) );,
-              amrex::Real fyhi = 0.25_rt * ( (rho(i,j,k)+rho(i,j+1,k)) * (vel(i,j,k,1)+vel(i,j+1,k,1)) );,
-              amrex::Real fzhi = 0.25_rt * ( (rho(i,j,k)+rho(i,j,k+1)) * (vel(i,j,k,2)+vel(i,j,k+1,2)) ););
-      denom = D_TERM (  areaX(i+1,j,k) * fxhi - areaX(i,j,k) * fxlo,
-                      + areaY(i,j+1,k) * fyhi - areaY(i,j,k) * fylo,
-                      + areaZ(i,j,k+1) * fzhi - areaZ(i,j,k) * fzlo );
+      AMREX_D_TERM( amrex::Real fxlo = 0.25_rt * ( (rho(i,j,k)+rho(i-1,j,k)) * (vel(i,j,k,0)+vel(i-1,j,k,0)) );,
+                    amrex::Real fylo = 0.25_rt * ( (rho(i,j,k)+rho(i,j-1,k)) * (vel(i,j,k,1)+vel(i,j-1,k,1)) );,
+                    amrex::Real fzlo = 0.25_rt * ( (rho(i,j,k)+rho(i,j,k-1)) * (vel(i,j,k,2)+vel(i,j,k-1,2)) ););
+      AMREX_D_TERM( amrex::Real fxhi = 0.25_rt * ( (rho(i,j,k)+rho(i+1,j,k)) * (vel(i,j,k,0)+vel(i+1,j,k,0)) );,
+                    amrex::Real fyhi = 0.25_rt * ( (rho(i,j,k)+rho(i,j+1,k)) * (vel(i,j,k,1)+vel(i,j+1,k,1)) );,
+                    amrex::Real fzhi = 0.25_rt * ( (rho(i,j,k)+rho(i,j,k+1)) * (vel(i,j,k,2)+vel(i,j,k+1,2)) ););
+      denom = AMREX_D_TERM (  areaX(i+1,j,k) * fxhi - areaX(i,j,k) * fxlo,
+                            + areaY(i,j+1,k) * fyhi - areaY(i,j,k) * fylo,
+                            + areaZ(i,j,k+1) * fzhi - areaZ(i,j,k) * fzlo );
       denom /= vol(i,j,k);
       if ( denom > 0.0_rt ) {
          dtcell = (rho_is_okay) ? ( rho(i,j,k) - rhomin ) / denom : std::abs( rho(i,j,k) ) / denom;
@@ -718,9 +718,9 @@ est_divu_dt(int i, int j, int k,
             amrex::Array4<const amrex::Real>             const& vel,
             amrex::Array4<const amrex::Real>             const& divu,
             amrex::Array4<const amrex::Real>             const& vol,
-            D_DECL(amrex::Array4<const amrex::Real>      const& areaX,
-                   amrex::Array4<const amrex::Real>      const& areaY,
-                   amrex::Array4<const amrex::Real>      const& areaZ)) noexcept
+            AMREX_D_DECL(amrex::Array4<const amrex::Real>      const& areaX,
+                         amrex::Array4<const amrex::Real>      const& areaY,
+                         amrex::Array4<const amrex::Real>      const& areaZ)) noexcept
 {
    using namespace amrex::literals;
 
@@ -735,23 +735,23 @@ est_divu_dt(int i, int j, int k,
       }
    } else if ( step_type == 2 ) {                    // Check based rho * divU + u \cdot grad rho
       denom = rho(i,j,k) * divu(i,j,k) +
-              D_TERM(  vel(i,j,k,0) * ( rho(i+1,j,k) - rho(i-1,j,k) ) * dxinv[0],
-                     + vel(i,j,k,1) * ( rho(i,j+1,k) - rho(i,j-1,k) ) * dxinv[1],
-                     + vel(i,j,k,2) * ( rho(i,j,k+1) - rho(i,j,k-1) ) * dxinv[2] );
+              AMREX_D_TERM(  vel(i,j,k,0) * ( rho(i+1,j,k) - rho(i-1,j,k) ) * dxinv[0],
+                           + vel(i,j,k,1) * ( rho(i,j+1,k) - rho(i,j-1,k) ) * dxinv[1],
+                           + vel(i,j,k,2) * ( rho(i,j,k+1) - rho(i,j,k-1) ) * dxinv[2] );
       if ( denom > 0.0_rt ) {
          dtcell = (rho_is_okay) ? ( rho(i,j,k) - rhomin ) / denom : std::abs( rho(i,j,k) ) / denom;
          dtcell *= dtfactor;
       }
    } else if ( step_type == 3 ) {                    // Check based on div (rho U)
-      D_TERM( amrex::Real fxlo = 0.25_rt * ( (rho(i,j,k)+rho(i-1,j,k)) * (vel(i,j,k,0)+vel(i-1,j,k,0)) );,
-              amrex::Real fylo = 0.25_rt * ( (rho(i,j,k)+rho(i,j-1,k)) * (vel(i,j,k,1)+vel(i,j-1,k,1)) );,
-              amrex::Real fzlo = 0.25_rt * ( (rho(i,j,k)+rho(i,j,k-1)) * (vel(i,j,k,2)+vel(i,j,k-1,2)) ););
-      D_TERM( amrex::Real fxhi = 0.25_rt * ( (rho(i,j,k)+rho(i+1,j,k)) * (vel(i,j,k,0)+vel(i+1,j,k,0)) );,
-              amrex::Real fyhi = 0.25_rt * ( (rho(i,j,k)+rho(i,j+1,k)) * (vel(i,j,k,1)+vel(i,j+1,k,1)) );,
-              amrex::Real fzhi = 0.25_rt * ( (rho(i,j,k)+rho(i,j,k+1)) * (vel(i,j,k,2)+vel(i,j,k+1,2)) ););
-      denom = D_TERM (  areaX(i+1,j,k) * fxhi - areaX(i,j,k) * fxlo,
-                      + areaY(i,j+1,k) * fyhi - areaY(i,j,k) * fylo,
-                      + areaZ(i,j,k+1) * fzhi - areaZ(i,j,k) * fzlo );
+      AMREX_D_TERM( amrex::Real fxlo = 0.25_rt * ( (rho(i,j,k)+rho(i-1,j,k)) * (vel(i,j,k,0)+vel(i-1,j,k,0)) );,
+                    amrex::Real fylo = 0.25_rt * ( (rho(i,j,k)+rho(i,j-1,k)) * (vel(i,j,k,1)+vel(i,j-1,k,1)) );,
+                    amrex::Real fzlo = 0.25_rt * ( (rho(i,j,k)+rho(i,j,k-1)) * (vel(i,j,k,2)+vel(i,j,k-1,2)) ););
+      AMREX_D_TERM( amrex::Real fxhi = 0.25_rt * ( (rho(i,j,k)+rho(i+1,j,k)) * (vel(i,j,k,0)+vel(i+1,j,k,0)) );,
+                    amrex::Real fyhi = 0.25_rt * ( (rho(i,j,k)+rho(i,j+1,k)) * (vel(i,j,k,1)+vel(i,j+1,k,1)) );,
+                    amrex::Real fzhi = 0.25_rt * ( (rho(i,j,k)+rho(i,j,k+1)) * (vel(i,j,k,2)+vel(i,j,k+1,2)) ););
+      denom = AMREX_D_TERM (  areaX(i+1,j,k) * fxhi - areaX(i,j,k) * fxlo,
+                            + areaY(i,j+1,k) * fyhi - areaY(i,j,k) * fylo,
+                            + areaZ(i,j,k+1) * fzhi - areaZ(i,j,k) * fzlo );
       denom /= vol(i,j,k);
       if ( denom > 0.0_rt ) {
          dtcell = (rho_is_okay) ? ( rho(i,j,k) - rhomin ) / denom : std::abs( rho(i,j,k) ) / denom;
@@ -808,9 +808,9 @@ est_divu_dt_2(int i, int j, int k,
    bool rho_is_okay = (rho(i,j,k) > rhomin);
 
    denom = rho(i,j,k) * divu(i,j,k) +
-           D_TERM(  vel(i,j,k,0) * ( rho(i+1,j,k) - rho(i-1,j,k) ) * dxinv[0],
-                  + vel(i,j,k,1) * ( rho(i,j+1,k) - rho(i,j-1,k) ) * dxinv[1],
-                  + vel(i,j,k,2) * ( rho(i,j,k+1) - rho(i,j,k-1) ) * dxinv[2] );
+           AMREX_D_TERM(  vel(i,j,k,0) * ( rho(i+1,j,k) - rho(i-1,j,k) ) * dxinv[0],
+                        + vel(i,j,k,1) * ( rho(i,j+1,k) - rho(i,j-1,k) ) * dxinv[1],
+                        + vel(i,j,k,2) * ( rho(i,j,k+1) - rho(i,j,k-1) ) * dxinv[2] );
    if ( denom > 0.0_rt ) {
       dtcell = (rho_is_okay) ? ( rho(i,j,k) - rhomin ) / denom : std::abs( rho(i,j,k) ) / denom;
       dtcell *= dtfactor;
