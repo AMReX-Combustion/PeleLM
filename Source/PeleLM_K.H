@@ -10,7 +10,7 @@
 #include <cmath>
 
 AMREX_GPU_DEVICE
-inline
+AMREX_FORCE_INLINE
 void
 gpu_flatten(int icell, int i, int j, int k,  
             amrex::Array4<amrex::Real> const& rhoY,
@@ -34,7 +34,7 @@ gpu_flatten(int icell, int i, int j, int k,
 }
 
 AMREX_GPU_DEVICE
-inline
+AMREX_FORCE_INLINE
 void
 gpu_unflatten(int icell, int i, int j, int k,
               amrex::Array4<amrex::Real> const& rhoY,
@@ -53,7 +53,7 @@ gpu_unflatten(int icell, int i, int j, int k,
 }
 
 AMREX_GPU_DEVICE
-inline
+AMREX_FORCE_INLINE
 void
 reactionRateRhoY(int i, int j, int k,
                  amrex::Array4<const amrex::Real> const& rhoY,
@@ -91,7 +91,7 @@ reactionRateRhoY(int i, int j, int k,
 }
 
 AMREX_GPU_DEVICE
-inline
+AMREX_FORCE_INLINE
 void
 getPGivenRTY(int i, int j, int k,
              amrex::Array4<const amrex::Real> const& rho,
@@ -115,7 +115,7 @@ getPGivenRTY(int i, int j, int k,
 
 // This kernel returns directly rhoHmix
 AMREX_GPU_DEVICE
-inline
+AMREX_FORCE_INLINE
 void
 getRHmixGivenTY(int i, int j, int k,
                 amrex::Array4<const amrex::Real> const& rho,
@@ -136,7 +136,7 @@ getRHmixGivenTY(int i, int j, int k,
 }
 
 AMREX_GPU_DEVICE
-inline
+AMREX_FORCE_INLINE
 void
 getMwmixGivenRY(int i, int j, int k,
                 amrex::Array4<const amrex::Real> const& rho,
@@ -156,7 +156,7 @@ getMwmixGivenRY(int i, int j, int k,
 }
 
 AMREX_GPU_DEVICE
-inline
+AMREX_FORCE_INLINE
 void
 getHGivenT(int i, int j, int k,
            amrex::Array4<const amrex::Real> const& T,
@@ -173,7 +173,7 @@ getHGivenT(int i, int j, int k,
 }
 
 AMREX_GPU_DEVICE
-inline
+AMREX_FORCE_INLINE
 void
 buildAdvectionForcing(int i, int j, int k,
                       amrex::Array4<const amrex::Real> const& rho,
@@ -219,7 +219,7 @@ buildAdvectionForcing(int i, int j, int k,
 }
 
 AMREX_GPU_DEVICE
-inline
+AMREX_FORCE_INLINE
 void
 getCpmixGivenRYT(int i, int j, int k,
                  amrex::Array4<const amrex::Real> const& rho,
@@ -240,7 +240,7 @@ getCpmixGivenRYT(int i, int j, int k,
 }
 
 AMREX_GPU_DEVICE
-inline
+AMREX_FORCE_INLINE
 void
 getTGivenHY(int i, int j, int k,
             amrex::Array4<const amrex::Real> const& rho,
@@ -261,7 +261,7 @@ getTGivenHY(int i, int j, int k,
 }
 
 AMREX_GPU_DEVICE
-inline
+AMREX_FORCE_INLINE
 void
 compute_divu(int i, int j, int k,
              amrex::Array4<const amrex::Real> const& rhoY,
@@ -308,7 +308,7 @@ compute_divu(int i, int j, int k,
 }
 
 AMREX_GPU_DEVICE
-inline
+AMREX_FORCE_INLINE
 void
 fabMinMax(int i, int j, int k,
           int           ncomp,  
@@ -324,7 +324,7 @@ fabMinMax(int i, int j, int k,
 }
 
 AMREX_GPU_DEVICE
-inline
+AMREX_FORCE_INLINE
 amrex::Real
 getGammaInv(int i, int j, int k,
          amrex::Array4<const amrex::Real> const& rhoY,
@@ -355,7 +355,7 @@ getGammaInv(int i, int j, int k,
 }
 
 AMREX_GPU_DEVICE
-inline
+AMREX_FORCE_INLINE
 void
 getRhoGivenTYP(int i, int j, int k,
                amrex::Array4<const amrex::Real> const& T,
@@ -377,7 +377,7 @@ getRhoGivenTYP(int i, int j, int k,
 }
 
 AMREX_GPU_DEVICE
-inline
+AMREX_FORCE_INLINE
 void
 getTransportCoeff(int i, int j, int k,
                   amrex::Array4<const amrex::Real> const& rhoY,
@@ -429,7 +429,7 @@ getTransportCoeff(int i, int j, int k,
 }
 
 AMREX_GPU_DEVICE
-inline
+AMREX_FORCE_INLINE
 void
 getTransportCoeffUnityLe(int i, int j, int k,
                          amrex::Real                      const& ScInv,
@@ -478,7 +478,7 @@ getTransportCoeffUnityLe(int i, int j, int k,
 }
 
 AMREX_GPU_DEVICE
-inline
+AMREX_FORCE_INLINE
 void
 getTfromHY(int i, int j, int k,
            amrex::Array4<const amrex::Real> const& rho,
@@ -500,7 +500,7 @@ getTfromHY(int i, int j, int k,
 }
 
 AMREX_GPU_DEVICE
-inline
+AMREX_FORCE_INLINE
 void
 getVelViscosity(int i, int j, int k,
                 amrex::Array4<const amrex::Real> const& rhoY,
@@ -539,7 +539,7 @@ getVelViscosity(int i, int j, int k,
 }
 
 AMREX_GPU_DEVICE
-inline
+AMREX_FORCE_INLINE
 void
 getConductivity(int i, int j, int k,
                 amrex::Array4<const amrex::Real> const& rhoY,
@@ -578,7 +578,7 @@ getConductivity(int i, int j, int k,
 }
 
 AMREX_GPU_DEVICE
-inline
+AMREX_FORCE_INLINE
 void
 fluxDivergence(int i, int j, int k,
                int ncomp,
@@ -602,7 +602,7 @@ fluxDivergence(int i, int j, int k,
 }
 
 AMREX_GPU_DEVICE
-inline
+AMREX_FORCE_INLINE
 void
 buildDiffusionForcing(int i, int j, int k,
                       amrex::Array4<const amrex::Real> const& dn,
@@ -628,7 +628,7 @@ buildDiffusionForcing(int i, int j, int k,
 }
 
 AMREX_GPU_DEVICE
-inline
+AMREX_FORCE_INLINE
 void
 calcMixtFrac(int i, int j, int k,
                 amrex::Real                      const& ZO,
@@ -649,7 +649,7 @@ calcMixtFrac(int i, int j, int k,
 }
 
 AMREX_GPU_DEVICE
-inline
+AMREX_FORCE_INLINE
 void
 check_divu_dt(int i, int j, int k,
               int                                          const& check_type,
@@ -706,8 +706,8 @@ check_divu_dt(int i, int j, int k,
 }
 
 // Full est_divu_dt function - TODO: not available due to limitation of amrex::ReduceMin
-AMREX_GPU_DEVICE
-inline
+AMREX_GPU_HOST_DEVICE
+AMREX_FORCE_INLINE
 amrex::Real
 est_divu_dt(int i, int j, int k,
             int                                          const& step_type,
@@ -762,8 +762,8 @@ est_divu_dt(int i, int j, int k,
 }
 
 // DivuCeiling type 1 est_divu_dt function
-AMREX_GPU_DEVICE
-inline
+AMREX_GPU_HOST_DEVICE
+AMREX_FORCE_INLINE
 amrex::Real
 est_divu_dt_1(int i, int j, int k,
               int                                          const& step_type,
@@ -788,8 +788,8 @@ est_divu_dt_1(int i, int j, int k,
 }
 
 // DivuCeiling type 2 est_divu_dt function
-AMREX_GPU_DEVICE
-inline
+AMREX_GPU_HOST_DEVICE
+AMREX_FORCE_INLINE
 amrex::Real
 est_divu_dt_2(int i, int j, int k,
               int                                          const& step_type,
@@ -819,7 +819,7 @@ est_divu_dt_2(int i, int j, int k,
 }
 
 AMREX_GPU_DEVICE
-inline
+AMREX_FORCE_INLINE
 void
 repair_flux(int i, int j, int k,
             int dir,
@@ -861,7 +861,7 @@ repair_flux(int i, int j, int k,
 }
 
 AMREX_GPU_DEVICE
-inline
+AMREX_FORCE_INLINE
 void
 repair_flux_eb(int i, int j, int k,
                int dir,
@@ -903,7 +903,7 @@ repair_flux_eb(int i, int j, int k,
 }
 
 AMREX_GPU_DEVICE
-inline
+AMREX_FORCE_INLINE
 void
 cen2edg_cpp(int i, int j, int k,
             int dir,
@@ -949,7 +949,7 @@ cen2edg_cpp(int i, int j, int k,
 
 
 AMREX_GPU_DEVICE
-inline
+AMREX_FORCE_INLINE
 void
 makeForce(int i, int j, int k,
           int                                     scomp,
