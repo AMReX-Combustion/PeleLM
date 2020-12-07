@@ -273,7 +273,7 @@ PeleLM::compute_rhohmix (Real      time,
 {
    const Real strt_time = ParallelDescriptor::second();
    const TimeLevel whichTime = which_time(State_Type,time);
-   BL_ASSERT(whichTime == AmrOldTime || whichTime == AmrNewTime);
+   AMREX_ASSERT(whichTime == AmrOldTime || whichTime == AmrNewTime);
    const MultiFab& S = (whichTime == AmrOldTime) ? get_old_data(State_Type): get_new_data(State_Type);
 
 #ifdef _OPENMP
@@ -399,24 +399,24 @@ PeleLM::Initialize ()
 
   ParmParse pp("ns");
   pp.query("do_diffuse_sync",do_diffuse_sync);
-  BL_ASSERT(do_diffuse_sync == 0 || do_diffuse_sync == 1);
+  AMREX_ASSERT(do_diffuse_sync == 0 || do_diffuse_sync == 1);
   pp.query("do_reflux_visc",do_reflux_visc);
-  BL_ASSERT(do_reflux_visc == 0 || do_reflux_visc == 1);
+  AMREX_ASSERT(do_reflux_visc == 0 || do_reflux_visc == 1);
 
   verbose = pp.contains("v");
 
   pp.query("divu_ceiling",divu_ceiling);
-  BL_ASSERT(divu_ceiling >= 0 && divu_ceiling <= 3);
+  AMREX_ASSERT(divu_ceiling >= 0 && divu_ceiling <= 3);
   pp.query("divu_dt_factor",divu_dt_factor);
-  BL_ASSERT(divu_dt_factor>0 && divu_dt_factor <= 1.0);
+  AMREX_ASSERT(divu_dt_factor>0 && divu_dt_factor <= 1.0);
   pp.query("min_rho_divu_ceiling",min_rho_divu_ceiling);
-  if (divu_ceiling) BL_ASSERT(min_rho_divu_ceiling >= 0.0);
+  if (divu_ceiling) AMREX_ASSERT(min_rho_divu_ceiling >= 0.0);
 
   pp.query("htt_tempmin",htt_tempmin);
   pp.query("htt_tempmax",htt_tempmax);
 
   pp.query("floor_species",floor_species);
-  BL_ASSERT(floor_species == 0 || floor_species == 1);
+  AMREX_ASSERT(floor_species == 0 || floor_species == 1);
 
   pp.query("do_set_rho_to_species_sum",do_set_rho_to_species_sum);
 
@@ -735,7 +735,7 @@ showMFsub(const std::string&   mySet,
 
     if (ShowMF_Check_Nans)
     {
-      BL_ASSERT(!sub.contains_nan<RunOn::Host>(box,0,mf.nComp()));
+      AMREX_ASSERT(!sub.contains_nan<RunOn::Host>(box,0,mf.nComp()));
     }
     std::ofstream os;
     os.precision(15);
@@ -786,7 +786,7 @@ showMF(const std::string&   mySet,
     {
       for (MFIter mfi(mf); mfi.isValid(); ++mfi)
       {
-        //                BL_ASSERT(!mf[mfi].contains_nan(mfi.validbox(),0,mf.nComp()));
+        //                AMREX_ASSERT(!mf[mfi].contains_nan(mfi.validbox(),0,mf.nComp()));
       }
     }
 #endif
@@ -836,7 +836,7 @@ LM_Error_Value::tagCells(int* tag, const int* tlo, const int* thi,
                          const Real* prob_lo, const Real* time,
                          const int* level) const
 {
-    BL_ASSERT(lmef);
+    AMREX_ASSERT(lmef);
 
     bool max_level_applies = ( (max_level < 0) || ( (max_level >= 0) && (*level < max_level) ) );
     bool valid_time_range = (min_time >= 0) && (max_time >= 0) && (min_time <= max_time);
@@ -864,7 +864,7 @@ LM_Error_Value::tagCells1(int* tag, const int* tlo, const int* thi,
                           const Real* prob_lo, const Real* time,
                           const int* level) const
 {
-    BL_ASSERT(lmef_box);
+    AMREX_ASSERT(lmef_box);
 
     bool max_level_applies = ( (max_level < 0) || ( (max_level >= 0) && (*level < max_level) ) );
     bool valid_time_range = (min_time >= 0) && (max_time >= 0) && (min_time <= max_time);
@@ -1066,7 +1066,7 @@ PeleLM::init_once ()
    //
    // Species checks.
    //
-   BL_ASSERT(Temp > RhoH && RhoH > Density);
+   AMREX_ASSERT(Temp > RhoH && RhoH > Density);
    //
    // Here we want to count relative to Density instead of relative
    // to RhoH, so we can put RhoH after the species instead of before.  
@@ -1384,7 +1384,7 @@ PeleLM::set_typical_values(bool is_restart)
 
     if (is_restart) 
     {
-      BL_ASSERT(nComp==NUM_STATE);
+      AMREX_ASSERT(nComp==NUM_STATE);
 
       for (int i=0; i<nComp; ++i)
         typical_values[i] = -1;
@@ -1513,7 +1513,7 @@ PeleLM::reset_typical_values (const MultiFab& S)
   //
   const int nComp = typical_values.size();
 
-  BL_ASSERT(nComp == S.nComp());
+  AMREX_ASSERT(nComp == S.nComp());
 
   for (int i=0; i<nComp; ++i)
   {
@@ -1990,7 +1990,7 @@ PeleLM::compute_instantaneous_reaction_rates (MultiFab&       R,
 
    const Real strt_time = ParallelDescriptor::second();
 
-   BL_ASSERT((nGrow==0)  ||  (how == HT_ZERO_GROW_CELLS) || (how == HT_EXTRAP_GROW_CELLS));
+   AMREX_ASSERT((nGrow==0)  ||  (how == HT_ZERO_GROW_CELLS) || (how == HT_EXTRAP_GROW_CELLS));
 
    if ((nGrow>0) && (how == HT_ZERO_GROW_CELLS))
    {
@@ -2030,7 +2030,7 @@ PeleLM::compute_instantaneous_reaction_rates (MultiFab&       R,
    if ((nGrow>0) && (how == HT_EXTRAP_GROW_CELLS))
    {
       R.FillBoundary(0,NUM_SPECIES, geom.periodicity());
-      BL_ASSERT(R.nGrow() == 1);
+      AMREX_ASSERT(R.nGrow() == 1);
       Extrapolater::FirstOrderExtrap(R, geom, 0, NUM_SPECIES);
    }
 
@@ -2163,7 +2163,7 @@ PeleLM::postCoarseTimeStep (Real cumtime)
   //
   // postCoarseTimeStep() is only called by level 0.
   //
-  BL_ASSERT(level == 0);
+  AMREX_ASSERT(level == 0);
   AmrLevel::postCoarseTimeStep(cumtime);
 }
 
@@ -2567,7 +2567,7 @@ PeleLM::sum_integrated_quantities ()
     auto Smax = VectorMax(Slevs,FabArrayBase::mfiter_tile_size,0,NUM_STATE,0);
 
     Print() << "TIME= " << tnp1 << " min,max temp = " << Smin[Temp] << ", " << Smax[Temp] << '\n';
-    for (int n=0; n<BL_SPACEDIM; ++n) {
+    for (int n=0; n<AMREX_SPACEDIM; ++n) {
       std::string str = (n==0 ? "xvel" : (n==1 ? "yvel" : "zvel") );
       Print() << "TIME= " << tnp1  << " min,max "<< str << "  = " << Smin[Xvel+n] << ", " << Smax[Xvel+n] << '\n';
     }
@@ -3149,11 +3149,11 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
    // Recompute the D[Nspec+1] = Div(Fi.Hi) using
    // Fi.Hi based on solution here.
    //
-   BL_ASSERT(Force.boxArray() == grids);
-   BL_ASSERT(FComp+Force.nComp()>=NUM_SPECIES+1);
-   BL_ASSERT(Dnew.boxArray() == grids);
-   BL_ASSERT(DDnew.boxArray() == grids);
-   BL_ASSERT(DComp+Dnew.nComp()>=NUM_SPECIES+2);
+   AMREX_ASSERT(Force.boxArray() == grids);
+   AMREX_ASSERT(FComp+Force.nComp()>=NUM_SPECIES+1);
+   AMREX_ASSERT(Dnew.boxArray() == grids);
+   AMREX_ASSERT(DDnew.boxArray() == grids);
+   AMREX_ASSERT(DComp+Dnew.nComp()>=NUM_SPECIES+2);
 
    const Real strt_time = ParallelDescriptor::second();
 
@@ -3618,7 +3618,7 @@ PeleLM::compute_enthalpy_fluxes (MultiFab* const*       flux,
          flux[NUM_SPECIES+2] = - lambda grad T
   */
 
-  BL_ASSERT(beta && beta[0]->nComp() == NUM_SPECIES+1);
+  AMREX_ASSERT(beta && beta[0]->nComp() == NUM_SPECIES+1);
 
   const Real strt_time = ParallelDescriptor::second();
 
@@ -3924,7 +3924,7 @@ PeleLM::getViscTerms (MultiFab& visc_terms,
       }
       int viscComp = 0;
       const TimeLevel whichTime = which_time(State_Type,time);
-      BL_ASSERT(whichTime == AmrOldTime || whichTime == AmrNewTime);
+      AMREX_ASSERT(whichTime == AmrOldTime || whichTime == AmrNewTime);
       auto vel_visc_cc = (whichTime == AmrOldTime ? viscn_cc : viscnp1_cc);
       diffusion->getTensorViscTerms(visc_terms,time,vel_visc,vel_visc_cc,viscComp);
 
@@ -3941,7 +3941,7 @@ PeleLM::getViscTerms (MultiFab& visc_terms,
    if (nGrow > 0)
    {
       visc_terms.FillBoundary(0,num_comp, geom.periodicity());
-      BL_ASSERT(visc_terms.nGrow() == 1);
+      AMREX_ASSERT(visc_terms.nGrow() == 1);
       Extrapolater::FirstOrderExtrap(visc_terms, geom, 0, num_comp);
    }
 
@@ -4029,7 +4029,7 @@ PeleLM::compute_differential_diffusion_fluxes (const MultiFab& S,
 #endif
 
    const int nGrow = 1;
-   BL_ASSERT(S.nGrow()>=nGrow);
+   AMREX_ASSERT(S.nGrow()>=nGrow);
    bool has_coarse_data = bool(Scrse);
 
    const DistributionMapping* dmc = (has_coarse_data ? &(Scrse->DistributionMap()) : 0);
@@ -4242,7 +4242,7 @@ PeleLM::flux_divergence (MultiFab&        fdiv,
                          Real             scale) const
 {
    BL_PROFILE("PeleLM::flux_divergence()");
-   BL_ASSERT(fdiv.nComp() >= fdivComp+nComp);
+   AMREX_ASSERT(fdiv.nComp() >= fdivComp+nComp);
 
 //////////////////////////////////////////////////////
 // Version using AMReX computeDivergence function
@@ -4352,8 +4352,8 @@ PeleLM::compute_differential_diffusion_terms (MultiFab& D,
    // Uses state at time to explicitly compute fluxes, and resets internal
    //  data for fluxes, etc
    //
-   BL_ASSERT(D.boxArray() == grids);
-   BL_ASSERT(D.nComp() >= NUM_SPECIES+2); // room for spec+RhoH+Temp
+   AMREX_ASSERT(D.boxArray() == grids);
+   AMREX_ASSERT(D.nComp() >= NUM_SPECIES+2); // room for spec+RhoH+Temp
 
    if (hack_nospecdiff)
    {
@@ -4361,7 +4361,7 @@ PeleLM::compute_differential_diffusion_terms (MultiFab& D,
    }
 
    const TimeLevel whichTime = which_time(State_Type,time);
-   BL_ASSERT(whichTime == AmrOldTime || whichTime == AmrNewTime);
+   AMREX_ASSERT(whichTime == AmrOldTime || whichTime == AmrNewTime);
    MultiFab* const * flux = (whichTime == AmrOldTime) ? SpecDiffusionFluxn : SpecDiffusionFluxnp1;
    if (use_wbar) {
       MultiFab* const * fluxWbar = SpecDiffusionFluxWbar;
@@ -4408,8 +4408,8 @@ PeleLM::compute_differential_diffusion_terms (MultiFab& D,
      D.FillBoundary(0,nc, geom.periodicity());
      DD.FillBoundary(0,1, geom.periodicity());
 
-     BL_ASSERT(D.nGrow() == 1);
-     BL_ASSERT(DD.nGrow() == 1);
+     AMREX_ASSERT(D.nGrow() == 1);
+     AMREX_ASSERT(DD.nGrow() == 1);
 
      Extrapolater::FirstOrderExtrap(D, geom, 0, nc);
      Extrapolater::FirstOrderExtrap(DD, geom, 0, 1);
@@ -4458,7 +4458,7 @@ PeleLM::compute_rhoRT (const MultiFab& S,
                              MultiFab& Press,
                              int       pComp)
 {
-   BL_ASSERT(pComp<Press.nComp());
+   AMREX_ASSERT(pComp<Press.nComp());
 
    const Real strt_time = ParallelDescriptor::second();
 
@@ -4597,7 +4597,7 @@ PeleLM::setThermoPress(Real time)
 {
   const TimeLevel whichTime = which_time(State_Type,time);
     
-  BL_ASSERT(whichTime == AmrOldTime || whichTime == AmrNewTime);
+  AMREX_ASSERT(whichTime == AmrOldTime || whichTime == AmrNewTime);
     
   MultiFab& S = (whichTime == AmrOldTime) ? get_old_data(State_Type) : get_new_data(State_Type);
     
@@ -4753,7 +4753,7 @@ PeleLM::set_reasonable_grow_cells_for_R (Real time)
    //
    MultiFab& React = get_data(RhoYdot_Type, time);
    React.FillBoundary(0,NUM_SPECIES, geom.periodicity());
-   BL_ASSERT(React.nGrow() == 1);
+   AMREX_ASSERT(React.nGrow() == 1);
    Extrapolater::FirstOrderExtrap(React, geom, 0, NUM_SPECIES); //FIXME: Is this in the wrong order?
 }
 
@@ -5574,7 +5574,7 @@ PeleLM::getFuncCountDM (const BoxArray& bxba, int ngrow)
   for (int i = 0; i < vwrk.size(); i++)
     nmtags[procmap[i]]++;
 
-  BL_ASSERT(nmtags[ParallelDescriptor::MyProc()] == count);
+  AMREX_ASSERT(nmtags[ParallelDescriptor::MyProc()] == count);
 
   for (int i = 1; i < offset.size(); i++)
     offset[i] = offset[i-1] + nmtags[i-1];
@@ -5838,7 +5838,7 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
     //
     if (ngrow > 0)
     {
-      BL_ASSERT(React_new.nGrow() == 1);
+      AMREX_ASSERT(React_new.nGrow() == 1);
       React_new.FillBoundary(0,NUM_SPECIES, geom.periodicity());
       Extrapolater::FirstOrderExtrap(React_new, geom, 0, NUM_SPECIES);
     }
@@ -7621,7 +7621,7 @@ PeleLM::reflux ()
 
    const Real strt_time = ParallelDescriptor::second();
 
-   BL_ASSERT(do_reflux);
+   AMREX_ASSERT(do_reflux);
 
    //
    // First do refluxing step.
@@ -7749,7 +7749,7 @@ PeleLM::calcViscosity (const Real time,
    BL_PROFILE("PLM::calcViscosity()");
 
    const TimeLevel whichTime = which_time(State_Type, time);
-   BL_ASSERT(whichTime == AmrOldTime || whichTime == AmrNewTime);
+   AMREX_ASSERT(whichTime == AmrOldTime || whichTime == AmrNewTime);
 
    MultiFab& visc = (whichTime == AmrOldTime ? *viscn_cc : *viscnp1_cc);
    MultiFab& S = (whichTime == AmrOldTime) ? get_old_data(State_Type) : get_new_data(State_Type);
@@ -7792,7 +7792,7 @@ PeleLM::calcDiffusivity (const Real time)
    BL_PROFILE("PLM::calcDiffusivity()");
 
    const TimeLevel whichTime = which_time(State_Type, time);
-   BL_ASSERT(whichTime == AmrOldTime || whichTime == AmrNewTime);
+   AMREX_ASSERT(whichTime == AmrOldTime || whichTime == AmrNewTime);
 
    MultiFab& diff = (whichTime == AmrOldTime) ? *diffn_cc : *diffnp1_cc;
    MultiFab& S = (whichTime == AmrOldTime) ? get_old_data(State_Type) : get_new_data(State_Type);
@@ -7864,7 +7864,7 @@ PeleLM::getViscosity (MultiFab* viscosity[AMREX_SPACEDIM],
    // Select time level to work with (N or N+1)
    //
    const TimeLevel whichTime = which_time(State_Type,time);
-   BL_ASSERT(whichTime == AmrOldTime || whichTime == AmrNewTime);
+   AMREX_ASSERT(whichTime == AmrOldTime || whichTime == AmrNewTime);
 
    MultiFab* visc      = (whichTime == AmrOldTime) ? viscn_cc : viscnp1_cc;
 
@@ -7932,16 +7932,16 @@ PeleLM::getDiffusivity (MultiFab* diffusivity[AMREX_SPACEDIM],
                         const int ncomp)
 {
    BL_PROFILE("PLM::getDiffusivity()");
-   BL_ASSERT(state_comp > Density);
-   BL_ASSERT(diffusivity[0]->nComp() >= dst_comp+ncomp);
-   BL_ASSERT( ( state_comp == first_spec && ncomp == NUM_SPECIES ) ||
+   AMREX_ASSERT(state_comp > Density);
+   AMREX_ASSERT(diffusivity[0]->nComp() >= dst_comp+ncomp);
+   AMREX_ASSERT( ( state_comp == first_spec && ncomp == NUM_SPECIES ) ||
               ( state_comp == Temp && ncomp == 1 ) );
    
    //
    // Select time level to work with (N or N+1)
    //
    const TimeLevel whichTime = which_time(State_Type,time);
-   BL_ASSERT(whichTime == AmrOldTime || whichTime == AmrNewTime);
+   AMREX_ASSERT(whichTime == AmrOldTime || whichTime == AmrNewTime);
 
    MultiFab* diff      = (whichTime == AmrOldTime) ? diffn_cc : diffnp1_cc;
 
@@ -7999,7 +7999,7 @@ PeleLM::zeroBoundaryVisc (MultiFab*  beta[AMREX_SPACEDIM],
                           const int  dst_comp,
                           const int  ncomp) const
 {
-  BL_ASSERT(state_comp > Density);
+  AMREX_ASSERT(state_comp > Density);
 
   const auto geomdata = geom.data();
 
@@ -8159,7 +8159,7 @@ PeleLM::calc_dpdt (Real      time,
 
    if (nGrow > 0) {
      dpdt.FillBoundary(0,1, geom.periodicity());
-     BL_ASSERT(dpdt.nGrow() == 1);
+     AMREX_ASSERT(dpdt.nGrow() == 1);
      Extrapolater::FirstOrderExtrap(dpdt, geom, 0, 1);
    }
 }
@@ -8268,7 +8268,7 @@ PeleLM::getForce(FArrayBox&       force,
                  const FArrayBox& Scal,
                  int              scalScomp)
 {
-   BL_ASSERT(force.box().contains(bx));
+   AMREX_ASSERT(force.box().contains(bx));
 
    const auto& velocity = Vel.array();
    const auto& scalars  = Scal.array(scalScomp);
@@ -8741,7 +8741,7 @@ PeleLM::derive (const std::string& name,
                 Real               time,
                 int                ngrow)
 {        
-  BL_ASSERT(ngrow >= 0);
+  AMREX_ASSERT(ngrow >= 0);
   
   std::unique_ptr<MultiFab> mf;
   const DeriveRec* rec = derive_lst.get(name);

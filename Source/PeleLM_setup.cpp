@@ -392,7 +392,7 @@ PeleLM::variableSetUp ()
   pelelm_bndryfunc.setRunOnGPU(true);  // I promise the bc function will launch gpu kernels.
 
 
-  Vector<BCRec>       bcs(BL_SPACEDIM);
+  Vector<BCRec>       bcs(AMREX_SPACEDIM);
   Vector<std::string> name(BL_SPACEDIM);
 
   set_x_vel_bc(bc,phys_bc);
@@ -939,5 +939,3 @@ PeleLM::rhoydotSetUp()
                           pelelm_bndryfunc, &cc_interp, 0, nrhoydot-1);
   }
 }
-
-
