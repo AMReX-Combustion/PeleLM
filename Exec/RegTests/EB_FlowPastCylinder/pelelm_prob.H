@@ -29,15 +29,24 @@ pelelm_initdata (int i, int j, int k,
     const amrex::Real y = prob_lo[1] + (j+0.5)*dx[1];
     const amrex::Real x = prob_lo[0] + (i+0.5)*dx[0];
 
-    amrex::Real dist = sqrt(pow(x-prob_parm.xblob,2.) );
-
-    state(i,j,k,DEF_Temp) = prob_parm.T_mean;
-
     amrex::Real Yt[NUM_SPECIES];
 
-    Yt[0] = 0.233;
-    Yt[1] = 1.0 - Yt[0];
-
+    if ( prob_parm.probType == 0 ) {
+       state(i,j,k,DEF_Temp) = prob_parm.T_mean;
+       Yt[0] = 0.233;
+       Yt[1] = 1.0 - Yt[0];
+    } else {
+       amrex::Real dist = std::sqrt(std::pow(x-prob_parm.xwave,2.) );
+       if ( prob_parm.wave_type == 0 ) {
+          state(i,j,k,DEF_Temp) = prob_parm.T_mean;
+          Yt[0] = 0.233*(1.0 + prob_parm.delta_wave*std::exp(-dist/(2.0 * prob_parm.RC)));
+          Yt[1] = 1.0 - Yt[0];
+       } else {
+          state(i,j,k,DEF_Temp) = prob_parm.T_mean * ( 1.0 + prob_parm.delta_wave*std::exp(-dist/(2.0 * prob_parm.RC)));
+          Yt[0] = 0.233;
+          Yt[1] = 1.0 - Yt[0];
+       }
+    }
 
     state(i,j,k,Xvel) = prob_parm.meanFlowMag;
     state(i,j,k,Yvel) = 0.0;
