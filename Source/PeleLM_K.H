@@ -9,7 +9,7 @@
 #include <Transport.H>
 #include <cmath>
 
-AMREX_GPU_HOST_DEVICE
+AMREX_GPU_DEVICE
 inline
 void
 gpu_flatten(int icell, int i, int j, int k,  
@@ -33,7 +33,7 @@ gpu_flatten(int icell, int i, int j, int k,
     tmp_EBmask[icell]          = EBmask(i,j,k);
 }
 
-AMREX_GPU_HOST_DEVICE
+AMREX_GPU_DEVICE
 inline
 void
 gpu_unflatten(int icell, int i, int j, int k,
@@ -52,7 +52,7 @@ gpu_unflatten(int icell, int i, int j, int k,
    fcl(i,j,k) = tmp_FCount[icell];
 }
 
-AMREX_GPU_HOST_DEVICE
+AMREX_GPU_DEVICE
 inline
 void
 reactionRateRhoY(int i, int j, int k,
@@ -90,7 +90,7 @@ reactionRateRhoY(int i, int j, int k,
    }
 }
 
-AMREX_GPU_HOST_DEVICE
+AMREX_GPU_DEVICE
 inline
 void
 getPGivenRTY(int i, int j, int k,
@@ -114,7 +114,7 @@ getPGivenRTY(int i, int j, int k,
 }
 
 // This kernel returns directly rhoHmix
-AMREX_GPU_HOST_DEVICE
+AMREX_GPU_DEVICE
 inline
 void
 getRHmixGivenTY(int i, int j, int k,
@@ -135,7 +135,7 @@ getRHmixGivenTY(int i, int j, int k,
    Hmix(i,j,k) = Hmix(i,j,k) * 1.0e-4_rt * rho(i,j,k);   // CGS -> MKS conversion
 }
 
-AMREX_GPU_HOST_DEVICE
+AMREX_GPU_DEVICE
 inline
 void
 getMwmixGivenRY(int i, int j, int k,
@@ -155,7 +155,7 @@ getMwmixGivenRY(int i, int j, int k,
    Mwmix(i,j,k) = Mwmix(i,j,k) * 0.001_rt;            // CGS -> MKS conversion
 }
 
-AMREX_GPU_HOST_DEVICE
+AMREX_GPU_DEVICE
 inline
 void
 getHGivenT(int i, int j, int k,
@@ -172,7 +172,7 @@ getHGivenT(int i, int j, int k,
    
 }
 
-AMREX_GPU_HOST_DEVICE
+AMREX_GPU_DEVICE
 inline
 void
 buildAdvectionForcing(int i, int j, int k,
@@ -218,7 +218,7 @@ buildAdvectionForcing(int i, int j, int k,
 
 }
 
-AMREX_GPU_HOST_DEVICE
+AMREX_GPU_DEVICE
 inline
 void
 getCpmixGivenRYT(int i, int j, int k,
@@ -239,7 +239,7 @@ getCpmixGivenRYT(int i, int j, int k,
    cpmix(i,j,k) *= 0.0001_rt;                         // CGS -> MKS conversion
 }
 
-AMREX_GPU_HOST_DEVICE
+AMREX_GPU_DEVICE
 inline
 void
 getTGivenHY(int i, int j, int k,
@@ -260,7 +260,7 @@ getTGivenHY(int i, int j, int k,
    EOS::HY2T(H, y, T(i,j,k));
 }
 
-AMREX_GPU_HOST_DEVICE
+AMREX_GPU_DEVICE
 inline
 void
 compute_divu(int i, int j, int k,
@@ -307,7 +307,7 @@ compute_divu(int i, int j, int k,
    }
 }
 
-AMREX_GPU_HOST_DEVICE
+AMREX_GPU_DEVICE
 inline
 void
 fabMinMax(int i, int j, int k,
@@ -323,7 +323,7 @@ fabMinMax(int i, int j, int k,
    }
 }
 
-AMREX_GPU_HOST_DEVICE
+AMREX_GPU_DEVICE
 inline
 amrex::Real
 getGammaInv(int i, int j, int k,
@@ -354,7 +354,7 @@ getGammaInv(int i, int j, int k,
    return gammainv;
 }
 
-AMREX_GPU_HOST_DEVICE
+AMREX_GPU_DEVICE
 inline
 void
 getRhoGivenTYP(int i, int j, int k,
@@ -376,7 +376,7 @@ getRhoGivenTYP(int i, int j, int k,
    rho(i,j,k) = rho_cgs * 1.0e3_rt;            // CGS -> MKS conversion
 }
 
-AMREX_GPU_HOST_DEVICE
+AMREX_GPU_DEVICE
 inline
 void
 getTransportCoeff(int i, int j, int k,
@@ -428,7 +428,7 @@ getTransportCoeff(int i, int j, int k,
    mu(i,j,k) = mu_cgs * 1.0e-1_rt;
 }
 
-AMREX_GPU_HOST_DEVICE
+AMREX_GPU_DEVICE
 inline
 void
 getTransportCoeffUnityLe(int i, int j, int k,
@@ -477,7 +477,7 @@ getTransportCoeffUnityLe(int i, int j, int k,
    lambda(i,j,k) = mu_cgs * 1.0e-1_rt * PrInv * cpmix;   // Constant Prandtl number
 }
 
-AMREX_GPU_HOST_DEVICE
+AMREX_GPU_DEVICE
 inline
 void
 getTfromHY(int i, int j, int k,
@@ -499,7 +499,7 @@ getTfromHY(int i, int j, int k,
    T(i,j,k) = T_loc;
 }
 
-AMREX_GPU_HOST_DEVICE
+AMREX_GPU_DEVICE
 inline
 void
 getVelViscosity(int i, int j, int k,
@@ -538,7 +538,7 @@ getVelViscosity(int i, int j, int k,
    mu(i,j,k) = mu_cgs * 1.0e-1_rt;
 }
 
-AMREX_GPU_HOST_DEVICE
+AMREX_GPU_DEVICE
 inline
 void
 getConductivity(int i, int j, int k,
@@ -577,7 +577,7 @@ getConductivity(int i, int j, int k,
    lambda(i,j,k) = lambda_cgs * 1.0e-5_rt;
 }
 
-AMREX_GPU_HOST_DEVICE
+AMREX_GPU_DEVICE
 inline
 void
 fluxDivergence(int i, int j, int k,
@@ -601,7 +601,7 @@ fluxDivergence(int i, int j, int k,
    }
 }
 
-AMREX_GPU_HOST_DEVICE
+AMREX_GPU_DEVICE
 inline
 void
 buildDiffusionForcing(int i, int j, int k,
@@ -627,7 +627,7 @@ buildDiffusionForcing(int i, int j, int k,
    if ( closed_chamber == 1 ) forceT(i,j,k) += dp0dt;
 }
 
-AMREX_GPU_HOST_DEVICE
+AMREX_GPU_DEVICE
 inline
 void
 calcMixtFrac(int i, int j, int k,
@@ -648,7 +648,7 @@ calcMixtFrac(int i, int j, int k,
    mixt_frac(i,j,k) = ( mixt_frac(i,j,k) - ZO ) * denom_inv;
 }
 
-AMREX_GPU_HOST_DEVICE
+AMREX_GPU_DEVICE
 inline
 void
 check_divu_dt(int i, int j, int k,
@@ -706,7 +706,7 @@ check_divu_dt(int i, int j, int k,
 }
 
 // Full est_divu_dt function - TODO: not available due to limitation of amrex::ReduceMin
-AMREX_GPU_HOST_DEVICE
+AMREX_GPU_DEVICE
 inline
 amrex::Real
 est_divu_dt(int i, int j, int k,
@@ -762,7 +762,7 @@ est_divu_dt(int i, int j, int k,
 }
 
 // DivuCeiling type 1 est_divu_dt function
-AMREX_GPU_HOST_DEVICE
+AMREX_GPU_DEVICE
 inline
 amrex::Real
 est_divu_dt_1(int i, int j, int k,
@@ -788,7 +788,7 @@ est_divu_dt_1(int i, int j, int k,
 }
 
 // DivuCeiling type 2 est_divu_dt function
-AMREX_GPU_HOST_DEVICE
+AMREX_GPU_DEVICE
 inline
 amrex::Real
 est_divu_dt_2(int i, int j, int k,
@@ -818,7 +818,7 @@ est_divu_dt_2(int i, int j, int k,
    return dtcell;
 }
 
-AMREX_GPU_HOST_DEVICE
+AMREX_GPU_DEVICE
 inline
 void
 repair_flux(int i, int j, int k,
@@ -860,7 +860,7 @@ repair_flux(int i, int j, int k,
 
 }
 
-AMREX_GPU_HOST_DEVICE
+AMREX_GPU_DEVICE
 inline
 void
 repair_flux_eb(int i, int j, int k,
@@ -902,7 +902,7 @@ repair_flux_eb(int i, int j, int k,
 
 }
 
-AMREX_GPU_HOST_DEVICE
+AMREX_GPU_DEVICE
 inline
 void
 cen2edg_cpp(int i, int j, int k,
@@ -948,7 +948,7 @@ cen2edg_cpp(int i, int j, int k,
 }
 
 
-AMREX_GPU_HOST_DEVICE
+AMREX_GPU_DEVICE
 inline
 void
 makeForce(int i, int j, int k,
