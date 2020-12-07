@@ -37,7 +37,7 @@
 #include <PeleLM_parm.H>
 #include <pmf_data.H>
 
-#if defined(BL_USE_NEWMECH) || defined(BL_USE_VELOCITY)
+#if defined(AMREX_USE_NEWMECH) || defined(AMREX_USE_VELOCITY)
 #include <AMReX_DataServices.H>
 #include <AMReX_AmrData.H>
 #endif
@@ -67,7 +67,7 @@ using namespace amrex;
 
 static Box stripBox; // used for debugging
 
-#ifdef BL_USE_FLOAT
+#ifdef AMREX_USE_FLOAT
 const Real Real_MIN = FLT_MIN;
 const Real Real_MAX = FLT_MAX;
 #else
@@ -1125,7 +1125,7 @@ PeleLM::init_once ()
 
    if (chem_box_chop_threshold <= 0)
    {
-#ifdef BL_USE_OMP
+#ifdef AMREX_USE_OMP
      chem_box_chop_threshold = 8;
 #else
      chem_box_chop_threshold = 4;
@@ -1417,19 +1417,19 @@ PeleLM::set_typical_values(bool is_restart)
         Slevs[lev] = &(getLevel(lev).get_new_data(State_Type));
       }
 
-      auto scaleMax = VectorMax(Slevs,FabArrayBase::mfiter_tile_size,Density,NUM_STATE-BL_SPACEDIM,0);
-      auto scaleMin = VectorMin(Slevs,FabArrayBase::mfiter_tile_size,Density,NUM_STATE-BL_SPACEDIM,0);      
-      auto velMaxV = VectorMaxAbs(Slevs,FabArrayBase::mfiter_tile_size,0,BL_SPACEDIM,0);
+      auto scaleMax = VectorMax(Slevs,FabArrayBase::mfiter_tile_size,Density,NUM_STATE-AMREX_SPACEDIM,0);
+      auto scaleMin = VectorMin(Slevs,FabArrayBase::mfiter_tile_size,Density,NUM_STATE-AMREX_SPACEDIM,0);      
+      auto velMaxV = VectorMaxAbs(Slevs,FabArrayBase::mfiter_tile_size,0,AMREX_SPACEDIM,0);
 
       auto velMax = *max_element(std::begin(velMaxV), std::end(velMaxV));
 
-      for (int i=0; i<NUM_STATE - BL_SPACEDIM; ++i) {
-        typical_values[i + BL_SPACEDIM] = std::abs(scaleMax[i] - scaleMin[i]);
-		  if ( typical_values[i + BL_SPACEDIM] <= 0.0)
-			  typical_values[i + BL_SPACEDIM] = 0.5*std::abs(scaleMax[i] + scaleMin[i]);
+      for (int i=0; i<NUM_STATE - AMREX_SPACEDIM; ++i) {
+        typical_values[i + AMREX_SPACEDIM] = std::abs(scaleMax[i] - scaleMin[i]);
+		  if ( typical_values[i + AMREX_SPACEDIM] <= 0.0)
+			  typical_values[i + AMREX_SPACEDIM] = 0.5*std::abs(scaleMax[i] + scaleMin[i]);
       }
 
-      for (int i=0; i<BL_SPACEDIM; ++i) {
+      for (int i=0; i<AMREX_SPACEDIM; ++i) {
         typical_values[i] = velMax;
       }
 
@@ -1461,7 +1461,7 @@ PeleLM::set_typical_values(bool is_restart)
           typical_values[RhoH] = it->second;
         else if (it->first == "Vel")
         {
-          for (int d=0; d<BL_SPACEDIM; ++d)
+          for (int d=0; d<AMREX_SPACEDIM; ++d)
             typical_values[d] = std::max(it->second,typical_Y_val_min);
         }
       }
@@ -1469,7 +1469,7 @@ PeleLM::set_typical_values(bool is_restart)
 
     amrex::Print() << "Typical vals: " << '\n';
     amrex::Print() << "\tVelocity: ";
-    for (int i=0; i<BL_SPACEDIM; ++i) {
+    for (int i=0; i<AMREX_SPACEDIM; ++i) {
       amrex::Print() << typical_values[i] << ' ';
     }
     amrex::Print() << '\n';
@@ -1551,7 +1551,7 @@ PeleLM::reset_typical_values (const MultiFab& S)
           typical_values[RhoH] = it->second;
         else if (it->first == "Vel")
         {
-          for (int d=0; d<BL_SPACEDIM; ++d)
+          for (int d=0; d<AMREX_SPACEDIM; ++d)
             typical_values[d] = std::max(it->second,typical_Y_val_min);
         }
       }
@@ -1560,7 +1560,7 @@ PeleLM::reset_typical_values (const MultiFab& S)
 
   amrex::Print() << "New typical vals: " << '\n';
   amrex::Print() << "\tVelocity: ";
-  for (int i=0; i<BL_SPACEDIM; ++i) {
+  for (int i=0; i<AMREX_SPACEDIM; ++i) {
     amrex::Print() << typical_values[i] << ' ';
   }
   amrex::Print() << '\n';
@@ -1595,7 +1595,7 @@ PeleLM::estTimeStep ()
    int  divu_check_flag = divu_ceiling;
    Real divu_dt_fac     = divu_dt_factor;
    Real rho_min         = min_rho_divu_ceiling;
-   const auto dxinv     = geom.InvCellSizeArray();
+   const auto& dxinv    = geom.InvCellSizeArray();
 
    FillPatchIterator U_fpi(*this,*DivU,nGrow,cur_time,State_Type,Xvel,AMREX_SPACEDIM);
    MultiFab& Umf=U_fpi.get_mf();
@@ -1700,20 +1700,20 @@ PeleLM::checkTimeStep (Real dt)
       auto const& vel      = Umf.array(mfi);
       auto const& divu     = DivU->array(mfi);
       auto const& vol      = volume.const_array(mfi);
-      D_TERM(auto const& areax = (area[0]).const_array(mfi);,
-             auto const& areay = (area[1]).const_array(mfi);,
-             auto const& areaz = (area[2]).const_array(mfi););
+      AMREX_D_TERM(auto const& areax = (area[0]).const_array(mfi);,
+                   auto const& areay = (area[1]).const_array(mfi);,
+                   auto const& areaz = (area[2]).const_array(mfi););
       int  divu_check_flag = divu_ceiling;
       Real divu_dt_fac     = divu_dt_factor;
       Real rho_min         = min_rho_divu_ceiling;
       const auto dxinv     = geom.InvCellSizeArray();
 
-      amrex::ParallelFor(bx, [rho, vel, divu, vol, D_DECL(areax,areay,areaz),
+      amrex::ParallelFor(bx, [rho, vel, divu, vol, AMREX_D_DECL(areax,areay,areaz),
                               divu_check_flag, divu_dt_fac, rho_min, dxinv, dt]
       AMREX_GPU_DEVICE (int i, int j, int k) noexcept
       {
          check_divu_dt(i, j, k, divu_check_flag, divu_dt_fac, rho_min, dxinv,
-                       rho, vel, divu, vol, D_DECL(areax,areay,areaz), dt); 
+                       rho, vel, divu, vol, AMREX_D_DECL(areax,areay,areaz), dt); 
       });
    }
    delete DivU;
@@ -1741,13 +1741,13 @@ PeleLM::initData ()
   //
   // Initialize the state and the pressure.
   //
-  int         ns       = NUM_STATE - BL_SPACEDIM;
+  int         ns       = NUM_STATE - AMREX_SPACEDIM;
   const Real* dx       = geom.CellSize();
   MultiFab&   S_new    = get_new_data(State_Type);
   MultiFab&   P_new    = get_new_data(Press_Type);
   const Real  cur_time = state[State_Type].curTime();
 
-#ifdef BL_USE_NEWMECH
+#ifdef AMREX_USE_NEWMECH
   //
   // This code has a few drawbacks.  It assumes that the physical
   // domain size of the current problem is the same as that of the
@@ -1788,9 +1788,9 @@ PeleLM::initData ()
   //
   // In the plotfile the mass fractions directly follow the velocities.
   //
-  int idSpec = idX + BL_SPACEDIM;
+  int idSpec = idX + AMREX_SPACEDIM;
 
-  for (int i = 0; i < BL_SPACEDIM; i++)
+  for (int i = 0; i < AMREX_SPACEDIM; i++)
   {
     amrData.FillVar(S_new, level, plotnames[idX+i], Xvel+i);
     amrData.FlushGrids(idX+i);
@@ -1825,7 +1825,7 @@ PeleLM::initData ()
       amrex::ParallelFor(box,
       [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
       {
-#ifdef BL_USE_NEWMECH
+#ifdef AMREX_USE_NEWMECH
         amrex::Abort("USE_NEWMECH feature no longer working and has to be fixed/redone");
 #else
         pelelm_initdata(i, j, k, sfab, geomdata, *lprobparm, lpmfdata);
@@ -1845,7 +1845,7 @@ PeleLM::initData ()
 #endif
   
 
-#ifdef BL_USE_VELOCITY
+#ifdef AMREX_USE_VELOCITY
   //
   // We want to add the velocity from the supplied plotfile
   // to what we already put into the velocity field via FORT_INITDATA.
@@ -1894,7 +1894,7 @@ PeleLM::initData ()
       amrex::Abort("Could not find velocity fields in supplied velocity_plotfile");
 
     MultiFab tmp(S_new.boxArray(), S_new.DistributionMap(), 1, 0);
-    for (int i = 0; i < BL_SPACEDIM; i++)
+    for (int i = 0; i < AMREX_SPACEDIM; i++)
     {
       amrData.FillVar(tmp, level, plotnames[idX+i], 0);
 #ifdef _OPENMP
@@ -1909,7 +1909,7 @@ PeleLM::initData ()
     if (verbose)
       amrex::Print() << "initData: finished init from velocity_plotfile" << '\n';
   }
-#endif /*BL_USE_VELOCITY*/
+#endif /*AMREX_USE_VELOCITY*/
 
   make_rho_prev_time();
   make_rho_curr_time();
@@ -4648,7 +4648,7 @@ PeleLM::predict_velocity (Real  dt)
     {
         Box gbx=mfi.growntilebox(godunov_hyp_grow);
         auto const& fab_a = Umf.array(mfi);
-        AMREX_HOST_DEVICE_FOR_4D ( gbx, BL_SPACEDIM, i, j, k, n,
+        AMREX_HOST_DEVICE_FOR_4D ( gbx, AMREX_SPACEDIM, i, j, k, n,
         {
             auto& val = fab_a(i,j,k,n);
             val = amrex::Math::abs(val) > 1.e-20 ? val : 0;
@@ -5563,7 +5563,7 @@ PeleLM::getFuncCountDM (const BoxArray& bxba, int ngrow)
 
   fctmpnew.clear();
 
-#if BL_USE_MPI
+#if AMREX_USE_MPI
   const int IOProc = ParallelDescriptor::IOProcessorNumber();
 
   Vector<int> nmtags(ParallelDescriptor::NProcs(),0);
@@ -5684,7 +5684,7 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
 
       IntVect chunk(ChunkSize);
 
-      for (int j = BL_SPACEDIM-1; j >=0 && ba.size() < Threshold; j--)
+      for (int j = AMREX_SPACEDIM-1; j >=0 && ba.size() < Threshold; j--)
       {
         chunk[j] /= 2;
         ba.maxSize(chunk);
@@ -8608,7 +8608,7 @@ PeleLM::writePlotFile (const std::string& dir,
     for (int i = 0; i < grids.size(); ++i)
     {
       RealBox gridloc = RealBox(grids[i],geom.CellSize(),geom.ProbLo());
-      for (int n = 0; n < BL_SPACEDIM; n++)
+      for (int n = 0; n < AMREX_SPACEDIM; n++)
         os << gridloc.lo(n) << ' ' << gridloc.hi(n) << '\n';
     }
     //
