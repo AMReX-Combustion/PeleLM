@@ -300,6 +300,9 @@ PeleLM::variableSetUp ()
 {
   BL_ASSERT(desc_lst.size() == 0);
 
+  prob_parm.reset(new ProbParm{});
+  ac_parm.reset(new ACParm{});
+
   for (int dir = 0; dir < BL_SPACEDIM; dir++)
   {
     phys_bc.setLo(dir,SlipWall);
@@ -389,7 +392,7 @@ PeleLM::variableSetUp ()
   pelelm_bndryfunc.setRunOnGPU(true);  // I promise the bc function will launch gpu kernels.
 
 
-  Vector<BCRec>       bcs(BL_SPACEDIM);
+  Vector<BCRec>       bcs(AMREX_SPACEDIM);
   Vector<std::string> name(BL_SPACEDIM);
 
   set_x_vel_bc(bc,phys_bc);
@@ -1029,5 +1032,4 @@ PeleLM::spraydotSetUp()
                         pelelm_bndryfunc, &lincc_interp, curComp, curComp);
 }
 #endif
-
 

@@ -35,10 +35,14 @@ amr.check_file          = chk          # root name of checkpoint file
 amr.check_int           = 5            # number of timesteps between checkpoints
 amr.plot_file           = plt_         # root name of plot file
 amr.plot_int            = 20000        # number of timesteps between plot files
-amr.derive_plot_vars    = rhoRT mag_vort avg_pressure gradpx gradpy
+amr.derive_plot_vars    = rhoRT mag_vort avg_pressure gradpx gradpy mass_fractions rhominsumrhoY
 amr.grid_log            = grdlog       # name of grid logging file
 
 #----------------------- PROBLEM PARAMETERS---------------------
+prob.type         = Wave
+prob.wave_type    = Spec
+prob.xwave        = -0.01
+prob.delta_wave   = 0.2
 prob.meanFlowMag  = 10.0
 
 #--------------------REFINEMENT CONTROL------------------------
@@ -77,8 +81,8 @@ transport.const_diffusivity      = 0.0
 
 #------------  INPUTS FOR EMBEDED BOUNDARIES ----------------
 eb2.geom_type                    = sphere
-eb2.sphere_radius                =  0.0060
-eb2.sphere_center                = -.01  0.00
+eb2.sphere_radius                = 0.0060
+eb2.sphere_center                = 0.01 0.00
 eb2.sphere_has_fluid_inside      = 0
 eb2.small_volfrac                = 1.0e-4
 

@@ -340,7 +340,8 @@ PeleLM::initParticles()
     if (!particle_init_file.empty()) {
       theSprayPC()->InitFromAsciiFile(particle_init_file, NSR_SPR + NAR_SPR);
     } else if (particle_init_function > 0) {
-      theSprayPC()->InitSprayParticles();
+      ProbParm const* lprobparm = prob_parm.get();
+      theSprayPC()->InitSprayParticles(*lprobparm);
     }
     if (particle_verbose > 1)
       amrex::Print() << "Total number of initial particles " <<
@@ -407,10 +408,11 @@ PeleLM::particleMKD (const Real       time,
   int nstep = parent->levelSteps(0);
 
   BL_PROFILE_VAR("SprayParticles::injectParticles()", INJECT_SPRAY);
+  ProbParm const* lprobparm = prob_parm.get();
   bool injectParts = theSprayPC()->
-    injectParticles(time, dt, nstep, level, finest_level);
+    injectParticles(time, dt, nstep, level, finest_level, *lprobparm);
   bool insertParts = theSprayPC()->
-    insertParticles(time, dt, nstep, level, finest_level);
+    insertParticles(time, dt, nstep, level, finest_level, *lprobparm);
   //
   // Only redistribute if we injected or inserted particles
   //

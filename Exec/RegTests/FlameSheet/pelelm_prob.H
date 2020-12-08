@@ -20,6 +20,7 @@ void
 pelelm_initdata (int i, int j, int k, 
                  amrex::Array4<amrex::Real> const& state,
                  amrex::GeometryData const& geomdata,
+                 ProbParm const& prob_parm,
                  PmfData const *pmf_data)
 {
 
@@ -43,11 +44,11 @@ pelelm_initdata (int i, int j, int k,
     amrex::Real y1, y2;
 
     pert = 0.0;
-    if (ProbParm::pertmag > 0.0) 
+    if (prob_parm.pertmag > 0.0) 
     {
 
 #if ( AMREX_SPACEDIM == 2 ) 
-       pert = ProbParm::pertmag * 
+       pert = prob_parm.pertmag * 
              (1.0 * std::sin(2 * Pi * 4 * x / L_x) +
               1.023 * std::sin(2 * Pi * 2 * (x - 0.004598) / L_x) +
               0.945 * std::sin(2 * Pi * 3 * (x - 0.00712435) / L_x) +
@@ -57,10 +58,10 @@ pelelm_initdata (int i, int j, int k,
 
     }
 
-    y1 = (y - ProbParm::standoff - 0.5*dx[1] + pert)*100;
-    y2 = (y - ProbParm::standoff + 0.5*dx[1] + pert)*100;
+    y1 = (y - prob_parm.standoff - 0.5*dx[1] + pert)*100;
+    y2 = (y - prob_parm.standoff + 0.5*dx[1] + pert)*100;
 #elif ( AMREX_SPACEDIM == 3 ) 
-       pert = ProbParm::pertmag *
+       pert = prob_parm.pertmag *
              (1.0 * std::sin(2 * Pi * 4 * x / L_x) *
                 std::sin(2 * Pi * 5 * y / L_y) +
               1.023 * std::sin(2 * Pi * 2 * (x - 0.004598) / L_x) *
@@ -75,8 +76,8 @@ pelelm_initdata (int i, int j, int k,
 
     }
 
-    y1 = (z - ProbParm::standoff - 0.5*dx[2] + pert)*100;
-    y2 = (z - ProbParm::standoff + 0.5*dx[2] + pert)*100;
+    y1 = (z - prob_parm.standoff - 0.5*dx[2] + pert)*100;
+    y2 = (z - prob_parm.standoff + 0.5*dx[2] + pert)*100;
 #endif
 
     PMF::pmf(pmf_data,y1, y2, pmf_vals);
@@ -98,7 +99,7 @@ pelelm_initdata (int i, int j, int k,
 #endif
 
     amrex::Real rho_cgs, P_cgs;
-    P_cgs = ProbParm::P_mean * 10.0;
+    P_cgs = prob_parm.P_mean * 10.0;
 
     EOS::PYT2R(P_cgs, massfrac, state(i,j,k,DEF_Temp), rho_cgs);
     state(i,j,k,Density) = rho_cgs * 1.0e3;            // CGS -> MKS conversion
@@ -122,6 +123,8 @@ bcnormal(
   const int sgn,
   const amrex::Real time,
   amrex::GeometryData const& geomdata,
+  ProbParm const& prob_parm,
+  ACParm const& ac_parm,
   PmfData const *pmf_data)
 {
   const amrex::Real* prob_lo = geomdata.ProbLo();
@@ -133,7 +136,7 @@ bcnormal(
   if (sgn == 1) {
     PMF::pmf(pmf_data,prob_lo[idir], prob_lo[idir], pmf_vals);
 
-    if (!ACParm::ctrl_active || time <= 0.0) {
+    if (!ac_parm.ctrl_active || time <= 0.0) {
        s_ext[Xvel] = 0.0;
 #if ( AMREX_SPACEDIM == 2 )
        s_ext[Yvel] = pmf_vals[1]*1e-2;
@@ -144,10 +147,10 @@ bcnormal(
     } else {
        s_ext[Xvel] = 0.0;
 #if ( AMREX_SPACEDIM == 2 )
-       s_ext[Yvel] = ACParm::ctrl_V_in + (time - ACParm::ctrl_tBase) * ACParm::ctrl_dV;
+       s_ext[Yvel] = ac_parm.ctrl_V_in + (time - ac_parm.ctrl_tBase) * ac_parm.ctrl_dV;
 #elif (AMREX_SPACEDIM == 3)
        s_ext[Yvel] = 0.0;
-       s_ext[Zvel] = ACParm::ctrl_V_in + (time - ACParm::ctrl_tBase) * ACParm::ctrl_dV;
+       s_ext[Zvel] = ac_parm.ctrl_V_in + (time - ac_parm.ctrl_tBase) * ac_parm.ctrl_dV;
 #endif
     }
 
@@ -159,7 +162,7 @@ bcnormal(
     EOS::X2Y(molefrac, massfrac);
 
     amrex::Real rho_cgs, P_cgs, RhoH_temp;
-    P_cgs = ProbParm::P_mean * 10.0;
+    P_cgs = prob_parm.P_mean * 10.0;
 
     EOS::PYT2R(P_cgs, massfrac, s_ext[DEF_Temp], rho_cgs);
     s_ext[Density] = rho_cgs * 1.0e3;
