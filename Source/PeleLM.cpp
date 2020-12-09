@@ -1922,16 +1922,7 @@ PeleLM::initData ()
 #ifdef AMREX_PARTICLES
   if (do_spray_particles)
   {
-    int nGrowS = 4;
-    if (level > 0)
-    {
-      int cRefRatio = parent->MaxRefRatio(level - 1);
-      if (cRefRatio > 4)
-        amrex::Abort("Spray particles not supported for ref_ratio > 4");
-      else if (cRefRatio > 2)
-        nGrowS += 3;
-    }
-    Sborder.define(grids, dmap, NUM_STATE, nGrowS, amrex::MFInfo(), Factory());
+    defineSpraySourceMF();
     if (level == 0)
       initParticles();
     else
@@ -2202,16 +2193,7 @@ PeleLM::post_restart ()
 #ifdef AMREX_PARTICLES
    if (do_spray_particles)
    {
-     int nGrowS = 4;
-     if (level > 0)
-     {
-       int cRefRatio = parent->MaxRefRatio(level - 1);
-       if (cRefRatio > 4)
-         amrex::Abort("Spray particles not supported for ref_ratio > 4");
-       else if (cRefRatio > 2)
-         nGrowS += 3;
-     }
-     Sborder.define(grids, dmap, NUM_STATE, nGrowS, amrex::MFInfo(), Factory());
+     defineSpraySourceMF();
      particlePostRestart(parent->theRestartFile());
    }
 #endif
@@ -2271,8 +2253,11 @@ PeleLM::post_regrid (int lbase,
    }
    make_rho_curr_time();
 #ifdef AMREX_PARTICLES
-  if (do_spray_particles && theSprayPC() != 0 && level == lbase)
-    particle_redistribute(lbase);
+   if (do_spray_particles && theSprayPC() != 0) {
+     defineSpraySourceMF();
+     if (level == lbase)
+       particle_redistribute(lbase);
+   }
 #endif
 }
 
@@ -2457,14 +2442,6 @@ PeleLM::post_init (Real stop_time)
       for (int k = 0; k <= finest_level; k++)
       {
         getLevel(k).init_advance_particles(dt_save[k]/2.0,tnp1,0);
-      }
-      for (int k = finest_level-1; k >= 0; k--)
-      {
-        PeleLM&   fine_lev = getLevel(k+1);
-        PeleLM&   crse_lev = getLevel(k);
-        MultiFab& spray_crse = crse_lev.get_new_data(spraydot_Type);
-        MultiFab& spray_fine = fine_lev.get_new_data(spraydot_Type);
-        crse_lev.average_down(spray_fine, spray_crse, 0, 1);
       }
     }
 #endif

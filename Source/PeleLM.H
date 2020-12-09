@@ -183,6 +183,10 @@ public:
   //
   static void defineParticles();
   //
+  // Define MF for gas phase spray source terms
+  //
+  void defineSpraySourceMF();
+  //
   // Initialize particle locations and velocities (and strengths if relevant)
   //
   void initParticles();

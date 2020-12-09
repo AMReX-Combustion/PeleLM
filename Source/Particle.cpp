@@ -204,6 +204,22 @@ PeleLM::readParticleParams()
   ParallelDescriptor::Barrier();
 }
 
+// Define MultiFab for the gas phase source term for sprays
+void
+PeleLM::defineSpraySourceMF()
+{
+  int nGrowS = 4;
+  if (level > 0)
+    {
+      int cRefRatio = parent->MaxRefRatio(level - 1);
+      if (cRefRatio > 4)
+        amrex::Abort("Spray particles not supported for ref_ratio > 4");
+      else if (cRefRatio > 2)
+        nGrowS += 3;
+    }
+  Sborder.define(grids, dmap, NUM_STATE, nGrowS, amrex::MFInfo(), Factory());
+}
+
 void
 PeleLM::defineParticles()
 {
@@ -659,9 +675,13 @@ PeleLM::init_advance_particles (Real dt,
                                 Real time,
                                 Real nGrow)
 {
+  int nGhosts = 4;
   // We must make a temporary spray source term to ensure number of ghost
   // cells are correct
-  const int nGhosts = nGrow + 2;
+  if (level < parent->finestLevel()) {
+    setupGhostParticles(1);
+    setupVirtualParticles();
+  }
   MultiFab tmp_spray_source(
     grids, dmap, NUM_STATE, nGhosts, amrex::MFInfo(), Factory());
   tmp_spray_source.setVal(0.);
