@@ -980,7 +980,7 @@ PeleLM::spraydotSetUp()
   const int ngrow = 1;
 
   // species + density + momentum + enth + temp + rhoRT
-  const int nspraydot = NUM_SPECIES+AMREX_SPACEDIM+4;
+  const int nspraydot = NUM_STATE;
 
   desc_lst.addDescriptor(spraydot_Type,IndexType::TheCellType(),
                          StateDescriptor::Point,ngrow,nspraydot,
@@ -989,47 +989,18 @@ PeleLM::spraydotSetUp()
   pelelm_bndryfunc.setRunOnGPU(true);  // I promise the bc function will launch gpu kernels.
   BCRec bc;
   set_spraydot_bc(bc,phys_bc);
-
-  std::string name = "I_R_spray_rhoU";
-
-  desc_lst.setComponent(spraydot_Type, 0, name.c_str(), bc,
-                        pelelm_bndryfunc, &lincc_interp, 0, 0);
-
-  name = "I_R_spray_rhoV";
-  desc_lst.setComponent(spraydot_Type, 1, name.c_str(), bc,
-                        pelelm_bndryfunc, &lincc_interp, 1, 1);
-
-  if (AMREX_SPACEDIM == 3) {
-    name = "I_R_spray_rhoW";
-    desc_lst.setComponent(spraydot_Type, 2, name.c_str(), bc,
-                          pelelm_bndryfunc, &lincc_interp, 2, 2);
+  int specComp = AMREX_SPACEDIM + 1;
+  int endSpecComp = specComp + NUM_SPECIES - 1;
+  for (int i = 0; i < NUM_STATE; ++i)
+  {
+    std::string name = "I_R_spray_" + desc_lst[State_Type].name(i);
+    if (i >= specComp && i <= endSpecComp)
+      desc_lst.setComponent(spraydot_Type, i, name.c_str(), bc,
+                            pelelm_bndryfunc, &lincc_interp, specComp, endSpecComp);
+    else
+      desc_lst.setComponent(spraydot_Type, i, name.c_str(), bc,
+                            pelelm_bndryfunc, &lincc_interp, i, i);
   }
-  int curComp = AMREX_SPACEDIM;
-  name = "I_R_spray_rho";
-  desc_lst.setComponent(spraydot_Type, curComp, name.c_str(), bc,
-                        pelelm_bndryfunc, &lincc_interp, curComp, curComp);
-  curComp++;
-  int startComp = curComp;
-  for (int i = 0; i < NUM_SPECIES; i++) {
-    name = "I_R_spray_Y("+spec_names[i]+")]";
-    desc_lst.setComponent(spraydot_Type, startComp + i, name.c_str(), bc,
-                          pelelm_bndryfunc, &lincc_interp, startComp, startComp+NUM_SPECIES-1);
-    curComp++;
-  }
-
-  name = "I_R_spray_rhoh";
-  desc_lst.setComponent(spraydot_Type, curComp, name.c_str(), bc,
-                        pelelm_bndryfunc, &lincc_interp, curComp, curComp);
-  curComp++;
-
-  name = "I_R_spray_temp";
-  desc_lst.setComponent(spraydot_Type, curComp, name.c_str(), bc,
-                        pelelm_bndryfunc, &lincc_interp, curComp, curComp);
-  curComp++;
-
-  name = "I_R_spray_rhoRT";
-  desc_lst.setComponent(spraydot_Type, curComp, name.c_str(), bc,
-                        pelelm_bndryfunc, &lincc_interp, curComp, curComp);
 }
 #endif
 

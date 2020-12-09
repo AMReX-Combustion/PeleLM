@@ -1,6 +1,7 @@
 
 #include "IndexDefines.H"
 #include "PeleLM.H"
+#include <AMReX_Extrapolater.H>
 #include "SprayParticles.H"
 
 using namespace amrex;
@@ -50,6 +51,7 @@ Real PeleLM::particle_cfl = 0.5;
 
 int PeleLM::write_particle_plotfiles = 1;
 int PeleLM::write_spray_ascii_files = 1;
+int PeleLM::plot_spray_src = 0;
 int PeleLM::particle_mass_tran = 0;
 int PeleLM::particle_heat_tran = 0;
 int PeleLM::particle_mom_tran = 0;
@@ -158,6 +160,10 @@ PeleLM::readParticleParams()
   // Set if spray ascii files should be written
   //
   ppp.query("write_spray_ascii_files", write_spray_ascii_files);
+  //
+  // Set if gas phase spray source term should be written
+  //
+  ppp.query("plot_spray_src", plot_spray_src);
   //
   // Used in initData() on startup to read in a file of particles.
   //
@@ -316,21 +322,15 @@ PeleLM::initParticles()
   amrex::ExecOnFinalize(RemoveParticlesOnExit);
 
   if (do_spray_particles) {
-    AMREX_ASSERT(theSprayPC() == 0);
-    // Whether we need to use ghost and virtual particles
-    bool gvParticles = true;
+    if (theSprayPC() == 0) {
 
-    SprayPC = new SprayParticleContainer(parent, &phys_bc, parcelSize);
-    theSprayPC()->SetVerbose(particle_verbose);
-
-    if (gvParticles) {
+      SprayPC = new SprayParticleContainer(parent, &phys_bc, parcelSize);
+      theSprayPC()->SetVerbose(particle_verbose);
       VirtPC = new SprayParticleContainer(parent, &phys_bc, parcelSize);
       GhostPC = new SprayParticleContainer(parent, &phys_bc, parcelSize);
-    }
-    // Pass constant reference data and memory allocations to GPU
-    theSprayPC()->buildFuelData(
-      sprayCritT, sprayBoilT, sprayCp, sprayLatent, sprayIndxMap, sprayRefT, scomps);
-    if (gvParticles) {
+      // Pass constant reference data and memory allocations to GPU
+      theSprayPC()->buildFuelData(
+        sprayCritT, sprayBoilT, sprayCp, sprayLatent, sprayIndxMap, sprayRefT, scomps);
       theGhostPC()->buildFuelData(
         sprayCritT, sprayBoilT, sprayCp, sprayLatent, sprayIndxMap, sprayRefT, scomps);
       theVirtPC()->buildFuelData(
@@ -469,6 +469,7 @@ PeleLM::particleMKD (const Real       time,
   theSprayPC()->transferSource(
     tmp_src_width, level, tmp_spray_source, spraydot);
   spraydot.FillBoundary(geom.periodicity());
+  Extrapolater::FirstOrderExtrap(spraydot, geom, 0, NUM_STATE);
 }
 
 void
@@ -485,7 +486,7 @@ PeleLM::particleMK (const Real       time,
     level, dt, time, false, false,
     spray_n_grow, tmp_src_width);
 
-  if (level < parent->finestLevel())
+  if (level < parent->finestLevel() && theVirtPC() != 0)
     theVirtPC()->moveKick(
       Sborder, tmp_spray_source,
       level, dt, time, true, false,
@@ -501,6 +502,7 @@ PeleLM::particleMK (const Real       time,
   theSprayPC()->transferSource(
     tmp_src_width, level, tmp_spray_source, spraydot);
   spraydot.FillBoundary(geom.periodicity());
+  Extrapolater::FirstOrderExtrap(spraydot, geom, 0, NUM_STATE);
 }
 
 // TODO: This has not been checked or updated, use with caution
@@ -650,6 +652,22 @@ PeleLM::particle_redistribute(int lbase, bool init_part)
           << "NOT calling redistribute because grid has NOT changed " << '\n';
     }
   }
+}
+
+void
+PeleLM::init_advance_particles (Real dt,
+                                Real time,
+                                Real nGrow)
+{
+  // We must make a temporary spray source term to ensure number of ghost
+  // cells are correct
+  const int nGhosts = nGrow + 2;
+  MultiFab tmp_spray_source(
+    grids, dmap, NUM_STATE, nGhosts, amrex::MFInfo(), Factory());
+  tmp_spray_source.setVal(0.);
+  FillPatch(*this, Sborder, nGhosts, time, State_Type, 0, NUM_STATE);
+  Real dt_fake = 0.; // So particles are not modified
+  particleMK(time, dt_fake, nGhosts, nGhosts, 1, 1, tmp_spray_source);
 }
 
 void

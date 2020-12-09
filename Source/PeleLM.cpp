@@ -906,17 +906,6 @@ PeleLM::PeleLM ()
    EdgeFlux               = 0;
    SpecDiffusionFluxn     = 0;
    SpecDiffusionFluxnp1   = 0;
-#ifdef AMREX_PARTICLES
-  int nGrowS = 4;
-  if (level > 0 && do_spray_particles) {
-    int cRefRatio = parent->MaxRefRatio(level - 1);
-    if (cRefRatio > 4)
-      amrex::Abort("Spray particles not supported for ref_ratio > 4");
-    else if (cRefRatio > 2)
-      nGrowS += 3;
-  }
-  Sborder.define(grids, dmap, NUM_STATE, nGrowS, amrex::MFInfo(), Factory());
-#endif
    if (use_wbar) {
       SpecDiffusionFluxWbar  = 0;
    }
@@ -958,17 +947,6 @@ PeleLM::PeleLM (Amr&            papa,
   updateFluxReg = false;
 
   define_data();
-#ifdef AMREX_PARTICLES
-  int nGrowS = 4;
-  if (level > 0 && do_spray_particles) {
-    int cRefRatio = parent->MaxRefRatio(level - 1);
-    if (cRefRatio > 4)
-      amrex::Abort("Spray particles not supported for ref_ratio > 4");
-    else if (cRefRatio > 2)
-      nGrowS += 3;
-  }
-  Sborder.define(grids, dmap, NUM_STATE, nGrowS, amrex::MFInfo(), Factory());
-#endif
 }
 
 PeleLM::~PeleLM ()
@@ -1942,12 +1920,22 @@ PeleLM::initData ()
   initActiveControl();
 
 #ifdef AMREX_PARTICLES
-  if (do_spray_particles) {
-    if (level == 0) {
-      initParticles();
-    } else {
-      particle_redistribute(level - 1);
+  if (do_spray_particles)
+  {
+    int nGrowS = 4;
+    if (level > 0)
+    {
+      int cRefRatio = parent->MaxRefRatio(level - 1);
+      if (cRefRatio > 4)
+        amrex::Abort("Spray particles not supported for ref_ratio > 4");
+      else if (cRefRatio > 2)
+        nGrowS += 3;
     }
+    Sborder.define(grids, dmap, NUM_STATE, nGrowS, amrex::MFInfo(), Factory());
+    if (level == 0)
+      initParticles();
+    else
+      particle_redistribute(level - 1);
   }
 #endif
 
@@ -2108,10 +2096,9 @@ PeleLM::init (AmrLevel& old)
    {
      const Real tnp1s = oldht->state[spraydot_Type].curTime();
      MultiFab& spraydot = get_new_data(spraydot_Type);
-     const int ccomp = NUM_SPECIES + 4 + AMREX_SPACEDIM;
-     FillPatchIterator fpi(*oldht, spraydot, spraydot.nGrow(), tnp1s, spraydot_Type, 0, ccomp);
+     FillPatchIterator fpi(*oldht, spraydot, spraydot.nGrow(), tnp1s, spraydot_Type, 0, NUM_STATE);
      const MultiFab& mf_fpi = fpi.get_mf();
-     MultiFab::Copy(spraydot, mf_fpi, 0, 0, ccomp, 0);
+     MultiFab::Copy(spraydot, mf_fpi, 0, 0, NUM_STATE, 0);
    }
 #endif
 }
@@ -2131,7 +2118,7 @@ PeleLM::init ()
    //
    FillCoarsePatch(get_new_data(RhoYdot_Type),0,tnp1,RhoYdot_Type,0,NUM_SPECIES);
 #ifdef AMREX_PARTICLES
-   FillCoarsePatch(get_new_data(spraydot_Type),0,tnp1,spraydot_Type,0,NUM_SPECIES+4+AMREX_SPACEDIM);
+   FillCoarsePatch(get_new_data(spraydot_Type),0,tnp1,spraydot_Type,0,NUM_STATE);
 #endif
 
    RhoH_to_Temp(get_new_data(State_Type));
@@ -2214,7 +2201,19 @@ PeleLM::post_restart ()
    int is_restart = 1;
 #ifdef AMREX_PARTICLES
    if (do_spray_particles)
+   {
+     int nGrowS = 4;
+     if (level > 0)
+     {
+       int cRefRatio = parent->MaxRefRatio(level - 1);
+       if (cRefRatio > 4)
+         amrex::Abort("Spray particles not supported for ref_ratio > 4");
+       else if (cRefRatio > 2)
+         nGrowS += 3;
+     }
+     Sborder.define(grids, dmap, NUM_STATE, nGrowS, amrex::MFInfo(), Factory());
      particlePostRestart(parent->theRestartFile());
+   }
 #endif
    activeControl(step,is_restart,0.0,crse_dt);
 }
@@ -2420,10 +2419,6 @@ PeleLM::post_init (Real stop_time)
   // Estimate the initial timestepping.
   //
   post_init_estDT(dt_init,nc_save,dt_save,stop_time);
-#ifdef AMREX_PARTICLES
-  if (do_spray_particles)
-    particleEstTimeStep(dt_init);
-#endif
   //
   // Better estimate needs dt to estimate divu
   //
@@ -2456,6 +2451,23 @@ PeleLM::post_init (Real stop_time)
         getLevel(k).advance_chemistry(S_new,S_tmp,dt_save[k]/2.0,Forcing_tmp,0);
       }
     }
+#ifdef AMREX_PARTICLES
+    if (do_spray_particles)
+    {
+      for (int k = 0; k <= finest_level; k++)
+      {
+        getLevel(k).init_advance_particles(dt_save[k]/2.0,tnp1,0);
+      }
+      for (int k = finest_level-1; k >= 0; k--)
+      {
+        PeleLM&   fine_lev = getLevel(k+1);
+        PeleLM&   crse_lev = getLevel(k);
+        MultiFab& spray_crse = crse_lev.get_new_data(spraydot_Type);
+        MultiFab& spray_fine = fine_lev.get_new_data(spraydot_Type);
+        crse_lev.average_down(spray_fine, spray_crse, 0, 1);
+      }
+    }
+#endif
     //
     // Recompute the velocity to obey constraint with chemistry and
     // divqrad and then average that down.
@@ -2547,10 +2559,6 @@ PeleLM::post_init (Real stop_time)
     // in the calls to post_init_estDT
     // Then setTimeLevel and dt_level to these values.
     //
-#ifdef AMREX_PARTICLES
-    if (do_spray_particles)
-      particleEstTimeStep(dt_init2);
-#endif
     dt_init = std::min(dt_init,dt_init2);
     Vector<Real> dt_level(finest_level+1,dt_init);
 
@@ -8523,6 +8531,17 @@ PeleLM::setPlotVariables ()
       amrex::Print() << *li << ' ';
     amrex::Print() << '\n';
   }
+#ifdef AMREX_PARTICLES
+  // Remove spray source terms unless otherwise specified
+  if (plot_spray_src == 0)
+  {
+    for (int i = 0; i < NUM_STATE; i++)
+    {
+      const std::string name = "I_R_spray_" + desc_lst[State_Type].name(i);
+      parent->deleteStatePlotVar(name);
+    }
+  }
+#endif
 }
 
 void

@@ -205,6 +205,11 @@ public:
   virtual void particle_redistribute(int lbase = 0, bool init_part = false) override;
 
   //
+  // Compute gas source terms from spray for initial iterations
+  //
+  void init_advance_particles(Real dt, Real time, Real ngrow);
+
+  //
   // Setup ghost and virtual particles and do moveKickDrift
   //
   void particleMKD(const amrex::Real time,
@@ -259,6 +264,10 @@ public:
   // Should we write particle ascii files?
   //
   static int write_spray_ascii_files;
+  //
+  // Should we write the gas phase spray source terms?
+  //
+  static int plot_spray_src;
 
   /// A state array with ghost zones
   amrex::MultiFab Sborder;
