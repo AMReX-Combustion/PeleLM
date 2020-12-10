@@ -29,7 +29,7 @@ Gpu::HostVector<Real> sprayCp;
 Gpu::HostVector<Real> sprayLatent;
 Gpu::HostVector<int> sprayIndxMap;
 amrex::Real parcelSize = 1.;
-amrex::GpuArray<int, SprayComps::NumIndx> scomps;
+SprayComps scomps;
 
 void
 RemoveParticlesOnExit()
@@ -247,19 +247,19 @@ PeleLM::defineParticles()
     sprayIndxMap[ns] = 0;
   }
 #endif
-  scomps[SprayComps::heat_tran] = PeleLM::particle_heat_tran;
-  scomps[SprayComps::mass_tran] = PeleLM::particle_mass_tran;
-  scomps[SprayComps::mom_tran] = PeleLM::particle_mom_tran;
-  scomps[SprayComps::pstateVel] = PeleLM::pstateVel;
-  scomps[SprayComps::pstateT] = PeleLM::pstateT;
-  scomps[SprayComps::pstateRho] = PeleLM::pstateRho;
-  scomps[SprayComps::pstateDia] = PeleLM::pstateDia;
-  scomps[SprayComps::pstateY] = PeleLM::pstateY;
-  scomps[SprayComps::rhoIndx] = Density;
-  scomps[SprayComps::momIndx] = Xvel;
-  scomps[SprayComps::engIndx] = DEF_RhoH;
-  scomps[SprayComps::utempIndx] = DEF_Temp;
-  scomps[SprayComps::specIndx] = DEF_first_spec;
+  scomps.heat_tran = PeleLM::particle_heat_tran;
+  scomps.mass_tran = PeleLM::particle_mass_tran;
+  scomps.mom_tran = PeleLM::particle_mom_tran;
+  scomps.pstateVel = PeleLM::pstateVel;
+  scomps.pstateT = PeleLM::pstateT;
+  scomps.pstateRho = PeleLM::pstateRho;
+  scomps.pstateDia = PeleLM::pstateDia;
+  scomps.pstateY = PeleLM::pstateY;
+  scomps.rhoIndx = Density;
+  scomps.momIndx = Xvel;
+  scomps.engIndx = DEF_RhoH;
+  scomps.utempIndx = DEF_Temp;
+  scomps.specIndx = DEF_first_spec;
 }
 
 void
