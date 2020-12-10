@@ -7296,8 +7296,7 @@ PeleLM::compute_Wbar_fluxes(Real time,
    FluxBoxes fb_flux(this,1,0);
    MultiFab** gradWbar = fb_flux.get();
 
-   std::array<MultiFab*,AMREX_SPACEDIM> fp{AMREX_D_DECL(gradWbar[0],gradWbar[1],gradWbar[2])};
-   mg.getFluxes({fp},{&Wbar},MLLinOp::Location::FaceCentroid);
+   Diffusion::computeExtensiveFluxes(mg,Wbar,gradWbar,0, 1, &geom, -1.0);
 
    Vector<BCRec> math_bc(1);
    math_bc = fetchBCArray(State_Type,first_spec,1);
@@ -7355,6 +7354,7 @@ PeleLM::compute_Wbar_fluxes(Real time,
                }
                amrex::Real Wbar;
                EOS::Y2WBAR(y, Wbar);
+               Wbar *= 0.001;
                for (int n = 0; n < NUM_SPECIES; n++) {
                   wbarFlux(i,j,k,n) = - y[n] / Wbar * beta_ar(i,j,k,n) * gradWbar_ar(i,j,k);
                }   
@@ -7376,6 +7376,7 @@ PeleLM::compute_Wbar_fluxes(Real time,
                }
                amrex::Real Wbar;
                EOS::Y2WBAR(y, Wbar);
+               Wbar *= 0.001;
                for (int n = 0; n < NUM_SPECIES; n++) {
                   wbarFlux(i,j,k,n) -= increment_coeff * y[n] / Wbar * beta_ar(i,j,k,n) * gradWbar_ar(i,j,k);
                }   
