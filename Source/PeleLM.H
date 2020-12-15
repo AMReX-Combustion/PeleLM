@@ -392,6 +392,7 @@ public:
   void define_data ();
 
   void differential_diffusion_update (amrex::MultiFab& Force,
+                                      amrex::MultiFab& DWbar,
                                       int       FComp,
                                       amrex::MultiFab& D,
                                       int       DComp,
