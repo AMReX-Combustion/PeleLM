@@ -7203,7 +7203,7 @@ PeleLM::compute_Wbar_fluxes(Real time,
 
    // Define Wbar
    MultiFab Wbar;
-   Wbar.define(grids,dmap,1,nGrowOp);
+   Wbar.define(grids,dmap,1,nGrowOp,MFInfo(),Factory());
 
    // Get fillpatched rho and rhoY
    FillPatchIterator fpi(*this,Wbar,nGrowOp,time,State_Type,Density,NUM_SPECIES+1);
