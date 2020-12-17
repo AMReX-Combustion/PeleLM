@@ -292,7 +292,6 @@ Input/output from `PeleLM` are specified in the ``IO CONTROL`` block: ::
     amr.plot_int        = 20          # number of timesteps between plotfiles
     amr.derive_plot_vars=rhoRT mag_vort avg_pressure gradpx gradpy diveru mass_fractions mixfrac
     amr.grid_log        = grdlog      # name of grid logging file
-    amr.probin_file = probin.2d.test  # This will default to file "probin" if not set
 
 The first two lines (commented out for now) are only used when restarting a simulation from a `checkpoint` file and will be useful later during this tutorial. Information pertaining to the checkpoint and plot_file files name and output frequency can be specified there. `PeleLM` will always generate an initial plotfile ``plt_00000`` if the initialization is properly completed, and a final plotfile at the end of the simulation. It is possible to request including `derived variables` in the plotfiles by appending their names to the ``amr.derive_plot_vars`` keyword. These variables are derived from the `state variables` (velocity, density, temperature, :math:`\rho Y_k`, :math:`\rho h`) which are automatically included in the plotfile. Note also that the name of the ``probin`` file used to specify the initial/boundary conditions is defined here.
 
