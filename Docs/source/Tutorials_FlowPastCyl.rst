@@ -1,49 +1,25 @@
 .. highlight:: rst
 
-.. _sec:tutorial1:
+.. _sec:tutorialFlowPastCyl:
 
-Tutorial - A simple triple flame
+Tutorial - Non-reacting flow past a cylinder
 ================================
 
-.. _sec:TUTO1::Intro:
+.. _sec:TUTO_FPC::Intro:
 
 Introduction
 ------------------------------
 
-Laminar flames have the potential to reveal the fundamental structure of combustion 
-without the added complexities of turbulence. 
-They also aid in our understanding of the more complex turbulent flames. 
-Depending on the fuel involved and the flow configuration, the laminar flames can take on a number of interesting geometries. 
-For example, as practical combustion systems often operate in partially premixed mode,
-with one or more fuel injections, a wide range of fresh gas compositions can be observed; 
-and these conditions favor the appearance of edge flames, see Fig. :numref:`fig:TripleFlameIntro`. 
+`PeleLM` enables the representation of complex non-Cartesian
+geometries using an embedded boundary (EB) method. This method relies on intersecting an
+arbitrary surface with the Cartesian matrix of uniform cells, and modifies the numerical stencils
+near cells that are cut by the EB. 
 
-.. |a| image:: ./Visualization/TripleFlame_C2H4300.png
-     :width: 100%
-
-.. _fig:TripleFlameIntro:
-
-.. table:: Normalized heat release rate (top) and temperature (bottom) contours of two-dimensional (2D) laminar lifted flames of ethylene.
-     :align: center
-
-     +-----+
-     | |a| |
-     +-----+
-
-Edge flames are composed of lean and rich premixed flame wings usually surrounding a central
-anchoring diffusion flame extending from a single point [PCI2007]_. Edge flames play
-an important role in flame stabilization, re-ignition and propagation.
-Simple fuels can exhibit up to three burning branches while diesel fuel, with a low temperature combustion mode, 
-can exhibit up to 5 branches.
-
-The goal of this tutorial is to setup a simple 2D laminar triple edge flame configuration with `PeleLM`. 
+The goal of this tutorial is to setup a simple 2-dimentional flow past cylinder case in `PeleLM`. 
 This document provides step by step instructions to properly set-up the domain and boundary conditions, 
-construct an initial solution, and provides guidance on how to monitor and influence the initial transient to reach
-a final steady-state solution. 
-In a final Section, post-processing tools available in `PeleAnalysis` are used to extract information about 
-the triple flame.
+construct an initial solution.
 
-..  _sec:TUTO1::PrepStep:
+..  _sec:TUTO_FPC::PrepStep:
 
 Setting-up your environment
 ---------------------------
@@ -86,9 +62,9 @@ Then, follow these few steps to setup your run environment:
 
     git submodule update
 
-You are now ready to build the ``TripleFlame`` case associated with this branch. To do so: ::
+You are now ready to build the ``FlowPastCylinder`` case associated with this branch. To do so: ::
 
-   cd ../Tutorials/TripleFlame
+   cd ../Tutorials/FlowPastCylinder
 
 And follow the next steps !
 
@@ -96,114 +72,107 @@ And follow the next steps !
 Numerical setup
 -----------------------
 
-In this section we review the content of the various input files for the Triple Flame test case. To get additional information about the keywords discussed, the user is referred to section :ref:`sec:control`.
+In this section we review the content of the various input files for the flow past cylinder test case. To get additional information about the keywords discussed, the user is referred to section :ref:`sec:control`.
 
 Test case and boundary conditions
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-Direct Numerical Simulations (DNS) are performed on a 2x4 :math:`cm^2` 2D computational domain 
-using a 64x128 base grid and up to 4 levels of refinement (although we will start with a lower number of levels). 
-The refinement ratio between each level is set to 2. With 4 levels, this means that the minimum grid size inside the reaction layer will be just below 20 :math:`μm`. 
-The maximum box size is fixed at 32, and the base (level 0) grid is composed of 8 boxes, 
+Direct Numerical Simulations (DNS) is performed on a 16x8 :math:`cm^2` 2D computational domain, with the bottom left corner located at (-0.04:-0.04) and the top right corner at (0.12:0.04). 
+The base grid is decomposed into 128x64 cells and up to 3 levels of refinement (although we will start with a single level).
+The refinement ratio between each level is set to 2.
+The maximum box size is fixed at 64, and the base (level 0) grid is composed of 2 boxes, 
 as shown in Fig :numref:`fig:NumSetup`.
 
-Symmetric boundary conditions are used in the transverse (:math:`x`) direction, while ``Inflow`` (dirichlet) and ``Outflow`` (neumann) boundary conditions are used in the main flow direction (:math:`y`). The flow goes from the bottom to the top of the domain. The specificities of the ``Inflow`` boundary condition are explained in subsection :ref:`sec:TUTO1::InflowSpec`
+Periodic boundary conditions are used in the transverse (:math:`y`) direction, while ``Inflow`` (dirichlet) and ``Outflow`` (neumann) boundary conditions are used in the main flow direction (:math:`x`). The flow goes from left to right.
+A cylinder of radius 0.008 m is placed in the middle of the flow at (-0.01:0.0).
 
-.. |b| image:: ./Visualization/SetupSketch.png
+.. |a| image:: ./Visualization/SetupSketchFPC.png
      :width: 100%
 
 .. _fig:NumSetup:
 
-.. table:: Sketch of the computational domain with level 0 box decomposition (left) and input mixture fraction profile (right).
+.. table:: Sketch of the computational domain with level 0 box decomposition.
      :align: center
 
      +-----+
-     | |b| |
+     | |a| |
      +-----+
 
 The geometry of the problem is specified in the first block of the ``inputs.2d-regt``: ::
 
    #----------------------DOMAIN DEFINITION------------------------                                                                        
-   geometry.is_periodic = 0 0       # Periodicity in each direction: 0 => no, 1 => yes
-   geometry.coord_sys   = 0         # 0 => cart, 1 => RZ
-   geometry.prob_lo     = 0. 0.     # x_lo y_lo
-   geometry.prob_hi     = 0.02 0.04 # x_hi y_hi
+   geometry.is_periodic = 0 1             # Periodicity in each direction: 0 => no, 1 => yes
+   geometry.coord_sys   = 0               # 0 => cart, 1 => RZ
+   geometry.prob_lo     = -0.04 -0.04     # x_lo y_lo
+   geometry.prob_hi     =  0.12  0.04     # x_hi y_hi
 
-The second block determines the boundary conditions. Refer to Fig :numref:`fig:NumSetup`: ::
+The second block determines the boundary conditions. Note that `Interior` is used to indicate periodic boundary conditions. Refer to Fig :numref:`fig:NumSetup`: ::
 
    # >>>>>>>>>>>>>  BC FLAGS <<<<<<<<<<<<<<<<
    # Interior, Inflow, Outflow, Symmetry,
    # SlipWallAdiab, NoSlipWallAdiab, SlipWallIsotherm, NoSlipWallIsotherm
-   peleLM.lo_bc = Symmetry  Inflow
-   peleLM.hi_bc = Symmetry  Outflow
+   peleLM.lo_bc = Inflow   Interior
+   peleLM.hi_bc = Outflow  Interior
+
+In the present case, the EB geometry is a simple cylinder (or sphere) which is readily available from the `AMReX` library and only a few paremeters need to be specified by the user. This is done further down in the input file: ::
+
+   #------------  INPUTS FOR EMBEDED BOUNDARIES ----------------
+   eb2.geom_type                    = sphere
+   eb2.sphere_radius                = 0.008
+   eb2.sphere_center                = -.01 0.00
+   eb2.sphere_has_fluid_inside      = 0 
+   eb2.small_volfrac                = 1.0e-4
+
+Note that the last parameter is used to specify a volume fraction (ratio of the uncovered surface (2D) or volume (3D) over the cell surface or volume) threshold below which a cell is considered fully covered. This prevents the appearance of extremely small partially covered cells which are numerically unstable.
 
 The number of levels, refinement ratio between levels, maximium grid size as well as other related refinement parameters are set under the third block  : ::
 
    #-------------------------AMR CONTROL----------------------------
-   amr.n_cell          = 64 128     # Level 0 number of cells in each direction
+   amr.n_cell          = 128 64     # Level 0 number of cells in each direction
    amr.v               = 1          # amr verbosity level
-   amr.max_level       = 1          # maximum level number allowed
+   amr.max_level       = 0          # maximum level number allowed
    amr.ref_ratio       = 2 2 2 2    # refinement ratio
    amr.regrid_int      = 2          # how often to regrid
-   amr.n_error_buf     = 1 1 1 2    # number of buffer cells in error est
-   amr.grid_eff        = 0.9        # what constitutes an efficient grid
+   amr.n_error_buf     = 2 2 2 2    # number of buffer cells in error est
    amr.grid_eff        = 0.7        # what constitutes an efficient grid
    amr.blocking_factor = 16         # block factor in grid generation
-   amr.max_grid_size   = 32         # maximum box size
+   amr.max_grid_size   = 64         # maximum box size
 
 
-..  _sec:TUTO1::InflowSpec:
+..  _sec:TUTO_FPC::InflowSpec:
 
-Inflow specification
-^^^^^^^^^^^^^^^^^^^^^
+Problem specifications
+^^^^^^^^^^^^^^^^^^^^^^
 
-The edge flame is stabilized against an incoming mixing layer with a uniform velocity profile. The mixing
-layer is prescribed using an hyperbolic tangent of mixture fraction :math:`z` between 0 and 1, as can be seen in Fig :numref:`fig:NumSetup`:
+This very simple problem only has three user-defined problem parameters: the inflow velocity magnitude, the pressure and the temperature. This setup is also constructed to be able to perform the simulation of mixture perturbation crossing over the cylinder so that a switch is available to run this case rather than the simple vortex shedding past a cylinder.
+Specifying dirichlet ``Inflow`` conditions in `PeleLM` can seem daunting at first. But it is actually a very flexible process. We walk the user through the details which involve the following files:
 
-.. math::
-
-    z(x) = 0.5 \Big(1 + tanh \Big( \frac{x - 0.6(x_{hi} + x_{lo})}{0.05(x_{hi} - x_{lo})} \Big) \Big)
-
-where :math:`z` is based on the classical elemental composition [CF1990]_:
-
-.. math::
-
-    z =  \frac{\beta - \beta_{ox}}{\beta_{fu} - \beta_{ox}}
-    
-where :math:`\beta` is Bilger's coupling function, and subscript :math:`ox` and :math:`fu` correspond to oxidizer and fuel streams respectively.
-
-Specifying dirichlet ``Inflow`` conditions in `PeleLM` can seem daunting at first. But it is actually a very flexible process. We walk the user through the details of it for the Triple Flame case just described. The files involved are:
-
-- ``pelelm_prob_parm.H``, assemble in a C++ namespace ``ProbParm`` the input variables as well as other variables used in the initialization process.
+- ``pelelm_prob_parm.H``, assemble in a C++ struct ``ProbParm`` the input variables as well as other variables used in the initialization process.
 - ``pelelm_prob.cpp``, initialize and provide default values to the entries of ``ProbParm`` and allow the user to pass run-time value using the `AMReX` parser (``ParmParse``). In the present case, the parser will read the parameters in the ``PROBLEM PARAMETERS`` block: ::
 
-    prob.P_mean = 101325.0
-    prob.T_in = 300.0
-    prob.V_in = 0.85
-    prob.Zst = 0.055
+    prob.type         = VortexShedding
+    prob.meanFlowMag  = 15.0
   
-- finally, ``pelelm_prob.H`` contains the ``pelelm_initdata`` and ``bcnormal`` functions responsible for generating the initial and boundary conditions, resspectively.
+- finally, ``pelelm_prob.H`` contains the ``pelelm_initdata`` and ``bcnormal`` functions responsible for generating the initial and boundary conditions, respectively.
 
-Note that in our specific case, we compute the input value of the mass fractions (Y) *directly* in ``bcnormal``, using the ``ProbParm`` variables. We do not need any additional information, because we hard coded the hyperbolic tangent profile of :math:`z` (see previous formula) and there is a direct relation with the mass fraction profiles. The interested reader can look at the function ``set_Y_from_Ksi`` and ``set_Y_from_Phi`` in ``pelelm_prob.H``.
+Note that in the present case, the default values of pressure and temperature are employed since their respective keywords are not specified in the input file.
 
+Finally, this test uses a constant set of transport parameters rather relying on the EGLib library 
+(see :ref:`sec:EqSets:` for more details on EGLib). These transport parameters are specified in the ``CONSTANT TRANSPORT`` block: ::
+
+    #------------  INPUTS TO CONSTANT TRANSPORT -----------------
+    transport.const_viscosity        = 2.0e-05
+    transport.const_bulk_viscosity   = 0.0 
+    transport.const_conductivity     = 0.0 
+    transport.const_diffusivity      = 0.0 
+
+Only the viscosity in the present case.
 
 Initial solution
 ^^^^^^^^^^^^^^^^^^^^^
 
-An initial field of the main variables is always required to start a simulation. Ideally, you want for this initial solution to approximate the final (steady-state in our case) solution as much as possible. This will speed up the initial transient and avoid many convergence issues. In the present tutorial, an initial solution is constructed by imposing the same inlet hyperbolic tangent of mixture fraction than described in subsection :ref:`sec:TUTO1::InflowSpec` everywhere in the domain; and reconstructing the species mass fraction profiles from it. To ensure ignition of the mixture, a progressively widening Gaussian profile of temperature is added, starting from about 1 cm, and stretching until the outlet of the domain. The initial temperature field is shown in Fig :numref:`fig:InitialSol`, along with the parameters controlling the shape of the hot spot. 
+An initial field of the main variables is always required to start a simulation. In the present case, the computational domain is filled with air in the condition of pressure and temperature provided by the user (or the default ones). An initial constant velocity of ``meanFlowMag`` is used, but note that `PeleLM` performs an initial velocity projection to enforce the low Mach number constraint which overwrite this initial velocity.
 
-.. |c| image:: ./Visualization/InitialSol.001.png
-     :width: 100%
-
-.. _fig:InitialSol:
-
-.. table:: Initial temperature field (left) as well as widening gaussian 1D y-profiles (right) and associated parameters. The initial solution contains 2 levels.
-     :align: center
-
-     +-----+
-     | |c| |
-     +-----+
-
-This initial solution is constructed via the routine ``init_data()``, in the file ``Prob_nd.F90``. Additional information is provided as comments in this file for the eager reader, but nothing is required from the user at this point.
+This initial solution is constructed via the routine ``pelelm_initdata()``, in the file ``pelelm_prob.H``. Additional information is provided as comments in this file for the eager reader, but nothing is required from the user at this point.
 
 
 Numerical scheme
