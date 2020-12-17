@@ -76,19 +76,19 @@ In this section we review the content of the various input files for the flow pa
 
 Test case and boundary conditions
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-Direct Numerical Simulations (DNS) is performed on a 16x8 :math:`cm^2` 2D computational domain, with the bottom left corner located at (-0.04:-0.04) and the top right corner at (0.12:0.04). 
+Direct Numerical Simulations (DNS) is performed on a 8x4 :math:`cm^2` 2D computational domain, with the bottom left corner located at (-0.02:-0.02) and the top right corner at (0.6:0.02). 
 The base grid is decomposed into 128x64 cells and up to 3 levels of refinement (although we will start with a single level).
 The refinement ratio between each level is set to 2.
 The maximum box size is fixed at 64, and the base (level 0) grid is composed of 2 boxes, 
-as shown in Fig :numref:`fig:NumSetup`.
+as shown in Fig :numref:`fig:FPC_NumSetup`.
 
 Periodic boundary conditions are used in the transverse (:math:`y`) direction, while ``Inflow`` (dirichlet) and ``Outflow`` (neumann) boundary conditions are used in the main flow direction (:math:`x`). The flow goes from left to right.
-A cylinder of radius 0.008 m is placed in the middle of the flow at (-0.01:0.0).
+A cylinder of radius 0.0035 m is placed in the middle of the flow at (0.0:0.0).
 
 .. |a| image:: ./Visualization/SetupSketchFPC.png
      :width: 100%
 
-.. _fig:NumSetup:
+.. _fig:FPC_NumSetup:
 
 .. table:: Sketch of the computational domain with level 0 box decomposition.
      :align: center
@@ -102,10 +102,10 @@ The geometry of the problem is specified in the first block of the ``inputs.2d-r
    #----------------------DOMAIN DEFINITION------------------------                                                                        
    geometry.is_periodic = 0 1             # Periodicity in each direction: 0 => no, 1 => yes
    geometry.coord_sys   = 0               # 0 => cart, 1 => RZ
-   geometry.prob_lo     = -0.04 -0.04     # x_lo y_lo
-   geometry.prob_hi     =  0.12  0.04     # x_hi y_hi
+   geometry.prob_lo     = -0.02 -0.02     # x_lo y_lo
+   geometry.prob_hi     =  0.06  0.02     # x_hi y_hi
 
-The second block determines the boundary conditions. Note that `Interior` is used to indicate periodic boundary conditions. Refer to Fig :numref:`fig:NumSetup`: ::
+The second block determines the boundary conditions. Note that `Interior` is used to indicate periodic boundary conditions. Refer to Fig :numref:`fig:FPC_NumSetup`: ::
 
    # >>>>>>>>>>>>>  BC FLAGS <<<<<<<<<<<<<<<<
    # Interior, Inflow, Outflow, Symmetry,
@@ -117,8 +117,8 @@ In the present case, the EB geometry is a simple cylinder (or sphere) which is r
 
    #------------  INPUTS FOR EMBEDED BOUNDARIES ----------------
    eb2.geom_type                    = sphere
-   eb2.sphere_radius                = 0.008
-   eb2.sphere_center                = -.01 0.00
+   eb2.sphere_radius                = 0.0035
+   eb2.sphere_center                = 0.00 0.00
    eb2.sphere_has_fluid_inside      = 0 
    eb2.small_volfrac                = 1.0e-4
 
@@ -150,22 +150,29 @@ Specifying dirichlet ``Inflow`` conditions in `PeleLM` can seem daunting at firs
 - ``pelelm_prob.cpp``, initialize and provide default values to the entries of ``ProbParm`` and allow the user to pass run-time value using the `AMReX` parser (``ParmParse``). In the present case, the parser will read the parameters in the ``PROBLEM PARAMETERS`` block: ::
 
     prob.type         = VortexShedding
-    prob.meanFlowMag  = 15.0
+    prob.meanFlowMag  = 10.0
   
 - finally, ``pelelm_prob.H`` contains the ``pelelm_initdata`` and ``bcnormal`` functions responsible for generating the initial and boundary conditions, respectively.
 
 Note that in the present case, the default values of pressure and temperature are employed since their respective keywords are not specified in the input file.
 
 Finally, this test uses a constant set of transport parameters rather relying on the EGLib library 
-(see :ref:`sec:EqSets:` for more details on EGLib). These transport parameters are specified in the ``CONSTANT TRANSPORT`` block: ::
+(see :ref:`sec:model:EqSets` for more details on EGLib). These transport parameters are specified in the ``CONSTANT TRANSPORT`` block: ::
 
     #------------  INPUTS TO CONSTANT TRANSPORT -----------------
-    transport.const_viscosity        = 2.0e-05
+    transport.const_viscosity        = 2.0e-04
     transport.const_bulk_viscosity   = 0.0 
     transport.const_conductivity     = 0.0 
     transport.const_diffusivity      = 0.0 
 
-Only the viscosity in the present case.
+Only the viscosity in the present case, and note that CGS units are employed while specifying these properties. 
+Using these parameters, it is possible to evaluate the Reynolds number, based on the inflow velocity and the cylinder diameter:
+
+.. math::
+
+   Re = \frac{\rho U_{inf} D}{\mu} = \frac{1.175 * 10 * 0.007}{2.0e-05} = 4100 
+
+This relatively high value ensures that the flow will exhibit vortex shedding.
 
 Initial solution
 ^^^^^^^^^^^^^^^^^^^^^
@@ -184,40 +191,43 @@ The ``NUMERICS CONTROL`` block can be modified by the user to increase the numbe
 Building the executable
 ----------------------------------
 
-The last necessary step before starting the simulation consists of building the PeleLM executable. AMReX applications use a makefile system to ensure that all the required source code from the dependent libraries be properly compiled and linked. The ``GNUmakefile`` provides some compile-time options regarding the simulation we want to perform. The first four lines of the file specify the paths towards the source code of `PeleLM`, `AMReX`, `IAMR` and `PelePhysics` and should not be changed. 
+The last necessary step before starting the simulation consists of building the PeleLM executable. AMReX applications use a makefile system to ensure that all the required source code from the dependent libraries be properly compiled and linked. The ``GNUmakefile`` provides some compile-time options regarding the simulation we want to perform.
+The first line can be modified to specify the absolute path to the `PeleProduction` directory while the next four lines specify the paths towards the source code of `PeleLM`, `AMReX`, `IAMR` and `PelePhysics` and should not be changed. 
 
 Next comes the build configuration block: ::
 
    #
    # Build configuration
    #
+
+   # AMREX options
    DIM             = 2
-   COMP            = gnu
-   DEBUG           = FALSE
+   USE_EB          = TRUE
+
+   # Compiler / parrallel paradigms
+   COMP            = gnu 
    USE_MPI         = TRUE
    USE_OMP         = FALSE
    USE_CUDA        = FALSE
+   USE_HIP         = FALSE
+
+   # MISC options
+   DEBUG           = FALSE
    PRECISION       = DOUBLE
    VERBOSE         = FALSE
    TINY_PROFILE    = FALSE
 
-It allows the user to specify the number of spatial dimensions (2D), the compiler (``gnu``) and the parallelism paradigm (in the present case only MPI is used). The other options can be activated for debugging and profiling purposes.
+It allows the user to specify the number of spatial dimensions (2D), trigger the compilation of the EB source code, the compiler (``gnu``) and the parallelism paradigm (in the present case only MPI is used). The other options can be activated for debugging and profiling purposes.
 
 In `PeleLM`, the chemistry model (set of species, their thermodynamic and transport properties as well as the description of their of chemical interactions) is specified at compile time. Chemistry models available in `PelePhysics` can used in `PeleLM` by specifying the name of the folder in `PelePhysics/Support/Fuego/Mechanisms/Models` containing the relevant files, for example: ::
 
-   Chemistry_Model = drm19
+   Chemistry_Model = air
    
-Here, the methane kinetic model ``drm19``, containing 21 species is employed. The user is referred to the `PelePhysics <https://pelephysics.readthedocs.io/en/latest/>`_ documentation for a list of available mechanisms and more information regarding the EOS, chemistry and transport models specified: ::
+Here, the model ``air``, only contains 2 species (O2 and N2). The user is referred to the `PelePhysics <https://pelephysics.readthedocs.io/en/latest/>`_ documentation for a list of available mechanisms and more information regarding the EOS, chemistry and transport models specified: ::
 
     Eos_dir       := Fuego
-    Reactions_dir := Fuego
-    Transport_dir := Simple
-
-Finally, `PeleLM` utilizes the chemical kinetic ODE integrator `CVODE <https://computing.llnl.gov/projects/sundials/cvode>`_. This Third Party Librabry (TPL) is not shipped with the `PeleLM` distribution but can be readily installed through the makefile system of `PeleLM`. To do so, type in the following command: ::
-
-    make TPL
-
-Note that the installation of `CVODE` requires CMake 3.12.1 or higher.
+    Reactions_dir := Null
+    Transport_dir := Constant
 
 You are now ready to build your first `PeleLM` executable !! Type in: ::
 
@@ -229,270 +239,136 @@ The option here tells `make` to use up to 4 processors to create the executable 
 
 You're good to go !
 
-Initial transient phase
+Running the problem on a coarse grid
 ----------------------------------
 
-First step: the initial solution
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-When performing time-dependent numerical simulations, it is good practice to verify the initial solution. To do so, we will run `PeleLM` for a single time step, to generate an initial plotfile ``plt_00000``. 
+As a first step towards obtaining the classical Von-Karman alleys, we will now let the flow establish using only the coarse base grid. The simulation will last for 20 ms.
 
 Time-stepping parameters in ``input.2d-regt`` are specified in the ``TIME STEPING CONTROL`` block: ::
 
     #----------------------TIME STEPING CONTROL----------------------
-    max_step       = 1               # maximum number of time steps
-    stop_time      = 4.00            # final physical time
-    ns.cfl         = 0.1             # cfl number for hyperbolic system
-    ns.init_shrink = 0.01            # scale back initial timestep
+    stop_time      = 0.02            # final physical time
+    ns.cfl         = 0.3             # cfl number for hyperbolic system
+    ns.init_shrink = 1.0             # scale back initial timestep
     ns.change_max  = 1.1             # max timestep size increase
     ns.dt_cutoff   = 5.e-10          # level 0 timestep below which we halt
 
-The maximum number of time steps is set to 1 for now, while the final simulation time is 4.0 s. Note that, when both ``max_step`` and ``stop_time`` are specified, the more stringent constraint will control the termination of the simulation. `PeleLM` solves for the advection, diffusion and reaction processes in time, but only the advection term is treated explicitly and thus it constrains the maximum time step size :math:`dt_{CFL}`. This constraint is formulated with a classical Courant-Friedrich-Levy (CFL) number, specified via the keyword ``ns.cfl``. Additionally, as it is the case here, the initial solution is often made-up by the user and local mixture composition and temperature can result in the introduction of unreasonably fast chemical scales. To ease the numerical integration of this initial transient, the parameter ``ns.init_shrink`` allows to shrink the inital `dt` (evaluated from the CFL constraint) by a factor (usually smaller than 1), and let it relax towards :math:`dt_{CFL}`at a rate given by ``ns.change_max`` as the simulation proceeds.
+The final simulation time is set to 0.02 s. `PeleLM` solves for the advection, diffusion and reaction processes in time, but only the advection term is treated explicitly and thus it constrains the maximum time step size :math:`dt_{CFL}`. This constraint is formulated with a classical Courant-Friedrich-Levy (CFL) number, specified via the keyword ``ns.cfl``.
+Additionally, as it is the case here, the initial solution is often made-up by the user and local mixture composition and temperature can result in the introduction of unreasonably fast chemical scales.
+To ease the numerical integration of this initial transient, the parameter ``ns.init_shrink`` allows to shrink the inital `dt` (evaluated from the CFL constraint) by a factor (usually smaller than 1), and let it relax towards :math:`dt_{CFL}`at a rate given by ``ns.change_max`` as the simulation proceeds. Since the present case does not involve complex chemiscal processes, this parameter is kept to 1.0.
 
 Input/output from `PeleLM` are specified in the ``IO CONTROL`` block: ::
 
     #-------------------------IO CONTROL----------------------------
-    #amr.restart           = chk01000 # Restart from checkpoint ?
-    #amr.regrid_on_restart = 1        # Perform regriding upon restart ?
-    amr.checkpoint_files_output = 0   # Dump check file ? 0: no, 1: yes
-    amr.check_file      = chk         # root name of checkpoint file
-    amr.check_int       = 100         # number of timesteps between checkpoints
-    amr.plot_file       = plt         # root name of plotfiles   
-    amr.plot_int        = 20          # number of timesteps between plotfiles
-    amr.derive_plot_vars=rhoRT mag_vort avg_pressure gradpx gradpy diveru mass_fractions mixfrac
+    amr.checkpoint_files_output = 1   # Dump check file ? 0: no, 1: yes
+    amr.check_file      = chk_        # root name of checkpoint file
+    amr.check_per       = 0.02        # frequency of checkpoints
+    amr.plot_file       = plt_        # root name of plotfiles   
+    amr.plot_per        = 0.001       # frequency of plotfiles
+    amr.derive_plot_vars=rhoRT mag_vort avg_pressure gradpx gradpy
     amr.grid_log        = grdlog      # name of grid logging file
-    amr.probin_file = probin.2d.test  # This will default to file "probin" if not set
 
-The first two lines (commented out for now) are only used when restarting a simulation from a `checkpoint` file and will be useful later during this tutorial. Information pertaining to the checkpoint and plot_file files name and output frequency can be specified there. `PeleLM` will always generate an initial plotfile ``plt_00000`` if the initialization is properly completed, and a final plotfile at the end of the simulation. It is possible to request including `derived variables` in the plotfiles by appending their names to the ``amr.derive_plot_vars`` keyword. These variables are derived from the `state variables` (velocity, density, temperature, :math:`\rho Y_k`, :math:`\rho h`) which are automatically included in the plotfile. Note also that the name of the ``probin`` file used to specify the initial/boundary conditions is defined here.
+Information pertaining to the checkpoint and plot_file files name and output frequency can be specified there.
+We have specified here that a checkpoint file will be generated every 20 ms and a plotfile every 1 ms. `PeleLM` will always generate an initial plotfile ``plt_00000`` if the initialization is properly completed, and a final plotfile at the end of the simulation. It is possible to request including `derived variables` in the plotfiles by appending their names to the ``amr.derive_plot_vars`` keyword. These variables are derived from the `state variables` (velocity, density, temperature, :math:`\rho Y_k`, :math:`\rho h`) which are automatically included in the plotfile.
 
-You finally have all the information necessary to run the first of several steps to generate a steady triple flame. Type in: ::
+You finally have all the information necessary to run the first of several steps. Type in: ::
 
     ./PeleLM2d.gnu.MPI.ex inputs.2d-regt
 
 A lot of information is printed directly on the screen during a `PeleLM` simulation, but it will not be detailed in the present tutorial. If you wish to store these information for later analysis, you can instead use: ::
 
-    ./PeleLM2d.gnu.MPI.ex inputs.2d-regt > logCheckInitialSolution.dat &
+    ./PeleLM2d.gnu.MPI.ex inputs.2d-regt > logCheckCoarseRun.dat &
     
-Whether you have used one or the other command, within 30 s you should obtain a ``plt_00000`` and a ``plt_00001`` files (or even more, appended with .old*********** if you used both commands). Use `Amrvis <https://amrex-codes.github.io/amrex/docs_html/Visualization.html>`_ to vizualize ``plt_00000`` and make sure the solution matches the one shown in Fig. :numref:`fig:InitialSol`.
+Whether you have used one or the other command, the computation finishes within a couple of minutes and you should obtain a set of ``plt_****`` files (and maybe a set appended with .old*********** if you used both commands). Use `Amrvis <https://amrex-codes.github.io/amrex/docs_html/Visualization.html>`_ to vizualize the results. Use the following command to open the entire set of solutions: ::
+
+   amrvis -a plt_?????
 
 
-Running the problem on a coarse grid
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-As mentioned above, the initial solution is relatively far from the steady-state triple flame we wish to obtain. An inexpensive and rapid way to transition from the initial solution to an established triple flame is to perform a coarse (using only 2 AMR levels) simulation using a single SDC iteration for a few initial number of time steps (here we start with 1000). To do so, update (or verify !) these associated keywords in the ``input.2d-regt``: ::
-
-    #-------------------------AMR CONTROL----------------------------
-    ...
-    amr.max_level     = 1             # maximum level number allowed
-    ...
-    #----------------------TIME STEPING CONTROL----------------------
-    ...
-    max_step          = 1000          # maximum number of time steps
-    ...
-    #--------------------NUMERICS CONTROL------------------------
-    ...
-    ns.sdc_iterMAX    = 1             # Number of SDC iterations
-
-In order to later on continue the simulation with refined parameters, we need to trigger the generation of a checkpoint file, in the ``IO CONTROL`` block: ::
-
-    amr.checkpoint_files_output = 1   # Dump check file ? 0: no, 1: yes
-   
-To be able to complete this first step relatively quickly, it is advised to run `PeleLM` using at least 4 MPI processes. It will then take a couple of hours to reach completion. To be able to monitor the simulation while it is running, use the following command: ::
-
-    mpirun -n 4 ./PeleLM2d.gnu.MPI.ex inputs.2d-regt > logCheckInitialTransient.dat &
-
-A plotfile is generated every 20 time steps (as specified via the ``amr.plot_int`` keyword in the ``IO CONTROL`` block). This will allow you to visualize and monitor the evolution of the flame. Use the following command to open multiple plotfiles at once with `Amrvis <https://amrex-codes.github.io/amrex/docs_html/Visualization.html>`_: ::
-
-    amrvis -a plt????0
-    
-An animation of the flame evolution during this initial transient is provided in Fig :numref:`fig:InitTransient`.
-
-.. |d| image:: ./Visualization/InitTransient.gif
-     :width: 60%
-
-.. _fig:InitTransient:
-
-.. table:: Temperature (left) and divu (right) fields from 0 to 2000 time steps (0-?? ms).
-     :align: center
-
-     +-----+
-     | |d| |
-     +-----+
-
-Steady-state problem: activating the flame control
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-The speed of propagation of a triple flame is not easy to determine a-priori. As such it is useful, 
-at least until the flame settles, to have some sort of stabilization mechanism to prevent 
-flame blow-off or flashback. In the present configuration, the position of the flame front can be tracked 
-at each time step (using an isoline of temperature) and the input velocity is adjusted to maintain 
-its location at a fixed distance from the inlet (1 cm in the present case). 
-
-The parameters of the active control are listed in `INPUTS TO ACTIVE CONTROL` block of ``inputs.2d-regt``: ::
-
-    # --------------  INPUTS TO ACTIVE CONTROL  -----------------
-    active_control.on = 1                  # Use AC ?
-    active_control.use_temp = 1            # Default in fuel mass, rather use iso-T position ?
-    active_control.temperature = 1400.0    # Value of iso-T ?
-    active_control.tau = 1.0e-4            # Control tau (should ~ 10 dt)
-    active_control.height = 0.01           # Where is the flame held ? Default assumes coordinate along Y in 2D or Z in 3D.
-    active_control.v = 1                   # verbose
-    active_control.velMax = 2.0            # Optional: limit inlet velocity
-    active_control.changeMax = 0.1         # Optional: limit inlet velocity changes (absolute)
-    active_control.flameDir  = 1           # Optional: flame main direction. Default: AMREX_SPACEDIM-1
-    active_control.pseudo_gravity = 1      # Optional: add density proportional force to compensate for the acceleration 
-                                           #           of the gas due to inlet velocity changes
-
-The first keyword activates the active control and the second one specify that the flame will be tracked based on an iso-line of temperature, the value of which is provided in the third keyword. The following parameters controls the relaxation of the inlet velocity to
-the steady state velocity of the triple flame. ``tau`` is a relaxation time scale, that should be of the order of ten times the simulation time-step. 
-``height`` is the user-defined location where the triple flame should settle, ``changeMax`` and ``velMax`` control the maximum velocity increment and maximum inlet velocity, respectively. The user is referred to [CAMCS2006]_ for an overview of the method and corresponding parameters.
-The ``pseudo_gravity`` triggers a manufactured force added to the momemtum equation to compensate for the acceleration of different density gases.
-
-Once these paremeters are set, you continue the previous simulation by uncommenting the first two lines of the ``IO CONTROL`` block in the input file: ::
-
-    amr.restart           = chk01000 # Restart from checkpoint ?
-    amr.regrid_on_restart = 1        # Perform regriding upon restart ?
-
-The first line provides the last `checkpoint` file generated during the first simulation performed for 1000 time steps. Note that the second line, forcing regriding of the simulation upon restart, is not essential at this point. Finally, update the ``max_step`` to allow the simulation to proceed further: ::
-
-    #----------------------TIME STEPING CONTROL----------------------
-    ...
-    max_step          = 2000          # maximum number of time steps
-
-You are now ready launch `PeleLM` again for another 1000 time steps ! ::
-
-    mpirun -n 4 ./PeleLM2d.gnu.MPI.ex inputs.2d-regt > logCheckControl.dat &
-
-As the simulation proceeds, an ASCII file tracking the flame position and inlet velocity (as well as other control variables) is generated: ``AC_History``. You can follow the motion of the flame tip by plotting the eigth column against the first one (flame tip vs. time step count). If `gnuplot` is available on your computer, use the following to obtain the graphs of Fig :numref:`fig:ACcontrol`: ::
-
-    gnuplot
-    plot "AC_History" u 1:7 w lp
-    plot "AC_History" u 1:3 w lp
-    exit
-    
-The second plot corresponds to the inlet velocity.
-
-.. |e| image:: ./Visualization/ACcontrol.png
+.. |b| image:: ./Visualization/FPC_Coarse_20ms.png
      :width: 100%
 
-.. _fig:ACcontrol:
+.. _fig:FPC_Coarse:
 
-.. table:: Flame tip position (left) and inlet velocity (right) as function of time step count from 1000 to 2000 step using the inlet velocity control.
+.. table:: Contour plots of velocity components, vorticity, pressure and volume fraction at t = 20 ms on the coarse grid.
      :align: center
 
      +-----+
-     | |e| |
+     | |b| |
      +-----+
 
-At this point, you have a stabilized methane/air triple flame and will now use AMR features to improve the quality of your simulation.
+At this point, you have established a flow with a small recirculation zone in the wake of the cylinder, but the flow has not yet fully transitioned to periodic vortex shedding.
+The flow is depicted in Fig :numref:`fig:FPC_Coarse` showing a few of the available contour plots at 20 ms. Note that the value of the fully covered cells is set to zero.
+
+Two aspects of the current simulation can delay or even prevent the onset of vortex shedding:
+
+ - the flow is initially symmetric and the transition to the familiar periodic flow is due to the growth of infinitesimal perturbations in the shear layer of the wake. Because the flow is artificially too symmetric, this transition can be delayed until round-off errors sufficiently accumulate.
+ - the numerical dissipation introduced by this coarse grid results in an effective Reynolds number probably significantly lower than the value estimated above.
+
+In the next step, we will add finer grid patches around the EB geometry and in high vorticity regions.
 
 Refinement of the computation
 -----------------------------
 
-Before going further, it is important to look at the results of the current simulation. The left panel of Fig. :numref:`fig:CoarseField` 
-displays the temperature field, while a zoom-in of the flame edge region colored by several important variables 
-is provided on the right side. 
-Note that `DivU`, the `HeatRelease` and the `CH4_consumption` are good markers of the reaction/diffusion processes in our case.
-What is striking from these images is the lack of resolution of the triple flame, particularly in the reaction zone. 
-We also clearly see square unsmooth shapes in the field of intermediate species, where `Y(HCO)` is found to closely match the region of high `CH4_consumption` while `Y(CH3O)` is located closer to the cold gases, on the outer layer of the triple flame.
+We will now add a first level of refinement. In the present simulation, the refinement criteria could be based on several characteristics of the flow: velocity gradients, vorticity, pressure, ... In the following, we will simply use vorticity.
+Additionally, by construction the geometry must be built to the finest level which act as a refinement criteria based on the gradient of volume fraction. This is beneficial in this case in order to help refine the cylinder boundary layer.
+Start by increasing the number of AMR levels to one in the ``AMR CONTROL`` block: ::
 
-.. |f| image:: ./Visualization/CoarseDetails.png
-     :width: 100%
+    amr.max_level       = 1          # maximum level number allowed
 
-.. _fig:CoarseField:
+Then provide a definition of the new refinement critera in the ``REFINEMENT CONTROL`` block: ::
 
-.. table:: Details of the triple flame tip obtained with the initial coarse 2-level mesh.
-     :align: center
-
-     +-----+
-     | |f| |
-     +-----+
-
-Our first level of refinement must specifically target the reactive layer of the flame. As seen from Fig. :numref:`fig:CoarseField`, one can choose from several variables to reach that goal. In the following, we will use the CH3O species as a tracer of the flame position. Start by increasing the number of AMR levels by one in the `AMR CONTROL` block: ::
-
-    amr.max_level       = 2          # maximum level number allowed
-
-Then provide a definition of the new refinement critera in the `REFINEMENT CONTROL` block: ::
-
-    #--------------------REFINEMENT CONTROL------------------------                                                                                          
-    amr.refinement_indicators = hi_temp gradT flame_tracer   # Declare set of refinement indicators
+    #--------------------REFINEMENT CONTROL------------------------
+    # Refinement according to the vorticity, no field_name needed
+    amr.refinement_indicators     = magvort
+    amr.magvort.max_level         = 1
+    amr.magvort.vorticity_greater = 1000 
     
-    amr.hi_temp.max_level     = 1 
-    amr.hi_temp.value_greater = 800 
-    amr.hi_temp.field_name    = temp
+    # Refine the EB
+    ns.refine_cutcells            = 1 
+
+The first line simply declares a set of refinement indicators which are subsequently defined. For each indicator, the user can provide a limit up to which AMR level this indicator will be used to refine. Then there are multiple possibilities to specify the actual criterion: ``value_greater``, ``value_less``, ``vorticity_greater`` or ``adjacent_difference_greater``. In each case, the user specify a threshold value and the name of variable on which it applies (except for the ``vorticity_greater``).
+In the example above, the grid is refined up to level 2 at the location where the vorticity magnitude is above 1000 :math:`s^{-1}` as well as on the cut cells (where the cylinder intersect with the edges of cell). 
+
+With these new parameters, specify the `checkpoint` file from which to restart by adding the following line to the ``IO CONTROL`` block: ::
+
+    amr.restart           = chk_02038 # Restart from checkpoint ?
+
+, increase the `stop_time` to 40 ms in the ``TIME STEPING CONTROL`` block: ::
+
+    stop_time      = 0.04            # final physical time
+
+and start the simulation again ! ::
+
+    ./PeleLM2d.gnu.MPI.ex inputs.2d-regt > log2Levels.dat &
+
+Looking at the velocity components and vorticity fields, we can now see that the flow has fully transitionned to periodic vortex shedding.
+The grid resolution however remains fairly coarse and the flow at the vicinity of the cylinder exhibits some undesirable oscillations due to the EB algorithm.
+We will now add another level of refinement, targeting only the vicinity of the EB and the high vorticity regions. To do so, add a new refinement indicator in the ``REFINEMENT CONTROL`` block: ::
+
+    #--------------------REFINEMENT CONTROL------------------------
+    # Refinement according to the vorticity, no field_name needed
+    amr.refinement_indicators     = magvort magvortHigh
+
+    amr.magvort.max_level         = 1
+    amr.magvort.vorticity_greater = 1000 
     
-    amr.gradT.max_level                   = 1 
-    amr.gradT.adjacent_difference_greater = 200 
-    amr.gradT.field_name                  = temp
-    
-    amr.flame_tracer.max_level     = 2 
-    amr.flame_tracer.value_greater = 1.0e-6
-    amr.flame_tracer.field_name    = Y(CH3O)
+    amr.magvortHigh.max_level         = 2
+    amr.magvortHigh.vorticity_greater = 5000 
 
-The first line simply declares a set of refinement indicators which are subsequently defined. For each indicator, the user can provide a limit up to which AMR level this indicator will be used to refine. Then there are multiple possibilities to specify the actual criterion: ``value_greater``, ``value_less``, ``vorticity_greater`` or ``adjacent_difference_greater``. In each case, the user specify a threshold value and the name of variable on which it applies (except for the ``vorticity_greater``). In the example above, the grid is refined up to level 1 at the location wheres the temperature is above 800 K or where the temperature difference between adjacent cells exceed 200 K. These two criteria were used up to that point. The last indicator will now enable to add level 2 grid patches at location where the flame tracer (`Y(CH3O)`) is above 1.0e-6.
+    # Refine the EB
+    ns.refine_cutcells            = 1 
 
-With these new parameters, update the `checkpoint` file from which to restart: ::
+, update the `checkpoint` file and the `stop_time` to the following: ::
 
-    amr.restart           = chk02000 # Restart from checkpoint ?
-
-and increase the ``max_step`` to 2300 and start the simulation again ! ::
-
-    mpirun -n 4 ./PeleLM2d.gnu.MPI.ex inputs.2d-regt > log3Levels.dat &
-
-Visualization of the 3-levels simulation results indicates that the flame front is now better repesented on the fine grid, but there are still only a couple of cells across the flame front thickness. The flame tip velocity, captured in the `AC_history`, also exhibits a significant change with the addition of the third level (even past the initial transient). In the present case, the flame tip velocity is our main quantity of interest and we will now add another refinement level to ensure that this quantity is fairly well capture. We will use the same refinement indicators and simply update the ``max_level`` as well as the level at which each refinement criteria is used: ::
-
-    amr.max_level       = 3          # maximum level number allowed
-    
-    ...
-    
-    amr.restart           = chk02300 # Restart from checkpoint ?
-    
-    ...
-    
-    amr.gradT.max_level                   = 2
+    amr.restart           = chk_04039 # Restart from checkpoint ?
 
     ...
-    
-    amr.flame_tracer.max_level     = 3
-    
-and increase the ``max_step`` to 2600. The temporal evolution of the inlet velocity also shows that our active control parameters induce rather strong oscillations of the velocity before it settles. To illustrate how we can tune the AC parameters to limit this behavior, we will increase the ``tau`` parameter: ::
 
-    active_control.tau = 4.0e-4            # Control tau (should ~ 10 dt)
+    stop_time      = 0.05            # final physical time
 
-Let's start the simulation again ! ::
+and start the simulation again ! ::
 
-    mpirun -n 4 ./PeleLM2d.gnu.MPI.ex inputs.2d-regt > log4Levels.dat &
-
-Finally, we will now improve `PeleLM` algorithm accuracy itself. So far, for computational expense reasons, we have only used a single SDC iteration which provide a relatively weak coupling between the slow advection and the fast diffusion/reaction processes, as well as a loose enforcement of the velocity divergence constrain (see `PeleLM description <https://pelelm.readthedocs.io/en/latest/Model.html>`_ for more information). We will now increase the number of SDC iteration to two, allowing to reach the theoretical second order convergence property of the algorithm: ::
-
-   #--------------------NUMERICS CONTROL------------------------
-    ...
-    ns.sdc_iterMAX    = 2             # Number of SDC iterations
-
-and further continue the simulation to reach 2800 time steps. Note that, as with an increase of the maximum refinement level, increasing the number of SDC iterations incurs a significant increase of the computational time per coarse time step. Let's complete this final step: ::
-
-   mpirun -n 4 ./PeleLM2d.gnu.MPI.ex inputs.2d-regt > log4Levels_2SDC.dat &
-
-Figure :numref:`fig:ACcontrol_full` shows the entire history of the inlet velocity starting when the AC was activated (1000th time step). We can see that every change in the numerical setup induced a slight change in the triple flame propagation velocity, eventually leading to a nearly constant value, sufficient for the purpose of this tutorial.
-
-.. |g| image:: ./Visualization/ACcontrol_complete.png
-     :width: 100%
-
-.. _fig:ACcontrol_full:
-
-.. table:: Inlet velocity history during the successive simulations performed during this tutorial.
-     :align: center
-
-     +-----+
-     | |g| |
-     +-----+
-
-At this point, the simulation is considered complete and the next section provide some pointer to further analyze the results.
+    ./PeleLM2d.gnu.MPI.ex inputs.2d-regt > log3Levels.dat &
 
 Analysis
 -----------------------
-
-.. [PCI2007] S. Chung, Stabilization, propagation and instability of tribrachial triple flames, Proceedings of the Combustion Institute 31 (2007) 877–892
-.. [CF1990] R. Bilger, S. Starner, R. Kee, On reduced mechanisms for methane-air combustion in nonpremixed flames, Combustion and Flames 80 (1990) 135-149
-.. [CAMCS2006] J. Bell, M. Day, J. Grcar, M. Lijewski, Active Control for Statistically Stationary Turbulent PremixedFlame Simulations, Communications in Applied Mathematics and Computational Science 1 (2006) 29-51
-
