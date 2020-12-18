@@ -27,6 +27,7 @@ Gpu::HostVector<Real> sprayCritT;
 Gpu::HostVector<Real> sprayBoilT;
 Gpu::HostVector<Real> sprayCp;
 Gpu::HostVector<Real> sprayLatent;
+Gpu::HostVector<Real> spraySigma;
 Gpu::HostVector<int> sprayIndxMap;
 amrex::Real parcelSize = 1.;
 SprayComps scomps;
@@ -123,23 +124,27 @@ PeleLM::readParticleParams()
   sprayCritT.resize(nfuel);
   sprayBoilT.resize(nfuel);
   sprayLatent.resize(nfuel);
+  spraySigma.resize(nfuel);
   sprayCp.resize(nfuel);
   sprayIndxMap.resize(nfuel);
   std::vector<std::string> fuel_names;
   std::vector<Real> crit_T;
   std::vector<Real> boil_T;
   std::vector<Real> latent;
+  std::vector<Real> sigma(nfuel, 0.);
   std::vector<Real> spraycp;
   ppp.getarr("fuel_species", fuel_names);
   ppp.getarr("fuel_crit_temp", crit_T);
   ppp.getarr("fuel_boil_temp", boil_T);
   ppp.getarr("fuel_latent", latent);
   ppp.getarr("fuel_cp", spraycp);
+  ppp.queryarr("fuel_sigma", sigma);
   for (int i = 0; i != nfuel; ++i) {
     sprayFuelNames[i] = fuel_names[i];
     sprayCritT[i] = crit_T[i];
     sprayBoilT[i] = boil_T[i];
     sprayLatent[i] = latent[i];
+    spraySigma[i] = sigma[i];
     sprayCp[i] = spraycp[i];
   }
 
@@ -322,6 +327,25 @@ PeleLM::removeGhostParticles()
 }
 
 /**
+ * Create new particle data
+ **/
+void
+PeleLM::createParticleData()
+{
+  SprayPC = new SprayParticleContainer(parent, &phys_bc, parcelSize);
+  theSprayPC()->SetVerbose(particle_verbose);
+  VirtPC = new SprayParticleContainer(parent, &phys_bc, parcelSize);
+  GhostPC = new SprayParticleContainer(parent, &phys_bc, parcelSize);
+  // Pass constant reference data and memory allocations to GPU
+  theSprayPC()->buildFuelData(sprayCritT, sprayBoilT, sprayCp, sprayLatent,
+                              spraySigma, sprayIndxMap, sprayRefT, scomps);
+  theGhostPC()->buildFuelData(sprayCritT, sprayBoilT, sprayCp, sprayLatent,
+                              spraySigma, sprayIndxMap, sprayRefT, scomps);
+  theVirtPC()->buildFuelData(sprayCritT, sprayBoilT, sprayCp, sprayLatent,
+                             spraySigma, sprayIndxMap, sprayRefT, scomps);
+}
+
+/**
  * Initialize the particles on the grid at level 0
  **/
 void
@@ -339,18 +363,7 @@ PeleLM::initParticles()
 
   if (do_spray_particles) {
     if (theSprayPC() == 0) {
-
-      SprayPC = new SprayParticleContainer(parent, &phys_bc, parcelSize);
-      theSprayPC()->SetVerbose(particle_verbose);
-      VirtPC = new SprayParticleContainer(parent, &phys_bc, parcelSize);
-      GhostPC = new SprayParticleContainer(parent, &phys_bc, parcelSize);
-      // Pass constant reference data and memory allocations to GPU
-      theSprayPC()->buildFuelData(
-        sprayCritT, sprayBoilT, sprayCp, sprayLatent, sprayIndxMap, sprayRefT, scomps);
-      theGhostPC()->buildFuelData(
-        sprayCritT, sprayBoilT, sprayCp, sprayLatent, sprayIndxMap, sprayRefT, scomps);
-      theVirtPC()->buildFuelData(
-        sprayCritT, sprayBoilT, sprayCp, sprayLatent, sprayIndxMap, sprayRefT, scomps);
+      createParticleData();
     }
 
     if (!particle_init_file.empty()) {
@@ -373,20 +386,7 @@ PeleLM::particlePostRestart(const std::string& restart_file, bool is_checkpoint)
 
   if (do_spray_particles) {
     AMREX_ASSERT(SprayPC == 0);
-
-    SprayPC = new SprayParticleContainer(parent, &phys_bc, parcelSize);
-    theSprayPC()->SetVerbose(particle_verbose);
-    theSprayPC()->buildFuelData(
-      sprayCritT, sprayBoilT, sprayCp, sprayLatent, sprayIndxMap, sprayRefT, scomps);
-
-    if (parent->subCycle()) {
-      VirtPC = new SprayParticleContainer(parent, &phys_bc, parcelSize);
-      GhostPC = new SprayParticleContainer(parent, &phys_bc, parcelSize);
-      theGhostPC()->buildFuelData(
-        sprayCritT, sprayBoilT, sprayCp, sprayLatent, sprayIndxMap, sprayRefT, scomps);
-      theVirtPC()->buildFuelData(
-        sprayCritT, sprayBoilT, sprayCp, sprayLatent, sprayIndxMap, sprayRefT, scomps);
-    }
+    createParticleData();
 
     //
     // Make sure to call RemoveParticlesOnExit() on exit.
@@ -679,7 +679,7 @@ PeleLM::init_advance_particles (Real dt,
   // We must make a temporary spray source term to ensure number of ghost
   // cells are correct
   if (level < parent->finestLevel()) {
-    setupGhostParticles(1);
+    setupGhostParticles(2);
     setupVirtualParticles();
   }
   MultiFab tmp_spray_source(

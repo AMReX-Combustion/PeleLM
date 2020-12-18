@@ -191,6 +191,10 @@ public:
   //
   void initParticles();
   //
+  // Create relevant particle data
+  //
+  void createParticleData();
+  //
   // Timestamp particles
   //
   void particleTimestamp(int ngrow);

@@ -490,6 +490,8 @@ PeleLM::Initialize ()
 
 #ifdef AMREX_PARTICLES
   readParticleParams();
+  if (closed_chamber && do_spray_particles)
+    amrex::Abort("Spray particles currently do not work with closed chambers");
 #endif
 
   if (verbose)
@@ -2886,8 +2888,12 @@ PeleLM::resetState (Real time,
      removeVirtualParticles();
      removeGhostParticles();
      if (level == 0) {
-       theSprayPC()->RemoveParticlesAtLevel(level);
-       initParticles();
+       for (int lev = 0; lev <= parent->finestLevel(); lev++) {
+         theSprayPC()->RemoveParticlesAtLevel(lev);
+       }
+       if (parent->theRestartFile().empty())
+         initParticles();
+       else particlePostRestart(parent->theRestartFile());
      } else {
        particle_redistribute(level - 1);
      }
