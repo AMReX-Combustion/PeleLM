@@ -3227,6 +3227,7 @@ PeleLM::diffuse_scalar_fj  (const Vector<MultiFab*>&  S_old,
 
 void
 PeleLM::differential_diffusion_update (MultiFab& Force,
+                                       MultiFab& Dwbar,
                                        int       FComp,
                                        MultiFab& Dnew,
                                        int       DComp,
@@ -3378,6 +3379,7 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
    adjust_spec_diffusion_fluxes(SpecDiffusionFluxnp1,get_new_data(State_Type),
                                 Tbc,curr_time);
 
+   // Compute Dnp1kp1 (here called Dnew)
    flux_divergence(Dnew,DComp,SpecDiffusionFluxnp1,0,NUM_SPECIES,-1);
 
 #ifdef _OPENMP
@@ -3390,10 +3392,15 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
       auto const& rhoY_new = Snp1[0]->array(mfi,first_spec);
       auto const& force    = Force.array(mfi);
       auto const& dnp1kp1  = Dnew.array(mfi);
-      amrex::ParallelFor(bx, NUM_SPECIES, [ rhoY_old, rhoY_new, force, dnp1kp1, dt]
+      int use_wbar_lcl     = use_wbar;
+      auto const& dwbar    = (use_wbar) ? Dwbar.array(mfi) : Dnew.array(mfi); 
+      amrex::ParallelFor(bx, NUM_SPECIES, [ rhoY_old, rhoY_new, force, dnp1kp1, dwbar, dt, use_wbar_lcl]
       AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
       {
           rhoY_new(i,j,k,n) = rhoY_old(i,j,k,n) + dt * ( force(i,j,k,n) + dnp1kp1(i,j,k,n) );
+          if ( use_wbar_lcl ) {  // We remove the dwbar term since it was included in both force (in PeleLM::advance) and in the fluxes (above)
+             rhoY_new(i,j,k,n) -= dt * dwbar(i,j,k,n);
+          }
       });
    }
 
@@ -4183,6 +4190,7 @@ PeleLM::compute_differential_diffusion_fluxes (const MultiFab& S,
          op.setScalars(a,b);
       }
 
+      // Set beta as \rho D_m
       Diffusion::setBeta(op,beta,betaComp+icomp);
 
       // No multiplication by dt here.
@@ -4192,6 +4200,7 @@ PeleLM::compute_differential_diffusion_fluxes (const MultiFab& S,
    Soln.clear();
 
    if (use_wbar && include_Wbar_fluxes) {
+      // Total flux : - \rho D_m \nabla Y_m (above) - \rho D_m Y_m / \overline{W} \nabla \overline{W} (below)
       compute_Wbar_fluxes(time,0,1.0);
       for (int d=0; d<AMREX_SPACEDIM; ++d) {
          MultiFab::Add(*flux[d],*SpecDiffusionFluxWbar[d],0,fluxComp,NUM_SPECIES,0);
@@ -4461,9 +4470,6 @@ PeleLM::compute_differential_diffusion_terms (MultiFab& D,
    const TimeLevel whichTime = which_time(State_Type,time);
    AMREX_ASSERT(whichTime == AmrOldTime || whichTime == AmrNewTime);
    MultiFab* const * flux = (whichTime == AmrOldTime) ? SpecDiffusionFluxn : SpecDiffusionFluxnp1;
-   if (use_wbar) {
-      MultiFab* const * fluxWbar = SpecDiffusionFluxWbar;
-   }
 
    //
    // Compute/adjust species fluxes/heat flux/conduction, save in class data
@@ -5256,7 +5262,8 @@ PeleLM::advance (Real time,
 
     // Get the Wbar term is required
     if (use_wbar) {
-       // Compute Wbar fluxes from state np1k (lagged), add divergence to RHS
+       // Compute Wbar fluxes from state np1k (lagged)
+       // Compute DWbar term: - \nabla \cdot \Gamma_{\overline{W}_m}
        // They will be added to the Fnp1kp1 directly in diff_diff_update()
        const Real  cur_time  = state[State_Type].curTime();
        compute_Wbar_fluxes(cur_time,0,1.0);
@@ -5314,7 +5321,7 @@ PeleLM::advance (Real time,
     EB_set_covered(Forcing,0.);
 #endif
 
-    differential_diffusion_update(Forcing,0,Dhat,0,DDhat);
+    differential_diffusion_update(Forcing,DWbar,0,Dhat,0,DDhat);
     BL_PROFILE_VAR_STOP(PLM_DIFF);
     // Close Scalar diffusion TPROF
     //==================================== 
@@ -7356,7 +7363,7 @@ PeleLM::compute_Wbar_fluxes(Real time,
 
    // Define Wbar
    MultiFab Wbar;
-   Wbar.define(grids,dmap,1,nGrowOp);
+   Wbar.define(grids,dmap,1,nGrowOp,MFInfo(),Factory());
 
    // Get fillpatched rho and rhoY
    FillPatchIterator fpi(*this,Wbar,nGrowOp,time,State_Type,Density,NUM_SPECIES+1);
@@ -7456,8 +7463,7 @@ PeleLM::compute_Wbar_fluxes(Real time,
    FluxBoxes fb_flux(this,1,0);
    MultiFab** gradWbar = fb_flux.get();
 
-   std::array<MultiFab*,AMREX_SPACEDIM> fp{AMREX_D_DECL(gradWbar[0],gradWbar[1],gradWbar[2])};
-   mg.getFluxes({fp},{&Wbar},MLLinOp::Location::FaceCentroid);
+   Diffusion::computeExtensiveFluxes(mg,Wbar,gradWbar,0, 1, &geom, -1.0);
 
    Vector<BCRec> math_bc(1);
    math_bc = fetchBCArray(State_Type,first_spec,1);
@@ -7498,6 +7504,8 @@ PeleLM::compute_Wbar_fluxes(Real time,
          auto const& beta_ar     = beta[d]->array(mfi);
          auto const& wbarFlux    = SpecDiffusionFluxWbar[d]->array(mfi);
 
+         // Wbar flux is : - \rho Y_m / \overline{W} * D_m * \nabla \overline{W}
+         // with beta_m = \rho * D_m below
          if ( increment_flag == 0 ) {                 // Overwrite wbar fluxes
             amrex::ParallelFor(ebx, [gradWbar_ar, beta_ar, rhoY, wbarFlux]
             AMREX_GPU_DEVICE (int i, int j, int k) noexcept
@@ -7515,6 +7523,7 @@ PeleLM::compute_Wbar_fluxes(Real time,
                }
                amrex::Real Wbar;
                EOS::Y2WBAR(y, Wbar);
+               Wbar *= 0.001;
                for (int n = 0; n < NUM_SPECIES; n++) {
                   wbarFlux(i,j,k,n) = - y[n] / Wbar * beta_ar(i,j,k,n) * gradWbar_ar(i,j,k);
                }   
@@ -7536,6 +7545,7 @@ PeleLM::compute_Wbar_fluxes(Real time,
                }
                amrex::Real Wbar;
                EOS::Y2WBAR(y, Wbar);
+               Wbar *= 0.001;
                for (int n = 0; n < NUM_SPECIES; n++) {
                   wbarFlux(i,j,k,n) -= increment_coeff * y[n] / Wbar * beta_ar(i,j,k,n) * gradWbar_ar(i,j,k);
                }   
