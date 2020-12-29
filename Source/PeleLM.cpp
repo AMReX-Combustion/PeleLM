@@ -176,14 +176,6 @@ int  PeleLM::reset_typical_vals_int=-1;
 Real PeleLM::typical_Y_val_min=1.e-10;
 std::map<std::string,Real> PeleLM::typical_values_FileVals;
 
-#ifdef AMREX_PARTICLES
-int PeleLM::pstateVel = -1;
-int PeleLM::pstateT = -1;
-int PeleLM::pstateDia = -1;
-int PeleLM::pstateRho = -1;
-int PeleLM::pstateY = -1;
-int PeleLM::pstateNum = 0;
-#endif
 std::unique_ptr<ProbParm> PeleLM::prob_parm;
 std::unique_ptr<ACParm> PeleLM::ac_parm;
 

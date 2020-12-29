@@ -728,13 +728,6 @@ PeleLM::variableSetUp ()
   derive_lst.add(curv_str,IndexType::TheCellType(),1,&DeriveRec::GrowBoxByOne);
     
 #ifdef AMREX_PARTICLES
-  // Set index locations for particle state vector
-  pstateVel = 0;
-  pstateT = pstateVel + AMREX_SPACEDIM;
-  pstateDia = pstateT + 1;
-  pstateRho = pstateDia + 1;
-  pstateY = pstateRho + 1;
-  pstateNum = pstateY + SPRAY_FUEL_NUM;
 //   //
 //   // The particle count at this level.
 //   //

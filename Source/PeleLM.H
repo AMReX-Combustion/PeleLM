@@ -286,14 +286,6 @@ public:
   static amrex::Vector<std::string> sprayFuelNames;
   static amrex::Real sprayRefT;
 
-  /// Index locations into particle state
-  static int pstateVel;
-  static int pstateT;
-  static int pstateDia;
-  static int pstateRho;
-  static int pstateY;
-  static int pstateNum;
-
 #endif
   //
   // Contains operations to be done only after a full coarse timestep.

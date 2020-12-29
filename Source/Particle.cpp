@@ -255,11 +255,11 @@ PeleLM::defineParticles()
   scomps.heat_tran = PeleLM::particle_heat_tran;
   scomps.mass_tran = PeleLM::particle_mass_tran;
   scomps.mom_tran = PeleLM::particle_mom_tran;
-  scomps.pstateVel = PeleLM::pstateVel;
-  scomps.pstateT = PeleLM::pstateT;
-  scomps.pstateRho = PeleLM::pstateRho;
-  scomps.pstateDia = PeleLM::pstateDia;
-  scomps.pstateY = PeleLM::pstateY;
+  scomps.pstateVel = 0;
+  scomps.pstateT = AMREX_SPACEDIM;
+  scomps.pstateDia = scomps.pstateT + 1;
+  scomps.pstateRho = scomps.pstateDia + 1;
+  scomps.pstateY = scomps.pstateRho + 1;
   scomps.rhoIndx = Density;
   scomps.momIndx = Xvel;
   scomps.engIndx = DEF_RhoH;
