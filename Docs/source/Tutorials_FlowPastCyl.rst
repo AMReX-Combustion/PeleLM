@@ -76,10 +76,10 @@ In this section we review the content of the various input files for the flow pa
 
 Test case and boundary conditions
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-Direct Numerical Simulations (DNS) is performed on a 8x4 :math:`cm^2` 2D computational domain, with the bottom left corner located at (-0.02:-0.02) and the top right corner at (0.6:0.02). 
-The base grid is decomposed into 128x64 cells and up to 3 levels of refinement (although we will start with a single level).
+Direct Numerical Simulations (DNS) is performed on a 12x4 :math:`cm^2` 2D computational domain, with the bottom left corner located at (-0.02:-0.02) and the top right corner at (0.10:0.02). 
+The base grid is decomposed into 192x64 cells and up to 3 levels of refinement (although we will start with a single level).
 The refinement ratio between each level is set to 2.
-The maximum box size is fixed at 64, and the base (level 0) grid is composed of 2 boxes, 
+The maximum box size is fixed at 64, and the base (level 0) grid is composed of 3 boxes, 
 as shown in Fig :numref:`fig:FPC_NumSetup`.
 
 Periodic boundary conditions are used in the transverse (:math:`y`) direction, while ``Inflow`` (dirichlet) and ``Outflow`` (neumann) boundary conditions are used in the main flow direction (:math:`x`). The flow goes from left to right.
@@ -103,7 +103,7 @@ The geometry of the problem is specified in the first block of the ``inputs.2d-r
    geometry.is_periodic = 0 1             # Periodicity in each direction: 0 => no, 1 => yes
    geometry.coord_sys   = 0               # 0 => cart, 1 => RZ
    geometry.prob_lo     = -0.02 -0.02     # x_lo y_lo
-   geometry.prob_hi     =  0.06  0.02     # x_hi y_hi
+   geometry.prob_hi     =  0.10  0.02     # x_hi y_hi
 
 The second block determines the boundary conditions. Note that `Interior` is used to indicate periodic boundary conditions. Refer to Fig :numref:`fig:FPC_NumSetup`: ::
 
@@ -127,7 +127,7 @@ Note that the last parameter is used to specify a volume fraction (ratio of the 
 The number of levels, refinement ratio between levels, maximium grid size as well as other related refinement parameters are set under the third block  : ::
 
    #-------------------------AMR CONTROL----------------------------
-   amr.n_cell          = 128 64     # Level 0 number of cells in each direction
+   amr.n_cell          = 192 64     # Level 0 number of cells in each direction
    amr.v               = 1          # amr verbosity level
    amr.max_level       = 0          # maximum level number allowed
    amr.ref_ratio       = 2 2 2 2    # refinement ratio
@@ -150,7 +150,7 @@ Specifying dirichlet ``Inflow`` conditions in `PeleLM` can seem daunting at firs
 - ``pelelm_prob.cpp``, initialize and provide default values to the entries of ``ProbParm`` and allow the user to pass run-time value using the `AMReX` parser (``ParmParse``). In the present case, the parser will read the parameters in the ``PROBLEM PARAMETERS`` block: ::
 
     prob.type         = VortexShedding
-    prob.meanFlowMag  = 10.0
+    prob.meanFlowMag  = 5.0
   
 - finally, ``pelelm_prob.H`` contains the ``pelelm_initdata`` and ``bcnormal`` functions responsible for generating the initial and boundary conditions, respectively.
 
@@ -170,7 +170,7 @@ Using these parameters, it is possible to evaluate the Reynolds number, based on
 
 .. math::
 
-   Re = \frac{\rho U_{inf} D}{\mu} = \frac{1.175 * 10 * 0.007}{2.0e-05} = 4100 
+   Re = \frac{\rho U_{inf} D}{\mu} = \frac{1.175 * 5 * 0.007}{2.0e-05} \sim 2000 
 
 This relatively high value ensures that the flow will exhibit vortex shedding.
 
@@ -242,12 +242,13 @@ You're good to go !
 Running the problem on a coarse grid
 ----------------------------------
 
-As a first step towards obtaining the classical Von-Karman alleys, we will now let the flow establish using only the coarse base grid. The simulation will last for 20 ms.
+As a first step towards obtaining the classical Von-Karman alleys, we will now let the flow establish using only the coarse base grid. The simulation will last for 40 ms.
 
 Time-stepping parameters in ``input.2d-regt`` are specified in the ``TIME STEPING CONTROL`` block: ::
 
     #----------------------TIME STEPING CONTROL----------------------
-    stop_time      = 0.02            # final physical time
+    max_step       = 300000          # Maximum number of time steps
+    stop_time      = 0.04            # final physical time
     ns.cfl         = 0.3             # cfl number for hyperbolic system
     ns.init_shrink = 1.0             # scale back initial timestep
     ns.change_max  = 1.1             # max timestep size increase
@@ -262,14 +263,14 @@ Input/output from `PeleLM` are specified in the ``IO CONTROL`` block: ::
     #-------------------------IO CONTROL----------------------------
     amr.checkpoint_files_output = 1   # Dump check file ? 0: no, 1: yes
     amr.check_file      = chk_        # root name of checkpoint file
-    amr.check_per       = 0.02        # frequency of checkpoints
+    amr.check_per       = 0.04        # frequency of checkpoints
     amr.plot_file       = plt_        # root name of plotfiles   
-    amr.plot_per        = 0.001       # frequency of plotfiles
+    amr.plot_per        = 0.002       # frequency of plotfiles
     amr.derive_plot_vars=rhoRT mag_vort avg_pressure gradpx gradpy
     amr.grid_log        = grdlog      # name of grid logging file
 
 Information pertaining to the checkpoint and plot_file files name and output frequency can be specified there.
-We have specified here that a checkpoint file will be generated every 20 ms and a plotfile every 1 ms. `PeleLM` will always generate an initial plotfile ``plt_00000`` if the initialization is properly completed, and a final plotfile at the end of the simulation. It is possible to request including `derived variables` in the plotfiles by appending their names to the ``amr.derive_plot_vars`` keyword. These variables are derived from the `state variables` (velocity, density, temperature, :math:`\rho Y_k`, :math:`\rho h`) which are automatically included in the plotfile.
+We have specified here that a checkpoint file will be generated every 40 ms and a plotfile every 2 ms. `PeleLM` will always generate an initial plotfile ``plt_00000`` if the initialization is properly completed, and a final plotfile at the end of the simulation. It is possible to request including `derived variables` in the plotfiles by appending their names to the ``amr.derive_plot_vars`` keyword. These variables are derived from the `state variables` (velocity, density, temperature, :math:`\rho Y_k`, :math:`\rho h`) which are automatically included in the plotfile.
 
 You finally have all the information necessary to run the first of several steps. Type in: ::
 
@@ -284,22 +285,22 @@ Whether you have used one or the other command, the computation finishes within 
    amrvis -a plt_?????
 
 
-.. |b| image:: ./Visualization/FPC_Coarse_20ms.png
+.. |b| image:: ./Visualization/FPC_Coarse_40ms.png
      :width: 100%
 
 .. _fig:FPC_Coarse:
 
-.. table:: Contour plots of velocity components, vorticity, pressure and volume fraction at t = 20 ms on the coarse grid.
+.. table:: Contour plots of velocity components, vorticity, pressure and volume fraction at t = 40 ms on the coarse grid.
      :align: center
 
      +-----+
      | |b| |
      +-----+
 
-At this point, you have established a flow with a small recirculation zone in the wake of the cylinder, but the flow has not yet fully transitioned to periodic vortex shedding.
-The flow is depicted in Fig :numref:`fig:FPC_Coarse` showing a few of the available contour plots at 20 ms. Note that the value of the fully covered cells is set to zero.
+At this point, you have established a flow with a recirculation zone in the wake of the cylinder, but the flow has not yet fully transitioned to periodic vortex shedding.
+The flow is depicted in Fig :numref:`fig:FPC_Coarse` showing a few of the available contour plots at 40 ms. Note that the value of the fully covered cells is set to zero.
 
-Two aspects of the current simulation can delay or even prevent the onset of vortex shedding:
+As can be seen from Fig :numref:`fig:FPC_Coarse`, the flow has not yet transitioned to the familiar Von-Karman alleys and two aspects of the current simulation can delay or even prevent the onset of vortex shedding:
 
  - the flow is initially symmetric and the transition to the familiar periodic flow is due to the growth of infinitesimal perturbations in the shear layer of the wake. Because the flow is artificially too symmetric, this transition can be delayed until round-off errors sufficiently accumulate.
  - the numerical dissipation introduced by this coarse grid results in an effective Reynolds number probably significantly lower than the value estimated above.
@@ -327,15 +328,16 @@ Then provide a definition of the new refinement critera in the ``REFINEMENT CONT
     ns.refine_cutcells            = 1 
 
 The first line simply declares a set of refinement indicators which are subsequently defined. For each indicator, the user can provide a limit up to which AMR level this indicator will be used to refine. Then there are multiple possibilities to specify the actual criterion: ``value_greater``, ``value_less``, ``vorticity_greater`` or ``adjacent_difference_greater``. In each case, the user specify a threshold value and the name of variable on which it applies (except for the ``vorticity_greater``).
-In the example above, the grid is refined up to level 2 at the location where the vorticity magnitude is above 1000 :math:`s^{-1}` as well as on the cut cells (where the cylinder intersect with the edges of cell). 
+In the example above, the grid is refined up to level 1 at the location where the vorticity magnitude is above 1000 :math:`s^{-1}` as well as on the cut cells (where the cylinder intersect with the edges of cell). 
 
 With these new parameters, specify the `checkpoint` file from which to restart by adding the following line to the ``IO CONTROL`` block: ::
 
-    amr.restart           = chk_02038 # Restart from checkpoint ?
+    amr.restart             = chk_01702 # Restart from checkpoint ?
+    amr.regrid_on_restart   = 1
 
-, increase the `stop_time` to 40 ms in the ``TIME STEPING CONTROL`` block: ::
+, increase the `stop_time` to 60 ms in the ``TIME STEPING CONTROL`` block: ::
 
-    stop_time      = 0.04            # final physical time
+    stop_time      = 0.06            # final physical time
 
 and start the simulation again ! ::
 
