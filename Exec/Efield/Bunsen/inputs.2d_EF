@@ -14,7 +14,7 @@ peleLM.hi_bc = Outflow  Outflow
 
 #----------------------------TOP LEVEL INPUTS----------------------
 max_step  =  13906
-max_step  =  20000
+max_step  =  30000
 stop_time = 4.00
 
 #-------------------------AMR INPUTS----------------------------
@@ -38,7 +38,7 @@ amr.blocking_factor = 16      # block factor in grid generation
 amr.checkpoint_files_output = 1
 amr.check_file      = chkEF     # root name of checkpoint file
 amr.check_int       = 100       # number of timesteps between checkpoints
-amr.restart         = chkEF13990
+amr.restart         = chkEF22600
 
 amr.plot_file       = pltEF
 amr.plot_int        = 20
@@ -82,7 +82,7 @@ amr.gradT.field_name = temp
 ns.dt_cutoff       = 1.e-11   # level 0 timestep below which we halt
 ns.visc_tol        = 1.0e-12  # tolerence for viscous solves
 ns.visc_abs_tol    = 1.0e-12  # tolerence for viscous solves
-ns.cfl            = 0.7       # cfl number for hyperbolic system
+ns.cfl            = 0.75       # cfl number for hyperbolic system
 ns.init_shrink    = 1.0       # scale back initial timestep
 ns.init_shrink    = 0.001       # scale back initial timestep
 ns.change_max     = 1.1       # scale back initial timestep
@@ -124,17 +124,17 @@ ef.verbose = 1
 ef.debug = 0
 ef.JFNK_Substeps = 1
 ef.JFNK_maxNewton = 8
-ef.JFNK_lambda = 5.0e-8
-ef.JFNK_newtonTol = 2e-8
+ef.JFNK_lambda = 2.0e-8
+ef.JFNK_newtonTol = 1e-8
 ef.GMRES_restart_size = 20
 ef.GMRES_verbose = 2
 ef.GMRES_max_restart = 4
 ef.GMRES_rel_tol = 1.0e-6
 ef.Precond_fixedIter = 12
-#ef.Precond_MG_tol = 1.0e-7
+#ef.Precond_MG_tol = 1.0e-8
 ef.Precond_SchurApprox = 2
-ef.JFNK_difftype = 2
-ef.Poisson_tol = 1.0e-11
+ef.JFNK_difftype = 1
+ef.Poisson_tol = 1.0e-12
 ef.Poisson_verbose = 0
 ef.phiV_lo_bc = Dirichlet Neumann
 ef.phiV_hi_bc = Dirichlet Neumann

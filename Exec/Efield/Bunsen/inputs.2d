@@ -14,7 +14,7 @@ peleLM.hi_bc = Outflow  Outflow
 
 #----------------------------TOP LEVEL INPUTS----------------------
 max_step  =  10000
-max_step  =  100
+max_step  =  10000
 stop_time = 4.00
 
 #-------------------------AMR INPUTS----------------------------
@@ -24,9 +24,10 @@ amr.n_cell    = 64 128 32
 amr.n_cell    = 480 288 128
 amr.n_cell    = 128 64
 amr.n_cell    = 256 128
+#amr.n_cell    = 512 256
 
 amr.v=1
-amr.max_level =  1            # maximum level number allowed
+amr.max_level =  0            # maximum level number allowed
 amr.ref_ratio       = 2 2 2 2 # refinement ratio
 amr.regrid_int      = 2       # how often to regrid
 amr.n_error_buf     = 1 1 1 2 # number of buffer cells in error est
@@ -36,23 +37,24 @@ amr.blocking_factor = 16      # block factor in grid generation
 
 amr.checkpoint_files_output = 1
 amr.check_file      = chk     # root name of checkpoint file
-amr.check_int       = 10       # number of timesteps between checkpoints
+amr.check_int       = 100       # number of timesteps between checkpoints
+amr.restart         = chk03850
 
 amr.plot_file       = plt
-amr.plot_int        = 1
+amr.plot_int        = 50
 amr.derive_plot_vars= rhoRT mag_vort avg_pressure gradpx gradpy diveru mass_fractions rhominsumrhoY cpmix enthalpy efieldx efieldy chargedistrib LorentzFx LorentzFy
 
 amr.grid_log        = grdlog  # name of grid logging file
 amr.max_grid_size   = 128
 
 prob.P_mean = 101325.0
-prob.standoff = 2.95
+prob.standoff = 0.015
 prob.pertmag = 0.0000
 prob.Vin = 2.0
-prob.Vcoflow = 0.1
+prob.Vcoflow = 0.4
 prob.slot_width = 0.003
 prob.PhiV_x_hi = 0.0
-prob.pmf_datafile = "drm19_pmf.dat"
+prob.pmf_datafile = pmf_CH4Air_1p0.txt
 
 # Refinement according to a species tracer
 amr.refinement_indicators = flame_tracer gradT
@@ -76,14 +78,14 @@ amr.gradT.field_name = temp
 #amr.magvort.vorticity_greater = 300
 
 # ------------------  INPUTS TO PHYSICS CLASS -------------------
-ns.dt_cutoff       = 5.e-10   # level 0 timestep below which we halt
+ns.dt_cutoff       = 1.e-10   # level 0 timestep below which we halt
 ns.visc_tol        = 1.0e-12  # tolerence for viscous solves
 ns.visc_abs_tol    = 1.0e-12  # tolerence for viscous solves
-ns.cfl            = 0.1       # cfl number for hyperbolic system
+ns.cfl            = 0.12       # cfl number for hyperbolic system
 ns.init_shrink    = 1.0       # scale back initial timestep
 ns.init_shrink    = 0.001       # scale back initial timestep
 ns.change_max     = 1.1       # scale back initial timestep
-ns.init_iter      = 0        # number of init iters to def pressure
+ns.init_iter      = 2        # number of init iters to def pressure
 ns.gravity        = 0        # body force  (gravity in MKS units)
 ns.sum_interval   = 1        # timesteps between computing mass
 ns.do_reflux      = 1        # 1 => do refluxing
@@ -104,13 +106,16 @@ ns.do_reflux_visc  = 1
 ns.divu_ceiling = 1
 ns.divu_dt_factor = .4
 ns.min_rho_divu_ceiling = .01
+ns.sdc_iterMAX = 1
+peleLM.deltaT_verbose = 1
+peleLM.num_deltaT_iters_MAX = 20
 
-ns.fuelName        = H2
+ns.fuelName        = CH4
 ns.unity_Le = 0
 
 ns.do_fillPatchUMAC=1
 ns.zeroBndryVisc=1
-ns.num_divu_iters =0
+ns.num_divu_iters =2
 
 # -----------------------  INPUTS TO EFIELD  -------------------------
 ef.verbose = 1
@@ -131,8 +136,8 @@ ef.phiV_hi_bc = Dirichlet Neumann
 
 # ------------------  INPUTS TO CVODE CHEMISTRY ----------------------
 #peleLM.use_typ_vals_chem = 1
-#peleLM.relative_tol_chem = 1.0e-8
-#peleLM.absolute_tol_chem = 1.0e-6
+peleLM.relative_tol_chem = 1.0e-10
+peleLM.absolute_tol_chem = 1.0e-10
 cvode.solve_type = dense
 ode.analytical_jacobian = 0
 
