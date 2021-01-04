@@ -135,7 +135,7 @@
                     amrex::MultiFab**  a_gphiV);
 
 // Electron diffusion term
-   void compElecDiffusion(amrex::MultiFab    &a_nE,
+   void compElecDiffusion(const amrex::MultiFab    &a_nE,
                           amrex::MultiFab    &elecDiff);
 
 // Electron diffusion term

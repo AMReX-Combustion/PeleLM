@@ -434,8 +434,8 @@ void PeleLM::ef_solve_PNP(      int      misdc,
       // Set up the NL state scaling
       nE_scale = (nl_state.norm0(0) > 1.0e-12) ? nl_state.norm0(0) : 1.0;
       phiV_scale = (nl_state.norm0(1) > 1.0e-6 ) ? nl_state.norm0(1) : 1.0;
-      nl_state.mult(1.0/nE_scale,0,1);
-      nl_state.mult(1.0/phiV_scale,1,1);
+      nl_state.mult(1.0/nE_scale,0,1,2);
+      nl_state.mult(1.0/phiV_scale,1,1,2);
       if ( ef_verbose ) {
          amrex::Print() << "(" << sstep << ") ne scaling: " << nE_scale << "\n";
          amrex::Print() << "(" << sstep << ") phiV scaling: " << phiV_scale << "\n";
@@ -451,7 +451,7 @@ void PeleLM::ef_solve_PNP(      int      misdc,
 
       // Initial NL residual: update residual scaling and preconditioner
       ef_nlResidual( dtsub, nl_state, nl_resid, true, true );
-      nl_resid.mult(-1.0);
+      nl_resid.mult(-1.0,0,2,2);
       ef_normMF(nl_resid,nl_residNorm);
       if ( ef_debug ) VisMF::Write(nl_resid,"NLResInit_Lvl"+std::to_string(level));
 
@@ -493,8 +493,9 @@ void PeleLM::ef_solve_PNP(      int      misdc,
          nl_state.plus(newtonDir,0,2,0);
          ef_normMF(nl_state,nl_stateNorm);
          ef_nlResidual( dtsub, nl_state, nl_resid, false, true );
-         nl_resid.mult(-1.0);
+         nl_resid.mult(-1.0,0,2,2);
          if ( ef_debug ) VisMF::Write(nl_resid,"NLRes_NewtIte"+std::to_string(NK_ite)+"_Lvl"+std::to_string(level));
+         if ( ef_debug ) VisMF::Write(nl_state,"NLState_NewtIte"+std::to_string(NK_ite)+"_Lvl"+std::to_string(level));
          ef_normMF(nl_resid,nl_residNorm);
          max_nlres = std::max(nl_resid.norm0(0),nl_resid.norm0(1));
 
@@ -567,8 +568,7 @@ void PeleLM::ef_solve_PNP(      int      misdc,
                     << mn << " ... " << mx << "]\n";
    }
 
-//   if ( level == 2 ) Abort("Stop right there");
-
+//   if ( level == 2 ) Abort("Stop right there");  
 }
 
 int PeleLM::testExitNewton(const MultiFab  &res,
@@ -599,8 +599,8 @@ void PeleLM::newtonInitialGuess(const Real      &dt_lcl,
    // Get the unscaled non-linear state
    MultiFab nl_state_usc(grids,dmap,2,2);
    MultiFab::Copy(nl_state_usc, a_nl_state, 0, 0, 2, 2);
-   nl_state_usc.mult(nE_scale,0,1);
-   nl_state_usc.mult(phiV_scale,1,1);
+   nl_state_usc.mult(nE_scale,0,1,2);
+   nl_state_usc.mult(phiV_scale,1,1,2);
 
    // Get aliases to make it easier
    MultiFab nE_usc(nl_state_usc,amrex::make_alias,0,1);
@@ -663,8 +663,8 @@ void PeleLM::ef_nlResidual(const Real      &dt_lcl,
    // Get the unscaled non-linear state
    MultiFab nl_state_usc(grids,dmap,2,2);
    MultiFab::Copy(nl_state_usc, a_nl_state, 0, 0, 2, 2);
-   nl_state_usc.mult(nE_scale,0,1);
-   nl_state_usc.mult(phiV_scale,1,1);
+   nl_state_usc.mult(nE_scale,0,1,1);
+   nl_state_usc.mult(phiV_scale,1,1,1);
 
    // Get aliases to make it easier
    MultiFab nE_a(nl_state_usc,amrex::make_alias,0,1);
@@ -727,8 +727,8 @@ void PeleLM::ef_nlResidual(const Real      &dt_lcl,
       }
    }
 
-   a_nl_resid.mult(1.0/FnE_scale,0,1);
-   a_nl_resid.mult(1.0/FphiV_scale,1,1);
+   a_nl_resid.mult(1.0/FnE_scale,0,1,1);
+   a_nl_resid.mult(1.0/FphiV_scale,1,1,1);
 
    // Update the preconditioner
    if ( update_precond && !ef_use_PETSC_direct ) {
@@ -773,7 +773,7 @@ void PeleLM::compPhiVLap(MultiFab& phi,
    solver.getFluxes({fp},{&phi});
 }
 
-void PeleLM::compElecDiffusion(MultiFab& a_ne,
+void PeleLM::compElecDiffusion(const MultiFab& a_ne,
                                MultiFab& elecDiff)
 {
    // Set-up Poisson operator
@@ -806,16 +806,19 @@ void PeleLM::compElecDiffusion(MultiFab& a_ne,
    ne_lapl.setBCoeffs(0, bcoeffs);
 
    // LinearSolver to get divergence
+   // Need a copy of ne since the linear operator touch the ghost cells
+   MultiFab neOp(grids,dmap,1,2); 
+   MultiFab::Copy(neOp,a_ne,0,0,1,2);
    MLMG solver(ne_lapl);
-   solver.apply({&elecDiff},{&a_ne});
+   solver.apply({&elecDiff},{&neOp});
 
    elecDiff.mult(-1.0);
 
 // TODO: will need the flux
-   FluxBoxes fluxb(this, 1, 0);
-   MultiFab** ne_DiffFlux = fluxb.get();
-   Array<MultiFab*,AMREX_SPACEDIM> fp{D_DECL(ne_DiffFlux[0],ne_DiffFlux[1],ne_DiffFlux[2])};
-   solver.getFluxes({fp},{&a_ne});
+//   FluxBoxes fluxb(this, 1, 0);
+//   MultiFab** ne_DiffFlux = fluxb.get();
+//   Array<MultiFab*,AMREX_SPACEDIM> fp{D_DECL(ne_DiffFlux[0],ne_DiffFlux[1],ne_DiffFlux[2])};
+//   solver.getFluxes({fp},{&a_ne});
 //   if ( ef_debug ) VisMF::Write(*ne_DiffFlux[0],"NLRes_nEDiffFlux_"+std::to_string(level));
 //   if ( ef_debug ) VisMF::Write(*ne_DiffFlux[1],"NLRes_nEDiffFlux_"+std::to_string(level));
 }
@@ -976,7 +979,7 @@ void PeleLM::ef_setUpPrecond (const Real &dt_lcl,
    // Set diff/drift operator
    {
       pnp_pc_diff->setScalars(-nE_scale/FnE_scale, -dt_lcl*nE_scale/FnE_scale, dt_lcl*nE_scale/FnE_scale);
-      Real omega = 1.0;
+      Real omega = 0.7;
       pnp_pc_diff->setRelaxation(omega);
       pnp_pc_diff->setACoeffs(0, 1.0);
       std::array<const MultiFab*,AMREX_SPACEDIM> bcoeffs{AMREX_D_DECL(De_ec[0],De_ec[1],De_ec[2])};
@@ -1073,6 +1076,7 @@ void PeleLM::ef_setUpPrecond (const Real &dt_lcl,
          pnp_pc_drift->setBCoeffs(0, bcoeffs);
       }
       if ( ef_debug ) {
+         VisMF::Write(nEKe,"PC_Drift_nEKe_CC_lvl"+std::to_string(level));
          VisMF::Write(*neKe_ec[0],"PC_Drift_nEKe_edgeX_lvl"+std::to_string(level));
          VisMF::Write(*neKe_ec[1],"PC_Drift_nEKe_edgeY_lvl"+std::to_string(level));
       }
@@ -1309,6 +1313,9 @@ void PeleLM::ef_calcUDriftSpec(const Real &time,
          });
       }
    }
+   if ( ef_debug ) {
+      VisMF::Write(KSpec_half,"KSpecCC_lvl"+std::to_string(level));
+   }
 
    // CC -> EC
    FluxBoxes fb(this, NUM_SPECIES, 0);
@@ -1337,6 +1344,11 @@ void PeleLM::ef_calcUDriftSpec(const Real &time,
             bool on_hi = ( ( bc_hi == HT_Edge ) && ( idx[dir] >= edomain.bigEnd(dir) ) );
             cen2edg_cpp( i, j, k, dir, NUM_SPECIES, use_harmonic_avg, on_lo, on_hi, Ksp_h, Ksp_ec);
          });
+      }
+   }
+   if ( ef_debug ) {
+      for (int d = 0; d < AMREX_SPACEDIM; ++d) {
+         VisMF::Write(*KSpec_ec[d],"KSpecEC_Dir"+std::to_string(d)+"_lvl"+std::to_string(level));
       }
    }
 
