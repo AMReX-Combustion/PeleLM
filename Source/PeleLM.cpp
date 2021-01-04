@@ -5425,7 +5425,7 @@ PeleLM::advance (Real time,
    //====================================
 
 #ifdef AMREX_PARTICLES
-   if (theNSPC() != 0)
+   if (theNSPC() != 0 && !initial_step)
    {
       theNSPC()->AdvectWithUmac(u_mac, level, dt);
    }
