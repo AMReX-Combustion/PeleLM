@@ -13,8 +13,8 @@ peleLM.lo_bc = Interior  Inflow
 peleLM.hi_bc = Interior  Outflow
 
 #----------------------------TOP LEVEL INPUTS----------------------
-max_step  =  10000
-max_step  =  1
+max_step  =  500
+#max_step  =  1
 stop_time = 4.00
 
 #-------------------------AMR INPUTS----------------------------
@@ -34,10 +34,11 @@ amr.blocking_factor = 16      # block factor in grid generation
 
 amr.checkpoint_files_output = 1
 amr.check_file      = chk     # root name of checkpoint file
-amr.check_int       = 5       # number of timesteps between checkpoints
+amr.check_int       = 200       # number of timesteps between checkpoints
+amr.restart         = chk00200
 
-amr.plot_file       = plt
-amr.plot_int        = 10
+amr.plot_file       = plt_NoEF
+amr.plot_int        = 50
 amr.derive_plot_vars= rhoRT mag_vort avg_pressure gradpx gradpy diveru mass_fractions rhominsumrhoY cpmix enthalpy efieldx efieldy chargedistrib LorentzFx LorentzFy
 
 amr.grid_log        = grdlog  # name of grid logging file
@@ -47,7 +48,7 @@ prob.P_mean = 101325.0
 prob.standoff = -.01
 prob.pertmag = -0.0004
 prob.Vin = -1.0
-prob.PhiV_y_hi = 100.0
+prob.PhiV_y_hi = 1000.0
 prob.pmf_datafile = "pmf_CH4Air_1p0.txt"
 
 # Refinement according to a species tracer
@@ -72,7 +73,7 @@ amr.gradT.field_name = temp
 #amr.magvort.vorticity_greater = 300
 
 # ------------------  INPUTS TO PHYSICS CLASS -------------------
-ns.dt_cutoff       = 1.e-10   # level 0 timestep below which we halt
+ns.dt_cutoff       = 1.e-11   # level 0 timestep below which we halt
 ns.visc_tol        = 1.0e-12  # tolerence for viscous solves
 ns.visc_abs_tol    = 1.0e-12  # tolerence for viscous solves
 ns.cfl            = 0.5       # cfl number for hyperbolic system
@@ -116,17 +117,22 @@ ef.JFNK_Substeps = 1
 ef.JFNK_maxNewton = 5
 ef.JFNK_lambda = 1.0e-6
 ef.GMRES_restart_size = 20
-ef.GMRES_verbose = 2
+ef.GMRES_verbose = 0
 ef.GMRES_max_restart = 4
 ef.GMRES_rel_tol = 1.0e-7
 ef.Precond_fixedIter = 10
 #ef.Precond_MG_tol = 1.0e-8
-ef.Precond_StildaApprox = 2
+ef.Precond_SchurApprox = 2
 ef.JFNK_difftype = 1
 ef.Poisson_tol = 1.0e-10
 ef.Poisson_verbose = 0
 ef.phiV_lo_bc = Interior Dirichlet
 ef.phiV_hi_bc = Interior Dirichlet
+ef.phiV_polarity_lo = Neutral Cathode   
+ef.phiV_polarity_hi = Neutral Anode 
+
+#ef.restart_nonEF = 1
+#ef.restart_plt = plt_NoEF00050
 
 # ------------------  INPUTS TO CVODE CHEMISTRY ----------------------
 #peleLM.use_typ_vals_chem = 1
