@@ -5583,6 +5583,13 @@ PeleLM::advance (Real time,
    BL_PROFILE_VAR_STOP(PLM_PROJ);
    //====================================
 
+#ifdef AMREX_PARTICLES
+   if (theNSPC() != 0 && !initial_step)
+   {
+      theNSPC()->AdvectWithUmac(u_mac, level, dt);
+   }
+#endif
+
    //====================================
    BL_PROFILE_VAR("PeleLM::advance::cleanup", PLM_CLEANUP);
    advance_cleanup(iteration,ncycle);
