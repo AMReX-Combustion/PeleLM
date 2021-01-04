@@ -64,7 +64,14 @@ reactionRateRhoY(int i, int j, int k,
 {
    using namespace amrex::literals;
 
-   // Get rho from rhoY. Is there a better way ?
+   // mask < 0 is EB covered cells: no reactions.
+   if ( mask(i,j,k) < 0 ) {
+      for (int n = 0; n < NUM_SPECIES; n++) {
+         rhoYdot(i,j,k,n) = 0.0;
+      }
+   }
+
+   // Get rho & Ys from rhoYs.
    amrex::Real rho = 0.0_rt;
    amrex::Real rhoinv;
    for (int n = 0; n < NUM_SPECIES; n++) {
@@ -76,12 +83,12 @@ reactionRateRhoY(int i, int j, int k,
       y[n] = rhoY(i,j,k,n) * rhoinv;
    }
 
-   // Get T from Y/H. Was done like that before.
+   // Get T from Y/H.
    amrex::Real Tloc = T(i,j,k);
    amrex::Real H = rhoH(i,j,k) * rhoinv * 1.0e4_rt;      // Include MKS -> CGS conversion
    EOS::HY2T(H, y, Tloc);
 
-   // Get wdot. Don't like the temporary wdot there ...
+   // Get wdot.
    rho = rho * 0.001_rt;                                 // rho MKS -> CGS
    amrex::Real wdot[NUM_SPECIES];
    EOS::RTY2WDOT(rho, Tloc, y, wdot);
@@ -769,7 +776,7 @@ est_divu_dt_1(int i, int j, int k,
               int                                          const& step_type,
               amrex::Real                                  const& dtfactor,
               amrex::Real                                  const& rhomin,
-              amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> const dxinv,
+              amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> const /*dxinv*/,
               amrex::Array4<const amrex::Real>             const& rho,
               amrex::Array4<const amrex::Real>             const& divu) noexcept
 {
@@ -777,7 +784,6 @@ est_divu_dt_1(int i, int j, int k,
    AMREX_ASSERT(step_type==1); 
 
    amrex::Real dtcell = 1.0e20_rt;
-   amrex::Real denom  = 0.0_rt;
    bool rho_is_okay = (rho(i,j,k) > rhomin);
 
    if ( divu(i,j,k) > 0.0_rt ) {
@@ -955,11 +961,11 @@ makeForce(int i, int j, int k,
           int                                     scomp,
           int                                     ncomp,
           int                                     pseudo_gravity,
-          const amrex::Real                     & time,
+          const amrex::Real                     & /*time*/,
           const amrex::Real                     & gravity,
           const amrex::Real                     & dV_control,
-          amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> const dx,
-          amrex::Array4<const amrex::Real> const& vel,
+          amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> const /*dx*/,
+          amrex::Array4<const amrex::Real> const& /*vel*/,
           amrex::Array4<const amrex::Real> const& scal,
           amrex::Array4<      amrex::Real> const& force) noexcept
 {

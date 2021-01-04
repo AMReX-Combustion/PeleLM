@@ -225,9 +225,7 @@ public:
   void advance_chemistry (amrex::MultiFab&       mf_old,
                           amrex::MultiFab&       mf_new,
                           amrex::Real            dt,
-                          const amrex::MultiFab& Force,
-                          int             nCompF,
-                          bool            use_stiff_solver = true);
+                          const amrex::MultiFab& Force);
 
   void compute_scalar_advection_fluxes_and_divergence (const amrex::MultiFab& Force,
                                                        const amrex::MultiFab& divu,
@@ -344,8 +342,7 @@ public:
 
   void calc_dpdt (amrex::Real      time,
                   amrex::Real      dt,
-                  amrex::MultiFab& dpdt,
-                  amrex::MultiFab* u_mac);
+                  amrex::MultiFab& dpdt);
 
   void checkTimeStep (amrex::Real dt);
 

@@ -656,10 +656,10 @@ void pelelm_dcma (const Box& bx, FArrayBox& derfab, int dcomp, int ncomp,
     auto const rhoY_dot  = derfab.array(NUM_SPECIES+2);
     auto       mixt_frac = derfab.array(dcomp);
     auto       hr        = derfab.array(dcomp+1);
-    auto       Y1        = derfab.array(dcomp+2);
-    auto       Y2        = derfab.array(dcomp+3);
 
 #ifdef C12H25O2_ID
+    auto       Y1        = derfab.array(dcomp+2);
+    auto       Y2        = derfab.array(dcomp+3);
     int        OH        = OH_ID;
     int        RO2       = C12H25O2_ID;
 #else
@@ -704,9 +704,9 @@ void pelelm_dcma (const Box& bx, FArrayBox& derfab, int dcomp, int ncomp,
 //
 //  Compute vorticity
 //
-void pelelm_mgvort (const Box& bx, FArrayBox& derfab, int dcomp, int ncomp,
+void pelelm_mgvort (const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                     const FArrayBox& datfab, const Geometry& geomdata,
-                    Real time, const int* bcrec, int level)
+                    Real /*time*/, const int* /*bcrec*/, int /*level*/)
 
 {
     AMREX_ASSERT(derfab.box().contains(bx));
