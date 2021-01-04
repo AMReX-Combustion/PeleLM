@@ -198,7 +198,8 @@ pelelm_initdata (int i, int j, int k,
     y2 = (z - ProbParm::standoff + 0.5*dx[2] + pert)*100;
 #endif
 
-    pmf(y1, y2, pmf_vals);
+    y1 += 0.5*dx[1];
+    pmf(y1, y1, pmf_vals);
 
     state(i,j,k,DEF_Temp) = pmf_vals[0];;
 
