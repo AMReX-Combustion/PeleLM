@@ -5559,6 +5559,13 @@ PeleLM::getFuncCountDM (const BoxArray& bxba, int ngrow)
   fctmpnew.setVal(1);
 
   const MultiFab& FC = get_new_data(FuncCount_Type);
+
+  // Return original DM if FC is zero (propably Null reaction dir)
+  if ( FC.norm0(0) <= 0.0 ) {
+     DistributionMapping new_dmap{bxba};
+     return new_dmap;
+  }
+
   fctmpnew.copy(FC,0,0,1,std::min(ngrow,FC.nGrow()),0);
 
   int count = 0;
