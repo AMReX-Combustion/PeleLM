@@ -1920,6 +1920,10 @@ PeleLM::initData ()
   }
 #endif
 
+  const auto geomdata = geom.data();
+  S_new.setVal(0.0);
+  P_new.setVal(0.0);
+
   ProbParm const* lprobparm = prob_parm.get();
   PmfData const* lpmfdata = pmf_data_g;
 
@@ -1936,13 +1940,13 @@ PeleLM::initData ()
          amrex::ParallelFor(box,
          [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
          {
-           pelelm_initdata_ef(i, j, k, sfab, geomdata);
+           pelelm_initdata_ef(i, j, k, sfab, geomdata, *lprobparm, lpmfdata);
          });
       } else {
          amrex::ParallelFor(box,
          [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
          {
-           pelelm_initdata(i, j, k, sfab, geomdata);
+           pelelm_initdata(i, j, k, sfab, geomdata, *lprobparm, lpmfdata);
          });
       }
 #else
@@ -6496,7 +6500,7 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
                          AMREX_D_DECL( Udrift_spec[0], Udrift_spec[1], Udrift_spec[2] ),
                          AMREX_D_DECL(*EdgeState[0], *EdgeState[1], *EdgeState[2]), first_spec, false,
                          AMREX_D_DECL(*EdgeFlux[0], *EdgeFlux[1], *EdgeFlux[2]), first_spec,
-                         Force, 0, DivU, math_bcs, geom, iconserv,
+                         Force, 0, DivU, d_bcrec_ptr, geom, iconserv,
                          dt, godunov_use_ppm, godunov_use_forces_in_trans, false );
 //  VisMF::Write(*aofs,"aofsEF_lvl0_t"+std::to_string(prev_time*1000.0));
 #else

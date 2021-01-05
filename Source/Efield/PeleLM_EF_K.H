@@ -226,7 +226,9 @@ AMREX_FORCE_INLINE
 void
 pelelm_initdata_ef (int i, int j, int k,
                     amrex::Array4<amrex::Real> const& state,
-                    amrex::GeometryData const& geomdata)
+                    amrex::GeometryData const& geomdata,
+                    ProbParm const& prob_parm,
+                    PmfData const *pmf_data)
 {
     // Got the mass fractions from the pltfile
     // Get rid of E species and get the charge
@@ -269,7 +271,7 @@ pelelm_initdata_ef (int i, int j, int k,
     state(i,j,k,DEF_PhiV) = 0.0;
 
     amrex::Real rho_cgs, P_cgs;
-    P_cgs = ProbParm::P_mean * 10.0;
+    P_cgs = prob_parm.P_mean * 10.0;
 
     amrex::Real massfrac[NUM_SPECIES] = {0.0};
     for (int n = 0; n < NUM_SPECIES; n++) {
