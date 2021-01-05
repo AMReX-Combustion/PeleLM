@@ -85,7 +85,7 @@ as shown in Fig :numref:`fig:FPC_NumSetup`.
 Periodic boundary conditions are used in the transverse (:math:`y`) direction, while ``Inflow`` (dirichlet) and ``Outflow`` (neumann) boundary conditions are used in the main flow direction (:math:`x`). The flow goes from left to right.
 A cylinder of radius 0.0035 m is placed in the middle of the flow at (0.0:0.0).
 
-.. |a| image:: ./Visualization/SetupSketchFPC.png
+.. |FPC_a| image:: ./Visualization/SetupSketchFPC.png
      :width: 100%
 
 .. _fig:FPC_NumSetup:
@@ -93,9 +93,9 @@ A cylinder of radius 0.0035 m is placed in the middle of the flow at (0.0:0.0).
 .. table:: Sketch of the computational domain with level 0 box decomposition.
      :align: center
 
-     +-----+
-     | |a| |
-     +-----+
+     +---------+
+     | |FPC_a| |
+     +---------+
 
 The geometry of the problem is specified in the first block of the ``inputs.2d-regt``: ::
 
@@ -150,7 +150,7 @@ Specifying dirichlet ``Inflow`` conditions in `PeleLM` can seem daunting at firs
 - ``pelelm_prob.cpp``, initialize and provide default values to the entries of ``ProbParm`` and allow the user to pass run-time value using the `AMReX` parser (``ParmParse``). In the present case, the parser will read the parameters in the ``PROBLEM PARAMETERS`` block: ::
 
     prob.type         = VortexShedding
-    prob.meanFlowMag  = 5.0
+    prob.meanFlowMag  = 3.0
   
 - finally, ``pelelm_prob.H`` contains the ``pelelm_initdata`` and ``bcnormal`` functions responsible for generating the initial and boundary conditions, respectively.
 
@@ -170,7 +170,7 @@ Using these parameters, it is possible to evaluate the Reynolds number, based on
 
 .. math::
 
-   Re = \frac{\rho U_{inf} D}{\mu} = \frac{1.175 * 5 * 0.007}{2.0e-05} \sim 2000 
+   Re = \frac{\rho U_{inf} D}{\mu} = \frac{1.175 * 3 * 0.007}{2.0e-05} \sim 1200 
 
 This relatively high value ensures that the flow will exhibit vortex shedding.
 
@@ -242,13 +242,13 @@ You're good to go !
 Running the problem on a coarse grid
 ----------------------------------
 
-As a first step towards obtaining the classical Von-Karman alleys, we will now let the flow establish using only the coarse base grid. The simulation will last for 40 ms.
+As a first step towards obtaining the classical Von-Karman alleys, we will now let the flow establish using only the coarse base grid. The simulation will last for 50 ms.
 
 Time-stepping parameters in ``input.2d-regt`` are specified in the ``TIME STEPING CONTROL`` block: ::
 
     #----------------------TIME STEPING CONTROL----------------------
     max_step       = 300000          # Maximum number of time steps
-    stop_time      = 0.04            # final physical time
+    stop_time      = 0.05            # final physical time
     ns.cfl         = 0.3             # cfl number for hyperbolic system
     ns.init_shrink = 1.0             # scale back initial timestep
     ns.change_max  = 1.1             # max timestep size increase
@@ -263,14 +263,14 @@ Input/output from `PeleLM` are specified in the ``IO CONTROL`` block: ::
     #-------------------------IO CONTROL----------------------------
     amr.checkpoint_files_output = 1   # Dump check file ? 0: no, 1: yes
     amr.check_file      = chk_        # root name of checkpoint file
-    amr.check_per       = 0.04        # frequency of checkpoints
+    amr.check_per       = 0.05        # frequency of checkpoints
     amr.plot_file       = plt_        # root name of plotfiles   
-    amr.plot_per        = 0.002       # frequency of plotfiles
+    amr.plot_per        = 0.005       # frequency of plotfiles
     amr.derive_plot_vars=rhoRT mag_vort avg_pressure gradpx gradpy
     amr.grid_log        = grdlog      # name of grid logging file
 
 Information pertaining to the checkpoint and plot_file files name and output frequency can be specified there.
-We have specified here that a checkpoint file will be generated every 40 ms and a plotfile every 2 ms. `PeleLM` will always generate an initial plotfile ``plt_00000`` if the initialization is properly completed, and a final plotfile at the end of the simulation. It is possible to request including `derived variables` in the plotfiles by appending their names to the ``amr.derive_plot_vars`` keyword. These variables are derived from the `state variables` (velocity, density, temperature, :math:`\rho Y_k`, :math:`\rho h`) which are automatically included in the plotfile.
+We have specified here that a checkpoint file will be generated every 50 ms and a plotfile every 5 ms. `PeleLM` will always generate an initial plotfile ``plt_00000`` if the initialization is properly completed, and a final plotfile at the end of the simulation. It is possible to request including `derived variables` in the plotfiles by appending their names to the ``amr.derive_plot_vars`` keyword. These variables are derived from the `state variables` (velocity, density, temperature, :math:`\rho Y_k`, :math:`\rho h`) which are automatically included in the plotfile.
 
 You finally have all the information necessary to run the first of several steps. Type in: ::
 
@@ -278,34 +278,51 @@ You finally have all the information necessary to run the first of several steps
 
 A lot of information is printed directly on the screen during a `PeleLM` simulation, but it will not be detailed in the present tutorial. If you wish to store these information for later analysis, you can instead use: ::
 
-    ./PeleLM2d.gnu.MPI.ex inputs.2d-regt > logCheckCoarseRun.dat &
+    ./PeleLM2d.gnu.MPI.ex inputs.2d-regt > logCoarseRun.dat &
     
 Whether you have used one or the other command, the computation finishes within a couple of minutes and you should obtain a set of ``plt_****`` files (and maybe a set appended with .old*********** if you used both commands). Use `Amrvis <https://amrex-codes.github.io/amrex/docs_html/Visualization.html>`_ to vizualize the results. Use the following command to open the entire set of solutions: ::
 
    amrvis -a plt_?????
 
 
-.. |b| image:: ./Visualization/FPC_Coarse_40ms.png
+.. |FPC_b| image:: ./Visualization/FPC_Coarse_50ms.png
      :width: 100%
 
 .. _fig:FPC_Coarse:
 
-.. table:: Contour plots of velocity components, vorticity, pressure and volume fraction at t = 40 ms on the coarse grid.
+.. table:: Contour plots of velocity components, vorticity, pressure and volume fraction at t = 50 ms on the coarse grid.
      :align: center
 
-     +-----+
-     | |b| |
-     +-----+
+     +---------+
+     | |FPC_b| |
+     +---------+
 
-At this point, you have established a flow with a recirculation zone in the wake of the cylinder, but the flow has not yet fully transitioned to periodic vortex shedding.
-The flow is depicted in Fig :numref:`fig:FPC_Coarse` showing a few of the available contour plots at 40 ms. Note that the value of the fully covered cells is set to zero.
+At this point, you have established a flow with a large recirculation zone in the wake of the cylinder, but the flow has not yet fully transitioned to periodic vortex shedding.
+The flow is depicted in Fig :numref:`fig:FPC_Coarse` showing a few of the available contour plots at 50 ms. Note that the value of the fully covered cells is set to zero.
 
 As can be seen from Fig :numref:`fig:FPC_Coarse`, the flow has not yet transitioned to the familiar Von-Karman alleys and two aspects of the current simulation can delay or even prevent the onset of vortex shedding:
 
  - the flow is initially symmetric and the transition to the familiar periodic flow is due to the growth of infinitesimal perturbations in the shear layer of the wake. Because the flow is artificially too symmetric, this transition can be delayed until round-off errors sufficiently accumulate.
  - the numerical dissipation introduced by this coarse grid results in an effective Reynolds number probably significantly lower than the value estimated above.
 
-In the next step, we will add finer grid patches around the EB geometry and in high vorticity regions.
+Before adding refinement levels, we will first pursue the simulation until the flow reaches a periodic vortex shedding state. To do so, restart the simulation from the checkpoint file generated at the end of the first run and set the final simulation time to 200 ms: ::
+   
+    #-------------------------IO CONTROL----------------------------
+    ...
+    amr.restart             = chk_01327 # Restart from checkpoint ?
+
+    ...
+
+    #----------------------TIME STEPING CONTROL----------------------
+    ...
+    stop_time      = 0.20            # final physical time
+
+and restart the simulation ::
+
+    ./PeleLM2d.gnu.MPI.ex inputs.2d-regt > logCoarseRun2.dat &
+
+
+The flow has now fully transition and you can use Amrvis to visualize the serie of vortex in the wake of the cylinder. In the next step, we will add finer grid patches around the EB geometry and in high vorticity regions.
 
 Refinement of the computation
 -----------------------------
@@ -320,57 +337,54 @@ Then provide a definition of the new refinement critera in the ``REFINEMENT CONT
 
     #--------------------REFINEMENT CONTROL------------------------
     # Refinement according to the vorticity, no field_name needed
-    amr.refinement_indicators     = magvort
-    amr.magvort.max_level         = 1
-    amr.magvort.vorticity_greater = 1000 
+    amr.refinement_indicators     = lowvort highvort
+    amr.lowvort.max_level         = 1
+    amr.lowvort.value_less        = -1000 
+    amr.lowvort.field_name        = mag_vort
     
+    amr.highvort.max_level         = 1
+    amr.highvort.value_greater     = 1000 
+    amr.highvort.field_name        = mag_vort
+
     # Refine the EB
     ns.refine_cutcells            = 1 
 
 The first line simply declares a set of refinement indicators which are subsequently defined. For each indicator, the user can provide a limit up to which AMR level this indicator will be used to refine. Then there are multiple possibilities to specify the actual criterion: ``value_greater``, ``value_less``, ``vorticity_greater`` or ``adjacent_difference_greater``. In each case, the user specify a threshold value and the name of variable on which it applies (except for the ``vorticity_greater``).
-In the example above, the grid is refined up to level 1 at the location where the vorticity magnitude is above 1000 :math:`s^{-1}` as well as on the cut cells (where the cylinder intersect with the edges of cell). 
+In the example above, the grid is refined up to level 1 at the location where the vorticity magnitude is above 1000 :math:`s^{-1}` as well as on the cut cells (where the cylinder intersect with the edges of cell).  Note that in the present case, the ``vorticity_greater`` was not used to ensure that regions of both low and high vorticity are refined.
 
-With these new parameters, specify the `checkpoint` file from which to restart by adding the following line to the ``IO CONTROL`` block: ::
+With these new parameters, change the `checkpoint` file from which to restart and allow regridding upon restart by updating the following lines in the ``IO CONTROL`` block: ::
 
-    amr.restart             = chk_01702 # Restart from checkpoint ?
+    amr.restart             = chk_06195 # Restart from checkpoint ?
     amr.regrid_on_restart   = 1
 
-, increase the `stop_time` to 60 ms in the ``TIME STEPING CONTROL`` block: ::
+, increase the `stop_time` to 300 ms in the ``TIME STEPING CONTROL`` block: ::
 
-    stop_time      = 0.06            # final physical time
+    stop_time      = 0.30            # final physical time
 
-and start the simulation again ! ::
+and start the simulation again (using multiple processor if available) ::
 
-    ./PeleLM2d.gnu.MPI.ex inputs.2d-regt > log2Levels.dat &
+    mpirun -n 4 ./PeleLM2d.gnu.MPI.ex inputs.2d-regt > log2Levels.dat &
 
-Looking at the velocity components and vorticity fields, we can now see that the flow has fully transitionned to periodic vortex shedding.
-The grid resolution however remains fairly coarse and the flow at the vicinity of the cylinder exhibits some undesirable oscillations due to the EB algorithm.
-We will now add another level of refinement, targeting only the vicinity of the EB and the high vorticity regions. To do so, add a new refinement indicator in the ``REFINEMENT CONTROL`` block: ::
+Once again, use Amrvis to visualize the effects of refinement: after an initial transient, the flow return to a smooth periodic vortex shedding and the boundary layer of the cylinder is now significantly better captured but still far from fully refined.
+As a final step, we will add another level of refinement, only at the vicinity of the cylinder since the level 1 resolution appears sufficient to discretize the vortices in the wake. To do so, simply allow for another level of refinement: ::
 
-    #--------------------REFINEMENT CONTROL------------------------
-    # Refinement according to the vorticity, no field_name needed
-    amr.refinement_indicators     = magvort magvortHigh
+    amr.max_level       = 2          # maximum level number allowed
 
-    amr.magvort.max_level         = 1
-    amr.magvort.vorticity_greater = 1000 
-    
-    amr.magvortHigh.max_level         = 2
-    amr.magvortHigh.vorticity_greater = 5000 
+and since the vorticity refinement criterion only refine up to level 1, the level 2 will only be located around the EB. Update the `checkpoint` file in the ``IO CONTROL`` block, increase the `stop_time` to 350 ms in the the ``TIME STEPING CONTROL`` and restart the simulation: ::
 
-    # Refine the EB
-    ns.refine_cutcells            = 1 
+    mpirun -n 4 ./PeleLM2d.gnu.MPI.ex inputs.2d-regt > log3Levels.dat &
 
-, update the `checkpoint` file and the `stop_time` to the following: ::
+You should obtain a flow with a vorticity field similar to Fig. :numref:`fig:FPC_FPC_VortFinal`.
+For the purpose of the present tutorial, this will be our final solution but one can see that the flow has not yet return to a periodic vortex shedding and additinal resolution could be added locally to obtain smoother flow features.
 
-    amr.restart           = chk_04039 # Restart from checkpoint ?
+.. |FPC_c| image:: ./Visualization/FPC_VorticityFinal.png
+     :width: 100%
 
-    ...
+.. _fig:FPC_VortFinal:
 
-    stop_time      = 0.05            # final physical time
+.. table:: Contour plots of vorticit at t = 350 ms with 2 levels of refinements.
+     :align: center
 
-and start the simulation again ! ::
-
-    ./PeleLM2d.gnu.MPI.ex inputs.2d-regt > log3Levels.dat &
-
-Analysis
------------------------
+     +---------+
+     | |FPC_c| |
+     +---------+
