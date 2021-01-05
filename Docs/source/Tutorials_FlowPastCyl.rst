@@ -100,7 +100,7 @@ A cylinder of radius 0.0035 m is placed in the middle of the flow at (0.0:0.0).
 The geometry of the problem is specified in the first block of the ``inputs.2d-regt_VS``: ::
 
    #----------------------DOMAIN DEFINITION------------------------                                                                        
-   geometry.is_periodic = 0 1             # Periodicity in each direction: 0 => no, 1 => yes
+   geometry.is_periodic = 0 0             # Periodicity in each direction: 0 => no, 1 => yes
    geometry.coord_sys   = 0               # 0 => cart, 1 => RZ
    geometry.prob_lo     = -0.02 -0.02     # x_lo y_lo
    geometry.prob_hi     =  0.10  0.02     # x_hi y_hi
@@ -110,8 +110,8 @@ The second block determines the boundary conditions. Note that `Interior` is use
    # >>>>>>>>>>>>>  BC FLAGS <<<<<<<<<<<<<<<<
    # Interior, Inflow, Outflow, Symmetry,
    # SlipWallAdiab, NoSlipWallAdiab, SlipWallIsotherm, NoSlipWallIsotherm
-   peleLM.lo_bc = Inflow   Interior
-   peleLM.hi_bc = Outflow  Interior
+   peleLM.lo_bc = Inflow   SlipWallAdiab
+   peleLM.hi_bc = Outflow  SlipWallAdiab
 
 In the present case, the EB geometry is a simple cylinder (or sphere) which is readily available from the `AMReX` library and only a few paremeters need to be specified by the user. This is done further down in the input file: ::
 
@@ -374,7 +374,7 @@ and since the vorticity refinement criterion only refine up to level 1, the leve
 
     mpirun -n 4 ./PeleLM2d.gnu.MPI.ex inputs.2d-regt_VS > log3Levels.dat &
 
-You should obtain a flow with a vorticity field similar to Fig. :numref:`fig:FPC_FPC_VortFinal`.
+You should obtain a flow with a vorticity field similar to Fig. :numref:`fig:FPC_VortFinal`.
 For the purpose of the present tutorial, this will be our final solution but one can see that the flow has not yet return to a periodic vortex shedding and additinal resolution could be added locally to obtain smoother flow features.
 
 .. |FPC_c| image:: ./Visualization/FPC_VorticityFinal.png
