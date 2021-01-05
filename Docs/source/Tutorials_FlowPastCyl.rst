@@ -254,7 +254,7 @@ Time-stepping parameters in ``input.2d-regt`` are specified in the ``TIME STEPIN
     ns.change_max  = 1.1             # max timestep size increase
     ns.dt_cutoff   = 5.e-10          # level 0 timestep below which we halt
 
-The final simulation time is set to 0.02 s. `PeleLM` solves for the advection, diffusion and reaction processes in time, but only the advection term is treated explicitly and thus it constrains the maximum time step size :math:`dt_{CFL}`. This constraint is formulated with a classical Courant-Friedrich-Levy (CFL) number, specified via the keyword ``ns.cfl``.
+The final simulation time is set to 0.05 s. `PeleLM` solves for the advection, diffusion and reaction processes in time, but only the advection term is treated explicitly and thus it constrains the maximum time step size :math:`dt_{CFL}`. This constraint is formulated with a classical Courant-Friedrich-Levy (CFL) number, specified via the keyword ``ns.cfl``.
 Additionally, as it is the case here, the initial solution is often made-up by the user and local mixture composition and temperature can result in the introduction of unreasonably fast chemical scales.
 To ease the numerical integration of this initial transient, the parameter ``ns.init_shrink`` allows to shrink the inital `dt` (evaluated from the CFL constraint) by a factor (usually smaller than 1), and let it relax towards :math:`dt_{CFL}`at a rate given by ``ns.change_max`` as the simulation proceeds. Since the present case does not involve complex chemiscal processes, this parameter is kept to 1.0.
 
