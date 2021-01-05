@@ -208,6 +208,7 @@ Vector<Real> PeleLM::typical_values;
 int PeleLM::sdc_iterMAX;
 int PeleLM::num_mac_sync_iter;
 int PeleLM::deltaT_verbose = 0;
+int PeleLM::deltaT_crashOnConvFail = 1;
 
 int PeleLM::mHtoTiterMAX;
 Vector<amrex::Real> PeleLM::mTmpData;
@@ -544,6 +545,7 @@ PeleLM::Initialize_specific ()
     pplm.query("num_deltaT_iters_MAX",num_deltaT_iters_MAX);
     pplm.query("deltaT_norm_max",deltaT_norm_max);
     pplm.query("deltaT_verbose",deltaT_verbose);
+    pplm.query("deltaT_convFailCrash",deltaT_crashOnConvFail);
 
     pplm.query("use_typ_vals_chem",use_typ_vals_chem);
     pplm.query("relative_tol_chem",relative_tol_chem);
@@ -3436,8 +3438,10 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
          });
       }
 
-      if (L==(num_deltaT_iters_MAX-1) && deltaT_iter_norm >= deltaT_norm_max) {
-        Abort("deltaT_iters not converged");
+      if ( L==(num_deltaT_iters_MAX-1) 
+           && deltaT_iter_norm >= deltaT_norm_max
+           && deltaT_crashOnConvFail ) {
+         Abort("deltaT_iters not converged");
       }
    } // end deltaT iters
 
@@ -6873,7 +6877,9 @@ PeleLM::mac_sync ()
                });
             }
 
-            if (L==(num_deltaT_iters_MAX-1) && deltaT_iter_norm >= deltaT_norm_max) {
+            if ( L==(num_deltaT_iters_MAX-1) 
+                 && deltaT_iter_norm >= deltaT_norm_max
+                 && deltaT_crashOnConvFail ) {
                Abort("deltaT_iters not converged in mac_sync");
             }
          } // deltaT_iters
