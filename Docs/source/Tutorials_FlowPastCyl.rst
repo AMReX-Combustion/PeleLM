@@ -374,7 +374,7 @@ and since the vorticity refinement criterion only refine up to level 1, the leve
 
     mpirun -n 4 ./PeleLM2d.gnu.MPI.ex inputs.2d-regt > log3Levels.dat &
 
-You should obtain a flow with a vorticity field similar to Fig. :numref:`fig:FPC_FPC_VortFinal`.
+You should obtain a flow with a vorticity field similar to Fig. :numref:`fig:FPC_VortFinal`.
 For the purpose of the present tutorial, this will be our final solution but one can see that the flow has not yet return to a periodic vortex shedding and additinal resolution could be added locally to obtain smoother flow features.
 
 .. |FPC_c| image:: ./Visualization/FPC_VorticityFinal.png
