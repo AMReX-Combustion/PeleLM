@@ -6,6 +6,8 @@
 #include <AMReX_ParmParse.H>
 
 #include <pelelm_prob_parm.H>
+#include <pmf.H>
+#include <pmf_data.H>
 #include <PeleLM_parm.H>
 
 #include <NavierStokesBase.H>
@@ -16,134 +18,14 @@
 #include <PeleLM_EF_Constant.H>
 #endif
 
-AMREX_GPU_HOST_DEVICE
-AMREX_FORCE_INLINE
-void
-pmf(
-  amrex::Real xlo,
-  amrex::Real xhi,
-  amrex::GpuArray<amrex::Real, NUM_SPECIES + 4>& y_vector)
-{
-  amrex::Real sum = 0.0, xmid = 0.0;
-  int lo_loside = 0, lo_hiside = 0;
-  int hi_loside = 0, hi_hiside = 0;
-  int loside = 0, hiside = 0;
-  amrex::Real ylo = 0.0, yhi = 0.0, x1 = 0.0, y1 = 0.0, x2 = 0.0, y2 = 0.0,
-              dydx = 0.0;
-
-  if (ProbParm::pmf_do_average) {
-    lo_loside = 0;
-    lo_hiside = 0;
-    hi_loside = 0;
-    hi_hiside = 0;
-    if (xlo < ProbParm::d_pmf_X[0]) {
-      lo_loside = 0;
-      lo_hiside = 0;
-    }
-    if (xhi < ProbParm::d_pmf_X[0]) {
-      hi_loside = 0;
-      hi_hiside = 0;
-    }
-    if (xlo > ProbParm::d_pmf_X[ProbParm::pmf_N - 1]) {
-      lo_loside = ProbParm::pmf_N - 1;
-      lo_hiside = ProbParm::pmf_N - 1;
-    }
-    if (xhi > ProbParm::d_pmf_X[ProbParm::pmf_N - 1]) {
-      hi_loside = ProbParm::pmf_N - 1;
-      hi_hiside = ProbParm::pmf_N - 1;
-    }
-    if (lo_loside == 0) {
-      for (int i = 0; i < ProbParm::pmf_N - 1; i++) {
-        if ((xlo > ProbParm::d_pmf_X[i]) && (xlo < ProbParm::d_pmf_X[i + 1])) {
-          lo_loside = i;
-          lo_hiside = i + 1;
-        }
-      }
-    }
-    if (hi_loside == 0) {
-      for (int i = 0; i < ProbParm::pmf_N - 1; i++) {
-        if ((xhi > ProbParm::d_pmf_X[i]) && (xhi < ProbParm::d_pmf_X[i + 1])) {
-          hi_loside = i;
-          hi_hiside = i + 1;
-        }
-      }
-    }
-for (int j = 0; j < ProbParm::pmf_M; j++) {
-      x1 = ProbParm::d_pmf_X[lo_loside];
-      y1 = ProbParm::d_pmf_Y[ProbParm::pmf_N * j + lo_loside];
-      x2 = ProbParm::d_pmf_X[lo_hiside];
-      y2 = ProbParm::d_pmf_Y[ProbParm::pmf_N * j + lo_hiside];
-      if (lo_loside == lo_hiside)
-        dydx = 0.0;
-      else
-        dydx = (y2 - y1) / (x2 - x1);
-      ylo = y1 + dydx * (xlo - x1);
-      if (lo_loside == hi_loside) {
-        yhi = y1 + dydx * (xhi - x1);
-        y_vector[j] = 0.5 * (ylo + yhi);
-      } else {
-        sum = (x2 - xlo) * 0.5 * (ylo + y2);
-        x1 = ProbParm::d_pmf_X[hi_loside];
-        y1 = ProbParm::d_pmf_Y[ProbParm::pmf_N * j + hi_loside];
-        x2 = ProbParm::d_pmf_X[hi_hiside];
-        y2 = ProbParm::d_pmf_Y[ProbParm::pmf_N * j + hi_hiside];
-        if (hi_loside == hi_hiside)
-          dydx = 0.0;
-        else
-          dydx = (y2 - y1) / (x2 - x1);
-        yhi = y1 + dydx * (xhi - x1);
-        sum = sum + (xhi - x1) * 0.5 * (yhi + y1);
-        for (int k = lo_hiside; k < hi_loside - 1; k++) {
-          sum = sum + (ProbParm::d_pmf_X[k + 1] - ProbParm::d_pmf_X[k]) * 0.5 *
-                        (ProbParm::d_pmf_Y[ProbParm::pmf_N * j + k] +
-                         ProbParm::d_pmf_Y[ProbParm::pmf_N * j + k + 1]);
-        }
-        y_vector[j] = sum / (xhi - xlo);
-      }
-    }
-  } else {
-    xmid = 0.5 * (xlo + xhi);
-    loside = -1;
-    hiside = -1;
-    if (xmid < ProbParm::d_pmf_X[0]) {
-      loside = 0;
-      hiside = 0;
-    }
-    if (xmid > ProbParm::d_pmf_X[ProbParm::pmf_N - 1]) {
-      loside = ProbParm::pmf_N - 1;
-      hiside = ProbParm::pmf_N - 1;
-    }
-    if (loside == -1) {
-      for (int i = 0; i < ProbParm::pmf_N - 1; i++) {
-        if (
-          (xmid >= ProbParm::d_pmf_X[i]) &&
-          (xmid <= ProbParm::d_pmf_X[i + 1])) {
-          loside = i;
-          hiside = i + 1;
-        }
-      }
-    }
-    for (int j = 0; j < ProbParm::pmf_M; j++) {
-      x1 = ProbParm::d_pmf_X[loside];
-      y1 = ProbParm::d_pmf_Y[ProbParm::pmf_N * j + loside];
-      x2 = ProbParm::d_pmf_X[hiside];
-      y2 = ProbParm::d_pmf_Y[ProbParm::pmf_N * j + hiside];
-      if (loside == hiside)
-        dydx = 0.0;
-      else
-        dydx = (y2 - y1) / (x2 - x1);
-      y_vector[j] = y1 + dydx * (xlo - x1);
-    }
-  }
-}
-
-
 AMREX_GPU_DEVICE
-inline
+AMREX_FORCE_INLINE
 void
 pelelm_initdata (int i, int j, int k, 
                  amrex::Array4<amrex::Real> const& state,
-                 amrex::GeometryData const& geomdata)
+                 amrex::GeometryData const& geomdata,
+                 ProbParm const& prob_parm,
+                 PmfData const *pmf_data)
 {
 
     const amrex::Real* prob_lo = geomdata.ProbLo();
@@ -166,11 +48,11 @@ pelelm_initdata (int i, int j, int k,
     amrex::Real y1, y2;
 
     pert = 0.0;
-    if (ProbParm::pertmag > 0.0) 
+    if (prob_parm.pertmag > 0.0) 
     {
 
 #if ( AMREX_SPACEDIM == 2 ) 
-       pert = ProbParm::pertmag * 
+       pert = prob_parm.pertmag * 
              (1.0 * std::sin(2 * Pi * 4 * x / L_x) +
               1.023 * std::sin(2 * Pi * 2 * (x - 0.004598) / L_x) +
               0.945 * std::sin(2 * Pi * 3 * (x - 0.00712435) / L_x) +
@@ -180,10 +62,10 @@ pelelm_initdata (int i, int j, int k,
 
     }
 
-    y1 = (y - ProbParm::standoff - 0.5*dx[1] + pert);
-    y2 = (y - ProbParm::standoff + 0.5*dx[1] + pert);
+    y1 = (y - prob_parm.standoff - 0.5*dx[1] + pert);
+    y2 = (y - prob_parm.standoff + 0.5*dx[1] + pert);
 #elif ( AMREX_SPACEDIM == 3 ) 
-       pert = ProbParm::pertmag *
+       pert = prob_parm.pertmag *
              (1.0 * std::sin(2 * Pi * 4 * x / L_x) *
                 std::sin(2 * Pi * 5 * y / L_y) +
               1.023 * std::sin(2 * Pi * 2 * (x - 0.004598) / L_x) *
@@ -195,12 +77,12 @@ pelelm_initdata (int i, int j, int k,
               0.982 * std::sin(2 * Pi * 5 * (x - 0.014234) / L_x));
     }
 
-    y1 = (z - ProbParm::standoff - 0.5*dx[2] + pert);
-    y2 = (z - ProbParm::standoff + 0.5*dx[2] + pert);
+    y1 = (z - prob_parm.standoff - 0.5*dx[2] + pert);
+    y2 = (z - prob_parm.standoff + 0.5*dx[2] + pert);
 #endif
 
     y1 += 0.5*dx[1];
-    pmf(y1, y1, pmf_vals);
+    PMF::pmf(pmf_data,y1, y1, pmf_vals);
 
     state(i,j,k,DEF_Temp) = pmf_vals[0];;
 
@@ -251,22 +133,22 @@ pelelm_initdata (int i, int j, int k,
 
     state(i,j,k,Xvel) = 0;
 #if ( AMREX_SPACEDIM == 2 ) 
-    if ( ProbParm::Vin > 0.0 ) {
-       state(i,j,k,Yvel) = ProbParm::Vin;
+    if ( prob_parm.Vin > 0.0 ) {
+       state(i,j,k,Yvel) = prob_parm.Vin;
     } else {
        state(i,j,k,Yvel) = pmf_vals[1];
     }
 #elif ( AMREX_SPACEDIM == 3 ) 
     state(i,j,k,Yvel) = 0;
-    if ( ProbParm::Vin > 0.0 ) {
-       state(i,j,k,Zvel) = ProbParm::Vin;
+    if ( prob_parm.Vin > 0.0 ) {
+       state(i,j,k,Zvel) = prob_parm.Vin;
     } else {
        state(i,j,k,Zvel) = pmf_vals[1];
     }
 #endif
 
     amrex::Real rho_cgs, P_cgs;
-    P_cgs = ProbParm::P_mean * 10.0;
+    P_cgs = prob_parm.P_mean * 10.0;
 
     EOS::PYT2R(P_cgs, massfrac, state(i,j,k,DEF_Temp), rho_cgs);
     state(i,j,k,Density) = rho_cgs * 1.0e3;            // CGS -> MKS conversion
@@ -284,7 +166,7 @@ pelelm_initdata (int i, int j, int k,
 
 }
 
-AMREX_GPU_HOST_DEVICE
+AMREX_GPU_DEVICE
 AMREX_FORCE_INLINE
 void
 bcnormal(
@@ -293,7 +175,10 @@ bcnormal(
   const int idir,
   const int sgn,
   const amrex::Real time,
-  amrex::GeometryData const& geomdata)
+  amrex::GeometryData const& geomdata,
+  ProbParm const& prob_parm,
+  ACParm const& ac_parm,
+  PmfData const *pmf_data)
 {
   const amrex::Real* prob_lo = geomdata.ProbLo();
   const amrex::Real* prob_hi = geomdata.ProbHi();
@@ -306,20 +191,20 @@ bcnormal(
   }
 
   if (sgn == 1) {
-    pmf(prob_lo[idir], prob_lo[idir], pmf_vals);
+    PMF::pmf(pmf_data,prob_lo[idir], prob_lo[idir], pmf_vals);
 
-    if (!ACParm::ctrl_active || time <= 0.0) {
+    if (!ac_parm.ctrl_active || time <= 0.0) {
        s_ext[Xvel] = 0.0;
 #if ( AMREX_SPACEDIM == 2 )
-       if ( ProbParm::Vin > 0.0 ) {
-          s_ext[Yvel] = ProbParm::Vin;
+       if ( prob_parm.Vin > 0.0 ) {
+          s_ext[Yvel] = prob_parm.Vin;
        } else {
           s_ext[Yvel] = pmf_vals[1];
        }
 #elif (AMREX_SPACEDIM == 3)
        s_ext[Yvel] = 0.0;
-       if ( ProbParm::Vin > 0.0 ) {
-          s_ext[Zvel] = ProbParm::Vin;
+       if ( prob_parm.Vin > 0.0 ) {
+          s_ext[Zvel] = prob_parm.Vin;
        } else {
           s_ext[Zvel] = pmf_vals[1];
        }
@@ -327,10 +212,10 @@ bcnormal(
     } else {
        s_ext[Xvel] = 0.0;
 #if ( AMREX_SPACEDIM == 2 )
-       s_ext[Yvel] = ACParm::ctrl_V_in + (time - ACParm::ctrl_tBase) * ACParm::ctrl_dV;
+       s_ext[Yvel] = ac_parm.ctrl_V_in + (time - ac_parm.ctrl_tBase) * ac_parm.ctrl_dV;
 #elif (AMREX_SPACEDIM == 3)
        s_ext[Yvel] = 0.0;
-       s_ext[Zvel] = ACParm::ctrl_V_in + (time - ACParm::ctrl_tBase) * ACParm::ctrl_dV;
+       s_ext[Zvel] = ac_parm.ctrl_V_in + (time - ac_parm.ctrl_tBase) * ac_parm.ctrl_dV;
 #endif
     }
 
@@ -347,7 +232,7 @@ bcnormal(
     massfrac[C2H3Op_ID] = 0.0;
 
     amrex::Real rho_cgs, P_cgs, RhoH_temp;
-    P_cgs = ProbParm::P_mean * 10.0;
+    P_cgs = prob_parm.P_mean * 10.0;
 
     EOS::PYT2R(P_cgs, massfrac, s_ext[DEF_Temp], rho_cgs);
     s_ext[Density] = rho_cgs * 1.0e3;
@@ -365,17 +250,17 @@ bcnormal(
   if (idir == 1) {  // y-dir
     if ( sgn == 1 ) { // lo
        s_ext[DEF_nE] = 0.0;
-       s_ext[DEF_PhiV] = ProbParm::phiV_loy;
+       s_ext[DEF_PhiV] = prob_parm.phiV_loy;
     } else {          // hi
        s_ext[DEF_nE] = 0.0;
-       s_ext[DEF_PhiV] = ProbParm::phiV_hiy;
+       s_ext[DEF_PhiV] = prob_parm.phiV_hiy;
     }
   }
 #endif
 }
 
 AMREX_GPU_DEVICE
-inline
+AMREX_FORCE_INLINE
 void
 zero_visc (int i, int j, int k,
            amrex::Array4<amrex::Real> const& beta,
