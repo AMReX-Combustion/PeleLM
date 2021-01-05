@@ -38,12 +38,7 @@
 
 #include <PeleLM_derive.H>
 #include <IndexDefines.H>
-
-#ifdef USE_SUNDIALS_PP
 #include <reactor.h>
-#else
-#include <reactor_F.H>
-#endif
 
 using namespace amrex;
 
@@ -331,11 +326,23 @@ std::string PeleLM::productName     = "CO2";
 Vector<std::string> PeleLM::consumptionName(1);
 static std::string oxidizerName     = "O2";
 
+//
+// Get EB-aware interpolater when needed
+//
+#ifdef AMREX_USE_EB  
+  static auto& cc_interp = eb_cell_cons_interp;
+#else
+  static auto& cc_interp = cell_cons_interp;
+#endif
+
 
 void
 PeleLM::variableSetUp ()
 {
   BL_ASSERT(desc_lst.size() == 0);
+
+  prob_parm.reset(new ProbParm{});
+  ac_parm.reset(new ACParm{});
 
   for (int dir = 0; dir < BL_SPACEDIM; dir++)
   {
@@ -354,7 +361,7 @@ PeleLM::variableSetUp ()
 #ifdef USE_SUNDIALS_PP
   SetTolFactODE(relative_tol_chem,absolute_tol_chem);
 #endif
-#ifdef AMREX_USE_CUDA
+#ifdef AMREX_USE_GPU
   reactor_info(reactor_type,ncells_chem);
 #else
   reactor_init(reactor_type,ncells_chem);
@@ -425,17 +432,17 @@ PeleLM::variableSetUp ()
   //
   // **************  DEFINE VELOCITY VARIABLES  ********************
   //
-   bool state_data_extrap = false;
-    bool store_in_checkpoint = true;
-  desc_lst.addDescriptor(State_Type,IndexType::TheCellType(),StateDescriptor::Point,1,NUM_STATE,
-                         &cell_cons_interp,state_data_extrap,store_in_checkpoint);
-
+  bool state_data_extrap = false;
+  bool store_in_checkpoint = true;
+  desc_lst.addDescriptor(State_Type,IndexType::TheCellType(),
+			 StateDescriptor::Point,1,NUM_STATE,
+			 &cc_interp,state_data_extrap,store_in_checkpoint);
 
   amrex::StateDescriptor::BndryFunc pelelm_bndryfunc(pelelm_cc_ext_fill);
   pelelm_bndryfunc.setRunOnGPU(true);  // I promise the bc function will launch gpu kernels.
 
 
-  Vector<BCRec>       bcs(BL_SPACEDIM);
+  Vector<BCRec>       bcs(AMREX_SPACEDIM);
   Vector<std::string> name(BL_SPACEDIM);
 
   set_x_vel_bc(bc,phys_bc);
@@ -464,15 +471,13 @@ PeleLM::variableSetUp ()
   // Set range of combination limit to include rho, rhoh and species, if they exist
   //
   set_scalar_bc(bc,phys_bc);
-  desc_lst.setComponent(State_Type,Density,"density",bc,pelelm_bndryfunc,
-                        &cell_cons_interp);
+  desc_lst.setComponent(State_Type,Density,"density",bc,pelelm_bndryfunc);
 
   //
   // **************  DEFINE RHO*H  ********************
   //
   set_rhoh_bc(bc,phys_bc);
-  desc_lst.setComponent(State_Type,RhoH,"rhoh",bc,pelelm_bndryfunc,
-                        &cell_cons_interp);
+  desc_lst.setComponent(State_Type,RhoH,"rhoh",bc,pelelm_bndryfunc);
   //
   // **************  DEFINE TEMPERATURE  ********************
   //
@@ -503,8 +508,7 @@ PeleLM::variableSetUp ()
                           first_spec+i,
                           name[i],
                           bcs[i],
-                          pelelm_bndryfunc,
-                          &cell_cons_interp);
+                          pelelm_bndryfunc);
   }
           
   //
@@ -574,8 +578,6 @@ PeleLM::variableSetUp ()
   //
   // ---- pressure
   //
-  // the #if 1 makes this a simpler problem CAR
-#if 1
   desc_lst.addDescriptor(Press_Type,IndexType::TheNodeType(),
                          StateDescriptor::Interval,1,1,
                          &node_bilinear_interp);
@@ -586,24 +588,6 @@ PeleLM::variableSetUp ()
 
   set_pressure_bc(bc,phys_bc);
   desc_lst.setComponent(Press_Type,Pressure,"pressure",bc,pelelm_nodal_bf);
-#else
-  desc_lst.addDescriptor(Press_Type,IndexType::TheNodeType(),
-                         StateDescriptor::Point,1,1,
-                         &node_bilinear_interp,true);
-
-  set_pressure_bc(bc,phys_bc);
-  desc_lst.setComponent(Press_Type,Pressure,"pressure",bc,BndryFunc(press_fill));
-
-  //
-  // ---- time derivative of pressure
-  //
-  Dpdt_Type = desc_lst.size();
-  desc_lst.addDescriptor(Dpdt_Type,IndexType::TheNodeType(),
-                         StateDescriptor::Interval,1,1,
-                         &node_bilinear_interp);
-  set_pressure_bc(bc,phys_bc);
-  desc_lst.setComponent(Dpdt_Type,Dpdt,"dpdt",bc,BndryFunc(press_fill));
-#endif
   //
   // ---- right hand side of divergence constraint.
   //
@@ -614,7 +598,7 @@ PeleLM::variableSetUp ()
   Divu_Type = desc_lst.size();
   ngrow = 1;
   desc_lst.addDescriptor(Divu_Type,IndexType::TheCellType(),StateDescriptor::Point,ngrow,1,
-                         &cell_cons_interp);
+                         &cc_interp);
 
   // EXT_DIR ghost cells should never actually get used, just need something computable 
   amrex::StateDescriptor::BndryFunc pelelm_divu_bf(pelelm_dummy_fill);
@@ -626,7 +610,7 @@ PeleLM::variableSetUp ()
   // Add in the fcncall tracer type quantity.
   //
   FuncCount_Type = desc_lst.size();
-  desc_lst.addDescriptor(FuncCount_Type, IndexType::TheCellType(),StateDescriptor::Point,0, 1, &cell_cons_interp);
+  desc_lst.addDescriptor(FuncCount_Type, IndexType::TheCellType(),StateDescriptor::Point,0, 1, &cc_interp);
   
   amrex::StateDescriptor::BndryFunc pelelm_dummy_bf(pelelm_dummy_fill);
   pelelm_dummy_bf.setRunOnGPU(true);  // I promise the bc function will launch gpu kernels.
@@ -893,7 +877,7 @@ PeleLM::variableSetUp ()
   Vector<std::string> mix_and_diss(2);
   mix_and_diss[0] = "mixture_fraction";
   mix_and_diss[1] = "Scalar_diss";
-  derive_lst.add("mixfrac",IndexType::TheCellType(),2,mix_and_diss,pelelm_dermixanddiss,grow_box_by_one,&lincc_interp);
+  derive_lst.add("mixfrac",IndexType::TheCellType(),2,mix_and_diss,pelelm_dermixanddiss,grow_box_by_one,&cc_interp);
   derive_lst.addComponent("mixfrac",desc_lst,State_Type,Density,1);
   derive_lst.addComponent("mixfrac",desc_lst,State_Type,Temp,1);
   derive_lst.addComponent("mixfrac",desc_lst,State_Type,first_spec,NUM_SPECIES);
@@ -1065,7 +1049,7 @@ PeleLM::rhoydotSetUp()
 
   desc_lst.addDescriptor(RhoYdot_Type,IndexType::TheCellType(),
                          StateDescriptor::Point,ngrow,nrhoydot,
-                         &lincc_interp);
+                         &cc_interp);
 
   amrex::StateDescriptor::BndryFunc pelelm_bndryfunc(pelelm_dummy_fill);
   pelelm_bndryfunc.setRunOnGPU(true);  // I promise the bc function will launch gpu kernels.
@@ -1076,7 +1060,7 @@ PeleLM::rhoydotSetUp()
   {
     const std::string name = "I_R[rhoY("+spec_names[i]+")]";
     desc_lst.setComponent(RhoYdot_Type, i, name.c_str(), bc,
-                          pelelm_bndryfunc, &lincc_interp, 0, nrhoydot-1);
+                          pelelm_bndryfunc, &cc_interp, 0, nrhoydot-1);
   }
 #ifdef PLM_USE_EFIELD
     const std::string name = "I_R[nE]";

@@ -1,39 +1,35 @@
 TOP = ../../../..
-AMREX_HOME ?= ${TOP}/amrex
-IAMR_HOME ?= ${TOP}/IAMR
-PELELM_HOME ?= ${TOP}/PeleLM
+AMREX_HOME         ?= ${TOP}/amrex
+IAMR_HOME          ?= ${TOP}/IAMR
+PELELM_HOME        ?= ${TOP}/PeleLM
+PELE_PHYSICS_HOME  ?= ${TOP}/PelePhysics
 
 #
 # Build configuration
 #
 
+# AMREX options
 DIM             = 2
+
+# Compiler / parrallel paradigms
 COMP            = gnu
-DEBUG           = FALSE
 USE_MPI         = TRUE
 USE_OMP         = FALSE
+USE_CUDA        = FALSE
+USE_HIP         = FALSE
+
+# MISC options
+DEBUG           = TRUE
 PRECISION       = DOUBLE
 VERBOSE         = FALSE
+TINY_PROFILE    = FALSE
 
-TINY_PROFILE = FALSE
-#USE_WBAR = TRUE
-
-#DEFINES+=-DALWAYS_NEW_J
-
-DO_2S_CONVERGENCE=FALSE
-
-#######################
+# CVODE
 USE_SUNDIALS_PP = TRUE
-ifeq ($(USE_SUNDIALS_PP), TRUE)
-  # use KLU sparse features -- only useful if CVODE is used on CPU
-  USE_KLU_PP = FALSE
-  # Activates GPU version
-  USE_CUDA_SUNDIALS_PP = FALSE
-endif
-#######################
+USE_KLU_PP      = FALSE
 
-# Enable ht.velocity_plotfile option
-#USE_VELOCITY    = FALSE
+# PeleLM options
+DO_2S_CONVERGENCE=FALSE
 
 ifeq ($(DO_2S_CONVERGENCE),TRUE)
 	Chemistry_Model = chem-CH4-2step

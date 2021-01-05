@@ -40,8 +40,3 @@ Tutorial 5 - Axisymetric Jet Flame
 ----------------------------------
 
 Typical Michela setup
-
-
-
-
-

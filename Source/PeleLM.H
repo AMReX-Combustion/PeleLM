@@ -14,6 +14,8 @@
 #endif
 
 #include <mechanism.h>
+#include <pelelm_prob_parm.H>
+#include <PeleLM_parm.H>
 
 #include <list>
 #include <map>
@@ -294,14 +296,13 @@ public:
                              amrex::Real      time) override;
 
   virtual void getForce (amrex::FArrayBox&       force,
-                         const amrex::Box&      bx,
-                         int              ngrow,
-                         int              strt_comp,
-                         int              num_comp,
+                         const amrex::Box&       bx,
+                         int                     strt_comp,
+                         int                     num_comp,
                          const amrex::Real       time,
                          const amrex::FArrayBox& Vel,
                          const amrex::FArrayBox& Scal,
-                         int              scalScomp) override;
+                         int                     scalScomp) override;
 
 
   virtual void mac_sync () override;
@@ -354,9 +355,7 @@ public:
                                      const amrex::BCRec&      bc,
                                      amrex::Real              time);
 
-#ifdef USE_WBAR
   void calcDiffusivity_Wbar (const amrex::Real time);
-#endif
 
   void calc_dpdt (amrex::Real      time,
                   amrex::Real      dt,
@@ -401,14 +400,14 @@ public:
                             amrex::MultiFab& P,
                                    int       pComp);
 
-#ifdef USE_WBAR
   void compute_Wbar_fluxes(amrex::Real time,
-                           amrex::Real inc);
-#endif
+                           int         inc_flag,
+                           amrex::Real inc_coeff);
 
   void define_data ();
 
   void differential_diffusion_update (amrex::MultiFab& Force,
+                                      amrex::MultiFab& DWbar,
                                       int       FComp,
                                       amrex::MultiFab& D,
                                       int       DComp,
@@ -436,10 +435,8 @@ public:
                        const int dst_comp,
                        const int num_comp);
 
-#ifdef USE_WBAR
   void getDiffusivity_Wbar (amrex::MultiFab* diffusivity[BL_SPACEDIM],
                             const amrex::Real time);
-#endif
 
   amrex::DistributionMapping getFuncCountDM (const amrex::BoxArray& bxba, int ngrow);
 
@@ -469,6 +466,10 @@ public:
                      const amrex::Real dt);
 
   void initActiveControl();
+
+  static void parseComposition(amrex::Vector<std::string> compositionIn,
+                               std::string                compositionType,
+                               amrex::Real               *massFrac);
 
   void state_stats (amrex::MultiFab& S);
 
@@ -603,10 +604,7 @@ public:
   amrex::MultiFab**  SpecDiffusionFluxn;
   amrex::MultiFab**  SpecDiffusionFluxnp1;
 
-#ifdef USE_WBAR
   amrex::MultiFab**  SpecDiffusionFluxWbar;
-  amrex::MultiFab diffWbar_cc;
-#endif
 
   static bool                     plot_reactions;
   static bool                     plot_consumption;
@@ -654,6 +652,8 @@ public:
   static amrex::Vector<amrex::Real> ctrl_velo_pts;
   static amrex::Vector<amrex::Real> ctrl_cntl_pts;
 
+  static std::unique_ptr<ProbParm> prob_parm;
+  static std::unique_ptr<ACParm> ac_parm;
   //
   // Protected static data.
   //
@@ -663,6 +663,7 @@ public:
   static int         do_OT_radiation;
   static int         do_heat_sink;
   static int         unity_Le;
+  static int         use_wbar;
   static int         FuncCount_Type;
   static int         RhoYdot_Type;
   static int         divu_ceiling;

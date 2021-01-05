@@ -28,23 +28,21 @@
 #include <AMReX_MLABecLaplacian.H>
 #include <AMReX_MLMG.H>
 #include <NS_util.H>
+#include <AMReX_GpuContainers.H>
 
 #include <PPHYS_CONSTANTS.H>
 #include <PeleLM_K.H>
 #include <pelelm_prob.H>
 #include <pelelm_prob_parm.H>
 #include <PeleLM_parm.H>
+#include <pmf_data.H>
 
-#if defined(BL_USE_NEWMECH) || defined(BL_USE_VELOCITY)
+#if defined(AMREX_USE_NEWMECH) || defined(AMREX_USE_VELOCITY)
 #include <AMReX_DataServices.H>
 #include <AMReX_AmrData.H>
 #endif
 
-#ifdef USE_SUNDIALS_PP
 #include <reactor.h>
-#else
-#include <reactor_F.H>
-#endif
 
 #include <Prob_F.H>
 #include <NAVIERSTOKES_F.H>
@@ -80,7 +78,7 @@ using namespace amrex;
 
 static Box stripBox; // used for debugging
 
-#ifdef BL_USE_FLOAT
+#ifdef AMREX_USE_FLOAT
 const Real Real_MIN = FLT_MIN;
 const Real Real_MAX = FLT_MAX;
 #else
@@ -99,14 +97,6 @@ const int  LinOp_grow  = 1;
 
 static Real              typical_RhoH_value_default = -1.e10;
 static const std::string typical_values_filename("typical_values.fab");
-
-namespace ACParm
-{
-   AMREX_GPU_DEVICE_MANAGED unsigned int ctrl_active = 0;
-   AMREX_GPU_DEVICE_MANAGED amrex::Real  ctrl_dV = 0.0;
-   AMREX_GPU_DEVICE_MANAGED amrex::Real  ctrl_V_in = 0.0;
-   AMREX_GPU_DEVICE_MANAGED amrex::Real  ctrl_tBase = 0.0;
-}
 
 namespace
 {
@@ -165,6 +155,7 @@ Real PeleLM::Zfu;
 Real PeleLM::Zox;
 bool PeleLM::mixture_fraction_ready;
 int  PeleLM::unity_Le;
+int  PeleLM::use_wbar;
 Real PeleLM::htt_tempmin;
 Real PeleLM::htt_tempmax;
 Real PeleLM::htt_hmixTYP;
@@ -188,6 +179,9 @@ bool PeleLM::avg_down_chem;
 int  PeleLM::reset_typical_vals_int=-1;
 Real PeleLM::typical_Y_val_min=1.e-10;
 std::map<std::string,Real> PeleLM::typical_values_FileVals;
+
+std::unique_ptr<ProbParm> PeleLM::prob_parm;
+std::unique_ptr<ACParm> PeleLM::ac_parm;
 
 std::string                                PeleLM::turbFile;
 std::map<std::string, Vector<std::string> > PeleLM::auxDiag_names;
@@ -318,7 +312,7 @@ PeleLM::compute_rhohmix (Real      time,
 {
    const Real strt_time = ParallelDescriptor::second();
    const TimeLevel whichTime = which_time(State_Type,time);
-   BL_ASSERT(whichTime == AmrOldTime || whichTime == AmrNewTime);
+   AMREX_ASSERT(whichTime == AmrOldTime || whichTime == AmrNewTime);
    const MultiFab& S = (whichTime == AmrOldTime) ? get_old_data(State_Type): get_new_data(State_Type);
 
 #ifdef _OPENMP
@@ -416,7 +410,8 @@ PeleLM::Initialize ()
   PeleLM::Zfu = -1;
   PeleLM::Zox = -1;
   PeleLM::mixture_fraction_ready    = false;
-  PeleLM::unity_Le                  = 1;
+  PeleLM::unity_Le                  = 0;
+  PeleLM::use_wbar                  = 1;
   PeleLM::htt_tempmin               = 298.0;
   PeleLM::htt_tempmax               = 40000.;
   PeleLM::htt_hmixTYP               = -1.;
@@ -443,24 +438,24 @@ PeleLM::Initialize ()
 
   ParmParse pp("ns");
   pp.query("do_diffuse_sync",do_diffuse_sync);
-  BL_ASSERT(do_diffuse_sync == 0 || do_diffuse_sync == 1);
+  AMREX_ASSERT(do_diffuse_sync == 0 || do_diffuse_sync == 1);
   pp.query("do_reflux_visc",do_reflux_visc);
-  BL_ASSERT(do_reflux_visc == 0 || do_reflux_visc == 1);
+  AMREX_ASSERT(do_reflux_visc == 0 || do_reflux_visc == 1);
 
   verbose = pp.contains("v");
 
   pp.query("divu_ceiling",divu_ceiling);
-  BL_ASSERT(divu_ceiling >= 0 && divu_ceiling <= 3);
+  AMREX_ASSERT(divu_ceiling >= 0 && divu_ceiling <= 3);
   pp.query("divu_dt_factor",divu_dt_factor);
-  BL_ASSERT(divu_dt_factor>0 && divu_dt_factor <= 1.0);
+  AMREX_ASSERT(divu_dt_factor>0 && divu_dt_factor <= 1.0);
   pp.query("min_rho_divu_ceiling",min_rho_divu_ceiling);
-  if (divu_ceiling) BL_ASSERT(min_rho_divu_ceiling >= 0.0);
+  if (divu_ceiling) AMREX_ASSERT(min_rho_divu_ceiling >= 0.0);
 
   pp.query("htt_tempmin",htt_tempmin);
   pp.query("htt_tempmax",htt_tempmax);
 
   pp.query("floor_species",floor_species);
-  BL_ASSERT(floor_species == 0 || floor_species == 1);
+  AMREX_ASSERT(floor_species == 0 || floor_species == 1);
 
   pp.query("do_set_rho_to_species_sum",do_set_rho_to_species_sum);
 
@@ -478,6 +473,7 @@ PeleLM::Initialize ()
     if (verbose) amrex::Print() << "PeleLM::read_params: Le=1, setting Sc = Pr" << '\n';
   }
 
+  pp.query("use_wbar",use_wbar);
   pp.query("sdc_iterMAX",sdc_iterMAX);
   pp.query("num_mac_sync_iter",num_mac_sync_iter);
 
@@ -782,7 +778,7 @@ showMFsub(const std::string&   mySet,
 
     if (ShowMF_Check_Nans)
     {
-      BL_ASSERT(!sub.contains_nan<RunOn::Host>(box,0,mf.nComp()));
+      AMREX_ASSERT(!sub.contains_nan<RunOn::Host>(box,0,mf.nComp()));
     }
     std::ofstream os;
     os.precision(15);
@@ -833,7 +829,7 @@ showMF(const std::string&   mySet,
     {
       for (MFIter mfi(mf); mfi.isValid(); ++mfi)
       {
-        //                BL_ASSERT(!mf[mfi].contains_nan(mfi.validbox(),0,mf.nComp()));
+        //                AMREX_ASSERT(!mf[mfi].contains_nan(mfi.validbox(),0,mf.nComp()));
       }
     }
 #endif
@@ -883,7 +879,7 @@ LM_Error_Value::tagCells(int* tag, const int* tlo, const int* thi,
                          const Real* prob_lo, const Real* time,
                          const int* level) const
 {
-    BL_ASSERT(lmef);
+    AMREX_ASSERT(lmef);
 
     bool max_level_applies = ( (max_level < 0) || ( (max_level >= 0) && (*level < max_level) ) );
     bool valid_time_range = (min_time >= 0) && (max_time >= 0) && (min_time <= max_time);
@@ -911,7 +907,7 @@ LM_Error_Value::tagCells1(int* tag, const int* tlo, const int* thi,
                           const Real* prob_lo, const Real* time,
                           const int* level) const
 {
-    BL_ASSERT(lmef_box);
+    AMREX_ASSERT(lmef_box);
 
     bool max_level_applies = ( (max_level < 0) || ( (max_level >= 0) && (*level < max_level) ) );
     bool valid_time_range = (min_time >= 0) && (max_time >= 0) && (min_time <= max_time);
@@ -937,7 +933,8 @@ PeleLM::variableCleanUp ()
    ShowMF_Sets.clear();
    auxDiag_names.clear();
    typical_values.clear();
-
+   prob_parm.reset();
+   ac_parm.reset();
 }
 
 PeleLM::PeleLM ()
@@ -959,11 +956,11 @@ PeleLM::PeleLM ()
    // can modify these later
    if (p_amb_old == -1.0)
    {
-      p_amb_old = ProbParm::P_mean;
+      p_amb_old = prob_parm->P_mean;
    }
    if (p_amb_new == -1.0)
    {
-      p_amb_new = ProbParm::P_mean;
+      p_amb_new = prob_parm->P_mean;
    }
 
    updateFluxReg = false;
@@ -972,9 +969,9 @@ PeleLM::PeleLM ()
    EdgeFlux               = 0;
    SpecDiffusionFluxn     = 0;
    SpecDiffusionFluxnp1   = 0;
-#ifdef USE_WBAR
-   SpecDiffusionFluxWbar  = 0;
-#endif
+   if (use_wbar) {
+      SpecDiffusionFluxWbar  = 0;
+   }
 }
 
 PeleLM::PeleLM (Amr&            papa,
@@ -1003,11 +1000,11 @@ PeleLM::PeleLM (Amr&            papa,
   // can modify these later
   if (p_amb_old == -1.0)
   {
-    p_amb_old = ProbParm::P_mean;
+    p_amb_old = prob_parm->P_mean;
   }
   if (p_amb_new == -1.0)
   {
-    p_amb_new = ProbParm::P_mean;
+    p_amb_new = prob_parm->P_mean;
   }
 
   updateFluxReg = false;
@@ -1055,10 +1052,10 @@ PeleLM::define_data ()
      }
 #endif
      
-#ifdef USE_WBAR
-     raii_fbs.push_back(std::unique_ptr<FluxBoxes>{new FluxBoxes(this, NUM_SPECIES, nGrow)});
-     SpecDiffusionFluxWbar = raii_fbs.back()->get();
-#endif
+     if (use_wbar) {
+        raii_fbs.push_back(std::unique_ptr<FluxBoxes>{new FluxBoxes(this, NUM_SPECIES, nGrow)});
+        SpecDiffusionFluxWbar = raii_fbs.back()->get();
+     }
    }
 
    for (const auto& kv : auxDiag_names)
@@ -1070,11 +1067,6 @@ PeleLM::define_data ()
    // HACK for debugging
    if (level==0)
       stripBox = getStrip(geom);
-
-#ifdef USE_WBAR
-   // this will hold the transport coefficients for Wbar
-   diffWbar_cc.define(grids,dmap,NUM_SPECIES,1);
-#endif
 
 #ifdef PLM_USE_EFIELD
    ef_define_data();
@@ -1121,7 +1113,7 @@ PeleLM::init_once ()
    //
    // Species checks.
    //
-   BL_ASSERT(Temp > RhoH && RhoH > Density);
+   AMREX_ASSERT(Temp > RhoH && RhoH > Density);
    //
    // Here we want to count relative to Density instead of relative
    // to RhoH, so we can put RhoH after the species instead of before.  
@@ -1180,7 +1172,7 @@ PeleLM::init_once ()
 
    if (chem_box_chop_threshold <= 0)
    {
-#ifdef BL_USE_OMP
+#ifdef AMREX_USE_OMP
      chem_box_chop_threshold = 8;
 #else
      chem_box_chop_threshold = 4;
@@ -1318,7 +1310,7 @@ PeleLM::restart (Amr&          papa,
 void
 PeleLM::init_mixture_fraction()
 {
-      // Get fuel and oxy tank composition
+      // Get default fuel and oxy tank composition
       Vector<std::string> specNames;
       EOS::speciesNames(specNames);
       amrex::Real YF[NUM_SPECIES], YO[NUM_SPECIES];
@@ -1328,6 +1320,66 @@ PeleLM::init_mixture_fraction()
          if (!specNames[i].compare("O2"))  YO[i] = 0.233;
          if (!specNames[i].compare("N2"))  YO[i] = 0.767;
          if (!specNames[i].compare(fuelName)) YF[i] = 1.0;
+      }
+
+      // Overwrite with user-defined value if provided in input file
+      ParmParse pp("peleLM");
+      std::string MFformat;
+      int hasUserMF = pp.contains("mixtureFraction.format");
+      if ( hasUserMF ) {
+         pp.query("mixtureFraction.format", MFformat);
+         if ( !MFformat.compare("Cantera")) {             // use a Cantera-like format with <SpeciesName>:<Value>, default in 0.0
+            std::string MFCompoType;
+            pp.query("mixtureFraction.type", MFCompoType);
+            Vector<std::string> compositionIn;
+            int entryCount = pp.countval("mixtureFraction.oxidTank");
+            compositionIn.resize(entryCount);
+            pp.getarr("mixtureFraction.oxidTank",compositionIn,0,entryCount);
+            parseComposition(compositionIn, MFCompoType, YO);
+            entryCount = pp.countval("mixtureFraction.fuelTank");
+            compositionIn.resize(entryCount);
+            pp.getarr("mixtureFraction.fuelTank",compositionIn,0,entryCount);
+            parseComposition(compositionIn, MFCompoType, YF);
+         } else if ( !MFformat.compare("RealList")) {     // use a list of Real. MUST contains an entry for each species in the mixture
+            std::string MFCompoType;
+            pp.query("mixtureFraction.type", MFCompoType);
+            if ( !MFCompoType.compare("mass") ) {
+               int entryCount = pp.countval("mixtureFraction.oxidTank");
+               AMREX_ALWAYS_ASSERT(entryCount==NUM_SPECIES);
+               Vector<amrex::Real> compositionIn(NUM_SPECIES);
+               pp.getarr("mixtureFraction.oxidTank",compositionIn,0,NUM_SPECIES);
+               for (int i=0; i<NUM_SPECIES; ++i) {
+                  YO[i] = compositionIn[i];
+               }
+               entryCount = pp.countval("mixtureFraction.fuelTank");
+               AMREX_ALWAYS_ASSERT(entryCount==NUM_SPECIES);
+               pp.getarr("mixtureFraction.fuelTank",compositionIn,0,NUM_SPECIES);
+               for (int i=0; i<NUM_SPECIES; ++i) {
+                  YF[i] = compositionIn[i];
+               }
+            } else if ( !MFCompoType.compare("mole") ) {
+               amrex::Real XF[NUM_SPECIES], XO[NUM_SPECIES];
+               int entryCount = pp.countval("mixtureFraction.oxidTank");
+               AMREX_ALWAYS_ASSERT(entryCount==NUM_SPECIES);
+               Vector<amrex::Real> compositionIn(NUM_SPECIES);
+               pp.getarr("mixtureFraction.oxidTank",compositionIn,0,NUM_SPECIES);
+               for (int i=0; i<NUM_SPECIES; ++i) {
+                  XO[i] = compositionIn[i];
+               }
+               entryCount = pp.countval("mixtureFraction.fuelTank");
+               AMREX_ALWAYS_ASSERT(entryCount==NUM_SPECIES);
+               pp.getarr("mixtureFraction.fuelTank",compositionIn,0,NUM_SPECIES);
+               for (int i=0; i<NUM_SPECIES; ++i) {
+                  XF[i] = compositionIn[i];
+               }
+               EOS::X2Y(XO, YO);
+               EOS::X2Y(XF, YF);
+            } else {
+               Abort("Unknown mixtureFraction.type ! Should be 'mass' or 'mole'");
+            }
+         } else {
+            Abort("Unknown mixtureFraction.format ! Should be 'Cantera' or 'RealList'");
+         }
       }
 
       // Only interested in CHON -in that order. Compute Bilger weights
@@ -1341,9 +1393,21 @@ PeleLM::init_mixture_fraction()
       // Compute each species weight for the Bilger formulation based on elemental compo
       // Only interested in CHON -in that order.
       int ecompCHON[NUM_SPECIES*4];
-      amrex::Real mwt[NUM_SPECIES];
       EOS::element_compositionCHON(ecompCHON);
-      EOS::molecular_weight(mwt);
+      amrex::Gpu::DeviceVector<amrex::Real> mwt_v(NUM_SPECIES);
+      amrex::Real* mwt_d = mwt_v.data();
+      Box dumbx({AMREX_D_DECL(0,0,0)},{AMREX_D_DECL(0,0,0)});
+      amrex::ParallelFor(dumbx, [mwt_d]
+      AMREX_GPU_DEVICE(int i, int j, int k) noexcept
+      { 
+         EOS::molecular_weight(mwt_d);
+      });
+      amrex::Real mwt[NUM_SPECIES];
+#if AMREX_USE_GPU
+      amrex::Gpu::dtoh_memcpy(mwt,mwt_d,sizeof(amrex::Real)*NUM_SPECIES);
+#else
+      std::memcpy(mwt,mwt_d,sizeof(amrex::Real)*NUM_SPECIES);
+#endif
       Zfu = 0.0;
       Zox = 0.0;
       for (int i=0; i<NUM_SPECIES; ++i) {
@@ -1367,7 +1431,7 @@ PeleLM::set_typical_values(bool is_restart)
 
     if (is_restart) 
     {
-      BL_ASSERT(nComp==NUM_STATE);
+      AMREX_ASSERT(nComp==NUM_STATE);
 
       for (int i=0; i<nComp; ++i)
         typical_values[i] = -1;
@@ -1400,19 +1464,19 @@ PeleLM::set_typical_values(bool is_restart)
         Slevs[lev] = &(getLevel(lev).get_new_data(State_Type));
       }
 
-      auto scaleMax = VectorMax(Slevs,FabArrayBase::mfiter_tile_size,Density,NUM_STATE-BL_SPACEDIM,0);
-      auto scaleMin = VectorMin(Slevs,FabArrayBase::mfiter_tile_size,Density,NUM_STATE-BL_SPACEDIM,0);      
-      auto velMaxV = VectorMaxAbs(Slevs,FabArrayBase::mfiter_tile_size,0,BL_SPACEDIM,0);
+      auto scaleMax = VectorMax(Slevs,FabArrayBase::mfiter_tile_size,Density,NUM_STATE-AMREX_SPACEDIM,0);
+      auto scaleMin = VectorMin(Slevs,FabArrayBase::mfiter_tile_size,Density,NUM_STATE-AMREX_SPACEDIM,0);      
+      auto velMaxV = VectorMaxAbs(Slevs,FabArrayBase::mfiter_tile_size,0,AMREX_SPACEDIM,0);
 
       auto velMax = *max_element(std::begin(velMaxV), std::end(velMaxV));
 
-      for (int i=0; i<NUM_STATE - BL_SPACEDIM; ++i) {
-        typical_values[i + BL_SPACEDIM] = std::abs(scaleMax[i] - scaleMin[i]);
-		  if ( typical_values[i + BL_SPACEDIM] <= 0.0)
-			  typical_values[i + BL_SPACEDIM] = 0.5*std::abs(scaleMax[i] + scaleMin[i]);
+      for (int i=0; i<NUM_STATE - AMREX_SPACEDIM; ++i) {
+        typical_values[i + AMREX_SPACEDIM] = std::abs(scaleMax[i] - scaleMin[i]);
+		  if ( typical_values[i + AMREX_SPACEDIM] <= 0.0)
+			  typical_values[i + AMREX_SPACEDIM] = 0.5*std::abs(scaleMax[i] + scaleMin[i]);
       }
 
-      for (int i=0; i<BL_SPACEDIM; ++i) {
+      for (int i=0; i<AMREX_SPACEDIM; ++i) {
         typical_values[i] = velMax;
       }
 
@@ -1444,7 +1508,7 @@ PeleLM::set_typical_values(bool is_restart)
           typical_values[RhoH] = it->second;
         else if (it->first == "Vel")
         {
-          for (int d=0; d<BL_SPACEDIM; ++d)
+          for (int d=0; d<AMREX_SPACEDIM; ++d)
             typical_values[d] = std::max(it->second,typical_Y_val_min);
         }
       }
@@ -1452,7 +1516,7 @@ PeleLM::set_typical_values(bool is_restart)
 
     amrex::Print() << "Typical vals: " << '\n';
     amrex::Print() << "\tVelocity: ";
-    for (int i=0; i<BL_SPACEDIM; ++i) {
+    for (int i=0; i<AMREX_SPACEDIM; ++i) {
       amrex::Print() << typical_values[i] << ' ';
     }
     amrex::Print() << '\n';
@@ -1478,7 +1542,7 @@ PeleLM::set_typical_values(bool is_restart)
       }
       typical_values_chem[NUM_SPECIES] = typical_values[Temp];
       SetTypValsODE(typical_values_chem);
-#ifndef AMREX_USE_CUDA
+#ifndef AMREX_USE_GPU
       ReSetTolODE();
 #endif  
       }
@@ -1496,7 +1560,7 @@ PeleLM::reset_typical_values (const MultiFab& S)
   //
   const int nComp = typical_values.size();
 
-  BL_ASSERT(nComp == S.nComp());
+  AMREX_ASSERT(nComp == S.nComp());
 
   for (int i=0; i<nComp; ++i)
   {
@@ -1534,7 +1598,7 @@ PeleLM::reset_typical_values (const MultiFab& S)
           typical_values[RhoH] = it->second;
         else if (it->first == "Vel")
         {
-          for (int d=0; d<BL_SPACEDIM; ++d)
+          for (int d=0; d<AMREX_SPACEDIM; ++d)
             typical_values[d] = std::max(it->second,typical_Y_val_min);
         }
       }
@@ -1543,7 +1607,7 @@ PeleLM::reset_typical_values (const MultiFab& S)
 
   amrex::Print() << "New typical vals: " << '\n';
   amrex::Print() << "\tVelocity: ";
-  for (int i=0; i<BL_SPACEDIM; ++i) {
+  for (int i=0; i<AMREX_SPACEDIM; ++i) {
     amrex::Print() << typical_values[i] << ' ';
   }
   amrex::Print() << '\n';
@@ -1578,7 +1642,7 @@ PeleLM::estTimeStep ()
    int  divu_check_flag = divu_ceiling;
    Real divu_dt_fac     = divu_dt_factor;
    Real rho_min         = min_rho_divu_ceiling;
-   const auto dxinv     = geom.InvCellSizeArray();
+   const auto& dxinv    = geom.InvCellSizeArray();
 
    FillPatchIterator U_fpi(*this,*DivU,nGrow,cur_time,State_Type,Xvel,AMREX_SPACEDIM);
    MultiFab& Umf=U_fpi.get_mf();
@@ -1592,11 +1656,7 @@ PeleLM::estTimeStep ()
          using namespace amrex::literals;
          const auto lo = amrex::lbound(bx);
          const auto hi = amrex::ubound(bx);
-#if !defined(__CUDACC__) || (__CUDACC_VER_MAJOR__ != 9) || (__CUDACC_VER_MINOR__ != 2)
-         amrex::Real dt = std::numeric_limits<amrex::Real>::max();
-#else
          amrex::Real dt = 1.e37_rt;
-#endif
          for       (int k = lo.z; k <= hi.z; ++k) {
             for    (int j = lo.y; j <= hi.y; ++j) {
                for (int i = lo.x; i <= hi.x; ++i) {
@@ -1618,11 +1678,7 @@ PeleLM::estTimeStep ()
          using namespace amrex::literals;
          const auto lo = amrex::lbound(bx);
          const auto hi = amrex::ubound(bx);
-#if !defined(__CUDACC__) || (__CUDACC_VER_MAJOR__ != 9) || (__CUDACC_VER_MINOR__ != 2)
-         amrex::Real dt = std::numeric_limits<amrex::Real>::max();
-#else
          amrex::Real dt = 1.e37_rt;
-#endif
          for       (int k = lo.z; k <= hi.z; ++k) {
             for    (int j = lo.y; j <= hi.y; ++j) {
                for (int i = lo.x; i <= hi.x; ++i) {
@@ -1701,20 +1757,20 @@ PeleLM::checkTimeStep (Real dt)
       auto const& vel      = Umf.array(mfi);
       auto const& divu     = DivU->array(mfi);
       auto const& vol      = volume.const_array(mfi);
-      D_TERM(auto const& areax = (area[0]).const_array(mfi);,
-             auto const& areay = (area[1]).const_array(mfi);,
-             auto const& areaz = (area[2]).const_array(mfi););
+      AMREX_D_TERM(auto const& areax = (area[0]).const_array(mfi);,
+                   auto const& areay = (area[1]).const_array(mfi);,
+                   auto const& areaz = (area[2]).const_array(mfi););
       int  divu_check_flag = divu_ceiling;
       Real divu_dt_fac     = divu_dt_factor;
       Real rho_min         = min_rho_divu_ceiling;
       const auto dxinv     = geom.InvCellSizeArray();
 
-      amrex::ParallelFor(bx, [rho, vel, divu, vol, D_DECL(areax,areay,areaz),
+      amrex::ParallelFor(bx, [rho, vel, divu, vol, AMREX_D_DECL(areax,areay,areaz),
                               divu_check_flag, divu_dt_fac, rho_min, dxinv, dt]
       AMREX_GPU_DEVICE (int i, int j, int k) noexcept
       {
          check_divu_dt(i, j, k, divu_check_flag, divu_dt_fac, rho_min, dxinv,
-                       rho, vel, divu, vol, D_DECL(areax,areay,areaz), dt); 
+                       rho, vel, divu, vol, AMREX_D_DECL(areax,areay,areaz), dt); 
       });
    }
    delete DivU;
@@ -1742,17 +1798,13 @@ PeleLM::initData ()
   //
   // Initialize the state and the pressure.
   //
-  int         ns       = NUM_STATE - BL_SPACEDIM;
+  int         ns       = NUM_STATE - AMREX_SPACEDIM;
   const Real* dx       = geom.CellSize();
   MultiFab&   S_new    = get_new_data(State_Type);
   MultiFab&   P_new    = get_new_data(Press_Type);
   const Real  cur_time = state[State_Type].curTime();
 
-  const auto geomdata = geom.data();
-  S_new.setVal(0.0);
-  P_new.setVal(0.0);
-
-#ifdef BL_USE_NEWMECH
+#ifdef AMREX_USE_NEWMECH
   //
   // This code has a few drawbacks.  It assumes that the physical
   // domain size of the current problem is the same as that of the
@@ -1793,9 +1845,9 @@ PeleLM::initData ()
   //
   // In the plotfile the mass fractions directly follow the velocities.
   //
-  int idSpec = idX + BL_SPACEDIM;
+  int idSpec = idX + AMREX_SPACEDIM;
 
-  for (int i = 0; i < BL_SPACEDIM; i++)
+  for (int i = 0; i < AMREX_SPACEDIM; i++)
   {
     amrData.FillVar(S_new, level, plotnames[idX+i], Xvel+i);
     amrData.FlushGrids(idX+i);
@@ -1868,6 +1920,9 @@ PeleLM::initData ()
   }
 #endif
 
+  ProbParm const* lprobparm = prob_parm.get();
+  PmfData const* lpmfdata = pmf_data_g;
+
 #ifdef _OPENMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
@@ -1894,7 +1949,11 @@ PeleLM::initData ()
       amrex::ParallelFor(box,
       [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
       {
-        pelelm_initdata(i, j, k, sfab, geomdata);
+#ifdef AMREX_USE_NEWMECH
+        amrex::Abort("USE_NEWMECH feature no longer working and has to be fixed/redone");
+#else
+        pelelm_initdata(i, j, k, sfab, geomdata, *lprobparm, lpmfdata);
+#endif
       });
 #endif
   }
@@ -1911,7 +1970,7 @@ PeleLM::initData ()
 #endif
   
 
-#ifdef BL_USE_VELOCITY
+#ifdef AMREX_USE_VELOCITY
   //
   // We want to add the velocity from the supplied plotfile
   // to what we already put into the velocity field via FORT_INITDATA.
@@ -1960,7 +2019,7 @@ PeleLM::initData ()
       amrex::Abort("Could not find velocity fields in supplied velocity_plotfile");
 
     MultiFab tmp(S_new.boxArray(), S_new.DistributionMap(), 1, 0);
-    for (int i = 0; i < BL_SPACEDIM; i++)
+    for (int i = 0; i < AMREX_SPACEDIM; i++)
     {
       amrData.FillVar(tmp, level, plotnames[idX+i], 0);
 #ifdef _OPENMP
@@ -1975,7 +2034,7 @@ PeleLM::initData ()
     if (verbose)
       amrex::Print() << "initData: finished init from velocity_plotfile" << '\n';
   }
-#endif /*BL_USE_VELOCITY*/
+#endif /*AMREX_USE_VELOCITY*/
 
   make_rho_prev_time();
   make_rho_curr_time();
@@ -2017,17 +2076,8 @@ PeleLM::initData ()
     state[State_Type].setTimeLevel(tnp1,dt,dt);
 
     calcDiffusivity(tnp1);
-#ifdef USE_WBAR
-    calcDiffusivity_Wbar(tnp1);
-#endif
 
     calc_divu(tnp1,dtin,Divu_new);
-    
-  }
-
-  if (state[Press_Type].descriptor()->timeType() == StateDescriptor::Point) 
-  {
-    get_new_data(Dpdt_Type).setVal(0);
   }
 
   is_first_step_after_regrid = false;
@@ -2077,7 +2127,7 @@ PeleLM::compute_instantaneous_reaction_rates (MultiFab&       R,
 
    const Real strt_time = ParallelDescriptor::second();
 
-   BL_ASSERT((nGrow==0)  ||  (how == HT_ZERO_GROW_CELLS) || (how == HT_EXTRAP_GROW_CELLS));
+   AMREX_ASSERT((nGrow==0)  ||  (how == HT_ZERO_GROW_CELLS) || (how == HT_EXTRAP_GROW_CELLS));
 
    if ((nGrow>0) && (how == HT_ZERO_GROW_CELLS))
    {
@@ -2128,7 +2178,7 @@ PeleLM::compute_instantaneous_reaction_rates (MultiFab&       R,
    if ((nGrow>0) && (how == HT_EXTRAP_GROW_CELLS))
    {
       R.FillBoundary(0,nrhoYdot, geom.periodicity());
-      BL_ASSERT(R.nGrow() == 1);
+      AMREX_ASSERT(R.nGrow() == 1);
       Extrapolater::FirstOrderExtrap(R, geom, 0, nrhoYdot);
    }
 
@@ -2276,7 +2326,7 @@ PeleLM::postCoarseTimeStep (Real cumtime)
   //
   // postCoarseTimeStep() is only called by level 0.
   //
-  BL_ASSERT(level == 0);
+  AMREX_ASSERT(level == 0);
   AmrLevel::postCoarseTimeStep(cumtime);
 }
 
@@ -2686,7 +2736,7 @@ PeleLM::sum_integrated_quantities ()
     auto Smax = VectorMax(Slevs,FabArrayBase::mfiter_tile_size,0,NUM_STATE,0);
 
     Print() << "TIME= " << tnp1 << " min,max temp = " << Smin[Temp] << ", " << Smax[Temp] << '\n';
-    for (int n=0; n<BL_SPACEDIM; ++n) {
+    for (int n=0; n<AMREX_SPACEDIM; ++n) {
       std::string str = (n==0 ? "xvel" : (n==1 ? "yvel" : "zvel") );
       Print() << "TIME= " << tnp1  << " min,max "<< str << "  = " << Smin[Xvel+n] << ", " << Smax[Xvel+n] << '\n';
     }
@@ -3257,6 +3307,7 @@ PeleLM::diffuse_scalar_fj  (const Vector<MultiFab*>&  S_old,
 
 void
 PeleLM::differential_diffusion_update (MultiFab& Force,
+                                       MultiFab& Dwbar,
                                        int       FComp,
                                        MultiFab& Dnew,
                                        int       DComp,
@@ -3268,11 +3319,11 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
    // Recompute the D[Nspec+1] = Div(Fi.Hi) using
    // Fi.Hi based on solution here.
    //
-   BL_ASSERT(Force.boxArray() == grids);
-   BL_ASSERT(FComp+Force.nComp()>=NUM_SPECIES+1);
-   BL_ASSERT(Dnew.boxArray() == grids);
-   BL_ASSERT(DDnew.boxArray() == grids);
-   BL_ASSERT(DComp+Dnew.nComp()>=NUM_SPECIES+2);
+   AMREX_ASSERT(Force.boxArray() == grids);
+   AMREX_ASSERT(FComp+Force.nComp()>=NUM_SPECIES+1);
+   AMREX_ASSERT(Dnew.boxArray() == grids);
+   AMREX_ASSERT(DDnew.boxArray() == grids);
+   AMREX_ASSERT(DComp+Dnew.nComp()>=NUM_SPECIES+2);
 
    const Real strt_time = ParallelDescriptor::second();
 
@@ -3376,27 +3427,29 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
    set_body_state(*Sn[0]);
 #endif
 
-#ifdef USE_WBAR
-   // add lagged grad Wbar fluxes (SpecDiffusionFluxWbar) to time-advanced 
-   // species diffusion fluxes (SpecDiffusionFluxnp1)
+   if (use_wbar) {
+      // add lagged grad Wbar fluxes (SpecDiffusionFluxWbar) to time-advanced 
+      // species diffusion fluxes (SpecDiffusionFluxnp1)(kp1) at this point.
+      // These fluxes are similar to the one we put into the RHS in advance() since they are not
+      // solved implicitly.
 #ifdef _OPENMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
-   for (MFIter mfi(*SpecDiffusionFluxWbar[0],TilingIfNotGPU()); mfi.isValid(); ++mfi)
-   {
-      for (int dir=0; dir<AMREX_SPACEDIM; ++dir)
+      for (MFIter mfi(*Sn[0],TilingIfNotGPU()); mfi.isValid(); ++mfi)
       {
-         const Box& ebx = mfi.nodaltilebox(dir);
-         auto const& flux_spec = SpecDiffusionFluxnp1[dir]->array(mfi);
-         auto const& flux_wbar = SpecDiffusionFluxWbar[dir]->array(mfi);
-         amrex::ParallelFor(ebx, NUM_SPECIES, [ flux_spec, flux_wbar ]
-         AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
+         for (int dir=0; dir<AMREX_SPACEDIM; ++dir)
          {
-             flux_spec(i,j,k,n) += flux_wbar(i,j,k,n);
-         });
+            const Box& ebx = mfi.nodaltilebox(dir);
+            auto const& flux_spec = SpecDiffusionFluxnp1[dir]->array(mfi);
+            auto const& flux_wbar = SpecDiffusionFluxWbar[dir]->array(mfi);
+            amrex::ParallelFor(ebx, NUM_SPECIES, [ flux_spec, flux_wbar ]
+            AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
+            {
+                flux_spec(i,j,k,n) += flux_wbar(i,j,k,n);
+            });
+         }
       }
    }
-#endif
 
    //
    // Modify/update new-time fluxes to ensure sum of species fluxes = 0, then compute Dnew[m] = -Div(flux[m])
@@ -3406,6 +3459,7 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
    adjust_spec_diffusion_fluxes(SpecDiffusionFluxnp1,get_new_data(State_Type),
                                 Tbc,curr_time);
 
+   // Compute Dnp1kp1 (here called Dnew)
    flux_divergence(Dnew,DComp,SpecDiffusionFluxnp1,0,NUM_SPECIES,-1);
 
 #ifdef _OPENMP
@@ -3418,10 +3472,15 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
       auto const& rhoY_new = Snp1[0]->array(mfi,first_spec);
       auto const& force    = Force.array(mfi);
       auto const& dnp1kp1  = Dnew.array(mfi);
-      amrex::ParallelFor(bx, NUM_SPECIES, [ rhoY_old, rhoY_new, force, dnp1kp1, dt]
+      int use_wbar_lcl     = use_wbar;
+      auto const& dwbar    = (use_wbar) ? Dwbar.array(mfi) : Dnew.array(mfi); 
+      amrex::ParallelFor(bx, NUM_SPECIES, [ rhoY_old, rhoY_new, force, dnp1kp1, dwbar, dt, use_wbar_lcl]
       AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
       {
           rhoY_new(i,j,k,n) = rhoY_old(i,j,k,n) + dt * ( force(i,j,k,n) + dnp1kp1(i,j,k,n) );
+          if ( use_wbar_lcl ) {  // We remove the dwbar term since it was included in both force (in PeleLM::advance) and in the fluxes (above)
+             rhoY_new(i,j,k,n) -= dt * dwbar(i,j,k,n);
+          }
       });
    }
 
@@ -3513,8 +3572,8 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
                                 solve_mode,add_old_time_divFlux,diffuse_this_comp);
 
 #ifdef AMREX_USE_EB
-      EB_set_covered_faces({D_DECL(SpecDiffusionFluxnp1[0],SpecDiffusionFluxnp1[1],SpecDiffusionFluxnp1[2])},0.);
-      EB_set_covered_faces({D_DECL(SpecDiffusionFluxn[0],SpecDiffusionFluxn[1],SpecDiffusionFluxn[2])},0.);
+      EB_set_covered_faces({AMREX_D_DECL(SpecDiffusionFluxnp1[0],SpecDiffusionFluxnp1[1],SpecDiffusionFluxnp1[2])},0.);
+      EB_set_covered_faces({AMREX_D_DECL(SpecDiffusionFluxn[0],SpecDiffusionFluxn[1],SpecDiffusionFluxn[2])},0.);
 #endif
           
       deltaT_iter_norm = Snp1[0]->norm0(Temp);
@@ -3556,7 +3615,7 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
 
 #ifdef AMREX_USE_EB
    set_body_state(*Snp1[0]);
-   EB_set_covered_faces({D_DECL(SpecDiffusionFluxnp1[0],SpecDiffusionFluxnp1[1],SpecDiffusionFluxnp1[2])},0.);
+   EB_set_covered_faces({AMREX_D_DECL(SpecDiffusionFluxnp1[0],SpecDiffusionFluxnp1[1],SpecDiffusionFluxnp1[2])},0.);
 #endif
 
    showMF("mysdc",Dnew,"sdc_Dnew_afterDeltaTiter_inDDupdate",level,1,parent->levelSteps(level));
@@ -3652,7 +3711,7 @@ PeleLM::adjust_spec_diffusion_fluxes (MultiFab* const * flux,
      const BoxArray& ba = getEdgeBoxArray(i);
      edgstate[i].define(ba, dmap, NUM_SPECIES, nghost, MFInfo(), Factory());
    }
-   EB_interp_CellCentroid_to_FaceCentroid(TT, D_DECL(edgstate[0],edgstate[1],edgstate[2]), 0, 0, NUM_SPECIES, geom, math_bc);
+   EB_interp_CellCentroid_to_FaceCentroid(TT, AMREX_D_DECL(edgstate[0],edgstate[1],edgstate[2]), 0, 0, NUM_SPECIES, geom, math_bc);
 #endif
 
 #ifdef _OPENMP
@@ -3738,7 +3797,7 @@ PeleLM::compute_enthalpy_fluxes (MultiFab* const*       flux,
          flux[NUM_SPECIES+2] = - lambda grad T
   */
 
-  BL_ASSERT(beta && beta[0]->nComp() == NUM_SPECIES+1);
+  AMREX_ASSERT(beta && beta[0]->nComp() == NUM_SPECIES+1);
 
   const Real strt_time = ParallelDescriptor::second();
 
@@ -3794,9 +3853,9 @@ PeleLM::compute_enthalpy_fluxes (MultiFab* const*       flux,
   // Here it is NUM_SPECIES because lambda is stored after the last species (first starts at 0)
   Diffusion::setBeta(op,beta,NUM_SPECIES);
   
-  D_TERM( flux[0]->setVal(0., NUM_SPECIES+2, 1);,
-          flux[1]->setVal(0., NUM_SPECIES+2, 1);,
-          flux[2]->setVal(0., NUM_SPECIES+2, 1););
+  AMREX_D_TERM( flux[0]->setVal(0., NUM_SPECIES+2, 1);,
+                flux[1]->setVal(0., NUM_SPECIES+2, 1);,
+                flux[2]->setVal(0., NUM_SPECIES+2, 1););
 
   // Here it is NUM_SPECIES+2 because this is the heat flux (NUM_SPECIES+3 in enth_diff_terms in fortran)
   // No multiplication by dt here
@@ -3841,7 +3900,7 @@ PeleLM::compute_enthalpy_fluxes (MultiFab* const*       flux,
   }
 
 #ifdef AMREX_USE_EB
-   EB_interp_CellCentroid_to_FaceCentroid(Enth, D_DECL(enth_edgstate[0],enth_edgstate[1],enth_edgstate[2]), 0, 0, NUM_SPECIES, geom, math_bc);
+   EB_interp_CellCentroid_to_FaceCentroid(Enth, AMREX_D_DECL(enth_edgstate[0],enth_edgstate[1],enth_edgstate[2]), 0, 0, NUM_SPECIES, geom, math_bc);
 
 #else
    const Box& domain = geom.Domain();
@@ -4044,7 +4103,7 @@ PeleLM::getViscTerms (MultiFab& visc_terms,
       }
       int viscComp = 0;
       const TimeLevel whichTime = which_time(State_Type,time);
-      BL_ASSERT(whichTime == AmrOldTime || whichTime == AmrNewTime);
+      AMREX_ASSERT(whichTime == AmrOldTime || whichTime == AmrNewTime);
       auto vel_visc_cc = (whichTime == AmrOldTime ? viscn_cc : viscnp1_cc);
       diffusion->getTensorViscTerms(visc_terms,time,vel_visc,vel_visc_cc,viscComp);
 
@@ -4061,7 +4120,7 @@ PeleLM::getViscTerms (MultiFab& visc_terms,
    if (nGrow > 0)
    {
       visc_terms.FillBoundary(0,num_comp, geom.periodicity());
-      BL_ASSERT(visc_terms.nGrow() == 1);
+      AMREX_ASSERT(visc_terms.nGrow() == 1);
       Extrapolater::FirstOrderExtrap(visc_terms, geom, 0, num_comp);
    }
 
@@ -4149,7 +4208,7 @@ PeleLM::compute_differential_diffusion_fluxes (const MultiFab& S,
 #endif
 
    const int nGrow = 1;
-   BL_ASSERT(S.nGrow()>=nGrow);
+   AMREX_ASSERT(S.nGrow()>=nGrow);
    bool has_coarse_data = bool(Scrse);
 
    const DistributionMapping* dmc = (has_coarse_data ? &(Scrse->DistributionMap()) : 0);
@@ -4215,24 +4274,22 @@ PeleLM::compute_differential_diffusion_fluxes (const MultiFab& S,
          op.setScalars(a,b);
       }
 
+      // Set beta as \rho D_m
       Diffusion::setBeta(op,beta,betaComp+icomp);
 
       // No multiplication by dt here.
       Diffusion::computeExtensiveFluxes(mg, Soln, flux, fluxComp+icomp, 1, &geom, b);
    }
-//VisMF::Write(*flux[0],"flux_after_getFluxes_x");
-//VisMF::Write(*flux[1],"flux_after_getFluxes_y"); 
 
    Soln.clear();
 
-#ifdef USE_WBAR
-   if (include_Wbar_fluxes) {
-      compute_Wbar_fluxes(time,0);
+   if (use_wbar && include_Wbar_fluxes) {
+      // Total flux : - \rho D_m \nabla Y_m (above) - \rho D_m Y_m / \overline{W} \nabla \overline{W} (below)
+      compute_Wbar_fluxes(time,0,1.0);
       for (int d=0; d<AMREX_SPACEDIM; ++d) {
          MultiFab::Add(*flux[d],*SpecDiffusionFluxWbar[d],0,fluxComp,NUM_SPECIES,0);
       }
    }
-#endif
 
    //
    // Modify update/fluxes to preserve flux sum = 0 (conservatively correct Gamma_m)
@@ -4247,7 +4304,7 @@ PeleLM::compute_differential_diffusion_fluxes (const MultiFab& S,
 
 #ifdef AMREX_USE_EB
    // Get rid of flux on covered faces
-   EB_set_covered_faces({D_DECL(flux[0],flux[1],flux[2])},0.);
+   EB_set_covered_faces({AMREX_D_DECL(flux[0],flux[1],flux[2])},0.);
 #endif
 
    // We have just computed "DD" and heat fluxes given an input state.
@@ -4369,7 +4426,7 @@ PeleLM::flux_divergence (MultiFab&        fdiv,
                          Real             scale) const
 {
    BL_PROFILE("PeleLM::flux_divergence()");
-   BL_ASSERT(fdiv.nComp() >= fdivComp+nComp);
+   AMREX_ASSERT(fdiv.nComp() >= fdivComp+nComp);
 
 //////////////////////////////////////////////////////
 // Version using AMReX computeDivergence function
@@ -4399,9 +4456,9 @@ PeleLM::flux_divergence (MultiFab&        fdiv,
    for (MFIter mfi(fdiv,TilingIfNotGPU()); mfi.isValid(); ++mfi)
    {
       const Box& bx = mfi.tilebox();
-      D_TERM(auto const& fluxX = f[0]->array(mfi,fluxComp);,
-             auto const& fluxY = f[1]->array(mfi,fluxComp);,
-             auto const& fluxZ = f[2]->array(mfi,fluxComp););
+      AMREX_D_TERM(auto const& fluxX = f[0]->array(mfi,fluxComp);,
+                   auto const& fluxY = f[1]->array(mfi,fluxComp);,
+                   auto const& fluxZ = f[2]->array(mfi,fluxComp););
       auto const& divergence   = fdiv.array(mfi,fdivComp);
       auto const& vol          = volume.const_array(mfi);
 
@@ -4420,7 +4477,7 @@ PeleLM::flux_divergence (MultiFab&        fdiv,
          });
       } else if (flagfab.getType(bx) != FabType::regular ) {     // EB containing boxes 
          auto vfrac = ebfactory.getVolFrac().const_array(mfi);
-         amrex::ParallelFor(bx, [nComp, flag, vfrac, divergence, D_DECL(fluxX, fluxY, fluxZ), vol, scale]
+         amrex::ParallelFor(bx, [nComp, flag, vfrac, divergence, AMREX_D_DECL(fluxX, fluxY, fluxZ), vol, scale]
          AMREX_GPU_DEVICE (int i, int j, int k) noexcept
          {
             if ( flag(i,j,k).isCovered() ) {
@@ -4429,12 +4486,12 @@ PeleLM::flux_divergence (MultiFab&        fdiv,
                }
             } else if ( flag(i,j,k).isRegular() ) {
                fluxDivergence( i, j, k, nComp,
-                               D_DECL(fluxX, fluxY, fluxZ),
+                               AMREX_D_DECL(fluxX, fluxY, fluxZ),
                                vol, scale, divergence);
             } else {
                Real vfracinv = 1.0/vfrac(i,j,k);
                fluxDivergence( i, j, k, nComp,
-                               D_DECL(fluxX, fluxY, fluxZ),
+                               AMREX_D_DECL(fluxX, fluxY, fluxZ),
                                vol, scale, divergence);
                for (int n = 0; n < nComp; n++) {
                   divergence(i,j,k,n) *= vfracinv;
@@ -4443,11 +4500,11 @@ PeleLM::flux_divergence (MultiFab&        fdiv,
          });
       } else {                                                   // Regular boxes
 #endif
-         amrex::ParallelFor(bx, [nComp, divergence, D_DECL(fluxX, fluxY, fluxZ), vol, scale]
+         amrex::ParallelFor(bx, [nComp, divergence, AMREX_D_DECL(fluxX, fluxY, fluxZ), vol, scale]
          AMREX_GPU_DEVICE (int i, int j, int k) noexcept
          {
             fluxDivergence( i, j, k, nComp,
-                            D_DECL(fluxX, fluxY, fluxZ),
+                            AMREX_D_DECL(fluxX, fluxY, fluxZ),
                             vol, scale, divergence);
          });
 #ifdef AMREX_USE_EB
@@ -4479,8 +4536,8 @@ PeleLM::compute_differential_diffusion_terms (MultiFab& D,
    // Uses state at time to explicitly compute fluxes, and resets internal
    //  data for fluxes, etc
    //
-   BL_ASSERT(D.boxArray() == grids);
-   BL_ASSERT(D.nComp() >= NUM_SPECIES+2); // room for spec+RhoH+Temp
+   AMREX_ASSERT(D.boxArray() == grids);
+   AMREX_ASSERT(D.nComp() >= NUM_SPECIES+2); // room for spec+RhoH+Temp
 
    if (hack_nospecdiff)
    {
@@ -4488,11 +4545,8 @@ PeleLM::compute_differential_diffusion_terms (MultiFab& D,
    }
 
    const TimeLevel whichTime = which_time(State_Type,time);
-   BL_ASSERT(whichTime == AmrOldTime || whichTime == AmrNewTime);
+   AMREX_ASSERT(whichTime == AmrOldTime || whichTime == AmrNewTime);
    MultiFab* const * flux = (whichTime == AmrOldTime) ? SpecDiffusionFluxn : SpecDiffusionFluxnp1;
-#ifdef USE_WBAR
-   MultiFab* const * fluxWbar = SpecDiffusionFluxWbar;
-#endif
 
    //
    // Compute/adjust species fluxes/heat flux/conduction, save in class data
@@ -4535,8 +4589,8 @@ PeleLM::compute_differential_diffusion_terms (MultiFab& D,
      D.FillBoundary(0,nc, geom.periodicity());
      DD.FillBoundary(0,1, geom.periodicity());
 
-     BL_ASSERT(D.nGrow() == 1);
-     BL_ASSERT(DD.nGrow() == 1);
+     AMREX_ASSERT(D.nGrow() == 1);
+     AMREX_ASSERT(DD.nGrow() == 1);
 
      Extrapolater::FirstOrderExtrap(D, geom, 0, nc);
      Extrapolater::FirstOrderExtrap(DD, geom, 0, 1);
@@ -4585,7 +4639,7 @@ PeleLM::compute_rhoRT (const MultiFab& S,
                              MultiFab& Press,
                              int       pComp)
 {
-   BL_ASSERT(pComp<Press.nComp());
+   AMREX_ASSERT(pComp<Press.nComp());
 
    const Real strt_time = ParallelDescriptor::second();
 
@@ -4712,10 +4766,6 @@ PeleLM::advance_setup (Real time,
 
    RhoH_to_Temp(get_old_data(State_Type));
 
-#ifdef USE_WBAR
-   calcDiffusivity_Wbar(time);
-#endif
-
 #ifdef PLM_USE_EFIELD
    ef_advance_setup(time);
 #endif
@@ -4732,7 +4782,7 @@ PeleLM::setThermoPress(Real time)
 {
   const TimeLevel whichTime = which_time(State_Type,time);
     
-  BL_ASSERT(whichTime == AmrOldTime || whichTime == AmrNewTime);
+  AMREX_ASSERT(whichTime == AmrOldTime || whichTime == AmrNewTime);
     
   MultiFab& S = (whichTime == AmrOldTime) ? get_old_data(State_Type) : get_new_data(State_Type);
     
@@ -4783,7 +4833,7 @@ PeleLM::predict_velocity (Real  dt)
     {
         Box gbx=mfi.growntilebox(godunov_hyp_grow);
         auto const& fab_a = Umf.array(mfi);
-        AMREX_HOST_DEVICE_FOR_4D ( gbx, BL_SPACEDIM, i, j, k, n,
+        AMREX_HOST_DEVICE_FOR_4D ( gbx, AMREX_SPACEDIM, i, j, k, n,
         {
             auto& val = fab_a(i,j,k,n);
             val = amrex::Math::abs(val) > 1.e-20 ? val : 0;
@@ -4799,20 +4849,15 @@ PeleLM::predict_velocity (Real  dt)
    auto umax = VectorMaxAbs({&Umf},FabArrayBase::mfiter_tile_size,0,AMREX_SPACEDIM,Umf.nGrow());
    Real cflmax = dt*umax[0]/dx[0];
    for (int d=1; d<AMREX_SPACEDIM; ++d) {
-     // if d=0, then, given the initialization of cflmax, the next line would be
-     //   cflmax = std::max(dt*umax[0]/dx[0],dt*umax[0]/dx[0]) = dt*umax[0]/dx[0];
-     // -- Candace
      cflmax = std::max(cflmax,dt*umax[d]/dx[d]);
    }
    Real tempdt = std::min(change_max,cfl/cflmax);
   
 #if AMREX_USE_EB
-   Vector<BCRec> math_bcs(AMREX_SPACEDIM);
-   math_bcs = fetchBCArray(State_Type,Xvel,AMREX_SPACEDIM);
 
    MOL::ExtrapVelToFaces( Umf,
-                          D_DECL(u_mac[0], u_mac[1], u_mac[2]),
-                          geom, math_bcs );
+                          AMREX_D_DECL(u_mac[0], u_mac[1], u_mac[2]),
+                          geom, m_bcrec_velocity);
 
 #else
    //
@@ -4842,7 +4887,7 @@ PeleLM::predict_velocity (Real  dt)
                 Print() << "---\nA - Predict velocity:\n Calling getForce...\n";
             }
 
-            getForce(forcing_term[U_mfi],gbx,ngrow,Xvel,AMREX_SPACEDIM,prev_time,Ufab,Smf[U_mfi],0);
+            getForce(forcing_term[U_mfi],gbx,Xvel,AMREX_SPACEDIM,prev_time,Ufab,Smf[U_mfi],0);
 
             //
             // Compute the total forcing.
@@ -4860,19 +4905,16 @@ PeleLM::predict_velocity (Real  dt)
         }
     }
 
-    Vector<BCRec> math_bcs(AMREX_SPACEDIM);
-    math_bcs = fetchBCArray(State_Type,Xvel,AMREX_SPACEDIM);
-
     //velpred=1 only, use_minion=1, ppm_type, slope_order
     Godunov::ExtrapVelToFaces( Umf, forcing_term, AMREX_D_DECL(u_mac[0], u_mac[1], u_mac[2]),
-                               math_bcs, geom, dt, godunov_use_ppm,
-                               godunov_use_forces_in_trans );
+                               m_bcrec_velocity, m_bcrec_velocity_d.dataPtr(), geom, dt,
+			       godunov_use_ppm, godunov_use_forces_in_trans );
 
 #endif
 
-   D_TERM( showMF("mac",u_mac[0],"pv_umac0",level);,
-           showMF("mac",u_mac[1],"pv_umac1",level);,
-           showMF("mac",u_mac[2],"pv_umac2",level););
+   AMREX_D_TERM( showMF("mac",u_mac[0],"pv_umac0",level);,
+                 showMF("mac",u_mac[1],"pv_umac1",level);,
+                 showMF("mac",u_mac[2],"pv_umac2",level););
 
    if (verbose > 1)
    {
@@ -4896,7 +4938,7 @@ PeleLM::set_reasonable_grow_cells_for_R (Real time)
    //
    MultiFab& React = get_data(RhoYdot_Type, time);
    React.FillBoundary(0,NUM_SPECIES, geom.periodicity());
-   BL_ASSERT(React.nGrow() == 1);
+   AMREX_ASSERT(React.nGrow() == 1);
    Extrapolater::FirstOrderExtrap(React, geom, 0, NUM_SPECIES); //FIXME: Is this in the wrong order?
 }
 
@@ -4974,8 +5016,6 @@ PeleLM::advance (Real time,
       reset_typical_values(get_old_data(State_Type));
     }
   }
-  BL_PROFILE_VAR_STOP(PLM_SETUP);
-  //====================================
 
   if (do_check_divudt)
   {
@@ -4983,6 +5023,8 @@ PeleLM::advance (Real time,
   }
 
   Real dt_test = 0.0;
+  BL_PROFILE_VAR_STOP(PLM_SETUP);
+  //====================================
 
   //====================================
   BL_PROFILE_VAR("PeleLM::advance::diffusion", PLM_DIFF);
@@ -5015,37 +5057,38 @@ PeleLM::advance (Real time,
   BL_PROFILE_VAR_STOP(PLM_MAC);
   //====================================
 
-  MultiFab Dn(grids,dmap,NUM_SPECIES+2,nGrowAdvForcing,MFInfo(),Factory());
-  MultiFab DDn(grids,dmap,1,nGrowAdvForcing,MFInfo(),Factory());
-#ifdef USE_WBAR
-  MultiFab DWbar(grids,dmap,NUM_SPECIES,nGrowAdvForcing,MFInfo(),Factory());
-#endif
-
-  // Compute Dn and DDn (based on state at tn)
-  //  (Note that coeffs at tn and tnp1 were intialized in _setup)
-  if (verbose) amrex::Print() << "Computing Dn, DDn, and DWbar \n";
-
   //====================================
   BL_PROFILE_VAR_START(PLM_DIFF);
+  // Compute Dn and DDn (based on state at tn)
+  // (Note that coeffs at tn and tnp1 were intialized in above)
+  MultiFab Dn(grids,dmap,NUM_SPECIES+2,nGrowAdvForcing,MFInfo(),Factory());
+  MultiFab DDn(grids,dmap,1,nGrowAdvForcing,MFInfo(),Factory());
+  MultiFab DWbar;
+  if (use_wbar) {
+     DWbar.define(grids,dmap,NUM_SPECIES,nGrowAdvForcing,MFInfo(),Factory());
+  }
+
+  if (verbose) amrex::Print() << "Computing Dn & DDn \n";
+
   bool include_Wbar_terms = true;
   compute_differential_diffusion_terms(Dn,DDn,prev_time,dt,include_Wbar_terms);
   BL_PROFILE_VAR_STOP(PLM_DIFF);
   //====================================
 
+  //====================================
+  BL_PROFILE_VAR("PeleLM::advance::reactions", PLM_REAC);
   /*
     You could compute instantaneous I_R here but for now it's using either the
     previous step or divu_iter's version of I_R.  Either way, we have to make 
     sure that the nGrowAdvForcing grow cells have something reasonable in them
   */
-  //====================================
-  BL_PROFILE_VAR("PeleLM::advance::reactions", PLM_REAC);
   set_reasonable_grow_cells_for_R(tnp1);
   BL_PROFILE_VAR_STOP(PLM_REAC);
   //====================================
 
   // copy old state into new state for Dn and DDn.
-  // Note: this was already done for scalars, transport coefficients,
-  // and divu in advance_setup
+  // Note: this was already done above for transport coefficients
+  // and in advance_setup for scalar & divu
 
   MultiFab Dnp1(grids,dmap,NUM_SPECIES+2,nGrowAdvForcing,MFInfo(),Factory());
   MultiFab DDnp1(grids,dmap,1,nGrowAdvForcing,MFInfo(),Factory());
@@ -5088,6 +5131,7 @@ PeleLM::advance (Real time,
   is_predictor = false;
 
   BL_PROFILE_VAR_NS("PeleLM::advance::velocity_adv", PLM_VEL);
+
   for (int sdc_iter=1; sdc_iter<=sdc_iterMAX; ++sdc_iter)
   {
 
@@ -5100,9 +5144,7 @@ PeleLM::advance (Real time,
       // compute new-time transport coefficients
       BL_PROFILE_VAR_START(PLM_DIFF);
       calcDiffusivity(tnp1);
-#ifdef USE_WBAR
-      calcDiffusivity_Wbar(tnp1);
-#endif
+
 #ifdef PLM_USE_EFIELD
       ef_calc_transport(tnp1);
       ef_calcUDriftSpec(tnp1);
@@ -5262,12 +5304,14 @@ PeleLM::advance (Real time,
     Forcing.setVal(0.0);
 
     // Get the Wbar term is required
-#ifdef USE_WBAR
-    const Real  cur_time  = state[State_Type].curTime();
-    // Update Wbar fluxes, add divergence to RHS
-    compute_Wbar_fluxes(cur_time,0);
-    flux_divergence(DWbar,0,SpecDiffusionFluxWbar,0,NUM_SPECIES,-1);
-#endif
+    if (use_wbar) {
+       // Compute Wbar fluxes from state np1k (lagged)
+       // Compute DWbar term: - \nabla \cdot \Gamma_{\overline{W}_m}
+       // They will be added to the Fnp1kp1 directly in diff_diff_update()
+       const Real  cur_time  = state[State_Type].curTime();
+       compute_Wbar_fluxes(cur_time,0,1.0);
+       flux_divergence(DWbar,0,SpecDiffusionFluxWbar,0,NUM_SPECIES,-1);
+    }
 
 #ifdef _OPENMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
@@ -5284,25 +5328,22 @@ PeleLM::advance (Real time,
         auto const& a       = aofs->array(mfi,first_spec);
         auto const& fY      = Forcing.array(mfi,0);
         auto const& fT      = Forcing.array(mfi,NUM_SPECIES);
-#ifdef USE_WBAR
-        auto const& dwbar   = DWbar.array(mfi);
-#endif
+        int use_wbar_lcl    = use_wbar;
+        auto const& dwbar   = (use_wbar) ? DWbar.array(mfi) : Dn.array(mfi,0);
+
         Real        dp0dt_d = dp0dt;
         int     closed_ch_d = closed_chamber;
 
-        amrex::ParallelFor(bx, [dn, ddn, dnp1k, ddnp1k, 
-#ifdef USE_WBAR
-                                dwbar,
-#endif
-                                r, a, fY, fT, dp0dt_d, closed_ch_d]
+        amrex::ParallelFor(bx, [dn, ddn, dnp1k, ddnp1k, dwbar,
+                                r, a, fY, fT, dp0dt_d, closed_ch_d, use_wbar_lcl]
         AMREX_GPU_DEVICE (int i, int j, int k) noexcept
         {
            buildDiffusionForcing( i, j, k, dn, ddn, dnp1k, ddnp1k, r, a, dp0dt_d, closed_ch_d, fY, fT );
-#ifdef USE_WBAR
-           for (int n = 0; n < NUM_SPECIES; n++) {
-              fY(i,j,k,n) += dwbar(i,j,k,n);
+           if (use_wbar_lcl) {
+              for (int n = 0; n < NUM_SPECIES; n++) {
+                 fY(i,j,k,n) += dwbar(i,j,k,n);
+              }
            }
-#endif
         });
       }
     }
@@ -5311,7 +5352,7 @@ PeleLM::advance (Real time,
     EB_set_covered(Forcing,0.);
 #endif
 
-    differential_diffusion_update(Forcing,0,Dhat,0,DDhat);
+    differential_diffusion_update(Forcing,DWbar,0,Dhat,0,DDhat);
     BL_PROFILE_VAR_STOP(PLM_DIFF);
     // Close Scalar diffusion TPROF
     //==================================== 
@@ -5466,10 +5507,8 @@ PeleLM::advance (Real time,
 
    //====================================
    BL_PROFILE_VAR_START(PLM_DIFF);
+   // Update transport coefficient with post-SDC state
    calcDiffusivity(tnp1);
-#ifdef USE_WBAR
-   calcDiffusivity_Wbar(tnp1);
-#endif
    calcViscosity(tnp1,dt,iteration,ncycle);
    BL_PROFILE_VAR_STOP(PLM_DIFF);
    //====================================
@@ -5594,7 +5633,7 @@ PeleLM::advance (Real time,
    //====================================
 
 #ifdef AMREX_PARTICLES
-   if (theNSPC() != 0)
+   if (theNSPC() != 0 && !initial_step)
    {
       theNSPC()->AdvectWithUmac(u_mac, level, dt);
    }
@@ -5728,6 +5767,13 @@ PeleLM::getFuncCountDM (const BoxArray& bxba, int ngrow)
   fctmpnew.setVal(1);
 
   const MultiFab& FC = get_new_data(FuncCount_Type);
+
+  // Return original DM if FC is zero (propably Null reaction dir)
+  if ( FC.norm0(0) <= 0.0 ) {
+     DistributionMapping new_dmap{bxba};
+     return new_dmap;
+  }
+
   fctmpnew.copy(FC,0,0,1,std::min(ngrow,FC.nGrow()),0);
 
   int count = 0;
@@ -5739,7 +5785,7 @@ PeleLM::getFuncCountDM (const BoxArray& bxba, int ngrow)
 
   fctmpnew.clear();
 
-#if BL_USE_MPI
+#if AMREX_USE_MPI
   const int IOProc = ParallelDescriptor::IOProcessorNumber();
 
   Vector<int> nmtags(ParallelDescriptor::NProcs(),0);
@@ -5750,7 +5796,7 @@ PeleLM::getFuncCountDM (const BoxArray& bxba, int ngrow)
   for (int i = 0; i < vwrk.size(); i++)
     nmtags[procmap[i]]++;
 
-  BL_ASSERT(nmtags[ParallelDescriptor::MyProc()] == count);
+  AMREX_ASSERT(nmtags[ParallelDescriptor::MyProc()] == count);
 
   for (int i = 1; i < offset.size(); i++)
     offset[i] = offset[i-1] + nmtags[i-1];
@@ -5847,7 +5893,7 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
     BoxArray  ba           = mf_new.boxArray();
     DistributionMapping dm = mf_new.DistributionMap();
 
-#ifndef AMREX_USE_CUDA
+#ifndef AMREX_USE_GPU
     //
     // Chop the grids to level out the chemistry work when on the CPU.
     // We want enough grids so that KNAPSACK works well,
@@ -5868,7 +5914,7 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
 
       IntVect chunk(ChunkSize);
 
-      for (int j = BL_SPACEDIM-1; j >=0 && ba.size() < Threshold; j--)
+      for (int j = AMREX_SPACEDIM-1; j >=0 && ba.size() < Threshold; j--)
       {
         chunk[j] /= 2;
         ba.maxSize(chunk);
@@ -5912,7 +5958,7 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
     }
 #endif
 
-#else
+#else    // AMREX_GPU
     MultiFab STemp(grids, dmap, NUM_SPECIES+3, 0);
     MultiFab FTemp(grids, dmap, Force.nComp(), 0);
     MultiFab fcnCntTemp(grids, dmap, 1, 0);
@@ -5927,7 +5973,7 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
     nEF_Temp.copy(nEForce);
 #endif
 
-#endif
+#endif   // End ifnot on AMREX_GPU
 
     MultiFab diagTemp;
 
@@ -5982,7 +6028,7 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
         BL_PROFILE_VAR("React()", ReactInLoop);
         Real dt_incr     = dt;
         Real time_chem   = 0;
-#ifndef AMREX_USE_CUDA
+#ifndef AMREX_USE_GPU
         /* Solve */
         int tmp_fctCn = react(bx, rhoY, frc_rhoY, temp, rhoH, frc_rhoH, fcl, mask, dt_incr, time_chem);
 #else
@@ -5997,19 +6043,17 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
         BL_PROFILE_VAR_STOP(ReactInLoop);
 
         // Convert CGS -> MKS
-        ParallelFor(bx, [rhoY,rhoH, frc_rhoY, frc_rhoH]
+        ParallelFor(bx, [rhoY,rhoH]
         AMREX_GPU_DEVICE (int i, int j, int k) noexcept 
         {
            for (int n = 0; n < NUM_SPECIES; n++) {
               rhoY(i,j,k,n) *= 1.0e3;
-              frc_rhoY(i,j,k,n) *= 1.0e3;
            }
            rhoH(i,j,k) *= 0.1;
-           frc_rhoH(i,j,k) *= 0.1;
         });
 
-#ifdef AMREX_USE_CUDA
-        cuda_status = cudaStreamSynchronize(amrex::Gpu::gpuStream());
+#ifdef AMREX_USE_GPU
+        Gpu::Device::streamSynchronize();
 #endif
 
     }
@@ -6102,7 +6146,7 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
     //
     if (ngrow > 0)
     {
-      BL_ASSERT(React_new.nGrow() == 1);
+      AMREX_ASSERT(React_new.nGrow() == 1);
       React_new.FillBoundary(0,nrhoYdot, geom.periodicity());
       Extrapolater::FirstOrderExtrap(React_new, geom, 0, nrhoYdot);
     }
@@ -6182,11 +6226,13 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
   {
      Vector<BCRec> math_bcs(NUM_SPECIES);
      math_bcs = fetchBCArray(State_Type, first_spec,NUM_SPECIES);
+     BCRec  const* d_bcrec_ptr = &(m_bcrec_scalars_d.dataPtr())[first_spec-Density];
+
      MOL::ComputeAofs( *aofs, first_spec, NUM_SPECIES, Smf, rhoYcomp,
-                       D_DECL(u_mac[0],u_mac[1],u_mac[2]),
-                       D_DECL(*EdgeState[0],*EdgeState[1],*EdgeState[2]), first_spec, false,
-                       D_DECL(*EdgeFlux[0],*EdgeFlux[1],*EdgeFlux[2]), first_spec,
-                       math_bcs, geom );
+                       AMREX_D_DECL(u_mac[0],u_mac[1],u_mac[2]),
+                       AMREX_D_DECL(*EdgeState[0],*EdgeState[1],*EdgeState[2]), first_spec, false,
+                       AMREX_D_DECL(*EdgeFlux[0],*EdgeFlux[1],*EdgeFlux[2]), first_spec,
+                       math_bcs, d_bcrec_ptr, geom );
      EB_set_covered(*aofs, 0.);
   }
 
@@ -6268,22 +6314,24 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
     for (int k = 0; k < NUM_SPECIES; ++k) {
        typvals[first_spec+k] = typical_values[first_spec+k]*typical_values[Density];
     }
-    EB_set_covered_faces({D_DECL(EdgeState[0],EdgeState[1],EdgeState[2])},first_spec,NUM_SPECIES,typvals);
-    EB_set_covered_faces({D_DECL(EdgeState[0],EdgeState[1],EdgeState[2])},Temp,1,typvals);
-    EB_set_covered_faces({D_DECL(EdgeState[0],EdgeState[1],EdgeState[2])},Density,1,typvals);
-    EB_set_covered_faces({D_DECL(EdgeState[0],EdgeState[1],EdgeState[2])},RhoH,1,typvals);
+    EB_set_covered_faces({AMREX_D_DECL(EdgeState[0],EdgeState[1],EdgeState[2])},first_spec,NUM_SPECIES,typvals);
+    EB_set_covered_faces({AMREX_D_DECL(EdgeState[0],EdgeState[1],EdgeState[2])},Temp,1,typvals);
+    EB_set_covered_faces({AMREX_D_DECL(EdgeState[0],EdgeState[1],EdgeState[2])},Density,1,typvals);
+    EB_set_covered_faces({AMREX_D_DECL(EdgeState[0],EdgeState[1],EdgeState[2])},RhoH,1,typvals);
   }
-  EB_set_covered_faces({D_DECL(EdgeFlux[0],EdgeFlux[1],EdgeFlux[2])},0.);
+  EB_set_covered_faces({AMREX_D_DECL(EdgeFlux[0],EdgeFlux[1],EdgeFlux[2])},0.);
 
   // Extrapolate Temp, then compute flux divergence and value for RhoH from face values of T,Y,Rho
   {
     Vector<BCRec> math_bcs(1);
     math_bcs = fetchBCArray(State_Type, Temp, 1);
+    BCRec  const* d_bcrec_ptr = &(m_bcrec_scalars_d.dataPtr())[Temp-Density];
+
     MOL::ComputeAofs( *aofs, Temp, 1, Smf, Tcomp,
-                       D_DECL(u_mac[0],u_mac[1],u_mac[2]),
-                       D_DECL(*EdgeState[0],*EdgeState[1],*EdgeState[2]), Temp, false,
-                       D_DECL(*EdgeFlux[0],*EdgeFlux[1],*EdgeFlux[2]), Temp,
-                       math_bcs, geom );
+		      AMREX_D_DECL(u_mac[0],u_mac[1],u_mac[2]),
+		      AMREX_D_DECL(*EdgeState[0],*EdgeState[1],*EdgeState[2]), Temp, false,
+		      AMREX_D_DECL(*EdgeFlux[0],*EdgeFlux[1],*EdgeFlux[2]), Temp,
+		      math_bcs, d_bcrec_ptr, geom );
     EB_set_covered(*aofs, 0.);
   }
 
@@ -6298,10 +6346,10 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
     for (int k = 0; k < NUM_SPECIES; ++k) {
        typvals[first_spec+k] = typical_values[first_spec+k]*typical_values[Density];
     }
-    EB_set_covered_faces({D_DECL(EdgeState[0],EdgeState[1],EdgeState[2])},first_spec,NUM_SPECIES,typvals);
-    EB_set_covered_faces({D_DECL(EdgeState[0],EdgeState[1],EdgeState[2])},Temp,1,typvals);
-    EB_set_covered_faces({D_DECL(EdgeState[0],EdgeState[1],EdgeState[2])},Density,1,typvals);
-    EB_set_covered_faces({D_DECL(EdgeState[0],EdgeState[1],EdgeState[2])},RhoH,1,typvals);
+    EB_set_covered_faces({AMREX_D_DECL(EdgeState[0],EdgeState[1],EdgeState[2])},first_spec,NUM_SPECIES,typvals);
+    EB_set_covered_faces({AMREX_D_DECL(EdgeState[0],EdgeState[1],EdgeState[2])},Temp,1,typvals);
+    EB_set_covered_faces({AMREX_D_DECL(EdgeState[0],EdgeState[1],EdgeState[2])},Density,1,typvals);
+    EB_set_covered_faces({AMREX_D_DECL(EdgeState[0],EdgeState[1],EdgeState[2])},RhoH,1,typvals);
   }
 
   // Compute RhoH on faces, store in NUM_SPECIES+1 component of edgestate[d]
@@ -6362,10 +6410,10 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
     for (int k = 0; k < NUM_SPECIES; ++k) {
        typvals[first_spec+k] = typical_values[first_spec+k]*typical_values[Density];
     }
-    EB_set_covered_faces({D_DECL(EdgeState[0],EdgeState[1],EdgeState[2])},first_spec,NUM_SPECIES,typvals);
-    EB_set_covered_faces({D_DECL(EdgeState[0],EdgeState[1],EdgeState[2])},Temp,1,typvals);
-    EB_set_covered_faces({D_DECL(EdgeState[0],EdgeState[1],EdgeState[2])},Density,1,typvals);
-    EB_set_covered_faces({D_DECL(EdgeState[0],EdgeState[1],EdgeState[2])},RhoH,1,typvals);
+    EB_set_covered_faces({AMREX_D_DECL(EdgeState[0],EdgeState[1],EdgeState[2])},first_spec,NUM_SPECIES,typvals);
+    EB_set_covered_faces({AMREX_D_DECL(EdgeState[0],EdgeState[1],EdgeState[2])},Temp,1,typvals);
+    EB_set_covered_faces({AMREX_D_DECL(EdgeState[0],EdgeState[1],EdgeState[2])},Density,1,typvals);
+    EB_set_covered_faces({AMREX_D_DECL(EdgeState[0],EdgeState[1],EdgeState[2])},RhoH,1,typvals);
   }
 
   for (int d=0; d<AMREX_SPACEDIM; ++d)
@@ -6379,11 +6427,13 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
   {
      Vector<BCRec> math_bcs(1);
      math_bcs = fetchBCArray(State_Type, RhoH, 1);
+     BCRec  const* d_bcrec_ptr = &(m_bcrec_scalars_d.dataPtr())[RhoH-Density];
+
      MOL::ComputeAofs( *aofs, RhoH, 1, Smf, NUM_SPECIES+1,
-                        D_DECL(u_mac[0],u_mac[1],u_mac[2]),
-                        D_DECL(*EdgeState[0],*EdgeState[1],*EdgeState[2]), RhoH, true,
-                        D_DECL(*EdgeFlux[0],*EdgeFlux[1],*EdgeFlux[2]), RhoH,
-                        math_bcs, geom ); 
+		       AMREX_D_DECL(u_mac[0],u_mac[1],u_mac[2]),
+		       AMREX_D_DECL(*EdgeState[0],*EdgeState[1],*EdgeState[2]), RhoH, true,
+		       AMREX_D_DECL(*EdgeFlux[0],*EdgeFlux[1],*EdgeFlux[2]), RhoH,
+		       math_bcs, d_bcrec_ptr, geom ); 
      EB_set_covered(*aofs, 0.);
   }
 
@@ -6404,12 +6454,12 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
      for (int k = 0; k < NUM_SPECIES; ++k) {
         typvals[first_spec+k] = typical_values[first_spec+k]*typical_values[Density];
      }
-     EB_set_covered_faces({D_DECL(EdgeState[0],EdgeState[1],EdgeState[2])},first_spec,NUM_SPECIES,typvals);
-     EB_set_covered_faces({D_DECL(EdgeState[0],EdgeState[1],EdgeState[2])},Temp,1,typvals);
-     EB_set_covered_faces({D_DECL(EdgeState[0],EdgeState[1],EdgeState[2])},Density,1,typvals);
-     EB_set_covered_faces({D_DECL(EdgeState[0],EdgeState[1],EdgeState[2])},RhoH,1,typvals);
+     EB_set_covered_faces({AMREX_D_DECL(EdgeState[0],EdgeState[1],EdgeState[2])},first_spec,NUM_SPECIES,typvals);
+     EB_set_covered_faces({AMREX_D_DECL(EdgeState[0],EdgeState[1],EdgeState[2])},Temp,1,typvals);
+     EB_set_covered_faces({AMREX_D_DECL(EdgeState[0],EdgeState[1],EdgeState[2])},Density,1,typvals);
+     EB_set_covered_faces({AMREX_D_DECL(EdgeState[0],EdgeState[1],EdgeState[2])},RhoH,1,typvals);
   }
-  EB_set_covered_faces({D_DECL(EdgeFlux[0],EdgeFlux[1],EdgeFlux[2])},0.);
+  EB_set_covered_faces({AMREX_D_DECL(EdgeFlux[0],EdgeFlux[1],EdgeFlux[2])},0.);
  
 #else
   //////////////////////////////////////
@@ -6430,9 +6480,8 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
 
   // Advect RhoY 
 {
-  Vector<BCRec> math_bcs(NUM_SPECIES);
-  math_bcs = fetchBCArray(State_Type, first_spec, NUM_SPECIES);
-
+  BCRec  const* d_bcrec_ptr = &(m_bcrec_scalars_d.dataPtr())[first_spec-Density];
+    
   amrex::Gpu::DeviceVector<int> iconserv;
   iconserv.resize(NUM_SPECIES, 0);
   for (int comp = 0; comp < NUM_SPECIES; ++comp)
@@ -6456,7 +6505,7 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
                         AMREX_D_DECL( u_mac[0], u_mac[1], u_mac[2] ),
                         AMREX_D_DECL(*EdgeState[0], *EdgeState[1], *EdgeState[2]), first_spec, false,
                         AMREX_D_DECL(*EdgeFlux[0], *EdgeFlux[1], *EdgeFlux[2]), first_spec,
-                        Force, 0, DivU, math_bcs, geom, iconserv,
+                        Force, 0, DivU, d_bcrec_ptr, geom, iconserv,
                         dt, godunov_use_ppm, godunov_use_forces_in_trans, false );
 //  VisMF::Write(*aofs,"aofs_lvl0_t"+std::to_string(prev_time*1000.0));
 #endif
@@ -6503,9 +6552,8 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
 
   // Extrapolate Temp, then compute flux divergence and value for RhoH from face values of T,Y,Rho
 {
-  Vector<BCRec> math_bcs(1);
-  math_bcs = fetchBCArray(State_Type, Temp, 1);
-
+  BCRec  const* d_bcrec_ptr = &(m_bcrec_scalars_d.dataPtr())[Temp-Density];
+  
   amrex::Gpu::DeviceVector<int> iconserv;
   iconserv.resize(1, 0);
   iconserv[0] = (advectionType[Temp] == Conservative) ? 1 : 0;
@@ -6516,7 +6564,7 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
                        AMREX_D_DECL( u_mac[0], u_mac[1], u_mac[2] ),
                        AMREX_D_DECL(*EdgeState[0], *EdgeState[1], *EdgeState[2]), Temp, false,
                        AMREX_D_DECL(*EdgeFlux[0], *EdgeFlux[1], *EdgeFlux[2]), Temp,
-                       Force, NUM_SPECIES, DivU, math_bcs, geom, iconserv,
+                       Force, NUM_SPECIES, DivU, d_bcrec_ptr, geom, iconserv,
                        dt, godunov_use_ppm, godunov_use_forces_in_trans, false );
 
 }
@@ -6548,8 +6596,7 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
 }
 
 {
-  Vector<BCRec> math_bcs(1);
-  math_bcs = fetchBCArray(State_Type, RhoH, 1);
+  BCRec  const* d_bcrec_ptr = &(m_bcrec_scalars_d.dataPtr())[RhoH-Density];
 
   amrex::Gpu::DeviceVector<int> iconserv;
   iconserv.resize(1, 0);
@@ -6560,19 +6607,19 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
                        AMREX_D_DECL( u_mac[0], u_mac[1], u_mac[2] ),
                        AMREX_D_DECL(*EdgeState[0], *EdgeState[1], *EdgeState[2]), RhoH, true,
                        AMREX_D_DECL(*EdgeFlux[0], *EdgeFlux[1], *EdgeFlux[2]), RhoH,
-                       Force, NUM_SPECIES+1, DivU, math_bcs, geom, iconserv,
+                       Force, NUM_SPECIES+1, DivU, d_bcrec_ptr, geom, iconserv,
                        dt, godunov_use_ppm, godunov_use_forces_in_trans, false );
 }
 
 
 #endif
 
-   D_TERM(showMF("sdc",*EdgeState[0],"sdc_ESTATE_x",level,parent->levelSteps(level));,
-          showMF("sdc",*EdgeState[1],"sdc_ESTATE_y",level,parent->levelSteps(level));,
-          showMF("sdc",*EdgeState[2],"sdc_ESTATE_z",level,parent->levelSteps(level)););
-   D_TERM(showMF("sdc",*EdgeFlux[0],"sdc_FLUX_x",level,parent->levelSteps(level));,
-          showMF("sdc",*EdgeFlux[1],"sdc_FLUX_y",level,parent->levelSteps(level));,
-          showMF("sdc",*EdgeFlux[2],"sdc_FLUX_z",level,parent->levelSteps(level)););
+   AMREX_D_TERM(showMF("sdc",*EdgeState[0],"sdc_ESTATE_x",level,parent->levelSteps(level));,
+                showMF("sdc",*EdgeState[1],"sdc_ESTATE_y",level,parent->levelSteps(level));,
+                showMF("sdc",*EdgeState[2],"sdc_ESTATE_z",level,parent->levelSteps(level)););
+   AMREX_D_TERM(showMF("sdc",*EdgeFlux[0],"sdc_FLUX_x",level,parent->levelSteps(level));,
+                showMF("sdc",*EdgeFlux[1],"sdc_FLUX_y",level,parent->levelSteps(level));,
+                showMF("sdc",*EdgeFlux[2],"sdc_FLUX_z",level,parent->levelSteps(level)););
    showMF("sdc",*aofs,"sdc_aofs",level,parent->levelSteps(level));
 
 // NOTE: Change sense of aofs here so that d/dt ~ aofs...be sure we use our own update function!
@@ -6678,6 +6725,11 @@ PeleLM::mac_sync ()
                                         AMREX_SPACEDIM,1,MFInfo(),getLevel(lev).Factory()));
       MultiFab::Copy(*Vsync_sav[lev],Vsync_lev,0,0,AMREX_SPACEDIM,1);
       showMF("DBGSync",*Vsync_sav[lev],"sdc_Vsync_BeginSync",level,0,parent->levelSteps(level));
+   }
+
+   if (use_wbar) {
+      // compute (overwrite) beta grad Wbar terms using the pre-sync state
+      compute_Wbar_fluxes(curr_time,0,1.0);
    }
 
    ////////////////////////
@@ -6846,26 +6898,22 @@ PeleLM::mac_sync ()
       // Delete Ucorr; we're done with it.
       //
       for (int idim = 0; idim < AMREX_SPACEDIM; ++idim)
-	delete Ucorr[idim];
+         delete Ucorr[idim];
 
       Ssync.mult(dt); // Turn this into an increment over dt
 
-#ifdef USE_WBAR
-      // compute beta grad Wbar terms using the latest version of the post-sync state
-      // Initialize containers first here, 1/2 is for C-N sync, dt mult later with everything else
-      for (int dir=0; dir<AMREX_SPACEDIM; ++dir) {
-         (*SpecDiffusionFluxWbar[dir]).setVal(0.);
-      }
-      compute_Wbar_fluxes(curr_time,0.5);
-      // compute beta grad Wbar terms at {n+1,p}
-      // internally added with values already stored in SpecDiffusionFluxWbar
-      compute_Wbar_fluxes(curr_time,-0.5);
+      MultiFab DdWbar;
+      if (use_wbar) {
+         // Substract pre-sync beta grad Wbar fluxes
+         // If mac_sync_iter = 0 -> dWbar fluxes == 0, otherwise post-sync - pre-sync
+         compute_Wbar_fluxes(curr_time,1,-1.0);
 
-      // take divergence of beta grad delta Wbar
-      MultiFab DdWbar(grids,dmap,NUM_SPECIES,nGrowAdvForcing);
-      MultiFab* const * fluxWbar = SpecDiffusionFluxWbar;
-      flux_divergence(DdWbar,0,fluxWbar,0,NUM_SPECIES,-1);
-#endif
+         // take divergence of beta grad delta Wbar
+         DdWbar.define(grids,dmap,NUM_SPECIES,nGrowAdvForcing,MFInfo(),Factory());
+         MultiFab* const * fluxWbar = SpecDiffusionFluxWbar;
+         flux_divergence(DdWbar,0,fluxWbar,0,NUM_SPECIES,-1);
+         DdWbar.mult(dt);
+      }
 
 #ifdef _OPENMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
@@ -6878,24 +6926,20 @@ PeleLM::mac_sync ()
          auto const& dYsync   = DeltaYsync.array(mfi);
          auto const& drhosync = Ssync.array(mfi,Density-AMREX_SPACEDIM);
          auto const& ssync    = Ssync.array(mfi,first_spec-AMREX_SPACEDIM);
-#ifdef USE_WBAR
-         auto const& dwbar    = DdWbar.array(mfi);
-#endif
+         int use_wbar_lcl     = use_wbar;
+         auto const& dwbar    = (use_wbar) ? DdWbar.array(mfi) : DeltaYsync.array(mfi);
 
-         amrex::ParallelFor(bx, [rho, rhoY, dYsync, drhosync,
-#ifdef USE_WBAR
-                                 dwbar,
-#endif
-                                 ssync ]
+         amrex::ParallelFor(bx, [rho, rhoY, dYsync, drhosync, dwbar,
+                                 ssync, use_wbar_lcl]
          AMREX_GPU_DEVICE (int i, int j, int k) noexcept
          {
             Real rhoinv = 1.0/rho(i,j,k);
             for (int n = 0; n < NUM_SPECIES; n++) {
                dYsync(i,j,k,n) = rhoY(i,j,k,n) * rhoinv * drhosync(i,j,k);   // DeltaYSsync = Y^{n+1,p} * (delta rho)^sync
                ssync(i,j,k,n) -= dYsync(i,j,k,n);                            // Ssync = Ssync - DeltaYSync
-#ifdef USE_WBAR
-               ssync(i,j,k,n) += dwbar(i,j,k,n);                             // Ssync = Ssync + DdWbar
-#endif
+               if (use_wbar_lcl) {
+                  ssync(i,j,k,n) += dwbar(i,j,k,n);                          // Ssync = Ssync + DdWbar
+               }
             }
          });
       }
@@ -6976,7 +7020,8 @@ PeleLM::mac_sync ()
 
          // Diffuse species sync to get dGamma^{sync}, then form Gamma^{postsync} = Gamma^{presync} + dGamma^{sync}
          // Before this call Ssync = \nabla \cdot \delta F_{rhoY} - \delta_ADV - Y^{n+1,p}\delta rho^{sync}
-         differential_spec_diffuse_sync(dt, true, last_mac_sync_iter);
+         bool include_deltaWbar = true;
+         differential_spec_diffuse_sync(dt, include_deltaWbar, last_mac_sync_iter);
          // Ssync for species now contains rho^{n+1}(delta_Y)^sync
 
          for (int d=0; d<AMREX_SPACEDIM; ++d) {
@@ -6991,17 +7036,22 @@ PeleLM::mac_sync ()
          MultiFab::Add(Ssync,DeltaYsync,0,first_spec-AMREX_SPACEDIM,NUM_SPECIES,0);
          MultiFab::Add(S_new,Ssync,first_spec-AMREX_SPACEDIM,first_spec,NUM_SPECIES,0);
 
+         if (use_wbar) {
+            // compute (overwrite) beta grad Wbar terms using the post-sync state
+            compute_Wbar_fluxes(curr_time,0,1.0);
+         }
+
          // Trying to solve for:
          // \rho^{n+1} * Cp{n+1,\eta} * ∆T^{\eta+1} - dt / 2 \nabla \cdot \lambda^{n+1,p} \nabla ∆T^{\eta+1} = 
          // \rho^{n+1,p}*h^{n+1,p} - \rho^{n+1}*h^{n+1,\eta} + dt*Ssync + dt/2*(DT^{n+1,\eta} - DT^{n+1,p} + H^{n+1,\eta} - H^{n+1,p})
 
-         // Here Ssync contains refluxed enthalpy fluxes (from -lambda.Grad(T) and hm.Gamma_m)  FIXME: Make sure it does
+         // Here Ssync contains refluxed enthalpy fluxes (from -lambda.Grad(T) and hm.Gamma_m)
          MultiFab Trhs(grids,dmap,1,0,MFInfo(),Factory());
          MultiFab Told(grids,dmap,1,0,MFInfo(),Factory());
          MultiFab RhoCp_post(grids,dmap,1,0,MFInfo(),Factory());
          MultiFab DiffTerms_post(grids,dmap,2,0,MFInfo(),Factory());
 
-         Print() << "Starting deltaT iters in mac_sync... " << std::endl;
+         if (deltaT_verbose) Print() << "Starting deltaT iters in mac_sync... " << std::endl;
 
          Real deltaT_iter_norm = 0;
          for (int L=0; L<num_deltaT_iters_MAX && (L==0 || deltaT_iter_norm >= deltaT_norm_max); ++L)
@@ -7386,7 +7436,7 @@ PeleLM::mac_sync ()
          }
 
 #ifdef AMREX_USE_EB
-         EB_set_covered_faces({D_DECL(flux[0],flux[1],flux[2])},0.);
+         EB_set_covered_faces({AMREX_D_DECL(flux[0],flux[1],flux[2])},0.);
 #endif
 
          if (level > 0)
@@ -7455,25 +7505,23 @@ PeleLM::mac_sync ()
 
 }
 
-#ifdef USE_WBAR
 void
 PeleLM::compute_Wbar_fluxes(Real time,
-                            Real increment_flag)
+                            int increment_flag,
+                            Real increment_coeff)
 {
-   BL_PROFILE("HT::compute_Wbar_fluxes()");
+   BL_PROFILE("PLM::compute_Wbar_fluxes()");
 
-   // allocate edge-beta for Wbar
-   FluxBoxes fb_betaWbar(this, NUM_SPECIES, 0);
-   MultiFab** betaWbar =fb_betaWbar.get();
-
-   // average transport coefficients for Wbar to edges
-   getDiffusivity_Wbar(betaWbar,time);
+   // average species transport coefficients to edged
+   FluxBoxes fb_beta(this, NUM_SPECIES, 0);
+   MultiFab **beta = fb_beta.get();
+   getDiffusivity(beta, time, first_spec, 0, NUM_SPECIES); // species
 
    int nGrowOp = 1;
 
    // Define Wbar
    MultiFab Wbar;
-   Wbar.define(grids,dmap,1,nGrowOp);
+   Wbar.define(grids,dmap,1,nGrowOp,MFInfo(),Factory());
 
    // Get fillpatched rho and rhoY
    FillPatchIterator fpi(*this,Wbar,nGrowOp,time,State_Type,Density,NUM_SPECIES+1);
@@ -7485,8 +7533,8 @@ PeleLM::compute_Wbar_fluxes(Real time,
    for (MFIter mfi(mf,TilingIfNotGPU()); mfi.isValid(); ++mfi)
    {
       const Box& gbx = mfi.growntilebox(); 
-      auto const& rho     = mf.array(mfi,0);
-      auto const& rhoY    = mf.array(mfi,1);
+      auto const& rho     = mf.const_array(mfi,0);
+      auto const& rhoY    = mf.const_array(mfi,1);
       auto const& Wbar_ar = Wbar.array(mfi); 
       amrex::ParallelFor(gbx, [rho, rhoY, Wbar_ar]
       AMREX_GPU_DEVICE (int i, int j, int k) noexcept
@@ -7526,12 +7574,13 @@ PeleLM::compute_Wbar_fluxes(Real time,
 
    const int nGrowCrse = 1;
 
+   MultiFab Wbar_crse;
    if (level > 0)
    {
       auto& crselev = getLevel(level-1);
 
       // Define Wbar coarse
-      MultiFab Wbar_crse(crselev.boxArray(), crselev.DistributionMap(), 1, nGrowCrse);
+      Wbar_crse.define(crselev.boxArray(), crselev.DistributionMap(), 1, nGrowCrse);
 
       // Get fillpatched coarse rho and rhoY
       FillPatchIterator fpic(crselev,Wbar_crse,nGrowCrse,time,State_Type,Density,NUM_SPECIES+1);
@@ -7572,43 +7621,98 @@ PeleLM::compute_Wbar_fluxes(Real time,
    FluxBoxes fb_flux(this,1,0);
    MultiFab** gradWbar = fb_flux.get();
 
-   std::array<MultiFab*,AMREX_SPACEDIM> fp{AMREX_D_DECL(gradWbar[0],gradWbar[1],gradWbar[2])};
-   mg.getFluxes({fp},{&Wbar},MLLinOp::Location::FaceCentroid);
+   Diffusion::computeExtensiveFluxes(mg,Wbar,gradWbar,0, 1, &geom, -1.0);
+
+   Vector<BCRec> math_bc(1);
+   math_bc = fetchBCArray(State_Type,first_spec,1);
+
+   const Box& domain = geom.Domain();
+   bool use_harmonic_avg = def_harm_avg_cen2edge ? true : false;
 
 #ifdef _OPENMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif   
+   {
+   FArrayBox rhoY_ed;
    for (MFIter mfi(Wbar,TilingIfNotGPU()); mfi.isValid(); ++mfi)
    {
       for (int d=0; d<AMREX_SPACEDIM; ++d) 
       {
-         const Box&  vbx = mfi.nodaltilebox(d);
-         auto const& gradWbar_ar  = gradWbar[d]->array(mfi);
-         auto const& betaWbar_ar  = betaWbar[d]->array(mfi);
-         auto const& wbarFlux     = SpecDiffusionFluxWbar[d]->array(mfi);
+         // Get edge centered rhoYs
+         const Box ebx = mfi.nodaltilebox(d);
+         rhoY_ed.resize(ebx,NUM_SPECIES); 
+         Elixir rhoY_el = rhoY_ed.elixir();
 
+         const Box& edomain = amrex::surroundingNodes(domain,d);
+         const auto& rhoY_arr   = mf.array(mfi,1);     // mf from FPI on Density+rhoYs
+         const auto& rhoYed_arr = rhoY_ed.array(0);
+         const auto bc_lo = fpi_phys_loc(math_bc[0].lo(d));
+         const auto bc_hi = fpi_phys_loc(math_bc[0].hi(d));
+         amrex::ParallelFor(ebx, [d, bc_lo, bc_hi, use_harmonic_avg, rhoY_arr, rhoYed_arr, edomain]
+         AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+         {
+            int idx[3] = {i,j,k};
+            bool on_lo = ( ( bc_lo == HT_Edge ) && ( idx[d] <= edomain.smallEnd(d) ) );
+            bool on_hi = ( ( bc_hi == HT_Edge ) && ( idx[d] >= edomain.bigEnd(d) ) );
+            cen2edg_cpp( i, j, k, d, NUM_SPECIES, use_harmonic_avg, on_lo, on_hi, rhoY_arr, rhoYed_arr);
+         });
+
+         auto const& rhoY        = rhoY_ed.array(0);
+         auto const& gradWbar_ar = gradWbar[d]->array(mfi);
+         auto const& beta_ar     = beta[d]->array(mfi);
+         auto const& wbarFlux    = SpecDiffusionFluxWbar[d]->array(mfi);
+
+         // Wbar flux is : - \rho Y_m / \overline{W} * D_m * \nabla \overline{W}
+         // with beta_m = \rho * D_m below
          if ( increment_flag == 0 ) {                 // Overwrite wbar fluxes
-            amrex::ParallelFor(vbx, [gradWbar_ar, betaWbar_ar, wbarFlux]
+            amrex::ParallelFor(ebx, [gradWbar_ar, beta_ar, rhoY, wbarFlux]
             AMREX_GPU_DEVICE (int i, int j, int k) noexcept
             {
-               for (int n = 0; n <= NUM_SPECIES; n++) {
-                  wbarFlux(i,j,k,n) = - betaWbar_ar(i,j,k,n) * gradWbar_ar(i,j,k);
+               // Get Wbar from rhoYs
+               amrex::Real rho = 0.0;
+               amrex::Real rho_inv;
+               for (int n = 0; n < NUM_SPECIES; n++) {
+                  rho += rhoY(i,j,k,n);
+               }
+               rho_inv = 1.0 / rho;
+               amrex::Real y[NUM_SPECIES];
+               for (int n = 0; n < NUM_SPECIES; n++) {
+                  y[n] = rhoY(i,j,k,n) * rho_inv;
+               }
+               amrex::Real Wbar;
+               EOS::Y2WBAR(y, Wbar);
+               Wbar *= 0.001;
+               for (int n = 0; n < NUM_SPECIES; n++) {
+                  wbarFlux(i,j,k,n) = - y[n] / Wbar * beta_ar(i,j,k,n) * gradWbar_ar(i,j,k);
                }   
             });
          } else {                                     // Increment wbar fluxes
-            amrex::ParallelFor(vbx, [gradWbar_ar, betaWbar_ar, wbarFlux]
+            amrex::ParallelFor(ebx, [gradWbar_ar, beta_ar, rhoY, wbarFlux, increment_coeff]
             AMREX_GPU_DEVICE (int i, int j, int k) noexcept
             {
-               for (int n = 0; n <= NUM_SPECIES; n++) {
-                  wbarFlux(i,j,k,n) -= betaWbar_ar(i,j,k,n) * gradWbar_ar(i,j,k);
+               // Get Wbar from rhoYs
+               amrex::Real rho = 0.0;
+               amrex::Real rho_inv;
+               for (int n = 0; n < NUM_SPECIES; n++) {
+                  rho += rhoY(i,j,k,n);
+               }
+               rho_inv = 1.0 / rho;
+               amrex::Real y[NUM_SPECIES];
+               for (int n = 0; n < NUM_SPECIES; n++) {
+                  y[n] = rhoY(i,j,k,n) * rho_inv;
+               }
+               amrex::Real Wbar;
+               EOS::Y2WBAR(y, Wbar);
+               Wbar *= 0.001;
+               for (int n = 0; n < NUM_SPECIES; n++) {
+                  wbarFlux(i,j,k,n) -= increment_coeff * y[n] / Wbar * beta_ar(i,j,k,n) * gradWbar_ar(i,j,k);
                }   
             });
          }
       }
    }
+   }
 }
-
-#endif
 
 void
 PeleLM::differential_spec_diffuse_sync (Real dt,
@@ -7694,14 +7798,13 @@ PeleLM::differential_spec_diffuse_sync (Real dt,
    fb_betanp1.clear();
    fb_fluxSC.clear();
 
-#ifdef USE_WBAR
    // if in the Wbar corrector, add the grad delta Wbar fluxes
-   if (Wbar_corrector)
+   if (use_wbar && Wbar_corrector)
    {
 #ifdef _OPENMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
-      for (MFIter mfi(*SpecDiffusionFluxWbar[0],TilingIfNotGPU()); mfi.isValid(); ++mfi)
+      for (MFIter mfi(Rhs,TilingIfNotGPU()); mfi.isValid(); ++mfi)
       {
          for (int dir=0; dir<AMREX_SPACEDIM; ++dir)
          {
@@ -7716,7 +7819,6 @@ PeleLM::differential_spec_diffuse_sync (Real dt,
          }
       }
    }
-#endif
 
    //
    // Modify update/fluxes to preserve flux sum = 0
@@ -7742,9 +7844,9 @@ PeleLM::differential_spec_diffuse_sync (Real dt,
    for (MFIter mfi(Ssync,TilingIfNotGPU()); mfi.isValid(); ++mfi)
    {
       const Box& bx          = mfi.tilebox();
-      D_TERM(auto const& fluxX = SpecDiffusionFluxnp1[0]->array(mfi,0);,
-             auto const& fluxY = SpecDiffusionFluxnp1[1]->array(mfi,0);,
-             auto const& fluxZ = SpecDiffusionFluxnp1[2]->array(mfi,0););
+      AMREX_D_TERM(auto const& fluxX = SpecDiffusionFluxnp1[0]->array(mfi,0);,
+                   auto const& fluxY = SpecDiffusionFluxnp1[1]->array(mfi,0);,
+                   auto const& fluxZ = SpecDiffusionFluxnp1[2]->array(mfi,0););
       auto const& ssync      = Ssync.array(mfi,first_spec-AMREX_SPACEDIM);
       auto const& vol        = volume.const_array(mfi);
       auto const& rhs_Dsolve = Rhs.const_array(mfi);
@@ -7766,7 +7868,7 @@ PeleLM::differential_spec_diffuse_sync (Real dt,
          });
       } else if (flagfab.getType(bx) != FabType::regular ) {     // EB containing boxes 
          auto vfrac = ebfactory.getVolFrac().const_array(mfi);
-         amrex::ParallelFor(bx, [flag, vfrac, ssync, D_DECL(fluxX, fluxY, fluxZ), vol, rhs_Dsolve, scale]
+         amrex::ParallelFor(bx, [flag, vfrac, ssync, AMREX_D_DECL(fluxX, fluxY, fluxZ), vol, rhs_Dsolve, scale]
          AMREX_GPU_DEVICE (int i, int j, int k) noexcept
          {
             if ( flag(i,j,k).isCovered() ) {
@@ -7775,7 +7877,7 @@ PeleLM::differential_spec_diffuse_sync (Real dt,
                }
             } else if ( flag(i,j,k).isRegular() ) {
                fluxDivergence( i, j, k, NUM_SPECIES,
-                               D_DECL(fluxX, fluxY, fluxZ),
+                               AMREX_D_DECL(fluxX, fluxY, fluxZ),
                                vol, scale, ssync);
                for (int n = 0; n < NUM_SPECIES; n++) {
                   ssync(i,j,k,n) += rhs_Dsolve(i,j,k,n);
@@ -7783,7 +7885,7 @@ PeleLM::differential_spec_diffuse_sync (Real dt,
             } else {
                Real vfracinv = 1.0/vfrac(i,j,k);
                fluxDivergence( i, j, k, NUM_SPECIES,
-                               D_DECL(fluxX, fluxY, fluxZ),
+                               AMREX_D_DECL(fluxX, fluxY, fluxZ),
                                vol, scale, ssync);
                for (int n = 0; n < NUM_SPECIES; n++) {
                   ssync(i,j,k,n) *= vfracinv;
@@ -7793,11 +7895,11 @@ PeleLM::differential_spec_diffuse_sync (Real dt,
          });
       } else {                                                   // Regular boxes
 #endif
-         amrex::ParallelFor(bx, [ssync, D_DECL(fluxX, fluxY, fluxZ), vol, rhs_Dsolve, scale]
+         amrex::ParallelFor(bx, [ssync, AMREX_D_DECL(fluxX, fluxY, fluxZ), vol, rhs_Dsolve, scale]
          AMREX_GPU_DEVICE (int i, int j, int k) noexcept
          {
             fluxDivergence( i, j, k, NUM_SPECIES,
-                            D_DECL(fluxX, fluxY, fluxZ),
+                            AMREX_D_DECL(fluxX, fluxY, fluxZ),
                             vol, scale, ssync);
             for (int n = 0; n < NUM_SPECIES; n++) {
                ssync(i,j,k,n) += rhs_Dsolve(i,j,k,n);
@@ -7811,7 +7913,7 @@ PeleLM::differential_spec_diffuse_sync (Real dt,
    Rhs.clear();
 
 #ifdef AMREX_USE_EB
-   EB_set_covered_faces({D_DECL(SpecDiffusionFluxnp1[0],SpecDiffusionFluxnp1[1],SpecDiffusionFluxnp1[2])},0.);
+   EB_set_covered_faces({AMREX_D_DECL(SpecDiffusionFluxnp1[0],SpecDiffusionFluxnp1[1],SpecDiffusionFluxnp1[2])},0.);
 #endif
 
    //
@@ -7847,7 +7949,7 @@ PeleLM::reflux ()
 
    const Real strt_time = ParallelDescriptor::second();
 
-   BL_ASSERT(do_reflux);
+   AMREX_ASSERT(do_reflux);
 
    //
    // First do refluxing step.
@@ -7975,7 +8077,7 @@ PeleLM::calcViscosity (const Real time,
    BL_PROFILE("PLM::calcViscosity()");
 
    const TimeLevel whichTime = which_time(State_Type, time);
-   BL_ASSERT(whichTime == AmrOldTime || whichTime == AmrNewTime);
+   AMREX_ASSERT(whichTime == AmrOldTime || whichTime == AmrNewTime);
 
    MultiFab& visc = (whichTime == AmrOldTime ? *viscn_cc : *viscnp1_cc);
    MultiFab& S = (whichTime == AmrOldTime) ? get_old_data(State_Type) : get_new_data(State_Type);
@@ -8019,7 +8121,7 @@ PeleLM::calcDiffusivity (const Real time)
 
 
    const TimeLevel whichTime = which_time(State_Type, time);
-   BL_ASSERT(whichTime == AmrOldTime || whichTime == AmrNewTime);
+   AMREX_ASSERT(whichTime == AmrOldTime || whichTime == AmrNewTime);
 
    MultiFab& diff = (whichTime == AmrOldTime) ? *diffn_cc : *diffnp1_cc;
    MultiFab& S = (whichTime == AmrOldTime) ? get_old_data(State_Type) : get_new_data(State_Type);
@@ -8083,46 +8185,6 @@ PeleLM::calcDiffusivity (const Real time)
    }
 }
 
-#ifdef USE_WBAR
-void
-PeleLM::calcDiffusivity_Wbar (const Real time)
-{
-   BL_PROFILE("PLM::calcDiffusivity_Wbar()");
-
-   Abort("Fix Dwbar");
-
-   const TimeLevel whichTime = which_time(State_Type, time);
-   BL_ASSERT(whichTime == AmrOldTime || whichTime == AmrNewTime);
-
-   MultiFab& diff       = (whichTime == AmrOldTime) ? (*diffn_cc) : (*diffnp1_cc);
-   MultiFab& S = (whichTime == AmrOldTime) ? get_old_data(State_Type) : get_new_data(State_Type);
-
-   const int nGrow      = diff.nGrow();
-   BL_ASSERT(diffWbar_cc.nGrow() >= nGrow);
-
-   // Fillpatch the state   
-   FillPatchIterator fpi(*this,S,nGrow,time,State_Type,first_spec,NUM_SPECIES);
-   MultiFab& S_cc = fpi.get_mf();
-
-#ifdef _OPENMP
-#pragma omp parallel if (Gpu::notInLaunchRegion())
-#endif
-   for (MFIter mfi(S_cc,TilingIfNotGPU()); mfi.isValid();++mfi)
-   {
-      const Box& gbx = mfi.growntilebox();
-      auto const& rhoY    = S_cc.array(mfi,0);
-      auto const& rhoD    = diff.array(mfi,0);
-      auto const& DWbar   = diffWbar_cc.array(mfi,0);
-
-      amrex::ParallelFor(gbx, [rhoY, rhoD, DWbar]
-      AMREX_GPU_DEVICE (int i, int j, int k) noexcept
-      {
-         getBetaWbar( i, j, k, rhoY, rhoD, DWbar);
-      });
-   }
-}
-#endif
-
 void
 PeleLM::getViscosity (MultiFab* viscosity[AMREX_SPACEDIM],
                       const Real time)
@@ -8131,16 +8193,16 @@ PeleLM::getViscosity (MultiFab* viscosity[AMREX_SPACEDIM],
    // Select time level to work with (N or N+1)
    //
    const TimeLevel whichTime = which_time(State_Type,time);
-   BL_ASSERT(whichTime == AmrOldTime || whichTime == AmrNewTime);
+   AMREX_ASSERT(whichTime == AmrOldTime || whichTime == AmrNewTime);
 
    MultiFab* visc      = (whichTime == AmrOldTime) ? viscn_cc : viscnp1_cc;
 
 #ifdef AMREX_USE_EB
    // EB : use EB CCentroid -> FCentroid
    auto math_bc = fetchBCArray(State_Type,0,1);
-   EB_interp_CellCentroid_to_FaceCentroid(*visc, D_DECL(*viscosity[0],*viscosity[1],*viscosity[2]), 
+   EB_interp_CellCentroid_to_FaceCentroid(*visc, AMREX_D_DECL(*viscosity[0],*viscosity[1],*viscosity[2]), 
                                           0, 0, 1, geom, math_bc);
-   EB_set_covered_faces({D_DECL(viscosity[0],viscosity[1],viscosity[2])},0.0);
+   EB_set_covered_faces({AMREX_D_DECL(viscosity[0],viscosity[1],viscosity[2])},0.0);
 
 #else
    // NON-EB : simply use center_to_edge_fancy
@@ -8198,17 +8260,17 @@ PeleLM::getDiffusivity (MultiFab* diffusivity[AMREX_SPACEDIM],
                         const int dst_comp,
                         const int ncomp)
 {
-   BL_PROFILE("HT::getDiffusivity()");
-   BL_ASSERT(state_comp > Density);
-   BL_ASSERT(diffusivity[0]->nComp() >= dst_comp+ncomp);
-   BL_ASSERT( ( state_comp == first_spec && ncomp == NUM_SPECIES ) ||
+   BL_PROFILE("PLM::getDiffusivity()");
+   AMREX_ASSERT(state_comp > Density);
+   AMREX_ASSERT(diffusivity[0]->nComp() >= dst_comp+ncomp);
+   AMREX_ASSERT( ( state_comp == first_spec && ncomp == NUM_SPECIES ) ||
               ( state_comp == Temp && ncomp == 1 ) );
    
    //
    // Select time level to work with (N or N+1)
    //
    const TimeLevel whichTime = which_time(State_Type,time);
-   BL_ASSERT(whichTime == AmrOldTime || whichTime == AmrNewTime);
+   AMREX_ASSERT(whichTime == AmrOldTime || whichTime == AmrNewTime);
 
    MultiFab* diff      = (whichTime == AmrOldTime) ? diffn_cc : diffnp1_cc;
 
@@ -8219,9 +8281,9 @@ PeleLM::getDiffusivity (MultiFab* diffusivity[AMREX_SPACEDIM],
 #ifdef AMREX_USE_EB
    // EB : use EB CCentroid -> FCentroid
    auto math_bc = fetchBCArray(State_Type,state_comp,ncomp);
-   EB_interp_CellCentroid_to_FaceCentroid(*diff, D_DECL(*diffusivity[0],*diffusivity[1],*diffusivity[2]), 
+   EB_interp_CellCentroid_to_FaceCentroid(*diff, AMREX_D_DECL(*diffusivity[0],*diffusivity[1],*diffusivity[2]), 
                                           diff_comp, dst_comp, ncomp, geom, math_bc);
-   EB_set_covered_faces({D_DECL(diffusivity[0],diffusivity[1],diffusivity[2])},0.0);
+   EB_set_covered_faces({AMREX_D_DECL(diffusivity[0],diffusivity[1],diffusivity[2])},0.0);
 
 #else
    // NON-EB : simply use center_to_edge_fancy
@@ -8259,58 +8321,6 @@ PeleLM::getDiffusivity (MultiFab* diffusivity[AMREX_SPACEDIM],
    }
 }
 
-#ifdef USE_WBAR
-void
-PeleLM::getDiffusivity_Wbar (MultiFab*  betaWbar[AMREX_SPACEDIM],
-                             const Real time)	   
-{
-  BL_PROFILE("HT::getDiffusivity_Wbar()");
-
-  MultiFab& diff = diffWbar_cc;
-
-#ifdef AMREX_USE_EB
-   // EB : use EB CCentroid -> FCentroid
-   auto math_bc = fetchBCArray(State_Type,first_spec,NUM_SPECIES);
-   EB_interp_CellCentroid_to_FaceCentroid(*diff, D_DECL(*betaWbar[0],*betaWbar[1],*betaWbar[2]), 
-                                          0, 0, NUM_SPECIES, geom, math_bc);
-   EB_set_covered_faces({D_DECL(*betaWbar[0],*betaWbar[1],*betaWbar[2])},0.0);
-
-#else
-   // NON-EB : simply use center_to_edge_fancy
-   auto math_bc = fetchBCArray(State_Type,Temp,1);
-   const Box& domain = geom.Domain();
-   bool use_harmonic_avg = def_harm_avg_cen2edge ? true : false;
-
-#ifdef _OPENMP
-#pragma omp parallel if (Gpu::notInLaunchRegion())
-#endif
-   for (MFIter mfi(diff,TilingIfNotGPU()); mfi.isValid(); ++mfi)
-   {
-      for (int dir = 0; dir < AMREX_SPACEDIM; dir++)
-      {
-         const Box ebx = mfi.nodaltilebox(dir);
-         const Box& edomain = amrex::surroundingNodes(domain,dir);
-         const auto& diff_c  = diff.array(mfi,0);
-         const auto& diff_ed = betaWbar[dir]->array(mfi,0);
-         const auto bc_lo = fpi_phys_loc(math_bc[0].lo(dir));
-         const auto bc_hi = fpi_phys_loc(math_bc[0].hi(dir));
-         amrex::ParallelFor(ebx, [dir, bc_lo, bc_hi, use_harmonic_avg, diff_c, diff_ed, edomain]
-         AMREX_GPU_DEVICE (int i, int j, int k) noexcept
-         {
-            int idx[3] = {i,j,k};
-            bool on_lo = ( ( bc_lo == HT_Edge ) && ( idx[dir] <= edomain.smallEnd(dir) ) );
-            bool on_hi = ( ( bc_hi == HT_Edge ) && ( idx[dir] >= edomain.bigEnd(dir) ) );
-            cen2edg_cpp( i, j, k, dir, NUM_SPECIES, use_harmonic_avg, on_lo, on_hi, diff_c, diff_ed);
-         });
-      }
-   }
-#endif
-
-  if (zeroBndryVisc > 0)
-    zeroBoundaryVisc(betaWbar, time, AMREX_SPACEDIM+1, 0, NUM_SPECIES);
-}
-#endif
-
 void
 PeleLM::zeroBoundaryVisc (MultiFab*  beta[AMREX_SPACEDIM],
                           const Real time,
@@ -8318,7 +8328,7 @@ PeleLM::zeroBoundaryVisc (MultiFab*  beta[AMREX_SPACEDIM],
                           const int  dst_comp,
                           const int  ncomp) const
 {
-  BL_ASSERT(state_comp > Density);
+  AMREX_ASSERT(state_comp > Density);
 
   const auto geomdata = geom.data();
 
@@ -8483,7 +8493,7 @@ PeleLM::calc_dpdt (Real      time,
 
    if (nGrow > 0) {
      dpdt.FillBoundary(0,1, geom.periodicity());
-     BL_ASSERT(dpdt.nGrow() == 1);
+     AMREX_ASSERT(dpdt.nGrow() == 1);
      Extrapolater::FirstOrderExtrap(dpdt, geom, 0, 1);
    }
 }
@@ -8585,7 +8595,6 @@ PeleLM::RhoH_to_Temp (MultiFab& S,
 void
 PeleLM::getForce(FArrayBox&       force,
                  const Box&       bx,
-                 int              ngrow,
                  int              scomp,
                  int              ncomp,
                  const Real       time,
@@ -8593,7 +8602,7 @@ PeleLM::getForce(FArrayBox&       force,
                  const FArrayBox& Scal,
                  int              scalScomp)
 {
-   BL_ASSERT(force.box().contains(bx));
+   AMREX_ASSERT(force.box().contains(bx));
 
    const auto& velocity = Vel.array();
    const auto& scalars  = Scal.array(scalScomp);
@@ -8894,6 +8903,7 @@ PeleLM::writePlotFile (const std::string& dir,
     const char* githash1 = buildInfoGetGitHash(1);
     const char* githash2 = buildInfoGetGitHash(2);
     const char* githash3 = buildInfoGetGitHash(3);
+    const char* githash4 = buildInfoGetGitHash(4);
     if (strlen(githash1) > 0) {
       jobInfoFile << "PeleLM git hash: " << githash1 << "\n";
     }
@@ -8902,6 +8912,9 @@ PeleLM::writePlotFile (const std::string& dir,
     }
     if (strlen(githash3) > 0) {
       jobInfoFile << "IAMR   git hash: " << githash3 << "\n";
+    }
+    if (strlen(githash4) > 0) {
+      jobInfoFile << "PelePhysics git hash: " << githash4 << "\n";
     }
 
     jobInfoFile << "\n\n";
@@ -8949,7 +8962,7 @@ PeleLM::writePlotFile (const std::string& dir,
     for (int i = 0; i < grids.size(); ++i)
     {
       RealBox gridloc = RealBox(grids[i],geom.CellSize(),geom.ProbLo());
-      for (int n = 0; n < BL_SPACEDIM; n++)
+      for (int n = 0; n < AMREX_SPACEDIM; n++)
         os << gridloc.lo(n) << ' ' << gridloc.hi(n) << '\n';
     }
     //
@@ -9082,7 +9095,7 @@ PeleLM::derive (const std::string& name,
                 Real               time,
                 int                ngrow)
 {        
-  BL_ASSERT(ngrow >= 0);
+  AMREX_ASSERT(ngrow >= 0);
   
   std::unique_ptr<MultiFab> mf;
   const DeriveRec* rec = derive_lst.get(name);
@@ -9231,9 +9244,9 @@ PeleLM::activeControl(const int  step,
                                         int idx[3] = {i,j,k};
                                         idx[AC_FlameDir] -= 1;
                                         if ( T_arr(idx[0],idx[1],idx[2]) < AC_Tcross ) {
-                                            D_TERM(coor[0] = prob_lo[0] + (i+0.5)*dx[0];,
-                                                   coor[1] = prob_lo[1] + (j+0.5)*dx[1];,
-                                                   coor[2] = prob_lo[2] + (k+0.5)*dx[2];);
+                                            AMREX_D_TERM(coor[0] = prob_lo[0] + (i+0.5)*dx[0];,
+                                                         coor[1] = prob_lo[1] + (j+0.5)*dx[1];,
+                                                         coor[2] = prob_lo[2] + (k+0.5)*dx[2];);
                                             Real slope = ((T_arr(i,j,k) ) - T_arr(idx[0],idx[1],idx[2]))/dx[AC_FlameDir];
                                             lcl_pos = coor[AC_FlameDir] - dx[AC_FlameDir] + ( AC_Tcross - T_arr(idx[0],idx[1],idx[2]) ) / slope;
                                         }
@@ -9378,9 +9391,9 @@ PeleLM::activeControl(const int  step,
    ctrl_coftOld = coft;
 
    // Pass dV and ctrl_V_in to GPU compliant problem routines
-   ACParm::ctrl_V_in = ctrl_V_in;
-   ACParm::ctrl_dV = ctrl_dV;
-   ACParm::ctrl_tBase = ctrl_tBase;
+   ac_parm->ctrl_V_in = ctrl_V_in;
+   ac_parm->ctrl_dV = ctrl_dV;
+   ac_parm->ctrl_tBase = ctrl_tBase;
 
    // Verbose
    if ( ctrl_verbose && !restart) {
@@ -9443,7 +9456,7 @@ PeleLM::initActiveControl()
    if ( !ctrl_active ) return;
 
    // Activate AC in problem specific / GPU compliant sections
-   ACParm::ctrl_active = ctrl_active;
+   ac_parm->ctrl_active = ctrl_active;
 
    // Resize vector for temporal average
    ctrl_time_pts.resize(ctrl_NavgPts+1,-1.0);
@@ -9459,10 +9472,28 @@ PeleLM::initActiveControl()
    }
 
    // Extract data from bc: assumes flow comes in from lo side of ctrl_flameDir
-   amrex::Real s_ext[DEF_NUM_STATE] = {0.0};
-   amrex::Real x[AMREX_SPACEDIM] = {D_DECL(problo[0],problo[1],problo[2])};
+   ProbParm const* lprobparm = prob_parm.get();
+   ACParm const* lacparm = ac_parm.get(); 
+   PmfData const* lpmfdata = pmf_data_g;
+   amrex::Gpu::DeviceVector<amrex::Real> s_ext_v(DEF_NUM_STATE);
+   amrex::Real* s_ext_d = s_ext_v.data();
+   amrex::Real x[AMREX_SPACEDIM] = {AMREX_D_DECL(problo[0],problo[1],problo[2])};
    x[ctrl_flameDir] -= 1.0;
-   bcnormal(x, s_ext, ctrl_flameDir, 1, -1.0, geom.data());
+   const int ctrl_flameDir_l = ctrl_flameDir;
+   const amrex::Real time_l = -1.0;
+   const auto geomdata = geom.data();
+   Box dumbx({AMREX_D_DECL(0,0,0)},{AMREX_D_DECL(0,0,0)});
+   amrex::ParallelFor(dumbx, [x,s_ext_d,ctrl_flameDir_l,time_l,geomdata,lprobparm,lacparm, lpmfdata]
+   AMREX_GPU_DEVICE(int i, int j, int k) noexcept
+   {
+      bcnormal(x, s_ext_d, ctrl_flameDir_l, 1, time_l, geomdata, *lprobparm, *lacparm, lpmfdata);
+   });
+   amrex::Real s_ext[DEF_NUM_STATE];
+#if AMREX_USE_GPU
+   amrex::Gpu::dtoh_memcpy(s_ext,s_ext_d,sizeof(amrex::Real)*DEF_NUM_STATE);
+#else
+   std::memcpy(s_ext,s_ext_d,sizeof(amrex::Real)*DEF_NUM_STATE);
+#endif
 
    if ( !ctrl_use_temp ) {
       // Get the fuel rhoY
@@ -9485,7 +9516,7 @@ PeleLM::initActiveControl()
    ctrl_V_in_old = ctrl_V_in;
 
    // Pass V_in to bc
-   ACParm::ctrl_V_in = ctrl_V_in;
+   ac_parm->ctrl_V_in = ctrl_V_in;
 
    if ( ctrl_verbose && ctrl_active ) {
       if ( ctrl_use_temp ) {
@@ -9498,6 +9529,58 @@ PeleLM::initActiveControl()
    }
 }
 
-#ifdef PLM_USE_EFIELD
+void
+PeleLM::parseComposition(Vector<std::string> compositionIn,
+                         std::string         compositionType,
+                         Real               *massFrac)
+{
+   Real compoIn[NUM_SPECIES] = {0.0};
+
+   // Get species names
+   Vector<std::string> specNames;
+   EOS::speciesNames(specNames);
+
+   // For each entry in the user-provided composition, parse name and value
+   std::string delimiter = ":";
+   int specCountIn = compositionIn.size();
+   for (int i = 0; i < specCountIn; i++ ) {
+      int sep = compositionIn[i].find(delimiter);
+      if ( sep == std::string::npos ) {
+         Abort("Error parsing '"+compositionIn[i]+"' --> unable to find delimiter :");
+      }
+      std::string specNameIn = compositionIn[i].substr(0, sep);
+      Real value = std::stod(compositionIn[i].substr(sep+1,compositionIn[i].length()));
+      int foundIt = 0;
+      for (int k = 0; k < NUM_SPECIES; k++ ) {
+         if ( specNameIn == specNames[k] ) {
+            compoIn[k] = value;
+            foundIt = 1;
+         }
+      }
+      if ( !foundIt ) {
+         Abort("Error parsing '"+compositionIn[i]+"' --> unable to match to any species name");
+      }
+   }
+
+   // Ensure that it sums to 1.0:
+   Real sum = 0.0;
+   for (int k = 0; k < NUM_SPECIES; k++ ) {
+      sum += compoIn[k];
+   }
+   for (int k = 0; k < NUM_SPECIES; k++ ) {
+      compoIn[k] /= sum;
+   }
+
+   // Fill the massFrac array, convert from mole fraction if necessary
+   if ( compositionType == "mass" ) {                // mass
+      for (int i = 0; i < NUM_SPECIES; i++ ) {
+         massFrac[i] = compoIn[i];
+      }
+   } else if ( compositionType == "mole" ) {         // mole
+      EOS::X2Y(compoIn,massFrac);
+   } else {
+      Abort("Unknown mixtureFraction.type ! Should be 'mass' or 'mole'");
+   }
+}
+
 #include <PeleLM_EF.cpp>
-#endif

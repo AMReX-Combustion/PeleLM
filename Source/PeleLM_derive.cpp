@@ -503,7 +503,7 @@ void pelelm_dermixanddiss (const Box& bx, FArrayBox& derfab, int dcomp, int ncom
         }
 
         // get only conductivity
-	amrex::Real lambda;
+        amrex::Real lambda;
         amrex::Real Tloc = temp(i,j,k);
         amrex::Real rho  = density(i,j,k);
 

@@ -1,43 +1,33 @@
-TOP = ../../../../
-AMREX_HOME ?= ${TOP}/amrex
-IAMR_HOME ?= ${TOP}/IAMR
-PELELM_HOME ?= ${TOP}/PeleLM
-PELE_PHYSICS_HOME ?= ${TOP}/PelePhysics
+TOP = ../../../..
+AMREX_HOME         ?= ${TOP}/amrex
+IAMR_HOME          ?= ${TOP}/IAMR
+PELELM_HOME        ?= ${TOP}/PeleLM
+PELE_PHYSICS_HOME  ?= ${TOP}/PelePhysics
 
 #
 # Build configuration
 #
 
+# AMREX options
 DIM             = 2
+USE_EB          = TRUE
+
+# Compiler / parrallel paradigms
 COMP            = gnu
-DEBUG           = FALSE
 USE_MPI         = TRUE
 USE_OMP         = FALSE
 USE_CUDA        = FALSE
+USE_HIP         = FALSE
+
+# MISC options
+DEBUG           = FALSE
 PRECISION       = DOUBLE
 VERBOSE         = FALSE
+TINY_PROFILE    = FALSE
 
-USE_EB = TRUE
-
-TINY_PROFILE = FALSE
-#USE_WBAR = TRUE
-
-#######################
+# CVODE
 USE_SUNDIALS_PP = TRUE
-ifeq ($(USE_SUNDIALS_PP), TRUE)
-  # use KLU sparse features -- only useful if CVODE is used on CPU
-  USE_KLU_PP = FALSE
-  # Activates GPU version
-  USE_CUDA_SUNDIALS_PP = FALSE
-endif
-#######################
-
-# Enable ht.velocity_plotfile option
-#USE_VELOCITY    = FALSE
-
-# Enable the restart-from-plotfile option (ht.pltfile)
-#  ... default this off because when on, code expects it to be used
-# USE_NEWMECH    = FALSE
+USE_KLU_PP      = FALSE
 
 # Choose model (from list below), and pmf file
 Chemistry_Model = LiDryer
@@ -58,7 +48,6 @@ F90EXE_sources +=
 CEXE_headers += 
 FEXE_headers += 
 
-include $(PELE_PHYSICS_HOME)/Utility/Make.package
 include $(PELELM_HOME)/Tools/Make/Make.PeleLM
 # Available chemistry models:
 # CanuH2 chem-CH4-2step chem-H dme glar gri Hai H-CW header inert Konnov

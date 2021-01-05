@@ -1,0 +1,28 @@
+name: CI_CodeChecks
+
+on: 
+   workflow_dispatch:
+
+jobs:
+  #Run cppcheck off FlameSheet
+  CppCheck:
+    name: CppCheck [FS2D]
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: System Dependencies
+      run: |
+        python3 -m pip install compiledb   
+        brew install cppcheck
+    - name: Repo Dependencies
+      run: Tools/CloneDeps.sh
+    - name: Build
+      env:
+         AMREX_HOME: ${GITHUB_WORKSPACE}/build/amrex
+         IAMR_HOME: ${GITHUB_WORKSPACE}/build/IAMR
+         PELE_PHYSICS_HOME: ${GITHUB_WORKSPACE}/build/PelePhysics
+         PELELM_HOME: ${GITHUB_WORKSPACE}
+      run: |
+        cd Exec/RegTests/FlameSheet/
+        make TPL COMP=gnu USE_MPI=FALSE
+        compiledb make
