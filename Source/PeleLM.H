@@ -687,6 +687,7 @@ public:
   static int         sdc_iterMAX;
   static int         num_mac_sync_iter;
   static int         deltaT_verbose;
+  static int         deltaT_crashOnConvFail;
   static int         iter_debug;
   static int         mHtoTiterMAX;
   static amrex::Vector<amrex::Real> mTmpData;
