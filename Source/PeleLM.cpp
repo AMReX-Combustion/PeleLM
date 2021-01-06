@@ -215,6 +215,7 @@ Vector<Real> PeleLM::typical_values;
 int PeleLM::sdc_iterMAX;
 int PeleLM::num_mac_sync_iter;
 int PeleLM::deltaT_verbose = 0;
+int PeleLM::deltaT_crashOnConvFail = 1;
 
 int PeleLM::mHtoTiterMAX;
 Vector<amrex::Real> PeleLM::mTmpData;
@@ -518,6 +519,7 @@ PeleLM::Initialize_specific ()
     pplm.query("num_deltaT_iters_MAX",num_deltaT_iters_MAX);
     pplm.query("deltaT_norm_max",deltaT_norm_max);
     pplm.query("deltaT_verbose",deltaT_verbose);
+    pplm.query("deltaT_convFailCrash",deltaT_crashOnConvFail);
 
     pplm.query("use_typ_vals_chem",use_typ_vals_chem);
     pplm.query("relative_tol_chem",relative_tol_chem);
@@ -3517,8 +3519,10 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
          });
       }
 
-      if (L==(num_deltaT_iters_MAX-1) && deltaT_iter_norm >= deltaT_norm_max) {
-        Abort("deltaT_iters not converged");
+      if ( L==(num_deltaT_iters_MAX-1) 
+           && deltaT_iter_norm >= deltaT_norm_max
+           && deltaT_crashOnConvFail ) {
+         Abort("deltaT_iters not converged");
       }
    } // end deltaT iters
 
@@ -5718,6 +5722,13 @@ PeleLM::getFuncCountDM (const BoxArray& bxba, int ngrow)
   fctmpnew.setVal(1);
 
   const MultiFab& FC = get_new_data(FuncCount_Type);
+
+  // Return original DM if FC is zero (propably Null reaction dir)
+  if ( FC.norm0(0) <= 0.0 ) {
+     DistributionMapping new_dmap{bxba};
+     return new_dmap;
+  }
+
   fctmpnew.copy(FC,0,0,1,std::min(ngrow,FC.nGrow()),0);
 
   int count = 0;
@@ -7025,7 +7036,9 @@ PeleLM::mac_sync ()
                });
             }
 
-            if (L==(num_deltaT_iters_MAX-1) && deltaT_iter_norm >= deltaT_norm_max) {
+            if ( L==(num_deltaT_iters_MAX-1) 
+                 && deltaT_iter_norm >= deltaT_norm_max
+                 && deltaT_crashOnConvFail ) {
                Abort("deltaT_iters not converged in mac_sync");
             }
          } // deltaT_iters
