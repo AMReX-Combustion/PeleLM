@@ -579,7 +579,7 @@ PeleLM::variableSetUp ()
   //
   desc_lst.addDescriptor(Gradp_Type,IndexType::TheCellType(),
 			 StateDescriptor::Interval,gradp_grow,AMREX_SPACEDIM,
-			 &pc_interp,state_data_extrap,store_in_checkpoint);
+			 &cc_interp,state_data_extrap,store_in_checkpoint);
   amrex::StateDescriptor::BndryFunc gradp_bf(pelelm_dummy_fill);
   gradp_bf.setRunOnGPU(true);
   
