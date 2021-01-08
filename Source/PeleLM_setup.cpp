@@ -102,7 +102,7 @@ press_bc[] =
 //FIXME -- Pulled from IAMR, needs update for PLM
 static int norm_gradp_bc[] =
 {
-  INT_DIR, FOEXTRAP, FOEXTRAP, REFLECT_ODD, FOEXTRAP, FOEXTRAP, FOEXTRAP, FOEXTRAP
+  INT_DIR, FOEXTRAP, FOEXTRAP, REFLECT_ODD, REFLECT_EVEN, REFLECT_EVEN, REFLECT_EVEN, REFLECT_EVEN
 };
 
 static int tang_gradp_bc[] =
