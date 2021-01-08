@@ -149,7 +149,7 @@ jobs:
     - name: Run
       working-directory: ./Exec/RegTests/FlameSheet/
       run: |
-        ./PeleLM2d.gnu.ex inputs.2d_regt max_step=2 amr.plot_files_output=0 amr.checkpoint_files_output=0
+        ./PeleLM2d.gnu.ex inputs.2d-regt max_step=2 amr.plot_files_output=0 amr.checkpoint_files_output=0
 
   # Build and Run the CoVo RegTest with GNU7.5 and no MPI support
   COVO2D_NoMPIRun:
