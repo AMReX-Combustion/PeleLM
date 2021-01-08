@@ -107,6 +107,7 @@ PeleLM::readParticleParams()
   ParmParse pp("peleLM");
 
   pp.query("do_spray_particles", do_spray_particles);
+  if (!do_spray_particles) return;
   amrex::ParmParse ppp("particles");
   //
   // Control the verbosity of the Particle class
@@ -127,9 +128,10 @@ PeleLM::readParticleParams()
   sprayFuelNames.assign(nfuel, "");
   sprayCritT.resize(nfuel);
   sprayBoilT.resize(nfuel);
-  sprayLatent.resize(nfuel);
-  sprayMu.resize(nfuel);
   sprayCp.resize(nfuel);
+  sprayLatent.resize(nfuel);
+  sprayRho.resize(nfuel);
+  sprayMu.resize(nfuel);
   sprayIndxMap.resize(nfuel);
   std::vector<std::string> fuel_names;
   std::vector<Real> crit_T;
