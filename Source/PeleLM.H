@@ -341,8 +341,6 @@ public:
 
   static int getSpeciesIdx(const std::string& spName);
 
-  amrex::Real predict_velocity (amrex::Real dt);
-    
   void advance_chemistry (amrex::MultiFab&       mf_old,
                           amrex::MultiFab&       mf_new,
                           amrex::Real            dt,

@@ -99,6 +99,17 @@ press_bc[] =
   INT_DIR, FOEXTRAP, FOEXTRAP, REFLECT_EVEN, REFLECT_EVEN, REFLECT_EVEN, REFLECT_EVEN, REFLECT_EVEN
 };
 
+//FIXME -- Pulled from IAMR, needs update for PLM
+static int norm_gradp_bc[] =
+{
+  INT_DIR, FOEXTRAP, FOEXTRAP, REFLECT_ODD, REFLECT_EVEN, REFLECT_EVEN, REFLECT_EVEN, REFLECT_EVEN
+};
+
+static int tang_gradp_bc[] =
+{
+  INT_DIR, FOEXTRAP, FOEXTRAP, REFLECT_EVEN, FOEXTRAP, FOEXTRAP, FOEXTRAP, FOEXTRAP
+};
+
 static
 int
 rhoh_bc[] =
@@ -234,6 +245,57 @@ set_pressure_bc (BCRec&       bc,
     bc.setHi(i,press_bc[hi_bc[i]]);
   }
 }
+
+static 
+void 
+set_gradpx_bc (BCRec&       bc,
+	       const BCRec& phys_bc)
+{
+    const int* lo_bc = phys_bc.lo();
+    const int* hi_bc = phys_bc.hi();
+    bc.setLo(0,norm_gradp_bc[lo_bc[0]]);
+    bc.setHi(0,norm_gradp_bc[hi_bc[0]]);
+    bc.setLo(1,tang_gradp_bc[lo_bc[1]]);
+    bc.setHi(1,tang_gradp_bc[hi_bc[1]]);
+#if (BL_SPACEDIM == 3)
+    bc.setLo(2,tang_gradp_bc[lo_bc[2]]);
+    bc.setHi(2,tang_gradp_bc[hi_bc[2]]);
+#endif
+}
+
+static
+void
+set_gradpy_bc (BCRec&       bc,
+	       const BCRec& phys_bc)
+{
+    const int* lo_bc = phys_bc.lo();
+    const int* hi_bc = phys_bc.hi();
+    bc.setLo(0,tang_gradp_bc[lo_bc[0]]);
+    bc.setHi(0,tang_gradp_bc[hi_bc[0]]);
+    bc.setLo(1,norm_gradp_bc[lo_bc[1]]);
+    bc.setHi(1,norm_gradp_bc[hi_bc[1]]);
+#if (BL_SPACEDIM == 3)
+    bc.setLo(2,tang_gradp_bc[lo_bc[2]]);
+    bc.setHi(2,tang_gradp_bc[hi_bc[2]]);
+#endif
+}
+
+#if (BL_SPACEDIM == 3)
+static
+void
+set_gradpz_bc (BCRec&       bc,
+	       const BCRec& phys_bc)
+{
+    const int* lo_bc = phys_bc.lo();
+    const int* hi_bc = phys_bc.hi();
+    bc.setLo(0,tang_gradp_bc[lo_bc[0]]);
+    bc.setHi(0,tang_gradp_bc[hi_bc[0]]);
+    bc.setLo(1,tang_gradp_bc[lo_bc[1]]);
+    bc.setHi(1,tang_gradp_bc[hi_bc[1]]);
+    bc.setLo(2,norm_gradp_bc[lo_bc[2]]);
+    bc.setHi(2,norm_gradp_bc[hi_bc[2]]);
+}
+#endif
 
 static
 void
@@ -512,6 +574,34 @@ PeleLM::variableSetUp ()
 
   set_pressure_bc(bc,phys_bc);
   desc_lst.setComponent(Press_Type,Pressure,"pressure",bc,pelelm_nodal_bf);
+  //
+  // ---- grad P
+  //
+  desc_lst.addDescriptor(Gradp_Type,IndexType::TheCellType(),
+			 StateDescriptor::Interval,gradp_grow,AMREX_SPACEDIM,
+			 &cc_interp,state_data_extrap,store_in_checkpoint);
+  amrex::StateDescriptor::BndryFunc gradp_bf(pelelm_dummy_fill);
+  gradp_bf.setRunOnGPU(true);
+  
+  bcs.resize(BL_SPACEDIM);
+  name.resize(BL_SPACEDIM);
+  
+  set_gradpx_bc(bc,phys_bc);
+  bcs[0]  = bc;
+  name[0] = "gradpx";
+  
+  set_gradpy_bc(bc,phys_bc);
+  bcs[1]  = bc;
+  name[1] = "gradpy";
+  
+#if(AMREX_SPACEDIM==3)
+  set_gradpz_bc(bc,phys_bc);
+  bcs[2]  = bc;
+  name[2] = "gradpz";
+#endif
+  
+  desc_lst.setComponent(Gradp_Type, Gradpx, name, bcs, gradp_bf);
+
   //
   // ---- right hand side of divergence constraint.
   //
