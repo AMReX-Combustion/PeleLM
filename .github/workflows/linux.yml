@@ -142,10 +142,11 @@ jobs:
          IAMR_HOME: ${GITHUB_WORKSPACE}/build/IAMR
          PELE_PHYSICS_HOME: ${GITHUB_WORKSPACE}/build/PelePhysics
          PELELM_HOME: ${GITHUB_WORKSPACE}
-      build: |
+      run: |
         working-directory: Exec/RegTests/FlameSheet/
         make TPL COMP=gnu USE_MPI=FALSE DEBUG=FALSE
         make -j 2 COMP=gnu USE_MPI=FALSE DEBUG=FALSE
+    - name: Run
       run: |
         working-directory: Exec/RegTests/FlameSheet/
         ./PeleLM2d.gnu.ex inputs.2d_regt max_step=2 amr.plot_files_output=0 amr.checkpoint_files_output=0
@@ -168,10 +169,11 @@ jobs:
          IAMR_HOME: ${GITHUB_WORKSPACE}/build/IAMR
          PELE_PHYSICS_HOME: ${GITHUB_WORKSPACE}/build/PelePhysics
          PELELM_HOME: ${GITHUB_WORKSPACE}
-      build: |
+      run: |
         working-directory: Exec/RegTests/PeriodicCases/
         make TPL COMP=gnu USE_MPI=FALSE
         make -j 2 COMP=gnu USE_MPI=FALSE
+    - name: Run
       run: |
         working-directory: Exec/RegTests/PeriodicCases/
         ./PeleLM2d.gnu.ex inputs.2d_CoVo_RegT_negX max_step=2 amr.plot_files_output=0 amr.checkpoint_files_output=0
@@ -194,10 +196,11 @@ jobs:
          IAMR_HOME: ${GITHUB_WORKSPACE}/build/IAMR
          PELE_PHYSICS_HOME: ${GITHUB_WORKSPACE}/build/PelePhysics
          PELELM_HOME: ${GITHUB_WORKSPACE}
-      build: |
+      run: |
         working-directory: Exec/RegTests/EB_FlowPastCylinder/
         make TPL COMP=gnu
         make -j 2 COMP=gnu
+    - name: Run
       run: |
         working-directory: Exec/RegTests/EB_FlowPastCylinder/
         mpirun -n 2 ./PeleLM2d.gnu.MPI.ex inputs.2d-regt_VS max_step=2 amr.plot_files_output=0 amr.checkpoint_files_output=0
@@ -220,10 +223,11 @@ jobs:
          IAMR_HOME: ${GITHUB_WORKSPACE}/build/IAMR
          PELE_PHYSICS_HOME: ${GITHUB_WORKSPACE}/build/PelePhysics
          PELELM_HOME: ${GITHUB_WORKSPACE}
-      build: |
+      run: |
         working-directory: Exec/RegTests/EB_FlowPastCylinder/
         make TPL COMP=gnu DIM=3
         make -j 2 COMP=gnu DIM=3
+    - name: Run
       run: |
         working-directory: Exec/RegTests/EB_FlowPastCylinder/
         mpirun -n 4 ./PeleLM3d.gnu.MPI.ex inputs.3d-regt_VS max_step=2 amr.plot_files_output=0 amr.checkpoint_files_output=0
