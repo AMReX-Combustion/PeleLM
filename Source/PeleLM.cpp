@@ -36,6 +36,7 @@
 #include <pelelm_prob_parm.H>
 #include <PeleLM_parm.H>
 #include <pmf_data.H>
+#include <TransportParams.H>
 
 #if defined(AMREX_USE_NEWMECH) || defined(AMREX_USE_VELOCITY)
 #include <AMReX_DataServices.H>
@@ -7640,6 +7641,9 @@ PeleLM::calcViscosity (const Real time,
    FillPatchIterator fpi(*this,S,nGrow,time,State_Type,sComp,nComp);
    MultiFab& S_cc = fpi.get_mf();
 
+   // Get the transport GPU data pointer
+   TransParm const* ltransparm = trans_parm_g;
+
 #ifdef _OPENMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
@@ -7650,10 +7654,10 @@ PeleLM::calcViscosity (const Real time,
       auto const& T       = S_cc.array(mfi,Tcomp);
       auto const& mu      = visc.array(mfi);
 
-      amrex::ParallelFor(gbx, [rhoY, T, mu]
+      amrex::ParallelFor(gbx, [rhoY, T, mu, ltransparm]
       AMREX_GPU_DEVICE (int i, int j, int k) noexcept
       {
-         getVelViscosity( i, j, k, rhoY, T, mu);
+         getVelViscosity( i, j, k, rhoY, T, mu, ltransparm);
       });
    }
 
@@ -7700,6 +7704,9 @@ PeleLM::calcDiffusivity (const Real time)
    FillPatchIterator fpi(*this,S,nGrow,time,State_Type,sComp,nComp);
    MultiFab& S_cc = fpi.get_mf();
 
+   // Get the transport GPU data pointer
+   TransParm const* ltransparm = trans_parm_g;
+
 #ifdef _OPENMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
@@ -7715,16 +7722,16 @@ PeleLM::calcDiffusivity (const Real time)
       if ( unity_Le ) {
          amrex::Real ScInv = 1.0/schmidt;
          amrex::Real PrInv = 1.0/prandtl;
-         amrex::ParallelFor(gbx, [rhoY, T, rhoD, lambda, mu, ScInv, PrInv] 
+         amrex::ParallelFor(gbx, [rhoY, T, rhoD, lambda, mu, ScInv, PrInv, ltransparm]
          AMREX_GPU_DEVICE (int i, int j, int k) noexcept
          {
-            getTransportCoeffUnityLe( i, j, k, ScInv, PrInv, rhoY, T, rhoD, lambda, mu);
+            getTransportCoeffUnityLe( i, j, k, ScInv, PrInv, rhoY, T, rhoD, lambda, mu, ltransparm);
          });
       } else {
-         amrex::ParallelFor(gbx, [rhoY, T, rhoD, lambda, mu]
+         amrex::ParallelFor(gbx, [rhoY, T, rhoD, lambda, mu, ltransparm]
          AMREX_GPU_DEVICE (int i, int j, int k) noexcept
          {
-            getTransportCoeff( i, j, k, rhoY, T, rhoD, lambda, mu);
+            getTransportCoeff( i, j, k, rhoY, T, rhoD, lambda, mu, ltransparm);
          });
       }
    }
