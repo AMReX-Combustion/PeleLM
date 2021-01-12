@@ -44,6 +44,9 @@
 #endif
 
 #include <reactor.h>
+#ifdef USE_SUNDIALS_PP
+#include <AMReX_SUNMemory.H>
+#endif
 
 #include <Prob_F.H>
 #include <NAVIERSTOKES_F.H>
@@ -324,6 +327,10 @@ void
 PeleLM::Initialize ()
 {
   if (initialized) return;
+
+#ifdef USE_SUNDIALS_PP
+  amrex::sundials::MemoryHelper::Initialize();
+#endif
 
   PeleLM::Initialize_specific();
   
