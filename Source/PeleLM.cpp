@@ -44,8 +44,10 @@
 #endif
 
 #include <reactor.h>
+#ifdef USE_AMREX_GPU
 #ifdef USE_SUNDIALS_PP
 #include <AMReX_SUNMemory.H>
+#endif
 #endif
 
 #include <Prob_F.H>
@@ -328,8 +330,10 @@ PeleLM::Initialize ()
 {
   if (initialized) return;
 
+#ifdef AMREX_USE_GPU
 #ifdef USE_SUNDIALS_PP
   amrex::sundials::MemoryHelper::Initialize();
+#endif
 #endif
 
   PeleLM::Initialize_specific();
