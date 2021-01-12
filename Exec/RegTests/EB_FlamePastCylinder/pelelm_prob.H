@@ -20,6 +20,7 @@ void
 pelelm_initdata (int i, int j, int k, 
                  amrex::Array4<amrex::Real> const& state,
                  amrex::GeometryData const& geomdata,
+                 ProbParm const& prob_parm,
                  PmfData const *pmf_data)
 {
 
@@ -63,20 +64,20 @@ pelelm_initdata (int i, int j, int k,
 
     switch(ProbParm::FlowDir) {
       case 0:
-         state(i,j,k,Xvel) = ProbParm::MeanFlow;
+         state(i,j,k,Xvel) = prob_parm.MeanFlow;
          break;
       case 1:
-         state(i,j,k,Yvel) = ProbParm::MeanFlow;
+         state(i,j,k,Yvel) = prob_parm.MeanFlow;
          break;
 #if ( AMREX_SPACEDIM == 3 ) 
       case 2:
-         state(i,j,k,Zvel) = ProbParm::MeanFlow;
+         state(i,j,k,Zvel) = prob_parm.MeanFlow;
          break;
 #endif
     }
 
     amrex::Real rho_cgs, P_cgs;
-    P_cgs = ProbParm::P_mean * 10.0;
+    P_cgs = prob_parm.P_mean * 10.0;
 
     EOS::PYT2R(P_cgs, massfrac, state(i,j,k,DEF_Temp), rho_cgs);
     state(i,j,k,Density) = rho_cgs * 1.0e3;            // CGS -> MKS conversion
@@ -90,7 +91,7 @@ pelelm_initdata (int i, int j, int k,
 
 }
 
-AMREX_GPU_HOST_DEVICE
+AMREX_GPU_DEVICE
 AMREX_FORCE_INLINE
 void
 bcnormal(
@@ -100,6 +101,8 @@ bcnormal(
   const int sgn,
   const amrex::Real time,
   amrex::GeometryData const& geomdata,
+  ProbParm const& prob_parm,
+  ACParm const& ac_parm,
   PmfData const *pmf_data)
 {
   const amrex::Real* prob_lo = geomdata.ProbLo();
@@ -114,7 +117,7 @@ bcnormal(
     s_ext[Zvel] = 0.0;
 #endif
 
-    amrex::Real pertmag = 0.1 * ProbParm::MeanFlow * 
+    amrex::Real pertmag = 0.1 * prob_parm.MeanFlow * 
                           std::sin(2*Pi*time/0.0004) * sin(2*Pi*(time-0.0001666)/0.00033333);
     amrex::Real sinusflip = std::max(0.0001,std::abs(std::sin(2*Pi*time/0.001)));
     amrex::Real perty = pertmag*(1.000 * std::sin(2*Pi*4*x[1]/Ly) 
@@ -125,16 +128,16 @@ bcnormal(
 
     switch(ProbParm::FlowDir) {
       case 0:
-         s_ext[Xvel] = ProbParm::MeanFlow;
+         s_ext[Xvel] = prob_parm.MeanFlow;
          s_ext[Yvel] = perty;
          break;
       case 1:
-         s_ext[Yvel] = ProbParm::MeanFlow;
+         s_ext[Yvel] = prob_parm.MeanFlow;
          s_ext[Xvel] = perty;
          break;
 #if ( AMREX_SPACEDIM == 3 ) 
       case 2:
-         s_ext[Zvel] = ProbParm::MeanFlow;
+         s_ext[Zvel] = prob_parm.MeanFlow;
          break;
 #endif
     }
