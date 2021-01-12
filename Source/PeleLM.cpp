@@ -1804,6 +1804,9 @@ PeleLM::initData ()
   MultiFab&   P_new    = get_new_data(Press_Type);
   const Real  cur_time = state[State_Type].curTime();
 
+  S_new.setVal(0.0);
+  P_new.setVal(0.0);
+
 #ifdef AMREX_USE_NEWMECH
   //
   // This code has a few drawbacks.  It assumes that the physical
@@ -1921,9 +1924,6 @@ PeleLM::initData ()
 #endif
 
   const auto geomdata = geom.data();
-  S_new.setVal(0.0);
-  P_new.setVal(0.0);
-
   ProbParm const* lprobparm = prob_parm.get();
   PmfData const* lpmfdata = pmf_data_g;
 
@@ -9587,4 +9587,6 @@ PeleLM::parseComposition(Vector<std::string> compositionIn,
    }
 }
 
+#ifdef PLM_USE_EFIELD
 #include <PeleLM_EF.cpp>
+#endif
