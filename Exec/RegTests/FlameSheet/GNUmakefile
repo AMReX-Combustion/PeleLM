@@ -71,6 +71,10 @@ CEXE_headers +=
 FEXE_headers += 
 
 include $(PELELM_HOME)/Tools/Make/Make.PeleLM
+
+ifeq ($(USE_CUDA),TRUE)
+CXXFLAGS += -Xptxas --disable-optimizer-constants
+endif
 # Available chemistry models:
 # CanuH2 chem-CH4-2step chem-H dme glar gri Hai H-CW header inert Konnov
 # LiDryer Marinov prf_ethanol Roehl sandiego smooke usc
