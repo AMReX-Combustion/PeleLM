@@ -1990,7 +1990,6 @@ PeleLM::initData ()
     calc_divu(tnp1,dtin,Divu_new);
   }
 
-  is_first_step_after_regrid = false;
   old_intersect_new          = grids;
 
 #ifdef AMREX_PARTICLES
