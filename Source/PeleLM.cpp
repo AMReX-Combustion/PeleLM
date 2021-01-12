@@ -44,7 +44,7 @@
 #endif
 
 #include <reactor.h>
-#ifdef USE_AMREX_GPU
+#ifdef AMREX_USE_GPU
 #ifdef USE_SUNDIALS_PP
 #include <AMReX_SUNMemory.H>
 #endif
