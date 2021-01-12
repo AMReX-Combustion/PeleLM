@@ -121,7 +121,7 @@ jobs:
         export LD_LIBRARY_PATH=/usr/local/nvidia/lib:/usr/local/nvidia/lib64:${LD_LIBRARY_PATH}
         cd Exec/RegTests/FlameSheet/
         make TPL COMP=gnu USE_CUDA=TRUE
-        make -j 2 COMP=gnu USE_CUDA=TRUE CXXFLAGS+=-Xptxas --disable-optimizer-constants 
+        make -j 2 COMP=gnu USE_CUDA=TRUE CXXFLAGS+=-Xptxas CXXFLAGS+=--disable-optimizer-constants 
 
   #Build and run the 2D FlameSheet RegTest with GNU7.5 and no MPI support
   FS2D_NoMPIRun:
