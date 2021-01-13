@@ -8,6 +8,7 @@
 #include <EOS.H>
 #include <Transport.H>
 #include <cmath>
+#include <TransportParams.H>
 
 AMREX_GPU_DEVICE
 AMREX_FORCE_INLINE
@@ -405,7 +406,8 @@ getTransportCoeff(int i, int j, int k,
                   amrex::Array4<const amrex::Real> const& T,
                   amrex::Array4<      amrex::Real> const& rhoDi,
                   amrex::Array4<      amrex::Real> const& lambda,
-                  amrex::Array4<      amrex::Real> const& mu) noexcept
+                  amrex::Array4<      amrex::Real> const& mu,
+                  TransParm const* trans_parm) noexcept
 {
    using namespace amrex::literals;
 
@@ -439,7 +441,7 @@ getTransportCoeff(int i, int j, int k,
    bool get_lam = true;
    bool get_Ddiag = true;
    transport(get_xi, get_mu, get_lam, get_Ddiag, Tloc,
-             rho, y, rhoDi_cgs, mu_cgs, dummy_xi, lambda_cgs);
+             rho, y, rhoDi_cgs, mu_cgs, dummy_xi, lambda_cgs, trans_parm);
 
    // Do CGS -> MKS conversions
    for (int n = 0; n < NUM_SPECIES; n++) {
@@ -459,7 +461,8 @@ getTransportCoeffUnityLe(int i, int j, int k,
                          amrex::Array4<      amrex::Real> const& T,
                          amrex::Array4<      amrex::Real> const& rhoDi,
                          amrex::Array4<      amrex::Real> const& lambda,
-                         amrex::Array4<      amrex::Real> const& mu) noexcept
+                         amrex::Array4<      amrex::Real> const& mu,
+                         TransParm const* trans_parm) noexcept
 {
    using namespace amrex::literals;
 
@@ -486,7 +489,7 @@ getTransportCoeffUnityLe(int i, int j, int k,
    bool get_lam = false;
    bool get_Ddiag = false;
    transport(get_xi, get_mu, get_lam, get_Ddiag, T(i,j,k),
-             rho, y, rhoDi_cgs, mu_cgs, dummy_xi, lambda_cgs);
+             rho, y, rhoDi_cgs, mu_cgs, dummy_xi, lambda_cgs, trans_parm);
 
    mu(i,j,k) = mu_cgs * 1.0e-1_rt;                       // CGS -> MKS conversions
    for (int n = 0; n < NUM_SPECIES; n++) {
@@ -526,7 +529,8 @@ void
 getVelViscosity(int i, int j, int k,
                 amrex::Array4<const amrex::Real> const& rhoY,
                 amrex::Array4<      amrex::Real> const& T,
-                amrex::Array4<      amrex::Real> const& mu) noexcept
+                amrex::Array4<      amrex::Real> const& mu,
+                TransParm const* trans_parm) noexcept
 {
    using namespace amrex::literals;
 
@@ -553,7 +557,7 @@ getVelViscosity(int i, int j, int k,
    bool get_lam = false;
    bool get_Ddiag = false;
    transport(get_xi, get_mu, get_lam, get_Ddiag, T(i,j,k),
-             rho, y, dummy_rhoDi, mu_cgs, dummy_xi, dummy_lambda);
+             rho, y, dummy_rhoDi, mu_cgs, dummy_xi, dummy_lambda, trans_parm);
 
    // Do CGS -> MKS conversions
    mu(i,j,k) = mu_cgs * 1.0e-1_rt;
@@ -565,7 +569,8 @@ void
 getConductivity(int i, int j, int k,
                 amrex::Array4<const amrex::Real> const& rhoY,
                 amrex::Array4<      amrex::Real> const& T,
-                amrex::Array4<      amrex::Real> const& lambda) noexcept
+                amrex::Array4<      amrex::Real> const& lambda,
+                TransParm const* trans_parm) noexcept
 {
    using namespace amrex::literals;
 
@@ -592,7 +597,7 @@ getConductivity(int i, int j, int k,
    bool get_lam = true;
    bool get_Ddiag = false;
    transport(get_xi, get_mu, get_lam, get_Ddiag, T(i,j,k),
-             rho, y, dummy_rhoDi, dummy_mu, dummy_xi, lambda_cgs);
+             rho, y, dummy_rhoDi, dummy_mu, dummy_xi, lambda_cgs, trans_parm);
 
    // Do CGS -> MKS conversions
    lambda(i,j,k) = lambda_cgs * 1.0e-5_rt;
