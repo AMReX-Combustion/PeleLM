@@ -10,7 +10,7 @@ on:
 jobs:
   #Build the 2D FlameSheet RegTest with GNU7.5 and no MPI support
   FS2D_NoMPI:
-    name: GNU@7.5 NOMPI [FS2D]
+    name: GNU@7.5 NOMPI Comp [FS2D]
     runs-on: ubuntu-latest
     env: 
       {CXXFLAGS: "-Werror -Wshadow -Woverloaded-virtual -Wunreachable-code"}
@@ -33,7 +33,7 @@ jobs:
   
   # Build the 2D FlameSheet RegTest with GNU7.5 and MPI support
   FS2D_MPI:
-    name: GNU@7.5 MPI [FS2D]
+    name: GNU@7.5 MPI Comp [FS2D]
     runs-on: ubuntu-latest
     env: 
       {CXXFLAGS: "-Werror -Wshadow -Woverloaded-virtual -Wunreachable-code"}
@@ -56,7 +56,7 @@ jobs:
   
   # Build the 2D FlameSheet RegTest with GNU7.5 and MPI+OMP support
   FS2D_MPIOMP:
-    name: GNU@7.5 MPI OMP [FS2D]
+    name: GNU@7.5 MPI OMP Comp [FS2D]
     runs-on: ubuntu-latest
     env: 
       {CXXFLAGS: "-Werror -Wshadow -Woverloaded-virtual -Wunreachable-code"}
@@ -79,7 +79,7 @@ jobs:
   
   # Build the 3D FlameSheet RegTest with GNU7.5 and MPI support
   FS3D_MPI:
-    name: GNU@7.5 MPI [FS3D]
+    name: GNU@7.5 MPI Comp [FS3D]
     runs-on: ubuntu-latest
     env: 
       {CXXFLAGS: "-Werror -Wshadow -Woverloaded-virtual -Wunreachable-code"}
@@ -102,7 +102,7 @@ jobs:
 
   # Build the 2D FlameSheet RegTest with CUDA and MPI support
   FS2D_CUDA:
-    name: CUDA@11.0.1 [FS2D]
+    name: CUDA@11.0.1 Comp [FS2D]
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
@@ -120,6 +120,113 @@ jobs:
         export PATH=/usr/local/nvidia/bin:/usr/local/cuda/bin:${PATH}
         export LD_LIBRARY_PATH=/usr/local/nvidia/lib:/usr/local/nvidia/lib64:${LD_LIBRARY_PATH}
         cd Exec/RegTests/FlameSheet/
-        make help COMP=gnu USE_CUDA=TRUE
         make TPL COMP=gnu USE_CUDA=TRUE
         make -j 2 COMP=gnu USE_CUDA=TRUE
+
+  #Build and run the 2D FlameSheet RegTest with GNU7.5 and no MPI support
+  FS2D_NoMPIRun:
+    name: GNU@7.5 NOMPI Run [FS2D]
+    runs-on: ubuntu-latest
+    env: 
+      {CXXFLAGS: "-Werror -Wshadow -Woverloaded-virtual -Wunreachable-code"}
+    steps:
+    - uses: actions/checkout@v2
+    - name: System Dependencies
+      run: .github/workflows/dependencies/dependencies.sh
+    - name: Repo Dependencies
+      run: Tools/CloneDeps.sh
+    - name: Build
+      env:
+         AMREX_HOME: ${GITHUB_WORKSPACE}/build/amrex
+         IAMR_HOME: ${GITHUB_WORKSPACE}/build/IAMR
+         PELE_PHYSICS_HOME: ${GITHUB_WORKSPACE}/build/PelePhysics
+         PELELM_HOME: ${GITHUB_WORKSPACE}
+      working-directory: ./Exec/RegTests/FlameSheet/
+      run: |
+        make TPL COMP=gnu USE_MPI=FALSE DEBUG=FALSE
+        make -j 2 COMP=gnu USE_MPI=FALSE DEBUG=FALSE
+    - name: Run
+      working-directory: ./Exec/RegTests/FlameSheet/
+      run: |
+        ./PeleLM2d.gnu.ex inputs.2d-regt max_step=2 amr.plot_files_output=0 amr.checkpoint_files_output=0
+
+  # Build and Run the CoVo RegTest with GNU7.5 and no MPI support
+  COVO2D_NoMPIRun:
+    name: GNU@7.5 NOMPI Run [COVO2D]
+    runs-on: ubuntu-latest
+    env: 
+      {CXXFLAGS: "-Werror -Wshadow -Woverloaded-virtual -Wunreachable-code"}
+    steps:
+    - uses: actions/checkout@v2
+    - name: System Dependencies
+      run: .github/workflows/dependencies/dependencies.sh
+    - name: Repo Dependencies
+      run: Tools/CloneDeps.sh
+    - name: Build
+      env:
+         AMREX_HOME: ${GITHUB_WORKSPACE}/build/amrex
+         IAMR_HOME: ${GITHUB_WORKSPACE}/build/IAMR
+         PELE_PHYSICS_HOME: ${GITHUB_WORKSPACE}/build/PelePhysics
+         PELELM_HOME: ${GITHUB_WORKSPACE}
+      working-directory: ./Exec/RegTests/PeriodicCases/
+      run: |
+        make TPL COMP=gnu USE_MPI=FALSE
+        make -j 2 COMP=gnu USE_MPI=FALSE
+    - name: Run
+      working-directory: ./Exec/RegTests/PeriodicCases/
+      run: |
+        ./PeleLM2d.gnu.ex inputs.2d_CoVo_RegT_negX max_step=2 amr.plot_files_output=0 amr.checkpoint_files_output=0
+  
+  # Build and Run the FPC RegTest with GNU7.5 and MPI support
+  FPC2D_MPIRun:
+    name: GNU@7.5 MPI Run [FPC2D]
+    runs-on: ubuntu-latest
+    env: 
+      {CXXFLAGS: "-Werror -Wshadow -Woverloaded-virtual -Wunreachable-code"}
+    steps:
+    - uses: actions/checkout@v2
+    - name: System Dependencies
+      run: .github/workflows/dependencies/dependencies.sh
+    - name: Repo Dependencies
+      run: Tools/CloneDeps.sh
+    - name: Build
+      env:
+         AMREX_HOME: ${GITHUB_WORKSPACE}/build/amrex
+         IAMR_HOME: ${GITHUB_WORKSPACE}/build/IAMR
+         PELE_PHYSICS_HOME: ${GITHUB_WORKSPACE}/build/PelePhysics
+         PELELM_HOME: ${GITHUB_WORKSPACE}
+      working-directory: ./Exec/RegTests/EB_FlowPastCylinder/
+      run: |
+        make TPL COMP=gnu
+        make -j 2 COMP=gnu
+    - name: Run
+      working-directory: ./Exec/RegTests/EB_FlowPastCylinder/
+      run: |
+        mpirun -n 2 ./PeleLM2d.gnu.MPI.ex inputs.2d-regt_VS max_step=2 amr.plot_files_output=0 amr.checkpoint_files_output=0
+  
+  # Build and Run the 3D FPC RegTest with GNU7.5 and MPI support
+  FPC3D_MPIRun:
+    name: GNU@7.5 MPI Run [FPC3D]
+    runs-on: ubuntu-latest
+    env: 
+      {CXXFLAGS: "-Werror -Wshadow -Woverloaded-virtual -Wunreachable-code"}
+    steps:
+    - uses: actions/checkout@v2
+    - name: System Dependencies
+      run: .github/workflows/dependencies/dependencies.sh
+    - name: Repo Dependencies
+      run: Tools/CloneDeps.sh
+    - name: Build
+      env:
+         AMREX_HOME: ${GITHUB_WORKSPACE}/build/amrex
+         IAMR_HOME: ${GITHUB_WORKSPACE}/build/IAMR
+         PELE_PHYSICS_HOME: ${GITHUB_WORKSPACE}/build/PelePhysics
+         PELELM_HOME: ${GITHUB_WORKSPACE}
+      working-directory: ./Exec/RegTests/EB_FlowPastCylinder/
+      run: |
+        make TPL COMP=gnu DIM=3
+        make -j 2 COMP=gnu DIM=3
+    - name: Run
+      working-directory: ./Exec/RegTests/EB_FlowPastCylinder/
+      run: |
+        mpirun -n 4 ./PeleLM3d.gnu.MPI.ex inputs.3d-regt_VS max_step=2 amr.plot_files_output=0 amr.checkpoint_files_output=0

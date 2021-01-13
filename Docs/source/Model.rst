@@ -130,6 +130,8 @@ As can be seen, the expression for these fluxes relies upon several transport co
 The `PeleLM` Equation Set
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
+.. _sec:model:EqSets:
+
 The full diffusion model couples together the advance of all thermodynamics fields, including a dense matrix transport operator that is cumbersome to deal with computationally, while also being generally viewed as an overkill for most practical combustion applications -- particularly those involving turbulent fluid dynamics.  For `PeleLM`, we make the following simplifying assumptions:
 
 1. The bulk viscosity, :math:`\kappa`, is usually negligible, compared to the shear viscosity,

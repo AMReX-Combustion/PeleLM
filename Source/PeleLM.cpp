@@ -36,6 +36,7 @@
 #include <pelelm_prob_parm.H>
 #include <PeleLM_parm.H>
 #include <pmf_data.H>
+#include <TransportParams.H>
 
 #if defined(AMREX_USE_NEWMECH) || defined(AMREX_USE_VELOCITY)
 #include <AMReX_DataServices.H>
@@ -43,6 +44,11 @@
 #endif
 
 #include <reactor.h>
+#ifdef AMREX_USE_GPU
+#ifdef USE_SUNDIALS_PP
+#include <AMReX_SUNMemory.H>
+#endif
+#endif
 
 #include <Prob_F.H>
 #include <NAVIERSTOKES_F.H>
@@ -208,6 +214,7 @@ Vector<Real> PeleLM::typical_values;
 int PeleLM::sdc_iterMAX;
 int PeleLM::num_mac_sync_iter;
 int PeleLM::deltaT_verbose = 0;
+int PeleLM::deltaT_crashOnConvFail = 1;
 
 int PeleLM::mHtoTiterMAX;
 Vector<amrex::Real> PeleLM::mTmpData;
@@ -322,6 +329,12 @@ void
 PeleLM::Initialize ()
 {
   if (initialized) return;
+
+#ifdef AMREX_USE_GPU
+#ifdef USE_SUNDIALS_PP
+  amrex::sundials::MemoryHelper::Initialize();
+#endif
+#endif
 
   PeleLM::Initialize_specific();
   
@@ -544,6 +557,7 @@ PeleLM::Initialize_specific ()
     pplm.query("num_deltaT_iters_MAX",num_deltaT_iters_MAX);
     pplm.query("deltaT_norm_max",deltaT_norm_max);
     pplm.query("deltaT_verbose",deltaT_verbose);
+    pplm.query("deltaT_convFailCrash",deltaT_crashOnConvFail);
 
     pplm.query("use_typ_vals_chem",use_typ_vals_chem);
     pplm.query("relative_tol_chem",relative_tol_chem);
@@ -1323,8 +1337,33 @@ PeleLM::init_mixture_fraction()
                for (int i=0; i<NUM_SPECIES; ++i) {
                   XF[i] = compositionIn[i];
                }
-               EOS::X2Y(XO, YO);
-               EOS::X2Y(XF, YF);
+               // Here comes the fun part for calling DEVICE functions from HOST
+               amrex::Gpu::DeviceVector<amrex::Real> XO_v(NUM_SPECIES);
+               amrex::Gpu::DeviceVector<amrex::Real> XF_v(NUM_SPECIES);
+               for (int i = 0; i < NUM_SPECIES; i++ ) {
+                  XO_v[i] = XO[i];
+                  XF_v[i] = XF[i];
+               }
+               amrex::Gpu::DeviceVector<amrex::Real> YO_v(NUM_SPECIES);
+               amrex::Gpu::DeviceVector<amrex::Real> YF_v(NUM_SPECIES);
+               amrex::Real* XO_d = XO_v.data();
+               amrex::Real* XF_d = XF_v.data();
+               amrex::Real* YO_d = YO_v.data();
+               amrex::Real* YF_d = YF_v.data();
+               Box dumbx({AMREX_D_DECL(0,0,0)},{AMREX_D_DECL(0,0,0)});
+               amrex::ParallelFor(dumbx, [XO_d,XF_d,YO_d,YF_d]
+               AMREX_GPU_DEVICE(int i, int j, int k) noexcept
+               {
+                  EOS::X2Y(XO_d,YO_d);
+                  EOS::X2Y(XF_d,YF_d);
+               });
+#if AMREX_USE_GPU
+               amrex::Gpu::dtoh_memcpy(YO,YO_d,sizeof(amrex::Real)*NUM_SPECIES);
+               amrex::Gpu::dtoh_memcpy(YF,YF_d,sizeof(amrex::Real)*NUM_SPECIES);
+#else
+               std::memcpy(YO,YO_d,sizeof(amrex::Real)*NUM_SPECIES);
+               std::memcpy(YF,YF_d,sizeof(amrex::Real)*NUM_SPECIES);
+#endif
             } else {
                Abort("Unknown mixtureFraction.type ! Should be 'mass' or 'mole'");
             }
@@ -1835,6 +1874,11 @@ PeleLM::initData ()
 // First we have to put Pnew in S_new so as to not impose NaNs for covered cells
   MultiFab::Copy(S_new,P_new,0,RhoRT,1,1);
 
+  //
+  // Initialize GradP
+  //
+  computeGradP(state[Press_Type].curTime());
+
 #ifdef AMREX_USE_EB
   set_body_state(S_new);
 #endif
@@ -1945,7 +1989,6 @@ PeleLM::initData ()
     calc_divu(tnp1,dtin,Divu_new);
   }
 
-  is_first_step_after_regrid = false;
   old_intersect_new          = grids;
 
 #ifdef AMREX_PARTICLES
@@ -2809,35 +2852,22 @@ PeleLM::avgDown ()
    if (level == parent->finestLevel()) return;
 
    const Real      strt_time = ParallelDescriptor::second();
-   PeleLM&         fine_lev  = getLevel(level+1);
-   MultiFab&       S_crse    = get_new_data(State_Type);
-   MultiFab&       S_fine    = fine_lev.get_new_data(State_Type);
 
-   average_down(S_fine, S_crse, 0, S_crse.nComp());
    //
-   // Fill rho_ctime at the current and finer levels with the correct data.
+   // Average down the State and Pressure at the new time.
    //
-   for (int lev = level; lev <= parent->finestLevel(); lev++)
-   {
-     getLevel(lev).make_rho_curr_time();
-   }
+   avgDown_StatePress();
+
    //
    // Reset the temperature
    //
+   MultiFab&       S_crse    = get_new_data(State_Type);
    RhoH_to_Temp(S_crse);
-   //
-   // Now average down pressure over time n-(n+1) interval.
-   //
-   MultiFab&       P_crse      = get_new_data(Press_Type);
-   MultiFab&       P_fine_init = fine_lev.get_new_data(Press_Type);
-   MultiFab&       P_fine_avg  = fine_lev.p_avg;
-   MultiFab&       P_fine      = initial_step ? P_fine_init : P_fine_avg;
 
-   amrex::average_down_nodal(P_fine,P_crse,fine_ratio);
- 
    //
    // Next average down divu at new time.
    //
+   PeleLM&         fine_lev  = getLevel(level+1);
    if (hack_noavgdivu) 
    {
      //
@@ -3427,8 +3457,10 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
          });
       }
 
-      if (L==(num_deltaT_iters_MAX-1) && deltaT_iter_norm >= deltaT_norm_max) {
-        Abort("deltaT_iters not converged");
+      if ( L==(num_deltaT_iters_MAX-1) 
+           && deltaT_iter_norm >= deltaT_norm_max
+           && deltaT_crashOnConvFail ) {
+         Abort("deltaT_iters not converged");
       }
    } // end deltaT iters
 
@@ -4590,146 +4622,6 @@ PeleLM::setThermoPress(Real time)
   compute_rhoRT (S,S,RhoRT);
 }
 
-Real
-PeleLM::predict_velocity (Real  dt)
-{
-   BL_PROFILE("PeleLM::predict_velocity()");
-   if (verbose) {
-      amrex::Print() << "... predict edge velocities\n";
-   }
-   //
-   // Get simulation parameters.
-   //
-   const int   nComp          = AMREX_SPACEDIM;
-   const Real* dx             = geom.CellSize();
-   const Real  prev_time      = state[State_Type].prevTime();
-   const Real  prev_pres_time = state[Press_Type].prevTime();
-   const Real  strt_time      = ParallelDescriptor::second();
-   //
-   // Compute viscous terms at level n.
-   // Ensure reasonable values in 1 grow cell.  Here, do extrap for
-   // c-f/phys boundary, since we have no interpolator fn, also,
-   // preserve extrap for corners at periodic/non-periodic intersections.
-   //
-
-   MultiFab visc_terms(grids,dmap,nComp,1,MFInfo(), Factory());
-  
-   if (be_cn_theta != 1.0)
-   {
-      getViscTerms(visc_terms,Xvel,nComp,prev_time);
-   }
-   else
-   {
-      visc_terms.setVal(0.0);
-   }
-
-   FillPatchIterator U_fpi(*this,visc_terms,godunov_hyp_grow,prev_time,State_Type,Xvel,AMREX_SPACEDIM);
-   MultiFab& Umf=U_fpi.get_mf();
-  
-    // Floor small values of states to be extrapolated
-#ifdef _OPENMP
-#pragma omp parallel
-#endif
-    for (MFIter mfi(Umf,TilingIfNotGPU()); mfi.isValid(); ++mfi)
-    {
-        Box gbx=mfi.growntilebox(godunov_hyp_grow);
-        auto const& fab_a = Umf.array(mfi);
-        AMREX_HOST_DEVICE_FOR_4D ( gbx, AMREX_SPACEDIM, i, j, k, n,
-        {
-            auto& val = fab_a(i,j,k,n);
-            val = amrex::Math::abs(val) > 1.e-20 ? val : 0;
-        });
-    }
-
-   FillPatchIterator S_fpi(*this,visc_terms,1,prev_time,State_Type,Density,NUM_SCALARS);
-   MultiFab& Smf=S_fpi.get_mf();
-
-   //
-   // Compute "grid cfl number" based on cell-centered time-n velocities
-   //
-   auto umax = VectorMaxAbs({&Umf},FabArrayBase::mfiter_tile_size,0,AMREX_SPACEDIM,Umf.nGrow());
-   Real cflmax = dt*umax[0]/dx[0];
-   for (int d=1; d<AMREX_SPACEDIM; ++d) {
-     cflmax = std::max(cflmax,dt*umax[d]/dx[d]);
-   }
-   Real tempdt = std::min(change_max,cfl/cflmax);
-  
-#if AMREX_USE_EB
-
-   MOL::ExtrapVelToFaces( Umf,
-                          AMREX_D_DECL(u_mac[0], u_mac[1], u_mac[2]),
-                          geom, m_bcrec_velocity);
-
-#else
-   //
-   // Non-EB version
-   //
-
-   const int ngrow = 1;
-   MultiFab Gp(grids, dmap, AMREX_SPACEDIM,ngrow);
-   getGradP(Gp, prev_pres_time);
-
-   MultiFab forcing_term( grids, dmap, AMREX_SPACEDIM, ngrow );
-
-    //
-    // Compute forcing
-    //
-#ifdef _OPENMP
-#pragma omp parallel if (Gpu::notInLaunchRegion())
-#endif
-    {
-        for (MFIter U_mfi(Umf,TilingIfNotGPU()); U_mfi.isValid(); ++U_mfi)
-        {
-            FArrayBox& Ufab = Umf[U_mfi];
-            auto const  gbx = U_mfi.growntilebox(ngrow);
-
-            if (getForceVerbose) {
-                Print() << "---\nA - Predict velocity:\n Calling getForce...\n";
-            }
-
-            getForce(forcing_term[U_mfi],gbx,Xvel,AMREX_SPACEDIM,prev_time,Ufab,Smf[U_mfi],0);
-
-            //
-            // Compute the total forcing.
-            //
-            auto const& tf   = forcing_term.array(U_mfi,Xvel);
-            auto const& visc = visc_terms.const_array(U_mfi,Xvel);
-            auto const& gp   = Gp.const_array(U_mfi);
-            auto const& rho  = rho_ptime.const_array(U_mfi);
-
-            amrex::ParallelFor(gbx, AMREX_SPACEDIM, [tf, visc, gp, rho]
-            AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
-            {
-                tf(i,j,k,n) = ( tf(i,j,k,n) + visc(i,j,k,n) - gp(i,j,k,n) ) / rho(i,j,k);
-            });
-        }
-    }
-
-    //velpred=1 only, use_minion=1, ppm_type, slope_order
-    Godunov::ExtrapVelToFaces( Umf, forcing_term, AMREX_D_DECL(u_mac[0], u_mac[1], u_mac[2]),
-                               m_bcrec_velocity, m_bcrec_velocity_d.dataPtr(), geom, dt,
-			       godunov_use_ppm, godunov_use_forces_in_trans );
-
-#endif
-
-   AMREX_D_TERM( showMF("mac",u_mac[0],"pv_umac0",level);,
-                 showMF("mac",u_mac[1],"pv_umac1",level);,
-                 showMF("mac",u_mac[2],"pv_umac2",level););
-
-   if (verbose > 1)
-   {
-      const int IOProc   = ParallelDescriptor::IOProcessorNumber();
-      Real      run_time = ParallelDescriptor::second() - strt_time;
-
-      ParallelDescriptor::ReduceRealMax(run_time,IOProc);
-
-      Print() << "PeleLM::predict_velocity(): lev: " << level 
-              << ", time: " << run_time << '\n';
-   }
-
-   return dt*tempdt;
-}
-
 void
 PeleLM::set_reasonable_grow_cells_for_R (Real time)
 {
@@ -5404,7 +5296,7 @@ PeleLM::advance (Real time,
    //====================================
 
 #ifdef AMREX_PARTICLES
-   if (theNSPC() != 0)
+   if (theNSPC() != 0 && !initial_step)
    {
       theNSPC()->AdvectWithUmac(u_mac, level, dt);
    }
@@ -5538,6 +5430,13 @@ PeleLM::getFuncCountDM (const BoxArray& bxba, int ngrow)
   fctmpnew.setVal(1);
 
   const MultiFab& FC = get_new_data(FuncCount_Type);
+
+  // Return original DM if FC is zero (propably Null reaction dir)
+  if ( FC.norm0(0) <= 0.0 ) {
+     DistributionMapping new_dmap{bxba};
+     return new_dmap;
+  }
+
   fctmpnew.copy(FC,0,0,1,std::min(ngrow,FC.nGrow()),0);
 
   int count = 0;
@@ -6845,7 +6744,9 @@ PeleLM::mac_sync ()
                });
             }
 
-            if (L==(num_deltaT_iters_MAX-1) && deltaT_iter_norm >= deltaT_norm_max) {
+            if ( L==(num_deltaT_iters_MAX-1) 
+                 && deltaT_iter_norm >= deltaT_norm_max
+                 && deltaT_crashOnConvFail ) {
                Abort("deltaT_iters not converged in mac_sync");
             }
          } // deltaT_iters
@@ -7755,6 +7656,9 @@ PeleLM::calcViscosity (const Real time,
    FillPatchIterator fpi(*this,S,nGrow,time,State_Type,sComp,nComp);
    MultiFab& S_cc = fpi.get_mf();
 
+   // Get the transport GPU data pointer
+   TransParm const* ltransparm = trans_parm_g;
+
 #ifdef _OPENMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
@@ -7765,10 +7669,10 @@ PeleLM::calcViscosity (const Real time,
       auto const& T       = S_cc.array(mfi,Tcomp);
       auto const& mu      = visc.array(mfi);
 
-      amrex::ParallelFor(gbx, [rhoY, T, mu]
+      amrex::ParallelFor(gbx, [rhoY, T, mu, ltransparm]
       AMREX_GPU_DEVICE (int i, int j, int k) noexcept
       {
-         getVelViscosity( i, j, k, rhoY, T, mu);
+         getVelViscosity( i, j, k, rhoY, T, mu, ltransparm);
       });
    }
 
@@ -7815,6 +7719,9 @@ PeleLM::calcDiffusivity (const Real time)
    FillPatchIterator fpi(*this,S,nGrow,time,State_Type,sComp,nComp);
    MultiFab& S_cc = fpi.get_mf();
 
+   // Get the transport GPU data pointer
+   TransParm const* ltransparm = trans_parm_g;
+
 #ifdef _OPENMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
@@ -7830,16 +7737,16 @@ PeleLM::calcDiffusivity (const Real time)
       if ( unity_Le ) {
          amrex::Real ScInv = 1.0/schmidt;
          amrex::Real PrInv = 1.0/prandtl;
-         amrex::ParallelFor(gbx, [rhoY, T, rhoD, lambda, mu, ScInv, PrInv] 
+         amrex::ParallelFor(gbx, [rhoY, T, rhoD, lambda, mu, ScInv, PrInv, ltransparm]
          AMREX_GPU_DEVICE (int i, int j, int k) noexcept
          {
-            getTransportCoeffUnityLe( i, j, k, ScInv, PrInv, rhoY, T, rhoD, lambda, mu);
+            getTransportCoeffUnityLe( i, j, k, ScInv, PrInv, rhoY, T, rhoD, lambda, mu, ltransparm);
          });
       } else {
-         amrex::ParallelFor(gbx, [rhoY, T, rhoD, lambda, mu]
+         amrex::ParallelFor(gbx, [rhoY, T, rhoD, lambda, mu, ltransparm]
          AMREX_GPU_DEVICE (int i, int j, int k) noexcept
          {
-            getTransportCoeff( i, j, k, rhoY, T, rhoD, lambda, mu);
+            getTransportCoeff( i, j, k, rhoY, T, rhoD, lambda, mu, ltransparm);
          });
       }
    }
@@ -9206,7 +9113,24 @@ PeleLM::parseComposition(Vector<std::string> compositionIn,
          massFrac[i] = compoIn[i];
       }
    } else if ( compositionType == "mole" ) {         // mole
-      EOS::X2Y(compoIn,massFrac);
+      amrex::Gpu::DeviceVector<amrex::Real> compIn_v(NUM_SPECIES);
+      for (int i = 0; i < NUM_SPECIES; i++ ) {
+         compIn_v[i] = compoIn[i];
+      }
+      amrex::Gpu::DeviceVector<amrex::Real> massFrac_v(NUM_SPECIES);
+      amrex::Real* compIn_d = compIn_v.data();
+      amrex::Real* massFrac_d = massFrac_v.data();
+      Box dumbx({AMREX_D_DECL(0,0,0)},{AMREX_D_DECL(0,0,0)});
+      amrex::ParallelFor(dumbx, [compIn_d,massFrac_d]
+      AMREX_GPU_DEVICE(int i, int j, int k) noexcept
+      {
+         EOS::X2Y(compIn_d,massFrac_d);
+      });
+#if AMREX_USE_GPU
+      amrex::Gpu::dtoh_memcpy(massFrac,massFrac_d,sizeof(amrex::Real)*NUM_SPECIES);
+#else
+      std::memcpy(massFrac,massFrac_d,sizeof(amrex::Real)*NUM_SPECIES);
+#endif
    } else {
       Abort("Unknown mixtureFraction.type ! Should be 'mass' or 'mole'");
    }

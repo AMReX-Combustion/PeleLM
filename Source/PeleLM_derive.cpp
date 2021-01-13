@@ -2,6 +2,7 @@
 #include "PeleLM_K.H"
 #include "PeleLM_derive.H"
 #include <EOS.H>
+#include <TransportParams.H>
 
 #ifdef AMREX_USE_EB
 #include <AMReX_EBFabFactory.H>
@@ -418,10 +419,13 @@ void pelelm_dertransportcoeff (const Box& bx, FArrayBox& derfab, int dcomp, int 
     auto       lambda  = derfab.array(dcomp+NUM_SPECIES);
     auto       mu      = derfab.array(dcomp+NUM_SPECIES+1);
 
+    // Get the transport GPU data pointer
+    TransParm const* ltransparm = trans_parm_g;
+
     amrex::ParallelFor(bx,
-    [density, T, rhoY, rhoD, lambda, mu] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+    [density, T, rhoY, rhoD, lambda, mu, ltransparm] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
     {
-        getTransportCoeff( i, j, k, rhoY, T, rhoD, lambda, mu);
+        getTransportCoeff( i, j, k, rhoY, T, rhoD, lambda, mu, ltransparm);
     });
 
 }
@@ -487,6 +491,8 @@ void pelelm_dermixanddiss (const Box& bx, FArrayBox& derfab, int dcomp, int ncom
         mixt_frac_tmp(i,j,k) = ( mixt_frac_tmp(i,j,k) - Zox_lcl ) / ( Zfu_lcl - Zox_lcl ) ;
     });
 
+    // Get the transport GPU data pointer
+    TransParm const* ltransparm = trans_parm_g;
 
     amrex::ParallelFor(bx_der,
     [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
@@ -510,7 +516,7 @@ void pelelm_dermixanddiss (const Box& bx, FArrayBox& derfab, int dcomp, int ncom
         amrex::Real dummy_rhoDi[NUM_SPECIES], dummy_mu, lambda_cgs, dummy_xi;
 
         transport(false, false, true, false, 
-                  Tloc, rho, y, dummy_rhoDi, dummy_mu, dummy_xi, lambda_cgs);
+                  Tloc, rho, y, dummy_rhoDi, dummy_mu, dummy_xi, lambda_cgs, ltransparm);
         lambda = lambda_cgs * 1.0e-5;  // CGS -> MKS 
         
         amrex::Real cpmix = 0.0;

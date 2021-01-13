@@ -1,11 +1,11 @@
 .. highlight:: rst
 
-.. _sec:tutorial1:
+.. _sec:tutorialTF:
 
 Tutorial - A simple triple flame
 ================================
 
-.. _sec:TUTO1::Intro:
+.. _sec:TUTO_TF::Intro:
 
 Introduction
 ------------------------------
@@ -43,7 +43,7 @@ a final steady-state solution.
 In a final Section, post-processing tools available in `PeleAnalysis` are used to extract information about 
 the triple flame.
 
-..  _sec:TUTO1::PrepStep:
+..  _sec:TUTO_TF::PrepStep:
 
 Setting-up your environment
 ---------------------------
@@ -104,14 +104,14 @@ Direct Numerical Simulations (DNS) are performed on a 2x4 :math:`cm^2` 2D comput
 using a 64x128 base grid and up to 4 levels of refinement (although we will start with a lower number of levels). 
 The refinement ratio between each level is set to 2. With 4 levels, this means that the minimum grid size inside the reaction layer will be just below 20 :math:`μm`. 
 The maximum box size is fixed at 32, and the base (level 0) grid is composed of 8 boxes, 
-as shown in Fig :numref:`fig:NumSetup`.
+as shown in Fig :numref:`fig:TF_NumSetup`.
 
-Symmetric boundary conditions are used in the transverse (:math:`x`) direction, while ``Inflow`` (dirichlet) and ``Outflow`` (neumann) boundary conditions are used in the main flow direction (:math:`y`). The flow goes from the bottom to the top of the domain. The specificities of the ``Inflow`` boundary condition are explained in subsection :ref:`sec:TUTO1::InflowSpec`
+Symmetric boundary conditions are used in the transverse (:math:`x`) direction, while ``Inflow`` (dirichlet) and ``Outflow`` (neumann) boundary conditions are used in the main flow direction (:math:`y`). The flow goes from the bottom to the top of the domain. The specificities of the ``Inflow`` boundary condition are explained in subsection :ref:`sec:TUTO_TF::InflowSpec`
 
 .. |b| image:: ./Visualization/SetupSketch.png
      :width: 100%
 
-.. _fig:NumSetup:
+.. _fig:TF_NumSetup:
 
 .. table:: Sketch of the computational domain with level 0 box decomposition (left) and input mixture fraction profile (right).
      :align: center
@@ -128,7 +128,7 @@ The geometry of the problem is specified in the first block of the ``inputs.2d-r
    geometry.prob_lo     = 0. 0.     # x_lo y_lo
    geometry.prob_hi     = 0.02 0.04 # x_hi y_hi
 
-The second block determines the boundary conditions. Refer to Fig :numref:`fig:NumSetup`: ::
+The second block determines the boundary conditions. Refer to Fig :numref:`fig:TF_NumSetup`: ::
 
    # >>>>>>>>>>>>>  BC FLAGS <<<<<<<<<<<<<<<<
    # Interior, Inflow, Outflow, Symmetry,
@@ -151,13 +151,13 @@ The number of levels, refinement ratio between levels, maximium grid size as wel
    amr.max_grid_size   = 32         # maximum box size
 
 
-..  _sec:TUTO1::InflowSpec:
+..  _sec:TUTO_TF::InflowSpec:
 
 Inflow specification
 ^^^^^^^^^^^^^^^^^^^^^
 
 The edge flame is stabilized against an incoming mixing layer with a uniform velocity profile. The mixing
-layer is prescribed using an hyperbolic tangent of mixture fraction :math:`z` between 0 and 1, as can be seen in Fig :numref:`fig:NumSetup`:
+layer is prescribed using an hyperbolic tangent of mixture fraction :math:`z` between 0 and 1, as can be seen in Fig :numref:`fig:TF_NumSetup`:
 
 .. math::
 
@@ -189,12 +189,16 @@ Note that in our specific case, we compute the input value of the mass fractions
 Initial solution
 ^^^^^^^^^^^^^^^^^^^^^
 
-An initial field of the main variables is always required to start a simulation. Ideally, you want for this initial solution to approximate the final (steady-state in our case) solution as much as possible. This will speed up the initial transient and avoid many convergence issues. In the present tutorial, an initial solution is constructed by imposing the same inlet hyperbolic tangent of mixture fraction than described in subsection :ref:`sec:TUTO1::InflowSpec` everywhere in the domain; and reconstructing the species mass fraction profiles from it. To ensure ignition of the mixture, a progressively widening Gaussian profile of temperature is added, starting from about 1 cm, and stretching until the outlet of the domain. The initial temperature field is shown in Fig :numref:`fig:InitialSol`, along with the parameters controlling the shape of the hot spot. 
+An initial field of the main variables is always required to start a simulation.
+Ideally, you want for this initial solution to approximate the final (steady-state in our case) solution as much as possible.
+This will speed up the initial transient and avoid many convergence issues. 
+In the present tutorial, an initial solution is constructed by imposing the same inlet hyperbolic tangent of mixture fraction than described in subsection :ref:`sec:TUTO_TF::InflowSpec` everywhere in the domain; and reconstructing the species mass fraction profiles from it.
+ To ensure ignition of the mixture, a progressively widening Gaussian profile of temperature is added, starting from about 1 cm, and stretching until the outlet of the domain. The initial temperature field is shown in Fig :numref:`fig:TF_InitialSol`, along with the parameters controlling the shape of the hot spot. 
 
 .. |c| image:: ./Visualization/InitialSol.001.png
      :width: 100%
 
-.. _fig:InitialSol:
+.. _fig:TF_InitialSol:
 
 .. table:: Initial temperature field (left) as well as widening gaussian 1D y-profiles (right) and associated parameters. The initial solution contains 2 levels.
      :align: center
@@ -203,7 +207,7 @@ An initial field of the main variables is always required to start a simulation.
      | |c| |
      +-----+
 
-This initial solution is constructed via the routine ``init_data()``, in the file ``Prob_nd.F90``. Additional information is provided as comments in this file for the eager reader, but nothing is required from the user at this point.
+This initial solution is constructed via the routine ``pelelm_initdata()``, in the file ``pelelm_prob.H``. Additional information is provided as comments in this file for the eager reader, but nothing is required from the user at this point.
 
 
 Numerical scheme
@@ -292,7 +296,6 @@ Input/output from `PeleLM` are specified in the ``IO CONTROL`` block: ::
     amr.plot_int        = 20          # number of timesteps between plotfiles
     amr.derive_plot_vars=rhoRT mag_vort avg_pressure gradpx gradpy diveru mass_fractions mixfrac
     amr.grid_log        = grdlog      # name of grid logging file
-    amr.probin_file = probin.2d.test  # This will default to file "probin" if not set
 
 The first two lines (commented out for now) are only used when restarting a simulation from a `checkpoint` file and will be useful later during this tutorial. Information pertaining to the checkpoint and plot_file files name and output frequency can be specified there. `PeleLM` will always generate an initial plotfile ``plt_00000`` if the initialization is properly completed, and a final plotfile at the end of the simulation. It is possible to request including `derived variables` in the plotfiles by appending their names to the ``amr.derive_plot_vars`` keyword. These variables are derived from the `state variables` (velocity, density, temperature, :math:`\rho Y_k`, :math:`\rho h`) which are automatically included in the plotfile. Note also that the name of the ``probin`` file used to specify the initial/boundary conditions is defined here.
 
@@ -304,7 +307,7 @@ A lot of information is printed directly on the screen during a `PeleLM` simulat
 
     ./PeleLM2d.gnu.MPI.ex inputs.2d-regt > logCheckInitialSolution.dat &
     
-Whether you have used one or the other command, within 30 s you should obtain a ``plt_00000`` and a ``plt_00001`` files (or even more, appended with .old*********** if you used both commands). Use `Amrvis <https://amrex-codes.github.io/amrex/docs_html/Visualization.html>`_ to vizualize ``plt_00000`` and make sure the solution matches the one shown in Fig. :numref:`fig:InitialSol`.
+Whether you have used one or the other command, within 30 s you should obtain a ``plt_00000`` and a ``plt_00001`` files (or even more, appended with .old*********** if you used both commands). Use `Amrvis <https://amrex-codes.github.io/amrex/docs_html/Visualization.html>`_ to vizualize ``plt_00000`` and make sure the solution matches the one shown in Fig. :numref:`fig:TF_InitialSol`.
 
 
 Running the problem on a coarse grid
@@ -336,12 +339,12 @@ A plotfile is generated every 20 time steps (as specified via the ``amr.plot_int
 
     amrvis -a plt????0
     
-An animation of the flame evolution during this initial transient is provided in Fig :numref:`fig:InitTransient`.
+An animation of the flame evolution during this initial transient is provided in Fig :numref:`fig:TF_InitTransient`.
 
 .. |d| image:: ./Visualization/InitTransient.gif
      :width: 60%
 
-.. _fig:InitTransient:
+.. _fig:TF_InitTransient:
 
 .. table:: Temperature (left) and divu (right) fields from 0 to 2000 time steps (0-?? ms).
      :align: center
@@ -394,7 +397,7 @@ You are now ready launch `PeleLM` again for another 1000 time steps ! ::
 
     mpirun -n 4 ./PeleLM2d.gnu.MPI.ex inputs.2d-regt > logCheckControl.dat &
 
-As the simulation proceeds, an ASCII file tracking the flame position and inlet velocity (as well as other control variables) is generated: ``AC_History``. You can follow the motion of the flame tip by plotting the eigth column against the first one (flame tip vs. time step count). If `gnuplot` is available on your computer, use the following to obtain the graphs of Fig :numref:`fig:ACcontrol`: ::
+As the simulation proceeds, an ASCII file tracking the flame position and inlet velocity (as well as other control variables) is generated: ``AC_History``. You can follow the motion of the flame tip by plotting the eigth column against the first one (flame tip vs. time step count). If `gnuplot` is available on your computer, use the following to obtain the graphs of Fig :numref:`fig:TF_ACcontrol`: ::
 
     gnuplot
     plot "AC_History" u 1:7 w lp
@@ -406,7 +409,7 @@ The second plot corresponds to the inlet velocity.
 .. |e| image:: ./Visualization/ACcontrol.png
      :width: 100%
 
-.. _fig:ACcontrol:
+.. _fig:TF_ACcontrol:
 
 .. table:: Flame tip position (left) and inlet velocity (right) as function of time step count from 1000 to 2000 step using the inlet velocity control.
      :align: center
@@ -420,7 +423,7 @@ At this point, you have a stabilized methane/air triple flame and will now use A
 Refinement of the computation
 -----------------------------
 
-Before going further, it is important to look at the results of the current simulation. The left panel of Fig. :numref:`fig:CoarseField` 
+Before going further, it is important to look at the results of the current simulation. The left panel of Fig. :numref:`fig:TF_CoarseField` 
 displays the temperature field, while a zoom-in of the flame edge region colored by several important variables 
 is provided on the right side. 
 Note that `DivU`, the `HeatRelease` and the `CH4_consumption` are good markers of the reaction/diffusion processes in our case.
@@ -430,7 +433,7 @@ We also clearly see square unsmooth shapes in the field of intermediate species,
 .. |f| image:: ./Visualization/CoarseDetails.png
      :width: 100%
 
-.. _fig:CoarseField:
+.. _fig:TF_CoarseField:
 
 .. table:: Details of the triple flame tip obtained with the initial coarse 2-level mesh.
      :align: center
@@ -439,7 +442,7 @@ We also clearly see square unsmooth shapes in the field of intermediate species,
      | |f| |
      +-----+
 
-Our first level of refinement must specifically target the reactive layer of the flame. As seen from Fig. :numref:`fig:CoarseField`, one can choose from several variables to reach that goal. In the following, we will use the CH3O species as a tracer of the flame position. Start by increasing the number of AMR levels by one in the `AMR CONTROL` block: ::
+Our first level of refinement must specifically target the reactive layer of the flame. As seen from Fig. :numref:`fig:TF_CoarseField`, one can choose from several variables to reach that goal. In the following, we will use the CH3O species as a tracer of the flame position. Start by increasing the number of AMR levels by one in the `AMR CONTROL` block: ::
 
     amr.max_level       = 2          # maximum level number allowed
 
@@ -504,12 +507,12 @@ and further continue the simulation to reach 2800 time steps. Note that, as with
 
    mpirun -n 4 ./PeleLM2d.gnu.MPI.ex inputs.2d-regt > log4Levels_2SDC.dat &
 
-Figure :numref:`fig:ACcontrol_full` shows the entire history of the inlet velocity starting when the AC was activated (1000th time step). We can see that every change in the numerical setup induced a slight change in the triple flame propagation velocity, eventually leading to a nearly constant value, sufficient for the purpose of this tutorial.
+Figure :numref:`fig:TF_ACcontrol_full` shows the entire history of the inlet velocity starting when the AC was activated (1000th time step). We can see that every change in the numerical setup induced a slight change in the triple flame propagation velocity, eventually leading to a nearly constant value, sufficient for the purpose of this tutorial.
 
 .. |g| image:: ./Visualization/ACcontrol_complete.png
      :width: 100%
 
-.. _fig:ACcontrol_full:
+.. _fig:TF_ACcontrol_full:
 
 .. table:: Inlet velocity history during the successive simulations performed during this tutorial.
      :align: center

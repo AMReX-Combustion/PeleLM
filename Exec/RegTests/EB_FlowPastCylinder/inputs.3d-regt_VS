@@ -1,8 +1,8 @@
 #----------------------DOMAIN DEFINITION------------------------
 geometry.is_periodic = 0 1 1              # For each dir, 0: non-perio, 1: periodic
 geometry.coord_sys   = 0                  # 0 => cart, 1 => RZ
-geometry.prob_lo     = -0.04 -0.04 0.0    # x_lo y_lo (z_lo)
-geometry.prob_hi     =  0.12  0.04 0.005  # x_hi y_hi (z_hi)
+geometry.prob_lo     = -0.04 -0.04 -0.02  # x_lo y_lo (z_lo)
+geometry.prob_hi     =  0.12  0.04  0.02  # x_hi y_hi (z_hi)
 
 # >>>>>>>>>>>>>  BC FLAGS <<<<<<<<<<<<<<<<
 # Interior, Inflow, Outflow, Symmetry,
