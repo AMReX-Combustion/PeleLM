@@ -116,7 +116,7 @@ AMREX_GPU_DEVICE
 AMREX_FORCE_INLINE
 void
 bcnormal(
-  const amrex::Real x[AMREX_SPACEDIM],
+  const amrex::Real* /*x[AMREX_SPACEDIM]*/,
   amrex::Real s_ext[DEF_NUM_STATE],
   const int idir,
   const int sgn,
