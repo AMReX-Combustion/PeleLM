@@ -698,6 +698,8 @@ public:
   static amrex::Real relative_tol_chem;
   static amrex::Real absolute_tol_chem;
 
+  static bool def_harm_avg_cen2edge;
+
   static int nGrowAdvForcing;
 
 };

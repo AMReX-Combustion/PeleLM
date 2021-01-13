@@ -174,6 +174,7 @@ bool PeleLM::avg_down_chem;
 int  PeleLM::reset_typical_vals_int=-1;
 Real PeleLM::typical_Y_val_min=1.e-10;
 std::map<std::string,Real> PeleLM::typical_values_FileVals;
+bool PeleLM::def_harm_avg_cen2edge  = false;
 
 std::unique_ptr<ProbParm> PeleLM::prob_parm;
 std::unique_ptr<ACParm> PeleLM::ac_parm;
@@ -562,7 +563,9 @@ PeleLM::Initialize_specific ()
     pplm.query("use_typ_vals_chem",use_typ_vals_chem);
     pplm.query("relative_tol_chem",relative_tol_chem);
     pplm.query("absolute_tol_chem",absolute_tol_chem);
-    
+
+    pplm.query("harm_avg_cen2edge", def_harm_avg_cen2edge);
+
     // Get boundary conditions
     Vector<std::string> lo_bc_char(AMREX_SPACEDIM);
     Vector<std::string> hi_bc_char(AMREX_SPACEDIM);
