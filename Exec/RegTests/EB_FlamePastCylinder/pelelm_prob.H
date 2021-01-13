@@ -62,7 +62,7 @@ pelelm_initdata (int i, int j, int k,
     state(i,j,k,Zvel) = 0.0;
 #endif
 
-    switch(ProbParm::FlowDir) {
+    switch(prob_parm.FlowDir) {
       case 0:
          state(i,j,k,Xvel) = prob_parm.MeanFlow;
          break;
@@ -126,7 +126,7 @@ bcnormal(
                                + 0.917 * std::sin(2*Pi*5*(x[1]-.0033)/Ly)  
                                + 1.0982 * std::sin(2*Pi*5*sinusflip*(x[1]-.014234)/Ly) ); 
 
-    switch(ProbParm::FlowDir) {
+    switch(prob_parm.FlowDir) {
       case 0:
          s_ext[Xvel] = prob_parm.MeanFlow;
          s_ext[Yvel] = perty;
@@ -156,7 +156,7 @@ bcnormal(
     EOS::X2Y(molefrac, massfrac);
 
     amrex::Real rho_cgs, P_cgs;
-    P_cgs = ProbParm::P_mean * 10.0;
+    P_cgs = prob_parm.P_mean * 10.0;
 
     EOS::PYT2R(P_cgs, massfrac, s_ext[DEF_Temp], rho_cgs);
     s_ext[Density] = rho_cgs * 1.0e3;

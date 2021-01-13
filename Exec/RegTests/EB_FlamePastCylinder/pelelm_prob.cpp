@@ -16,11 +16,11 @@ extern "C" {
         pp.query("MeanFlow", PeleLM::prob_parm->MeanFlow);
         pp.query("FlowDir",  PeleLM::prob_parm->FlowDir);
 
-        amrex::Print() << " Flow direction : "<< ProbParm::FlowDir << "\n";    
+        amrex::Print() << " Flow direction : "<< PeleLM::prob_parm->FlowDir << "\n";
 
         std::string pmf_datafile;
         pp.query("pmf_datafile", pmf_datafile);
-        int pmf_do_average = 1; 
-        PMF::read_pmf(pmf_datafile, pmf_do_average); 
+        int pmf_do_average = 1;
+        PMF::read_pmf(pmf_datafile, pmf_do_average);
     }
 }
