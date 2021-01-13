@@ -125,8 +125,8 @@ void pelelm_dermolefrac (const Box& bx, FArrayBox& derfab, int dcomp, int ncomp,
     amrex::ParallelFor(bx, 
     [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
     {
-        amrex::Real Yt[NUM_SPECIES];
-        amrex::Real Xt[NUM_SPECIES];
+        amrex::Real Yt[NUM_SPECIES] = {0.0};
+        amrex::Real Xt[NUM_SPECIES] = {0.0};
         amrex::Real rhoinv = 1.0 / in_dat(i,j,k,0);
         for (int n = 0; n < NUM_SPECIES; n++) {
           Yt[n] = in_dat(i,j,k,n+1) * rhoinv;
@@ -158,12 +158,12 @@ void pelelm_dermolweight (const Box& bx, FArrayBox& derfab, int dcomp, int ncomp
     amrex::ParallelFor(bx, 
     [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
     {   
-        amrex::Real Yt[NUM_SPECIES];
-        amrex::Real Wbar;
+        amrex::Real Yt[NUM_SPECIES] = {0.0};
         amrex::Real rhoinv = 1.0 / in_dat(i,j,k,0);
         for (int n = 0; n < NUM_SPECIES; n++) {
           Yt[n] = in_dat(i,j,k,n+1) * rhoinv;
         } 
+        amrex::Real Wbar = 0.0;
         EOS::Y2WBAR(Yt,Wbar);
         der(i,j,k) = Wbar;
     });
@@ -189,14 +189,13 @@ void pelelm_dercpmix (const Box& bx, FArrayBox& derfab, int dcomp, int ncomp,
     amrex::ParallelFor(bx,
     [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
     {
-        amrex::Real Yt[NUM_SPECIES];
-        amrex::Real Temp;
-        amrex::Real Cpmix;
+        amrex::Real Yt[NUM_SPECIES] = {0.0};
         amrex::Real rhoinv = 1.0 / in_dat(i,j,k,0);
         for (int n = 0; n < NUM_SPECIES; n++) {
           Yt[n] = in_dat(i,j,k,n+2) * rhoinv;
         }
-        Temp = in_dat(i,j,k,1);
+        amrex::Real Temp = in_dat(i,j,k,1);
+        amrex::Real Cpmix = 0.0;
         EOS::TY2Cp(Temp,Yt,Cpmix);
         der(i,j,k) = Cpmix * 1.0e-4; // CGS -> MKS ;
     });
@@ -255,7 +254,7 @@ void pelelm_dsrhoydot (const Box& bx, FArrayBox& derfab, int dcomp, int ncomp,
     amrex::ParallelFor(bx,
     [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
     {
-        der(i,j,k) = 0.;
+        der(i,j,k) = 0.0;
     });
 
     amrex::ParallelFor(bx, NUM_SPECIES,
@@ -476,9 +475,8 @@ void pelelm_dermixanddiss (const Box& bx, FArrayBox& derfab, int dcomp, int ncom
     [density, rhoY, mixt_frac_tmp, fact_lcl, Zox_lcl, Zfu_lcl] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
     {
         // Get Y from rhoY
-        amrex::Real rhoinv;
-        rhoinv = 1.0 / density(i,j,k);
-        amrex::Real y[NUM_SPECIES];
+        amrex::Real rhoinv = 1.0 / density(i,j,k);
+        amrex::Real y[NUM_SPECIES] = {0.0};
         for (int n = 0; n < NUM_SPECIES; n++) {
             y[n] = rhoY(i,j,k,n) * rhoinv;
         }
@@ -500,33 +498,33 @@ void pelelm_dermixanddiss (const Box& bx, FArrayBox& derfab, int dcomp, int ncom
         mixt_frac(i,j,k) = mixt_frac_tmp(i,j,k);
 
         // Get Y from rhoY
-        amrex::Real rhoinv;
-        rhoinv = 1.0 / density(i,j,k);
-        amrex::Real y[NUM_SPECIES];
+        amrex::Real rhoinv = 1.0 / density(i,j,k);
+        amrex::Real y[NUM_SPECIES] = {0.0};
         for (int n = 0; n < NUM_SPECIES; n++) {
             y[n] = rhoY(i,j,k,n) * rhoinv;
         }
 
         // get only conductivity
-        amrex::Real lambda;
         amrex::Real Tloc = temp(i,j,k);
         amrex::Real rho  = density(i,j,k);
 
-        amrex::Real dummy_rhoDi[NUM_SPECIES], dummy_mu, lambda_cgs, dummy_xi;
+        amrex::Real dummy_rhoDi[NUM_SPECIES] = {0.0};
+        amrex::Real dummy_mu = 0.0;
+        amrex::Real lambda_cgs = 0.0;
+        amrex::Real dummy_xi = 0.0;
 
         transport(false, false, true, false, 
                   Tloc, rho, y, dummy_rhoDi, dummy_mu, dummy_xi, lambda_cgs, ltransparm);
-        lambda = lambda_cgs * 1.0e-5;  // CGS -> MKS 
+        amrex::Real lambda = lambda_cgs * 1.0e-5;  // CGS -> MKS 
         
         amrex::Real cpmix = 0.0;
         EOS::TY2Cp(Tloc, y, cpmix);
         cpmix *= 0.0001;                         // CGS -> MKS conversion
 
         //grad mixt. fraction
-        amrex::Real grad[3];
+        amrex::Real grad[3] = {0.0};
         grad[0] = factor * ( mixt_frac_tmp(i+1,j,k)-mixt_frac_tmp(i-1,j,k) );
         grad[1] = factor * ( mixt_frac_tmp(i,j+1,k)-mixt_frac_tmp(i,j-1,k) );
-        grad[2] = 0.0;
 #if (AMREX_SPACEDIM == 3 )
         grad[2] = factor * ( mixt_frac_tmp(i,j,k+1)-mixt_frac_tmp(i,j,k-1) );
 #endif
@@ -595,16 +593,14 @@ void pelelm_derconcentration (const Box& bx, FArrayBox& derfab, int dcomp, int n
     amrex::ParallelFor(bx, 
     [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
     {   
-        amrex::Real Yt[NUM_SPECIES];
-        amrex::Real Ct[NUM_SPECIES];
-        amrex::Real Temp;
-        amrex::Real Rho;
+        amrex::Real Yt[NUM_SPECIES] = {0.0};
+        amrex::Real Ct[NUM_SPECIES] = {0.0};
         amrex::Real rhoinv = 1.0 / in_dat(i,j,k,0);
         for (int n = 0; n < NUM_SPECIES; n++) {
           Yt[n] = in_dat(i,j,k,n+2) * rhoinv;
         }
-        Temp = in_dat(i,j,k,1);
-        Rho = in_dat(i,j,k,0) * 1.0e-3; // ! kg/m^3 -> g/cm^3
+        amrex::Real Temp = in_dat(i,j,k,1);
+        amrex::Real Rho = in_dat(i,j,k,0) * 1.0e-3; // ! kg/m^3 -> g/cm^3
         EOS::RTY2C(Rho,Temp,Yt,Ct);
         for (int n = 0; n < NUM_SPECIES; n++) {
           der(i,j,k,n) = Ct[n] * 1.0e6; // cm^(-3) -> m^(-3)
@@ -631,7 +627,7 @@ void pelelm_dhrr (const Box& bx, FArrayBox& derfab, int dcomp, int ncomp,
     amrex::ParallelFor(bx, 
     [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
     {   
-        amrex::Real hi_spec[NUM_SPECIES];
+        amrex::Real hi_spec[NUM_SPECIES] = {0.0};
         EOS::T2Hi(in_dat(i,j,k,0),hi_spec);
         der(i,j,k) = 0.0;
         for (int n = 0; n < NUM_SPECIES; n++) {
@@ -689,7 +685,7 @@ void pelelm_dcma (const Box& bx, FArrayBox& derfab, int dcomp, int ncomp,
                      density, rhoY, mixt_frac);
 
         // HR
-        amrex::Real hi_spec[NUM_SPECIES];
+        amrex::Real hi_spec[NUM_SPECIES] = {0.0};
         EOS::T2Hi(Temp(i,j,k),hi_spec);
         hr(i,j,k) = 0.0;
         for (int n = 0; n < NUM_SPECIES; n++) {
