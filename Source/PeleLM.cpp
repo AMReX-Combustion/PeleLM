@@ -81,14 +81,7 @@ const Real Real_MIN = DBL_MIN;
 const Real Real_MAX = DBL_MAX;
 #endif
 
-const int  GEOM_GROW   = 1;
-const int  PRESS_GROW  = 1;
-const int  DIVU_GROW   = 1;
 const Real bogus_value =  1.e20;
-const int  DQRAD_GROW  = 1;
-const int  YDOT_GROW   = 1;
-const int  HYPF_GROW   = 1;
-const int  LinOp_grow  = 1;
 
 static Real              typical_RhoH_value_default = -1.e10;
 static const std::string typical_values_filename("typical_values.fab");
@@ -1352,7 +1345,7 @@ PeleLM::init_mixture_fraction()
                amrex::Real* YF_d = YF_v.data();
                Box dumbx({AMREX_D_DECL(0,0,0)},{AMREX_D_DECL(0,0,0)});
                amrex::ParallelFor(dumbx, [XO_d,XF_d,YO_d,YF_d]
-               AMREX_GPU_DEVICE(int i, int j, int k) noexcept
+               AMREX_GPU_DEVICE(int /*i*/, int /*j*/, int /*k*/) noexcept
                {
                   EOS::X2Y(XO_d,YO_d);
                   EOS::X2Y(XF_d,YF_d);
@@ -2970,7 +2963,7 @@ PeleLM::diffusionFJDriver(ForkJoin&                   fj,
   int vStart = visc_coef_comp + compSet.lo;
   Vector<Real> visc_coef_shifted(&visc_coef[vStart],&visc_coef[vStart+num_comp]);
 
-  MultiFab *rho_half_mf, *delta_rhs=0, *alpha_in=0;
+  MultiFab *rho_half_mf=0, *delta_rhs=0, *alpha_in=0;
   if (rho_flag == 1) {
     rho_half_mf = &(fj.get_mf("rho_half"));
   }
@@ -8171,7 +8164,6 @@ PeleLM::getForce(FArrayBox&       force,
    const auto& f        = force.array(scomp);
 
    const auto  dx       = geom.CellSizeArray();
-   RealBox gridloc      = RealBox(bx,geom.CellSize(),geom.ProbLo());
    const Real  grav     = gravity;
 
    // Get non-static info for the pseudo gravity forcing
@@ -9122,7 +9114,7 @@ PeleLM::parseComposition(Vector<std::string> compositionIn,
       amrex::Real* massFrac_d = massFrac_v.data();
       Box dumbx({AMREX_D_DECL(0,0,0)},{AMREX_D_DECL(0,0,0)});
       amrex::ParallelFor(dumbx, [compIn_d,massFrac_d]
-      AMREX_GPU_DEVICE(int i, int j, int k) noexcept
+      AMREX_GPU_DEVICE(int /*i*/, int /*j*/, int /*k*/) noexcept
       {
          EOS::X2Y(compIn_d,massFrac_d);
       });

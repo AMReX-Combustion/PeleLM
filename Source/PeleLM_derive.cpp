@@ -412,7 +412,6 @@ void pelelm_dertransportcoeff (const Box& bx, FArrayBox& derfab, int dcomp, int 
     AMREX_ASSERT(derfab.nComp() >= dcomp + ncomp);
     AMREX_ASSERT(datfab.nComp() >= NUM_SPECIES+2);
     AMREX_ASSERT(ncomp == NUM_SPECIES+2);
-    auto const density = datfab.array(0);
     auto const T       = datfab.array(1);
     auto const rhoY    = datfab.array(2);
     auto       rhoD    = derfab.array(dcomp);
@@ -423,7 +422,7 @@ void pelelm_dertransportcoeff (const Box& bx, FArrayBox& derfab, int dcomp, int 
     TransParm const* ltransparm = trans_parm_g;
 
     amrex::ParallelFor(bx,
-    [density, T, rhoY, rhoD, lambda, mu, ltransparm] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+    [T, rhoY, rhoD, lambda, mu, ltransparm] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
     {
         getTransportCoeff( i, j, k, rhoY, T, rhoD, lambda, mu, ltransparm);
     });
