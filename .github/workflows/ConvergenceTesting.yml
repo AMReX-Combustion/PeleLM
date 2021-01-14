@@ -33,7 +33,7 @@ jobs:
          PELELM_HOME: ${GITHUB_WORKSPACE}
       working-directory: ./Exec/RegTests/PeriodicCases
       run: |
-        make -j 2 COMP=gnu Reaction_dir=Null
+        make -j 2 COMP=gnu Reactions_dir=Null
     - name: Run
       working-directory: ./Exec/RegTests/PeriodicCases
       run: |
