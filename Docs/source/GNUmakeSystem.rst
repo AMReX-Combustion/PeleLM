@@ -18,7 +18,7 @@ Dissecting a Simple Make File
 -----------------------------
 
 An example input file for GNU Make can be found in any of the example setup,
-such as ``$(PELELM_HOME)/Exec/FlameInABox``. Table :numref:`tab:makevars`
+such as ``$(PELELM_HOME)/Exec/RegTests/FlameSheet``. Table :numref:`tab:makevars`
 below shows a list of important variables.
 
 .. raw:: latex
@@ -29,27 +29,37 @@ below shows a list of important variables.
 
 .. table:: Important make variables
 
-   +------------+-------------------------------------+-------------+
-   | Variable   | Value                               | Default     |
-   +============+=====================================+=============+
-   | AMREX_HOME | Path to amrex                       | environment |
-   +------------+-------------------------------------+-------------+
-   | COMP       | gnu, cray, ibm, intel, llvm, or pgi | none        |
-   +------------+-------------------------------------+-------------+
-   | DEBUG      | TRUE or FALSE                       | TRUE        |
-   +------------+-------------------------------------+-------------+
-   | DIM        | 1 or 2 or 3                         | none        |
-   +------------+-------------------------------------+-------------+
-   | USE_MPI    | TRUE or FALSE                       | FALSE       |
-   +------------+-------------------------------------+-------------+
-   | USE_OMP    | TRUE or FALSE                       | FALSE       |
-   +------------+-------------------------------------+-------------+
+   +--------------------+-------------------------------------+-------------+
+   | Variable           | Value                               | Default     |
+   +====================+=====================================+=============+
+   | AMREX_HOME         | Path to amrex                       | environment |
+   +--------------------+-------------------------------------+-------------+
+   | IAMR_HOME          | Path to IAMR                        | environment |
+   +--------------------+-------------------------------------+-------------+
+   | PELELM_HOME        | Path to PeleLM                      | environment |
+   +--------------------+-------------------------------------+-------------+
+   | PELE_PHYSICS_HOME  | Path to PelePhysics                 | environment |
+   +--------------------+-------------------------------------+-------------+
+   | COMP               | gnu, cray, ibm, intel, llvm, or pgi | none        |
+   +--------------------+-------------------------------------+-------------+
+   | DEBUG              | TRUE or FALSE                       | TRUE        |
+   +--------------------+-------------------------------------+-------------+
+   | DIM                | 2 or 3                              | none        |
+   +--------------------+-------------------------------------+-------------+
+   | USE_MPI            | TRUE or FALSE                       | FALSE       |
+   +--------------------+-------------------------------------+-------------+
+   | USE_OMP            | TRUE or FALSE                       | FALSE       |
+   +--------------------+-------------------------------------+-------------+
+   | USE_CUDA           | TRUE or FALSE                       | FALSE       |
+   +--------------------+-------------------------------------+-------------+
+   | USE_HIP            | TRUE or FALSE                       | FALSE       |
+   +--------------------+-------------------------------------+-------------+
 
 .. raw:: latex
 
    \end{center}
 
-At the beginning of ``$(PELELM_HOME)/Exec/FlameInABox/GNUmakefile``, the make
+At the beginning of ``$(PELELM_HOME)/Exec/FlameSheet/GNUmakefile``, the make
 variable ``AMREX_HOME`` is set to the path to the top directory of AMReX.  Note that in
 the example :cpp:`?=` is a conditional variable assignment operator that only
 has an effect if ``AMREX_HOME`` has not been defined (including in the
@@ -71,12 +81,15 @@ prior to running ``make``.  alternatively, in tcsh one can set
 
     setenv AMREX_HOME /path/to/amrex
 
+Path to `IAMR` (``IAMR_HOME``), `PelePhysics` (``PELE_PHYSICS_HOME``) and `PeleLM` (``PELELM_HOME``)
+should also be provided in the same manner.
+
 One must set the ``COMP`` variable to choose a compiler suite (for C, C++, f90).
 Currently the list of supported compiler suites includes gnu, cray, ibm, intel, llvm,
 and pgi. One must also set the ``DIM`` variable to either 1, 2, or 3, depending
 on the dimensionality of the problem.
 
-Variables ``DEBUG``, ``USE_MPI`` and ``USE_OMP`` are optional with default set
+Variables ``DEBUG``, ``USE_MPI``, ``USE_OMP``, ``USE_CUDA`` and ``USE_HIP`` are optional with default set
 to TRUE, FALSE and FALSE, respectively.  The meaning of these variables should
 be obvious.  When ``DEBUG=TRUE``, aggressive compiler optimization flags are
 turned off and assertions in source code are turned on. For production runs,
@@ -107,9 +120,9 @@ Variables for various source file types are shown below.
         Free format Fortran source with .F90 extension.  Note that these
         Fortran files will go through preprocessing.
 
-In the ``FlameInABox` example, the extra source file, ``drm19Soln_seed_0.50.f`` is in a
+In the ``FlameSheet`` example, the extra source file, ``drm19Soln_seed_0.50.f`` is in a
 directory that is already in the build system's search path.  Additional files,
-that are local to this setup, such as ``Prob_$(DIM)d.F`` need to be added to the appropriate
+that are local to this setup, such as ``pele_prob.cpp`` need to be added to the appropriate
 file list explicitly as well.  If this case included files in a separate folder
 (e.g., ``mysrcdir``), you will then need to add the following:
 
@@ -130,10 +143,7 @@ for a list of currently recognized models, and to see which folder that the stri
 in ``$(PELE_PHYSICS_HOME)/Support/Fuego/Mechanism/Models`` folder.  That folder will contain
 a ``Make.package`` that appends the model-specific source files to the build list (typically
 a C-source file generated by `FUEGO` from a CHEMKIN-compatible set of specification files -- see
-the file ``$(PELELM_HOME)/README.rst`` for more information on model generation.
-
-
-
+the file ``$(PELE_PHYSICS_HOME)/README.rst`` for more information on model generation.
 
 Tweaking the Make System
 ------------------------
@@ -209,4 +219,3 @@ that you use homebrew's mpich. Normally is it fine to simply install its
 binaries: ``brew install mpich``. But if you are experiencing problems, we
 suggest building mpich usinging homebrew's gcc: ``brew install mpich
 --cc=gcc-8``.
-

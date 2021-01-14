@@ -15,10 +15,10 @@ specified in MKS; output is in MKS unless otherwise specified.
 Control parameters
 ^^^^^^^^^^^^^^^^^^
 
-The `PeleLM` executable uses two inputs files at runtime to set and alter the
+The `PeleLM` executable primarily uses a single inputs files at runtime to set and alter the
 behavior of the algorithm and initial conditions.
 
-The main inputs file, typically named ``inputs`` is used to
+The inputs file, typically named ``inputs.******`` is used to
 set `AMReX` parameters and the control flow in the C++ portions of
 the `PeleLM` code.  Each parameter here has a namespace (like ``amr`` in
 a parameter listed as ``amr.max_grid``).  Parameters set here are read using
@@ -32,35 +32,6 @@ number of SDC iterations taken per time step, solver types and tolerances,
 and algorithmic variations.  These latter control parameters are detailed
 separately, in :ref:`sec:control:pelelm`.
 
-The second inputs file, typically named ``probin`` is used by the
-Fortran code that initializes the problem setup.  It is read at
-problem initialization (via a Fortran ``namelist``) and the
-problem-specific quantities are stored in a Fortran module ``probdata_module`` defined in the problem's ``probdata.f90`` file.
-
-The ``inputs`` file is specified on the command-line directly as an argument to the executable.  The
-associated ``probin`` file is specified inside the ``inputs`` file using the ``amr.probin_file`` parameter, e.g.,::
-
-    amr.probin_file = my_special_probin
-
-Here the Fortran code will read a file called ``my_special_probin``.
-
-Working with ``probin`` files
------------------------------
-
-There are three different Fortran namelist's that can be defined in the
-``probin`` file:
-
-- ``&fortin`` is the main namelist read by the problem's ``probinit`` subroutine in the ``Prob_2d.f90`` or ``Prob_3d.f90`` file.
-
-- ``&heattransin`` is used to set the ambient pressure and various algorithmic options.
-
-- ``&flctin`` is used to read in turbulence files to set the space and time-dependent inflow.
-
-- ``&control`` is used dynamically control the inflow velocity.
-
-Consult the problem-specific files for how parameters set in these namelists are used.  When defining your
-own problem, you should feel free to add any additional controls here that are useful for your case.
-
 
 Working with ``inputs`` files
 -----------------------------
@@ -68,7 +39,6 @@ Working with ``inputs`` files
 **Important**: because the ``inputs`` file is handled by the `C++` portion of
 the code, any quantities you specify in scientific notation, must take the
 form ``1.e5`` and not ``1.d5``---the "d" specifier is not recognized.
-
 
 Problem Geometry
 ----------------
@@ -105,8 +75,8 @@ Domain Boundary Conditions
 Boundary conditions are specified using integer keys that are interpreted
 by `AMReX`.  The runtime parameters that we use are:
 
-- ``ns.lo_bc``: boundary type of each low face  (must be set)
-- ``ns.hi_bc``: boundary type of each high face (must be set)
+- ``peleLM.lo_bc``: boundary type of each low face  (must be set)
+- ``peleLM.hi_bc``: boundary type of each high face (must be set)
 
 The valid boundary types are: ::
 
@@ -119,14 +89,14 @@ The valid boundary types are: ::
     SlipWallIsotherm
     NoSlipWallIsotherm
 
-Note: ``ns.lo_bc`` and ``ns.hi_bc`` must be consistent with 
+Note: ``peleLM.lo_bc`` and ``peleLM.hi_bc`` must be consistent with 
 ``geometry.is_periodic``---if the domain is periodic in a particular
 direction then the low and high bc's must be set to ``Interior`` for that direction.
 
 As an example, the following: ::
 
-    ns.lo_bc = Inflow SlipWallAdiab Interior 
-    ns.hi_bc = Outflow SlipWallAdiab Interior
+    peleLM.lo_bc = Inflow SlipWallAdiab Interior 
+    peleLM.hi_bc = Outflow SlipWallAdiab Interior
 
     geometry.is_periodic = 0 0 1
 
@@ -410,8 +380,11 @@ If you are doing a scaling study then set ``amr.plot_files_output = 0`` so you c
   
 - ``amr.plot_nfiles``: how parallel is the writing of the plotfiles?  (Integer >= 1; default: 64)
 
-All the options for ``amr.derive_plot_vars`` are kept in ``derive_lst`` in ``Pelelm_setup.cpp``.  Feel free to look at
-it and see what's there. Also, you can specify both ``amr.plot_int`` or ``amr.plot_per``, if you so desire; the code will print a warning in case you did this unintentionally. It will work as you would expect -- you will get plotfiles at integer multiples of ``amr.plot_int`` timesteps and at integer multiples of ``amr.plot_per`` simulation time intervals. As an example: ::
+All the options for ``amr.derive_plot_vars`` are kept in ``derive_lst`` in ``PeleLM_setup.cpp``.
+Feel free to look at it and see what's there. Also, you can specify both ``amr.plot_int`` or ``amr.plot_per``, 
+if you so desire; the code will print a warning in case you did this unintentionally. 
+It will work as you would expect -- you will get plotfiles at integer multiples of ``amr.plot_int`` timesteps 
+and at integer multiples of ``amr.plot_per`` simulation time intervals. As an example: ::
 
     amr.plot_file = plt_run
     amr.plot_int = 10
@@ -431,6 +404,20 @@ then restart files (really directories) starting with the prefix
 directory names will be ``plt_run00000``, ``plt_run00043``, ``plt_run00061``, etc, where t = 0.1 after 43 level-0 steps, t = 0.2 after 61 level-0 steps, etc.
 
 
+User runtime problem data
+-------------------------
+
+As mentioned in :ref:`sec:newcase`, the user can specify problem specific data, provided that the 
+appropriate variable has been added to the ``ProbParm`` structure defined in ``pelelm_prob_parm.H``
+and the required ParmParse functions are called in ``pelelm_prob.cpp``. It is customary to prepend
+the problem specific data with ``prob`` as done for example in the FlameSheet case: ::
+
+   #----------------------- PROBLEM PARAMETERS---------------------
+   prob.P_mean = 101325.0
+   prob.standoff = -.022
+   prob.pertmag = 0.0004
+   prob.pmf_datafile = "drm19_pmf.dat"
+
 
 Screen Output
 -------------
@@ -441,7 +428,6 @@ screen as `PeleLM` runs:
 - ``amr.v``: verbosity of ``Amr.cpp`` (0 or 1; default: 0)
 - ``ns.v``: verbosity of ``NavierStokesBase.cpp`` (0 or 1; default: 0)
 - ``diffusion.v``: verbosity of ``Diffusion.cpp`` (0 or 1; default: 0)
-- ``mg.v``: verbosity of multigrid solver (allow values: 0,1,2,3,4; default: 0)  
 - ``amr.grid_log``: name of the file to which the grids are written (text; not used if not set)  
 - ``amr.run_log``: name of the file to which certain output is written (text; not used if not set)  
 - ``amr.run_log_terse``: name of the file to which certain (terser) output is written (text; not used if not set)  
@@ -487,7 +473,7 @@ can be plotted very easily to monitor the time step.
 `PeleLM` algorithm controls
 ---------------------------
 
-The following parameters affect detailed aspects of the PeleLM integration algorithm
+The following parameters affect detailed aspects of the PeleLM integration algorithm:
 
 - ``ns.do_diffuse_sync``: Debugging flag, do or skip diffusion of the mac_sync (int; default: 1)
 
@@ -497,7 +483,7 @@ The following parameters affect detailed aspects of the PeleLM integration algor
 
 - ``ns.do_active_control_temp``: Turn on active control of the temperature (int; default: 0)
 
-- ``ns.temp_control``: The control temperature, used in ``ns.do_active_control_temp=1``(Real; default: -1)
+- ``ns.temp_control``: The control temperature, used in ``ns.do_active_control_temp=1`` (Real; default: -1)
 
 - ``ns.v``: Overall timestepping verbosity (int; default: 1)
 
@@ -518,10 +504,6 @@ The following parameters affect detailed aspects of the PeleLM integration algor
 - ``ns.num_divu_iters``: Number of passes during initialization that the dt is adjusted for the purposes of computing divu prior to init_iters (int; default: 3)
 
 - ``ns.do_not_use_funccount``: Flag, do not use work estimate to rebalance workloads during chemistry advance (int; default: 0)
-
-- ``ns.schmidt``: Deprecated (int; default: )
-
-- ``ns.prandtl``: Deprecated (int; default: )
 
 - ``ns.unity_Le``: Deprecated (int; default: )
 
