@@ -6,7 +6,7 @@
 
 ## Overview
 
-`PeleLM` is an adaptive-mesh low Mach number hydrodynamics code for reacting flows.  `PeleLM` has a project
+*PeleLM* is an adaptive-mesh low Mach number hydrodynamics code for reacting flows.  *PeleLM* has a project
 [homepage](https://amrex-combustion.github.io/PeleLM/), and can be obtained via
 [GitHub](https://github.com/AMReX-Combustion/PeleLM).  
 Use [this link](https://groups.google.com/forum/#!forum/pelelmusers/join) to 
@@ -16,7 +16,7 @@ building and running the code, processing code output, and details about the alg
 
 ## Documentation
 
-`PeleLM` complete documentation is available on [ReadTheDoc](https://pelelm.readthedocs.io/en/latest/index.html).
+*PeleLM* complete documentation is available on [ReadTheDoc](https://pelelm.readthedocs.io/en/latest/index.html).
 It is also possible to build a local version of the documentation using :
 
         cd ${PELELM_HOME}/Docs
@@ -24,13 +24,13 @@ It is also possible to build a local version of the documentation using :
 
 ### Getting started
 
-A first sample 2D flame problem is available in the `PeleLM` QuickStart section:
+A first sample 2D flame problem is available in the *PeleLM* QuickStart section:
 
 https://pelelm.readthedocs.io/en/latest/GettingStarted.html
 
 ### Core Algorithm
 
-The `PeleLM` governing equations and core algorithm are described in:
+The *PeleLM* governing equations and core algorithm are described in:
 
 https://pelelm.readthedocs.io/en/latest/Model.html
 
@@ -42,25 +42,56 @@ https://pelelm.readthedocs.io/en/latest/Tutorials.html
 
 ## Contributing
 
-To add a new feature to PeleLM, the procedure is:
+New contributions to *PeleLM* are welcome !
 
-1. Create a branch for the new feature (locally) :
+The *PeleLM* contributions workflow follows these steps:
+1. Fork the main repository
+2. Create an `AmazingNewFeature` branch implementing your changes 
+3. Open a Pull Request from `AmazingNewFeature` on your fork to branch `development` of the main *PeleLM* repository
 
+Follow [GitHub directions](https://docs.github.com/en/free-pro-team@latest/github/getting-started-with-github/fork-a-repo) 
+to fork *PeleLM* main repo on your GitHub account, then clone the *PeleLM* dependencies 
+([PelePhysics](https://github.com/AMReX-Combustion/PelePhysics),
+[IAMR](https://github.com/AMReX-Codes/IAMR),
+[AMReX](https://github.com/AMReX-Codes/amrex)) along with your own *PeleLM* fork on your local machine.
+
+Then step into the *PeleLM* folder and add the main *PeleLM* repository as the `upstream` remote in order to keep track of the main repo:
+        git add remote upstream https://github.com/AMReX-Combustion/PeleLM
+
+At any point, you can update the `developement` branch of your local repository with changes implemented in the main *PeleLM* repo by pulling from `upstream` : 
+        git checkout development
+        git pull upstream development
+
+You are now free to modify your own fork of *PeleLM*. To add a new feature to *PeleLM*, the procedure is:
+
+1. Create a branch for the new feature from the `development` branch (locally) :
+
+        git checkout development 
         git checkout -b AmazingNewFeature
 
-2. Develop the feature, merging changes often from the development branch into your AmazingNewFeature branch :
-   
+2. and commit your changes to your local repo : 
+
         git commit -m "Developed AmazingNewFeature"
-        git checkout development
-        git pull                     [fix any identified conflicts between local and remote branches of "development"]
-        git checkout AmazingNewFeature
-        git merge development        [fix any identified conflicts between "development" and "AmazingNewFeature"]
 
-3. Push feature branch to PeleLM repository :
+3. Alongside your development, regularly merge changes from the main repo `development` branch into your `AmazingNewFeature` branch,
+fix any conficts, and push your changes to your GitHub fork :
+   
+        git pull upstream development     [Fix arising conflicts]
+        git push -u origin AmazingNewFeature 
 
-        git push -u origin AmazingNewFeature [Note: -u option required only for the first push of new branch]
+4. When you are ready to propose your new feature/improvement/bug fix to the main *PeleLM* repo, reiterate Step 3 and submit a Pull Request through the GitHub page from your fork onto the `development` branch of the main repo:
 
-4. Submit a merge request through the github project page - be sure you are requesting to merge your branch to the development branch.
+ - Click on the ``compare & pull request`` button to start your PR.
+ - Provide a title and a short description for your PR:
+   * what feature/fix do you propose
+   * how did you test it
+   * any other information deemed useful : does it modify the default *PeleLM* behavior ? ...
+ - Press ``Create pull request``.
+
+Please DO NOT write large Pull Requests, as they are very difficult and time-consuming to review.
+As much as possible, split them into small targeted PRs.
+For example, if find typos in the documentation open a pull request that only fixes typos.
+If you want to fix a bug, make a small pull request that only fixes a bug.
 
 ## Acknowledgment
 
