@@ -16,12 +16,12 @@ struct PeleLMdummyFill
     const amrex::IntVect& iv,
     amrex::Array4<amrex::Real> const& dest,
     const int dcomp,
-    const int numcomp,
+    const int /*numcomp*/,
     amrex::GeometryData const& geom,
-    const amrex::Real time,
+    const amrex::Real /*time*/,
     const amrex::BCRec* bcr,
-    const int bcomp,
-    const int orig_comp) const
+    const int /*bcomp*/,
+    const int /*orig_comp*/) const
   {
     const int* domlo = geom.Domain().loVect();
     const int* domhi = geom.Domain().hiVect();
@@ -80,15 +80,15 @@ struct PeleLMNodalFillExtDir
 {
   AMREX_GPU_DEVICE
   void operator()(
-    const amrex::IntVect& iv,
-    amrex::Array4<amrex::Real> const& dest,
-    const int dcomp,
-    const int numcomp,
-    amrex::GeometryData const& geom,
-    const amrex::Real time,
-    const amrex::BCRec* bcr,
-    const int bcomp,
-    const int orig_comp) const
+    const amrex::IntVect& /*iv*/,
+    amrex::Array4<amrex::Real> const& /*dest*/,
+    const int /*dcomp*/,
+    const int /*numcomp*/,
+    amrex::GeometryData const& /*geom*/,
+    const amrex::Real /*time*/,
+    const amrex::BCRec* /*bcr*/,
+    const int /*bcomp*/,
+    const int /*orig_comp*/) const
   {
     // do something for external Dirichlet (BCType::ext_dir)
     amrex::Abort("PeleLMNodalFillExtDir: Need to write fill for external Dirichlet (BCType::ext_dir)");
@@ -99,15 +99,15 @@ struct PeleLMFaceFillExtDir
 {
   AMREX_GPU_DEVICE
   void operator()(
-    const amrex::IntVect& iv,
-    amrex::Array4<amrex::Real> const& dest,
-    const int dcomp,
-    const int numcomp,
-    amrex::GeometryData const& geom,
-    const amrex::Real time,
-    const amrex::BCRec* bcr,
-    const int bcomp,
-    const int orig_comp) const
+    const amrex::IntVect& /*iv*/,
+    amrex::Array4<amrex::Real> const& /*dest*/,
+    const int /*dcomp*/,
+    const int /*numcomp*/,
+    amrex::GeometryData const& /*geom*/,
+    const amrex::Real /*time*/,
+    const amrex::BCRec* /*bcr*/,
+    const int /*bcomp*/,
+    const int /*orig_comp*/) const
   {
     // do something for external Dirichlet (BCType::ext_dir)
     amrex::Abort("PeleLMFaceFillExtDir: Need to write fill for external Dirichlet (BCType::ext_dir)");
@@ -129,11 +129,11 @@ struct PeleLMCCFillExtDir
     const amrex::IntVect& iv,
     amrex::Array4<amrex::Real> const& dest,
     const int dcomp,
-    const int numcomp,
+    const int /*numcomp*/,
     amrex::GeometryData const& geom,
     const amrex::Real time,
     const amrex::BCRec* bcr,
-    const int bcomp,
+    const int /*bcomp*/,
     const int orig_comp) const
   {
     // do something for external Dirichlet (BCType::ext_dir)
@@ -141,7 +141,6 @@ struct PeleLMCCFillExtDir
     const int* domlo = geom.Domain().loVect();
     const int* domhi = geom.Domain().hiVect();
     const amrex::Real* prob_lo = geom.ProbLo();
-    const amrex::Real* prob_hi = geom.ProbHi();
     const amrex::Real* dx = geom.CellSize();
     const amrex::Real x[AMREX_SPACEDIM] = {AMREX_D_DECL(
     prob_lo[0] + (iv[0] + 0.5) * dx[0], prob_lo[1] + (iv[1] + 0.5) * dx[1],
