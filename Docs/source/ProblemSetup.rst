@@ -4,136 +4,195 @@
 .. role:: fortran(code)
    :language: fortran
 
+.. _sec:newcase:
+
 Setting up a new `PeleLM` Case
 ==============================
 
-In order to set up and run a new case in `PeleLM`, the user must provide problem-specific code for three main tasks
+In order to set up and run a new case in `PeleLM`, the user must provide problem-specific code for two main tasks
 
 - Initial conditions
 - Boundary conditions
-- Grid refinement criteria (optional, provided default functions are discussed below)
 
-These functions are typically collected into a single subfolder in ``${PELELM_HOME}/Exec``, such as ``FlameInABox``.
+These functions are typically collected into a single subfolder in ``${PELELM_HOME}/Exec``, such as ``FlameSheet``.
 The user can organize these tasks in any way that is convenient - the examples distributed with ``PeleLM``
 represent a certain style for managing this with some level of flexibility, but the basic requirement is
-simply that source be linked into the build for the functions ``FORT_INITDATA`` (for initial conditions)
-and ``FORT_XXXFILL`` (where ``XXX`` is ``DEN``, ``TEMP``, ``ADV``, ``RHOH``, ``VEL``, ``CHEM``, ``PRES``)
-for boundary conditions.
+simply that source be linked into the build for the functions ``pelelm_initdata`` for initial conditions
+and ``bcnormal`` for boundary conditions.
 
 Initial Conditions
 ------------------
 
 At the beginning of a `PeleLM` run, for each level, after grids are generated, the cell-centered values of
 the state must be initialized.  In the code, this is done in an ``MFIter`` loop over grids, and a call to
-the user's initialization function, ``FORT_INITDATA``, that must be provided:
+the user's initialization function, ``pelelm_initdata``, that must be provided:
 
 ::
 
-  // Initialize S_new by calling a user routine
-  for (MFIter snewmfi(S_new,true); snewmfi.isValid(); ++snewmfi)
+  for (MFIter mfi(S_new,TilingIfNotGPU()); mfi.isValid(); ++mfi)
   {
-    const Box&  vbx = snewmfi.tilebox();
-    RealBox gridloc = RealBox(vbx,geom.CellSize(),geom.ProbLo());
+      const Box& box = mfi.validbox();
+      auto sfab = S_new.array(mfi);
 
-    init_data (&level, &cur_time,
-               BL_TO_FORTRAN_BOX(vbx), &ns,
-               S_new[snewmfi].dataPtr(Xvel),
-               BL_TO_FORTRAN_N_ANYD(S_new[snewmfi],AMREX_SPACEDIM),
-               BL_TO_FORTRAN_ANYD(P_new[snewmfi]),
-               dx, AMREX_ZFILL(gridloc.lo()), AMREX_ZFILL(gridloc.hi()) );
+      amrex::ParallelFor(box,
+      [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+      {    
+        pelelm_initdata(i, j, k, sfab, geomdata, *lprobparm, lpmfdata);
+      });  
   }
 
-The associated user function (here, defined in fortran) must shape the arrays accordingly, and fill the data:
+where ``(i,j,k)`` are the cell indices, ``sfab`` is a light data pointer to the initial state MultiFab and ``geomdata``, ``lprobparm``
+and ``lpmfdata`` are container for the geometry, user-define input and PMF data.
+The associated user function (in pelelm_prob.H) will provide a value for each entry of the state (velocity, density, mass fraction, ...) :
 
 ::
 
-   subroutine init_data(level, time, lo, hi, nscal, &
-                        vel, scal, s_lo, s_hi, press, p_lo, p_hi, &
-                        delta, xlo, xhi) &
-                        bind(C, name="init_data")
+   AMREX_GPU_DEVICE
+   AMREX_FORCE_INLINE
+   void
+   pelelm_initdata (int i, int j, int k, 
+                    amrex::Array4<amrex::Real> const& state,
+                    amrex::GeometryData const& geomdata,
+                    ProbParm const& prob_parm,
+                    PmfData const *pmf_data)
+   {
 
-      implicit none
-      integer, intent(in) :: level, nscal
-      integer, intent(in) :: lo(3), hi(3)
-      integer, intent(in) :: s_lo(3), s_hi(3)
-      integer, intent(in) :: p_lo(3), p_hi(3)
-      REAL_T, intent(in)  :: xlo(3), xhi(3)
-      REAL_T, intent(in)  :: time, delta(3)
-      REAL_T, dimension(s_lo(1):s_hi(1),s_lo(2):s_hi(2),s_lo(3):s_hi(3),dim), intent(out) :: vel
-      REAL_T, dimension(s_lo(1):s_hi(1),s_lo(2):s_hi(2),s_lo(3):s_hi(3),nscal), intent(out) :: scal
-      REAL_T, dimension(p_lo(1):p_hi(1),p_lo(2):p_hi(2),p_lo(3):p_hi(3)), intent(out) :: press
+      const amrex::Real* prob_lo = geomdata.ProbLo();
+      const amrex::Real* prob_hi = geomdata.ProbHi();
+      const amrex::Real* dx      = geomdata.CellSize();
 
-      REAL_T  :: x, y, z
-      integer :: i, j, k, n
+      const amrex::Real z = prob_lo[2] + (k+0.5)*dx[2];
+      const amrex::Real y = prob_lo[1] + (j+0.5)*dx[1];
+      const amrex::Real x = prob_lo[0] + (i+0.5)*dx[0];
 
-      do k = lo(3), hi(3)
-         z = (float(k)+.5d0)*delta(3)+domnlo(3)
-         do j = lo(2), hi(2)
-            y = (float(j)+.5d0)*delta(2)+domnlo(2)
-            do i = lo(1), hi(1)
-               x = (float(i)+.5d0)*delta(1)+domnlo(1)
+      constexpr amrex::Real Pi = 3.14159265358979323846264338327950288;
+      const amrex::Real L_x = prob_hi[0] - prob_lo[0];
+      const amrex::Real L_y = prob_hi[1] - prob_lo[1];
 
-               scal(i,j,k,1) = ...
-               scal(i,j,k,2) = ...
-               
-               vel(i,j,k,1)  = ...
-               vel(i,j,k,2)  = ...
-               vel(i,j,k,3)  = ...
-            end do
-         end do
-      end do
-   end subroutine init_data
 
-Note that the user will need to know the order and definition of each state component.  The variables, and their order, are
-set for all problems setups in the function:
+      ...
 
-::
 
-  void PeleLM::variableSetUp ()
-  {
-    ...
-    FirstSpec = ++counter;
-    nspecies  = getChemSolve().numSpecies();
-    counter  += nspecies - 1;
-    RhoH = ++counter;
-    Trac = ++counter;
-    Temp = ++counter;
-    RhoRT = ++counter;
-    NUM_STATE = ++counter;
-    NUM_SCALARS = NUM_STATE - Density;
-    ...
-    
-in the ``$(PELELM_HOME)/Source`` folder.  Note that the conserved states are stored for species and
+      state(i,j,k,DEF_Temp) = prob_parm.Temp;
+
+      for (int n = 0; n < NUM_SPECIES; n++){
+        massfrac[n] = 1.0/NUM_SPECIES;
+      }
+
+
+      state(i,j,k,Xvel) = 0.0;
+      state(i,j,k,Yvel) =  prob_parm.Vel;
+   #elif ( AMREX_SPACEDIM == 3 ) 
+      state(i,j,k,Zvel) = 0.0;
+   #endif
+
+      amrex::Real rho_cgs, P_cgs;
+      P_cgs = prob_parm.P_mean * 10.0;
+
+      EOS::PYT2R(P_cgs, massfrac, state(i,j,k,DEF_Temp), rho_cgs);
+      state(i,j,k,Density) = rho_cgs * 1.0e3;            // CGS -> MKS conversion
+
+      EOS::TY2H(state(i,j,k,DEF_Temp), massfrac, state(i,j,k,DEF_RhoH));
+      state(i,j,k,DEF_RhoH) = state(i,j,k,DEF_RhoH) * 1.0e-4 * state(i,j,k,Density);   // CGS -> MKS conversion
+
+      for (int n = 0; n < NUM_SPECIES; n++) {
+        state(i,j,k,DEF_first_spec+n) = massfrac[n] * state(i,j,k,Density);
+      }
+   }
+
+Note home the geometry data are retrived from the ``geomdata`` object to obtain the coordinate of each cell center.
+The state data indices (``Xvel``, ``Yvel``, ``Density``, ... ) are prescribed in the ``$(PELELM_HOME)/Source/IndexDefines.H`` file. 
+Note that the conserved states are stored for species and
 enthalpy (i.e., :math:`\rho Y_i` and :math:`\rho h`); these are the variables that the user must fill
 in the initial and boundary condition routines.  Typically, however, the primitive state
 (i.e., :math:`Y_i` and :math:`T`) is known directly.  If that is the case, the user can make use of
-the compiled-in model-specific equation-of-state routines to translate primitive to conserved state
+the compiled-in model-specific equation-of-state routines (``EOS::``) to translate primitive to conserved state
 values. Consult the example setups provided to see how to call these routines, and how to load the
 final values required for initial data.
+
+The runtime option (such as initial temperature, inlet velocity, ...) are gathered in the ``ProbParm`` C++ structure defined in ``pelelm_prob_parm.H`` and filled from the input file in ``pelelm_prob.cpp`` using `AMReX` parser. This structure can be modified by the user to hold any data necessary for initial or boundary conditions.
 
 Boundary Conditions
 -------------------
 
-In `PeleLM` separate functions are provided to fill each state
-component at physical boundaries.  The ``variableSetup`` routine
-discussed above sets, for each state, which function will be called,
-but all of them have the same form/aguments.  A box of data will be
-provided with some overlap of the valid domain, and some overlap of
-the grow region outside the domain.  The region of index space
-defining the domain is level-specific, and so is passed directly to
-the boundary function, as is the time, the grid spacing, and an 2 x D
-array indicating the numerical boundary condition to apply (adapted
-from the ``inputs`` file parameters of the run). The task of this
-routine is to set values in the grow cells of the input array
-accordingly.  Generally, this is done by first calling a utility
-function, ``filcc``, that can fill grow cells for all of the boundary
-condition types, **except** ``EXT_DIR`` (external Dirichlet) --
-Dirichlet values must be set directly by the user.  Below, we include
-an example of typical logic for carrying this out.  First ``filcc`` is
-called, and then each boundary orientation is checked for whether the
-Dirichlet conditions need to be applied.  If so, corresponding values
-are set.  Here, we've made use of a local convenience function,
-``bcfunction`` endowed with the knowledge of all boundary values, and
+In `PeleLM`, a single function is used to fill all the state
+component at physical boundaries. The function ``bcnormal``
+is in the ``pelelm_prob.H`` file. The main objective of this
+function is to fill the ``s_ext`` array fill boundary state
+data.
+The function ``bcnormal`` is called on each side (`lo` or `hi`)
+for each spatial dimension and will be used to fill the ghost cells
+of the state variables for which the `PeleLM` internal boundary condition is 
+``EXT_DIR`` (external Dirichlet) on that face. For example, specifying
+a `PeleLM` ``Inflow`` boundary condition on the lower face in the y direction in the
+input file leads to an ``EXT_DIR`` for species mass fraction, which then need 
+to be provided in ``bcnormal``. An example of the ``bcnormal`` of the FlameSheet
+is presented here:
+
+::
+
+   AMREX_GPU_DEVICE
+   AMREX_FORCE_INLINE
+   void
+   bcnormal(
+     const amrex::Real x[AMREX_SPACEDIM],
+     amrex::Real s_ext[DEF_NUM_STATE],
+     const int idir,
+     const int sgn,
+     const amrex::Real time,
+     amrex::GeometryData const& geomdata,
+     ProbParm const& prob_parm,
+     ACParm const& ac_parm,
+     PmfData const *pmf_data)
+   {
+     const amrex::Real* prob_lo = geomdata.ProbLo();
+     const amrex::Real* prob_hi = geomdata.ProbHi();
+     amrex::GpuArray<amrex::Real, NUM_SPECIES + 4> pmf_vals = {0.0};
+     amrex::Real molefrac[NUM_SPECIES] = {0.0};
+     amrex::Real massfrac[NUM_SPECIES] = {0.0};
+
+     if (sgn == 1) {
+       PMF::pmf(pmf_data,prob_lo[idir], prob_lo[idir], pmf_vals);
+   
+       s_ext[Xvel] = 0.0;
+   #if ( AMREX_SPACEDIM == 2 )
+       s_ext[Yvel] = pmf_vals[1]*1e-2;
+   #elif (AMREX_SPACEDIM == 3)
+       s_ext[Yvel] = 0.0;
+       s_ext[Zvel] = pmf_vals[1]*1e-2;
+   #endif
+   
+       s_ext[DEF_Temp] = pmf_vals[0];
+   
+       for (int n = 0; n < NUM_SPECIES; n++){
+         molefrac[n] = pmf_vals[3 + n];
+       }
+       EOS::X2Y(molefrac, massfrac);
+   
+       amrex::Real rho_cgs, P_cgs, RhoH_temp;
+       P_cgs = prob_parm.P_mean * 10.0;
+   
+       EOS::PYT2R(P_cgs, massfrac, s_ext[DEF_Temp], rho_cgs);
+       s_ext[Density] = rho_cgs * 1.0e3;
+
+       EOS::TY2H(s_ext[DEF_Temp], massfrac, RhoH_temp);
+       s_ext[DEF_RhoH] = RhoH_temp * 1.0e-4 * s_ext[Density];   // CGS -> MKS conversion
+   
+       for (int n = 0; n < NUM_SPECIES; n++) {
+         s_ext[DEF_first_spec+n] = massfrac[n] * s_ext[Density];
+       }
+     }
+   }
+
+
+The ``sgn`` input takes a value of 1 on the low face and -1 on the high face,
+while ``ìdir`` provide the spatial direction (0, 1 or 2 corresponding to  X, Y or Z, respectively).
+This allow to differentiate between the various boundary conditions when more than 1 ``ÈXT_DIR``
+is needed. In this example, the boundary conditions are extracted from a pre-computed premixed flame
+which data are stored in the ``pmf_data`` structure.
+
+Here, we've made use of a local convenience function,
+``bcnormal`` endowed with the knowledge of all boundary values, and
 extract the appropriate quantity from the results of that call.  This
 was done to localize all boundary condition calculations to a single
 routine in the code, and helps to preserve consistency.  This is only
@@ -142,90 +201,6 @@ for this state, it makes no difference how the work is organized.
 For example, data may be provided by interpolating "live data" being
 actively generated by a co-running separate code, by interpolating data
 files, evaluating functional forms, etc.
-
-::
-
-    subroutine den_fill (den, d_lo, d_hi, &
-                         domlo, domhi, delta, &
-                         xlo, time, bc)&
-                         bind(C, name="den_fill")
-      
-      implicit none
-      integer :: d_lo(3), d_hi(3)
-      integer :: bc(dim,2)
-      integer :: domlo(3), domhi(3)
-      REAL_T  :: delta(3), xlo(3), time
-      REAL_T, dimension(d_lo(1):d_hi(1),d_lo(2):d_hi(2),d_lo(3):d_hi(3)) :: den
-      integer :: i, j, k
-
-      call amrex_filccn ( d_lo, d_hi, den, d_lo, d_hi, 1, domlo, domhi, delta, xlo, bc)
-
-      ! X-low boundary
-      if ((bc(1,1)==EXT_DIR).and.(d_lo(1)<domlo(1))) then
-         do i = d_lo(1), domlo(1)-1
-            do k = d_lo(3), d_hi(3)
-               do j = d_lo(2), d_hi(2)
-                  den(i,j,k) = ...
-               enddo
-            enddo
-         enddo
-      endif
-      
-      ! X-hi boundary
-      if ((bc(1,2)==EXT_DIR).and.(d_hi(1)>domhi(1))) then
-         do i = domhi(1)+1, d_hi(1)
-            do k = d_lo(3), d_hi(3)
-               do j = d_lo(2), d_hi(2)
-                  den(i,j,k) = ...
-               enddo
-            enddo
-         enddo
-      endif    
-
-      ! Y-low boundary
-      if ((bc(2,1)==EXT_DIR).and.(d_lo(2)<domlo(2))) then
-         do j = d_lo(2), domlo(2)-1
-            do k = d_lo(3), d_hi(3)
-               do i = d_lo(1), d_hi(1)
-                  den(i,j,k) = ...
-               enddo
-            enddo
-         enddo
-      endif    
-      
-      ! Y-hi boundary
-      if ((bc(2,2)==EXT_DIR).and.(d_hi(2)>domhi(2))) then
-         do j = domhi(2)+1, d_hi(2)
-            do k = d_lo(3),d_hi(3)
-               do i = d_lo(1), d_hi(1)
-                  den(i,j,k) = ...
-               enddo
-            enddo
-         enddo
-      endif
-
-      ! Z-low boundary
-      if ((bc(3,1)==EXT_DIR).and.(d_lo(3)<domlo(3))) then
-         do k = d_lo(3), domlo(3)-1
-            do j = d_lo(2), d_hi(2)
-               do i = d_lo(1), d_hi(1)
-                  den(i,j,k) = ...
-               enddo
-            enddo
-         enddo
-      endif    
-      
-      ! Z-hi boundary
-      if ((bc(3,2)==EXT_DIR).and.(d_hi(3)>domhi(3))) then
-         do k = domhi(3)+1, d_hi(3)
-            do j = d_lo(2), d_hi(2)
-               do i = d_lo(1), d_hi(1)
-                  den(i,j,k) = ...
-               enddo
-            enddo
-         enddo
-      endif
-   end subroutine den_fill
 
 Note that although the array structure to be filled contains valid cell-centered state data where it
 overlaps the valid domain, the values set in the grow cells of the container will be applied on the
@@ -286,5 +261,3 @@ Note that these additional user-created criteria operate in addition to those de
 these can be modified between restarts of the code.  By default, the new criteria will take effect at the next
 scheduled regrid operation.  Alternatively, the user may restart with ``amr.regrid_on_restart = 1`` in order to
 do a full (all-levels) regrid after reading the checkpoint data and before advancing any cells.
-
-
