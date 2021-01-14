@@ -34,12 +34,7 @@ point your web browser at the file ``${PELELM_DIR}/Docs/build/html/index.html``.
    GNUmakeSystem.rst
    RunningPeleLM.rst
    Visualization.rst
-   Tutorials_TripleFlame.rst
-   Tutorials_FlowPastCyl.rst
-   Tutorials_2.rst
-   Tutorials_3.rst
-   Tutorials_4.rst
-   Tutorials_5.rst
+   Tutorials.rst
 
 Indices and tables
 ==================
