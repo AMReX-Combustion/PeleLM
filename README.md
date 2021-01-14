@@ -55,10 +55,12 @@ to fork *PeleLM* main repo on your GitHub account, then clone the *PeleLM* depen
 [IAMR](https://github.com/AMReX-Codes/IAMR),
 [AMReX](https://github.com/AMReX-Codes/amrex)) along with your own *PeleLM* fork on your local machine.
 
-Then step into the *PeleLM* folder and add the main *PeleLM* repository as the `upstream` remote in order to keep track of the main repo:
-        git add remote upstream https://github.com/AMReX-Combustion/PeleLM
+Then step into the *PeleLM* folder and add the main *PeleLM* repository as the `upstream` remote in order to keep track of the main repo :
+
+       git add remote upstream https://github.com/AMReX-Combustion/PeleLM
 
 At any point, you can update the `developement` branch of your local repository with changes implemented in the main *PeleLM* repo by pulling from `upstream` : 
+
         git checkout development
         git pull upstream development
 
