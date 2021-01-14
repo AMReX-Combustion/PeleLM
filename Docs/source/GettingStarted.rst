@@ -4,7 +4,8 @@
 
 `PeleLM` Quickstart
 ===================
-
+`PeleLM` was created in 2017 by renaming `LMC`, the low Mach code from `CCSE <https://ccse.lbl.gov>`_, 
+and is built on the `AMReX` library, the `IAMR` code and the `PelePhysics` chemistry and thermodynamics library.
 For the impatient, the following summarizes how to obtain `PeleLM` and all the supporting software
 required, and how to build and run a simple case in order to obtain a first set of results.
 A thorough discussion of the model equations, and time stepping algorithms in `PeleLM` is
@@ -15,34 +16,59 @@ of the results from `PeleLM` is discussed in :ref:`sec:visualization`.
 Obtaining `PeleLM`
 ------------------
 
-First, make sure that "git" is installed on your machine---we recommend version 1.7.x or higher. Then...
+First, make sure that "git" is installed on your machine---we recommend version 1.7.x or higher.
+Then, there are two options to obtain `PeleLM` and its dependencies:
 
-1. Download the `AMReX` repository by typing: ::
+1. PeleProduction
+^^^^^^^^^^^^^^^^^
 
-    git clone https://github.com/AMReX-Codes/amrex.git
+   a. Download the `PeleProduction` repository and : ::
 
-This will create a folder called ``amrex/`` on your machine. Set the environment variable, ``AMREX_HOME``, on your
-machine to point to the path name where you have put `AMReX`::
+        git clone https://github.com/AMReX-Combustion/PeleProduction.git 
+
+        cd PeleProduction 
+
+   b. The first time you do this, you will need to tell git that there are submodules. Git will look at the ``.gitmodules`` file in this branch and use that : ::
+
+        cd Submodules
+        git submodule init 
+
+   c. Finally, get into the FlameSheet folder of the `PeleLM` submodule: ::
+
+        cd PeleLM/Exec/RegTests/FlameSheet
+
+2. Individual repositories
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+   a. Download the `AMReX` repository by typing: ::
+
+        git clone https://github.com/AMReX-Codes/amrex.git
+
+   This will create a folder called ``amrex/`` on your machine. Set the environment variable, ``AMREX_HOME``, on your
+   machine to point to the path name where you have put `AMReX`::
 
         export AMREX_HOME=/path/to/amrex/
         
-2. Download the `IAMR` repository by typing: ::
+   b. Download the `IAMR` repository by typing: ::
 
-    git clone https://github.com/AMReX-Codes/IAMR.git
+        git clone https://github.com/AMReX-Codes/IAMR.git
     
-This will create a folder called ``IAMR/`` on your machine.
-Set the environment variable, ``IAMR_HOME``.
+   This will create a folder called ``IAMR/`` on your machine.
+   Set the environment variable, ``IAMR_HOME``.
 
-3. Clone the `Pele` repositories: ::
+   c. Clone the `PeleLM` and `PelePhysics` repositories: ::
 
-    git clone git@github.com:AMReX-Combustion/PeleLM.git
-    git clone git@github.com:AMReX-Combustion/PelePhysics.git
+        git clone git@github.com:AMReX-Combustion/PeleLM.git
+        git clone git@github.com:AMReX-Combustion/PelePhysics.git
 
-This will create folders called ``PeleLM`` and ``PelePhysics`` on your machine.
-Set the environment variables, ``PELELM_HOME`` and ``PELE_PHYSICS_HOME``, respectively to where you put these.
+   This will create folders called ``PeleLM`` and ``PelePhysics`` on your machine.
+   Set the environment variables, ``PELELM_HOME`` and ``PELE_PHYSICS_HOME``, respectively to where you put these.
 
-4. Periodically update each of these repositories by typing ``git pull`` within each repository.
+   d. Periodically update each of these repositories by typing ``git pull`` within each repository.
 
+   e. Finally, get into the FlameSheet folder of the `PeleLM` submodule: ::
+
+        cd PeleLM/Exec/RegTests/FlameSheet
 
 Building `PeleLM`
 -----------------
@@ -52,15 +78,9 @@ sub-folder under ``$(PELELM_HOME)/Exec/``, and a local version of the
 `PeleLM` executable is built directly in that folder (object libraries are not used to manage `AMReX`
 and the application code).  In the following, we step through building a representative `PeleLM` executable.
 
-1. We will work in the folder containing setup for the `FlameSheet` problem in 2D
-(``$(PELELM_HOME)/Exec/RegTests/FlameSheet``).
-In this setup, cold fuel enters the domain bottom and passes through a flame sheet.
-Hot products exit the domain at the top.  The sides of the domain are periodic, and the coordinates are
-cartesian. Go to the problem-specific source folder::
+1. Regardless of which path you decided to choose in order to get the `PeleLM` code and its dependencies, you should be now be in the FlameSheet folder.
 
-    cd $(PELELM_HOME)/Exec/RegTests/FlameSheet
-
-2. Edit the ``GNUmakefile`` to ensure that the following are set::
+2. Edit the ``GNUmakefile`` to ensure that the following are set: ::
 
     DIM = 2
     COMP = gnu (or your favorite C++/F90 compiler suite)
@@ -72,8 +92,17 @@ If you want to try compilers other than those in the GNU suite, and you find tha
 work, please let us know.  Note that for centers managing their enviroments with "modules", the
 programming environment determining your available compiler should agree with your choice of ``COMP``
 in the ``GNUmakefile`` (e.g., ``PrgEnv-gnu`` module requires ``COMP=gnu``).
-If successful, the resulting executable name will look something like ``PeleLM2d.gnu.ex``.
 
+3. Start by building the Sundials Third Party Library used to integrate the chemistry: ::
+   
+    make TPL
+
+and finally build `PeleLM` executable: ::
+
+    make
+
+If successful, the resulting executable name will look something like ``PeleLM2d.gnu.ex``. Depending on your
+compilation option the actual name of the executable might vary (including ``MPI``, or ``DEBUG```, ...).
 
 Running `PeleLM`
 ----------------
