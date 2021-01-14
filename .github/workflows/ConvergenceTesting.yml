@@ -42,8 +42,8 @@ jobs:
       working-directory: ./Exec/RegTests/PeriodicCases
       run: |
         cp ${GITHUB_WORKSPACE}/build/amrex/Tools/Plotfile/fcompare.gnu.ex .
-        sed -i "s/    resolution =/    resolution = [32,64,128,256,512]/g" multiRuns.py
+        sed -i "s/[32,64,128,256]/[32,64,128,256,512]/g" multiRuns.py
         ./multiRuns.py --test_name GH_CI_CoVo --input_file inputs.2d_CoVo_Conv_pos45d 
-        sed -i "s/    resolution =/    resolution = [32,64,128,256,512]/g" pprocConvOrder.py
+        sed -i "s/[32,64,128,256]/[32,64,128,256,512]/g" pprocConvOrder.py
         ./pprocConvOrder.py ./fcompare.gnu.ex --test_name GH_CI_CoVo
         
