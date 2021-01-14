@@ -7,10 +7,10 @@
 ## Overview
 
 *PeleLM* is an adaptive-mesh low Mach number hydrodynamics code for reacting flows.
-*PeleLM* supports Embedded Boundary method to include complex geometries and is parallelized
+*PeleLM* supports Embedded Boundary method to represent complex geometries and is parallelized
 with MPI + OpenMP for CPUs and MPI + CUDA or MPI + HIP for GPUs.
 
-*PeleLM is part of the Pele combustion Suite and *PeleLM* has a project [homepage](https://amrex-combustion.github.io/PeleLM/).
+*PeleLM* is part of the Pele combustion Suite and *PeleLM* has a project [homepage](https://amrex-combustion.github.io/PeleLM/).
 Use [this link](https://groups.google.com/forum/#!forum/pelelmusers/join) to sign up for the PeleLM user forum, where
 updates and significant changes will be posted.  The forum is also where general questions can be posted about
 building and running the code, processing code output, and details about the algorithm and its implementation.
