@@ -16,7 +16,11 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - name: System Dependencies
-      run: .github/workflows/dependencies/dependencies.sh
+      run: |
+         .github/workflows/dependencies/dependencies.sh
+         sudo apt-get install -y python3-setuptools
+         python3 -m pip install --user numpy
+         python3 -m pip install --user argparse
     - name: Repo Dependencies
       run: Tools/CloneDeps.sh
     - name: Build AMReX Tools
