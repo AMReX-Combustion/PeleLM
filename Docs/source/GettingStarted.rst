@@ -23,7 +23,10 @@ Then, there are two options to obtain `PeleLM` and its dependencies:
 1. PeleProduction
 ^^^^^^^^^^^^^^^^^
 
-`PeleProduction` enable the user to obtain a consistent version of `PeleLM` and all its dependecies with a single git clone (from the user). This is the prefered option when one want to use `PeleLM` but do not intend to make development into the code. More information on `PeleProduction` can be found on the `GitHub page <https://github.com/AMReX-Combustion/PeleProduction.git>`_.
+`PeleProduction` enable the user to obtain a consistent version of `PeleLM` and all its dependencies
+ with a single git clone (from the user). This is the prefered option when one want to use `PeleLM` 
+but do not intend to make development into the code. More information on `PeleProduction` can be found 
+on the `GitHub page <https://github.com/AMReX-Combustion/PeleProduction.git>`_.
 
    a. Download the `PeleProduction` repository and : ::
 
@@ -43,8 +46,8 @@ Then, there are two options to obtain `PeleLM` and its dependencies:
 2. Individual repositories
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Alternatively, all the individual dependencies of `PeleLM` can be obtained independently. The user then need to provide environment variables for each of `AMReX`, `IAMR`, `PelePhysics` and `PeleLM` installation path.
-This method is intended for users wanting to modify the `PeleLM` source code and who are more confortable with maintaining up-to-date the four repositories.
+Alternatively, all the individual dependencies of `PeleLM` can be obtained independently. The user then needs to provide environment variables for each of `AMReX`, `IAMR`, `PelePhysics` and `PeleLM` installation path.
+This method is intended for users wanting to modify the `PeleLM` source code and who are more comfortable with maintaining up-to-date the four repositories.
 
    a. Download the `AMReX` repository by typing: ::
 

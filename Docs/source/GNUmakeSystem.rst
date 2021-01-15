@@ -90,8 +90,9 @@ and pgi. One must also set the ``DIM`` variable to either 1, 2, or 3, depending
 on the dimensionality of the problem.
 
 Variables ``DEBUG``, ``USE_MPI``, ``USE_OMP``, ``USE_CUDA`` and ``USE_HIP`` are optional with default set
-to TRUE, FALSE and FALSE, respectively.  The meaning of these variables should
-be obvious.  When ``DEBUG=TRUE``, aggressive compiler optimization flags are
+to TRUE, FALSE, FALSE, FALSE and FALSE, respectively. Note that the last three entries are mutually exclusive.
+The meaning of these variables should be obvious. 
+ When ``DEBUG=TRUE``, aggressive compiler optimization flags are
 turned off and assertions in source code are turned on. For production runs,
 ``DEBUG`` should be set to FALSE.
 
