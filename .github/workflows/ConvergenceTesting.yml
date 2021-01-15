@@ -21,6 +21,7 @@ jobs:
          sudo apt-get install -y python3-setuptools
          python3 -m pip install --user numpy
          python3 -m pip install --user argparse
+         python3 -m pip install --user matplotlib
     - name: Repo Dependencies
       run: Tools/CloneDeps.sh
     - name: Build AMReX Tools
@@ -42,8 +43,8 @@ jobs:
       working-directory: ./Exec/RegTests/PeriodicCases
       run: |
         cp ${GITHUB_WORKSPACE}/build/amrex/Tools/Plotfile/fcompare.gnu.ex .
-        sed -i "34s/.*/    resolution = [32,64,128,256,512]/" multiRuns.py
+        sed -i "34s/.*/    resolution = [32,64,128]/" multiRuns.py
         ./multiRuns.py --test_name GH_CI_CoVo --input_file inputs.2d_CoVo_Conv_pos45d 
-        sed -i "49s/.*/    resolution = [32,64,128,256,512]/" pprocConvOrder.py
+        sed -i "49s/.*/    resolution = [32,64,128]/" pprocConvOrder.py
         ./pprocConvOrder.py ./fcompare.gnu.ex --test_name GH_CI_CoVo
         cat Convergence_GH_CI_CoVo.dat
