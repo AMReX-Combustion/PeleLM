@@ -48,6 +48,7 @@ def pproc(args):
     vars=["y_velocity", "x_velocity", "avg_pressure" ]
     resolution = [32,64,128,256]        
     pproc_type = "fcompare"
+    Target = 2.00
 
     # Get a local copy of post-processing executable
     run_dir = os.getcwd()
@@ -123,12 +124,14 @@ def pproc(args):
         print("Wrong pproc_type: {}. should be either fcompare or diffsamedomain".format(pproc_type))
         return
 
-
     print(errors)
     # Plot data
     plotdata(errors, args.test_name, vars)
+    # Write data
     writetex(errors, args.test_name, vars)
     writeRegTestFile(errors, args.test_name, vars)
+    # Check convergence
+    passed = checkOrder(errors, args.test_name, vars, Target)
 
 def plotdata(data, test_name, vars):
     # Evaluate 2nd order slope
@@ -192,6 +195,19 @@ def writeRegTestFile(data, test_name, vars):
             fout.write("  {:.3f} ".format(conv_order[i,v]))
         fout.write("\n")
     fout.close()
+
+def checkOrder(data, test_name, vars, target):
+    # Evaluate order
+    conv_order = np.empty([len(data[:,0])-1,len(vars)])
+    for v in range(len(vars)):
+        for i in range(len(conv_order[:,0])):
+            conv_order[i,v] = np.log(data[i,v+1]/data[i+1,v+1])/np.log(2.0)
+
+    # Check: most refined value within 95% of target
+    for v in range(len(vars)):
+        if ( conv_order[-1,v] < 0.95*target):
+            errorStatement="{} did not reach target convergence order: {} < 0.95*{}".format(vars[v],conv_order[-1,v],target)
+            raise ValueError(errorStatement)
 
 def parse_args(arg_string=None):
     parser = argparse.ArgumentParser(description=USAGE)

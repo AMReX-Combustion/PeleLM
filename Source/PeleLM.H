@@ -70,7 +70,7 @@ public:
   
   virtual ~LM_Error_Value () {}
   
-  virtual amrex::ErrorRec::ErrorFunc* clone () const {
+  virtual amrex::ErrorRec::ErrorFunc* clone () const override {
     if (BoxTag()) {
       return new LM_Error_Value(lmef_box,box,min_time,max_time,max_level);
     }
@@ -223,9 +223,7 @@ public:
   void advance_chemistry (amrex::MultiFab&       mf_old,
                           amrex::MultiFab&       mf_new,
                           amrex::Real            dt,
-                          const amrex::MultiFab& Force,
-                          int             nCompF,
-                          bool            use_stiff_solver = true);
+                          const amrex::MultiFab& Force);
 
   void compute_scalar_advection_fluxes_and_divergence (const amrex::MultiFab& Force,
                                                        const amrex::MultiFab& divu,
@@ -342,8 +340,7 @@ public:
 
   void calc_dpdt (amrex::Real      time,
                   amrex::Real      dt,
-                  amrex::MultiFab& dpdt,
-                  amrex::MultiFab* u_mac);
+                  amrex::MultiFab& dpdt);
 
   void checkTimeStep (amrex::Real dt);
 
@@ -630,6 +627,7 @@ public:
   static int         ctrl_nfilled;
   static int         ctrl_flameDir;
   static int         ctrl_pseudoGravity;
+  static int         ctrl_method;
   static std::string ctrl_AChistory;
   static amrex::Vector<amrex::Real> ctrl_time_pts;
   static amrex::Vector<amrex::Real> ctrl_velo_pts;
@@ -668,6 +666,7 @@ public:
   static int         do_diffuse_sync;
   static int         do_reflux_visc;
   static int         do_set_rho_to_species_sum;
+  static int         clipSpeciesOnRegrid;
   static int         zeroBndryVisc;
   static int         do_check_divudt;
   static int         hack_nochem;

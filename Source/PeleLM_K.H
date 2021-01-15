@@ -65,26 +65,33 @@ reactionRateRhoY(int i, int j, int k,
 {
    using namespace amrex::literals;
 
-   // Get rho from rhoY. Is there a better way ?
+   // mask < 0 is EB covered cells: no reactions.
+   if ( mask(i,j,k) < 0 ) {
+      for (int n = 0; n < NUM_SPECIES; n++) {
+         rhoYdot(i,j,k,n) = 0.0;
+      }
+      return;
+   }
+
+   // Get rho & Ys from rhoYs.
    amrex::Real rho = 0.0_rt;
-   amrex::Real rhoinv;
    for (int n = 0; n < NUM_SPECIES; n++) {
       rho += rhoY(i,j,k,n);
    }
-   rhoinv = 1.0_rt / rho;
-   amrex::Real y[NUM_SPECIES];
+   amrex::Real rhoinv = 1.0_rt / rho;
+   amrex::Real y[NUM_SPECIES] = {0.0_rt};
    for (int n = 0; n < NUM_SPECIES; n++) {
       y[n] = rhoY(i,j,k,n) * rhoinv;
    }
 
-   // Get T from Y/H. Was done like that before.
+   // Get T from Y/H.
    amrex::Real Tloc = T(i,j,k);
    amrex::Real H = rhoH(i,j,k) * rhoinv * 1.0e4_rt;      // Include MKS -> CGS conversion
    EOS::HY2T(H, y, Tloc);
 
-   // Get wdot. Don't like the temporary wdot there ...
+   // Get wdot.
    rho = rho * 0.001_rt;                                 // rho MKS -> CGS
-   amrex::Real wdot[NUM_SPECIES];
+   amrex::Real wdot[NUM_SPECIES] = {0.0_rt};
    EOS::RTY2WDOT(rho, Tloc, y, wdot);
    for (int n = 0; n < NUM_SPECIES; n++) {
       rhoYdot(i,j,k,n) = wdot[n] * 1000.0_rt;            // CGS -> MKS conversion
@@ -105,7 +112,7 @@ getPGivenRTY(int i, int j, int k,
    amrex::Real rhoinv  = 1.0_rt / rho(i,j,k);
    amrex::Real rho_cgs = rho(i,j,k) * 0.001_rt;
 
-   amrex::Real y[NUM_SPECIES];
+   amrex::Real y[NUM_SPECIES] = {0.0_rt};
    for (int n = 0; n < NUM_SPECIES; n++) {
       y[n] = rhoY(i,j,k,n) * rhoinv;
    }
@@ -127,7 +134,7 @@ getRHmixGivenTY(int i, int j, int k,
    using namespace amrex::literals;
 
    amrex::Real rhoinv  = 1.0_rt / rho(i,j,k);
-   amrex::Real y[NUM_SPECIES];
+   amrex::Real y[NUM_SPECIES] = {0.0_rt};
    for (int n = 0; n < NUM_SPECIES; n++) {
       y[n] = rhoY(i,j,k,n) * rhoinv;
    }
@@ -147,7 +154,7 @@ getMwmixGivenRY(int i, int j, int k,
    using namespace amrex::literals;
 
    amrex::Real rhoinv  = 1.0_rt / rho(i,j,k);
-   amrex::Real y[NUM_SPECIES];
+   amrex::Real y[NUM_SPECIES] = {0.0_rt};
    for (int n = 0; n < NUM_SPECIES; n++) {
       y[n] = rhoY(i,j,k,n) * rhoinv;
    }
@@ -165,7 +172,7 @@ getHGivenT(int i, int j, int k,
 {
    using namespace amrex::literals;
 
-   amrex::Real hi_spec[NUM_SPECIES];
+   amrex::Real hi_spec[NUM_SPECIES] = {0.0_rt};
    EOS::T2Hi(T(i,j,k), hi_spec);
    for (int n = 0; n < NUM_SPECIES; n++) {
       Hi(i,j,k,n) = hi_spec[n] * 0.0001_rt;            // CGS -> MKS conversion
@@ -191,12 +198,12 @@ buildAdvectionForcing(int i, int j, int k,
    using namespace amrex::literals;
 
    // Get species enthalpy
-   amrex::Real hi_spec[NUM_SPECIES];
+   amrex::Real hi_spec[NUM_SPECIES] = {0.0};
    EOS::T2Hi(T(i,j,k), hi_spec);
 
    // For species mass fractions
    amrex::Real rhoinv = 1.0_rt / rho(i,j,k);
-   amrex::Real y[NUM_SPECIES];
+   amrex::Real y[NUM_SPECIES] = {0.0};
 
    forceT(i,j,k) = dn(i,j,k,NUM_SPECIES+1) + ddn(i,j,k);
 
@@ -206,15 +213,11 @@ buildAdvectionForcing(int i, int j, int k,
       forceT(i,j,k) -= forceY(i,j,k,n) * hi_spec[n] * 0.0001_rt;     // forceT -= Sum{ hk. (Rk + Dnk) } with CGS -> MKS conversion of hk
    }
 
-   for (int n = 0; n < NUM_SPECIES; n++) {
-   }
-
    if ( closed_chamber == 1 ) forceT(i,j,k) += dp0dt;                // Add dp0/dt
 
-   amrex::Real cpmix;
-   amrex::Real cpmixinv;
+   amrex::Real cpmix = 0.0_rt;
    EOS::TY2Cp(T(i,j,k), y, cpmix);
-   cpmixinv = 1.0_rt / cpmix * 1.0e4_rt;                             // CGS -> MKS conversion
+   amrex::Real cpmixinv = 1.0_rt / cpmix * 1.0e4_rt;                 // CGS -> MKS conversion
    forceT(i,j,k) *= rhoinv * cpmixinv;
 
 }
@@ -231,7 +234,7 @@ getCpmixGivenRYT(int i, int j, int k,
    using namespace amrex::literals;
 
    amrex::Real rhoinv  = 1.0_rt / rho(i,j,k);
-   amrex::Real y[NUM_SPECIES];
+   amrex::Real y[NUM_SPECIES] = {0.0};
    for (int n = 0; n < NUM_SPECIES; n++) {
       y[n] = rhoY(i,j,k,n) * rhoinv;
    }
@@ -252,12 +255,11 @@ getTGivenHY(int i, int j, int k,
    using namespace amrex::literals;
 
    amrex::Real rhoinv  = 1.0_rt / rho(i,j,k);
-   amrex::Real y[NUM_SPECIES];
+   amrex::Real y[NUM_SPECIES] = {0.0};
    for (int n = 0; n < NUM_SPECIES; n++) {
       y[n] = rhoY(i,j,k,n) * rhoinv;
    }
    amrex::Real H = rhoH(i,j,k) * rhoinv * 1.0e4_rt;   // MKS -> CGS conversion
-
    EOS::HY2T(H, y, T(i,j,k));
 }
 
@@ -274,26 +276,25 @@ compute_divu(int i, int j, int k,
 {
    using namespace amrex::literals;
 
-   amrex::Real mwtinv[NUM_SPECIES];
+   amrex::Real mwtinv[NUM_SPECIES] = {0.0};
    EOS::inv_molecular_weight(mwtinv);
 
    // Get rho & Y from rhoY
    amrex::Real rho = 0.0_rt;
-   amrex::Real rhoinv;
    for (int n = 0; n < NUM_SPECIES; n++) {
       rho += rhoY(i,j,k,n);
    }
-   rhoinv = 1.0_rt / rho;
-   amrex::Real y[NUM_SPECIES];
+   amrex::Real rhoinv = 1.0_rt / rho;
+   amrex::Real y[NUM_SPECIES] = {0.0};
    for (int n = 0; n < NUM_SPECIES; n++) {
       y[n] = rhoY(i,j,k,n) * rhoinv;
    }
 
-   amrex::Real cpmix;
-   amrex::Real Wbar;
-   amrex::Real hi[NUM_SPECIES];;
+   amrex::Real cpmix = 0.0_rt;
    EOS::TY2Cp(T(i,j,k), y, cpmix);
+   amrex::Real Wbar = 0.0_rt;
    EOS::Y2WBAR(y, Wbar);
+   amrex::Real hi[NUM_SPECIES] = {0.0};
    EOS::T2Hi(T(i,j,k), hi);
    cpmix *= 1.0e-4_rt;                                // CGS -> MKS conversion
    for (int n = 0; n < NUM_SPECIES; n++) {
@@ -335,19 +336,18 @@ getGammaInv(int i, int j, int k,
 
    // Get rho & Y from rhoY
    amrex::Real rho = 0.0_rt;
-   amrex::Real rhoinv;
    for (int n = 0; n < NUM_SPECIES; n++) {
       rho += rhoY(i,j,k,n);
    }
-   rhoinv = 1.0_rt / rho;
-   amrex::Real y[NUM_SPECIES];
+   amrex::Real rhoinv = 1.0_rt / rho;
+   amrex::Real y[NUM_SPECIES] = {0.0};
    for (int n = 0; n < NUM_SPECIES; n++) {
       y[n] = rhoY(i,j,k,n) * rhoinv;
    }
 
-   amrex::Real cpmix;
-   amrex::Real cvmix;
+   amrex::Real cpmix = 0.0_rt;
    EOS::TY2Cp(T(i,j,k), y, cpmix);
+   amrex::Real cvmix = 0.0_rt;
    EOS::TY2Cv(T(i,j,k), y, cvmix);
    
    amrex::Real gammainv = cvmix / cpmix;
@@ -366,13 +366,12 @@ getRhoGivenTYP(int i, int j, int k,
 {
    using namespace amrex::literals;
 
-   amrex::Real rho_cgs;
-   amrex::Real P_cgs;
-   amrex::Real y[NUM_SPECIES];
-   P_cgs = Patm * EOS::PATM;
+   amrex::Real P_cgs = Patm * EOS::PATM;
+   amrex::Real y[NUM_SPECIES] = {0.0};
    for (int n = 0; n < NUM_SPECIES; n++) {
       y[n] = Y(i,j,k,n);                       // TODO: need to find a way not to do that
    }
+   amrex::Real rho_cgs = 0.0_rt;
    EOS::PYT2R(P_cgs, y, T(i,j,k), rho_cgs);
    rho(i,j,k) = rho_cgs * 1.0e3_rt;            // CGS -> MKS conversion
 }
@@ -390,29 +389,28 @@ getTransportCoeff(int i, int j, int k,
 {
    using namespace amrex::literals;
 
-   amrex::Real mwtinv[NUM_SPECIES];
+   amrex::Real mwtinv[NUM_SPECIES] = {0.0};
    EOS::inv_molecular_weight(mwtinv);
 
    // Get rho & Y from rhoY
    amrex::Real rho = 0.0_rt;
-   amrex::Real rhoinv;
    for (int n = 0; n < NUM_SPECIES; n++) {
       rho += rhoY(i,j,k,n);
    }
-   rhoinv = 1.0_rt / rho;
-   amrex::Real y[NUM_SPECIES];
+   amrex::Real rhoinv = 1.0_rt / rho;
+   amrex::Real y[NUM_SPECIES] = {0.0};
    for (int n = 0; n < NUM_SPECIES; n++) {
       y[n] = rhoY(i,j,k,n) * rhoinv;
    }
 
-   amrex::Real Wbar;
+   amrex::Real Wbar = 0.0_rt;
    EOS::Y2WBAR(y, Wbar);
 
    rho *= 1.0e-3_rt;                          // MKS -> CGS conversion
-   amrex::Real rhoDi_cgs[NUM_SPECIES];
-   amrex::Real lambda_cgs;
-   amrex::Real mu_cgs;
-   amrex::Real dummy_xi;
+   amrex::Real rhoDi_cgs[NUM_SPECIES] = {0.0};
+   amrex::Real lambda_cgs = 0.0_rt;
+   amrex::Real mu_cgs = 0.0_rt;
+   amrex::Real dummy_xi = 0.0_rt;
    amrex::Real Tloc = T(i,j,k);
 
    bool get_xi = false;
@@ -447,21 +445,20 @@ getTransportCoeffUnityLe(int i, int j, int k,
 
    // Get rho & Y from rhoY
    amrex::Real rho = 0.0_rt;
-   amrex::Real rhoinv;
    for (int n = 0; n < NUM_SPECIES; n++) {
       rho += rhoY(i,j,k,n);
    }
-   rhoinv = 1.0_rt / rho;
-   amrex::Real y[NUM_SPECIES];
+   amrex::Real rhoinv = 1.0_rt / rho;
+   amrex::Real y[NUM_SPECIES] = {0.0};
    for (int n = 0; n < NUM_SPECIES; n++) {
       y[n] = rhoY(i,j,k,n) * rhoinv;
    }
 
    rho *= 1.0e-3_rt;                                     // MKS -> CGS conversion
-   amrex::Real rhoDi_cgs[NUM_SPECIES];
-   amrex::Real lambda_cgs;
-   amrex::Real mu_cgs;
-   amrex::Real dummy_xi;
+   amrex::Real rhoDi_cgs[NUM_SPECIES] = {0.0};
+   amrex::Real lambda_cgs = 0.0_rt;
+   amrex::Real mu_cgs = 0.0_rt;
+   amrex::Real dummy_xi = 0.0_rt;
 
    bool get_xi = false;
    bool get_mu = true;
@@ -475,7 +472,7 @@ getTransportCoeffUnityLe(int i, int j, int k,
       rhoDi(i,j,k,n) = mu_cgs * 1.0e-1_rt * ScInv;       // Constant Schmidt number
    }
 
-   amrex::Real cpmix;
+   amrex::Real cpmix = 0.0_rt;
    EOS::TY2Cp(T(i,j,k), y, cpmix);
    lambda(i,j,k) = mu_cgs * 1.0e-1_rt * PrInv * cpmix;   // Constant Prandtl number
 }
@@ -492,7 +489,7 @@ getTfromHY(int i, int j, int k,
    using namespace amrex::literals;
 
    amrex::Real rhoinv = 1.0_rt / rho(i,j,k);
-   amrex::Real y[NUM_SPECIES];
+   amrex::Real y[NUM_SPECIES] = {0.0};
    for (int n = 0; n < NUM_SPECIES; n++) {
       y[n] = rhoY(i,j,k,n) * rhoinv;
    }
@@ -515,21 +512,20 @@ getVelViscosity(int i, int j, int k,
 
    // Get rho & Y from rhoY
    amrex::Real rho = 0.0_rt;
-   amrex::Real rhoinv;
    for (int n = 0; n < NUM_SPECIES; n++) {
       rho += rhoY(i,j,k,n);
    }
-   rhoinv = 1.0_rt / rho;
-   amrex::Real y[NUM_SPECIES];
+   amrex::Real rhoinv = 1.0_rt / rho;
+   amrex::Real y[NUM_SPECIES] = {0.0};
    for (int n = 0; n < NUM_SPECIES; n++) {
       y[n] = rhoY(i,j,k,n) * rhoinv;
    }
 
    rho *= 1.0e-3_rt;                          // MKS -> CGS conversion
-   amrex::Real dummy_rhoDi[NUM_SPECIES];
-   amrex::Real dummy_lambda;
-   amrex::Real mu_cgs;
-   amrex::Real dummy_xi;
+   amrex::Real dummy_rhoDi[NUM_SPECIES] = {0.0};
+   amrex::Real dummy_lambda = 0.0_rt;
+   amrex::Real mu_cgs = 0.0_rt;
+   amrex::Real dummy_xi = 0.0_rt;
 
    bool get_xi = false;
    bool get_mu = true;
@@ -555,21 +551,20 @@ getConductivity(int i, int j, int k,
 
    // Get rho & Y from rhoY
    amrex::Real rho = 0.0_rt;
-   amrex::Real rhoinv;
    for (int n = 0; n < NUM_SPECIES; n++) {
       rho += rhoY(i,j,k,n);
    }
-   rhoinv = 1.0_rt / rho;
-   amrex::Real y[NUM_SPECIES];
+   amrex::Real rhoinv = 1.0_rt / rho;
+   amrex::Real y[NUM_SPECIES] = {0.0};
    for (int n = 0; n < NUM_SPECIES; n++) {
       y[n] = rhoY(i,j,k,n) * rhoinv;
    }
 
    rho *= 1.0e-3_rt;                          // MKS -> CGS conversion
-   amrex::Real dummy_rhoDi[NUM_SPECIES];
-   amrex::Real lambda_cgs;
-   amrex::Real dummy_mu;
-   amrex::Real dummy_xi;
+   amrex::Real dummy_rhoDi[NUM_SPECIES] = {0.0};
+   amrex::Real lambda_cgs = 0.0_rt;
+   amrex::Real dummy_mu = 0.0_rt;
+   amrex::Real dummy_xi = 0.0_rt;
 
    bool get_xi = false;
    bool get_mu = false;
@@ -774,7 +769,7 @@ est_divu_dt_1(int i, int j, int k,
               int                                          const& step_type,
               amrex::Real                                  const& dtfactor,
               amrex::Real                                  const& rhomin,
-              amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> const dxinv,
+              amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> const /*dxinv*/,
               amrex::Array4<const amrex::Real>             const& rho,
               amrex::Array4<const amrex::Real>             const& divu) noexcept
 {
@@ -782,7 +777,6 @@ est_divu_dt_1(int i, int j, int k,
    AMREX_ASSERT(step_type==1); 
 
    amrex::Real dtcell = 1.0e20_rt;
-   amrex::Real denom  = 0.0_rt;
    bool rho_is_okay = (rho(i,j,k) > rhomin);
 
    if ( divu(i,j,k) > 0.0_rt ) {
@@ -835,10 +829,6 @@ repair_flux(int i, int j, int k,
 {
    using namespace amrex::literals;
 
-   amrex::Real sumFlux = 0.0_rt;
-   amrex::Real sumRhoYe = 0.0_rt;
-   amrex::Real RhoYe[NUM_SPECIES];
-
    // Handle the BCs : need a -1 on id_l in dir away from the BC
    // Need -1 in id_l and id_h in dir on low Dirichlet BC
    // Need nothing on high Dirichlet BC
@@ -853,6 +843,9 @@ repair_flux(int i, int j, int k,
       id_h[dir] -= 1;
    }
 
+   amrex::Real sumFlux = 0.0_rt;
+   amrex::Real sumRhoYe = 0.0_rt;
+   amrex::Real RhoYe[NUM_SPECIES] = {0.0};
    for (int n = 0; n < NUM_SPECIES; n++) {
       sumFlux += flux(i,j,k,n);
       RhoYe[n] = 0.5_rt * (rhoY(id_l[0],id_l[1],id_l[2],n) + rhoY(id_h[0],id_h[1],id_h[2],n));
@@ -879,15 +872,14 @@ repair_flux_eb(int i, int j, int k,
 {
    using namespace amrex::literals;
 
-   amrex::Real sumFlux = 0.0_rt;
-   amrex::Real sumRhoYe = 0.0_rt;
-   amrex::Real RhoYe[NUM_SPECIES];
-
    // Handle the BCs : need a -1 on id_l in dir on Dirichlet BC
    int  id_l[3] = {i,j,k};
    id_l[dir] -= 1;
 
    if ( areafrac(i,j,k) > 0.0_rt ) {
+      amrex::Real sumFlux = 0.0_rt;
+      amrex::Real sumRhoYe = 0.0_rt;
+      amrex::Real RhoYe[NUM_SPECIES] = {0.0};
       for (int n = 0; n < NUM_SPECIES; n++) {
          sumFlux += flux(i,j,k,n);
          RhoYe[n] = rhoYed(i,j,k,n);
@@ -960,11 +952,11 @@ makeForce(int i, int j, int k,
           int                                     scomp,
           int                                     ncomp,
           int                                     pseudo_gravity,
-          const amrex::Real                     & time,
+          const amrex::Real                     & /*time*/,
           const amrex::Real                     & gravity,
           const amrex::Real                     & dV_control,
-          amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> const dx,
-          amrex::Array4<const amrex::Real> const& vel,
+          amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> const /*dx*/,
+          amrex::Array4<const amrex::Real> const& /*vel*/,
           amrex::Array4<const amrex::Real> const& scal,
           amrex::Array4<      amrex::Real> const& force) noexcept
 {

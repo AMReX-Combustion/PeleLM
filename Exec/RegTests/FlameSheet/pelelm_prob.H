@@ -4,6 +4,7 @@
 #include <AMReX_Geometry.H>
 #include <AMReX_FArrayBox.H>
 #include <AMReX_ParmParse.H>
+#include <AMReX_SPACE.H>
 
 #include <pelelm_prob_parm.H>
 #include <pmf.H>
@@ -28,16 +29,15 @@ pelelm_initdata (int i, int j, int k,
     const amrex::Real* prob_hi = geomdata.ProbHi();
     const amrex::Real* dx      = geomdata.CellSize();
 
-    const amrex::Real z = prob_lo[2] + (k+0.5)*dx[2];
-    const amrex::Real y = prob_lo[1] + (j+0.5)*dx[1];
-    const amrex::Real x = prob_lo[0] + (i+0.5)*dx[0];
+    AMREX_D_TERM(const amrex::Real x = prob_lo[0] + (i+0.5)*dx[0];,
+                 const amrex::Real y = prob_lo[1] + (j+0.5)*dx[1];,
+                 const amrex::Real z = prob_lo[2] + (k+0.5)*dx[2];);
 
     constexpr amrex::Real Pi = 3.14159265358979323846264338327950288;
+
     const amrex::Real L_x = prob_hi[0] - prob_lo[0];
-    const amrex::Real L_y = prob_hi[1] - prob_lo[1];
 
     amrex::GpuArray<amrex::Real, NUM_SPECIES + 4> pmf_vals = {0.0};
-    amrex::Real u[3] = {0.0};
     amrex::Real molefrac[NUM_SPECIES] = {0.0};
     amrex::Real massfrac[NUM_SPECIES] = {0.0};
     amrex::Real pert;
@@ -60,7 +60,9 @@ pelelm_initdata (int i, int j, int k,
 
     y1 = (y - prob_parm.standoff - 0.5*dx[1] + pert)*100;
     y2 = (y - prob_parm.standoff + 0.5*dx[1] + pert)*100;
+
 #elif ( AMREX_SPACEDIM == 3 ) 
+       const amrex::Real L_y = prob_hi[1] - prob_lo[1];
        pert = prob_parm.pertmag *
              (1.0 * std::sin(2 * Pi * 4 * x / L_x) *
                 std::sin(2 * Pi * 5 * y / L_y) +
@@ -71,9 +73,6 @@ pelelm_initdata (int i, int j, int k,
               1.017 * std::sin(2 * Pi * 5 * (x - 0.0033) / L_x) *
                 std::sin(2 * Pi * 6 * (y - 0.018) / L_y) +
               0.982 * std::sin(2 * Pi * 5 * (x - 0.014234) / L_x));
-
-
-
     }
 
     y1 = (z - prob_parm.standoff - 0.5*dx[2] + pert)*100;
@@ -117,7 +116,7 @@ AMREX_GPU_DEVICE
 AMREX_FORCE_INLINE
 void
 bcnormal(
-  const amrex::Real x[AMREX_SPACEDIM],
+  const amrex::Real* /*x[AMREX_SPACEDIM]*/,
   amrex::Real s_ext[DEF_NUM_STATE],
   const int idir,
   const int sgn,
@@ -128,7 +127,6 @@ bcnormal(
   PmfData const *pmf_data)
 {
   const amrex::Real* prob_lo = geomdata.ProbLo();
-  const amrex::Real* prob_hi = geomdata.ProbHi();
   amrex::GpuArray<amrex::Real, NUM_SPECIES + 4> pmf_vals = {0.0};
   amrex::Real molefrac[NUM_SPECIES] = {0.0};
   amrex::Real massfrac[NUM_SPECIES] = {0.0};
@@ -180,20 +178,13 @@ bcnormal(
 AMREX_GPU_DEVICE
 AMREX_FORCE_INLINE
 void
-zero_visc (int i, int j, int k,
-           amrex::Array4<amrex::Real> const& beta,
-           amrex::GeometryData const& geomdata,
-           amrex::Box const& dBox,
-           const int  dir,
-           const int  state_comp,
-           const int  nComp)
+zero_visc (int /*i*/, int /*j*/, int /*k*/,
+           amrex::Array4<amrex::Real> const& /*beta*/,
+           amrex::GeometryData const& /*geomdata*/,
+           amrex::Box const& /*dBox*/,
+           const int  /*dir*/,
+           const int  /*state_comp*/,
+           const int  /*nComp*/)
 {
-
-    const amrex::Real* prob_lo = geomdata.ProbLo();
-    const amrex::Real* dx      = geomdata.CellSize();
-    const amrex::Real z = prob_lo[2] + (k+0.5)*dx[2];
-    const amrex::Real y = prob_lo[1] + (j+0.5)*dx[1];
-    const amrex::Real x = prob_lo[0] + (i+0.5)*dx[0];
-
 }
 #endif
