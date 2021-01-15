@@ -3,6 +3,7 @@
 [![AMReX Badge](https://amrex-codes.github.io/badges/powered%20by-AMReX-red.svg)](https://amrex-codes.github.io/amrex/)
 [![Documentation Status](https://readthedocs.org/projects/pelelm/badge/?version=latest)](https://pelelm.readthedocs.io/en/latest/?badge=latest)
 [![License PeleLM](https://img.shields.io/badge/license-BSD--3--Clause--LBNL-blue.svg)](https://spdx.org/licenses/BSD-3-Clause-LBNL.html)
+![ConvergenceTesting](https://github.com/AMReX-Combustion/PeleLM/workflows/ConvergenceTesting/badge.svg)
 
 ## Overview
 
