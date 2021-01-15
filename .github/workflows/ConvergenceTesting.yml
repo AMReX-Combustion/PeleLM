@@ -1,10 +1,8 @@
 name: ConvergenceTesting                                                                                                                                            
-
 on: 
    workflow_dispatch:
    schedule:
       - cron: '0 2 * * *'
-
 
 jobs:
   #Run the convergence test on CoVo
@@ -43,10 +41,10 @@ jobs:
       working-directory: ./Exec/RegTests/PeriodicCases
       run: |
         cp ${GITHUB_WORKSPACE}/build/amrex/Tools/Plotfile/fcompare.gnu.ex .
-        sed -i "34s/.*/    resolution = [32,64,128,256]/" multiRuns.py
+        sed -i "34s/.*/    resolution = [32,64,128,256,512]/" multiRuns.py
         sed -i "s/mpiexec -n 1/mpiexec -n 4/g" multiRuns.py 
         ./multiRuns.py --test_name GH_CI_CoVo --input_file inputs.2d_CoVo_Conv_pos45d 
-        sed -i "49s/.*/    resolution = [32,64,128,256]/" pprocConvOrder.py
+        sed -i "49s/.*/    resolution = [32,64,128,256,512]/" pprocConvOrder.py
         ./pprocConvOrder.py ./fcompare.gnu.ex --test_name GH_CI_CoVo
         cat Convergence_GH_CI_CoVo.dat
 
@@ -86,11 +84,11 @@ jobs:
       working-directory: ./Exec/RegTests/PeriodicCases
       run: |
         cp ${GITHUB_WORKSPACE}/build/amrex/Tools/Plotfile/fcompare.gnu.ex .
-        sed -i "34s/.*/    resolution = [32,64,128,256]/" multiRuns.py
+        sed -i "34s/.*/    resolution = [32,64,128,256,512]/" multiRuns.py
         sed -i "s/mpiexec -n 1/mpiexec -n 4/g" multiRuns.py 
         ./multiRuns.py --test_name GH_CI_CoGauT --input_file inputs.2d_CoGauTemp_Conv_pos45d
         sed -i '48s/.*/    vars=["density", "temp", "rhoh" ]/' pprocConvOrder.py
-        sed -i "49s/.*/    resolution = [32,64,128,256]/" pprocConvOrder.py
+        sed -i "49s/.*/    resolution = [32,64,128,256,512]/" pprocConvOrder.py
         ./pprocConvOrder.py ./fcompare.gnu.ex --test_name GH_CI_CoGauT
         cat Convergence_GH_CI_CoGauT.dat
 
@@ -130,10 +128,10 @@ jobs:
       working-directory: ./Exec/RegTests/PeriodicCases
       run: |
         cp ${GITHUB_WORKSPACE}/build/amrex/Tools/Plotfile/fcompare.gnu.ex .
-        sed -i "34s/.*/    resolution = [32,64,128,256]/" multiRuns.py
+        sed -i "34s/.*/    resolution = [32,64,128,256,512]/" multiRuns.py
         sed -i "s/mpiexec -n 1/mpiexec -n 4/g" multiRuns.py 
         ./multiRuns.py --test_name GH_CI_CoGauS --input_file inputs.2d_CoGauSpec_Conv_neg45d
         sed -i '48s/.*/    vars=["density", "Y(N2)", "Y(O2)" ]/' pprocConvOrder.py
-        sed -i "49s/.*/    resolution = [32,64,128,256]/" pprocConvOrder.py
+        sed -i "49s/.*/    resolution = [32,64,128,256,512]/" pprocConvOrder.py
         ./pprocConvOrder.py ./fcompare.gnu.ex --test_name GH_CI_CoGauS
         cat Convergence_GH_CI_CoGauS.dat
