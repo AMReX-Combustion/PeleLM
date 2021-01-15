@@ -57,6 +57,7 @@ def multiRun(args):
         runtime_params = "amr.n_cell={} {} {} ".format(case,case,case)
         runtime_params += "amr.plot_file={}_plt_{}_".format(args.test_name,case)
         os.system("mpiexec -n 1 ./{} {} {} > {}".format(executable, args.input_file, runtime_params, outfile))
+        os.system("cat {}".format(outfile)) 
 
 def parse_args(arg_string=None):
     parser = argparse.ArgumentParser(description=USAGE)
