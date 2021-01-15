@@ -66,13 +66,6 @@ ns.num_divu_iters    = 1               # Number of DivU iteration at initializat
 ns.sdc_iterMAX       = 2               # Number of SDC iterations
 ns.num_mac_sync_iter = 2               # Number of mac_sync iterations
 
-#--------------  INPUTS TO CVODE CHEMISTRY ------------------
-#peleLM.use_typ_vals_chem  = 1         # Use typical value to scale CVODE residual
-#peleLM.relative_tol_chem  = 1.0e-8    # CVODE relative tol
-#peleLM.absolute_tol_chem  = 1.0e-6    # CVODE absolute tol
-cvode.solve_type           = dense     # Linear solver type for Newton direction
-ode.analytical_jacobian    = 0         # Use analytical Jacobian
-
 #------------  INPUTS TO CONSTANT TRANSPORT -----------------
 transport.const_viscosity        = 0.0
 transport.const_bulk_viscosity   = 0.0
