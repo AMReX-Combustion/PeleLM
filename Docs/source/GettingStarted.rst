@@ -140,9 +140,9 @@ Visualization of the results
 ----------------------------
 
 There are several options for visualizing the data.  The popular
-packages `Vis-It` and `Paraview` support the `AMReX` file format natively,
+packages `Vis-It` and `Paraview` `support the `AMReX` file format natively <https://amrex-codes.github.io/amrex/docs_html/Visualization_Chapter.html>`_,
 as does the `yt` python package.  The standard tool used within the
-`AMReX`-community is `Amrvis`, a package developed and supported 
+`AMReX`-community is `Amrvis <https://github.com/AMReX-Codes/Amrvis>`_, a package developed and supported 
 by CCSE that is designed specifically for highly efficient visualization
 of block-structured hierarchical AMR data, however there are limited visualization
 tools available in `Amrvis`, so most users make use of multiple tools depending on their needs.
