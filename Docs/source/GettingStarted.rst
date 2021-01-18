@@ -23,8 +23,8 @@ Then, there are two options to obtain `PeleLM` and its dependencies:
 1. PeleProduction
 ^^^^^^^^^^^^^^^^^
 
-`PeleProduction` enable the user to obtain a consistent version of `PeleLM` and all its dependencies
- with a single git clone (from the user). This is the prefered option when one want to use `PeleLM` 
+`PeleProduction` enables the user to obtain a consistent version of `PeleLM` and all its dependencies
+ with a single git clone (from the user). This is the prefered option when one wants to use `PeleLM` 
 but do not intend to make development into the code. More information on `PeleProduction` can be found 
 on the `GitHub page <https://github.com/AMReX-Combustion/PeleProduction.git>`_.
 
@@ -37,7 +37,8 @@ on the `GitHub page <https://github.com/AMReX-Combustion/PeleProduction.git>`_.
    b. The first time you do this, you will need to tell git that there are submodules. Git will look at the ``.gitmodules`` file in this branch and use that : ::
 
         cd Submodules
-        git submodule init 
+        git submodule init
+        git submodule update 
 
    c. Finally, get into the FlameSheet folder of the `PeleLM` submodule: ::
 
@@ -75,7 +76,7 @@ This method is intended for users wanting to modify the `PeleLM` source code and
 
    d. Periodically update each of these repositories by typing ``git pull`` within each repository.
 
-   e. Finally, get into the ``FlameSheet`` folder of the `PeleLM` : ::
+   e. Finally, get into the ``FlameSheet`` folder of `PeleLM` : ::
 
         cd PeleLM/Exec/RegTests/FlameSheet
 
@@ -88,6 +89,13 @@ sub-folder under ``$(PELELM_HOME)/Exec/``, and a local version of the
 and the application code).  In the following, we step through building a representative `PeleLM` executable.
 
 1. Regardless of which path you decided to choose in order to get the `PeleLM` code and its dependencies, you should be now be in the ``FlameSheet`` folder.
+If you have chosen Option 2 to get the `PeleLM` sources, you have already set the environement variable necessary to compile the executable.
+If you have chosen the first option, you now have to modify the ``GNUmakefile`` to ensure that the variable ``TOP`` define on the first line
+points to the ``Submodules`` folder of `PeleProduction` : ::
+
+    TOP = /path/to/PeleProduction/Submodules
+
+such that the following lines provide path to `PeleLM` and its dependencies.
 
 2. Edit the ``GNUmakefile`` to ensure that the following are set: ::
 
