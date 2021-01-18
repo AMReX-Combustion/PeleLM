@@ -140,7 +140,7 @@ Visualization of the results
 ----------------------------
 
 There are several options for visualizing the data.  The popular
-packages `Vis-It` and `Paraview` `support the `AMReX` file format natively <https://amrex-codes.github.io/amrex/docs_html/Visualization_Chapter.html>`_,
+packages `Vis-It` and `Paraview` `support the AMReX file format natively <https://amrex-codes.github.io/amrex/docs_html/Visualization_Chapter.html>`_,
 as does the `yt` python package.  The standard tool used within the
 `AMReX`-community is `Amrvis <https://github.com/AMReX-Codes/Amrvis>`_, a package developed and supported 
 by CCSE that is designed specifically for highly efficient visualization
