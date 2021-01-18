@@ -95,13 +95,13 @@ points to the ``Submodules`` folder of `PeleProduction` : ::
 
     TOP = /path/to/PeleProduction/Submodules
 
-such that the following lines provide path to `PeleLM` and its dependencies.
+such that the following lines provide path to `PeleLM` and its dependencies. Note that an absolute path in needed.
 
 2. Edit the ``GNUmakefile`` to ensure that the following are set: ::
 
     DIM = 2
     COMP = gnu (or your favorite C++/F90 compiler suite)
-    DEBUG = TRUE
+    DEBUG = FALSE
     USE_MPI = FALSE
     USE_OMP = FALSE
 
@@ -119,7 +119,7 @@ such that the following lines provide path to `PeleLM` and its dependencies.
     make
 
 If successful, the resulting executable name will look something like ``PeleLM2d.gnu.ex``. Depending on your
-compilation option the actual name of the executable might vary (including ``MPI``, or ``DEBUG```, ...).
+compilation option the actual name of the executable might vary (including ``MPI``, or ``DEBUG``, ...).
 
 Running `PeleLM`
 ----------------
