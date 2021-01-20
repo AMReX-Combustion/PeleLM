@@ -26,7 +26,7 @@ VERBOSE         = FALSE
 TINY_PROFILE    = FALSE
 
 # CVODE
-USE_SUNDIALS_PP = TRUE
+USE_SUNDIALS_PP = FALSE
 USE_KLU_PP      = FALSE
 
 # Choose model (from list below), and pmf file
@@ -36,7 +36,7 @@ Chemistry_Model = air
 Eos_dir     := Fuego
 
 # This sets the network directory in $(PELE_PHYSICS_HOME)/Reactions
-Reactions_dir := Fuego
+Reactions_dir := Null
 
 # This sets the transport directory in $(PELE_PHYSICS_HOME)/Transport
 #Transport_dir := EGLib

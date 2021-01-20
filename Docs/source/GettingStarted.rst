@@ -4,7 +4,8 @@
 
 `PeleLM` Quickstart
 ===================
-
+`PeleLM` was created in 2017 by renaming `LMC`, the low Mach code from `CCSE <https://ccse.lbl.gov>`_, 
+and is built on the `AMReX` library, the `IAMR` code and the `PelePhysics` chemistry and thermodynamics library.
 For the impatient, the following summarizes how to obtain `PeleLM` and all the supporting software
 required, and how to build and run a simple case in order to obtain a first set of results.
 A thorough discussion of the model equations, and time stepping algorithms in `PeleLM` is
@@ -15,34 +16,69 @@ of the results from `PeleLM` is discussed in :ref:`sec:visualization`.
 Obtaining `PeleLM`
 ------------------
 
-First, make sure that "git" is installed on your machine---we recommend version 1.7.x or higher. Then...
+First, make sure that "git" is installed on your machine---we recommend version 1.7.x or higher.
 
-1. Download the `AMReX` repository by typing: ::
+Then, there are two options to obtain `PeleLM` and its dependencies:
 
-    git clone https://github.com/AMReX-Codes/amrex.git
+1. PeleProduction
+^^^^^^^^^^^^^^^^^
 
-This will create a folder called ``amrex/`` on your machine. Set the environment variable, ``AMREX_HOME``, on your
-machine to point to the path name where you have put `AMReX`::
+`PeleProduction` enables the user to obtain a consistent version of `PeleLM` and all its dependencies
+ with a single git clone (from the user). This is the prefered option when one wants to use `PeleLM` 
+but do not intend to make development into the code. More information on `PeleProduction` can be found 
+on the `GitHub page <https://github.com/AMReX-Combustion/PeleProduction.git>`_.
+
+   a. Download the `PeleProduction` repository and : ::
+
+        git clone https://github.com/AMReX-Combustion/PeleProduction.git 
+
+        cd PeleProduction 
+
+   b. The first time you do this, you will need to tell git that there are submodules. Git will look at the ``.gitmodules`` file in this branch and use that : ::
+
+        cd Submodules
+        git submodule init
+        git submodule update 
+
+   c. Finally, get into the FlameSheet folder of the `PeleLM` submodule: ::
+
+        cd PeleLM/Exec/RegTests/FlameSheet
+
+2. Individual repositories
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Alternatively, all the individual dependencies of `PeleLM` can be obtained independently. The user then needs to provide environment variables for each of `AMReX`, `IAMR`, `PelePhysics` and `PeleLM` installation path.
+This method is intended for users wanting to modify the `PeleLM` source code and who are more comfortable with maintaining up-to-date the four repositories.
+
+   a. Download the `AMReX` repository by typing: ::
+
+        git clone https://github.com/AMReX-Codes/amrex.git
+
+     This will create a folder called ``amrex/`` on your machine. Set the environment variable, ``AMREX_HOME``, on your
+     machine to point to the path name where you have put `AMReX`::
 
         export AMREX_HOME=/path/to/amrex/
         
-2. Download the `IAMR` repository by typing: ::
+   b. Download the `IAMR` repository by typing: ::
 
-    git clone https://github.com/AMReX-Codes/IAMR.git
+        git clone https://github.com/AMReX-Codes/IAMR.git
     
-This will create a folder called ``IAMR/`` on your machine.
-Set the environment variable, ``IAMR_HOME``.
+     This will create a folder called ``IAMR/`` on your machine.
+     Set the environment variable, ``IAMR_HOME``.
 
-3. Clone the `Pele` repositories: ::
+   c. Clone the `PeleLM` and `PelePhysics` repositories: ::
 
-    git clone git@github.com:AMReX-Combustion/PeleLM.git
-    git clone git@github.com:AMReX-Combustion/PelePhysics.git
+        git clone git@github.com:AMReX-Combustion/PeleLM.git
+        git clone git@github.com:AMReX-Combustion/PelePhysics.git
 
-This will create folders called ``PeleLM`` and ``PelePhysics`` on your machine.
-Set the environment variables, ``PELELM_HOME`` and ``PELE_PHYSICS_HOME``, respectively to where you put these.
+     This will create folders called ``PeleLM`` and ``PelePhysics`` on your machine.
+     Set the environment variables, ``PELELM_HOME`` and ``PELE_PHYSICS_HOME``, respectively to where you put these.
 
-4. Periodically update each of these repositories by typing ``git pull`` within each repository.
+   d. Periodically update each of these repositories by typing ``git pull`` within each repository.
 
+   e. Finally, get into the ``FlameSheet`` folder of `PeleLM` : ::
+
+        cd PeleLM/Exec/RegTests/FlameSheet
 
 Building `PeleLM`
 -----------------
@@ -52,28 +88,38 @@ sub-folder under ``$(PELELM_HOME)/Exec/``, and a local version of the
 `PeleLM` executable is built directly in that folder (object libraries are not used to manage `AMReX`
 and the application code).  In the following, we step through building a representative `PeleLM` executable.
 
-1. We will work in the folder containing setup for the `FlameSheet` problem in 2D
-(``$(PELELM_HOME)/Exec/RegTests/FlameSheet``).
-In this setup, cold fuel enters the domain bottom and passes through a flame sheet.
-Hot products exit the domain at the top.  The sides of the domain are periodic, and the coordinates are
-cartesian. Go to the problem-specific source folder::
+1. Regardless of which path you decided to choose in order to get the `PeleLM` code and its dependencies, you should be now be in the ``FlameSheet`` folder.
+If you have chosen Option 2 to get the `PeleLM` sources, you have already set the environement variable necessary to compile the executable.
+If you have chosen the first option, you now have to modify the ``GNUmakefile`` to ensure that the variable ``TOP`` define on the first line
+points to the ``Submodules`` folder of `PeleProduction` : ::
 
-    cd $(PELELM_HOME)/Exec/RegTests/FlameSheet
+    TOP = /path/to/PeleProduction/Submodules
 
-2. Edit the ``GNUmakefile`` to ensure that the following are set::
+such that the following lines provide path to `PeleLM` and its dependencies. Note that an absolute path in needed.
+
+2. Edit the ``GNUmakefile`` to ensure that the following are set: ::
 
     DIM = 2
     COMP = gnu (or your favorite C++/F90 compiler suite)
-    DEBUG = TRUE
+    DEBUG = FALSE
     USE_MPI = FALSE
     USE_OMP = FALSE
 
-If you want to try compilers other than those in the GNU suite, and you find that they don't
-work, please let us know.  Note that for centers managing their enviroments with "modules", the
-programming environment determining your available compiler should agree with your choice of ``COMP``
-in the ``GNUmakefile`` (e.g., ``PrgEnv-gnu`` module requires ``COMP=gnu``).
-If successful, the resulting executable name will look something like ``PeleLM2d.gnu.ex``.
+   If you want to try compilers other than those in the GNU suite, and you find that they don't
+   work, please let us know.  Note that for centers managing their enviroments with "modules", the
+   programming environment determining your available compiler should agree with your choice of ``COMP``
+   in the ``GNUmakefile`` (e.g., ``PrgEnv-gnu`` module requires ``COMP=gnu``).
 
+3. Start by building the Sundials Third Party Library used to integrate the chemistry: ::
+   
+    make TPL
+
+   and finally build `PeleLM` executable: ::
+
+    make
+
+If successful, the resulting executable name will look something like ``PeleLM2d.gnu.ex``. Depending on your
+compilation option the actual name of the executable might vary (including ``MPI``, or ``DEBUG``, ...).
 
 Running `PeleLM`
 ----------------
@@ -94,13 +140,12 @@ Visualization of the results
 ----------------------------
 
 There are several options for visualizing the data.  The popular
-packages `Vis-It` and `Paraview` support the `AMReX` file format natively (currently called ``BoxLib`` format),
+packages `Vis-It` and `Paraview` `support the AMReX file format natively <https://amrex-codes.github.io/amrex/docs_html/Visualization_Chapter.html>`_,
 as does the `yt` python package.  The standard tool used within the
-`AMReX`-community is `Amrvis`, a package developed and supported 
+`AMReX`-community is `Amrvis <https://github.com/AMReX-Codes/Amrvis>`_, a package developed and supported 
 by CCSE that is designed specifically for highly efficient visualization
 of block-structured hierarchical AMR data, however there are limited visualization
 tools available in `Amrvis`, so most users make use of multiple tools depending on their needs.
 
 For more information on how to use `Amrvis` and `VisIt`, refer to the `AMReX`
 User's guide in the `AMReX` git repository for download/build/usage instructions.
-

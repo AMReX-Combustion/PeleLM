@@ -1,0 +1,137 @@
+name: ConvergenceTesting                                                                                                                                            
+on: 
+   workflow_dispatch:
+   schedule:
+      - cron: '0 2 * * *'
+
+jobs:
+  #Run the convergence test on CoVo
+  COVO_Conv:
+    name: Velocity-Advection
+    runs-on: ubuntu-latest
+    env: 
+      {CXXFLAGS: "-Werror -Wshadow -Woverloaded-virtual -Wunreachable-code"}
+    steps:
+    - uses: actions/checkout@v2
+    - name: System Dependencies
+      run: |
+         .github/workflows/dependencies/dependencies.sh
+         sudo apt-get install -y python3-setuptools
+         python3 -m pip install --user numpy
+         python3 -m pip install --user argparse
+         python3 -m pip install --user matplotlib
+    - name: Repo Dependencies
+      run: Tools/CloneDeps.sh
+    - name: Build AMReX Tools
+      env:
+         AMREX_HOME: ${GITHUB_WORKSPACE}/build/amrex
+      working-directory: ./build/amrex/Tools/Plotfile
+      run: |
+        make
+    - name: Build PeleLM
+      env:
+         AMREX_HOME: ${GITHUB_WORKSPACE}/build/amrex
+         IAMR_HOME: ${GITHUB_WORKSPACE}/build/IAMR
+         PELE_PHYSICS_HOME: ${GITHUB_WORKSPACE}/build/PelePhysics
+         PELELM_HOME: ${GITHUB_WORKSPACE}
+      working-directory: ./Exec/RegTests/PeriodicCases
+      run: |
+        make -j 2 COMP=gnu USE_SUNDIALS_PP=FALSE Reactions_dir=Null
+    - name: Run
+      working-directory: ./Exec/RegTests/PeriodicCases
+      run: |
+        cp ${GITHUB_WORKSPACE}/build/amrex/Tools/Plotfile/fcompare.gnu.ex .
+        sed -i "34s/.*/    resolution = [32,64,128,256,512]/" multiRuns.py
+        sed -i "s/mpiexec -n 1/mpiexec -n 4/g" multiRuns.py 
+        ./multiRuns.py --test_name GH_CI_CoVo --input_file inputs.2d_CoVo_Conv_pos45d 
+        sed -i "49s/.*/    resolution = [32,64,128,256,512]/" pprocConvOrder.py
+        ./pprocConvOrder.py ./fcompare.gnu.ex --test_name GH_CI_CoVo
+        cat Convergence_GH_CI_CoVo.dat
+
+  #Run the convergence test on Convected Gaussian
+  TempGauss_Conv:
+    name: Temperature-Advection
+    runs-on: ubuntu-latest
+    env: 
+      {CXXFLAGS: "-Werror -Wshadow -Woverloaded-virtual -Wunreachable-code"}
+    steps:
+    - uses: actions/checkout@v2
+    - name: System Dependencies
+      run: |
+         .github/workflows/dependencies/dependencies.sh
+         sudo apt-get install -y python3-setuptools
+         python3 -m pip install --user numpy
+         python3 -m pip install --user argparse
+         python3 -m pip install --user matplotlib
+    - name: Repo Dependencies
+      run: Tools/CloneDeps.sh
+    - name: Build AMReX Tools
+      env:
+         AMREX_HOME: ${GITHUB_WORKSPACE}/build/amrex
+      working-directory: ./build/amrex/Tools/Plotfile
+      run: |
+        make
+    - name: Build PeleLM
+      env:
+         AMREX_HOME: ${GITHUB_WORKSPACE}/build/amrex
+         IAMR_HOME: ${GITHUB_WORKSPACE}/build/IAMR
+         PELE_PHYSICS_HOME: ${GITHUB_WORKSPACE}/build/PelePhysics
+         PELELM_HOME: ${GITHUB_WORKSPACE}
+      working-directory: ./Exec/RegTests/PeriodicCases
+      run: |
+        make -j 2 COMP=gnu USE_SUNDIALS_PP=FALSE Reactions_dir=Null
+    - name: Run
+      working-directory: ./Exec/RegTests/PeriodicCases
+      run: |
+        cp ${GITHUB_WORKSPACE}/build/amrex/Tools/Plotfile/fcompare.gnu.ex .
+        sed -i "34s/.*/    resolution = [32,64,128,256,512]/" multiRuns.py
+        sed -i "s/mpiexec -n 1/mpiexec -n 4/g" multiRuns.py 
+        ./multiRuns.py --test_name GH_CI_CoGauT --input_file inputs.2d_CoGauTemp_Conv_pos45d
+        sed -i '48s/.*/    vars=["density", "temp", "rhoh" ]/' pprocConvOrder.py
+        sed -i "49s/.*/    resolution = [32,64,128,256,512]/" pprocConvOrder.py
+        ./pprocConvOrder.py ./fcompare.gnu.ex --test_name GH_CI_CoGauT
+        cat Convergence_GH_CI_CoGauT.dat
+
+  #Run the convergence test on Convected Gaussian
+  SpecGauss_Conv:
+    name: Species-Advection
+    runs-on: ubuntu-latest
+    env: 
+      {CXXFLAGS: "-Werror -Wshadow -Woverloaded-virtual -Wunreachable-code"}
+    steps:
+    - uses: actions/checkout@v2
+    - name: System Dependencies
+      run: |
+         .github/workflows/dependencies/dependencies.sh
+         sudo apt-get install -y python3-setuptools
+         python3 -m pip install --user numpy
+         python3 -m pip install --user argparse
+         python3 -m pip install --user matplotlib
+    - name: Repo Dependencies
+      run: Tools/CloneDeps.sh
+    - name: Build AMReX Tools
+      env:
+         AMREX_HOME: ${GITHUB_WORKSPACE}/build/amrex
+      working-directory: ./build/amrex/Tools/Plotfile
+      run: |
+        make
+    - name: Build PeleLM
+      env:
+         AMREX_HOME: ${GITHUB_WORKSPACE}/build/amrex
+         IAMR_HOME: ${GITHUB_WORKSPACE}/build/IAMR
+         PELE_PHYSICS_HOME: ${GITHUB_WORKSPACE}/build/PelePhysics
+         PELELM_HOME: ${GITHUB_WORKSPACE}
+      working-directory: ./Exec/RegTests/PeriodicCases
+      run: |
+        make -j 2 COMP=gnu USE_SUNDIALS_PP=FALSE Reactions_dir=Null
+    - name: Run
+      working-directory: ./Exec/RegTests/PeriodicCases
+      run: |
+        cp ${GITHUB_WORKSPACE}/build/amrex/Tools/Plotfile/fcompare.gnu.ex .
+        sed -i "34s/.*/    resolution = [32,64,128,256,512]/" multiRuns.py
+        sed -i "s/mpiexec -n 1/mpiexec -n 4/g" multiRuns.py 
+        ./multiRuns.py --test_name GH_CI_CoGauS --input_file inputs.2d_CoGauSpec_Conv_neg45d
+        sed -i '48s/.*/    vars=["density", "Y(N2)", "Y(O2)" ]/' pprocConvOrder.py
+        sed -i "49s/.*/    resolution = [32,64,128,256,512]/" pprocConvOrder.py
+        ./pprocConvOrder.py ./fcompare.gnu.ex --test_name GH_CI_CoGauS
+        cat Convergence_GH_CI_CoGauS.dat
