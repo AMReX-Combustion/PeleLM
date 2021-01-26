@@ -1,3 +1,10 @@
+# 1.0.1
+Release version 1.0.1 (In preparation)
+
+### Minor changes
+   * Revert some of HIP changes (AMREX_GPU_DEVICE -> AMREX_GPU_HOST_DEVICE)
+
+
 # 1.0.0
 Release version 1.0.0 (January, 2021)
 ### First official GitHub release (Tagged v1.0.0)

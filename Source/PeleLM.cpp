@@ -1310,33 +1310,8 @@ PeleLM::init_mixture_fraction()
                for (int i=0; i<NUM_SPECIES; ++i) {
                   XF[i] = compositionIn[i];
                }
-               // Here comes the fun part for calling DEVICE functions from HOST
-               amrex::Gpu::DeviceVector<amrex::Real> XO_v(NUM_SPECIES);
-               amrex::Gpu::DeviceVector<amrex::Real> XF_v(NUM_SPECIES);
-               for (int i = 0; i < NUM_SPECIES; i++ ) {
-                  XO_v[i] = XO[i];
-                  XF_v[i] = XF[i];
-               }
-               amrex::Gpu::DeviceVector<amrex::Real> YO_v(NUM_SPECIES);
-               amrex::Gpu::DeviceVector<amrex::Real> YF_v(NUM_SPECIES);
-               amrex::Real* XO_d = XO_v.data();
-               amrex::Real* XF_d = XF_v.data();
-               amrex::Real* YO_d = YO_v.data();
-               amrex::Real* YF_d = YF_v.data();
-               Box dumbx({AMREX_D_DECL(0,0,0)},{AMREX_D_DECL(0,0,0)});
-               amrex::ParallelFor(dumbx, [XO_d,XF_d,YO_d,YF_d]
-               AMREX_GPU_DEVICE(int /*i*/, int /*j*/, int /*k*/) noexcept
-               {
-                  EOS::X2Y(XO_d,YO_d);
-                  EOS::X2Y(XF_d,YF_d);
-               });
-#if AMREX_USE_GPU
-               amrex::Gpu::dtoh_memcpy(YO,YO_d,sizeof(amrex::Real)*NUM_SPECIES);
-               amrex::Gpu::dtoh_memcpy(YF,YF_d,sizeof(amrex::Real)*NUM_SPECIES);
-#else
-               std::memcpy(YO,YO_d,sizeof(amrex::Real)*NUM_SPECIES);
-               std::memcpy(YF,YF_d,sizeof(amrex::Real)*NUM_SPECIES);
-#endif
+               EOS::X2Y(XO,YO);
+               EOS::X2Y(XF,YF);
             } else {
                Abort("Unknown mixtureFraction.type ! Should be 'mass' or 'mole'");
             }
@@ -1357,20 +1332,8 @@ PeleLM::init_mixture_fraction()
       // Only interested in CHON -in that order.
       int ecompCHON[NUM_SPECIES*4];
       EOS::element_compositionCHON(ecompCHON);
-      amrex::Gpu::DeviceVector<amrex::Real> mwt_v(NUM_SPECIES);
-      amrex::Real* mwt_d = mwt_v.data();
-      Box dumbx({AMREX_D_DECL(0,0,0)},{AMREX_D_DECL(0,0,0)});
-      amrex::ParallelFor(dumbx, [mwt_d]
-      AMREX_GPU_DEVICE(int /*i*/, int /*j*/, int /*k*/) noexcept
-      { 
-         EOS::molecular_weight(mwt_d);
-      });
       amrex::Real mwt[NUM_SPECIES];
-#if AMREX_USE_GPU
-      amrex::Gpu::dtoh_memcpy(mwt,mwt_d,sizeof(amrex::Real)*NUM_SPECIES);
-#else
-      std::memcpy(mwt,mwt_d,sizeof(amrex::Real)*NUM_SPECIES);
-#endif
+      EOS::molecular_weight(mwt);
       Zfu = 0.0;
       Zox = 0.0;
       for (int i=0; i<NUM_SPECIES; ++i) {
@@ -9077,24 +9040,7 @@ PeleLM::parseComposition(Vector<std::string> compositionIn,
          massFrac[i] = compoIn[i];
       }
    } else if ( compositionType == "mole" ) {         // mole
-      amrex::Gpu::DeviceVector<amrex::Real> compIn_v(NUM_SPECIES);
-      for (int i = 0; i < NUM_SPECIES; i++ ) {
-         compIn_v[i] = compoIn[i];
-      }
-      amrex::Gpu::DeviceVector<amrex::Real> massFrac_v(NUM_SPECIES);
-      amrex::Real* compIn_d = compIn_v.data();
-      amrex::Real* massFrac_d = massFrac_v.data();
-      Box dumbx({AMREX_D_DECL(0,0,0)},{AMREX_D_DECL(0,0,0)});
-      amrex::ParallelFor(dumbx, [compIn_d,massFrac_d]
-      AMREX_GPU_DEVICE(int /*i*/, int /*j*/, int /*k*/) noexcept
-      {
-         EOS::X2Y(compIn_d,massFrac_d);
-      });
-#if AMREX_USE_GPU
-      amrex::Gpu::dtoh_memcpy(massFrac,massFrac_d,sizeof(amrex::Real)*NUM_SPECIES);
-#else
-      std::memcpy(massFrac,massFrac_d,sizeof(amrex::Real)*NUM_SPECIES);
-#endif
+      EOS::X2Y(compoIn,massFrac);
    } else {
       Abort("Unknown mixtureFraction.type ! Should be 'mass' or 'mole'");
    }
