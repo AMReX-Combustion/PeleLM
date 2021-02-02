@@ -8,7 +8,7 @@
 
 #include <AMReX_MultiFab.H>
 
-#if (BL_USE_FLOAT)
+#ifdef (BL_USE_FLOAT)
 #  define FP_CLASS fp_classf
 #else
 #  define FP_CLASS fp_class
