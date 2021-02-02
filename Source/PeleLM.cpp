@@ -3728,7 +3728,7 @@ PeleLM::compute_enthalpy_fluxes (MultiFab* const*       flux,
   FArrayBox fab_tmp;
   for (MFIter mfi(TT,TilingIfNotGPU()); mfi.isValid(); ++mfi)
   {
-#if AMREX_USE_EB
+#ifdef AMREX_USE_EB
     const Box &bx = mfi.tilebox();  
     // this is to check efficiently if this tile contains any eb stuff
     const EBFArrayBox& in_fab = static_cast<EBFArrayBox const&>(TT[mfi]);
@@ -3770,7 +3770,7 @@ PeleLM::compute_enthalpy_fluxes (MultiFab* const*       flux,
               }
           });
       }
-#if AMREX_USE_EB
+#ifdef AMREX_USE_EB
     }
 #endif
   }
@@ -5378,7 +5378,7 @@ PeleLM::getFuncCountDM (const BoxArray& bxba, int ngrow)
 
   fctmpnew.clear();
 
-#if AMREX_USE_MPI
+#ifdef AMREX_USE_MPI
   const int IOProc = ParallelDescriptor::IOProcessorNumber();
 
   Vector<int> nmtags(ParallelDescriptor::NProcs(),0);
@@ -8952,7 +8952,7 @@ PeleLM::initActiveControl()
       bcnormal(x, s_ext_d, ctrl_flameDir_l, 1, time_l, geomdata, *lprobparm, *lacparm, lpmfdata);
    });
    amrex::Real s_ext[DEF_NUM_STATE];
-#if AMREX_USE_GPU
+#ifdef AMREX_USE_GPU
    amrex::Gpu::dtoh_memcpy(s_ext,s_ext_d,sizeof(amrex::Real)*DEF_NUM_STATE);
 #else
    std::memcpy(s_ext,s_ext_d,sizeof(amrex::Real)*DEF_NUM_STATE);
