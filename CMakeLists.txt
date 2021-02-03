@@ -1,0 +1,133 @@
+############################ BASE ######################################
+
+cmake_minimum_required (VERSION 3.14 FATAL_ERROR)
+project(PeleLM CXX C Fortran)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON CACHE INTERNAL "")
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/Tools/CMake")
+include(CMakePackageConfigHelpers)
+include(PeleLMUtils)
+
+########################## OPTIONS #####################################
+
+#General options for all executables in the project
+set(PELELM_DIM "3" CACHE STRING "Number of physical dimensions")
+option(PELELM_ENABLE_AMREX_EB "Enable EB in AMReX library" ON)
+option(PELELM_ENABLE_ALL_WARNINGS "Enable all compiler warnings" ON)
+option(PELELM_ENABLE_CLANG_TIDY "Enable clang-tidy analysis" OFF)
+option(PELELM_ENABLE_CPPCHECK "Enable cppcheck analysis" OFF)
+option(PELELM_ENABLE_WERROR "Treat compiler warnings as errors" OFF)
+option(PELELM_ENABLE_MASA "Enable tests that require MASA" OFF)
+option(PELELM_ENABLE_SUNDIALS "Enable SUNDIALS as ODE solver" ON)
+option(PELELM_ENABLE_FCOMPARE "Enable building fcompare when not testing" OFF)
+option(PELELM_ENABLE_TESTS "Enable regression and unit tests" OFF)
+option(PELELM_ENABLE_FCOMPARE_FOR_TESTS "Check test plots against gold files" OFF)
+option(PELELM_ENABLE_SANITIZE_FOR_TESTS "Currently only disables certain long running MMS tests if set" OFF)
+option(PELELM_ENABLE_FPE_TRAP_FOR_TESTS "Enable FPE trapping in tests" ON)
+option(PELELM_ENABLE_TINY_PROFILE "Enable tiny profiler in AMReX" OFF)
+set(PELELM_PRECISION "DOUBLE" CACHE STRING "Floating point precision SINGLE or DOUBLE")
+
+#Options for performance
+option(PELELM_ENABLE_MPI "Enable MPI" OFF)
+option(PELELM_ENABLE_OPENMP "Enable OpenMP" OFF)
+option(PELELM_ENABLE_CUDA "Enable CUDA" OFF)
+option(PELELM_ENABLE_HIP "Enable HIP" OFF)
+option(PELELM_ENABLE_DPCPP "Enable DPC++" OFF)
+
+#Options for C++
+set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_EXTENSIONS OFF)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+if(PELELM_ENABLE_TESTS AND PELELM_ENABLE_FCOMPARE_FOR_TESTS)
+  set(PELELM_ENABLE_FCOMPARE ON)
+endif()
+
+if(PELELM_ENABLE_CUDA)
+  enable_language(CUDA)
+  find_package(CUDAToolkit REQUIRED)
+  if(CMAKE_CUDA_COMPILER_VERSION VERSION_LESS "10.0")
+    message(FATAL_ERROR "Your nvcc version is ${CMAKE_CUDA_COMPILER_VERSION} which is unsupported."
+      "Please use CUDA toolkit version 10.0 or newer.")
+  endif()
+  if(PELELM_ENABLE_MASA)
+    message(FATAL_ERROR "MASA enabled with CUDA is unsupported.")
+  endif()
+endif()
+
+if(NOT PELELM_DIM MATCHES "^(2|3)$")
+  message(FATAL_ERROR "PeleLM is only available for 2D or 3D.")
+endif()
+
+########################### AMReX #####################################
+
+message(STATUS "AMReX Configure Section")
+set(AMREX_SUBMOD_LOCATION "${CMAKE_SOURCE_DIR}/../amrex")
+include(SetAmrexOptions)
+list(APPEND CMAKE_MODULE_PATH "${AMREX_SUBMOD_LOCATION}/Tools/CMake")
+if(PELELM_ENABLE_CUDA)
+  include(AMReX_SetupCUDA)
+endif()
+add_subdirectory(${AMREX_SUBMOD_LOCATION} ${CMAKE_BINARY_DIR}/Submodules/amrex)
+include(SetAmrexCompileFlags)
+
+########################## SUNDIALS ###################################
+
+if(PELELM_ENABLE_SUNDIALS)
+  message(STATUS "SUNDIALS Configure Section")
+  set(SUNDIALS_SUBMOD_LOCATION "${CMAKE_SOURCE_DIR}/../sundials")
+  include(SetSundialsOptions)
+  #BUILD_TESTING is an old CMake keyword so don't clear it in sundials configure
+  set(CMAKE_POLICY_DEFAULT_CMP0077 NEW)
+  add_subdirectory(${SUNDIALS_SUBMOD_LOCATION} ${CMAKE_BINARY_DIR}/Submodules/sundials)
+endif()
+
+########################### MASA #####################################
+
+if(PELELM_ENABLE_MASA)
+  message(STATUS "MASA Configure Section")
+  set(CMAKE_PREFIX_PATH ${MASA_DIR} ${CMAKE_PREFIX_PATH})
+  find_package(MASA QUIET REQUIRED)
+  if(MASA_FOUND)
+    message(STATUS "Found MASA = ${MASA_DIR}")
+  endif()
+endif()
+
+########################### PeleLM #####################################
+
+if(PELELM_ENABLE_MPI)
+  message(STATUS "MPI Configure Section")
+  find_package(MPI REQUIRED)
+endif()
+
+# General information about machine, compiler, and build type
+message(STATUS "PeleLM Information:")
+message(STATUS "CMAKE_SYSTEM_NAME = ${CMAKE_SYSTEM_NAME}")
+message(STATUS "CMAKE_CXX_COMPILER_ID = ${CMAKE_CXX_COMPILER_ID}")
+message(STATUS "CMAKE_CXX_COMPILER_VERSION = ${CMAKE_CXX_COMPILER_VERSION}")
+message(STATUS "CMAKE_BUILD_TYPE = ${CMAKE_BUILD_TYPE}")
+if(PELELM_ENABLE_WERROR)
+  message(STATUS "Enabling Werror.")
+endif()
+
+message(STATUS "PELELM_PRECISION = ${PELELM_PRECISION}")
+if("${PELELM_PRECISION}" STREQUAL "SINGLE" AND PELELM_ENABLE_AMREX_EB)
+  message(FATAL_ERROR "Single precision currently not allowed in AMReX with EB enabled")
+endif()
+if("${PELELM_PRECISION}" STREQUAL "SINGLE" AND PELELM_ENABLE_MASA)
+  message(FATAL_ERROR "Single precision currently not allowed in AMReX with MASA enabled")
+endif()
+
+init_code_checks()
+
+#Turn on rpath stuff
+include(SetRpath)
+
+#Build pelelm executables and link to amrex library
+add_subdirectory(Exec)
+
+if(PELELM_ENABLE_TESTS)
+  enable_testing()
+  include(CTest)
+  add_subdirectory(${CMAKE_SOURCE_DIR}/../googletest ${CMAKE_BINARY_DIR}/Submodules/googletest)
+  add_subdirectory(Testing)
+endif()
