@@ -23,13 +23,7 @@ SprayParticleContainer* VirtPC = 0;
 //
 SprayParticleContainer* GhostPC = 0;
 
-Gpu::HostVector<Real> sprayCritT;
-Gpu::HostVector<Real> sprayBoilT;
-Gpu::HostVector<Real> sprayCp;
-Gpu::HostVector<Real> sprayLatent;
-Gpu::HostVector<Real> sprayRho;
-Gpu::HostVector<Real> sprayMu;
-Gpu::HostVector<int> sprayIndxMap;
+SprayData sprayData;
 amrex::Real sprayRefT = 300.;
 amrex::Real parcelSize = 1.;
 amrex::Real spraySigma = -1.; // Surface tension
@@ -126,13 +120,6 @@ PeleLM::readParticleParams()
     amrex::Abort("Number of fuel species in input file must match SPRAY_FUEL_NUM");
 
   sprayFuelNames.assign(nfuel, "");
-  sprayCritT.resize(nfuel);
-  sprayBoilT.resize(nfuel);
-  sprayCp.resize(nfuel);
-  sprayLatent.resize(nfuel);
-  sprayRho.resize(nfuel);
-  sprayMu.resize(nfuel);
-  sprayIndxMap.resize(nfuel);
   std::vector<std::string> fuel_names;
   std::vector<Real> crit_T;
   std::vector<Real> boil_T;
@@ -140,6 +127,7 @@ PeleLM::readParticleParams()
   std::vector<Real> latent;
   std::vector<Real> sprayrho;
   std::vector<Real> mu(nfuel, 0.);
+  std::vector<Real> lambda(nfuel, 0.);
   ppp.getarr("fuel_species", fuel_names);
   ppp.getarr("fuel_crit_temp", crit_T);
   ppp.getarr("fuel_boil_temp", boil_T);
@@ -147,14 +135,16 @@ PeleLM::readParticleParams()
   ppp.getarr("fuel_latent", latent);
   ppp.getarr("fuel_rho", sprayrho);
   ppp.queryarr("fuel_mu", mu);
+  ppp.queryarr("fuel_lambda", lambda);
   for (int i = 0; i != nfuel; ++i) {
     sprayFuelNames[i] = fuel_names[i];
-    sprayCritT[i] = crit_T[i];
-    sprayBoilT[i] = boil_T[i];
-    sprayCp[i] = spraycp[i];
-    sprayLatent[i] = latent[i];
-    sprayRho[i] = sprayrho[i];
-    sprayMu[i] = mu[i];
+    sprayData.critT[i] = crit_T[i];
+    sprayData.boilT[i] = boil_T[i];
+    sprayData.cp[i] = spraycp[i];
+    sprayData.latent[i] = latent[i];
+    sprayData.rho[i] = sprayrho[i];
+    sprayData.mu[i] = mu[i];
+    sprayData.lambda[i] = lambda[i];
   }
 
   //
@@ -164,7 +154,7 @@ PeleLM::readParticleParams()
   ppp.query("use_splash_model", splash_model);
   if (splash_model) {
     if (!ppp.contains("fuel_sigma") || !ppp.contains("wall_temp")) {
-      Print() << "fuel_sigma or wall_temp must be set for splash model. "
+      Print() << "fuel_sigma and wall_temp must be set for splash model. "
               << "Set use_splash_model = false to turn off splash model" << std::endl;
       Abort();
     }
@@ -216,6 +206,9 @@ PeleLM::readParticleParams()
 //   if (ParallelDescriptor::IOProcessor())
 //     if (!amrex::UtilCreateDirectory(timestamp_dir, 0755))
 //       amrex::CreateDirectoryFailed(timestamp_dir);
+  sprayData.num_ppp = parcelSize;
+  sprayData.ref_T = sprayRefT;
+  sprayData.sigma = spraySigma;
 
   if (verbose && ParallelDescriptor::IOProcessor()) {
     amrex::Print() << "Spray fuel species " << sprayFuelNames[0];
@@ -259,10 +252,10 @@ PeleLM::defineParticles()
     for (int ns = 0; ns != NUM_SPECIES; ++ns) {
       std::string gas_spec = spec_names[ns];
       if (gas_spec == sprayFuelNames[i]) {
-        sprayIndxMap[i] = ns;
+        sprayData.indx[i] = ns;
       }
     }
-    if (sprayIndxMap[i] < 0) {
+    if (sprayData.indx[i] < 0) {
       amrex::Print() << "Fuel " << sprayFuelNames[i] << " not found in species list"
                      << std::endl;
       amrex::Abort();
@@ -270,9 +263,15 @@ PeleLM::defineParticles()
   }
 #else
   for (int ns = 0; ns != SPRAY_FUEL_NUM; ++ns) {
-    sprayIndxMap[ns] = 0;
+    sprayData.indx[ns] = 0;
   }
 #endif
+  amrex::Vector<Real> fuelEnth(NUM_SPECIES);
+  EOS::T2Hi(sprayData.ref_T, fuelEnth.data());
+  for (int ns = 0; ns != SPRAY_FUEL_NUM; ++ns) {
+    const int fspec = sprayData.indx[ns];
+    sprayData.latent[ns] -= fuelEnth[fspec];
+  }
   scomps.heat_tran = PeleLM::particle_heat_tran;
   scomps.mass_tran = PeleLM::particle_mass_tran;
   scomps.mom_tran = PeleLM::particle_mom_tran;
@@ -348,20 +347,10 @@ PeleLM::removeGhostParticles()
 void
 PeleLM::createParticleData()
 {
-  SprayPC = new SprayParticleContainer(parent, &phys_bc);
+  SprayPC = new SprayParticleContainer(parent, &phys_bc, sprayData, scomps, parcelSize, T_wall);
   theSprayPC()->SetVerbose(particle_verbose);
-  VirtPC = new SprayParticleContainer(parent, &phys_bc);
-  GhostPC = new SprayParticleContainer(parent, &phys_bc);
-  // Pass constant reference data and memory allocations to GPU
-  theSprayPC()->buildFuelData(sprayCritT, sprayBoilT, sprayCp, sprayLatent,
-                              sprayRho, sprayMu, sprayIndxMap, scomps,
-                              parcelSize, sprayRefT, spraySigma, T_wall);
-  theGhostPC()->buildFuelData(sprayCritT, sprayBoilT, sprayCp, sprayLatent,
-                              sprayRho, sprayMu, sprayIndxMap, scomps,
-                              parcelSize, sprayRefT, spraySigma, T_wall);
-  theVirtPC()->buildFuelData(sprayCritT, sprayBoilT, sprayCp, sprayLatent,
-                             sprayRho, sprayMu, sprayIndxMap, scomps,
-                             parcelSize, sprayRefT, spraySigma, T_wall);
+  VirtPC = new SprayParticleContainer(parent, &phys_bc, sprayData, scomps, parcelSize, T_wall);
+  GhostPC = new SprayParticleContainer(parent, &phys_bc, sprayData, scomps, parcelSize, T_wall);
 }
 
 /**
