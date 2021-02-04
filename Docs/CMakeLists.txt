@@ -6,9 +6,13 @@ find_package(Sphinx REQUIRED)
 #find_package(Doxygen)
 
 add_custom_target(sphinx ALL
-  COMMAND ${SPHINX_EXECUTABLE} -M html
-  "${CMAKE_CURRENT_SOURCE_DIR}/source" "${CMAKE_CURRENT_BINARY_DIR}/source"
-  -c ${CMAKE_CURRENT_SOURCE_DIR}/source)
+  COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/html
+  COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/source/landing
+                                             ${CMAKE_BINARY_DIR}/html
+  COMMAND ${SPHINX_EXECUTABLE} -M html "${CMAKE_SOURCE_DIR}/source/manual"
+                                       "${CMAKE_BINARY_DIR}/html/manual"
+                                       -c ${CMAKE_SOURCE_DIR}/source/manual
+  )
 
 #if(DOXYGEN_FOUND)
 #  configure_file(${CMAKE_CURRENT_SOURCE_DIR}/doxygen/Doxyfile.in Doxyfile @ONLY)

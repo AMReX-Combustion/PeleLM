@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<!--
+        This webpage is based on Transit by TEMPLATED
+	templated.co @templatedco
+	Released for free under the Creative Commons Attribution 3.0 license (templated.co/license)
+-->
+<html lang="en">
+  <head>
+
+    <meta charset="UTF-8">
+    <title>PeleLM: An adaptive mesh hydrodynamics simulation code for low Mach number reacting flows</title>
+    <link rel="icon" href="web_icon.ico" type="image/x-icon">
+    <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+    <meta name="description" content="" />
+    <meta name="keywords" content="" />
+    <!--[if lte IE 8]><script src="js/html5shiv.js"></script><![endif]-->
+    <script src="js/jquery.min.js"></script>
+    <script src="js/skel.min.js"></script>
+    <script src="js/skel-layers.min.js"></script>
+    <script src="js/init.js"></script>
+    <noscript>
+      <link rel="stylesheet" href="css/skel.css" />
+      <link rel="stylesheet" href="css/style.css" />
+      <link rel="stylesheet" href="css/style-xlarge.css" />
+    </noscript>
+  </head>
+  <body class="landing">
+    
+    <!-- Header -->
+    <header id="header">
+      <nav id="nav">
+	<ul>
+	  <li>
+            <a href="overview.html" class="button special">Overview</a>
+            <a href="gallery.html" class="button special">Gallery</a>
+            <a href="help.html" class="button special">Get Help</a>
+          </li>
+	</ul>
+      </nav>
+    </header>
+
+    <!-- Banner -->
+    <section id="banner">
+      <h2>PeleLM</h2>
+      <p>An adaptive mesh hydrodynamics simulation code for low Mach number reacting flows
+      <ul class="actions">
+	<li>
+	  <a href="https://github.com/AMReX-Combustion/PeleLM" class="button big">Source Code</a>
+	  <a href="manual/html/index.html" class="button big">Documentation</a>
+	</li>
+      </ul>
+      <ul class="actions small">
+	<li>
+	  <a href="https://amrex-combustion.github.io" class="button special">Pele Suite Page</a>
+	</li>
+      </ul>
+    </section><!-- Two -->
+    <section id="two" class="wrapper style2 special">
+      <div class="container">
+	<ul class="alt">
+          <li><h3>Getting Started</h3>
+            <p>
+              PeleLM depends on several separate GitHub repositories, each under active development.  This
+              can significantly complicate the required effort to keep all the required software up to date and internally
+              compatible.  Recently, we moved the Pele codes to a new software management style based on git "submodules",
+              which dramatically simplifies the initial install/build/run procedure:
+            </p>
+	    <pre>
+              git clone --recursive https://github.com/AMReX-Combustion/PeleProduction.git
+              cd PeleLMruns/FlameSheet2D
+              make -j 12
+              mpiexec -np 8 ./PeleLM2d.gnu.MPI.ex inputs.2d-regt
+            </pre>
+            <p>
+              The <a href="https://pelelm.readthedocs.io/en/latest/index.html">PeleLM User's Guide</a>
+              continues to be the best place to learn more about the code.
+              You can also ask for help by opening up an issue on the 
+              <a href="https://github.com/AMReX-Combustion/PeleLM">PeleLM GitHub webpage</a>.
+            </p>
+	    </li>
+	  </ul>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer id="footer">
+      <div class="container">
+	<section class="ack">
+          <h4>Acknowledgment</h4>
+	  The PeleLM code was originally created in 2000 with the name "LMC" and was a BoxLib-based AMR code for low Mach combustion
+          developed by the 
+          <a href="https://ccse.lbl.gov/"> 
+            Center for Computational Sciences and Engineering</a>
+          at <a href="http://www.lbl.gov/"> LBNL </a>.
+          The main algorithms in LMC were first published in
+          <em>"Numerical Simulation of Laminar Reacting Flows with Complex Chemistry,"</em> M. S. Day and J. B. Bell
+          <em>Combust. Theory Model.</em> <b>4</b> 535-556 (2000).  Enhancements to the code since then have been 
+          supported by the US Department of Energy under the Advanced Scientific Computing Research (ASCR) base math program.
+          In 2017, LMC was renamed PeleLM, and is currently supported under the <a href="https://www.exascaleproject.org">The Pele Project</a>.
+          The Pele Project is supported by the Exascale Computing Project (ECP), Project Number: 17-SC-20-SC, a collaborative effort of two DOE organizations -- the Office of Science and the National Nuclear Security Administration -- responsible for the planning and preparation of a capable exascale ecosystem -- including software, applications, hardware, advanced system engineering, and early testbed platforms -- to support the nation's exascale computing imperative.
+	</section>
+	<div class="row">
+	  <div class="8u 12u$(medium)">
+	    <ul class="copyright">
+	      <li>&copy; The Regents of the University of California.  All rights reserved.</li>
+	    </ul>
+	  </div>
+	</div>
+      </div>
+    </footer>
+
+  </body>
+</html>
