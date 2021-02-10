@@ -1,0 +1,50 @@
+name: PeleLM-Docs
+
+on:
+  push:
+    branches: [development]
+    paths:
+       - 'Docs/**'
+       - '.github/workflows/docs.yml'
+  pull_request:
+    branches: [development]
+    paths:
+       - 'Docs/**'
+       - '.github/workflows/docs.yml'
+
+jobs:
+  Docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.x'
+      - name: Dependencies
+        run: |
+          #Currently ignoring doxygen
+          #export DEBIAN_FRONTEND=noninteractive
+          #sudo apt-get update
+          #sudo apt-get install -y --no-install-recommends doxygen graphviz
+          python -m pip install --upgrade pip
+          pip install sphinx sphinx_rtd_theme
+      - name: Configure
+        run: cmake -B${{runner.workspace}}/build-docs ${{github.workspace}}/Docs
+      - name: Build
+        working-directory: ${{runner.workspace}}/build-docs
+        run:  |
+           echo "::add-matcher::.github/problem-matchers/sphinx.json"
+           cmake --build ${{runner.workspace}}/build-docs
+           echo "::remove-matcher owner=sphinx-problem-matcher-loose-no-severity::"
+           echo "::remove-matcher owner=sphinx-problem-matcher-loose::"
+           echo "::remove-matcher owner=sphinx-problem-matcher::"
+           touch ${{runner.workspace}}/build-docs/html/manual/html/.nojekyll
+      - name: Deploy
+        if: github.event_name == 'push' && github.ref == 'refs/heads/development'
+        uses: JamesIves/github-pages-deploy-action@releases/v3
+        with:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BRANCH: gh-pages
+          FOLDER: ${{runner.workspace}}/build-docs/html
+          SINGLE_COMMIT: true
