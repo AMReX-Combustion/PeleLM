@@ -436,12 +436,10 @@ PeleLM::particleMKD (const Real       time,
   ProbParm const* lprobparm = prob_parm.get();
   bool injectParts = theSprayPC()->
     injectParticles(time, dt, nstep, level, finest_level, *lprobparm);
-  bool insertParts = theSprayPC()->
-    insertParticles(time, dt, nstep, level, finest_level, *lprobparm);
   //
   // Only redistribute if we injected or inserted particles
   //
-  if (injectParts || insertParts)
+  if (injectParts)
     theSprayPC()->Redistribute(level);
   BL_PROFILE_VAR_STOP(INJECT_SPRAY);
 
