@@ -942,6 +942,10 @@ PeleLM::PeleLM ()
    EdgeFlux               = 0;
    SpecDiffusionFluxn     = 0;
    SpecDiffusionFluxnp1   = 0;
+#ifdef AMREX_USE_EB
+   EBDiffusionFluxn       = 0;
+   EBDiffusionFluxnp1     = 0;
+#endif
    if (use_wbar) {
       SpecDiffusionFluxWbar  = 0;
    }
@@ -1017,6 +1021,15 @@ PeleLM::define_data ()
 
      raii_fbs.push_back(std::unique_ptr<FluxBoxes>{new FluxBoxes(this, NUM_SPECIES+3, nGrow)});
      SpecDiffusionFluxnp1 = raii_fbs.back()->get();
+
+#ifdef AMREX_USE_EB
+     if (Diffusion::useEBDirichlet()) {
+         EBDiffusionFluxn = new MultiFab(grids,dmap,NUM_SPECIES+3,nGrow);
+         EBDiffusionFluxnp1 = new MultiFab(grids,dmap,NUM_SPECIES+3,nGrow);
+         EBDiffusionFluxn->setVal(0.0);
+         EBDiffusionFluxnp1->setVal(0.0);
+     }
+#endif
 
 #ifndef NDEBUG
      for ( int i = 0; i<AMREX_SPACEDIM; i++) {
@@ -3247,7 +3260,8 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
                                 Tbc,curr_time);
 
    // Compute Dnp1kp1 (here called Dnew)
-   flux_divergence(Dnew,DComp,SpecDiffusionFluxnp1,0,NUM_SPECIES,-1);
+   MultiFab* ebflux = nullptr; 
+   flux_divergence(Dnew,DComp,SpecDiffusionFluxnp1,ebflux,0,NUM_SPECIES,-1);
 
 #ifdef _OPENMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
@@ -3279,14 +3293,19 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
    // 1. flux[NUM_SPECIES+1] = sum_m (H_m Gamma_m)
    // 2. compute flux[NUM_SPECIES+2] = - lambda grad T
    //
-   compute_enthalpy_fluxes(SpecDiffusionFluxnp1,betanp1,curr_time);
+#ifdef AMREX_USE_EB
+   if (Diffusion::useEBDirichlet()) {
+      ebflux = EBDiffusionFluxnp1; 
+   }
+#endif
+   compute_enthalpy_fluxes(SpecDiffusionFluxnp1,betanp1,ebflux,curr_time);
 
    // Divergence of energy fluxes:
    // 1. Dnew[N+1] = -Div(flux[N+2])
    // 2. DD = -Sum{ Div(H_m Gamma_m) }
-   flux_divergence(Dnew,DComp+NUM_SPECIES+1,SpecDiffusionFluxnp1,NUM_SPECIES+2,1,-1);
+   flux_divergence(Dnew,DComp+NUM_SPECIES+1,SpecDiffusionFluxnp1,ebflux,NUM_SPECIES+2,1,-1);
 
-   flux_divergence(DDnew,0,SpecDiffusionFluxnp1,NUM_SPECIES+1,1,-1);
+   flux_divergence(DDnew,0,SpecDiffusionFluxnp1,ebflux,NUM_SPECIES+1,1,-1);
 
    if (deltaT_verbose) {
       Print() << "Iterative solve for deltaT: " << std::endl;
@@ -3369,9 +3388,9 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
       MultiFab::Add(get_new_data(State_Type),Told,0,Temp,1,0);
 
       // Update energy fluxes, divergences
-      compute_enthalpy_fluxes(SpecDiffusionFluxnp1,betanp1,curr_time);
-      flux_divergence(Dnew,DComp+NUM_SPECIES+1,SpecDiffusionFluxnp1,NUM_SPECIES+2,1,-1);
-      flux_divergence(DDnew,0,SpecDiffusionFluxnp1,NUM_SPECIES+1,1,-1);
+      compute_enthalpy_fluxes(SpecDiffusionFluxnp1,betanp1,ebflux,curr_time);
+      flux_divergence(Dnew,DComp+NUM_SPECIES+1,SpecDiffusionFluxnp1,ebflux,NUM_SPECIES+2,1,-1);
+      flux_divergence(DDnew,0,SpecDiffusionFluxnp1,ebflux,NUM_SPECIES+1,1,-1);
     
 #ifdef _OPENMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
@@ -3573,6 +3592,7 @@ PeleLM::adjust_spec_diffusion_fluxes (MultiFab* const * flux,
 void
 PeleLM::compute_enthalpy_fluxes (MultiFab* const*       flux,
                                  const MultiFab* const* beta,
+                                 MultiFab*              ebflux,
                                  Real                   time)
 {
   BL_PROFILE("PeleLM:::compute_enthalpy_fluxes()");
@@ -3605,7 +3625,6 @@ PeleLM::compute_enthalpy_fluxes (MultiFab* const*       flux,
 #endif
 
   op.setMaxOrder(diffusion->maxOrder());
-  MLMG mg(op);
 
   {
     const Vector<BCRec>& theBCs = AmrLevel::desc_lst[State_Type].getBCs();
@@ -3638,6 +3657,18 @@ PeleLM::compute_enthalpy_fluxes (MultiFab* const*       flux,
 
   // Here it is NUM_SPECIES because lambda is stored after the last species (first starts at 0)
   Diffusion::setBeta(op,beta,NUM_SPECIES);
+
+#ifdef AMREX_USE_EB
+  // If EB, setup dirichlet BC for T
+  if (Diffusion::useEBDirichlet()) {
+     AMREX_ASSERT(ebflux != nullptr);
+     MultiFab EB_betaBC(grids, dmap, 1, 0, MFInfo(), Factory());
+     EB_betaBC.setVal(1.0e-4);
+     MultiFab EB_tempBC(grids, dmap, 1, 0, MFInfo(), Factory());
+     getEBState(time,EB_tempBC,Temp,1);
+     Diffusion::setEBDirichlet(op, EB_tempBC, EB_betaBC);
+  }
+#endif
   
   AMREX_D_TERM( flux[0]->setVal(0., NUM_SPECIES+2, 1);,
                 flux[1]->setVal(0., NUM_SPECIES+2, 1);,
@@ -3645,7 +3676,16 @@ PeleLM::compute_enthalpy_fluxes (MultiFab* const*       flux,
 
   // Here it is NUM_SPECIES+2 because this is the heat flux (NUM_SPECIES+3 in enth_diff_terms in fortran)
   // No multiplication by dt here
+  MLMG mg(op);
+#ifdef AMREX_USE_EB
+  if (Diffusion::useEBDirichlet()) {
+     Diffusion::computeExtensiveFluxesEBDirichlet(mg, TT, flux, *ebflux, NUM_SPECIES+2, 1, &geom, b);
+  } else {
+     Diffusion::computeExtensiveFluxes(mg, TT, flux, NUM_SPECIES+2, 1, &geom, b);
+  }
+#else
   Diffusion::computeExtensiveFluxes(mg, TT, flux, NUM_SPECIES+2, 1, &geom, b);
+#endif
 
   //
   // Now we have flux[NUM_SPECIES+2]
@@ -3952,6 +3992,7 @@ void
 PeleLM::compute_differential_diffusion_fluxes (const MultiFab& S,
                                                const MultiFab* Scrse,
                                                MultiFab* const * flux,
+                                               MultiFab* ebflux,
                                                const MultiFab* const * beta,
                                                Real dt,
                                                Real time,
@@ -4067,7 +4108,7 @@ PeleLM::compute_differential_diffusion_fluxes (const MultiFab& S,
    // build heat fluxes based on species fluxes, Gamma_m, and cell-centered states
    // compute flux[NUM_SPECIES+1] = sum_m (H_m Gamma_m)
    // compute flux[NUM_SPECIES+2] = - lambda grad T
-   compute_enthalpy_fluxes(flux,beta,time);
+   compute_enthalpy_fluxes(flux,beta,ebflux,time);
 
 #ifdef AMREX_USE_EB
    // Get rid of flux on covered faces
@@ -4188,6 +4229,7 @@ void
 PeleLM::flux_divergence (MultiFab&        fdiv,
                          int              fdivComp,
                          const MultiFab* const* f,
+                         const MultiFab*  ebf,
                          int              fluxComp,
                          int              nComp,
                          Real             scale) const
@@ -4214,6 +4256,7 @@ PeleLM::flux_divergence (MultiFab&        fdiv,
 //#endif
 //   div_alias.mult(scale,0,nComp,0);
 
+     int useEBFluxes = (ebf != nullptr);
 
 //////////////////////////////////////////////////////
 //  PeleLM divergence function
@@ -4226,6 +4269,8 @@ PeleLM::flux_divergence (MultiFab&        fdiv,
       AMREX_D_TERM(auto const& fluxX = f[0]->array(mfi,fluxComp);,
                    auto const& fluxY = f[1]->array(mfi,fluxComp);,
                    auto const& fluxZ = f[2]->array(mfi,fluxComp););
+      Array4<Real> dummy;
+      auto const& ebflux       = (ebf != nullptr) ? ebf->const_array(mfi,fluxComp) : dummy;
       auto const& divergence   = fdiv.array(mfi,fdivComp);
       auto const& vol          = volume.const_array(mfi);
 
@@ -4244,7 +4289,9 @@ PeleLM::flux_divergence (MultiFab&        fdiv,
          });
       } else if (flagfab.getType(bx) != FabType::regular ) {     // EB containing boxes 
          auto vfrac = ebfactory.getVolFrac().const_array(mfi);
-         amrex::ParallelFor(bx, [nComp, flag, vfrac, divergence, AMREX_D_DECL(fluxX, fluxY, fluxZ), vol, scale]
+         amrex::ParallelFor(bx, [useEBFluxes, nComp, flag, vfrac, 
+                                 divergence, AMREX_D_DECL(fluxX, fluxY, fluxZ), 
+                                 ebflux, vol, scale]
          AMREX_GPU_DEVICE (int i, int j, int k) noexcept
          {
             if ( flag(i,j,k).isCovered() ) {
@@ -4257,12 +4304,10 @@ PeleLM::flux_divergence (MultiFab&        fdiv,
                                vol, scale, divergence);
             } else {
                Real vfracinv = 1.0/vfrac(i,j,k);
-               fluxDivergence( i, j, k, nComp,
-                               AMREX_D_DECL(fluxX, fluxY, fluxZ),
-                               vol, scale, divergence);
-               for (int n = 0; n < nComp; n++) {
-                  divergence(i,j,k,n) *= vfracinv;
-               }
+               fluxDivergenceEB( i, j, k, nComp,
+                                 AMREX_D_DECL(fluxX, fluxY, fluxZ),
+                                 useEBFluxes,
+                                 ebflux, vol, vfracinv, scale, divergence);
             }
          });
       } else {                                                   // Regular boxes
@@ -4314,6 +4359,12 @@ PeleLM::compute_differential_diffusion_terms (MultiFab& D,
    const TimeLevel whichTime = which_time(State_Type,time);
    AMREX_ASSERT(whichTime == AmrOldTime || whichTime == AmrNewTime);
    MultiFab* const * flux = (whichTime == AmrOldTime) ? SpecDiffusionFluxn : SpecDiffusionFluxnp1;
+   MultiFab* ebflux = nullptr;
+#ifdef AMREX_USE_EB
+   if (Diffusion::useEBDirichlet()) {
+      ebflux = (whichTime == AmrOldTime) ? EBDiffusionFluxn : EBDiffusionFluxnp1;
+   }
+#endif
 
    //
    // Compute/adjust species fluxes/heat flux/conduction, save in class data
@@ -4334,7 +4385,9 @@ PeleLM::compute_differential_diffusion_terms (MultiFab& D,
    getDiffusivity(beta, time, first_spec, 0, NUM_SPECIES);  // species (rhoD)
    getDiffusivity(beta, time, Temp, NUM_SPECIES, 1);        // temperature (lambda)
 
-   compute_differential_diffusion_fluxes(get_new_data(State_Type),Scrse.get(),flux,beta,dt,time,include_Wbar_terms);
+   compute_differential_diffusion_fluxes(get_new_data(State_Type),
+                                         Scrse.get(),
+                                         flux,ebflux,beta,dt,time,include_Wbar_terms);
 
    D.setVal(0.0);
    DD.setVal(0.0);
@@ -4342,12 +4395,12 @@ PeleLM::compute_differential_diffusion_terms (MultiFab& D,
    // Compute "D":
    // D[0:NUM_SPECIES-1] = -Div( Fk )
    // D[ NUM_SPECIES+1 ] = Div( lambda Grad(T) )
-   flux_divergence(D,0,flux,0,NUM_SPECIES,-1.0);
-   flux_divergence(D,NUM_SPECIES+1,flux,NUM_SPECIES+2,1,-1.0);
+   flux_divergence(D,0,flux,ebflux,0,NUM_SPECIES,-1.0);
+   flux_divergence(D,NUM_SPECIES+1,flux,ebflux,NUM_SPECIES+2,1,-1.0);
 
    // Compute "DD":
    // DD = -Sum{ Div( hk . Fk ) } a.k.a. the "diffdiff" terms
-   flux_divergence(DD,0,flux,NUM_SPECIES+1,1,-1.0);
+   flux_divergence(DD,0,flux,ebflux,NUM_SPECIES+1,1,-1.0);
 
    if (D.nGrow() > 0 && DD.nGrow() > 0)
    {
@@ -4921,7 +4974,8 @@ PeleLM::advance (Real time,
        // They will be added to the Fnp1kp1 directly in diff_diff_update()
        const Real  cur_time  = state[State_Type].curTime();
        compute_Wbar_fluxes(cur_time,0,1.0);
-       flux_divergence(DWbar,0,SpecDiffusionFluxWbar,0,NUM_SPECIES,-1);
+       MultiFab* ebflux = nullptr; 
+       flux_divergence(DWbar,0,SpecDiffusionFluxWbar,ebflux,0,NUM_SPECIES,-1);
     }
 
 #ifdef _OPENMP
@@ -6401,7 +6455,8 @@ PeleLM::mac_sync ()
          // take divergence of beta grad delta Wbar
          DdWbar.define(grids,dmap,NUM_SPECIES,nGrowAdvForcing,MFInfo(),Factory());
          MultiFab* const * fluxWbar = SpecDiffusionFluxWbar;
-         flux_divergence(DdWbar,0,fluxWbar,0,NUM_SPECIES,-1);
+         MultiFab* ebflux = nullptr; 
+         flux_divergence(DdWbar,0,fluxWbar,ebflux,0,NUM_SPECIES,-1);
          DdWbar.mult(dt);
       }
 
@@ -6497,16 +6552,25 @@ PeleLM::mac_sync ()
            MultiFab::Copy(*GammaKp1[d],*SpecDiffusionFluxnp1[d],0,0,NUM_SPECIES+3,0); // get Gamma^{presync}
          }
 
+         MultiFab* ebflux = nullptr;
+#ifdef AMREX_USE_EB
+         if (Diffusion::useEBDirichlet()) {
+            MultiFab   GammaKp1EB(grids,dmap,NUM_SPECIES+3,0);  
+            MultiFab::Copy(GammaKp1EB,*EBDiffusionFluxnp1,0,0,NUM_SPECIES+3,0);
+            ebflux = &GammaKp1EB;
+         }
+#endif
+
          FluxBoxes fb_betanp1(this, NUM_SPECIES+1, 0);
          MultiFab **betanp1 = fb_betanp1.get();
          getDiffusivity(betanp1, curr_time, first_spec, 0, NUM_SPECIES);  // species
          getDiffusivity(betanp1, curr_time, Temp, NUM_SPECIES, 1);        // temperature (lambda)
-         compute_enthalpy_fluxes(GammaKp1,betanp1,curr_time);             // Compute F[N+1] = sum_m (H_m Gamma_m), 
+         compute_enthalpy_fluxes(GammaKp1,betanp1,ebflux,curr_time);             // Compute F[N+1] = sum_m (H_m Gamma_m), 
                                                                           //         F[N+2] = - lambda grad T
 
          // Note: DT (comp 1) and DD (comp 0) are in the same multifab
          MultiFab DiffTerms_pre(grids,dmap,2,0,MFInfo(),Factory());
-         flux_divergence(DiffTerms_pre,0,GammaKp1,NUM_SPECIES+1,2,-1);
+         flux_divergence(DiffTerms_pre,0,GammaKp1,ebflux,NUM_SPECIES+1,2,-1);
 
          // Diffuse species sync to get dGamma^{sync}, then form Gamma^{postsync} = Gamma^{presync} + dGamma^{sync}
          // Before this call Ssync = \nabla \cdot \delta F_{rhoY} - \delta_ADV - Y^{n+1,p}\delta rho^{sync}
@@ -6651,9 +6715,10 @@ PeleLM::mac_sync ()
 
             showMF("DBGSync",deltaT,"sdc_deltaT_indeltaTiter",level,(mac_sync_iter+1)*1000+L,parent->levelSteps(level));
 
+            MultiFab* ebflux = nullptr;
             MultiFab::Add(get_new_data(State_Type),Told,0,Temp,1,0);
-            compute_enthalpy_fluxes(SpecDiffusionFluxnp1,betanp1,curr_time); // Compute F[N+1], F[N+2]
-            flux_divergence(DiffTerms_post,0,SpecDiffusionFluxnp1,NUM_SPECIES+1,2,-1);
+            compute_enthalpy_fluxes(SpecDiffusionFluxnp1,betanp1,ebflux,curr_time); // Compute F[N+1], F[N+2]
+            flux_divergence(DiffTerms_post,0,SpecDiffusionFluxnp1,ebflux,NUM_SPECIES+1,2,-1);
 
 #ifdef _OPENMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
@@ -9045,3 +9110,81 @@ PeleLM::parseComposition(Vector<std::string> compositionIn,
       Abort("Unknown mixtureFraction.type ! Should be 'mass' or 'mole'");
    }
 }
+
+#ifdef AMREX_USE_EB
+void PeleLM::getEBState(const Real &a_time,
+                        MultiFab   &stateEB,
+                        int         stateComp,
+                        int         nComp)
+{
+   AMREX_ASSERT(stateEB.nComp() >= nComp);
+
+   // Get Geom / EB data
+   ProbParm const* lprobparm = prob_parm.get();
+   const auto geomdata = geom.data();
+   auto const& ebfactory = dynamic_cast<EBFArrayBoxFactory const&>(Factory());
+   Array< const MultiCutFab*,AMREX_SPACEDIM> faceCentroid = ebfactory.getFaceCent();
+
+   MFItInfo mfi_info;
+   if (Gpu::notInLaunchRegion()) mfi_info.EnableTiling().SetDynamic(true);
+
+#ifdef _OPENMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+   for (MFIter mfi(stateEB, mfi_info); mfi.isValid(); ++mfi)
+   {   
+      const Box bx = mfi.tilebox();
+      const EBFArrayBox&     cc_fab = static_cast<EBFArrayBox const&>(stateEB[mfi]);
+      const EBCellFlagFab&    flags = cc_fab.getEBCellFlagFab();
+
+      const auto& ebState = stateEB.array(mfi);
+      if ( flags.getType(bx) == FabType::covered ) {              // Set to zero
+         AMREX_PARALLEL_FOR_4D(bx, nComp, i, j, k, n, {ebState(i,j,k,n) = 0.0;});
+      } else if ( flags.getType(bx) == FabType::regular ) {       // Set to zero
+         AMREX_PARALLEL_FOR_4D(bx, nComp, i, j, k, n, {ebState(i,j,k,n) = 0.0;});
+      } else {
+         auto const& flagfab    = ebfactory.getMultiEBCellFlagFab()[mfi];
+         auto const& flag_arr   = flagfab.const_array();
+
+         AMREX_D_TERM( const auto& ebfc_x = faceCentroid[0]->array(mfi);,
+                       const auto& ebfc_y = faceCentroid[1]->array(mfi);,
+                       const auto& ebfc_z = faceCentroid[2]->array(mfi););
+         amrex::ParallelFor(bx, [=]
+         AMREX_GPU_DEVICE (int i, int j, int k) noexcept 
+         {
+            // Regular/covered cells -> 0.0
+            if ( flag_arr(i,j,k).isCovered() ||
+                 flag_arr(i,j,k).isRegular()) {
+               for (int n = 0; n < nComp; n++) {
+                  ebState(i,j,k,n) = 0.0;
+               }
+            } else { // cut-cells
+               // Get the EBface centroid coordinates
+               const amrex::Real* dx = geom.CellSize();
+               const amrex::Real* prob_lo = geom.ProbLo();
+               const amrex::Real xcell[AMREX_SPACEDIM] = {AMREX_D_DECL(prob_lo[0] + (i + 0.5) * dx[0],
+                                                                       prob_lo[1] + (j + 0.5) * dx[1],
+                                                                       prob_lo[2] + (k + 0.5) * dx[2])};
+               const amrex::Real xface[AMREX_SPACEDIM] = {AMREX_D_DECL(xcell[0] + ebfc_x(i,j,k) * dx[0],
+                                                                       xcell[1] + ebfc_y(i,j,k) * dx[1],
+                                                                       xcell[2] + ebfc_z(i,j,k) * dx[2])};
+
+               amrex::Real stateExt[DEF_NUM_STATE] = {0.0};
+               //TODO : would be practical to have the current state at the EBface ...
+
+               // User-defined fill function
+               setEBState(xface, stateExt, a_time, geomdata, *lprobparm);
+
+               // Extract requested entries
+               for (int n = 0; n < nComp; n++) {
+                  ebState(i,j,k,n) = stateExt[stateComp+n];
+               }
+
+            }
+         });
+      }
+
+   }
+}
+
+#endif
