@@ -595,7 +595,7 @@ public:
   amrex::MultiFab**  EdgeFlux;
   amrex::MultiFab**  SpecDiffusionFluxn;
   amrex::MultiFab**  SpecDiffusionFluxnp1;
-#if AMREX_USE_EB
+#ifdef AMREX_USE_EB
   amrex::MultiFab*   EBDiffusionFluxn;
   amrex::MultiFab*   EBDiffusionFluxnp1;
 #endif
