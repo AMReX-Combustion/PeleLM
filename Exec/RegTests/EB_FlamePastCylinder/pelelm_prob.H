@@ -190,4 +190,18 @@ zero_visc (int i, int j, int k,
     const amrex::Real x = prob_lo[0] + (i+0.5)*dx[0];
 
 }
+
+AMREX_GPU_DEVICE
+AMREX_FORCE_INLINE
+void
+setEBState(
+  const amrex::Real xEBface[AMREX_SPACEDIM],
+  amrex::Real s_ext[DEF_NUM_STATE],
+  const amrex::Real time,
+  amrex::GeometryData const& geomdata,
+  ProbParm const& prob_parm)
+{
+
+}
+
 #endif

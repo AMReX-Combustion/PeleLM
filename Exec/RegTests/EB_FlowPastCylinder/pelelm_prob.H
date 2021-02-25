@@ -128,6 +128,26 @@ s_ext[DEF_Temp] = prob_parm.T_mean;
 AMREX_GPU_DEVICE
 AMREX_FORCE_INLINE
 void
+setEBState(
+  const amrex::Real xEBface[AMREX_SPACEDIM],
+  amrex::Real s_ext[DEF_NUM_STATE],
+  const amrex::Real time,
+  amrex::GeometryData const& geomdata,
+  ProbParm const& prob_parm)
+{
+
+   // Setup a fixed EB temperature
+   if ( xEBface[1] > 0.0 ) {
+      s_ext[DEF_Temp] = 800.0;
+   } else {
+      s_ext[DEF_Temp] = 300.0;
+   }
+
+}
+
+AMREX_GPU_DEVICE
+AMREX_FORCE_INLINE
+void
 zero_visc (int i, int j, int k,
            amrex::Array4<amrex::Real> const& beta,
            amrex::GeometryData const& geomdata,
