@@ -10,6 +10,7 @@
 #include <mechanism.h>
 #include <pelelm_prob_parm.H>
 #include <PeleLM_parm.H>
+#include <IndexDefines.H>
 
 #include <list>
 #include <map>
@@ -347,9 +348,10 @@ public:
   void compute_differential_diffusion_fluxes (const amrex::MultiFab& S,
                                               const amrex::MultiFab* Scrse,
                                               amrex::MultiFab* const * flux,
+                                              amrex::MultiFab* ebflux,
                                               const amrex::MultiFab* const * beta,
                                               amrex::Real dt,
-					      amrex::Real time,
+                                              amrex::Real time,
                                               bool  include_Wbar_fluxes);
 
   void compute_differential_diffusion_terms (amrex::MultiFab& D,
@@ -360,7 +362,8 @@ public:
 
   void compute_enthalpy_fluxes (amrex::MultiFab* const*       flux,
                                 const amrex::MultiFab* const* beta,
-				amrex::Real		      time);
+                                amrex::MultiFab*              ebflux,
+                                amrex::Real                   time);
 
   enum HowToFillGrow {HT_ZERO_GROW_CELLS, HT_EXTRAP_GROW_CELLS, HT_NUM_GROW_OPTIONS};
 
@@ -403,8 +406,9 @@ public:
                                FluxBoxes&  fb_betanp1);
 
   void flux_divergence (amrex::MultiFab&        fdiv,
-                        int              fdivComp,
+                        int                     fdivComp,
                         const amrex::MultiFab* const* extensive_fluxes,
+                        const amrex::MultiFab* extensive_ebfluxes,
                         int              fluxComp,
                         int              nComp,
                         amrex::Real             scale) const;
@@ -417,6 +421,14 @@ public:
 
   void getDiffusivity_Wbar (amrex::MultiFab* diffusivity[BL_SPACEDIM],
                             const amrex::Real time);
+
+#ifdef AMREX_USE_EB
+  void getEBState(const amrex::Real &a_time,
+                  amrex::MultiFab &stateEB,
+                  int         stateComp,
+                  int         nComp);
+#endif
+
 
   amrex::DistributionMapping getFuncCountDM (const amrex::BoxArray& bxba, int ngrow);
 
@@ -583,6 +595,10 @@ public:
   amrex::MultiFab**  EdgeFlux;
   amrex::MultiFab**  SpecDiffusionFluxn;
   amrex::MultiFab**  SpecDiffusionFluxnp1;
+#if AMREX_USE_EB
+  amrex::MultiFab*   EBDiffusionFluxn;
+  amrex::MultiFab*   EBDiffusionFluxnp1;
+#endif
 
   amrex::MultiFab**  SpecDiffusionFluxWbar;
 
@@ -726,5 +742,4 @@ void pelelm_dummy_fill  (amrex::Box const& bx, amrex::FArrayBox& data,
                  amrex::Geometry const& geom, const amrex::Real time,
                  const amrex::Vector<amrex::BCRec>& bcr, const int bcomp,
                  const int scomp);
-
 #endif /*_PeleLM_H_*/
