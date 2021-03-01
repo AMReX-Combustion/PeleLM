@@ -15,10 +15,10 @@ function(build_pelelm_exe pelelm_exe_name)
   
   target_include_directories(${pelelm_exe_name} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 
-  set(PELE_PHYSICS_SRC_DIR ${CMAKE_SOURCE_DIR}/../PelePhysics)
+  set(PELE_PHYSICS_SRC_DIR ${CMAKE_SOURCE_DIR}/Submodules/PelePhysics)
   set(PELE_PHYSICS_BIN_DIR ${CMAKE_BINARY_DIR}/Submodules/PelePhysics/${pelelm_exe_name})
 
-  set(IAMR_SRC_DIR ${CMAKE_SOURCE_DIR}/../IAMR/Source)
+  set(IAMR_SRC_DIR ${CMAKE_SOURCE_DIR}/Submodules/IAMR/Source)
   set(IAMR_BIN_DIR ${CMAKE_BINARY_DIR}/Submodules/IAMR/Source/${pelelm_exe_name})
 
   set(SRC_DIR ${CMAKE_SOURCE_DIR}/Source)
