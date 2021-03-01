@@ -7,3 +7,7 @@ CEXE_sources += pelelm_prob.cpp
 ifeq ($(USE_PARTICLES), TRUE)
   CEXE_sources += Particle.cpp
 endif
+
+ifeq ($(USE_SOOT), TRUE)
+  CEXE_sources += Soot.cpp
+endif

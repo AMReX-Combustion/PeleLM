@@ -20,6 +20,10 @@
 #include "SprayParticles.H"
 #endif
 
+#ifdef SOOT_MODEL
+#include "SootModel.H"
+#endif
+
 //
 // Note: define TEMPERATURE if you want a variable T in the 
 //       State_Type part of the state
@@ -332,6 +336,13 @@ public:
 #ifdef AMREX_PARTICLES
   static void spraydotSetUp ();
 #endif
+
+#ifdef SOOT_MODEL
+  static void setSootIndx ();
+  static void sootsrcSetUp ();
+  void computeSootSrc (Real time, Real dt);
+#endif
+
   //
   // Cleanup data descriptors at end of run.
   //
@@ -443,6 +454,7 @@ public:
   static void init_mixture_fraction ();
   static void Finalize ();
 
+
 #ifdef AMREX_PARTICLES
   static int       do_spray_particles;
   static SprayParticleContainer* theSprayPC ();
@@ -450,6 +462,23 @@ public:
   static SprayParticleContainer* theGhostPC ();
 #endif
 
+#ifdef SOOT_MODEL
+  static int add_soot_src;
+  static int plot_soot_src;
+  static std::unique_ptr<SootModel> soot_model;
+  static int         sootsrc_Type;
+  static int         first_soot;
+  static int         NUM_SOOT_VARS;
+  static int         num_soot_src;
+  static SootComps   sootComps;
+  //void addSootSrc();
+#endif
+
+  //
+  // MultiFab for holding source terms like from soot and sprays
+  //
+  amrex::MultiFab external_sources;
+  void add_external_sources();
 
   // enum YdotAction { HT_EstimateYdotNew, HT_ImproveYdotOld, HT_LeaveYdotAlone };
   // enum Solver_Status {HT_InProgress, HT_Stalled, HT_Solved};
@@ -784,6 +813,7 @@ public:
   static int         have_rhort;
   static int         first_spec;
   static int         last_spec;
+  static int         first_passive;
   static amrex::Vector<std::string> spec_names;
   static int         floor_species;
   static amrex::Real prandtl;

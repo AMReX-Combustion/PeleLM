@@ -131,6 +131,9 @@ int  PeleLM::RhoYdot_Type;
 #ifdef AMREX_PARTICLES
 int  PeleLM::spraydot_Type;
 #endif
+#ifdef SOOT_MODEL
+int  PeleLM::sootsrc_Type;
+#endif
 int  PeleLM::FuncCount_Type;
 int  PeleLM::divu_ceiling;
 Real PeleLM::divu_dt_factor;
@@ -139,6 +142,7 @@ int  PeleLM::have_rhort;
 int  PeleLM::RhoRT;
 int  PeleLM::first_spec;
 int  PeleLM::last_spec;
+int  PeleLM::first_passive;
 Vector<std::string>  PeleLM::spec_names;
 int  PeleLM::floor_species;
 int  PeleLM::do_set_rho_to_species_sum;
@@ -180,6 +184,16 @@ bool PeleLM::def_harm_avg_cen2edge  = false;
 
 std::unique_ptr<ProbParm> PeleLM::prob_parm;
 std::unique_ptr<ACParm> PeleLM::ac_parm;
+
+#ifdef SOOT_MODEL
+int PeleLM::add_soot_src;
+int PeleLM::plot_soot_src;
+std::unique_ptr<SootModel> PeleLM::soot_model;
+int PeleLM::first_soot;
+int PeleLM::NUM_SOOT_VARS;
+int PeleLM::num_soot_src;
+SootComps PeleLM::sootComps;
+#endif
 
 std::string                                PeleLM::turbFile;
 std::map<std::string, Vector<std::string> > PeleLM::auxDiag_names;
@@ -334,6 +348,14 @@ PeleLM::Initialize ()
 #ifdef AMREX_PARTICLES
   PeleLM::spraydot_Type             = -1;
 #endif
+#ifdef SOOT_MODEL
+  PeleLM::sootsrc_Type              = -1;
+  PeleLM::add_soot_src              = 1;
+  PeleLM::plot_soot_src             = -1;
+  PeleLM::NUM_SOOT_VARS             = -1;
+  PeleLM::first_soot                = -1;
+  PeleLM::num_soot_src              = -1;
+#endif
   PeleLM::FuncCount_Type            = -1;
   PeleLM::divu_ceiling              = 0;
   PeleLM::divu_dt_factor            = .5;
@@ -342,6 +364,7 @@ PeleLM::Initialize ()
   PeleLM::RhoRT                     = -1;
   PeleLM::first_spec                = -1;
   PeleLM::last_spec                 = -2;
+  PeleLM::first_passive             = -1;
   PeleLM::floor_species             = 1;
   PeleLM::do_set_rho_to_species_sum = 1;
   PeleLM::clipSpeciesOnRegrid       = 0;
@@ -496,6 +519,15 @@ PeleLM::Initialize ()
   readParticleParams();
   if (closed_chamber && do_spray_particles)
     amrex::Abort("Spray particles currently do not work with closed chambers");
+#endif
+
+#ifdef SOOT_MODEL
+  {
+    ParmParse pplm("peleLM");
+    pplm.query("plot_soot_src", plot_soot_src);
+    pplm.query("add_soot_src", add_soot_src);
+  }
+  soot_model->readSootParams();
 #endif
 
   if (verbose)
@@ -881,6 +913,9 @@ PeleLM::variableCleanUp ()
    typical_values.clear();
    prob_parm.reset();
    ac_parm.reset();
+#ifdef SOOT_MODEL
+   soot_model.reset();
+#endif
 }
 
 PeleLM::PeleLM ()
@@ -1009,7 +1044,9 @@ PeleLM::define_data ()
       auxDiag[kv.first] = std::unique_ptr<MultiFab>(new MultiFab(grids,dmap,kv.second.size(),0));
       auxDiag[kv.first]->setVal(0.0);
    }
-
+   const int nGrowS = 1; // TODO: Ensure this is enough
+   external_sources.define(grids, dmap, NUM_STATE, nGrowS, amrex::MFInfo(), Factory());
+   external_sources.setVal(0.);
    // HACK for debugging
    if (level==0)
       stripBox = getStrip(geom);
@@ -1606,6 +1643,14 @@ PeleLM::estTimeStep ()
    if (do_spray_particles)
      particleEstTimeStep(estdt);
 #endif
+#ifdef SOOT_MODEL
+   if (add_soot_src == 1) {
+     amrex::Real estdt_soot = soot_model->estSootTimeStep();
+     if (estdt_soot < estdt) {
+       estdt = estdt_soot;
+     }
+   }
+#endif
    estdt = std::min(estdt, divu_dt);
 
    if (estdt < ns_estdt && verbose)
@@ -1679,6 +1724,10 @@ PeleLM::setTimeLevel (Real time,
 
 #ifdef AMREX_PARTICLES
    state[spraydot_Type].setTimeLevel(time,dt_old,dt_new);
+#endif
+
+#ifdef SOOT_MODEL
+   state[sootsrc_Type].setTimeLevel(time,dt_old,dt_new);
 #endif
 
    state[FuncCount_Type].setTimeLevel(time,dt_old,dt_new);
@@ -1781,6 +1830,16 @@ PeleLM::initData ()
         pelelm_initdata(i, j, k, sfab, geomdata, *lprobparm, lpmfdata);
 #endif
       });
+#ifdef SOOT_MODEL
+      if (add_soot_src) {
+        SootData const* soot_data = soot_model->getSootData();
+        amrex::ParallelFor(box,
+        [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+        {
+          pelelm_initsootdata(i, j, k, sfab, geomdata, *lprobparm, *soot_data);
+        });
+      }
+#endif
   }
 
   showMFsub("1D",S_new,stripBox,"1D_S",level);
@@ -1933,6 +1992,10 @@ PeleLM::initDataOtherTypes ()
   get_new_data(spraydot_Type).setVal(0.);
 #endif
 
+#ifdef SOOT_MODEL
+  get_new_data(sootsrc_Type).setVal(0.);
+#endif
+
   // Put something reasonable into the FuncCount variable
   get_new_data(FuncCount_Type).setVal(1);
 
@@ -2053,9 +2116,18 @@ PeleLM::init (AmrLevel& old)
    {
      const Real tnp1s = oldht->state[spraydot_Type].curTime();
      MultiFab& spraydot = get_new_data(spraydot_Type);
-     FillPatchIterator fpi(*oldht, spraydot, spraydot.nGrow(), tnp1s, spraydot_Type, 0, NUM_STATE);
+     FillPatchIterator fpi(*oldht, spraydot, spraydot.nGrow(), tnp1s, spraydot_Type, 0, spraydot.nComp());
      const MultiFab& mf_fpi = fpi.get_mf();
-     MultiFab::Copy(spraydot, mf_fpi, 0, 0, NUM_STATE, 0);
+     MultiFab::Copy(spraydot, mf_fpi, 0, 0, spraydot.nComp(), 0);
+   }
+#endif
+#ifdef SOOT_MODEL
+   {
+     const Real tnp1s = oldht->state[sootsrc_Type].curTime();
+     MultiFab& sootsrc = get_new_data(sootsrc_Type);
+     FillPatchIterator fpi(*oldht, sootsrc, sootsrc.nGrow(), tnp1s, sootsrc_Type, 0, num_soot_src);
+     const MultiFab& mf_fpi = fpi.get_mf();
+     MultiFab::Copy(sootsrc, mf_fpi, AMREX_SPACEDIM, 0, num_soot_src, 0);
    }
 #endif
 }
@@ -2075,9 +2147,12 @@ PeleLM::init ()
    //
    FillCoarsePatch(get_new_data(RhoYdot_Type),0,tnp1,RhoYdot_Type,0,NUM_SPECIES);
 #ifdef AMREX_PARTICLES
-   FillCoarsePatch(get_new_data(spraydot_Type),0,tnp1,spraydot_Type,0,NUM_STATE);
+   const int nspraydot = NUM_SPECIES + AMREX_SPACEDIM + 4;
+   FillCoarsePatch(get_new_data(spraydot_Type),0,tnp1,spraydot_Type,0,nspraydot);
 #endif
-
+#ifdef SOOT_MODEL
+   FillCoarsePatch(get_new_data(sootsrc_Type),0,tnp1,sootsrc_Type,0,num_soot_src);
+#endif
    RhoH_to_Temp(get_new_data(State_Type));
    get_new_data(State_Type).setBndry(1.e30);
    showMF("sdc",get_new_data(State_Type),"sdc_new_state",level);
@@ -2858,6 +2933,10 @@ PeleLM::resetState (Real time,
        particle_redistribute(level - 1);
      }
    }
+#endif
+#ifdef SOOT_MODEL
+   state[sootsrc_Type].reset();
+   state[sootsrc_Type].setTimeLevel(time,dt_old,dt_new);
 #endif
 }
 
@@ -4253,21 +4332,13 @@ PeleLM::scalar_advection_update (Real dt,
       auto const& snew   = S_new.array(mfi);
       auto const& sold   = S_old.array(mfi);
       auto const& adv    = aofs->array(mfi);
-#ifdef AMREX_PARTICLES
-      auto const& spraydot = get_new_data(spraydot_Type).array(mfi);
-#endif
-      amrex::ParallelFor(bx, [snew, sold, adv, dt, first_scalar, last_scalar
-#ifdef AMREX_PARTICLES
-                              , spraydot
-#endif
-                              ]
+      auto const& ext_source = external_sources.array(mfi);
+      amrex::ParallelFor(bx, [snew, sold, adv, dt, first_scalar, last_scalar, ext_source]
       AMREX_GPU_DEVICE (int i, int j, int k) noexcept
       {
          for (int n = first_scalar; n <= last_scalar; n++) {
             snew(i,j,k,n) = sold(i,j,k,n) + dt * adv(i,j,k,n);
-#ifdef AMREX_PARTICLES
-            snew(i,j,k,n) += dt * spraydot(i,j,k,n);
-#endif
+            snew(i,j,k,n) += dt * ext_source(i,j,k,n);
          }
       });
    }
@@ -4881,6 +4952,16 @@ PeleLM::advance (Real time,
                   tmp_src_width, where_width, tmp_spray_source);
     }
 #endif
+#ifdef SOOT_MODEL
+    if (add_soot_src == 1)
+    {
+      computeSootSrc(time, dt);
+    }
+#endif
+
+    // Add external sources like spray and soot source terms
+    add_external_sources();
+
     if (sdc_iter == sdc_iterMAX)
       updateFluxReg = true;
 
@@ -4916,7 +4997,7 @@ PeleLM::advance (Real time,
     BL_PROFILE_VAR_START(PLM_MAC);
     // create S^{n+1/2} by averaging old and new
 
-    MultiFab Forcing(grids,dmap,NUM_SPECIES+1,nGrowAdvForcing,MFInfo(),Factory());
+    MultiFab Forcing(grids,dmap,NUM_SPECIES+1+DEF_NUM_PASSIVE,nGrowAdvForcing,MFInfo(),Factory());
     Forcing.setBndry(1.e30);
     FillPatch(*this,mac_divu,nGrowAdvForcing,time+0.5*dt,Divu_Type,0,1,0);
 
@@ -4983,6 +5064,11 @@ PeleLM::advance (Real time,
 
     int sComp = std::min(RhoH, std::min((int)Density, std::min((int)first_spec,(int)Temp) ) );
     int eComp = std::max(RhoH, std::max((int)Density, std::max((int)last_spec, (int)Temp) ) );
+    if (DEF_NUM_PASSIVE > 0)
+    {
+      sComp = std::min(sComp, first_passive);
+      eComp = std::max(eComp, first_passive + DEF_NUM_PASSIVE - 1);
+    }
     int nComp = eComp - sComp + 1;
 
     FillPatchIterator S_fpi(*this,get_old_data(State_Type),nGrowAdvForcing,prev_time,State_Type,sComp,nComp);
@@ -4991,6 +5077,8 @@ PeleLM::advance (Real time,
     int Rcomp = Density - sComp;
     int RYcomp = first_spec - sComp;
     int Tcomp = Temp - sComp;
+    // Passive scalars
+    int Pcomp = first_passive - sComp;
 
 #ifdef _OPENMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
@@ -5004,31 +5092,33 @@ PeleLM::advance (Real time,
        auto const& dn      = Dn.array(mfi,0);
        auto const& ddn     = DDn.array(mfi);
        auto const& r       = get_new_data(RhoYdot_Type).array(mfi,0);
-#ifdef AMREX_PARTICLES
-       auto const& spraydot_Y = get_new_data(spraydot_Type).array(mfi,DEF_first_spec);
-       auto const& spraydot_RhoH = get_new_data(spraydot_Type).array(mfi,DEF_RhoH);
-#endif
+       auto const& extY    = external_sources.array(mfi,DEF_first_spec);
+       auto const& extRhoH = external_sources.array(mfi,DEF_RhoH);
        auto const& fY      = Forcing.array(mfi,0);
        auto const& fT      = Forcing.array(mfi,NUM_SPECIES);
        Real        dp0dt_d = dp0dt;
        int     closed_ch_d = closed_chamber;
 
-       amrex::ParallelFor(gbx, [rho, rhoY, T, dn, ddn, r, fY, fT,
-#ifdef AMREX_PARTICLES
-                                spraydot_Y, spraydot_RhoH,
-#endif
+       amrex::ParallelFor(gbx, [rho, rhoY, T, dn, ddn, r, fY, fT, extY, extRhoH,
                                 dp0dt_d, closed_ch_d]
        AMREX_GPU_DEVICE (int i, int j, int k) noexcept
        {
-          buildAdvectionForcing( i, j, k, rho, rhoY, T, dn, ddn, r,
-#ifdef AMREX_PARTICLES
-                                 spraydot_Y, spraydot_RhoH,
-#endif
+          buildAdvectionForcing( i, j, k, rho, rhoY, T, dn, ddn, r, extY, extRhoH,
                                  dp0dt_d, closed_ch_d, fY, fT );
        });
+       if (DEF_NUM_PASSIVE > 0) {
+          auto const& ext_pass = external_sources.array(mfi,DEF_first_passive);
+          auto const& fPass    = Forcing.array(mfi,NUM_SPECIES + 1);
+          amrex::ParallelFor(gbx, [ext_pass, fPass]
+          AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+          {
+            for (int n = 0; n < DEF_NUM_PASSIVE; n++)
+              fPass(i,j,k,n) += ext_pass(i,j,k,n);
+          });
+       }
     }
 
-    Forcing.FillBoundary(0,NUM_SPECIES+1,geom.periodicity());
+    Forcing.FillBoundary(0,NUM_SPECIES+1+DEF_NUM_PASSIVE,geom.periodicity());
 
     aofs->setVal(1.e30,aofs->nGrow());
 
@@ -5038,6 +5128,9 @@ PeleLM::advance (Real time,
     
     // update rho since not affected by diffusion
     scalar_advection_update(dt, Density, Density);
+    if (DEF_NUM_PASSIVE > 0) {
+      scalar_advection_update(dt, first_passive, first_passive + DEF_NUM_PASSIVE - 1);
+    }
     make_rho_curr_time();
 
     BL_PROFILE_VAR_STOP(PLM_ADV);
@@ -5078,21 +5171,16 @@ PeleLM::advance (Real time,
         auto const& ddnp1k  = DDnp1.array(mfi);
         auto const& r       = get_new_data(RhoYdot_Type).array(mfi,0);
         auto const& a       = aofs->array(mfi,first_spec);
+        auto const& extY    = external_sources.array(mfi, first_spec);
+        auto const& extRhoH = external_sources.array(mfi, DEF_RhoH);
         auto const& fY      = Forcing.array(mfi,0);
         auto const& fT      = Forcing.array(mfi,NUM_SPECIES);
-#ifdef AMREX_PARTICLES
-        auto const& spraydot_Y = get_new_data(spraydot_Type).array(mfi,DEF_first_spec);
-        auto const& spraydot_RhoH = get_new_data(spraydot_Type).array(mfi,DEF_RhoH);
-#endif
         int use_wbar_lcl    = use_wbar;
         auto const& dwbar   = (use_wbar) ? DWbar.array(mfi) : Dn.array(mfi,0);
         Real        dp0dt_d = dp0dt;
         int     closed_ch_d = closed_chamber;
 
-        amrex::ParallelFor(bx, [dn, ddn, dnp1k, ddnp1k, dwbar,
-#ifdef AMREX_PARTICLES
-                                spraydot_Y, spraydot_RhoH,
-#endif
+        amrex::ParallelFor(bx, [dn, ddn, dnp1k, ddnp1k, dwbar, extY, extRhoH,
                                 r, a, fY, fT, dp0dt_d, closed_ch_d, use_wbar_lcl]
         AMREX_GPU_DEVICE (int i, int j, int k) noexcept
         {
@@ -5102,12 +5190,10 @@ PeleLM::advance (Real time,
                  fY(i,j,k,n) += dwbar(i,j,k,n);
               }
            }
-#ifdef AMREX_PARTICLES
            for (int n = 0; n < NUM_SPECIES; n++) {
-             fY(i,j,k,n) += spraydot_Y(i,j,k,n);
+             fY(i,j,k,n) += extY(i,j,k,n);
            }
-           fT(i,j,k) += spraydot_RhoH(i,j,k);
-#endif
+           fT(i,j,k) += extRhoH(i,j,k);
         });
       }
     }
@@ -5204,6 +5290,7 @@ PeleLM::advance (Real time,
     {
       FillPatch(*this, Sborder, nGrow_Sborder, tnp1, State_Type, 0, NUM_STATE);
       particleMK(time, dt, spray_n_grow, tmp_src_width, iteration, ncycle, tmp_spray_source);
+      add_external_sources();
     }
 #endif
   }
@@ -5853,6 +5940,11 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
   int ng = godunov_hyp_grow;
   int sComp = std::min((int)Density, std::min((int)first_spec,(int)Temp) );
   int eComp = std::max((int)Density, std::max((int)last_spec,(int)Temp) );
+  if (DEF_NUM_PASSIVE > 0)
+  {
+    sComp = std::min(sComp, first_passive);
+    eComp = std::max(eComp, first_passive + DEF_NUM_PASSIVE - 1);
+  }
   int nComp = eComp - sComp + 1;
 
   FillPatchIterator S_fpi(*this,get_old_data(State_Type),ng,prev_time,State_Type,sComp,nComp);
@@ -5861,6 +5953,9 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
   int rhoYcomp = first_spec - sComp;
   int Rcomp = Density - sComp;
   int Tcomp = Temp - sComp;
+
+  // Passive scalars like soot moments
+  int Pcomp = first_passive - sComp;
 
   // Floor small values of states to be extrapolated
 #ifdef _OPENMP
@@ -5900,6 +5995,21 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
                        AMREX_D_DECL(u_mac[0],u_mac[1],u_mac[2]),
                        AMREX_D_DECL(*EdgeState[0],*EdgeState[1],*EdgeState[2]), first_spec, false,
                        AMREX_D_DECL(*EdgeFlux[0],*EdgeFlux[1],*EdgeFlux[2]), first_spec,
+                       math_bcs, d_bcrec_ptr, geom );
+     EB_set_covered(*aofs, 0.);
+  }
+
+  // Advect passive scalars
+  if (DEF_NUM_PASSIVE > 0)
+  {
+     Vector<BCRec> math_bcs(DEF_NUM_PASSIVE);
+     math_bcs = fetchBCArray(State_Type, first_passive, DEF_NUM_PASSIVE);
+     BCRec  const* d_bcrec_ptr = &(m_bcrec_scalars_d.dataPtr())[first_passive-Density];
+
+     MOL::ComputeAofs( *aofs, first_passive, DEF_NUM_PASSIVE, Smf, Pcomp,
+                       AMREX_D_DECL(u_mac[0],u_mac[1],u_mac[2]),
+                       AMREX_D_DECL(*EdgeState[0],*EdgeState[1],*EdgeState[2]), first_passive, false,
+                       AMREX_D_DECL(*EdgeFlux[0],*EdgeFlux[1],*EdgeFlux[2]), first_passive,
                        math_bcs, d_bcrec_ptr, geom );
      EB_set_covered(*aofs, 0.);
   }
@@ -6082,6 +6192,13 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
     EB_set_covered_faces({AMREX_D_DECL(EdgeState[0],EdgeState[1],EdgeState[2])},Temp,1,typvals);
     EB_set_covered_faces({AMREX_D_DECL(EdgeState[0],EdgeState[1],EdgeState[2])},Density,1,typvals);
     EB_set_covered_faces({AMREX_D_DECL(EdgeState[0],EdgeState[1],EdgeState[2])},RhoH,1,typvals);
+    if (DEF_NUM_PASSIVE > 0)
+    {
+      for (int k = 0; k < DEF_NUM_PASSIVE; ++k) {
+        typvals[first_passive+k] = typical_values[first_passive+k];
+      }
+      EB_set_covered_faces({AMREX_D_DECL(EdgeState[0],EdgeState[1],EdgeState[2])},first_passive,DEF_NUM_PASSIVE,typvals);
+    }
   }
 
   for (int d=0; d<AMREX_SPACEDIM; ++d)
@@ -6161,6 +6278,25 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
                         Force, 0, DivU, d_bcrec_ptr, geom, iconserv,
                         dt, godunov_use_ppm, godunov_use_forces_in_trans, false );
 }
+
+  // Advect passive scalars like soot moments
+ if (DEF_NUM_PASSIVE > 0)
+ {
+   BCRec  const* d_bcrec_ptr = &(m_bcrec_scalars_d.dataPtr())[first_passive-Density];
+   amrex::Gpu::DeviceVector<int> iconserv;
+   iconserv.resize(DEF_NUM_PASSIVE, 0);
+   for (int comp = 0; comp < DEF_NUM_PASSIVE; ++comp) {
+     iconserv[comp] = (advectionType[first_passive+comp] == Conservative) ? 1 : 0;
+   }
+   const int force_pass_comp = NUM_SPECIES + 1;
+   Godunov::ComputeAofs(*aofs, first_passive, DEF_NUM_PASSIVE,
+                        Smf, Pcomp,
+                        AMREX_D_DECL( u_mac[0], u_mac[1], u_mac[2] ),
+                        AMREX_D_DECL(*EdgeState[0], *EdgeState[1], *EdgeState[2]), first_passive, false,
+                        AMREX_D_DECL(*EdgeFlux[0], *EdgeFlux[1], *EdgeFlux[2]), first_passive,
+                        Force, force_pass_comp, DivU, d_bcrec_ptr, geom, iconserv,
+                        dt, godunov_use_ppm, godunov_use_forces_in_trans, false );
+ }
 
   // Set flux, flux divergence, and face values for rho as sums of the corresponding RhoY quantities
 #ifdef _OPENMP
@@ -8036,9 +8172,6 @@ PeleLM::calc_divu (Real      time,
    // if we are in an init_iter or regular time step (time=dt, dt>0), use instananeous
    MultiFab   RhoYdotTmp;
    MultiFab&  S       = get_data(State_Type,time);
-#ifdef AMREX_PARTICLES
-   MultiFab& spraydot = get_new_data(spraydot_Type);
-#endif
    const bool use_IR  = (time == 0 && dt > 0);
 
    MultiFab& RhoYdot = (use_IR) ? get_new_data(RhoYdot_Type) : RhoYdotTmp;
@@ -8074,25 +8207,17 @@ PeleLM::calc_divu (Real      time,
       auto const& vtT     = mcViscTerms.array(mfi,vtCompT);
       auto const& vtY     = mcViscTerms.array(mfi,vtCompY);
       auto const& rhoYdot = RhoYdot.array(mfi);
-#ifdef AMREX_PARTICLES
-      auto const& spraydot_rho = spraydot.array(mfi,Density);
-      auto const& spraydot_Y = spraydot.array(mfi,DEF_first_spec);
-      auto const& spraydot_RhoH = spraydot.array(mfi,DEF_RhoH);
-#endif
+      auto const& extRho  = external_sources.array(mfi,Density);
+      auto const& extY    = external_sources.array(mfi,DEF_first_spec);
+      auto const& extRhoH = external_sources.array(mfi,DEF_RhoH);
       auto const& du      = divu.array(mfi);
 
       amrex::ParallelFor(bx, [ rhoY, T, vtT, vtY, rhoYdot,
-#ifdef AMREX_PARTICLES
-                               spraydot_rho, spraydot_Y, spraydot_RhoH,
-#endif
-                               du]
+                               extRho, extY, extRhoH, du]
       AMREX_GPU_DEVICE (int i, int j, int k) noexcept
       {
         compute_divu( i, j, k, rhoY, T, vtT, vtY, rhoYdot,
-#ifdef AMREX_PARTICLES
-                       spraydot_rho, spraydot_Y, spraydot_RhoH,
-#endif
-                      du );
+                      extRho, extY, extRhoH, du );
       });
    }
   
@@ -8289,13 +8414,11 @@ PeleLM::getForce(FArrayBox&       force,
    {
       makeForce(i,j,k, scomp, ncomp, pseudo_gravity, time, grav, dV_control, dx, velocity, scalars, f);
    });
-#ifdef AMREX_PARTICLES
    // Velocity forcing
-   if (scomp == Xvel && ncomp == AMREX_SPACEDIM && do_spray_particles) {
-     const FArrayBox& sprayforce = get_new_data(spraydot_Type)[mfi];
-     force.plus<RunOn::Device>(sprayforce, bx, Xvel, Xvel, AMREX_SPACEDIM);
+   if (scomp == Xvel && ncomp == AMREX_SPACEDIM) {
+     const FArrayBox& ext_force = external_sources[mfi];
+     force.plus<RunOn::Device>(ext_force, bx, Xvel, Xvel, AMREX_SPACEDIM);
    }
-#endif
 }
 
 void
@@ -8341,9 +8464,23 @@ PeleLM::setPlotVariables ()
   // Remove spray source terms unless otherwise specified
   if (plot_spray_src == 0)
   {
-    for (int i = 0; i < NUM_STATE; i++)
+    const int nspraydot = NUM_SPECIES + AMREX_SPACEDIM + 4;
+    for (int i = 0; i < nspraydot; i++)
     {
       const std::string name = "I_R_spray_" + desc_lst[State_Type].name(i);
+      parent->deleteStatePlotVar(name);
+    }
+  }
+#endif
+#ifdef SOOT_MODEL
+  // Remove spray source terms unless otherwise specified
+  if (plot_soot_src == 0)
+  {
+    const int nsootsrc = NUM_SPECIES + 4 + DEF_NUM_SOOT_VARS;
+    for (int i = 0; i < nsootsrc; i++)
+    {
+      const int dcomp = AMREX_SPACEDIM + i;
+      const std::string name = "I_R_soot_" + desc_lst[State_Type].name(dcomp);
       parent->deleteStatePlotVar(name);
     }
   }
@@ -9245,4 +9382,20 @@ PeleLM::parseComposition(Vector<std::string> compositionIn,
    } else {
       Abort("Unknown mixtureFraction.type ! Should be 'mass' or 'mole'");
    }
+}
+
+void
+PeleLM::add_external_sources()
+{
+  const int nGrowS = 1;
+  external_sources.setVal(0.);
+#ifdef AMREX_PARTICLES
+  const int nspraycomp = NUM_SPECIES + AMREX_SPACEDIM + 4;
+  MultiFab& spraydot = get_new_data(spraydot_Type);
+  MultiFab::Add(external_sources, spraydot, 0, 0, nspraycomp, nGrowS);
+#endif
+#ifdef SOOT_MODEL
+  MultiFab& sootsrc = get_new_data(sootsrc_Type);
+  MultiFab::Add(external_sources, sootsrc, 0, Density, num_soot_src, nGrowS);
+#endif
 }

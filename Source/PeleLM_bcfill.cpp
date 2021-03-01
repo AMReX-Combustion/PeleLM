@@ -182,6 +182,11 @@ struct PeleLMCCFillExtDir
          else if (orig_comp == DEF_RhoRT){
             dest(iv, dcomp) = 0.0;
          }
+         else if (orig_comp == DEF_first_passive && DEF_NUM_PASSIVE > 0){
+           for (int n = 0; n < DEF_NUM_PASSIVE; ++n) {
+             dest(iv, dcomp + n) = s_ext[DEF_first_passive+n];
+           }
+         }
 
     } else if (
        (bc[idir + AMREX_SPACEDIM] == amrex::BCType::ext_dir) and
@@ -210,6 +215,11 @@ struct PeleLMCCFillExtDir
          }
          else if (orig_comp == DEF_RhoRT){
             dest(iv, dcomp) = 0.0;
+         }
+         else if (orig_comp == DEF_first_passive && DEF_NUM_PASSIVE > 0){
+           for (int n = 0; n < DEF_NUM_PASSIVE; ++n) {
+             dest(iv, dcomp + n) = s_ext[DEF_first_passive+n];
+           }
          }
     }
 
@@ -242,6 +252,11 @@ struct PeleLMCCFillExtDir
          else if (orig_comp == DEF_RhoRT){
             dest(iv, dcomp) = 0.0;
          }
+         else if (orig_comp == DEF_first_passive && DEF_NUM_PASSIVE > 0){
+           for (int n = 0; n < DEF_NUM_PASSIVE; ++n) {
+             dest(iv, dcomp + n) = s_ext[DEF_first_passive+n];
+           }
+         }
 
     } else if (
        (bc[idir + AMREX_SPACEDIM] == amrex::BCType::ext_dir) and
@@ -270,6 +285,11 @@ struct PeleLMCCFillExtDir
          }
          else if (orig_comp == DEF_RhoRT){
             dest(iv, dcomp) = 0.0;
+         }
+         else if (orig_comp == DEF_first_passive && DEF_NUM_PASSIVE > 0){
+           for (int n = 0; n < DEF_NUM_PASSIVE; ++n) {
+             dest(iv, dcomp + n) = s_ext[DEF_first_passive+n];
+           }
          }
 
     }
@@ -303,6 +323,11 @@ struct PeleLMCCFillExtDir
          else if (orig_comp == DEF_RhoRT){
             dest(iv, dcomp) = 0.0;
          }
+         else if (orig_comp == DEF_first_passive && DEF_NUM_PASSIVE > 0){
+           for (int n = 0; n < DEF_NUM_PASSIVE; ++n) {
+             dest(iv, dcomp + n) = s_ext[DEF_first_passive+n];
+           }
+         }
 
     } else if (
        (bc[idir + AMREX_SPACEDIM] == amrex::BCType::ext_dir) and
@@ -331,6 +356,11 @@ struct PeleLMCCFillExtDir
          }
          else if (orig_comp == DEF_RhoRT){
             dest(iv, dcomp) = 0.0;
+         }
+         else if (orig_comp == DEF_first_passive && DEF_NUM_PASSIVE > 0){
+           for (int n = 0; n < DEF_NUM_PASSIVE; ++n) {
+             dest(iv, dcomp + n) = s_ext[DEF_first_passive+n];
+           }
          }
 
     }

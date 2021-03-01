@@ -190,10 +190,8 @@ buildAdvectionForcing(int i, int j, int k,
                       amrex::Array4<const amrex::Real> const& dn,
                       amrex::Array4<const amrex::Real> const& ddn,
                       amrex::Array4<const amrex::Real> const& r,
-#ifdef AMREX_PARTICLES
-                      amrex::Array4<const amrex::Real> const& spraydot_Y,
-                      amrex::Array4<const amrex::Real> const& spraydot_RhoH,
-#endif
+                      amrex::Array4<const amrex::Real> const& extY,
+                      amrex::Array4<const amrex::Real> const& extRhoH,
                       amrex::Real                      const& dp0dt,
                       int                              const& closed_chamber,
                       amrex::Array4<      amrex::Real> const& forceY,
@@ -216,12 +214,10 @@ buildAdvectionForcing(int i, int j, int k,
       forceY(i,j,k,n) = r(i,j,k,n) + dn(i,j,k,n);                    // forceY = Rk + Dnk
       forceT(i,j,k) -= forceY(i,j,k,n) * hi_spec[n] * 0.0001_rt;     // forceT -= Sum{ hk. (Rk + Dnk) } with CGS -> MKS conversion of hk
    }
-#ifdef AMREX_PARTICLES
    for (int n = 0; n < NUM_SPECIES; n++) {
-     forceY(i,j,k,n) += spraydot_Y(i,j,k,n);
+     forceY(i,j,k,n) += extY(i,j,k,n);
    }
-   forceT(i,j,k) += spraydot_RhoH(i,j,k);
-#endif
+   forceT(i,j,k) += extRhoH(i,j,k);
 
    if ( closed_chamber == 1 ) forceT(i,j,k) += dp0dt;                // Add dp0/dt
 
@@ -282,11 +278,9 @@ compute_divu(int i, int j, int k,
              amrex::Array4<const amrex::Real> const& viscTermT,
              amrex::Array4<const amrex::Real> const& viscTermY,
              amrex::Array4<const amrex::Real> const& rhoYdot,
-#ifdef AMREX_PARTICLES
-             amrex::Array4<const amrex::Real> const& spraydot_rho,
-             amrex::Array4<const amrex::Real> const& spraydot_Y,
-             amrex::Array4<const amrex::Real> const& spraydot_RhoH,
-#endif
+             amrex::Array4<const amrex::Real> const& extRho,
+             amrex::Array4<const amrex::Real> const& extY,
+             amrex::Array4<const amrex::Real> const& extRhoH,
              amrex::Array4<      amrex::Real> const& divu) noexcept
 {
    using namespace amrex::literals;
@@ -322,13 +316,11 @@ compute_divu(int i, int j, int k,
       divu(i,j,k) +=  ( viscTermY(i,j,k,n) + rhoYdot(i,j,k,n) )
                     * ( mwtinv[n] * Wbar * rhoinv - hi[n] * denominv );
    }
-#ifdef AMREX_PARTICLES
-   divu(i,j,k) += spraydot_rho(i,j,k) * rhoinv;
+   divu(i,j,k) += extRho(i,j,k) * rhoinv;
    for (int n = 0; n < NUM_SPECIES; n++) {
-     divu(i,j,k) += mwtinv[n] * Wbar * rhoinv * spraydot_Y(i,j,k,n);
+     divu(i,j,k) += mwtinv[n] * Wbar * rhoinv * extY(i,j,k,n);
    }
-   divu(i,j,k) += spraydot_RhoH(i,j,k) * denominv;
-#endif
+   divu(i,j,k) += extRhoH(i,j,k) * denominv;
 }
 
 AMREX_GPU_HOST_DEVICE

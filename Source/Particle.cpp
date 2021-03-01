@@ -23,6 +23,7 @@ SprayParticleContainer* VirtPC = 0;
 //
 SprayParticleContainer* GhostPC = 0;
 
+int num_spray_src = AMREX_SPACEDIM + 4 + NUM_SPECIES;
 SprayData sprayData;
 amrex::Real sprayRefT = 300.;
 amrex::Real parcelSize = 1.;
@@ -492,7 +493,7 @@ PeleLM::particleMKD (const Real       time,
   theSprayPC()->transferSource(
     tmp_src_width, level, tmp_spray_source, spraydot);
   spraydot.FillBoundary(geom.periodicity());
-  Extrapolater::FirstOrderExtrap(spraydot, geom, 0, NUM_STATE);
+  Extrapolater::FirstOrderExtrap(spraydot, geom, 0, spraydot.nComp());
 }
 
 void
@@ -525,7 +526,7 @@ PeleLM::particleMK (const Real       time,
   theSprayPC()->transferSource(
     tmp_src_width, level, tmp_spray_source, spraydot);
   spraydot.FillBoundary(geom.periodicity());
-  Extrapolater::FirstOrderExtrap(spraydot, geom, 0, NUM_STATE);
+  Extrapolater::FirstOrderExtrap(spraydot, geom, 0, spraydot.nComp());
 }
 
 // TODO: This has not been checked or updated, use with caution
@@ -690,11 +691,12 @@ PeleLM::init_advance_particles (Real dt,
     setupVirtualParticles();
   }
   MultiFab tmp_spray_source(
-    grids, dmap, NUM_STATE, nGhosts, amrex::MFInfo(), Factory());
+    grids, dmap, num_spray_src, nGhosts, amrex::MFInfo(), Factory());
   tmp_spray_source.setVal(0.);
   FillPatch(*this, Sborder, nGhosts, time, State_Type, 0, NUM_STATE);
   Real dt_fake = 0.; // So particles are not modified
   particleMK(time, dt_fake, nGhosts, nGhosts, 1, 1, tmp_spray_source);
+  add_external_sources();
 }
 
 void

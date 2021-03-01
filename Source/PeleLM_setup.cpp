@@ -339,6 +339,30 @@ set_species_bc (BCRec&       bc,
   }
 }
 
+#ifdef SOOT_MODEL
+static
+int
+sootsrc_bc[] =
+{
+  INT_DIR, EXT_DIR, FOEXTRAP, REFLECT_EVEN, REFLECT_EVEN, REFLECT_EVEN, EXT_DIR, EXT_DIR
+};
+
+static
+void
+set_sootsrc_bc (BCRec&       bc,
+                const BCRec& phys_bc)
+{
+  const int* lo_bc = phys_bc.lo();
+  const int* hi_bc = phys_bc.hi();
+
+  for (int i = 0; i < AMREX_SPACEDIM; i++)
+  {
+    bc.setLo(i,sootsrc_bc[lo_bc[i]]);
+    bc.setHi(i,sootsrc_bc[hi_bc[i]]);
+  }
+}
+#endif
+
 //
 // Indices of fuel and oxidizer -- ParmParsed in & used in a couple places.
 //
@@ -364,6 +388,9 @@ PeleLM::variableSetUp ()
 
   prob_parm.reset(new ProbParm{});
   ac_parm.reset(new ACParm{});
+#ifdef SOOT_MODEL
+  soot_model.reset(new SootModel{});
+#endif
 
   for (int dir = 0; dir < BL_SPACEDIM; dir++)
   {
@@ -404,6 +431,7 @@ PeleLM::variableSetUp ()
   RhoH = DEF_RhoH;
   Temp = DEF_Temp;
   RhoRT = DEF_RhoRT;
+  first_passive = DEF_first_passive;
   NUM_STATE = DEF_NUM_STATE;
   NUM_SCALARS = DEF_NUM_SCALARS;
 
@@ -561,6 +589,31 @@ PeleLM::variableSetUp ()
 
   if (is_diffusive[Density])
     amrex::Abort("PeleLM::variableSetUp(): density cannot diffuse");
+
+#ifdef SOOT_MODEL
+  first_soot = DEF_first_soot;
+  NUM_SOOT_VARS = DEF_NUM_SOOT_VARS;
+  num_soot_src = NUM_SPECIES + 4 + NUM_SOOT_VARS;
+  bcs.resize(NUM_SOOT_VARS);
+  name.resize(NUM_SOOT_VARS);
+  set_sootsrc_bc(bc,phys_bc);
+  for (int i = 0; i < NUM_SOOT_VARS; i++)
+  {
+    bcs[i] = bc;
+    name[i] = soot_model->sootVariableName(i);
+  }
+  desc_lst.setComponent(State_Type,
+                        first_soot,
+                        name,
+                        bcs,
+                        pelelm_bndryfunc);
+  PeleLM::setSootIndx();
+  for (int i = first_soot; i < first_soot + NUM_SOOT_VARS; i++)
+  {
+    advectionType[i] = NonConservative;
+    is_diffusive[i] = false;
+  }
+#endif
   //
   // ---- pressure
   //
@@ -816,26 +869,14 @@ PeleLM::variableSetUp ()
 
   std::string curv_str = "mean_progress_curvature";
   derive_lst.add(curv_str,IndexType::TheCellType(),1,&DeriveRec::GrowBoxByOne);
-    
 #ifdef AMREX_PARTICLES
-//   //
-//   // The particle count at this level.
-//   //
-//   derive_lst.add("particle_count",IndexType::TheCellType(),1,
-//                  FORT_DERNULL,the_same_box);
-//   derive_lst.addComponent("particle_count",desc_lst,State_Type,Density,1);
-//   //
-//   // The total # of particles at our level or above.
-//   //
-//   derive_lst.add("total_particle_count",IndexType::TheCellType(),1,
-//                  FORT_DERNULL,the_same_box);
-//   derive_lst.addComponent("total_particle_count",desc_lst,State_Type,Density,1);
-//   //
-  // Force all particles to be tagged.
-  //
-  //err_list.add("total_particle_count",1,ErrorRec::Special,part_cnt_err);
   spraydotSetUp();
   defineParticles();
+#endif
+#ifdef SOOT_MODEL
+  sootsrcSetUp();
+  soot_model->define();
+  soot_model->addSootDerivePlotVars(derive_lst, desc_lst);
 #endif
 
   derive_lst.add("mixfrac_only",IndexType::TheCellType(),1,pelelm_dermixfrac,the_same_box);
@@ -1038,7 +1079,7 @@ static
 int
 spraydot_bc[] =
 {
-  INT_DIR, EXT_DIR, FOEXTRAP, REFLECT_EVEN, REFLECT_EVEN, REFLECT_EVEN
+  INT_DIR, EXT_DIR, FOEXTRAP, REFLECT_EVEN, REFLECT_EVEN, REFLECT_EVEN, EXT_DIR, EXT_DIR
 };
 
 static
@@ -1062,28 +1103,68 @@ PeleLM::spraydotSetUp()
   spraydot_Type = desc_lst.size();
   const int ngrow = 1;
 
-  // species + density + momentum + enth + temp + rhoRT
-  const int nspraydot = NUM_STATE;
+  // momentum + density + species + enth + temp + rhoRT
+  const int nspraydot = NUM_SPECIES + AMREX_SPACEDIM + 4;
 
   desc_lst.addDescriptor(spraydot_Type,IndexType::TheCellType(),
                          StateDescriptor::Point,ngrow,nspraydot,
-                         &lincc_interp);
+                         &cc_interp);
   amrex::StateDescriptor::BndryFunc pelelm_bndryfunc(pelelm_dummy_fill);
   pelelm_bndryfunc.setRunOnGPU(true);  // I promise the bc function will launch gpu kernels.
   BCRec bc;
   set_spraydot_bc(bc,phys_bc);
   int specComp = AMREX_SPACEDIM + 1;
   int endSpecComp = specComp + NUM_SPECIES - 1;
-  for (int i = 0; i < NUM_STATE; ++i)
+  for (int i = 0; i < nspraydot; ++i)
   {
     std::string name = "I_R_spray_" + desc_lst[State_Type].name(i);
     if (i >= specComp && i <= endSpecComp)
       desc_lst.setComponent(spraydot_Type, i, name.c_str(), bc,
-                            pelelm_bndryfunc, &lincc_interp, specComp, endSpecComp);
+                            pelelm_bndryfunc, &cc_interp, specComp, endSpecComp);
     else
       desc_lst.setComponent(spraydot_Type, i, name.c_str(), bc,
-                            pelelm_bndryfunc, &lincc_interp, i, i);
+                            pelelm_bndryfunc, &cc_interp, i, i);
   }
 }
 #endif
 
+#ifdef SOOT_MODEL
+void
+PeleLM::sootsrcSetUp()
+{
+  sootsrc_Type = desc_lst.size();
+  const int ngrow = 1;
+
+  // density + species + enth + temp + rhoRT + soot vars
+  const int nsootsrc = num_soot_src;
+
+  desc_lst.addDescriptor(sootsrc_Type,IndexType::TheCellType(),
+                         StateDescriptor::Point,ngrow,nsootsrc,
+                         &cc_interp);
+  amrex::StateDescriptor::BndryFunc pelelm_bndryfunc(pelelm_dummy_fill);
+  pelelm_bndryfunc.setRunOnGPU(true);  // I promise the bc function will launch gpu kernels.
+  BCRec bc;
+  set_sootsrc_bc(bc,phys_bc);
+  int specComp = sootComps.specIndx;
+  int endSpecComp = specComp + NUM_SPECIES - 1;
+  int sootComp = sootComps.sootIndx - AMREX_SPACEDIM;
+  int endSootComp = sootComp + DEF_NUM_SOOT_VARS - 1;
+  for (int i = 0; i < nsootsrc; ++i)
+  {
+    const int dcomp = AMREX_SPACEDIM + i;
+    std::string name = "I_R_soot_" + desc_lst[State_Type].name(dcomp);
+    if (i >= specComp && i <= endSpecComp) {
+      desc_lst.setComponent(sootsrc_Type, i, name.c_str(), bc,
+                            pelelm_bndryfunc, &cc_interp, specComp, endSpecComp);
+    }
+    else if (i >= sootComp && i <= endSootComp) {
+      desc_lst.setComponent(sootsrc_Type, i, name.c_str(), bc,
+                            pelelm_bndryfunc, &cc_interp, sootComp, endSootComp);
+    }
+    else {
+      desc_lst.setComponent(sootsrc_Type, i, name.c_str(), bc,
+                            pelelm_bndryfunc, &cc_interp, i, i);
+    }
+  }
+}
+#endif
