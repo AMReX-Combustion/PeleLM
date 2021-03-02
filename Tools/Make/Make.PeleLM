@@ -1,5 +1,5 @@
 EBASE = PeleLM
-PELE_PHYSICS_HOME ?= $(TOP)/PelePhysics
+PELE_PHYSICS_HOME ?= $(SUBMODS)/PelePhysics
 
 ifeq ($(USE_SUNDIALS_PP),TRUE) 
   include $(PELE_PHYSICS_HOME)/ThirdParty/Make.ThirdParty
