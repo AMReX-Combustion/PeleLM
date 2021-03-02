@@ -527,7 +527,7 @@ PeleLM::Initialize ()
     pplm.query("plot_soot_src", plot_soot_src);
     pplm.query("add_soot_src", add_soot_src);
   }
-  soot_model->readSootParams();
+  if (add_soot_src) soot_model->readSootParams();
 #endif
 
   if (verbose)
@@ -1727,7 +1727,8 @@ PeleLM::setTimeLevel (Real time,
 #endif
 
 #ifdef SOOT_MODEL
-   state[sootsrc_Type].setTimeLevel(time,dt_old,dt_new);
+   if (add_soot_src == 1)
+     state[sootsrc_Type].setTimeLevel(time,dt_old,dt_new);
 #endif
 
    state[FuncCount_Type].setTimeLevel(time,dt_old,dt_new);
@@ -1993,7 +1994,8 @@ PeleLM::initDataOtherTypes ()
 #endif
 
 #ifdef SOOT_MODEL
-  get_new_data(sootsrc_Type).setVal(0.);
+  if (add_soot_src == 1)
+    get_new_data(sootsrc_Type).setVal(0.);
 #endif
 
   // Put something reasonable into the FuncCount variable
@@ -2122,7 +2124,7 @@ PeleLM::init (AmrLevel& old)
    }
 #endif
 #ifdef SOOT_MODEL
-   {
+   if (add_soot_src == 1) {
      const Real tnp1s = oldht->state[sootsrc_Type].curTime();
      MultiFab& sootsrc = get_new_data(sootsrc_Type);
      FillPatchIterator fpi(*oldht, sootsrc, sootsrc.nGrow(), tnp1s, sootsrc_Type, 0, num_soot_src);
@@ -2151,7 +2153,8 @@ PeleLM::init ()
    FillCoarsePatch(get_new_data(spraydot_Type),0,tnp1,spraydot_Type,0,nspraydot);
 #endif
 #ifdef SOOT_MODEL
-   FillCoarsePatch(get_new_data(sootsrc_Type),0,tnp1,sootsrc_Type,0,num_soot_src);
+   if (add_soot_src == 1)
+     FillCoarsePatch(get_new_data(sootsrc_Type),0,tnp1,sootsrc_Type,0,num_soot_src);
 #endif
    RhoH_to_Temp(get_new_data(State_Type));
    get_new_data(State_Type).setBndry(1.e30);
@@ -2935,8 +2938,10 @@ PeleLM::resetState (Real time,
    }
 #endif
 #ifdef SOOT_MODEL
-   state[sootsrc_Type].reset();
-   state[sootsrc_Type].setTimeLevel(time,dt_old,dt_new);
+   if (add_soot_src == 1) {
+     state[sootsrc_Type].reset();
+     state[sootsrc_Type].setTimeLevel(time,dt_old,dt_new);
+   }
 #endif
 }
 
@@ -9395,7 +9400,9 @@ PeleLM::add_external_sources()
   MultiFab::Add(external_sources, spraydot, 0, 0, nspraycomp, nGrowS);
 #endif
 #ifdef SOOT_MODEL
-  MultiFab& sootsrc = get_new_data(sootsrc_Type);
-  MultiFab::Add(external_sources, sootsrc, 0, Density, num_soot_src, nGrowS);
+  if (add_soot_src == 1) {
+    MultiFab& sootsrc = get_new_data(sootsrc_Type);
+    MultiFab::Add(external_sources, sootsrc, 0, Density, num_soot_src, nGrowS);
+  }
 #endif
 }

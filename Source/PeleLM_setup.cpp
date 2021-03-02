@@ -874,9 +874,11 @@ PeleLM::variableSetUp ()
   defineParticles();
 #endif
 #ifdef SOOT_MODEL
-  sootsrcSetUp();
-  soot_model->define();
-  soot_model->addSootDerivePlotVars(derive_lst, desc_lst);
+  if (add_soot_src) {
+    sootsrcSetUp();
+    soot_model->define();
+    soot_model->addSootDerivePlotVars(derive_lst, desc_lst, Density, DEF_first_soot);
+  }
 #endif
 
   derive_lst.add("mixfrac_only",IndexType::TheCellType(),1,pelelm_dermixfrac,the_same_box);
