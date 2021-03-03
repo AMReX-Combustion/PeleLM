@@ -211,6 +211,8 @@ function(build_pelelm_exe pelelm_exe_name)
 
   if(PELELM_ENABLE_MPI)
     target_link_libraries(${pelelm_exe_name} PRIVATE $<$<BOOL:${MPI_CXX_FOUND}>:MPI::MPI_CXX>)
+    target_link_libraries(${pelelm_exe_name} PRIVATE $<$<BOOL:${MPI_C_FOUND}>:MPI::MPI_C>)
+    target_link_libraries(${pelelm_exe_name} PRIVATE $<$<BOOL:${MPI_Fortran_FOUND}>:MPI::MPI_Fortran>)
   endif()
 
   #PeleLM include directories

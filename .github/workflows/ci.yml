@@ -52,8 +52,6 @@ jobs:
         run: |
           echo "NPROCS=${{matrix.procs}}" >> $GITHUB_ENV
           cmake -E make_directory ${{runner.workspace}}/deps
-      - name: Repo dependencies
-        run: Tools/CMake/CloneDepsCMake.sh ${{runner.workspace}}
       - name: Dependencies
         run: |
           # Install MPI
@@ -165,8 +163,6 @@ jobs:
       - uses: actions/checkout@v2
         with:
           submodules: true
-      - name: Repo dependencies
-        run: Tools/CMake/CloneDepsCMake.sh ${{runner.workspace}}
       - name: Dependencies
         run: |
           export DEBIAN_FRONTEND=noninteractive
@@ -202,8 +198,6 @@ jobs:
       - uses: actions/checkout@v2
         with:
           submodules: true
-      - name: Repo dependencies
-        run: Tools/CMake/CloneDepsCMake.sh ${{runner.workspace}}
       - name: Dependencies
         run: sudo apt-get install -y cppcheck
       - name: Configure
@@ -237,8 +231,6 @@ jobs:
       - uses: actions/checkout@v2
         with:
           submodules: true
-      - name: Repo dependencies
-        run: Tools/CMake/CloneDepsCMake.sh ${{runner.workspace}}
       - name: Dependencies
         run: |
           sudo apt-get install -y clang-tidy-10
