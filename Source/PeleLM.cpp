@@ -1831,16 +1831,6 @@ PeleLM::initData ()
         pelelm_initdata(i, j, k, sfab, geomdata, *lprobparm, lpmfdata);
 #endif
       });
-#ifdef SOOT_MODEL
-      if (add_soot_src) {
-        SootData const* soot_data = soot_model->getSootData();
-        amrex::ParallelFor(box,
-        [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
-        {
-          pelelm_initsootdata(i, j, k, sfab, geomdata, *lprobparm, *soot_data);
-        });
-      }
-#endif
   }
 
   showMFsub("1D",S_new,stripBox,"1D_S",level);

@@ -471,7 +471,6 @@ public:
   static int         NUM_SOOT_VARS;
   static int         num_soot_src;
   static SootComps   sootComps;
-  //void addSootSrc();
 #endif
 
   //

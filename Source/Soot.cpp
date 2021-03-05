@@ -55,34 +55,30 @@ PeleLM::computeSootSrc (Real time,
     const int sootIndx = sootComps.sootIndx;
     const int qSootIndx = sootComps.qSootIndx;
     const amrex::Box& bx = mfi.tilebox();
-    auto const& s_arr = mf.array(mfi);
-    auto const& soot_arr = soot_mf.array(mfi);
+    auto const& s_arr = mf.const_array(mfi);
+    auto const& soot_arr = soot_mf.const_array(mfi);
     {
       BL_PROFILE("PeleLM::retrieveSootTimeStep()");
       reduce_op.eval(
         bx, reduce_data,
         [=] AMREX_GPU_DEVICE(int i, int j, int k) -> ReduceTuple {
-          amrex::Real rho_rate = 1.;//soot_arr(i, j, k, sootIndx) / s_arr(i, j, k, qRhoIndx);
-          amrex::Real max_rate = rho_rate;
-          for (int n = 0; n < NUM_SPECIES; ++n) {
-            int indx = specIndx + n;
-            int qindx = qSpecIndx + n;
+          amrex::Real max_rate = std::numeric_limits<amrex::Real>::min();
+          amrex::Real rho_rate = soot_arr(i, j, k, rhoIndx) / s_arr(i, j, k, qRhoIndx);
+          max_rate = amrex::max(std::abs(rho_rate), max_rate);
+          for (int n = 0; n < NUM_SOOT_GS; ++n) {
+            int scomp = sd->refIndx[n];
+            int indx = specIndx + scomp;
+            int qindx = qSpecIndx + scomp;
             amrex::Real cur_rate =
               soot_arr(i, j, k, indx) / (s_arr(i, j, k, qindx) + 1.E-12);
             max_rate = amrex::max(max_rate, std::abs(cur_rate));
           }
-          amrex::GpuArray<Real, DEF_NUM_SOOT_VARS> moments;
-          for (int n = 0; n < DEF_NUM_SOOT_VARS; ++n)
-            moments[n] = s_arr(i, j, k, qSootIndx + n);
-          // Convert moments to mol, clip moments, and convert back to CGS
-          sd->momConvClipConv(moments.data());
           // Limit time step based only on positive moment sources
           for (int n = 0; n < DEF_NUM_SOOT_VARS; ++n) {
             int qindx = qSootIndx + n;
             int indx = sootIndx + n;
-            s_arr(i, j, k, qindx) = moments[n];
             max_rate =
-              amrex::max(max_rate, -soot_arr(i, j, k, indx) / moments[n]);
+              amrex::max(max_rate, -soot_arr(i, j, k, indx) / s_arr(i, j, k, qindx));
           }
           return 1. / max_rate;
         });
@@ -91,5 +87,6 @@ PeleLM::computeSootSrc (Real time,
       soot_dt = amrex::min(soot_dt, ldt_cpu);
     }
   }
+  ParallelDescriptor::ReduceRealMin(soot_dt);
   soot_model->setTimeStep(soot_dt);
 }
