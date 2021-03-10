@@ -12,7 +12,7 @@
 
 #include <NavierStokesBase.H>
 #include <IndexDefines.H>
-#include <EOS.H>
+#include <PelePhysics.H>
 
 AMREX_GPU_DEVICE
 AMREX_FORCE_INLINE
@@ -52,7 +52,8 @@ pelelm_initdata (int i, int j, int k,
     for (int n=0; n<NUM_SPECIES; ++n) {
        molefrac[n] = pmf_vals[3+n];
     }
-    EOS::X2Y(molefrac, massfrac);
+    auto eos = pele::physics::PhysicsType::eos();
+    eos.X2Y(molefrac, massfrac);
 
     state(i,j,k,DEF_Temp) = pmf_vals[0];
 
@@ -79,10 +80,10 @@ pelelm_initdata (int i, int j, int k,
     amrex::Real rho_cgs, P_cgs;
     P_cgs = prob_parm.P_mean * 10.0;
 
-    EOS::PYT2R(P_cgs, massfrac, state(i,j,k,DEF_Temp), rho_cgs);
+    eos.PYT2R(P_cgs, massfrac, state(i,j,k,DEF_Temp), rho_cgs);
     state(i,j,k,Density) = rho_cgs * 1.0e3;            // CGS -> MKS conversion
 
-    EOS::TY2H(state(i,j,k,DEF_Temp), massfrac, state(i,j,k,DEF_RhoH));
+    eos.TY2H(state(i,j,k,DEF_Temp), massfrac, state(i,j,k,DEF_RhoH));
     state(i,j,k,DEF_RhoH) = state(i,j,k,DEF_RhoH) * 1.0e-4 * state(i,j,k,Density);   // CGS -> MKS conversion
 
     for (int n = 0; n < NUM_SPECIES; n++) {
@@ -109,6 +110,7 @@ bcnormal(
   const amrex::Real* prob_hi = geomdata.ProbHi();
   amrex::Real Ly = prob_hi[1] - prob_lo[1]; 
   constexpr amrex::Real Pi = 3.14159265358979323846264338327950288;
+  auto eos = pele::physics::PhysicsType::eos();
 
   if (sgn == 1) {
     s_ext[Xvel] = 0.0;
@@ -153,15 +155,15 @@ bcnormal(
     for (int n=0; n<NUM_SPECIES; ++n) {
        molefrac[n] = pmf_vals[3+n];
     }
-    EOS::X2Y(molefrac, massfrac);
+    eos.X2Y(molefrac, massfrac);
 
     amrex::Real rho_cgs, P_cgs;
     P_cgs = prob_parm.P_mean * 10.0;
 
-    EOS::PYT2R(P_cgs, massfrac, s_ext[DEF_Temp], rho_cgs);
+    eos.PYT2R(P_cgs, massfrac, s_ext[DEF_Temp], rho_cgs);
     s_ext[Density] = rho_cgs * 1.0e3;
 
-    EOS::TY2H(s_ext[DEF_Temp], massfrac, s_ext[DEF_RhoH]);
+    eos.TY2H(s_ext[DEF_Temp], massfrac, s_ext[DEF_RhoH]);
     s_ext[DEF_RhoH] *= 1.0e-4 * s_ext[Density];   // CGS -> MKS conversion
 
     for (int n = 0; n < NUM_SPECIES; n++) {

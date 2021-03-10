@@ -33,8 +33,7 @@
 #include <AMReX_ErrorList.H>
 #include <AMReX_FArrayBox.H>
 #include <AMReX_Utility.H>
-#include <EOS.H>
-#include <Transport.H>
+#include "PelePhysics.H"
 
 #include <PeleLM_derive.H>
 #include <IndexDefines.H>
@@ -389,10 +388,9 @@ PeleLM::variableSetUp ()
 #endif
 }
 
-  amrex::Print() << " Initialization of EOS (CPP)... \n";
-  EOS::init();
   amrex::Print() << " Initialization of Transport (CPP)... \n";
-  transport_init();
+  pele::physics::transport::InitTransport<
+    pele::physics::PhysicsType::eos_type>()();
 
   BCRec bc;
 
@@ -407,7 +405,7 @@ PeleLM::variableSetUp ()
   NUM_STATE = DEF_NUM_STATE;
   NUM_SCALARS = DEF_NUM_SCALARS;
 
-  EOS::speciesNames(spec_names);
+  pele::physics::eos::speciesNames(spec_names);
 
   amrex::Print() << NUM_REACTIONS << " Reactions in mechanism \n";
   amrex::Print() << NUM_SPECIES << " Chemical species interpreted:\n { ";

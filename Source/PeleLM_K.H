@@ -5,10 +5,8 @@
 #include <AMReX_FArrayBox.H>
 #include <AMReX_Gpu.H>
 #include <mechanism.h>
-#include <EOS.H>
-#include <Transport.H>
+#include <PelePhysics.H>
 #include <cmath>
-#include <TransportParams.H>
 
 AMREX_GPU_HOST_DEVICE
 AMREX_FORCE_INLINE
@@ -73,6 +71,7 @@ reactionRateRhoY(int i, int j, int k,
       return;
    }
 
+   auto eos = pele::physics::PhysicsType::eos();
    // Get rho & Ys from rhoYs.
    amrex::Real rho = 0.0_rt;
    for (int n = 0; n < NUM_SPECIES; n++) {
@@ -87,12 +86,12 @@ reactionRateRhoY(int i, int j, int k,
    // Get T from Y/H.
    amrex::Real Tloc = T(i,j,k);
    amrex::Real H = rhoH(i,j,k) * rhoinv * 1.0e4_rt;      // Include MKS -> CGS conversion
-   EOS::HY2T(H, y, Tloc);
+   eos.HY2T(H, y, Tloc);
 
    // Get wdot.
    rho = rho * 0.001_rt;                                 // rho MKS -> CGS
    amrex::Real wdot[NUM_SPECIES] = {0.0_rt};
-   EOS::RTY2WDOT(rho, Tloc, y, wdot);
+   eos.RTY2WDOT(rho, Tloc, y, wdot);
    for (int n = 0; n < NUM_SPECIES; n++) {
       rhoYdot(i,j,k,n) = wdot[n] * 1000.0_rt;            // CGS -> MKS conversion
    }
@@ -117,7 +116,8 @@ getPGivenRTY(int i, int j, int k,
       y[n] = rhoY(i,j,k,n) * rhoinv;
    }
 
-   EOS::RTY2P(rho_cgs, T(i,j,k), y, P(i,j,k));
+   auto eos = pele::physics::PhysicsType::eos();
+   eos.RTY2P(rho_cgs, T(i,j,k), y, P(i,j,k));
    P(i,j,k) = P(i,j,k) * 0.1_rt;                         // CGS -> MKS conversion
 }
 
@@ -139,7 +139,8 @@ getRHmixGivenTY(int i, int j, int k,
       y[n] = rhoY(i,j,k,n) * rhoinv;
    }
 
-   EOS::TY2H(T(i,j,k), y, Hmix(i,j,k));
+   auto eos = pele::physics::PhysicsType::eos();
+   eos.TY2H(T(i,j,k), y, Hmix(i,j,k));
    Hmix(i,j,k) = Hmix(i,j,k) * 1.0e-4_rt * rho(i,j,k);   // CGS -> MKS conversion
 }
 
@@ -159,7 +160,8 @@ getMwmixGivenRY(int i, int j, int k,
       y[n] = rhoY(i,j,k,n) * rhoinv;
    }
 
-   EOS::Y2WBAR(y, Mwmix(i,j,k));
+   auto eos = pele::physics::PhysicsType::eos();
+   eos.Y2WBAR(y, Mwmix(i,j,k));
    Mwmix(i,j,k) = Mwmix(i,j,k) * 0.001_rt;            // CGS -> MKS conversion
 }
 
@@ -173,7 +175,8 @@ getHGivenT(int i, int j, int k,
    using namespace amrex::literals;
 
    amrex::Real hi_spec[NUM_SPECIES] = {0.0_rt};
-   EOS::T2Hi(T(i,j,k), hi_spec);
+   auto eos = pele::physics::PhysicsType::eos();
+   eos.T2Hi(T(i,j,k), hi_spec);
    for (int n = 0; n < NUM_SPECIES; n++) {
       Hi(i,j,k,n) = hi_spec[n] * 0.0001_rt;            // CGS -> MKS conversion
    }
@@ -199,7 +202,8 @@ buildAdvectionForcing(int i, int j, int k,
 
    // Get species enthalpy
    amrex::Real hi_spec[NUM_SPECIES] = {0.0};
-   EOS::T2Hi(T(i,j,k), hi_spec);
+   auto eos = pele::physics::PhysicsType::eos();
+   eos.T2Hi(T(i,j,k), hi_spec);
 
    // For species mass fractions
    amrex::Real rhoinv = 1.0_rt / rho(i,j,k);
@@ -216,7 +220,7 @@ buildAdvectionForcing(int i, int j, int k,
    if ( closed_chamber == 1 ) forceT(i,j,k) += dp0dt;                // Add dp0/dt
 
    amrex::Real cpmix = 0.0_rt;
-   EOS::TY2Cp(T(i,j,k), y, cpmix);
+   eos.TY2Cp(T(i,j,k), y, cpmix);
    amrex::Real cpmixinv = 1.0_rt / cpmix * 1.0e4_rt;                 // CGS -> MKS conversion
    forceT(i,j,k) *= rhoinv * cpmixinv;
 
@@ -239,7 +243,8 @@ getCpmixGivenRYT(int i, int j, int k,
       y[n] = rhoY(i,j,k,n) * rhoinv;
    }
 
-   EOS::TY2Cp(T(i,j,k), y, cpmix(i,j,k));
+   auto eos = pele::physics::PhysicsType::eos();
+   eos.TY2Cp(T(i,j,k), y, cpmix(i,j,k));
    cpmix(i,j,k) *= 0.0001_rt;                         // CGS -> MKS conversion
 }
 
@@ -260,7 +265,8 @@ getTGivenHY(int i, int j, int k,
       y[n] = rhoY(i,j,k,n) * rhoinv;
    }
    amrex::Real H = rhoH(i,j,k) * rhoinv * 1.0e4_rt;   // MKS -> CGS conversion
-   EOS::HY2T(H, y, T(i,j,k));
+   auto eos = pele::physics::PhysicsType::eos();
+   eos.HY2T(H, y, T(i,j,k));
 }
 
 AMREX_GPU_HOST_DEVICE
@@ -276,8 +282,9 @@ compute_divu(int i, int j, int k,
 {
    using namespace amrex::literals;
 
+   auto eos = pele::physics::PhysicsType::eos();
    amrex::Real mwtinv[NUM_SPECIES] = {0.0};
-   EOS::inv_molecular_weight(mwtinv);
+   eos.inv_molecular_weight(mwtinv);
 
    // Get rho & Y from rhoY
    amrex::Real rho = 0.0_rt;
@@ -291,11 +298,11 @@ compute_divu(int i, int j, int k,
    }
 
    amrex::Real cpmix = 0.0_rt;
-   EOS::TY2Cp(T(i,j,k), y, cpmix);
+   eos.TY2Cp(T(i,j,k), y, cpmix);
    amrex::Real Wbar = 0.0_rt;
-   EOS::Y2WBAR(y, Wbar);
+   eos.Y2WBAR(y, Wbar);
    amrex::Real hi[NUM_SPECIES] = {0.0};
-   EOS::T2Hi(T(i,j,k), hi);
+   eos.T2Hi(T(i,j,k), hi);
    cpmix *= 1.0e-4_rt;                                // CGS -> MKS conversion
    for (int n = 0; n < NUM_SPECIES; n++) {
       hi[n] *= 1.0e-4_rt;                             // CGS -> MKS conversion
@@ -334,6 +341,7 @@ getGammaInv(int i, int j, int k,
 {
    using namespace amrex::literals;
 
+   auto eos = pele::physics::PhysicsType::eos();
    // Get rho & Y from rhoY
    amrex::Real rho = 0.0_rt;
    for (int n = 0; n < NUM_SPECIES; n++) {
@@ -346,9 +354,9 @@ getGammaInv(int i, int j, int k,
    }
 
    amrex::Real cpmix = 0.0_rt;
-   EOS::TY2Cp(T(i,j,k), y, cpmix);
+   eos.TY2Cp(T(i,j,k), y, cpmix);
    amrex::Real cvmix = 0.0_rt;
-   EOS::TY2Cv(T(i,j,k), y, cvmix);
+   eos.TY2Cv(T(i,j,k), y, cvmix);
    
    amrex::Real gammainv = cvmix / cpmix;
 
@@ -366,13 +374,14 @@ getRhoGivenTYP(int i, int j, int k,
 {
    using namespace amrex::literals;
 
-   amrex::Real P_cgs = Patm * EOS::PATM;
+   auto eos = pele::physics::PhysicsType::eos();
+   amrex::Real P_cgs = Patm * pele::physics::Constants::PATM;
    amrex::Real y[NUM_SPECIES] = {0.0};
    for (int n = 0; n < NUM_SPECIES; n++) {
       y[n] = Y(i,j,k,n);                       // TODO: need to find a way not to do that
    }
    amrex::Real rho_cgs = 0.0_rt;
-   EOS::PYT2R(P_cgs, y, T(i,j,k), rho_cgs);
+   eos.PYT2R(P_cgs, y, T(i,j,k), rho_cgs);
    rho(i,j,k) = rho_cgs * 1.0e3_rt;            // CGS -> MKS conversion
 }
 
@@ -385,12 +394,13 @@ getTransportCoeff(int i, int j, int k,
                   amrex::Array4<      amrex::Real> const& rhoDi,
                   amrex::Array4<      amrex::Real> const& lambda,
                   amrex::Array4<      amrex::Real> const& mu,
-                  TransParm const* trans_parm) noexcept
+                  pele::physics::transport::TransParm const* trans_parm) noexcept
 {
    using namespace amrex::literals;
 
+   auto eos = pele::physics::PhysicsType::eos();
    amrex::Real mwtinv[NUM_SPECIES] = {0.0};
-   EOS::inv_molecular_weight(mwtinv);
+   eos.inv_molecular_weight(mwtinv);
 
    // Get rho & Y from rhoY
    amrex::Real rho = 0.0_rt;
@@ -404,7 +414,7 @@ getTransportCoeff(int i, int j, int k,
    }
 
    amrex::Real Wbar = 0.0_rt;
-   EOS::Y2WBAR(y, Wbar);
+   eos.Y2WBAR(y, Wbar);
 
    rho *= 1.0e-3_rt;                          // MKS -> CGS conversion
    amrex::Real rhoDi_cgs[NUM_SPECIES] = {0.0};
@@ -417,8 +427,9 @@ getTransportCoeff(int i, int j, int k,
    bool get_mu = true;
    bool get_lam = true;
    bool get_Ddiag = true;
-   transport(get_xi, get_mu, get_lam, get_Ddiag, Tloc,
-             rho, y, rhoDi_cgs, mu_cgs, dummy_xi, lambda_cgs, trans_parm);
+   auto trans = pele::physics::PhysicsType::transport();
+   trans.transport(get_xi, get_mu, get_lam, get_Ddiag, Tloc,
+                   rho, y, rhoDi_cgs, mu_cgs, dummy_xi, lambda_cgs, trans_parm);
 
    // Do CGS -> MKS conversions
    for (int n = 0; n < NUM_SPECIES; n++) {
@@ -439,10 +450,11 @@ getTransportCoeffUnityLe(int i, int j, int k,
                          amrex::Array4<      amrex::Real> const& rhoDi,
                          amrex::Array4<      amrex::Real> const& lambda,
                          amrex::Array4<      amrex::Real> const& mu,
-                         TransParm const* trans_parm) noexcept
+                         pele::physics::transport::TransParm const* trans_parm) noexcept
 {
    using namespace amrex::literals;
 
+   auto eos = pele::physics::PhysicsType::eos();
    // Get rho & Y from rhoY
    amrex::Real rho = 0.0_rt;
    for (int n = 0; n < NUM_SPECIES; n++) {
@@ -464,8 +476,9 @@ getTransportCoeffUnityLe(int i, int j, int k,
    bool get_mu = true;
    bool get_lam = false;
    bool get_Ddiag = false;
-   transport(get_xi, get_mu, get_lam, get_Ddiag, T(i,j,k),
-             rho, y, rhoDi_cgs, mu_cgs, dummy_xi, lambda_cgs, trans_parm);
+   auto trans = pele::physics::PhysicsType::transport();
+   trans.transport(get_xi, get_mu, get_lam, get_Ddiag, T(i,j,k),
+                   rho, y, rhoDi_cgs, mu_cgs, dummy_xi, lambda_cgs, trans_parm);
 
    mu(i,j,k) = mu_cgs * 1.0e-1_rt;                       // CGS -> MKS conversions
    for (int n = 0; n < NUM_SPECIES; n++) {
@@ -473,7 +486,7 @@ getTransportCoeffUnityLe(int i, int j, int k,
    }
 
    amrex::Real cpmix = 0.0_rt;
-   EOS::TY2Cp(T(i,j,k), y, cpmix);
+   eos.TY2Cp(T(i,j,k), y, cpmix);
    lambda(i,j,k) = mu_cgs * 1.0e-1_rt * PrInv * cpmix;   // Constant Prandtl number
 }
 
@@ -488,6 +501,7 @@ getTfromHY(int i, int j, int k,
 {
    using namespace amrex::literals;
 
+   auto eos = pele::physics::PhysicsType::eos();
    amrex::Real rhoinv = 1.0_rt / rho(i,j,k);
    amrex::Real y[NUM_SPECIES] = {0.0};
    for (int n = 0; n < NUM_SPECIES; n++) {
@@ -495,7 +509,7 @@ getTfromHY(int i, int j, int k,
    }
    amrex::Real h_cgs = rhoH(i,j,k) * rhoinv * 1.0e4_rt;
    amrex::Real T_loc = T(i,j,k);
-   EOS::HY2T(h_cgs, y, T_loc);
+   eos.HY2T(h_cgs, y, T_loc);
    T(i,j,k) = T_loc;
 }
 
@@ -506,7 +520,7 @@ getVelViscosity(int i, int j, int k,
                 amrex::Array4<const amrex::Real> const& rhoY,
                 amrex::Array4<      amrex::Real> const& T,
                 amrex::Array4<      amrex::Real> const& mu,
-                TransParm const* trans_parm) noexcept
+                pele::physics::transport::TransParm const* trans_parm) noexcept
 {
    using namespace amrex::literals;
 
@@ -531,8 +545,9 @@ getVelViscosity(int i, int j, int k,
    bool get_mu = true;
    bool get_lam = false;
    bool get_Ddiag = false;
-   transport(get_xi, get_mu, get_lam, get_Ddiag, T(i,j,k),
-             rho, y, dummy_rhoDi, mu_cgs, dummy_xi, dummy_lambda, trans_parm);
+   auto trans = pele::physics::PhysicsType::transport();
+   trans.transport(get_xi, get_mu, get_lam, get_Ddiag, T(i,j,k),
+                   rho, y, dummy_rhoDi, mu_cgs, dummy_xi, dummy_lambda, trans_parm);
 
    // Do CGS -> MKS conversions
    mu(i,j,k) = mu_cgs * 1.0e-1_rt;
@@ -545,7 +560,7 @@ getConductivity(int i, int j, int k,
                 amrex::Array4<const amrex::Real> const& rhoY,
                 amrex::Array4<      amrex::Real> const& T,
                 amrex::Array4<      amrex::Real> const& lambda,
-                TransParm const* trans_parm) noexcept
+                pele::physics::transport::TransParm const* trans_parm) noexcept
 {
    using namespace amrex::literals;
 
@@ -570,8 +585,9 @@ getConductivity(int i, int j, int k,
    bool get_mu = false;
    bool get_lam = true;
    bool get_Ddiag = false;
-   transport(get_xi, get_mu, get_lam, get_Ddiag, T(i,j,k),
-             rho, y, dummy_rhoDi, dummy_mu, dummy_xi, lambda_cgs, trans_parm);
+   auto trans = pele::physics::PhysicsType::transport();
+   trans.transport(get_xi, get_mu, get_lam, get_Ddiag, T(i,j,k),
+                   rho, y, dummy_rhoDi, dummy_mu, dummy_xi, lambda_cgs, trans_parm);
 
    // Do CGS -> MKS conversions
    lambda(i,j,k) = lambda_cgs * 1.0e-5_rt;

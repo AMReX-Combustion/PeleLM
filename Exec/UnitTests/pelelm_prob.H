@@ -17,7 +17,7 @@
 
 #include "NavierStokesBase.H"
 #include "IndexDefines.H"
-#include "EOS.H"
+#include "PelePhysics.H"
 
 AMREX_GPU_DEVICE
 AMREX_FORCE_INLINE
