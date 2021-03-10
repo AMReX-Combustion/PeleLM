@@ -26,6 +26,8 @@ function(build_pelelm_exe pelelm_exe_name)
 
   include(SetPeleLMCompileFlags)
 
+  target_include_directories(${pelelm_exe_name} SYSTEM PRIVATE "${PELE_PHYSICS_SRC_DIR}/Source")
+
   set(PELELM_TRANSPORT_DIR "${PELE_PHYSICS_SRC_DIR}/Transport/${PELELM_TRANSPORT_MODEL}")
   target_sources(${pelelm_exe_name} PRIVATE
                  ${PELELM_TRANSPORT_DIR}/Transport.H

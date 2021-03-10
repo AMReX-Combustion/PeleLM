@@ -21,6 +21,14 @@ else
 	@echo SUCCESS
 endif
 
+# PelePhysics
+PP_SRC_HOME = $(PELE_PHYSICS_HOME)/Source
+EXTERN_CORE       += $(PP_SRC_HOME)
+INCLUDE_LOCATIONS += $(PP_SRC_HOME)
+VPATH_LOCATIONS   += $(PP_SRC_HOME)
+Bpack             += $(PP_SRC_HOME)/Make.package
+Blocs             += $(PP_SRC_HOME)
+
 EOS_HOME       = $(PELE_PHYSICS_HOME)/Eos
 REACTIONS_HOME = $(PELE_PHYSICS_HOME)/Reactions
 TRAN_HOME      = $(PELE_PHYSICS_HOME)/Transport
