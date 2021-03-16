@@ -1,7 +1,8 @@
-TOP = ../../../..
-AMREX_HOME ?= ${TOP}/amrex
-IAMR_HOME ?= ${TOP}/IAMR
-PELELM_HOME ?= ${TOP}/PeleLM
+PELELM_HOME = ../../..
+SUBMODS = ${PELELM_HOME}/Submodules
+AMREX_HOME         ?= ${SUBMODS}/amrex
+IAMR_HOME          ?= ${SUBMODS}/IAMR
+PELE_PHYSICS_HOME  ?= ${SUBMODS}/PelePhysics
 
 #
 # Build configuration

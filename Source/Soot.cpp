@@ -42,51 +42,7 @@ PeleLM::computeSootSrc (Real time,
     auto const& soot_arr = soot_mf.array(mfi);
     soot_model->addSootSourceTerm(gbx, q_arr, mu_arr, soot_arr, time, dt);
   }
-  amrex::ReduceOps<amrex::ReduceOpMin> reduce_op;
-  amrex::ReduceData<amrex::Real> reduce_data(reduce_op);
-  using ReduceTuple = typename decltype(reduce_data)::Type;
-  amrex::Real soot_dt = std::numeric_limits<amrex::Real>::max();
-  SootData const* sd = soot_model->getSootData();
-  for (MFIter mfi(mf, amrex::TilingIfNotGPU()); mfi.isValid(); ++mfi) {
-    const int rhoIndx = sootComps.rhoIndx;
-    const int qRhoIndx = sootComps.qRhoIndx;
-    const int specIndx = sootComps.specIndx;
-    const int qSpecIndx = sootComps.qSpecIndx;
-    const int sootIndx = sootComps.sootIndx;
-    const int qSootIndx = sootComps.qSootIndx;
-    const amrex::Box& bx = mfi.tilebox();
-    auto const& s_arr = mf.const_array(mfi);
-    auto const& soot_arr = soot_mf.const_array(mfi);
-    {
-      BL_PROFILE("PeleLM::retrieveSootTimeStep()");
-      reduce_op.eval(
-        bx, reduce_data,
-        [=] AMREX_GPU_DEVICE(int i, int j, int k) -> ReduceTuple {
-          amrex::Real max_rate = std::numeric_limits<amrex::Real>::min();
-          amrex::Real rho_rate = soot_arr(i, j, k, rhoIndx) / s_arr(i, j, k, qRhoIndx);
-          max_rate = amrex::max(std::abs(rho_rate), max_rate);
-          for (int n = 0; n < NUM_SOOT_GS; ++n) {
-            int scomp = sd->refIndx[n];
-            int indx = specIndx + scomp;
-            int qindx = qSpecIndx + scomp;
-            amrex::Real cur_rate =
-              soot_arr(i, j, k, indx) / (s_arr(i, j, k, qindx) + 1.E-12);
-            max_rate = amrex::max(max_rate, std::abs(cur_rate));
-          }
-          // Limit time step based only on positive moment sources
-          for (int n = 0; n < DEF_NUM_SOOT_VARS; ++n) {
-            int qindx = qSootIndx + n;
-            int indx = sootIndx + n;
-            max_rate =
-              amrex::max(max_rate, -soot_arr(i, j, k, indx) / s_arr(i, j, k, qindx));
-          }
-          return 1. / max_rate;
-        });
-      ReduceTuple hv = reduce_data.value();
-      Real ldt_cpu = amrex::get<0>(hv);
-      soot_dt = amrex::min(soot_dt, ldt_cpu);
-    }
-  }
-  ParallelDescriptor::ReduceRealMin(soot_dt);
-  soot_model->setTimeStep(soot_dt);
+  // TODO: Determine the optimal way to limit time step
+  // Currently, we rely on subcycling which seems to work better
+  return;
 }

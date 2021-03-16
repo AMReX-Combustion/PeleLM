@@ -1,5 +1,8 @@
-AMREX_HOME ?= ../../../../amrex
-IAMR_HOME ?= ../../../../IAMR
+PELELM_HOME = ../../..
+SUBMODS = ${PELELM_HOME}/Submodules
+AMREX_HOME         ?= ${SUBMODS}/amrex
+IAMR_HOME          ?= ${SUBMODS}/IAMR
+PELE_PHYSICS_HOME  ?= ${SUBMODS}/PelePhysics
 
 DEBUG	= FALSE
 #DEBUG	= TRUE
