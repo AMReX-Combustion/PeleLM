@@ -517,8 +517,6 @@ PeleLM::Initialize ()
 
 #ifdef AMREX_PARTICLES
   readParticleParams();
-  if (closed_chamber && do_spray_particles)
-    amrex::Abort("Spray particles currently do not work with closed chambers");
 #endif
 
 #ifdef SOOT_MODEL
