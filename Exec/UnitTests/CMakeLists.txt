@@ -18,5 +18,5 @@ if(PELELM_ENABLE_CUDA)
   set_source_files_properties(unit-tests-main.cpp test-config.cpp PROPERTIES LANGUAGE CUDA)
 endif()
 
-target_include_directories(${pelelm_exe_name} SYSTEM PRIVATE ${CMAKE_SOURCE_DIR}/../googletest/googletest/include)
+target_include_directories(${pelelm_exe_name} SYSTEM PRIVATE ${CMAKE_SOURCE_DIR}/Submodules/googletest/googletest/include)
 target_link_libraries(${pelelm_exe_name} PRIVATE gtest)

@@ -15,16 +15,18 @@ function(build_pelelm_exe pelelm_exe_name)
   
   target_include_directories(${pelelm_exe_name} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 
-  set(PELE_PHYSICS_SRC_DIR ${CMAKE_SOURCE_DIR}/../PelePhysics)
+  set(PELE_PHYSICS_SRC_DIR ${CMAKE_SOURCE_DIR}/Submodules/PelePhysics)
   set(PELE_PHYSICS_BIN_DIR ${CMAKE_BINARY_DIR}/Submodules/PelePhysics/${pelelm_exe_name})
 
-  set(IAMR_SRC_DIR ${CMAKE_SOURCE_DIR}/../IAMR/Source)
+  set(IAMR_SRC_DIR ${CMAKE_SOURCE_DIR}/Submodules/IAMR/Source)
   set(IAMR_BIN_DIR ${CMAKE_BINARY_DIR}/Submodules/IAMR/Source/${pelelm_exe_name})
 
   set(SRC_DIR ${CMAKE_SOURCE_DIR}/Source)
   set(BIN_DIR ${CMAKE_BINARY_DIR}/Source/${pelelm_exe_name})
 
   include(SetPeleLMCompileFlags)
+
+  target_include_directories(${pelelm_exe_name} SYSTEM PRIVATE "${PELE_PHYSICS_SRC_DIR}/Source")
 
   set(PELELM_TRANSPORT_DIR "${PELE_PHYSICS_SRC_DIR}/Transport/${PELELM_TRANSPORT_MODEL}")
   target_sources(${pelelm_exe_name} PRIVATE
@@ -211,6 +213,8 @@ function(build_pelelm_exe pelelm_exe_name)
 
   if(PELELM_ENABLE_MPI)
     target_link_libraries(${pelelm_exe_name} PRIVATE $<$<BOOL:${MPI_CXX_FOUND}>:MPI::MPI_CXX>)
+    target_link_libraries(${pelelm_exe_name} PRIVATE $<$<BOOL:${MPI_C_FOUND}>:MPI::MPI_C>)
+    target_link_libraries(${pelelm_exe_name} PRIVATE $<$<BOOL:${MPI_Fortran_FOUND}>:MPI::MPI_Fortran>)
   endif()
 
   #PeleLM include directories

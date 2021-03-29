@@ -13,7 +13,7 @@
 
 #include <NavierStokesBase.H>
 #include <IndexDefines.H>
-#include <EOS.H>
+#include <PelePhysics.H>
 
 AMREX_GPU_DEVICE
 AMREX_FORCE_INLINE
@@ -34,6 +34,7 @@ pelelm_initdata (int i, int j, int k,
                  const amrex::Real z = prob_lo[2] + (k+0.5)*dx[2];);
 
     constexpr amrex::Real Pi = 3.14159265358979323846264338327950288;
+    auto eos = pele::physics::PhysicsType::eos();
 
     const amrex::Real L_x = prob_hi[0] - prob_lo[0];
 
@@ -86,7 +87,7 @@ pelelm_initdata (int i, int j, int k,
     for (int n = 0; n < NUM_SPECIES; n++){
       molefrac[n] = pmf_vals[3 + n];
     }
-    EOS::X2Y(molefrac, massfrac);
+    eos.X2Y(molefrac, massfrac);
 
 
     state(i,j,k,Xvel) = 0;
@@ -100,10 +101,10 @@ pelelm_initdata (int i, int j, int k,
     amrex::Real rho_cgs, P_cgs;
     P_cgs = prob_parm.P_mean * 10.0;
 
-    EOS::PYT2R(P_cgs, massfrac, state(i,j,k,DEF_Temp), rho_cgs);
+    eos.PYT2R(P_cgs, massfrac, state(i,j,k,DEF_Temp), rho_cgs);
     state(i,j,k,Density) = rho_cgs * 1.0e3;            // CGS -> MKS conversion
 
-    EOS::TY2H(state(i,j,k,DEF_Temp), massfrac, state(i,j,k,DEF_RhoH));
+    eos.TY2H(state(i,j,k,DEF_Temp), massfrac, state(i,j,k,DEF_RhoH));
     state(i,j,k,DEF_RhoH) = state(i,j,k,DEF_RhoH) * 1.0e-4 * state(i,j,k,Density);   // CGS -> MKS conversion
 
     for (int n = 0; n < NUM_SPECIES; n++) {
@@ -130,6 +131,7 @@ bcnormal(
   amrex::GpuArray<amrex::Real, NUM_SPECIES + 4> pmf_vals = {0.0};
   amrex::Real molefrac[NUM_SPECIES] = {0.0};
   amrex::Real massfrac[NUM_SPECIES] = {0.0};
+  auto eos = pele::physics::PhysicsType::eos();
 
   if (sgn == 1) {
     PMF::pmf(pmf_data,prob_lo[idir], prob_lo[idir], pmf_vals);
@@ -157,16 +159,16 @@ bcnormal(
     for (int n = 0; n < NUM_SPECIES; n++){
       molefrac[n] = pmf_vals[3 + n];
     }
-    EOS::X2Y(molefrac, massfrac);
+    eos.X2Y(molefrac, massfrac);
 
     amrex::Real rho_cgs, P_cgs, RhoH_temp;
     P_cgs = prob_parm.P_mean * 10.0;
 
-    EOS::PYT2R(P_cgs, massfrac, s_ext[DEF_Temp], rho_cgs);
+    eos.PYT2R(P_cgs, massfrac, s_ext[DEF_Temp], rho_cgs);
     s_ext[Density] = rho_cgs * 1.0e3;
 
 
-    EOS::TY2H(s_ext[DEF_Temp], massfrac, RhoH_temp);
+    eos.TY2H(s_ext[DEF_Temp], massfrac, RhoH_temp);
     s_ext[DEF_RhoH] = RhoH_temp * 1.0e-4 * s_ext[Density];   // CGS -> MKS conversion
 
     for (int n = 0; n < NUM_SPECIES; n++) {
