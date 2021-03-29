@@ -6557,8 +6557,9 @@ PeleLM::mac_sync ()
 
          MultiFab* ebflux = nullptr;
 #ifdef AMREX_USE_EB
+         MultiFab GammaKp1EB;
          if (Diffusion::useEBDirichlet()) {
-            MultiFab   GammaKp1EB(grids,dmap,NUM_SPECIES+3,0);  
+            GammaKp1EB.define(grids,dmap,NUM_SPECIES+3,0);  
             MultiFab::Copy(GammaKp1EB,*EBDiffusionFluxnp1,0,0,NUM_SPECIES+3,0);
             ebflux = &GammaKp1EB;
          }
@@ -6718,7 +6719,7 @@ PeleLM::mac_sync ()
 
             showMF("DBGSync",deltaT,"sdc_deltaT_indeltaTiter",level,(mac_sync_iter+1)*1000+L,parent->levelSteps(level));
 
-            MultiFab* ebflux = nullptr;
+            //MultiFab* ebflux = nullptr;
             MultiFab::Add(get_new_data(State_Type),Told,0,Temp,1,0);
             compute_enthalpy_fluxes(SpecDiffusionFluxnp1,betanp1,ebflux,curr_time); // Compute F[N+1], F[N+2]
             flux_divergence(DiffTerms_post,0,SpecDiffusionFluxnp1,ebflux,NUM_SPECIES+1,2,-1);
