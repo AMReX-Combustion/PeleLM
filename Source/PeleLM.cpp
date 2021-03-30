@@ -524,7 +524,7 @@ PeleLM::Initialize ()
     pplm.query("plot_soot_src", plot_soot_src);
     pplm.query("add_soot_src", add_soot_src);
   }
-  if (add_soot_src) soot_model->readSootParams();
+  soot_model->readSootParams();
 #endif
 
   if (verbose)
