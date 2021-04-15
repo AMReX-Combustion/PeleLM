@@ -477,7 +477,7 @@ public:
   // MultiFab for holding source terms like from soot and sprays
   //
   amrex::MultiFab external_sources;
-  void add_external_sources();
+  void add_external_sources(amrex::Real time, amrex::Real dt);
 
   // enum YdotAction { HT_EstimateYdotNew, HT_ImproveYdotOld, HT_LeaveYdotAlone };
   // enum Solver_Status {HT_InProgress, HT_Stalled, HT_Solved};

@@ -322,11 +322,9 @@ compute_divu(int i, int j, int k,
    for (int n = 0; n < NUM_SPECIES; n++) {
       divu(i,j,k) +=  ( viscTermY(i,j,k,n) + rhoYdot(i,j,k,n) )
                     * ( mwtinv[n] * Wbar * rhoinv - hi[n] * denominv );
+      divu(i,j,k) += extY(i,j,k,n) * mwtinv[n] * Wbar * rhoinv;
    }
    divu(i,j,k) += extRho(i,j,k) * rhoinv;
-   for (int n = 0; n < NUM_SPECIES; n++) {
-     divu(i,j,k) += mwtinv[n] * Wbar * rhoinv * extY(i,j,k,n);
-   }
    divu(i,j,k) += extRhoH(i,j,k) * denominv;
 }
 

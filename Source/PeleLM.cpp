@@ -2102,8 +2102,24 @@ PeleLM::init (AmrLevel& old)
      const Real tnp1s = oldht->state[spraydot_Type].curTime();
      MultiFab& spraydot = get_new_data(spraydot_Type);
      FillPatchIterator fpi(*oldht, spraydot, spraydot.nGrow(), tnp1s, spraydot_Type, 0, spraydot.nComp());
-     const MultiFab& mf_fpi = fpi.get_mf();
-     MultiFab::Copy(spraydot, mf_fpi, 0, 0, spraydot.nComp(), 0);
+     const MultiFab& spraydot_old = fpi.get_mf();
+     const int ncomp = spraydot.nComp();
+#ifdef _OPENMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif  
+     for (MFIter mfi(spraydot_old,TilingIfNotGPU()); mfi.isValid(); ++mfi)
+     {
+       const Box& bx         = mfi.tilebox();
+       auto const& spraydot_n = spraydot.array(mfi); 
+       auto const& spraydot_o = spraydot_old.array(mfi); 
+       amrex::ParallelFor(bx, [spraydot_n, spraydot_o, ncomp]
+       AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+       {
+         for (int n = 0; n < ncomp; n++) {
+           spraydot_n(i,j,k,n) = spraydot_o(i,j,k,n);
+         }
+       });
+     }
    }
 #endif
 #ifdef SOOT_MODEL
@@ -2111,8 +2127,24 @@ PeleLM::init (AmrLevel& old)
      const Real tnp1s = oldht->state[sootsrc_Type].curTime();
      MultiFab& sootsrc = get_new_data(sootsrc_Type);
      FillPatchIterator fpi(*oldht, sootsrc, sootsrc.nGrow(), tnp1s, sootsrc_Type, 0, num_soot_src);
-     const MultiFab& mf_fpi = fpi.get_mf();
-     MultiFab::Copy(sootsrc, mf_fpi, AMREX_SPACEDIM, 0, num_soot_src, 0);
+     const MultiFab& sootsrc_old = fpi.get_mf();
+     const int ncomp = sootsrc.nComp();
+#ifdef _OPENMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif  
+     for (MFIter mfi(sootsrc_old,TilingIfNotGPU()); mfi.isValid(); ++mfi)
+     {
+       const Box& bx         = mfi.tilebox();
+       auto const& sootsrc_n = sootsrc.array(mfi); 
+       auto const& sootsrc_o = sootsrc_old.array(mfi); 
+       amrex::ParallelFor(bx, [sootsrc_n, sootsrc_o, ncomp]
+       AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+       {
+         for (int n = 0; n < ncomp; n++) {
+           sootsrc_n(i,j,k,n) = sootsrc_o(i,j,k,n);
+         }
+       });
+     }
    }
 #endif
 }
@@ -4948,7 +4980,7 @@ PeleLM::advance (Real time,
 #endif
 
     // Add external sources like spray and soot source terms
-    add_external_sources();
+    add_external_sources(time, dt);
 
     if (sdc_iter == sdc_iterMAX)
       updateFluxReg = true;
@@ -5278,7 +5310,7 @@ PeleLM::advance (Real time,
     {
       FillPatch(*this, Sborder, nGrow_Sborder, tnp1, State_Type, 0, NUM_STATE);
       particleMK(time, dt, spray_n_grow, tmp_src_width, iteration, ncycle, tmp_spray_source);
-      add_external_sources();
+      add_external_sources(time, dt);
     }
 #endif
   }
@@ -9378,19 +9410,38 @@ PeleLM::parseComposition(Vector<std::string> compositionIn,
 }
 
 void
-PeleLM::add_external_sources()
+PeleLM::add_external_sources(Real time,
+                             Real dt)
 {
-  const int nGrowS = 1;
   external_sources.setVal(0.);
+#if defined(SOOT_MODEL) || defined(AMREX_PARTICLES)
+  const MultiFab& S_new = get_new_data(State_Type);
+#ifdef _OPENMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+    for (MFIter mfi(S_new,TilingIfNotGPU()); mfi.isValid(); ++mfi)
+    {
+      const Box& box = mfi.growntilebox();
+      auto const& ext_fab = external_sources.array(mfi);
 #ifdef AMREX_PARTICLES
-  const int nspraycomp = NUM_SPECIES + AMREX_SPACEDIM + 4;
-  MultiFab& spraydot = get_new_data(spraydot_Type);
-  MultiFab::Add(external_sources, spraydot, 0, 0, nspraycomp, nGrowS);
+      auto const& spraydot = get_new_data(spraydot_Type).array(mfi);
+      const int nspraycomp = NUM_SPECIES + AMREX_SPACEDIM + 4;
+      amrex::ParallelFor(box, nspraycomp,
+      [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
+      {
+        ext_fab(i,j,k,n) += spraydot(i,j,k,n);
+      });
 #endif
 #ifdef SOOT_MODEL
-  if (add_soot_src == 1) {
-    MultiFab& sootsrc = get_new_data(sootsrc_Type);
-    MultiFab::Add(external_sources, sootsrc, 0, Density, num_soot_src, nGrowS);
-  }
+      if (add_soot_src == 1) {
+        auto const& sootsrc = get_new_data(sootsrc_Type).array(mfi);
+        amrex::ParallelFor(box, num_soot_src,
+        [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
+        {
+          ext_fab(i,j,k,n+Density) += sootsrc(i,j,k,n);
+        });
+      }
+#endif
+    }
 #endif
 }
