@@ -559,7 +559,7 @@ PeleLM::Initialize_specific ()
     pplm.query("num_deltaT_iters_MAX",num_deltaT_iters_MAX);
     pplm.query("deltaT_norm_max",deltaT_norm_max);
     pplm.query("deltaT_verbose",deltaT_verbose);
-    pplm.query("deltaT_convFailCrash",deltaT_crashOnConvFail);
+    pplm.query("deltaT_crashOnConvFail",deltaT_crashOnConvFail);
 
     pplm.query("use_typ_vals_chem",use_typ_vals_chem);
     pplm.query("relative_tol_chem",relative_tol_chem);
