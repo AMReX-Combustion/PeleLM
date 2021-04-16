@@ -5538,14 +5538,25 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
         diagTemp.copy(*auxDiag["REACTIONS"]); // Parallel copy
     }
 
-    if (verbose) 
+    if (verbose) {
       amrex::Print() << "*** advance_chemistry: FABs in tmp MF: " << STemp.size() << '\n';
+    }
 
 #ifdef _OPENMP
-#pragma omp parallel if (Gpu::notInLaunchRegion())
+    const auto tiling = MFItInfo().SetDynamic(true);
+#pragma omp parallel
+#else
+    const bool tiling = TilingIfNotGPU();
 #endif
-    for (MFIter Smfi(STemp,amrex::TilingIfNotGPU()); Smfi.isValid(); ++Smfi)
+    for (MFIter Smfi(STemp,tiling); Smfi.isValid(); ++Smfi)
     {
+
+#ifdef AMREX_USE_GPU
+        STemp[mfi].prefetchToDevice();
+        FTemp[mfi].prefetchToDevice();
+        fcnCntTemp[mfi].prefetchToDevice();
+#endif
+
         const Box& bx       = Smfi.tilebox();
         auto const& rhoY     = STemp.array(Smfi);
         auto const& rhoH     = STemp.array(Smfi,NUM_SPECIES);
@@ -5575,19 +5586,20 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
         BL_PROFILE_VAR("React()", ReactInLoop);
         Real dt_incr     = dt;
         Real time_chem   = 0;
-#ifndef AMREX_USE_GPU
-        /* Solve */
-        int tmp_fctCn;
-        tmp_fctCn = react(bx, rhoY, frc_rhoY, temp, rhoH, frc_rhoH, fcl, mask,
-                          dt_incr, time_chem);
-        dt_incr   = dt;
-        time_chem = 0;
-#else
+#ifdef AMREX_USE_GPU
+        // GPU solve
         int reactor_type = 2;
         int tmp_fctCn;
         tmp_fctCn = react(bx, rhoY, frc_rhoY, temp, rhoH, frc_rhoH, fcl, mask, 
                           dt_incr, time_chem, reactor_type, amrex::Gpu::gpuStream());
         dt_incr = dt;
+        time_chem = 0;
+#else
+        // CPU solve
+        int tmp_fctCn;
+        tmp_fctCn = react(bx, rhoY, frc_rhoY, temp, rhoH, frc_rhoH, fcl, mask,
+                          dt_incr, time_chem);
+        dt_incr   = dt;
         time_chem = 0;
 #endif
         BL_PROFILE_VAR_STOP(ReactInLoop);
