@@ -1644,6 +1644,10 @@ PeleLM::estTimeStep ()
    if (do_spray_particles)
      particleEstTimeStep(estdt);
 #endif
+#ifdef SOOT_MODEL
+   if (add_soot_src)
+     estSootTimeStep(estdt);
+#endif
    estdt = std::min(estdt, divu_dt);
 
    if (estdt < ns_estdt && verbose)
@@ -1720,8 +1724,7 @@ PeleLM::setTimeLevel (Real time,
 #endif
 
 #ifdef SOOT_MODEL
-   if (add_soot_src == 1)
-     state[sootsrc_Type].setTimeLevel(time,dt_old,dt_new);
+   state[sootsrc_Type].setTimeLevel(time,dt_old,dt_new);
 #endif
 
    state[FuncCount_Type].setTimeLevel(time,dt_old,dt_new);
@@ -1977,8 +1980,7 @@ PeleLM::initDataOtherTypes ()
 #endif
 
 #ifdef SOOT_MODEL
-  if (add_soot_src == 1)
-    get_new_data(sootsrc_Type).setVal(0.);
+  get_new_data(sootsrc_Type).setVal(0.);
 #endif
 
   // Put something reasonable into the FuncCount variable
@@ -2168,8 +2170,7 @@ PeleLM::init ()
    FillCoarsePatch(get_new_data(spraydot_Type),0,tnp1,spraydot_Type,0,nspraydot);
 #endif
 #ifdef SOOT_MODEL
-   if (add_soot_src == 1)
-     FillCoarsePatch(get_new_data(sootsrc_Type),0,tnp1,sootsrc_Type,0,num_soot_src);
+   FillCoarsePatch(get_new_data(sootsrc_Type),0,tnp1,sootsrc_Type,0,num_soot_src);
 #endif
    RhoH_to_Temp(get_new_data(State_Type));
    get_new_data(State_Type).setBndry(1.e30);
@@ -2224,12 +2225,18 @@ PeleLM::post_timestep (int crse_iteration)
       {
         removeGhostParticles();
       }
+      int nstep = parent->levelSteps(0);
+      BL_PROFILE_VAR("SprayParticles::injectParticles()", INJECT_SPRAY);
+      ProbParm const* lprobparm = prob_parm.get();
+      bool injectParts = theSprayPC()->
+        injectParticles(time, dt, nstep, level, finest_level, *lprobparm);
+      BL_PROFILE_VAR_STOP(INJECT_SPRAY);
 
       //
       // Sync up if we're level 0 or if we have particles that may have moved
       // off the next finest level and need to be added to our own level.
       //
-      if ((crse_iteration < ncycle and level < finest_level) || level == 0)
+      if ((crse_iteration < ncycle && level < finest_level) || level == 0 || injectParts)
       {
         PeleLM::theSprayPC()->Redistribute(level,theSprayPC()->finestLevel(),crse_iteration);
       }
@@ -2953,10 +2960,8 @@ PeleLM::resetState (Real time,
    }
 #endif
 #ifdef SOOT_MODEL
-   if (add_soot_src == 1) {
-     state[sootsrc_Type].reset();
-     state[sootsrc_Type].setTimeLevel(time,dt_old,dt_new);
-   }
+   state[sootsrc_Type].reset();
+   state[sootsrc_Type].setTimeLevel(time,dt_old,dt_new);
 #endif
 }
 

@@ -434,17 +434,6 @@ PeleLM::particleMKD (const Real       time,
   //
   int nstep = parent->levelSteps(0);
 
-  BL_PROFILE_VAR("SprayParticles::injectParticles()", INJECT_SPRAY);
-  ProbParm const* lprobparm = prob_parm.get();
-  bool injectParts = theSprayPC()->
-    injectParticles(time, dt, nstep, level, finest_level, *lprobparm);
-  //
-  // Only redistribute if we injected or inserted particles
-  //
-  if (injectParts)
-    theSprayPC()->Redistribute(level);
-  BL_PROFILE_VAR_STOP(INJECT_SPRAY);
-
   //
   // Setup the virtual particles that represent particles on finer levels
   //
