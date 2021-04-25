@@ -686,7 +686,7 @@ PeleLM::init_advance_particles (Real dt,
   FillPatch(*this, Sborder, nGhosts, time, State_Type, 0, NUM_STATE);
   Real dt_fake = 0.; // So particles are not modified
   particleMK(time, dt_fake, nGhosts, nGhosts, 1, 1, tmp_spray_source);
-  add_external_sources();
+  add_external_sources(time, dt_fake);
 }
 
 void
