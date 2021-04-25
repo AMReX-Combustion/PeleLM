@@ -2228,6 +2228,9 @@ PeleLM::post_timestep (int crse_iteration)
       int nstep = parent->levelSteps(0);
       BL_PROFILE_VAR("SprayParticles::injectParticles()", INJECT_SPRAY);
       ProbParm const* lprobparm = prob_parm.get();
+      const Real prev_time = state[State_Type].prevTime();
+      const Real curr_time = state[State_Type].curTime();
+      const Real dt = curr_time - prev_time;
       bool injectParts = theSprayPC()->
         injectParticles(time, dt, nstep, level, finest_level, *lprobparm);
       BL_PROFILE_VAR_STOP(INJECT_SPRAY);
