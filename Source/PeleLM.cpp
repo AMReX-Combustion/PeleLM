@@ -1043,7 +1043,7 @@ PeleLM::define_data ()
       auxDiag[kv.first] = std::unique_ptr<MultiFab>(new MultiFab(grids,dmap,kv.second.size(),0));
       auxDiag[kv.first]->setVal(0.0);
    }
-   const int nGrowS = 1; // TODO: Ensure this is enough
+   const int nGrowS = nghost_force(); // TODO: Ensure this is enough
    external_sources.define(grids, dmap, NUM_STATE, nGrowS, amrex::MFInfo(), Factory());
    external_sources.setVal(0.);
    // HACK for debugging
@@ -9429,7 +9429,7 @@ PeleLM::add_external_sources(Real time,
 #endif
     for (MFIter mfi(S_new,TilingIfNotGPU()); mfi.isValid(); ++mfi)
     {
-      const Box& box = mfi.growntilebox();
+      const Box& box = mfi.growntilebox(nghost_force());
       auto const& ext_fab = external_sources.array(mfi);
 #ifdef AMREX_PARTICLES
       auto const& spraydot = get_new_data(spraydot_Type).array(mfi);
