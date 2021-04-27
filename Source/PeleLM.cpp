@@ -5742,7 +5742,8 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
                        AMREX_D_DECL(u_mac[0],u_mac[1],u_mac[2]),
                        AMREX_D_DECL(*EdgeState[0],*EdgeState[1],*EdgeState[2]), first_spec, false,
                        AMREX_D_DECL(*EdgeFlux[0],*EdgeFlux[1],*EdgeFlux[2]), first_spec,
-                       math_bcs, d_bcrec_ptr, geom );
+                       math_bcs, d_bcrec_ptr, geom, dt,
+                       redistribution_type );
      EB_set_covered(*aofs, 0.);
   }
 
@@ -5841,7 +5842,7 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
 		      AMREX_D_DECL(u_mac[0],u_mac[1],u_mac[2]),
 		      AMREX_D_DECL(*EdgeState[0],*EdgeState[1],*EdgeState[2]), Temp, false,
 		      AMREX_D_DECL(*EdgeFlux[0],*EdgeFlux[1],*EdgeFlux[2]), Temp,
-		      math_bcs, d_bcrec_ptr, geom );
+		      math_bcs, d_bcrec_ptr, geom, dt, redistribution_type );
     EB_set_covered(*aofs, 0.);
   }
 
@@ -5943,7 +5944,7 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
 		       AMREX_D_DECL(u_mac[0],u_mac[1],u_mac[2]),
 		       AMREX_D_DECL(*EdgeState[0],*EdgeState[1],*EdgeState[2]), RhoH, true,
 		       AMREX_D_DECL(*EdgeFlux[0],*EdgeFlux[1],*EdgeFlux[2]), RhoH,
-		       math_bcs, d_bcrec_ptr, geom ); 
+		       math_bcs, d_bcrec_ptr, geom, dt, redistribution_type ); 
      EB_set_covered(*aofs, 0.);
   }
 
