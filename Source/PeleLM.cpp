@@ -5894,7 +5894,7 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
         {
            for (int d=0; d<AMREX_SPACEDIM; ++d)
            {
-              const Box& ebox = S_mfi.grownnodaltilebox(d,EdgeState[d]->nGrow());
+              const Box& ebox     = S_mfi.grownnodaltilebox(d,EdgeState[d]->nGrow());
               auto const& rho     = EdgeState[d]->array(S_mfi,Density);  
               auto const& rhoY    = EdgeState[d]->array(S_mfi,first_spec);
               auto const& T       = EdgeState[d]->array(S_mfi,Temp);
@@ -5903,14 +5903,18 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
               amrex::ParallelFor(ebox, [rho, rhoY, T, rhoHm]
               AMREX_GPU_DEVICE (int i, int j, int k) noexcept
               {
-                 getRHmixGivenTY( i, j, k, rho, rhoY, T, rhoHm );
+                 if (rho(i,j,k) <= 0.0) {       // These are covered ghost cells.
+                    rhoHm(i,j,k) = 0.0;
+                 } else {
+                    getRHmixGivenTY( i, j, k, rho, rhoY, T, rhoHm );
+                 }
               });
            }
         }
      }
   }
 
-  //  Set covered values of density not to zero in roder to use fab.invert
+  //  Set covered values of density not to zero in order to use fab.invert
   //  Get typical values for Rho
   {
     Vector<Real> typvals;
