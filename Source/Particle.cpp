@@ -23,7 +23,6 @@ SprayParticleContainer* VirtPC = 0;
 //
 SprayParticleContainer* GhostPC = 0;
 
-int num_spray_src = AMREX_SPACEDIM + 4 + NUM_SPECIES;
 SprayData sprayData;
 amrex::Real sprayRefT = 300.;
 amrex::Real parcelSize = 1.;
@@ -49,6 +48,8 @@ int particle_init_function = 1;
 int PeleLM::do_spray_particles = 1;
 int PeleLM::particle_verbose = 0;
 Real PeleLM::particle_cfl = 0.5;
+// momentum + density + species + enth + temp + rhoRT
+int PeleLM::num_spray_src = AMREX_SPACEDIM + 4 + NUM_SPECIES;
 
 int PeleLM::write_particle_plotfiles = 1;
 int PeleLM::write_spray_ascii_files = 1;
@@ -137,7 +138,7 @@ PeleLM::readParticleParams()
   ppp.getarr("fuel_rho", sprayrho);
   ppp.queryarr("fuel_mu", mu);
   ppp.queryarr("fuel_lambda", lambda);
-  for (int i = 0; i != nfuel; ++i) {
+  for (int i = 0; i < nfuel; ++i) {
     sprayFuelNames[i] = fuel_names[i];
     sprayData.critT[i] = crit_T[i];
     sprayData.boilT[i] = boil_T[i];
@@ -214,7 +215,7 @@ PeleLM::readParticleParams()
 
   if (verbose && ParallelDescriptor::IOProcessor()) {
     amrex::Print() << "Spray fuel species " << sprayFuelNames[0];
-    for (int i = 1; i != SPRAY_FUEL_NUM; ++i)
+    for (int i = 1; i < SPRAY_FUEL_NUM; ++i)
       amrex::Print() << ", " << sprayFuelNames[i];
     amrex::Print() << std::endl;
     amrex::Print() << "Number of particles per parcel " << parcelSize << std::endl;
@@ -250,8 +251,8 @@ PeleLM::defineParticles()
     amrex::Abort("Cannot have more spray fuel species than fluid species");
   }
 #if NUM_SPECIES > 1
-  for (int i = 0; i != SPRAY_FUEL_NUM; ++i) {
-    for (int ns = 0; ns != NUM_SPECIES; ++ns) {
+  for (int i = 0; i < SPRAY_FUEL_NUM; ++i) {
+    for (int ns = 0; ns < NUM_SPECIES; ++ns) {
       std::string gas_spec = spec_names[ns];
       if (gas_spec == sprayFuelNames[i]) {
         sprayData.indx[i] = ns;
@@ -264,16 +265,16 @@ PeleLM::defineParticles()
     }
   }
 #else
-  for (int ns = 0; ns != SPRAY_FUEL_NUM; ++ns) {
+  for (int ns = 0; ns < SPRAY_FUEL_NUM; ++ns) {
     sprayData.indx[ns] = 0;
   }
 #endif
   amrex::Vector<Real> fuelEnth(NUM_SPECIES);
   auto eos = pele::physics::PhysicsType::eos();
   eos.T2Hi(sprayData.ref_T, fuelEnth.data());
-  for (int ns = 0; ns != SPRAY_FUEL_NUM; ++ns) {
+  for (int ns = 0; ns < SPRAY_FUEL_NUM; ++ns) {
     const int fspec = sprayData.indx[ns];
-    sprayData.latent[ns] -= fuelEnth[fspec];
+    sprayData.latent[ns] -= fuelEnth[fspec] * 1.E-4;
   }
   scomps.heat_tran = PeleLM::particle_heat_tran;
   scomps.mass_tran = PeleLM::particle_mass_tran;

@@ -869,7 +869,8 @@ PeleLM::variableSetUp ()
   derive_lst.add(curv_str,IndexType::TheCellType(),1,&DeriveRec::GrowBoxByOne);
 #ifdef AMREX_PARTICLES
   spraydotSetUp();
-  defineParticles();
+  if (do_spray_particles)
+    defineParticles();
 #endif
 #ifdef SOOT_MODEL
   soot_model->define();
@@ -1101,13 +1102,10 @@ void
 PeleLM::spraydotSetUp()
 {
   spraydot_Type = desc_lst.size();
-  const int ngrow = 1;
-
-  // momentum + density + species + enth + temp + rhoRT
-  const int nspraydot = NUM_SPECIES + AMREX_SPACEDIM + 4;
+  const int ngrow = 4;
 
   desc_lst.addDescriptor(spraydot_Type,IndexType::TheCellType(),
-                         StateDescriptor::Point,ngrow,nspraydot,
+                         StateDescriptor::Point,ngrow,num_spray_src,
                          &cc_interp);
   amrex::StateDescriptor::BndryFunc pelelm_bndryfunc(pelelm_dummy_fill);
   pelelm_bndryfunc.setRunOnGPU(true);  // I promise the bc function will launch gpu kernels.
@@ -1115,7 +1113,7 @@ PeleLM::spraydotSetUp()
   set_spraydot_bc(bc,phys_bc);
   int specComp = AMREX_SPACEDIM + 1;
   int endSpecComp = specComp + NUM_SPECIES - 1;
-  for (int i = 0; i < nspraydot; ++i)
+  for (int i = 0; i < num_spray_src; ++i)
   {
     std::string name = "I_R_spray_" + desc_lst[State_Type].name(i);
     if (i >= specComp && i <= endSpecComp)

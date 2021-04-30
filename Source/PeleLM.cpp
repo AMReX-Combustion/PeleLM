@@ -1935,9 +1935,9 @@ PeleLM::initData ()
   initActiveControl();
 
 #ifdef AMREX_PARTICLES
+  defineSpraySourceMF();
   if (do_spray_particles)
   {
-    defineSpraySourceMF();
     if (level == 0)
       initParticles();
     else
@@ -2166,8 +2166,7 @@ PeleLM::init ()
    //
    FillCoarsePatch(get_new_data(RhoYdot_Type),0,tnp1,RhoYdot_Type,0,NUM_SPECIES);
 #ifdef AMREX_PARTICLES
-   const int nspraydot = NUM_SPECIES + AMREX_SPACEDIM + 4;
-   FillCoarsePatch(get_new_data(spraydot_Type),0,tnp1,spraydot_Type,0,nspraydot);
+   FillCoarsePatch(get_new_data(spraydot_Type),0,tnp1,spraydot_Type,0,num_spray_src);
 #endif
 #ifdef SOOT_MODEL
    FillCoarsePatch(get_new_data(sootsrc_Type),0,tnp1,sootsrc_Type,0,num_soot_src);
@@ -2258,9 +2257,9 @@ PeleLM::post_restart ()
    int step    = parent->levelSteps(0);
    int is_restart = 1;
 #ifdef AMREX_PARTICLES
+   defineSpraySourceMF();
    if (do_spray_particles)
    {
-     defineSpraySourceMF();
      particlePostRestart(parent->theRestartFile());
    }
 #endif
@@ -2319,8 +2318,8 @@ PeleLM::post_regrid (int lbase,
    }
    make_rho_curr_time();
 #ifdef AMREX_PARTICLES
+   defineSpraySourceMF();
    if (do_spray_particles && theSprayPC() != 0) {
-     defineSpraySourceMF();
      if (level == lbase)
        particle_redistribute(lbase);
    }
@@ -4817,14 +4816,13 @@ PeleLM::advance (Real time,
       ghost_width, where_width, spray_n_grow, tmp_src_width);
     nGrow_Sborder = std::max(nGrow_Sborder, spray_n_grow);
     FillPatch(*this, Sborder, nGrow_Sborder, prev_time, State_Type, 0, NUM_STATE);
+    if (Sborder.nGrow() < nGrow_Sborder) {
+      Print() << "PeleLM::do_sdc_iteration thinks Sborder needs " << nGrow_Sborder
+              << " grow cells, but Sborder defined with only " << Sborder.nGrow() << std::endl;
+      Abort();
+    }
   }
   showMF("spray",Sborder,"Sborder_before_sdc",level,parent->levelSteps(level));
-
-  if (Sborder.nGrow() < nGrow_Sborder) {
-    Print() << "PeleC::do_sdc_iteration thinks Sborder needs " << nGrow_Sborder
-            << " grow cells, but Sborder defined with only " << Sborder.nGrow() << std::endl;
-    Abort();
-  }
 
   // We must make a temporary spray source term to ensure number of ghost
   // cells are correct
@@ -8496,8 +8494,7 @@ PeleLM::setPlotVariables ()
   // Remove spray source terms unless otherwise specified
   if (plot_spray_src == 0)
   {
-    const int nspraydot = NUM_SPECIES + AMREX_SPACEDIM + 4;
-    for (int i = 0; i < nspraydot; i++)
+    for (int i = 0; i < num_spray_src; i++)
     {
       const std::string name = "I_R_spray_" + desc_lst[State_Type].name(i);
       parent->deleteStatePlotVar(name);
@@ -8508,8 +8505,7 @@ PeleLM::setPlotVariables ()
   // Remove spray source terms unless otherwise specified
   if (plot_soot_src == 0)
   {
-    const int nsootsrc = NUM_SPECIES + 4 + DEF_NUM_SOOT_VARS;
-    for (int i = 0; i < nsootsrc; i++)
+    for (int i = 0; i < num_soot_src; i++)
     {
       const int dcomp = AMREX_SPACEDIM + i;
       const std::string name = "I_R_soot_" + desc_lst[State_Type].name(dcomp);
@@ -9432,13 +9428,14 @@ PeleLM::add_external_sources(Real time,
       const Box& box = mfi.growntilebox(nghost_force());
       auto const& ext_fab = external_sources.array(mfi);
 #ifdef AMREX_PARTICLES
-      auto const& spraydot = get_new_data(spraydot_Type).array(mfi);
-      const int nspraycomp = NUM_SPECIES + AMREX_SPACEDIM + 4;
-      amrex::ParallelFor(box, nspraycomp,
-      [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
-      {
-        ext_fab(i,j,k,n) += spraydot(i,j,k,n);
-      });
+      if (do_spray_particles) {
+        auto const& spraydot = get_new_data(spraydot_Type).array(mfi);
+        amrex::ParallelFor(box, num_spray_src,
+        [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
+        {
+          ext_fab(i,j,k,n) += spraydot(i,j,k,n);
+        });
+      }
 #endif
 #ifdef SOOT_MODEL
       if (add_soot_src == 1) {
