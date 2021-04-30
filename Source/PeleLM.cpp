@@ -6021,7 +6021,8 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
                        AMREX_D_DECL(u_mac[0],u_mac[1],u_mac[2]),
                        AMREX_D_DECL(*EdgeState[0],*EdgeState[1],*EdgeState[2]), first_spec, false,
                        AMREX_D_DECL(*EdgeFlux[0],*EdgeFlux[1],*EdgeFlux[2]), first_spec,
-                       math_bcs, d_bcrec_ptr, geom );
+                       math_bcs, d_bcrec_ptr, geom, dt,
+                       redistribution_type );
      EB_set_covered(*aofs, 0.);
   }
 
@@ -6135,7 +6136,7 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
 		      AMREX_D_DECL(u_mac[0],u_mac[1],u_mac[2]),
 		      AMREX_D_DECL(*EdgeState[0],*EdgeState[1],*EdgeState[2]), Temp, false,
 		      AMREX_D_DECL(*EdgeFlux[0],*EdgeFlux[1],*EdgeFlux[2]), Temp,
-		      math_bcs, d_bcrec_ptr, geom );
+		      math_bcs, d_bcrec_ptr, geom, dt, redistribution_type );
     EB_set_covered(*aofs, 0.);
   }
 
@@ -6187,7 +6188,7 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
         {
            for (int d=0; d<AMREX_SPACEDIM; ++d)
            {
-              const Box& ebox = S_mfi.grownnodaltilebox(d,EdgeState[d]->nGrow());
+              const Box& ebox     = S_mfi.grownnodaltilebox(d,EdgeState[d]->nGrow());
               auto const& rho     = EdgeState[d]->array(S_mfi,Density);  
               auto const& rhoY    = EdgeState[d]->array(S_mfi,first_spec);
               auto const& T       = EdgeState[d]->array(S_mfi,Temp);
@@ -6196,14 +6197,18 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
               amrex::ParallelFor(ebox, [rho, rhoY, T, rhoHm]
               AMREX_GPU_DEVICE (int i, int j, int k) noexcept
               {
-                 getRHmixGivenTY( i, j, k, rho, rhoY, T, rhoHm );
+                 if (rho(i,j,k) <= 0.0) {       // These are covered ghost cells.
+                    rhoHm(i,j,k) = 0.0;
+                 } else {
+                    getRHmixGivenTY( i, j, k, rho, rhoY, T, rhoHm );
+                 }
               });
            }
         }
      }
   }
 
-  //  Set covered values of density not to zero in roder to use fab.invert
+  //  Set covered values of density not to zero in order to use fab.invert
   //  Get typical values for Rho
   {
     Vector<Real> typvals;
@@ -6244,7 +6249,7 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
 		       AMREX_D_DECL(u_mac[0],u_mac[1],u_mac[2]),
 		       AMREX_D_DECL(*EdgeState[0],*EdgeState[1],*EdgeState[2]), RhoH, true,
 		       AMREX_D_DECL(*EdgeFlux[0],*EdgeFlux[1],*EdgeFlux[2]), RhoH,
-		       math_bcs, d_bcrec_ptr, geom ); 
+		       math_bcs, d_bcrec_ptr, geom, dt, redistribution_type ); 
      EB_set_covered(*aofs, 0.);
   }
 
