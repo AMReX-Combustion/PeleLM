@@ -6037,7 +6037,8 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
                        AMREX_D_DECL(u_mac[0],u_mac[1],u_mac[2]),
                        AMREX_D_DECL(*EdgeState[0],*EdgeState[1],*EdgeState[2]), first_passive, false,
                        AMREX_D_DECL(*EdgeFlux[0],*EdgeFlux[1],*EdgeFlux[2]), first_passive,
-                       math_bcs, d_bcrec_ptr, geom );
+                       math_bcs, d_bcrec_ptr, geom, dt,
+                       redistribution_type );
      EB_set_covered(*aofs, 0.);
   }
 
