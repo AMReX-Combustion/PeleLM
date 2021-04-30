@@ -125,7 +125,6 @@ function(build_pelelm_exe pelelm_exe_name)
        ${IAMR_SRC_DIR}/OutFlowBC.H
        ${IAMR_SRC_DIR}/SyncRegister.H
        ${IAMR_SRC_DIR}/RegType.H
-       ${IAMR_SRC_DIR}/MacOpMacDrivers.H
        ${IAMR_SRC_DIR}/iamr_constants.H
        ${IAMR_SRC_DIR}/NavierStokesBase.cpp
        ${IAMR_SRC_DIR}/Projection.cpp
@@ -140,47 +139,56 @@ function(build_pelelm_exe pelelm_exe_name)
        ${IAMR_SRC_DIR}/Diffusion.H
        ${IAMR_SRC_DIR}/NavierStokesBase.H
        ${IAMR_SRC_DIR}/FluxBoxes.H
-       ${IAMR_SRC_DIR}/DERIVE_F.H
        ${IAMR_SRC_DIR}/PROJECTION_F.H
        ${IAMR_SRC_DIR}/NAVIERSTOKES_F.H
-       ${IAMR_SRC_DIR}/NS_error_F.H
        ${IAMR_SRC_DIR}/MLMG_Mac.cpp
        ${IAMR_SRC_DIR}/NS_util.cpp
-       ${IAMR_SRC_DIR}/MACPROJ_F.H
        ${IAMR_SRC_DIR}/NS_util.H
 
+       ${IAMR_SRC_DIR}/Godunov/iamr_godunov_plm.cpp
        ${IAMR_SRC_DIR}/Godunov/iamr_godunov.H
-       ${IAMR_SRC_DIR}/Godunov/iamr_godunov_K.H
-       ${IAMR_SRC_DIR}/Godunov/iamr_constants_godunov.H
+       ${IAMR_SRC_DIR}/Godunov/iamr_godunov_edge_state_${PELELM_DIM}D.cpp
+       ${IAMR_SRC_DIR}/Godunov/iamr_godunov_ppm.H
        ${IAMR_SRC_DIR}/Godunov/iamr_godunov.cpp
-       ${IAMR_SRC_DIR}/Godunov/iamr_extrap_vel_to_faces_godunov_${PELELM_DIM}D.cpp
-       ${IAMR_SRC_DIR}/Godunov/iamr_edge_state_godunov_${PELELM_DIM}D.cpp
-       ${IAMR_SRC_DIR}/Godunov/iamr_slopes_godunov_K.H
-       ${IAMR_SRC_DIR}/Godunov/iamr_plm_godunov.H
-       ${IAMR_SRC_DIR}/Godunov/iamr_plm_godunov.cpp
-       ${IAMR_SRC_DIR}/Godunov/iamr_ppm_godunov.H
-       ${IAMR_SRC_DIR}/Godunov/iamr_ppm_godunov.cpp
+       ${IAMR_SRC_DIR}/Godunov/iamr_godunov_ppm.cpp
+       ${IAMR_SRC_DIR}/Godunov/iamr_godunov_K.H
+       ${IAMR_SRC_DIR}/Godunov/iamr_godunov_extrap_vel_to_faces_${PELELM_DIM}D.cpp
+       ${IAMR_SRC_DIR}/Godunov/iamr_godunov_constants.H
+       ${IAMR_SRC_DIR}/Godunov/iamr_godunov_plm.H
 
-       # Dimension-specific files
+       ${IAMR_SRC_DIR}/MOL/iamr_mol.H
+       ${IAMR_SRC_DIR}/MOL/iamr_mol.cpp
+       ${IAMR_SRC_DIR}/MOL/iamr_mol_eb_edge_state_K.H
+       ${IAMR_SRC_DIR}/MOL/iamr_mol_eb_predict_vel_on_faces.cpp
+       ${IAMR_SRC_DIR}/MOL/iamr_mol_edge_state.cpp
+       ${IAMR_SRC_DIR}/MOL/iamr_mol_edge_state_K.H
+       ${IAMR_SRC_DIR}/MOL/iamr_mol_extrap_vel_to_faces.cpp
+       ${IAMR_SRC_DIR}/MOL/iamr_mol_predict_vel_on_faces.cpp
+
        ${IAMR_SRC_DIR}/Src_${PELELM_DIM}d/NAVIERSTOKES_${PELELM_DIM}D.F90
-       ${IAMR_SRC_DIR}/Src_${PELELM_DIM}d/PROJECTION_${PELELM_DIM}D.F90
-       ${IAMR_SRC_DIR}/Src_${PELELM_DIM}d/MACPROJ_${PELELM_DIM}D.F90
   )
 
   if(PELELM_ENABLE_AMREX_EB)
     target_sources(${pelelm_exe_name}
        PRIVATE
-         ${IAMR_SRC_DIR}/MOL/iamr_mol.H
-         ${IAMR_SRC_DIR}/MOL/iamr_mol.cpp
-         ${IAMR_SRC_DIR}/MOL/iamr_edge_state_mol.cpp
-         ${IAMR_SRC_DIR}/MOL/iamr_extrap_vel_to_faces_mol.cpp
-         ${IAMR_SRC_DIR}/MOL/iamr_edge_state_mol_K.H
-         ${IAMR_SRC_DIR}/MOL/iamr_predict_vel_on_faces_mol.cpp
-         ${IAMR_SRC_DIR}/MOL/iamr_eb_predict_vel_on_faces_mol.cpp
-         ${IAMR_SRC_DIR}/MOL/iamr_eb_edge_state_mol_K.H
-         #${IAMR_SRC_DIR}/MOL/iamr_eb_slopes_mol_K.H
-         #${IAMR_SRC_DIR}/MOL/iamr_slopes_K.H
-    )
+         ${IAMR_SRC_DIR}/Redistribution/iamr_create_itracker_${PELELM_DIM}d.cpp
+         ${IAMR_SRC_DIR}/Redistribution/iamr_merge_redistribute.cpp
+         ${IAMR_SRC_DIR}/Redistribution/iamr_redistribution.H
+         ${IAMR_SRC_DIR}/Redistribution/iamr_redistribution.cpp
+         ${IAMR_SRC_DIR}/Redistribution/iamr_state_redistribute.cpp
+
+         ${IAMR_SRC_DIR}/EBGodunov/EBGodunov.H
+         ${IAMR_SRC_DIR}/EBGodunov/iamr_ebgodunov.H
+         ${IAMR_SRC_DIR}/EBGodunov/iamr_ebgodunov.cpp
+         ${IAMR_SRC_DIR}/EBGodunov/iamr_ebgodunov_corner_couple.H
+         ${IAMR_SRC_DIR}/EBGodunov/iamr_ebgodunov_edge_state_${PELELM_DIM}D.cpp
+         ${IAMR_SRC_DIR}/EBGodunov/iamr_ebgodunov_extrap_vel_to_faces.cpp
+         ${IAMR_SRC_DIR}/EBGodunov/iamr_ebgodunov_extrap_vel_to_faces_${PELELM_DIM}D.cpp
+         ${IAMR_SRC_DIR}/EBGodunov/iamr_ebgodunov_plm.H
+         ${IAMR_SRC_DIR}/EBGodunov/iamr_ebgodunov_plm.cpp
+         ${IAMR_SRC_DIR}/EBGodunov/iamr_ebgodunov_plm_fpu.cpp
+         ${IAMR_SRC_DIR}/EBGodunov/iamr_ebgodunov_transverse_${PELELM_DIM}D_K.H
+   )
   endif()
 
   target_sources(${pelelm_exe_name}
@@ -224,6 +232,8 @@ function(build_pelelm_exe pelelm_exe_name)
   #IAMR include directories
   target_include_directories(${pelelm_exe_name} PRIVATE ${IAMR_SRC_DIR})
   target_include_directories(${pelelm_exe_name} PRIVATE ${IAMR_SRC_DIR}/Godunov)
+  target_include_directories(${pelelm_exe_name} PRIVATE ${IAMR_SRC_DIR}/Redistribution)
+  target_include_directories(${pelelm_exe_name} PRIVATE ${IAMR_SRC_DIR}/EBGodunov)
   if(PELELM_ENABLE_AMREX_EB)
     target_include_directories(${pelelm_exe_name} PRIVATE ${IAMR_SRC_DIR}/MOL)
   endif()
