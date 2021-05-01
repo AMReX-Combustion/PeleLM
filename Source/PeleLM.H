@@ -282,7 +282,8 @@ public:
                          const amrex::Real       time,
                          const amrex::FArrayBox& Vel,
                          const amrex::FArrayBox& Scal,
-                         int                     scalScomp) override;
+                         int                     scalScomp,
+                         const amrex::MFIter&    mfi) override;
 
 
   virtual void mac_sync () override;
@@ -327,6 +328,11 @@ public:
   static void read_particle_params ();
 #endif
 
+  //
+  // MultiFab for holding source terms like from soot and sprays
+  //
+  amrex::MultiFab external_sources;
+  void add_external_sources(amrex::Real time, amrex::Real dt);
 
   // enum YdotAction { HT_EstimateYdotNew, HT_ImproveYdotOld, HT_LeaveYdotAlone };
   // enum Solver_Status {HT_InProgress, HT_Stalled, HT_Solved};
