@@ -674,10 +674,11 @@ PeleLM::init_advance_particles (Real dt,
                                 Real time,
                                 Real nGrow)
 {
+  const int finest_level = parent->finestLevel();
   int nGhosts = 4;
   // We must make a temporary spray source term to ensure number of ghost
   // cells are correct
-  if (level < parent->finestLevel()) {
+  if (level < finest_level) {
     setupGhostParticles(2);
     setupVirtualParticles();
   }

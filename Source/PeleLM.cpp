@@ -1043,7 +1043,7 @@ PeleLM::define_data ()
       auxDiag[kv.first] = std::unique_ptr<MultiFab>(new MultiFab(grids,dmap,kv.second.size(),0));
       auxDiag[kv.first]->setVal(0.0);
    }
-   const int nGrowS = nghost_force(); // TODO: Ensure this is enough
+   const int nGrowS = amrex::max(nGrowAdvForcing, nghost_force()); // TODO: Ensure this is enough
    external_sources.define(grids, dmap, NUM_STATE, nGrowS, amrex::MFInfo(), Factory());
    external_sources.setVal(0.);
    // HACK for debugging
