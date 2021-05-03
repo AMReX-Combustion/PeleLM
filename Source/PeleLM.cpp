@@ -314,6 +314,10 @@ PeleLM::Initialize ()
   amrex::sundials::MemoryHelper::Initialize();
 #endif
 #endif
+#ifdef AMREX_PARTICLES
+  // Ensure default particles in NavierStokesBase aren't used
+  NavierStokesBase::do_nspc = false;
+#endif
 
   PeleLM::Initialize_specific();
   
