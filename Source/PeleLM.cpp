@@ -1875,6 +1875,7 @@ PeleLM::initData ()
     {
       const Box& box = mfi.tilebox();
       auto state = S_new.array(mfi);
+      ProbParm const* lprobparm = prob_parm.get();
 
       amrex::ParallelFor(box,
       [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
@@ -1886,12 +1887,12 @@ PeleLM::initData ()
         auto eos = pele::physics::PhysicsType::eos();
 
         amrex::Real rho_cgs, P_cgs;
-        P_cgs = prob_parm->P_mean * 10.0;
+        P_cgs = lprobparm->P_mean * 10.0;
 
         eos.PYT2R(P_cgs, massfrac, state(i,j,k,DEF_Temp), rho_cgs);
         state(i,j,k,Density) = rho_cgs * 1.0e3;            // CGS -> MKS conversion
 
-        eos.TY2H(state(i,j,k,DEF_Temp), massfrac, state(i,j,k,RhoH));
+        eos.TY2H(state(i,j,k,DEF_Temp), massfrac, state(i,j,k,DEF_RhoH));
         state(i,j,k,DEF_RhoH) = state(i,j,k,DEF_RhoH) * 1.0e-4 * state(i,j,k,Density);   // CGS -> MKS conversion
 
         for (int n = 0; n < NUM_SPECIES; n++) {
