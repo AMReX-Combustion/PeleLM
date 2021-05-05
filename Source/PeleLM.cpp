@@ -5325,8 +5325,6 @@ PeleLM::advance (Real time,
         auto const& ddnp1k  = DDnp1.array(mfi);
         auto const& r       = get_new_data(RhoYdot_Type).array(mfi,0);
         auto const& a       = aofs->array(mfi,first_spec);
-        auto const& extY    = external_sources.array(mfi, first_spec);
-        auto const& extRhoH = external_sources.array(mfi, DEF_RhoH);
         auto const& fY      = Forcing.array(mfi,0);
         auto const& fT      = Forcing.array(mfi,NUM_SPECIES);
         auto const& extY    = external_sources.array(mfi,DEF_first_spec);
