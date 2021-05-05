@@ -219,7 +219,7 @@ buildAdvectionForcing(int i, int j, int k,
       forceT(i,j,k) -= forceY(i,j,k,n) * hi_spec[n] * 0.0001_rt;     // forceT -= Sum{ hk. (Rk + Dnk) } with CGS -> MKS conversion of hk
    }
    for (int n = 0; n < NUM_SPECIES; n++) {
-     forceY(i,j,k,n) += extY(i,j,k,n);
+      forceY(i,j,k,n) += extY(i,j,k,n);
    }
    forceT(i,j,k) += extRhoH(i,j,k);
 

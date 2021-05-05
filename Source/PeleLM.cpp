@@ -39,6 +39,8 @@
 #include <pmf_data.H>
 #include "PelePhysics.H"
 
+#include <AMReX_DataServices.H>
+#include <AMReX_AmrData.H>
 #if defined(AMREX_USE_NEWMECH) || defined(AMREX_USE_VELOCITY)
 #include <AMReX_DataServices.H>
 #include <AMReX_AmrData.H>
@@ -1807,18 +1809,138 @@ PeleLM::initData ()
   if (verbose) amrex::Print() << "initData: finished init from pltfile" << '\n';
 #endif
 
-  const auto geomdata = geom.data();
-  S_new.setVal(0.0);
-  P_new.setVal(0.0);
+  ParmParse pp("pelelm");
+  if (pp.countval("pltfile_for_init") > 0) {
+    S_new.setVal(0.0);
+    P_new.setVal(0.0);
 
-  ProbParm const* lprobparm = prob_parm.get();
-  PmfData const* lpmfdata = pmf_data_g;
+    //
+    // This code has a few drawbacks.  It assumes that the physical
+    // domain size of the current problem is the same as that of the
+    // one that generated the pltfile.  It also assumes that the pltfile
+    // has at least as many levels as does the current problem.  If
+    // either of these are false this code is likely to core dump.
+    //
+
+    std::string pltfile;
+    pp.get("pltfile_for_init", pltfile);
+    if (verbose)
+      amrex::Print() << "initData: reading data from: " << pltfile << '\n';
+
+    DataServices::SetBatchMode();
+    Amrvis::FileType fileType(Amrvis::NEWPLT);
+    DataServices dataServices(pltfile, fileType);
+    if (!dataServices.AmrDataOk()) {
+      DataServices::Dispatch(DataServices::ExitRequest, NULL);
+    }
+    AmrData& amrData = dataServices.AmrDataRef();
+    Vector<std::string> names;
+    pele::physics::eos::speciesNames(names);
+    Vector<std::string> plotnames = amrData.PlotVarNames();
+
+    int idT = -1, idV = -1, idX = -1, idY = -1;
+    for (int i = 0; i < plotnames.size(); ++i) {
+      if (plotnames[i] == "temp")            idT = i;
+      if (plotnames[i] == "x_velocity")      idV = i;
+      if (plotnames[i] == "X("+names[0]+")") idX = i;
+      if (plotnames[i] == "Y("+names[0]+")") idY = i;
+    }
+
+    if (verbose) {
+      Print() << "Initializing data from pltfile: \"" << pltfile << "\" for level " << level << std::endl;
+    }
+    for (int i = 0; i < AMREX_SPACEDIM; i++) {
+      amrData.FillVar(S_new, level, plotnames[idV+i], Xvel+i);
+      amrData.FlushGrids(idV+i);
+    }
+    amrData.FillVar(S_new, level, plotnames[idT], Temp);
+    amrData.FlushGrids(idT);
+    if (idY>=0) {
+      for (int i = 0; i < NUM_SPECIES; i++) {
+        amrData.FillVar(S_new, level, plotnames[idY+i], first_spec+i);
+        amrData.FlushGrids(idY+i);
+      }
+    }
+    else if (idX>=0) {
+      for (int i = 0; i < NUM_SPECIES; i++) {
+        amrData.FillVar(S_new, level, plotnames[idX+i], first_spec+i);
+        amrData.FlushGrids(idX+i);
+      }
 
 #ifdef _OPENMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
-  for (MFIter mfi(S_new,TilingIfNotGPU()); mfi.isValid(); ++mfi)
-  {
+      for (MFIter mfi(S_new,TilingIfNotGPU()); mfi.isValid(); ++mfi)
+      {
+        const Box& box = mfi.tilebox();
+        auto sfab = S_new.array(mfi);
+
+        amrex::ParallelFor(box,
+        [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+        {
+          amrex::Real Yt[NUM_SPECIES] = {0.0};
+          amrex::Real Xt[NUM_SPECIES] = {0.0};
+          for (int n = 0; n < NUM_SPECIES; n++) {
+            Yt[n] = sfab(i,j,k,n+1);
+          }
+          auto eos = pele::physics::PhysicsType::eos();
+          eos.X2Y(Xt,Yt);
+          for (int n = 0; n < NUM_SPECIES; n++) {
+            sfab(i,j,k,n) = Xt[n];
+          }
+        });
+      }
+    }
+    else {
+      Abort("pltfile_for_init: plotfile not compatible, cannot initialize");
+    }
+
+#ifdef _OPENMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+    for (MFIter mfi(S_new,TilingIfNotGPU()); mfi.isValid(); ++mfi)
+    {
+      const Box& box = mfi.tilebox();
+      auto state = S_new.array(mfi);
+      ProbParm const* lprobparm = prob_parm.get();
+
+      amrex::ParallelFor(box,
+      [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+      {
+        amrex::Real massfrac[NUM_SPECIES] = {0.0};
+        for (int n = 0; n < NUM_SPECIES; n++) {
+          massfrac[n] = state(i,j,k,DEF_first_spec+n);
+        }
+        auto eos = pele::physics::PhysicsType::eos();
+
+        amrex::Real rho_cgs, P_cgs;
+        P_cgs = lprobparm->P_mean * 10.0;
+
+        eos.PYT2R(P_cgs, massfrac, state(i,j,k,DEF_Temp), rho_cgs);
+        state(i,j,k,Density) = rho_cgs * 1.0e3;            // CGS -> MKS conversion
+
+        eos.TY2H(state(i,j,k,DEF_Temp), massfrac, state(i,j,k,DEF_RhoH));
+        state(i,j,k,DEF_RhoH) = state(i,j,k,DEF_RhoH) * 1.0e-4 * state(i,j,k,Density);   // CGS -> MKS conversion
+
+        for (int n = 0; n < NUM_SPECIES; n++) {
+          state(i,j,k,DEF_first_spec+n) = massfrac[n] * state(i,j,k,Density);
+        }
+      });
+    }
+  }
+  else {
+    const auto geomdata = geom.data();
+    S_new.setVal(0.0);
+    P_new.setVal(0.0);
+
+    ProbParm const* lprobparm = prob_parm.get();
+    PmfData const* lpmfdata = pmf_data_g;
+
+#ifdef _OPENMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+    for (MFIter mfi(S_new,TilingIfNotGPU()); mfi.isValid(); ++mfi)
+    {
       const Box& box = mfi.validbox();
       auto sfab = S_new.array(mfi);
 
@@ -1831,6 +1953,7 @@ PeleLM::initData ()
         pelelm_initdata(i, j, k, sfab, geomdata, *lprobparm, lpmfdata);
 #endif
       });
+    }
   }
 
   showMFsub("1D",S_new,stripBox,"1D_S",level);
@@ -4363,13 +4486,13 @@ PeleLM::scalar_advection_update (Real dt,
       auto const& snew   = S_new.array(mfi);
       auto const& sold   = S_old.array(mfi);
       auto const& adv    = aofs->array(mfi);
-      auto const& ext_source = external_sources.array(mfi);
-      amrex::ParallelFor(bx, [snew, sold, adv, dt, first_scalar, last_scalar, ext_source]
+      auto const& ext_src = external_sources.array(mfi);
+
+      amrex::ParallelFor(bx, [snew, sold, adv, ext_src, dt, first_scalar, last_scalar]
       AMREX_GPU_DEVICE (int i, int j, int k) noexcept
       {
          for (int n = first_scalar; n <= last_scalar; n++) {
-            snew(i,j,k,n) = sold(i,j,k,n) + dt * adv(i,j,k,n);
-            snew(i,j,k,n) += dt * ext_source(i,j,k,n);
+            snew(i,j,k,n) = sold(i,j,k,n) + dt * (adv(i,j,k,n) + ext_src(i,j,k,n));
          }
       });
    }
@@ -4992,6 +5115,9 @@ PeleLM::advance (Real time,
     // Add external sources like spray and soot source terms
     add_external_sources(time, dt);
 
+    // Add external sources like spray and soot source terms
+    add_external_sources(time, dt);
+
     if (sdc_iter == sdc_iterMAX)
       updateFluxReg = true;
 
@@ -5122,19 +5248,17 @@ PeleLM::advance (Real time,
        auto const& dn      = Dn.array(mfi,0);
        auto const& ddn     = DDn.array(mfi);
        auto const& r       = get_new_data(RhoYdot_Type).array(mfi,0);
-       auto const& extY    = external_sources.array(mfi,DEF_first_spec);
-       auto const& extRhoH = external_sources.array(mfi,DEF_RhoH);
+       auto const& extY    = external_sources.array(mfi, DEF_first_spec);
+       auto const& extRhoH = external_sources.array(mfi, DEF_RhoH);
        auto const& fY      = Forcing.array(mfi,0);
        auto const& fT      = Forcing.array(mfi,NUM_SPECIES);
        Real        dp0dt_d = dp0dt;
        int     closed_ch_d = closed_chamber;
 
-       amrex::ParallelFor(gbx, [rho, rhoY, T, dn, ddn, r, fY, fT, extY, extRhoH,
-                                dp0dt_d, closed_ch_d]
+       amrex::ParallelFor(gbx, [rho, rhoY, T, dn, ddn, r, fY, fT, extY, extRhoH, dp0dt_d, closed_ch_d]
        AMREX_GPU_DEVICE (int i, int j, int k) noexcept
        {
-          buildAdvectionForcing( i, j, k, rho, rhoY, T, dn, ddn, r, extY, extRhoH,
-                                 dp0dt_d, closed_ch_d, fY, fT );
+          buildAdvectionForcing( i, j, k, rho, rhoY, T, dn, ddn, r, extY, extRhoH, dp0dt_d, closed_ch_d, fY, fT );
        });
        if (DEF_NUM_PASSIVE > 0) {
           auto const& ext_pass = external_sources.array(mfi,DEF_first_passive);
@@ -5205,6 +5329,8 @@ PeleLM::advance (Real time,
         auto const& extRhoH = external_sources.array(mfi, DEF_RhoH);
         auto const& fY      = Forcing.array(mfi,0);
         auto const& fT      = Forcing.array(mfi,NUM_SPECIES);
+        auto const& extY    = external_sources.array(mfi,DEF_first_spec);
+        auto const& extRhoH = external_sources.array(mfi,DEF_RhoH);
         int use_wbar_lcl    = use_wbar;
         auto const& dwbar   = (use_wbar) ? DWbar.array(mfi) : Dn.array(mfi,0);
         Real        dp0dt_d = dp0dt;
@@ -5221,7 +5347,7 @@ PeleLM::advance (Real time,
               }
            }
            for (int n = 0; n < NUM_SPECIES; n++) {
-             fY(i,j,k,n) += extY(i,j,k,n);
+              fY(i,j,k,n) += extY(i,j,k,n);
            }
            fT(i,j,k) += extRhoH(i,j,k);
         });
@@ -8252,12 +8378,10 @@ PeleLM::calc_divu (Real      time,
       auto const& extRhoH = external_sources.array(mfi,DEF_RhoH);
       auto const& du      = divu.array(mfi);
 
-      amrex::ParallelFor(bx, [ rhoY, T, vtT, vtY, rhoYdot,
-                               extRho, extY, extRhoH, du]
+      amrex::ParallelFor(bx, [ rhoY, T, vtT, vtY, rhoYdot, du, extRho, extY, extRhoH]
       AMREX_GPU_DEVICE (int i, int j, int k) noexcept
       {
-        compute_divu( i, j, k, rhoY, T, vtT, vtY, rhoYdot,
-                      extRho, extY, extRhoH, du );
+         compute_divu( i, j, k, rhoY, T, vtT, vtY, rhoYdot, extRho, extY, extRhoH, du );
       });
    }
   
@@ -9424,8 +9548,8 @@ PeleLM::parseComposition(Vector<std::string> compositionIn,
 }
 
 void
-PeleLM::add_external_sources(Real time,
-                             Real dt)
+PeleLM::add_external_sources(Real /*time*/,
+                             Real /*dt*/)
 {
   external_sources.setVal(0.);
 #if defined(SOOT_MODEL) || defined(AMREX_PARTICLES)
