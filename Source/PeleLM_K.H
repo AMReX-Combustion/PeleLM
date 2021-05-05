@@ -193,6 +193,8 @@ buildAdvectionForcing(int i, int j, int k,
                       amrex::Array4<const amrex::Real> const& dn,
                       amrex::Array4<const amrex::Real> const& ddn,
                       amrex::Array4<const amrex::Real> const& r,
+                      amrex::Array4<const amrex::Real> const& extY,
+                      amrex::Array4<const amrex::Real> const& extRhoH,
                       amrex::Real                      const& dp0dt,
                       int                              const& closed_chamber,
                       amrex::Array4<      amrex::Real> const& forceY,
@@ -216,6 +218,10 @@ buildAdvectionForcing(int i, int j, int k,
       forceY(i,j,k,n) = r(i,j,k,n) + dn(i,j,k,n);                    // forceY = Rk + Dnk
       forceT(i,j,k) -= forceY(i,j,k,n) * hi_spec[n] * 0.0001_rt;     // forceT -= Sum{ hk. (Rk + Dnk) } with CGS -> MKS conversion of hk
    }
+   for (int n = 0; n < NUM_SPECIES; n++) {
+      forceY(i,j,k,n) += extY(i,j,k,n);
+   }
+   forceT(i,j,k) += extRhoH(i,j,k);
 
    if ( closed_chamber == 1 ) forceT(i,j,k) += dp0dt;                // Add dp0/dt
 
@@ -278,6 +284,9 @@ compute_divu(int i, int j, int k,
              amrex::Array4<const amrex::Real> const& viscTermT,
              amrex::Array4<const amrex::Real> const& viscTermY,
              amrex::Array4<const amrex::Real> const& rhoYdot,
+             amrex::Array4<const amrex::Real> const& extRho,
+             amrex::Array4<const amrex::Real> const& extY,
+             amrex::Array4<const amrex::Real> const& extRhoH,
              amrex::Array4<      amrex::Real> const& divu) noexcept
 {
    using namespace amrex::literals;
@@ -313,7 +322,10 @@ compute_divu(int i, int j, int k,
    for (int n = 0; n < NUM_SPECIES; n++) {
       divu(i,j,k) +=  ( viscTermY(i,j,k,n) + rhoYdot(i,j,k,n) )
                     * ( mwtinv[n] * Wbar * rhoinv - hi[n] * denominv );
+      divu(i,j,k) += extY(i,j,k,n) * mwtinv[n] * Wbar * rhoinv;
    }
+   divu(i,j,k) += extRho(i,j,k) * rhoinv;
+   divu(i,j,k) += extRhoH(i,j,k) * denominv;
 }
 
 AMREX_GPU_HOST_DEVICE

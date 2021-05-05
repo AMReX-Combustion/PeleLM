@@ -1039,7 +1039,9 @@ PeleLM::define_data ()
       auxDiag[kv.first] = std::unique_ptr<MultiFab>(new MultiFab(grids,dmap,kv.second.size(),0));
       auxDiag[kv.first]->setVal(0.0);
    }
-
+   const int nGrowS = amrex::max(nGrowAdvForcing, nghost_force()); // TODO: Ensure this is enough
+   external_sources.define(grids, dmap, NUM_STATE, nGrowS, amrex::MFInfo(), Factory());
+   external_sources.setVal(0.);
    // HACK for debugging
    if (level==0)
       stripBox = getStrip(geom);
@@ -4298,12 +4300,13 @@ PeleLM::scalar_advection_update (Real dt,
       auto const& snew   = S_new.array(mfi);
       auto const& sold   = S_old.array(mfi);
       auto const& adv    = aofs->array(mfi);
+      auto const& ext_src = external_sources.array(mfi);
 
-      amrex::ParallelFor(bx, [snew, sold, adv, dt, first_scalar, last_scalar]
+      amrex::ParallelFor(bx, [snew, sold, adv, ext_src, dt, first_scalar, last_scalar]
       AMREX_GPU_DEVICE (int i, int j, int k) noexcept
       {
          for (int n = first_scalar; n <= last_scalar; n++) {
-            snew(i,j,k,n) = sold(i,j,k,n) + dt * adv(i,j,k,n);
+            snew(i,j,k,n) = sold(i,j,k,n) + dt * (adv(i,j,k,n) + ext_src(i,j,k,n));
          }
       });
    }
@@ -4878,6 +4881,9 @@ PeleLM::advance (Real time,
   for (int sdc_iter=1; sdc_iter<=sdc_iterMAX; ++sdc_iter)
   {
 
+    // Add external sources like spray and soot source terms
+    add_external_sources(time, dt);
+
     if (sdc_iter == sdc_iterMAX)
       updateFluxReg = true;
 
@@ -5001,15 +5007,17 @@ PeleLM::advance (Real time,
        auto const& dn      = Dn.array(mfi,0);
        auto const& ddn     = DDn.array(mfi);
        auto const& r       = get_new_data(RhoYdot_Type).array(mfi,0);
+       auto const& extY    = external_sources.array(mfi, DEF_first_spec);
+       auto const& extRhoH = external_sources.array(mfi, DEF_RhoH);
        auto const& fY      = Forcing.array(mfi,0);
        auto const& fT      = Forcing.array(mfi,NUM_SPECIES);
        Real        dp0dt_d = dp0dt;
        int     closed_ch_d = closed_chamber;
 
-       amrex::ParallelFor(gbx, [rho, rhoY, T, dn, ddn, r, fY, fT, dp0dt_d, closed_ch_d]
+       amrex::ParallelFor(gbx, [rho, rhoY, T, dn, ddn, r, fY, fT, extY, extRhoH, dp0dt_d, closed_ch_d]
        AMREX_GPU_DEVICE (int i, int j, int k) noexcept
        {
-          buildAdvectionForcing( i, j, k, rho, rhoY, T, dn, ddn, r, dp0dt_d, closed_ch_d, fY, fT );
+          buildAdvectionForcing( i, j, k, rho, rhoY, T, dn, ddn, r, extY, extRhoH, dp0dt_d, closed_ch_d, fY, fT );
        });
     }
 
@@ -5065,13 +5073,15 @@ PeleLM::advance (Real time,
         auto const& a       = aofs->array(mfi,first_spec);
         auto const& fY      = Forcing.array(mfi,0);
         auto const& fT      = Forcing.array(mfi,NUM_SPECIES);
+        auto const& extY    = external_sources.array(mfi,DEF_first_spec);
+        auto const& extRhoH = external_sources.array(mfi,DEF_RhoH);
         int use_wbar_lcl    = use_wbar;
         auto const& dwbar   = (use_wbar) ? DWbar.array(mfi) : Dn.array(mfi,0);
 
         Real        dp0dt_d = dp0dt;
         int     closed_ch_d = closed_chamber;
 
-        amrex::ParallelFor(bx, [dn, ddn, dnp1k, ddnp1k, dwbar,
+        amrex::ParallelFor(bx, [dn, ddn, dnp1k, ddnp1k, dwbar, extY, extRhoH,
                                 r, a, fY, fT, dp0dt_d, closed_ch_d, use_wbar_lcl]
         AMREX_GPU_DEVICE (int i, int j, int k) noexcept
         {
@@ -5081,6 +5091,10 @@ PeleLM::advance (Real time,
                  fY(i,j,k,n) += dwbar(i,j,k,n);
               }
            }
+           for (int n = 0; n < NUM_SPECIES; n++) {
+              fY(i,j,k,n) += extY(i,j,k,n);
+           }
+           fT(i,j,k) += extRhoH(i,j,k);
         });
       }
     }
@@ -8045,12 +8059,15 @@ PeleLM::calc_divu (Real      time,
       auto const& vtT     = mcViscTerms.array(mfi,vtCompT);
       auto const& vtY     = mcViscTerms.array(mfi,vtCompY);
       auto const& rhoYdot = RhoYdot.array(mfi);
+      auto const& extRho  = external_sources.array(mfi,Density);
+      auto const& extY    = external_sources.array(mfi,DEF_first_spec);
+      auto const& extRhoH = external_sources.array(mfi,DEF_RhoH);
       auto const& du      = divu.array(mfi);
 
-      amrex::ParallelFor(bx, [ rhoY, T, vtT, vtY, rhoYdot, du]
+      amrex::ParallelFor(bx, [ rhoY, T, vtT, vtY, rhoYdot, du, extRho, extY, extRhoH]
       AMREX_GPU_DEVICE (int i, int j, int k) noexcept
       {
-         compute_divu( i, j, k, rhoY, T, vtT, vtY, rhoYdot, du );
+         compute_divu( i, j, k, rhoY, T, vtT, vtY, rhoYdot, extRho, extY, extRhoH, du );
       });
    }
   
@@ -8225,7 +8242,8 @@ PeleLM::getForce(FArrayBox&       force,
                  const Real       time,
                  const FArrayBox& Vel,
                  const FArrayBox& Scal,
-                 int              scalScomp)
+                 int              scalScomp,
+                 const MFIter&    mfi)
 {
    AMREX_ASSERT(force.box().contains(bx));
 
@@ -8245,6 +8263,11 @@ PeleLM::getForce(FArrayBox&       force,
    {
       makeForce(i,j,k, scomp, ncomp, pseudo_gravity, time, grav, dV_control, dx, velocity, scalars, f);
    });
+   // Velocity forcing
+   if (scomp == Xvel && ncomp == AMREX_SPACEDIM) {
+     const FArrayBox& ext_force = external_sources[mfi];
+     force.plus<RunOn::Device>(ext_force, bx, Xvel, Xvel, AMREX_SPACEDIM);
+   }
 }
 
 void
@@ -9180,4 +9203,11 @@ PeleLM::parseComposition(Vector<std::string> compositionIn,
    } else {
       Abort("Unknown mixtureFraction.type ! Should be 'mass' or 'mole'");
    }
+}
+
+void
+PeleLM::add_external_sources(Real /*time*/,
+                             Real /*dt*/)
+{
+  external_sources.setVal(0.);
 }
