@@ -9552,12 +9552,13 @@ PeleLM::add_external_sources(Real /*time*/,
   external_sources.setVal(0.);
 #if defined(SOOT_MODEL) || defined(AMREX_PARTICLES)
   const MultiFab& S_new = get_new_data(State_Type);
+  const int nghost = external_sources.nGrow();
 #ifdef _OPENMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
     for (MFIter mfi(S_new,TilingIfNotGPU()); mfi.isValid(); ++mfi)
     {
-      const Box& box = mfi.growntilebox(nghost_force());
+      const Box& box = mfi.growntilebox(nghost);
       auto const& ext_fab = external_sources.array(mfi);
 #ifdef AMREX_PARTICLES
       if (do_spray_particles) {
