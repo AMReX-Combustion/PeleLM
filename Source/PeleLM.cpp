@@ -5877,15 +5877,15 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
      math_bcs = fetchBCArray(State_Type, first_spec,NUM_SPECIES);
      BCRec  const* d_bcrec_ptr = &(m_bcrec_scalars_d.dataPtr())[first_spec-Density];
      bool knownEdgeState = false;
+     amrex::Gpu::DeviceVector<int> iconserv;
+     iconserv.resize(NUM_SPECIES, 0);
+     for (int comp = 0; comp < NUM_SPECIES; ++comp)
+     {
+        iconserv[comp] = (advectionType[first_spec+comp] == Conservative) ? 1 : 0;
+     }
 
      if ( use_godunov ) {
          bool isVelocity = false;
-         amrex::Gpu::DeviceVector<int> iconserv;
-         iconserv.resize(NUM_SPECIES, 0);
-         for (int comp = 0; comp < NUM_SPECIES; ++comp)
-         {
-            iconserv[comp] = (advectionType[first_spec+comp] == Conservative) ? 1 : 0;
-         }
          EBGodunov::ComputeAofs( *aofs, first_spec, NUM_SPECIES, Smf, rhoYcomp,
                                  AMREX_D_DECL(u_mac[0],u_mac[1],u_mac[2]),
                                  AMREX_D_DECL(*EdgeState[0],*EdgeState[1],*EdgeState[2]), first_spec, knownEdgeState,
@@ -5898,8 +5898,7 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
                            AMREX_D_DECL(u_mac[0],u_mac[1],u_mac[2]),
                            AMREX_D_DECL(*EdgeState[0],*EdgeState[1],*EdgeState[2]), first_spec, knownEdgeState,
                            AMREX_D_DECL(*EdgeFlux[0],*EdgeFlux[1],*EdgeFlux[2]), first_spec,
-                           DivU,
-                           math_bcs, d_bcrec_ptr, geom, dt,
+                           DivU, math_bcs, d_bcrec_ptr, iconserv, geom, dt,
                            redistribution_type );
      }
      EB_set_covered(*aofs, 0.);
@@ -5996,13 +5995,12 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
     math_bcs = fetchBCArray(State_Type, Temp, 1);
     BCRec  const* d_bcrec_ptr = &(m_bcrec_scalars_d.dataPtr())[Temp-Density];
     bool knownEdgeState = false;
+    amrex::Gpu::DeviceVector<int> iconserv;
+    iconserv.resize(1, 0);
+    iconserv[0] =  0;           // non-conservative advection for Temp
 
     if ( use_godunov ) {
         bool isVelocity = false;
-        amrex::Gpu::DeviceVector<int> iconserv;
-        iconserv.resize(1, 0);
-        iconserv[0] =  1;           // Force conservative advection for Temp
-        // TODO add the non-conservative T.divU piece to the forcing
         EBGodunov::ComputeAofs( *aofs, Temp, 1, Smf, Tcomp,
                                 AMREX_D_DECL(u_mac[0],u_mac[1],u_mac[2]),
                                 AMREX_D_DECL(*EdgeState[0],*EdgeState[1],*EdgeState[2]), Temp, knownEdgeState,
@@ -6014,8 +6012,8 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
                           AMREX_D_DECL(u_mac[0],u_mac[1],u_mac[2]),
                           AMREX_D_DECL(*EdgeState[0],*EdgeState[1],*EdgeState[2]), Temp, knownEdgeState,
                           AMREX_D_DECL(*EdgeFlux[0],*EdgeFlux[1],*EdgeFlux[2]), Temp,
-                          DivU,
-                          math_bcs, d_bcrec_ptr, geom, dt, redistribution_type);
+                          DivU, math_bcs, d_bcrec_ptr, iconserv, geom, dt,
+                          redistribution_type);
     }
     EB_set_covered(*aofs, 0.);
   }
@@ -6113,16 +6111,16 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
 
   // Compute -Div(flux.Area) for RhoH, return Area-scaled (extensive) fluxes
   {
-     Vector<BCRec> math_bcs(1);
-     math_bcs = fetchBCArray(State_Type, RhoH, 1);
-     BCRec  const* d_bcrec_ptr = &(m_bcrec_scalars_d.dataPtr())[RhoH-Density];
-     bool knownEdgeState = true;
+    Vector<BCRec> math_bcs(1);
+    math_bcs = fetchBCArray(State_Type, RhoH, 1);
+    BCRec  const* d_bcrec_ptr = &(m_bcrec_scalars_d.dataPtr())[RhoH-Density];
+    bool knownEdgeState = true;
+    amrex::Gpu::DeviceVector<int> iconserv;
+    iconserv.resize(1, 0);
+    iconserv[0] = (advectionType[RhoH] == Conservative) ? 1 : 0;
 
     if ( use_godunov ) {
         bool isVelocity = false;
-        amrex::Gpu::DeviceVector<int> iconserv;
-        iconserv.resize(1, 0);
-        iconserv[0] = (advectionType[RhoH] == Conservative) ? 1 : 0;
         EBGodunov::ComputeAofs( *aofs, RhoH, 1, Smf, NUM_SPECIES+1,
                                 AMREX_D_DECL(u_mac[0],u_mac[1],u_mac[2]),
                                 AMREX_D_DECL(*EdgeState[0],*EdgeState[1],*EdgeState[2]), RhoH, knownEdgeState,
@@ -6134,8 +6132,8 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
                           AMREX_D_DECL(u_mac[0],u_mac[1],u_mac[2]),
                           AMREX_D_DECL(*EdgeState[0],*EdgeState[1],*EdgeState[2]), RhoH, knownEdgeState,
                           AMREX_D_DECL(*EdgeFlux[0],*EdgeFlux[1],*EdgeFlux[2]), RhoH,
-                          DivU,
-                          math_bcs, d_bcrec_ptr, geom, dt, redistribution_type );
+                          DivU, math_bcs, d_bcrec_ptr, iconserv, geom, dt,
+                          redistribution_type );
     }
     EB_set_covered(*aofs, 0.);
   }
