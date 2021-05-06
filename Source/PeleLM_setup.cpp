@@ -1111,17 +1111,11 @@ PeleLM::spraydotSetUp()
   pelelm_bndryfunc.setRunOnGPU(true);  // I promise the bc function will launch gpu kernels.
   BCRec bc;
   set_spraydot_bc(bc,phys_bc);
-  int specComp = AMREX_SPACEDIM + 1;
-  int endSpecComp = specComp + NUM_SPECIES - 1;
   for (int i = 0; i < num_spray_src; ++i)
   {
-    std::string name = "I_R_spray_" + desc_lst[State_Type].name(i);
-    if (i >= specComp && i <= endSpecComp)
-      desc_lst.setComponent(spraydot_Type, i, name.c_str(), bc,
-                            pelelm_bndryfunc, &cc_interp, specComp, endSpecComp);
-    else
-      desc_lst.setComponent(spraydot_Type, i, name.c_str(), bc,
-                            pelelm_bndryfunc, &cc_interp, i, i);
+    std::string name = spraySrcName(i);
+    desc_lst.setComponent(spraydot_Type, i, name.c_str(), bc,
+                          pelelm_bndryfunc, &cc_interp, specComp, endSpecComp);
   }
 }
 #endif

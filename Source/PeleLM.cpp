@@ -4954,7 +4954,7 @@ PeleLM::advance (Real time,
   // We must make a temporary spray source term to ensure number of ghost
   // cells are correct
   MultiFab tmp_spray_source(
-    grids, dmap, NUM_STATE, tmp_src_width, amrex::MFInfo(), Factory());
+    grids, dmap, num_spray_src, tmp_src_width, amrex::MFInfo(), Factory());
   tmp_spray_source.setVal(0.);
 #endif
 
@@ -8628,7 +8628,7 @@ PeleLM::setPlotVariables ()
   {
     for (int i = 0; i < num_spray_src; i++)
     {
-      const std::string name = "I_R_spray_" + desc_lst[State_Type].name(i);
+      const std::string name = spraySrcName(i);
       parent->deleteStatePlotVar(name);
     }
   }
@@ -9563,11 +9563,7 @@ PeleLM::add_external_sources(Real /*time*/,
 #ifdef AMREX_PARTICLES
       if (do_spray_particles) {
         auto const& spraydot = get_new_data(spraydot_Type).array(mfi);
-        amrex::ParallelFor(box, num_spray_src,
-        [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
-        {
-          ext_fab(i,j,k,n) += spraydot(i,j,k,n);
-        });
+        theSprayPC()->addSpraySrc(box, spraydot, ext_fab);
       }
 #endif
 #ifdef SOOT_MODEL

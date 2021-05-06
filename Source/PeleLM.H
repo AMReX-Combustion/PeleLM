@@ -187,6 +187,10 @@ public:
   //
   static void defineParticles();
   //
+  // Return names of spray source terms
+  //
+  static std::string spraySrcName(const int i);
+  //
   // Define MF for gas phase spray source terms
   //
   void defineSpraySourceMF();

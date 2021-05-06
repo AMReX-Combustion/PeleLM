@@ -27,7 +27,12 @@ SprayData sprayData;
 amrex::Real sprayRefT = 300.;
 amrex::Real parcelSize = 1.;
 amrex::Real spraySigma = -1.; // Surface tension
-amrex::Real T_wall = -1.;
+amrex::Real wall_temp = -1.;
+// Indices for spray source MultiFab
+int sprayMomSrcIndx = Xvel;
+int sprayRhoSrcIndx = Density;
+int spraySpecSrcIndx = DEF_first_spec;
+int sprayEngSrcIndx = DEF_first_spec + SPRAY_FUEL_NUM;
 SprayComps scomps;
 bool splash_model = true;
 
@@ -48,8 +53,8 @@ int particle_init_function = 1;
 int PeleLM::do_spray_particles = 1;
 int PeleLM::particle_verbose = 0;
 Real PeleLM::particle_cfl = 0.5;
-// momentum + density + species + enth + temp + rhoRT
-int PeleLM::num_spray_src = AMREX_SPACEDIM + 4 + NUM_SPECIES;
+// momentum + density + fuel species + enthalpy
+int PeleLM::num_spray_src = AMREX_SPACEDIM + 2 + SPRAY_FUEL_NUM;
 
 int PeleLM::write_particle_plotfiles = 1;
 int PeleLM::write_spray_ascii_files = 1;
@@ -164,7 +169,7 @@ PeleLM::readParticleParams()
     // Set the fuel surface tension and contact angle
     ppp.get("fuel_sigma", spraySigma);
     // TODO: Have this retrieved from proper boundary data
-    ppp.get("wall_temp", T_wall);
+    ppp.get("wall_temp", wall_temp);
   }
 
   // Must use same reference temperature for all fuels
@@ -226,6 +231,22 @@ PeleLM::readParticleParams()
   ParallelDescriptor::Barrier();
 }
 
+std::string
+PeleLM::spraySrcName(const int i)
+{
+  if (i >= spraySrcSpecIndx && i <= spraySrcSpecIndx + SPRAY_FUEL_NUM - 1) {
+    const int sp = i - spraySrcSpecIndx;
+    return "I_R_spray_" + sprayFuelNames[sp];
+  } else if (i <= AMREX_SPACEDIM) {
+    return "I_R_spray_" + desc_lst[State_Type].name(i);
+  } else if (i == spraySrcEngIndx) {
+    return "I_R_spray_" + desc_lst[State_Type].name(DEF_RhoH);
+  } else {
+    amrex::Abort("Should not be here");
+  }
+  return "";
+}
+
 // Define MultiFab for the gas phase source term for sprays
 void
 PeleLM::defineSpraySourceMF()
@@ -279,11 +300,17 @@ PeleLM::defineParticles()
   scomps.heat_tran = PeleLM::particle_heat_tran;
   scomps.mass_tran = PeleLM::particle_mass_tran;
   scomps.mom_tran = PeleLM::particle_mom_tran;
+  // Component indices for conservative variables
   scomps.rhoIndx = Density;
   scomps.momIndx = Xvel;
   scomps.engIndx = DEF_RhoH;
   scomps.utempIndx = DEF_Temp;
   scomps.specIndx = DEF_first_spec;
+  // Component indices for spray source MultiFab
+  scomps.rhoSrcIndx = sprayRhoSrcIndx;
+  scomps.momSrcIndx = sprayMomSrcIndx;
+  scomps.specSrcIndx = spraySpecSrcIndx;
+  scomps.engSrcIndx = sprayEngSrcIndx;
 }
 
 void
@@ -351,10 +378,10 @@ PeleLM::removeGhostParticles()
 void
 PeleLM::createParticleData()
 {
-  SprayPC = new SprayParticleContainer(parent, &phys_bc, sprayData, scomps, parcelSize, T_wall);
+  SprayPC = new SprayParticleContainer(parent, &phys_bc, sprayData, scomps, parcelSize, wall_temp);
   theSprayPC()->SetVerbose(particle_verbose);
-  VirtPC = new SprayParticleContainer(parent, &phys_bc, sprayData, scomps, parcelSize, T_wall);
-  GhostPC = new SprayParticleContainer(parent, &phys_bc, sprayData, scomps, parcelSize, T_wall);
+  VirtPC = new SprayParticleContainer(parent, &phys_bc, sprayData, scomps, parcelSize, wall_temp);
+  GhostPC = new SprayParticleContainer(parent, &phys_bc, sprayData, scomps, parcelSize, wall_temp);
 }
 
 /**
