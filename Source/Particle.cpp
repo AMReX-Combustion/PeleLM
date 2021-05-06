@@ -234,12 +234,12 @@ PeleLM::readParticleParams()
 std::string
 PeleLM::spraySrcName(const int i)
 {
-  if (i >= spraySrcSpecIndx && i <= spraySrcSpecIndx + SPRAY_FUEL_NUM - 1) {
-    const int sp = i - spraySrcSpecIndx;
+  if (i >= spraySpecSrcIndx && i <= spraySpecSrcIndx + SPRAY_FUEL_NUM - 1) {
+    const int sp = i - spraySpecSrcIndx;
     return "I_R_spray_" + sprayFuelNames[sp];
   } else if (i <= AMREX_SPACEDIM) {
     return "I_R_spray_" + desc_lst[State_Type].name(i);
-  } else if (i == spraySrcEngIndx) {
+  } else if (i == sprayEngSrcIndx) {
     return "I_R_spray_" + desc_lst[State_Type].name(DEF_RhoH);
   } else {
     amrex::Abort("Should not be here");
