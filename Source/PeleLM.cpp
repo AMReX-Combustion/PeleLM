@@ -1918,7 +1918,7 @@ PeleLM::initData ()
 #endif
     for (MFIter mfi(S_new,TilingIfNotGPU()); mfi.isValid(); ++mfi)
     {
-      const Box& box = mfi.validbox();
+      const Box& box = mfi.tilebox();
       auto sfab = S_new.array(mfi);
 
       amrex::ParallelFor(box,
@@ -1935,20 +1935,10 @@ PeleLM::initData ()
 
   showMFsub("1D",S_new,stripBox,"1D_S",level);
  
-// Here we save a reference state vector to apply it later to covered cells
-// in order to avoid non-physical values after diffusion solves
-// First we have to put Pnew in S_new so as to not impose NaNs for covered cells
-  MultiFab::Copy(S_new,P_new,0,RhoRT,1,1);
-
   //
   // Initialize GradP
   //
   computeGradP(state[Press_Type].curTime());
-
-#ifdef AMREX_USE_EB
-  set_body_state(S_new);
-#endif
-  
 
 #ifdef AMREX_USE_VELOCITY
   //
@@ -2019,9 +2009,14 @@ PeleLM::initData ()
   make_rho_prev_time();
   make_rho_curr_time();
   //
-  // Initialize other types.
+  // Initialize other types (RhoRT, divu, ...)
   //
   initDataOtherTypes();
+
+  // Initialize state for EB covered regions.
+#ifdef AMREX_USE_EB
+  set_body_state(S_new);
+#endif
 
   //
   // Load typical values for each state component
