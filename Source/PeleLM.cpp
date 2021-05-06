@@ -5115,9 +5115,6 @@ PeleLM::advance (Real time,
     // Add external sources like spray and soot source terms
     add_external_sources(time, dt);
 
-    // Add external sources like spray and soot source terms
-    add_external_sources(time, dt);
-
     if (sdc_iter == sdc_iterMAX)
       updateFluxReg = true;
 
