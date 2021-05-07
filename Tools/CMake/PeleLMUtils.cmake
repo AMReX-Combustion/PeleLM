@@ -40,12 +40,13 @@ macro(init_code_checks)
           # cppcheck ignores -isystem directories, so we change them to regular -I include directories (with no spaces either)
           COMMAND sed "s/isystem /I/g" compile_commands.json > cppcheck/cppcheck_compile_commands.json
           COMMAND ${CPPCHECK_EXE} --version
-          COMMAND ${CPPCHECK_EXE} --template=gcc --inline-suppr --suppress=unusedFunction --suppress=useStlAlgorithm --suppress=unmatchedSuppression --std=c++14 --language=c++ --enable=all --project=cppcheck/cppcheck_compile_commands.json --cppcheck-build-dir=cppcheck/cppcheck-wd -i ${CMAKE_SOURCE_DIR}/Submodules/amrex/Src -i ${CMAKE_SOURCE_DIR}/Submodules/sundials -i ${CMAKE_SOURCE_DIR}/Submodules/IAMR -i ${CMAKE_SOURCE_DIR}/Submodules/googletest --output-file=cppcheck/cppcheck-full-report.txt -j ${NP}
+          COMMAND ${CPPCHECK_EXE} --template=gcc --inline-suppr --suppress=unusedFunction --suppress=useStlAlgorithm --suppress=unmatchedSuppression --std=c++14 --language=c++ --enable=all --project=cppcheck/cppcheck_compile_commands.json --cppcheck-build-dir=cppcheck/cppcheck-wd -i ${CMAKE_SOURCE_DIR}/Submodules/amrex/Src -i ${CMAKE_SOURCE_DIR}/Submodules/sundials -i ${CMAKE_SOURCE_DIR}/Submodules/IAMR -i ${CMAKE_SOURCE_DIR}/Submodules/AMReX-Hydro -i ${CMAKE_SOURCE_DIR}/Submodules/googletest --output-file=cppcheck/cppcheck-full-report.txt -j ${NP}
           COMMAND awk -v nlines=2 "/amrex/ {for (i=0; i<nlines; i++) {getline}; next} 1" < cppcheck/cppcheck-full-report.txt > cppcheck/cppcheck-temp-report-1.txt
           COMMAND awk -v nlines=2 "/googletest/ {for (i=0; i<nlines; i++) {getline}; next} 1" < cppcheck/cppcheck-temp-report-1.txt > cppcheck/cppcheck-temp-report-2.txt
           COMMAND awk -v nlines=2 "/sundials/ {for (i=0; i<nlines; i++) {getline}; next} 1" < cppcheck/cppcheck-temp-report-2.txt > cppcheck/cppcheck-temp-report-3.txt
           COMMAND awk -v nlines=2 "/IAMR/ {for (i=0; i<nlines; i++) {getline}; next} 1" < cppcheck/cppcheck-temp-report-3.txt > cppcheck/cppcheck-temp-report-4.txt
-          COMMAND awk -v nlines=2 "/PelePhysics/ {for (i=0; i<nlines; i++) {getline}; next} 1" < cppcheck/cppcheck-temp-report-4.txt > cppcheck/cppcheck-short-report.txt
+          COMMAND awk -v nlines=2 "/AMReX-Hydro/ {for (i=0; i<nlines; i++) {getline}; next} 1" < cppcheck/cppcheck-temp-report-4.txt > cppcheck/cppcheck-temp-report-5.txt
+          COMMAND awk -v nlines=2 "/PelePhysics/ {for (i=0; i<nlines; i++) {getline}; next} 1" < cppcheck/cppcheck-temp-report-5.txt > cppcheck/cppcheck-short-report.txt
           COMMAND cat cppcheck/cppcheck-short-report.txt | egrep "information:|error:|performance:|portability:|style:|warning:" | sort | uniq | sort -nr > cppcheck-warnings.txt
           COMMAND printf "Warnings: " >> cppcheck-warnings.txt
           COMMAND cat cppcheck-warnings.txt | awk "END{print NR-1}" >> cppcheck-warnings.txt
