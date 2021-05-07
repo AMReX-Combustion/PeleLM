@@ -101,6 +101,7 @@ SKIP_NS_SPECIFIC_CODE = TRUE
 Bdirs += $(IAMR_HOME)/Source
 Bdirs += $(IAMR_HOME)/Source/Src_$(DIM)d
 Bdirs += $(IAMR_HOME)/Source/Godunov
+Bdirs += $(IAMR_HOME)/Source/Utilities
 Bdirs   += $(IAMR_HOME)/Source/MOL
 ifeq ($(USE_EB), TRUE)
    Bdirs   += $(IAMR_HOME)/Source/EBGodunov
