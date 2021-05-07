@@ -56,7 +56,8 @@
 #include <Prob_F.H>
 #include <NAVIERSTOKES_F.H>
 
-#include <iamr_godunov.H>
+#include <hydro_godunov.H>
+#include <hydro_mol.H>
 
 #ifdef AMREX_USE_EB
 #include <AMReX_EBMultiFabUtil.H>
@@ -64,7 +65,8 @@
 #include <AMReX_MLEBABecLap.H>
 #include <AMReX_EB_utils.H>
 #include <AMReX_EBAmrUtil.H>
-#include <iamr_mol.H>
+#include <hydro_ebgodunov.H>
+#include <hydro_ebmol.H>
 #endif
 
 #include <AMReX_buildInfo.H>
