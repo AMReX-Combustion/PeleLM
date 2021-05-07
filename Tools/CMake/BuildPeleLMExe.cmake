@@ -160,7 +160,6 @@ function(build_pelelm_exe pelelm_exe_name)
        ${AMREX_HYDRO_SRC_DIR}/Godunov/hydro_godunov_ppm.cpp
        ${AMREX_HYDRO_SRC_DIR}/Godunov/hydro_godunov_K.H
        ${AMREX_HYDRO_SRC_DIR}/Godunov/hydro_godunov_extrap_vel_to_faces_${PELELM_DIM}D.cpp
-       ${AMREX_HYDRO_SRC_DIR}/Godunov/hydro_godunov_constants.H
        ${AMREX_HYDRO_SRC_DIR}/Godunov/hydro_godunov_plm.H
 
        ${AMREX_HYDRO_SRC_DIR}/MOL/hydro_mol.H
