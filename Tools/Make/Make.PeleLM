@@ -100,12 +100,13 @@ SKIP_NS_SPECIFIC_CODE = TRUE
 # IAMR
 Bdirs += $(IAMR_HOME)/Source
 Bdirs += $(IAMR_HOME)/Source/Src_$(DIM)d
-Bdirs += $(IAMR_HOME)/Source/Godunov
-Bdirs += $(IAMR_HOME)/Source/Utilities
-Bdirs   += $(IAMR_HOME)/Source/MOL
+Bdirs += $(AMREX_HYDRO_HOME)/Utils
+Bdirs += $(AMREX_HYDRO_HOME)/Godunov
+Bdirs += $(AMREX_HYDRO_HOME)/MOL
 ifeq ($(USE_EB), TRUE)
-   Bdirs   += $(IAMR_HOME)/Source/EBGodunov
-   Bdirs   += $(IAMR_HOME)/Source/Redistribution
+   Bdirs += $(AMREX_HYDRO_HOME)/Redistribution
+   Bdirs += $(AMREX_HYDRO_HOME)/EBGodunov
+   Bdirs += $(AMREX_HYDRO_HOME)/EBMOL
 endif
 
 Bpack	+= $(foreach dir, $(Bdirs), $(dir)/Make.package)
@@ -217,7 +218,7 @@ AMReX_buildInfo.cpp:
           --COMP "$(COMP)" --COMP_VERSION "$(COMP_VERSION)" \
           --FCOMP "$(FCOMP)" --FCOMP_VERSION "$(FCOMP_VERSION)" \
           --MODULES "Chemistry=$(Chemistry_Model)" \
-          --GIT "$(PELELM_HOME) $(AMREX_HOME) $(IAMR_HOME) $(PELE_PHYSICS_HOME)"
+          --GIT "$(PELELM_HOME) $(AMREX_HOME) $(IAMR_HOME) $(AMREX_HYDRO_HOME) $(PELE_PHYSICS_HOME)"
 
 #$(info LIBRARIES_inPeleMake="$(LIBRARIES)")
 include $(AMREX_HOME)/Tools/GNUMake/Make.rules

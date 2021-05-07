@@ -8,7 +8,7 @@ jobs:
   #Run the convergence test on CoVo
   COVO_Conv:
     name: Velocity-Advection
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-18.04
     env: 
       {CXXFLAGS: "-Werror -Wshadow -Woverloaded-virtual -Wunreachable-code"}
     steps:
@@ -36,6 +36,7 @@ jobs:
       env:
          AMREX_HOME: ${GITHUB_WORKSPACE}/build/amrex
          IAMR_HOME: ${GITHUB_WORKSPACE}/build/IAMR
+         AMREX_HYDRO_HOME: ${GITHUB_WORKSPACE}/build/AMReX-Hydro
          PELE_PHYSICS_HOME: ${GITHUB_WORKSPACE}/build/PelePhysics
          PELELM_HOME: ${GITHUB_WORKSPACE}
       working-directory: ./Exec/RegTests/PeriodicCases
@@ -55,7 +56,7 @@ jobs:
   #Run the convergence test on Convected Gaussian
   TempGauss_Conv:
     name: Temperature-Advection
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-18.04
     env: 
       {CXXFLAGS: "-Werror -Wshadow -Woverloaded-virtual -Wunreachable-code"}
     steps:
@@ -83,6 +84,7 @@ jobs:
       env:
          AMREX_HOME: ${GITHUB_WORKSPACE}/build/amrex
          IAMR_HOME: ${GITHUB_WORKSPACE}/build/IAMR
+         AMREX_HYDRO_HOME: ${GITHUB_WORKSPACE}/build/AMReX-Hydro
          PELE_PHYSICS_HOME: ${GITHUB_WORKSPACE}/build/PelePhysics
          PELELM_HOME: ${GITHUB_WORKSPACE}
       working-directory: ./Exec/RegTests/PeriodicCases
@@ -103,7 +105,7 @@ jobs:
   #Run the convergence test on Convected Gaussian
   SpecGauss_Conv:
     name: Species-Advection
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-18.04
     env: 
       {CXXFLAGS: "-Werror -Wshadow -Woverloaded-virtual -Wunreachable-code"}
     steps:
@@ -131,6 +133,7 @@ jobs:
       env:
          AMREX_HOME: ${GITHUB_WORKSPACE}/build/amrex
          IAMR_HOME: ${GITHUB_WORKSPACE}/build/IAMR
+         AMREX_HYDRO_HOME: ${GITHUB_WORKSPACE}/build/AMReX-Hydro
          PELE_PHYSICS_HOME: ${GITHUB_WORKSPACE}/build/PelePhysics
          PELELM_HOME: ${GITHUB_WORKSPACE}
       working-directory: ./Exec/RegTests/PeriodicCases
