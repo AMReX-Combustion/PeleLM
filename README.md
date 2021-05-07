@@ -54,7 +54,7 @@ The *PeleLM* contributions workflow follows these steps:
 Follow [GitHub directions](https://docs.github.com/en/free-pro-team@latest/github/getting-started-with-github/fork-a-repo) 
 to fork *PeleLM* main repo on your GitHub account, then clone the *PeleLM* dependencies 
 ([PelePhysics](https://github.com/AMReX-Combustion/PelePhysics),
-[IAMR](https://github.com/AMReX-Codes/IAMR),
+[IAMR](https://github.com/AMReX-Codes/IAMR),[AMReX-Hydro](https://github.com/AMReX-Codes/AMReX-Hydro
 [AMReX](https://github.com/AMReX-Codes/amrex)) along with your own *PeleLM* fork on your local machine.
 
 Then step into the *PeleLM* folder and add the main *PeleLM* repository as the `upstream` remote in order to keep track of the main repo :
