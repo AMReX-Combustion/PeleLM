@@ -253,7 +253,7 @@ jobs:
         run: |
           cmake --build . --parallel ${{env.NPROCS}} 2> clang-tidy-full-report.txt
           cat clang-tidy-full-report.txt | grep "warning:" | \
-            egrep -v "amrex|sundials|PelePhysics|IAMR|googletest" | sort | uniq | sort -nr | \
+            egrep -v "amrex|sundials|PelePhysics|IAMR|AMReX-Hydro|googletest" | sort | uniq | sort -nr | \
             awk 'BEGIN{i=0}{print $0}{i++}END{print "Warnings: "i}' > clang-tidy-warnings.txt
       - name: Full report
         working-directory: ${{runner.workspace}}/build-clang-tidy
