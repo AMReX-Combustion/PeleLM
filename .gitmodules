@@ -7,12 +7,12 @@
 [submodule "Submodules/sundials"]
 	path = Submodules/sundials
 	url = https://github.com/LLNL/sundials.git
-[submodule "Submodules/AMReX-Hydro"]
-	path = Submodules/AMReX-Hydro
-	url = https://github.com/AMReX-Codes/AMReX-Hydro.git
 [submodule "Submodules/IAMR"]
 	path = Submodules/IAMR
 	url = https://github.com/AMReX-Codes/IAMR.git
 [submodule "Submodules/googletest"]
 	path = Submodules/googletest
 	url = https://github.com/google/googletest.git
+[submodule "Submodule/AMReX-Hydro"]
+	path = Submodule/AMReX-Hydro
+	url = https://github.com/AMReX-Codes/AMReX-Hydro.git
