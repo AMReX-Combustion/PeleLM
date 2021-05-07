@@ -99,6 +99,7 @@ SKIP_NS_SPECIFIC_CODE = TRUE
 
 # IAMR
 Bdirs += $(IAMR_HOME)/Source
+Bdirs += $(IAMR_HOME)/Source/Utilities
 Bdirs += $(IAMR_HOME)/Source/Src_$(DIM)d
 Bdirs += $(AMREX_HYDRO_HOME)/Utils
 Bdirs += $(AMREX_HYDRO_HOME)/Godunov
