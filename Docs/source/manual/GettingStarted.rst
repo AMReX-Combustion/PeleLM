@@ -5,7 +5,7 @@
 `PeleLM` Quickstart
 ===================
 `PeleLM` was created in 2017 by renaming `LMC`, the low Mach code from `CCSE <https://ccse.lbl.gov>`_, 
-and is built on the `AMReX` library, the `IAMR` code and the `PelePhysics` chemistry and thermodynamics library.
+and is built on the `AMReX` library, the `AMReX-Hydro` set of advection schemes, the `IAMR` code and the `PelePhysics` chemistry and thermodynamics library.
 For the impatient, the following summarizes how to obtain `PeleLM` and all the supporting software
 required, and how to build and run a simple case in order to obtain a first set of results.
 A thorough discussion of the model equations, and time stepping algorithms in `PeleLM` is
@@ -47,7 +47,8 @@ on the `GitHub page <https://github.com/AMReX-Combustion/PeleProduction.git>`_.
 2. Individual repositories
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Alternatively, all the individual dependencies of `PeleLM` can be obtained independently. The user then needs to provide environment variables for each of `AMReX`, `IAMR`, `PelePhysics` and `PeleLM` installation path.
+Alternatively, all the individual dependencies of `PeleLM` can be obtained independently.
+The user then needs to provide environment variables for each of `AMReX`, `IAMR`, `AMReX-Hydro`, `PelePhysics` and `PeleLM` installation path.
 This method is intended for users wanting to modify the `PeleLM` source code and who are more comfortable with maintaining up-to-date the four repositories.
 
    a. Download the `AMReX` repository by typing: ::
@@ -66,7 +67,14 @@ This method is intended for users wanting to modify the `PeleLM` source code and
      This will create a folder called ``IAMR/`` on your machine.
      Set the environment variable, ``IAMR_HOME``.
 
-   c. Clone the `PeleLM` and `PelePhysics` repositories: ::
+   c. Download the `AMReX-Hydro` repository by typing: ::
+
+        git clone https://github.com/AMReX-Codes/AMReX-Hydro.git
+    
+     This will create a folder called ``AMReX-Hydro/`` on your machine.
+     Set the environment variable, ``AMREX_HYDRO_HOME``.
+
+   d. Clone the `PeleLM` and `PelePhysics` repositories: ::
 
         git clone git@github.com:AMReX-Combustion/PeleLM.git
         git clone git@github.com:AMReX-Combustion/PelePhysics.git
