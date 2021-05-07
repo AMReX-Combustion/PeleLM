@@ -13,6 +13,3 @@
 [submodule "Submodules/googletest"]
 	path = Submodules/googletest
 	url = https://github.com/google/googletest.git
-[submodule "Submodule/AMReX-Hydro"]
-	path = Submodule/AMReX-Hydro
-	url = https://github.com/AMReX-Codes/AMReX-Hydro.git
