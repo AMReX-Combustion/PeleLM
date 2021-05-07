@@ -21,16 +21,16 @@ import yt
 import numpy as np
 
 
-#TODO: migrate to ic.txt or elsewhere
+#TODO: migrate to initialConditions.txt or elsewhere
 gamma = 1.4
 
 
 
 #### Helper functions
 
-# Read ic.txt, put values in dictionary
+# Read initialConditions.txt, put values in dictionary
 def load_dim_consts(rootdir):
-    text_file = open(rootdir + '/ic.txt', 'r')
+    text_file = open(rootdir + '/initialConditions.txt', 'r')
     lines = text_file.read().replace(' ', '').split('\n')
     headings = lines[0].split(',')
     vals = map(float, lines[1].split(','))
