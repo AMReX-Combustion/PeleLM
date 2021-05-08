@@ -301,7 +301,7 @@ jobs:
         mpirun -n 4 --oversubscribe ./PeleLM3d.gnu.MPI.ex inputs.3d-regt_VS max_step=2 amr.plot_files_output=0 amr.checkpoint_files_output=0
 
   #Build and run the 3D HIT RegTest with GNU7.5 and MPI support
-  FS2D_NoMPIRun:
+  HIT_MPIRun:
     name: GNU@7.5 NOMPI Run [HIT]
     runs-on: ubuntu-latest
     env: 
