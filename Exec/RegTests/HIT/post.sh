@@ -36,27 +36,26 @@ if [ $2 -gt 0 ];then
   # Augment Plotfile
   echo "Augmenting Plotfiles..."
 
-  #echo -e "infile = tmp_infile\noutfile = tmp_outfile\nadd_vorticity = 1\nadd_divergence = 1" > tmp_inputs
+  echo "TOTO"
+  echo "$exec_AugmentPlotfile"
+  echo "$folder"
+
   cp $exec_AugmentPlotfile $folder
+
   for f in `ls -1 $folder | grep "plt_[0-9]*[0-9]" | sed '/csv/d' | sed '/pickle/d'`; do
-      echo "Processingi ${f}..."
-  #    echo "Moving ${f} to temporary location..."
-  #    touch tmp_infile
-  #    rm -R tmp_infile
-  #    mv $folder/$f ./tmp_infile
+      echo "Processing ${f}..."
       cd $folder
       echo -e "infile = ${f}\noutfile = ${f}\nadd_vorticity = 1\nadd_divergence = 1" > tmp_inputs
       $run ./$exec_AugmentPlotfile tmp_inputs
       rm -r *.old.*
       cd ..
-#      echo "Moving ${f} back..."
-#      mv tmp_outfile $folder/$f && rm -R tmp_infile || mv tmp_infile $folder/$f
   done
   rm $folder/$exec_AugmentPlotfile
   rm $folder/tmp_inputs
 else
   echo "Not Augmenting Plotfiles..."
 fi
+
 
 
 # Time Series
