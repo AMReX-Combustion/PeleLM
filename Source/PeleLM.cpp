@@ -8665,7 +8665,7 @@ PeleLM::setPlotVariables ()
   }
 #ifdef AMREX_PARTICLES
   // Remove spray source terms unless otherwise specified
-  if (plot_spray_src == 0)
+  if (plot_spray_src == 0 && do_spray_particles)
   {
     for (int i = 0; i < num_spray_src; i++)
     {
