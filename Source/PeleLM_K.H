@@ -4,7 +4,7 @@
 #include <AMReX_REAL.H>
 #include <AMReX_FArrayBox.H>
 #include <AMReX_Gpu.H>
-#include <mechanism.h>
+#include <mechanism.H>
 #include <PelePhysics.H>
 #include <cmath>
 
