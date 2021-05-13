@@ -2059,7 +2059,7 @@ PeleLM::initData ()
   initActiveControl();
 
 #ifdef AMREX_PARTICLES
-  defineSpraySourceMF();
+  defineSprayStateMF();
   if (do_spray_particles)
   {
     if (level == 0)
@@ -2381,7 +2381,7 @@ PeleLM::post_restart ()
    int step    = parent->levelSteps(0);
    int is_restart = 1;
 #ifdef AMREX_PARTICLES
-   defineSpraySourceMF();
+   defineSprayStateMF();
    if (do_spray_particles)
    {
      particlePostRestart(parent->theRestartFile());
@@ -2442,7 +2442,7 @@ PeleLM::post_regrid (int lbase,
    }
    make_rho_curr_time();
 #ifdef AMREX_PARTICLES
-   defineSpraySourceMF();
+   defineSprayStateMF();
    if (do_spray_particles && theSprayPC() != 0) {
      if (level == lbase)
        particle_redistribute(lbase);
@@ -2625,15 +2625,6 @@ PeleLM::post_init (Real stop_time)
         getLevel(k).advance_chemistry(S_new,S_tmp,dt_save[k]/2.0,Forcing_tmp);
       }
     }
-#ifdef AMREX_PARTICLES
-    if (do_spray_particles)
-    {
-      for (int k = 0; k <= finest_level; k++)
-      {
-        getLevel(k).init_advance_particles(dt_save[k]/2.0,tnp1,0);
-      }
-    }
-#endif
     //
     // Recompute the velocity to obey constraint with chemistry and
     // divqrad and then average that down.
@@ -3074,6 +3065,7 @@ PeleLM::resetState (Real time,
      removeVirtualParticles();
      removeGhostParticles();
      if (level == 0) {
+       theSprayPC()->resetID(1);
        for (int lev = 0; lev <= parent->finestLevel(); lev++) {
          theSprayPC()->RemoveParticlesAtLevel(lev);
        }
@@ -5095,7 +5087,7 @@ PeleLM::advance (Real time,
   for (int sdc_iter=1; sdc_iter<=sdc_iterMAX; ++sdc_iter)
   {
 #ifdef AMREX_PARTICLES
-    if (sdc_iter == 1 && do_spray_particles)
+    if (sdc_iter == 1 && do_spray_particles && !NavierStokesBase::initial_step)
     {
       AMREX_ASSERT(PeleLM::theSprayPC() != 0);
       particleMKD(time, dt, ghost_width, spray_n_grow,
@@ -5434,7 +5426,7 @@ PeleLM::advance (Real time,
 
     showMF("DBGSync",S_new,"DBGSync_Snew_end_sdc",level,sdc_iter,parent->levelSteps(level));
 #ifdef AMREX_PARTICLES
-    if (do_spray_particles && sdc_iter == sdc_iterMAX)
+    if (do_spray_particles && sdc_iter == sdc_iterMAX && !NavierStokesBase::initial_step)
     {
       FillPatch(*this, Sborder, nGrow_Sborder, tnp1, State_Type, 0, NUM_STATE);
       particleMK(time, dt, spray_n_grow, tmp_src_width, iteration, ncycle, tmp_spray_source);
@@ -8676,7 +8668,7 @@ PeleLM::setPlotVariables ()
 #endif
 #ifdef SOOT_MODEL
   // Remove spray source terms unless otherwise specified
-  if (plot_soot_src == 0)
+  if (plot_soot_src == 0 && add_soot_src)
   {
     for (int i = 0; i < num_soot_src; i++)
     {
@@ -9592,12 +9584,11 @@ PeleLM::add_external_sources(Real /*time*/,
 {
   external_sources.setVal(0.);
 #if defined(SOOT_MODEL) || defined(AMREX_PARTICLES)
-  const MultiFab& S_new = get_new_data(State_Type);
   const int nghost = external_sources.nGrow();
 #ifdef _OPENMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
-    for (MFIter mfi(S_new,TilingIfNotGPU()); mfi.isValid(); ++mfi)
+    for (MFIter mfi(external_sources,TilingIfNotGPU()); mfi.isValid(); ++mfi)
     {
       const Box& box = mfi.growntilebox(nghost);
       auto const& ext_fab = external_sources.array(mfi);

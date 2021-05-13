@@ -191,9 +191,9 @@ public:
   //
   static std::string spraySrcName(const int i);
   //
-  // Define MF for gas phase spray source terms
+  // Define gas phase state MF for computing spray source terms
   //
-  void defineSpraySourceMF();
+  void defineSprayStateMF();
   //
   // Initialize particle locations and velocities (and strengths if relevant)
   //
@@ -219,11 +219,6 @@ public:
   // Redistribute
   //
   virtual void particle_redistribute(int lbase = 0, bool init_part = false) override;
-
-  //
-  // Compute gas source terms from spray for initial iterations
-  //
-  void init_advance_particles(Real dt, Real time, Real ngrow);
 
   //
   // Setup ghost and virtual particles and do moveKickDrift
@@ -272,10 +267,6 @@ public:
   // Default cfl of particles in Particle class
   //
   static amrex::Real particle_cfl;
-  //
-  // Should we write particles into plotfiles?
-  //
-  static int write_particle_plotfiles;
   //
   // Should we write particle ascii files?
   //

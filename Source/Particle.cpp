@@ -56,8 +56,7 @@ Real PeleLM::particle_cfl = 0.5;
 // momentum + density + fuel species + enthalpy
 int PeleLM::num_spray_src = AMREX_SPACEDIM + 2 + SPRAY_FUEL_NUM;
 
-int PeleLM::write_particle_plotfiles = 1;
-int PeleLM::write_spray_ascii_files = 1;
+int PeleLM::write_spray_ascii_files = 0;
 int PeleLM::plot_spray_src = 0;
 int PeleLM::particle_mass_tran = 0;
 int PeleLM::particle_heat_tran = 0;
@@ -117,9 +116,9 @@ PeleLM::readParticleParams()
   ppp.get("mass_transfer", particle_mass_tran);
   ppp.get("heat_transfer", particle_heat_tran);
   ppp.get("mom_transfer", particle_mom_tran);
-  ppp.query("particle_cfl", particle_cfl);
+  ppp.query("cfl", particle_cfl);
   if (particle_cfl > 0.5)
-    amrex::Abort("particle_cfl must be <= 0.5");
+    amrex::Abort("particles.cfl must be <= 0.5");
   // Number of fuel species in spray droplets
   // Must match the number specified at compile time
   const int nfuel = ppp.countval("fuel_species");
@@ -177,43 +176,23 @@ PeleLM::readParticleParams()
   // species
   ppp.get("fuel_ref_temp", sprayRefT);
   //
-  // Set if particle plot files should be written
-  //
-  ppp.query("write_particle_plotfiles", write_particle_plotfiles);
-  //
   // Set if spray ascii files should be written
   //
   ppp.query("write_spray_ascii_files", write_spray_ascii_files);
   //
   // Set if gas phase spray source term should be written
   //
-  ppp.query("plot_spray_src", plot_spray_src);
+  ppp.query("plot_src", plot_spray_src);
   //
   // Used in initData() on startup to read in a file of particles.
   //
-  ppp.query("particle_init_file", particle_init_file);
+  ppp.query("init_file", particle_init_file);
   //
   // Used in initData() on startup to set the particle field using the
   // SprayParticlesInitInsert.cpp problem specific function
   //
-  ppp.query("particle_init_function", particle_init_function);
-  //
-  // Used in post_restart() to read in a file of particles.
-  //
-  // This must be true the first time you try to restart from a checkpoint
-  // that was written with USE_PARTICLES=FALSE; i.e. one that doesn't have
-  // the particle checkpoint stuff (even if there are no active particles).
-  // Otherwise the code will fail when trying to read the checkpointed
-  // particles.
-  //
-  // ppp.query("restart_from_nonparticle_chkfile",
-  // restart_from_nonparticle_chkfile);
-  //
-  // Only the I/O processor makes the directory if it doesn't already exist.
-  //
-//   if (ParallelDescriptor::IOProcessor())
-//     if (!amrex::UtilCreateDirectory(timestamp_dir, 0755))
-//       amrex::CreateDirectoryFailed(timestamp_dir);
+  ppp.query("init_function", particle_init_function);
+
   sprayData.num_ppp = parcelSize;
   sprayData.ref_T = sprayRefT;
   sprayData.sigma = spraySigma;
@@ -247,9 +226,9 @@ PeleLM::spraySrcName(const int i)
   return "";
 }
 
-// Define MultiFab for the gas phase source term for sprays
+//Define gas phase state MF for computing spray source terms
 void
-PeleLM::defineSpraySourceMF()
+PeleLM::defineSprayStateMF()
 {
   int nGrowS = 4;
   if (level > 0)
@@ -410,6 +389,8 @@ PeleLM::initParticles()
     } else if (particle_init_function > 0) {
       ProbParm const* lprobparm = prob_parm.get();
       theSprayPC()->InitSprayParticles(*lprobparm);
+    } else {
+      Abort("Must initialize spray particles with particles.init_function or particles.init_file");
     }
     if (particle_verbose > 1)
       amrex::Print() << "Total number of initial particles " <<
@@ -694,28 +675,6 @@ PeleLM::particle_redistribute(int lbase, bool init_part)
           << "NOT calling redistribute because grid has NOT changed " << '\n';
     }
   }
-}
-
-void
-PeleLM::init_advance_particles (Real dt,
-                                Real time,
-                                Real nGrow)
-{
-  const int finest_level = parent->finestLevel();
-  int nGhosts = 4;
-  // We must make a temporary spray source term to ensure number of ghost
-  // cells are correct
-  if (level < finest_level) {
-    setupGhostParticles(2);
-    setupVirtualParticles();
-  }
-  MultiFab tmp_spray_source(
-    grids, dmap, num_spray_src, nGhosts, amrex::MFInfo(), Factory());
-  tmp_spray_source.setVal(0.);
-  FillPatch(*this, Sborder, nGhosts, time, State_Type, 0, NUM_STATE);
-  Real dt_fake = 0.; // So particles are not modified
-  particleMK(time, dt_fake, nGhosts, nGhosts, 1, 1, tmp_spray_source);
-  add_external_sources(time, dt_fake);
 }
 
 void
