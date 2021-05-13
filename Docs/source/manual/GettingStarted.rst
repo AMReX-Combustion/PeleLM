@@ -66,6 +66,10 @@ This method is intended for users wanting to modify the `PeleLM` source code and
     
      This will create a folder called ``IAMR/`` on your machine.
      Set the environment variable, ``IAMR_HOME``.
+     Then switch to the ``development`` branch of IAMR: ::
+     
+        cd IAMR
+        git checkout -b development origin/development
 
    c. Download the `AMReX-Hydro` repository by typing: ::
 
