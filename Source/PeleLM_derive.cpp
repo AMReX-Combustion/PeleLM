@@ -2,13 +2,13 @@
 #include "PeleLM_K.H"
 #include "PeleLM_derive.H"
 #include <PelePhysics.H>
+#include <mechanism.H>
 
 #ifdef AMREX_USE_EB
 #include <AMReX_EBFabFactory.H>
 #include <AMReX_EBFArrayBox.H>
 #endif
 
-#include <mechanism.h>
 
 using namespace amrex;
 

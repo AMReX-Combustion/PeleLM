@@ -3,7 +3,7 @@
 
 #include <AMReX_REAL.H>
 #include <AMReX_Arena.H>
-#include <mechanism.h>
+#include <mechanism.H>
 #include <NavierStokesBase.H>
 
 // Xvel, Yvel, Zvel and Density are already defined in NavierStokesBase.H

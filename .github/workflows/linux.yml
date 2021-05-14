@@ -149,31 +149,31 @@ jobs:
         make -j 2 COMP=gnu USE_CUDA=TRUE
 
   # Build the 2D Convected Vortex RegTest with HIP support
-  COVO2D_HIP:
-    name: HIPROCm@3.8 GFortran@9.3 Comp [COVO2D]
-    runs-on: ubuntu-18.04
-    steps:
-    - name: Cancel previous runs
-      uses: styfle/cancel-workflow-action@0.6.0
-      with:
-        access_token: ${{github.token}}
-    - uses: actions/checkout@v2
-    - name: System Dependencies
-      run: .github/workflows/dependencies/dependencies_hip.sh
-    - name: Repo Dependencies
-      run: Tools/CloneDeps.sh
-    - name: Build
-      env:
-         AMREX_HOME: ${GITHUB_WORKSPACE}/build/amrex
-         IAMR_HOME: ${GITHUB_WORKSPACE}/build/IAMR
-         AMREX_HYDRO_HOME: ${GITHUB_WORKSPACE}/build/AMReX-Hydro
-         PELE_PHYSICS_HOME: ${GITHUB_WORKSPACE}/build/PelePhysics
-         PELELM_HOME: ${GITHUB_WORKSPACE}
-      working-directory: ./Exec/RegTests/PeriodicCases/
-      run: |
-        source /etc/profile.d/rocm.sh 
-        hipcc --version
-        make -j 2 COMP=gnu USE_MPI=FALSE USE_HIP=TRUE
+  #COVO2D_HIP:
+  #  name: HIPROCm@3.8 GFortran@9.3 Comp [COVO2D]
+  #  runs-on: ubuntu-18.04
+  #  steps:
+  #  - name: Cancel previous runs
+  #    uses: styfle/cancel-workflow-action@0.6.0
+  #    with:
+  #      access_token: ${{github.token}}
+  #  - uses: actions/checkout@v2
+  #  - name: System Dependencies
+  #    run: .github/workflows/dependencies/dependencies_hip.sh
+  #  - name: Repo Dependencies
+  #    run: Tools/CloneDeps.sh
+  #  - name: Build
+  #    env:
+  #       AMREX_HOME: ${GITHUB_WORKSPACE}/build/amrex
+  #       IAMR_HOME: ${GITHUB_WORKSPACE}/build/IAMR
+  #       AMREX_HYDRO_HOME: ${GITHUB_WORKSPACE}/build/AMReX-Hydro
+  #       PELE_PHYSICS_HOME: ${GITHUB_WORKSPACE}/build/PelePhysics
+  #       PELELM_HOME: ${GITHUB_WORKSPACE}
+  #    working-directory: ./Exec/RegTests/PeriodicCases/
+  #    run: |
+  #      source /etc/profile.d/rocm.sh 
+  #      hipcc --version
+  #      make -j 2 COMP=gnu USE_MPI=FALSE USE_HIP=TRUE
 
   #Build and run the 2D FlameSheet RegTest with GNU7.5 and no MPI support
   FS2D_NoMPIRun:

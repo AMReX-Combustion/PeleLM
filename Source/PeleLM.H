@@ -7,7 +7,7 @@
 
 #include <AMReX_ForkJoin.H>
 
-#include <mechanism.h>
+#include <mechanism.H>
 #include <pelelm_prob_parm.H>
 #include <PeleLM_parm.H>
 
