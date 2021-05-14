@@ -46,9 +46,8 @@ function(build_pelelm_exe pelelm_exe_name)
 
   set(PELELM_MECHANISM_DIR "${PELE_PHYSICS_SRC_DIR}/Support/Fuego/Mechanism/Models/${PELELM_CHEMISTRY_MODEL}")
   target_sources(${pelelm_exe_name} PRIVATE
-                 ${PELELM_MECHANISM_DIR}/chemistry_file.H
                  ${PELELM_MECHANISM_DIR}/mechanism.cpp
-                 ${PELELM_MECHANISM_DIR}/mechanism.h)
+                 ${PELELM_MECHANISM_DIR}/mechanism.H)
   # Avoid warnings from mechanism.cpp for now
   if(NOT PELELM_ENABLE_CUDA)
     if(CMAKE_CXX_COMPILER_ID MATCHES "^(GNU|Clang|AppleClang)$")
@@ -74,7 +73,6 @@ function(build_pelelm_exe pelelm_exe_name)
   endif()
   separate_arguments(MY_CXX_FLAGS)
   set_source_files_properties(${PELELM_MECHANISM_DIR}/mechanism.cpp PROPERTIES COMPILE_OPTIONS "${MY_CXX_FLAGS}")
-  set_source_files_properties(${PELELM_MECHANISM_DIR}/chemistry_file.H PROPERTIES COMPILE_OPTIONS "${MY_CXX_FLAGS}")
   set_source_files_properties(${PELELM_MECHANISM_DIR}/mechanism.H PROPERTIES COMPILE_OPTIONS "${MY_CXX_FLAGS}")
   target_include_directories(${pelelm_exe_name} SYSTEM PRIVATE ${PELELM_MECHANISM_DIR})
   target_include_directories(${pelelm_exe_name} SYSTEM PRIVATE ${PELE_PHYSICS_SRC_DIR}/Support/Fuego/Evaluation)
