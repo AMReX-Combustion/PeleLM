@@ -296,7 +296,6 @@ void
 PeleLM::setupVirtualParticles()
 {
   BL_PROFILE("PeleLM::setupVirtualParticles()");
-  amrex::Gpu::LaunchSafeGuard lsg(true);
   if (PeleLM::theSprayPC() != 0 && !virtual_particles_set) {
     if (level < parent->finestLevel()) {
 #ifdef USE_SPRAY_SOA
@@ -319,7 +318,6 @@ void
 PeleLM::removeVirtualParticles()
 {
   BL_PROFILE("PeleLM::removeVirtualParticles()");
-  amrex::Gpu::LaunchSafeGuard lsg(true);
   if (VirtPC != 0)
     VirtPC->RemoveParticlesAtLevel(level);
   virtual_particles_set = false;
@@ -330,7 +328,6 @@ PeleLM::setupGhostParticles(int ngrow)
 {
   BL_PROFILE("PeleLM::setupGhostParticles()");
   AMREX_ASSERT(level < parent->finestLevel());
-  amrex::Gpu::LaunchSafeGuard lsg(true);
   if (PeleLM::theSprayPC() != 0) {
 #ifdef USE_SPRAY_SOA
     SprayParticleContainer::ParticleTileType ghosts;
@@ -346,7 +343,6 @@ void
 PeleLM::removeGhostParticles()
 {
   BL_PROFILE("PeleLM::removeGhostParticles()");
-  amrex::Gpu::LaunchSafeGuard lsg(true);
   if (GhostPC != 0)
     GhostPC->RemoveParticlesAtLevel(level);
 }
@@ -413,7 +409,6 @@ PeleLM::particlePostRestart(const std::string& restart_file, bool is_checkpoint)
     //
     amrex::ExecOnFinalize(RemoveParticlesOnExit);
     {
-      amrex::Gpu::LaunchSafeGuard lsg(true);
       theSprayPC()->Restart(
         parent->theRestartFile(), "particles", is_checkpoint);
       amrex::Gpu::Device::streamSynchronize();
@@ -430,7 +425,6 @@ PeleLM::particleMKD (const Real       time,
                      const int        where_width,
                      amrex::MultiFab& tmp_spray_source)
 {
-  amrex::Gpu::LaunchSafeGuard lsg(true);
   //
   // Setup ghost particles for use in finer levels. Note that ghost
   // particles that will be used by this level have already been created,
@@ -605,7 +599,6 @@ PeleLM::particle_redistribute(int lbase, bool init_part)
   BL_PROFILE("PeleLM::particle_redistribute()");
   int flev = parent->finestLevel();
   if (theSprayPC()) {
-    amrex::Gpu::LaunchSafeGuard lsg(true);
     //
     // If we are calling with init_part = true, then we want to force the
     // redistribute without checking whether the grids have changed.

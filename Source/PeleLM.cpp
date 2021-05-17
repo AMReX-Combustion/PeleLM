@@ -2382,8 +2382,7 @@ PeleLM::post_restart ()
    int is_restart = 1;
 #ifdef AMREX_PARTICLES
    defineSprayStateMF();
-   if (do_spray_particles)
-   {
+   if (do_spray_particles) {
      particlePostRestart(parent->theRestartFile());
    }
 #endif
@@ -2731,6 +2730,16 @@ PeleLM::post_init (Real stop_time)
   // Initialize the pressure by iterating the initial timestep.
   //
   post_init_press(dt_init, nc_save, dt_save);
+#ifdef AMREX_PARTICLES
+  if (do_spray_particles) {
+    BL_PROFILE_VAR("SprayParticles::injectParticles()", INJECT_SPRAY);
+    ProbParm const* lprobparm = prob_parm.get();
+    bool injectParts = theSprayPC()->
+      injectParticles(tnp1, dt_init, 0, level, finest_level, *lprobparm);
+    BL_PROFILE_VAR_STOP(INJECT_SPRAY);
+    if (injectParts) theSprayPC()->Redistribute(level,theSprayPC()->finestLevel(),0);
+  }
+#endif
   //
   // Compute the initial estimate of conservation.
   //
