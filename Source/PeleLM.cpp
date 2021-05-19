@@ -1878,7 +1878,7 @@ PeleLM::initData ()
     for (MFIter mfi(S_new,TilingIfNotGPU()); mfi.isValid(); ++mfi)
     {
       const Box& box = mfi.tilebox();
-      auto state = S_new.array(mfi);
+      auto const& snew_arr = S_new.array(mfi);
       ProbParm const* lprobparm = prob_parm.get();
 
       amrex::ParallelFor(box,
@@ -1886,21 +1886,21 @@ PeleLM::initData ()
       {
         amrex::Real massfrac[NUM_SPECIES] = {0.0};
         for (int n = 0; n < NUM_SPECIES; n++) {
-          massfrac[n] = state(i,j,k,DEF_first_spec+n);
+          massfrac[n] = snew_arr(i,j,k,DEF_first_spec+n);
         }
         auto eos = pele::physics::PhysicsType::eos();
 
         amrex::Real rho_cgs, P_cgs;
         P_cgs = lprobparm->P_mean * 10.0;
 
-        eos.PYT2R(P_cgs, massfrac, state(i,j,k,DEF_Temp), rho_cgs);
-        state(i,j,k,Density) = rho_cgs * 1.0e3;            // CGS -> MKS conversion
+        eos.PYT2R(P_cgs, massfrac, snew_arr(i,j,k,DEF_Temp), rho_cgs);
+        snew_arr(i,j,k,Density) = rho_cgs * 1.0e3;            // CGS -> MKS conversion
 
-        eos.TY2H(state(i,j,k,DEF_Temp), massfrac, state(i,j,k,DEF_RhoH));
-        state(i,j,k,DEF_RhoH) = state(i,j,k,DEF_RhoH) * 1.0e-4 * state(i,j,k,Density);   // CGS -> MKS conversion
+        eos.TY2H(snew_arr(i,j,k,DEF_Temp), massfrac, snew_arr(i,j,k,DEF_RhoH));
+        snew_arr(i,j,k,DEF_RhoH) = snew_arr(i,j,k,DEF_RhoH) * 1.0e-4 * snew_arr(i,j,k,Density);   // CGS -> MKS conversion
 
         for (int n = 0; n < NUM_SPECIES; n++) {
-          state(i,j,k,DEF_first_spec+n) = massfrac[n] * state(i,j,k,Density);
+          snew_arr(i,j,k,DEF_first_spec+n) = massfrac[n] * snew_arr(i,j,k,Density);
         }
       });
     }
@@ -2101,7 +2101,7 @@ PeleLM::compute_instantaneous_reaction_rates (MultiFab&       R,
    maskMF.define(grids, dmap, 1, 0);
    maskMF.setVal(1.0);
 #ifdef AMREX_USE_EB
-   maskMF.copy(ebmask);
+   maskMF.ParallelCopy(ebmask,0,0,1);
 #endif
 
 #ifdef _OPENMP
@@ -2985,17 +2985,17 @@ void
 PeleLM::diffusionFJDriver(ForkJoin&                   fj,
                   Real                        prev_time,
                   Real                        curr_time,
-                  Real                        be_cn_theta,
+                  Real                        a_be_cn_theta,
                   int                         rho_flag,
-                  const Vector<Real>&         visc_coef,
-                  int                         visc_coef_comp,
+                  const Vector<Real>&         a_visc_coef,
+                  int                         a_visc_coef_comp,
                   const IntVect&              cratio,
                   const BCRec&                bc,
                   const Geometry&             in_geom,
                   bool                        /*add_hoop_stress*/,
                   const Diffusion::SolveMode& solve_mode,
                   bool                        add_old_time_divFlux,
-                  const amrex::Vector<int>&   is_diffusive,
+                  const amrex::Vector<int>&   a_is_diffusive,
                   bool                        has_coarse_data,
                   bool                        has_delta_rhs,
                   bool                        has_alpha_in,
@@ -3026,8 +3026,8 @@ PeleLM::diffusionFJDriver(ForkJoin&                   fj,
   }
 
   const ForkJoin::ComponentSet compSet = fj.ComponentBounds("S_old_fine");
-  int vStart = visc_coef_comp + compSet.lo;
-  Vector<Real> visc_coef_shifted(&visc_coef[vStart],&visc_coef[vStart+num_comp]);
+  int vStart = a_visc_coef_comp + compSet.lo;
+  Vector<Real> visc_coef_shifted(&a_visc_coef[vStart],&a_visc_coef[vStart+num_comp]);
 
   MultiFab *rho_half_mf=0, *delta_rhs=0, *alpha_in=0;
   if (rho_flag == 1) {
@@ -3054,11 +3054,11 @@ PeleLM::diffusionFJDriver(ForkJoin&                   fj,
   }
 
   diffusion->diffuse_scalar (S_old,Rho_old,S_new,Rho_new,S_comp,num_comp,Rho_comp,
-                             prev_time,curr_time,be_cn_theta,*rho_half_mf,rho_flag,
+                             prev_time,curr_time,a_be_cn_theta,*rho_half_mf,rho_flag,
                              &(fluxn[0]),&(fluxnp1[0]),fluxComp,delta_rhs,rhsComp,
                              alpha_in,alpha_in_comp,&(betan[0]),&(betanp1[0]),betaComp,
                              cratio,bc,in_geom,
-                             solve_mode,add_old_time_divFlux,is_diffusive);
+                             solve_mode,add_old_time_divFlux,a_is_diffusive);
 }
 
 void
@@ -3071,7 +3071,7 @@ PeleLM::diffuse_scalar_fj  (const Vector<MultiFab*>&  S_old,
                             int                       Rho_comp,
                             Real                      prev_time,
                             Real                      curr_time,
-                            Real                      be_cn_theta,
+                            Real                      a_be_cn_theta,
                             const MultiFab&           rho_mid,
                             int                       rho_flag,
                             MultiFab* const*          fluxn,
@@ -3084,8 +3084,8 @@ PeleLM::diffuse_scalar_fj  (const Vector<MultiFab*>&  S_old,
                             const MultiFab* const*    betan, 
                             const MultiFab* const*    betanp1,
                             int                       betaComp,
-                            const Vector<Real>&       visc_coef,
-                            int                       visc_coef_comp,
+                            const Vector<Real>&       a_visc_coef,
+                            int                       a_visc_coef_comp,
                             const MultiFab&           theVolume,
                             const MultiFab* const*    theArea,
                             const IntVect&            cratio,
@@ -3103,7 +3103,7 @@ PeleLM::diffuse_scalar_fj  (const Vector<MultiFab*>&  S_old,
   if (n_tasks == 1)
   {
     diffusion->diffuse_scalar(S_old,Rho_old,S_new,Rho_new,S_comp,num_comp,Rho_comp,
-                                  prev_time,curr_time,be_cn_theta,rho_mid,rho_flag,
+                                  prev_time,curr_time,a_be_cn_theta,rho_mid,rho_flag,
                                   fluxn,fluxnp1,fluxComp,delta_rhs,rhsComp,
                                   alpha_in,alpha_in_comp,betan,betanp1,betaComp,
                                   cratio,bc,theGeom,
@@ -3195,15 +3195,15 @@ PeleLM::diffuse_scalar_fj  (const Vector<MultiFab*>&  S_old,
     fj.reg_mf_vec(GetVecOfPtrs(theArea,0,1),"area",ForkJoin::Strategy::duplicate,ForkJoin::Intent::in);
 
     fj.fork_join(
-      [=,&bc,&theGeom,&visc_coef] (ForkJoin &f)
+      [=,&bc,&theGeom,&a_visc_coef] (ForkJoin &f)
       {
         diffusionFJDriver(f,
                           prev_time,
                           curr_time,
-                          be_cn_theta,
+                          a_be_cn_theta,
                           rho_flag,
-                          visc_coef,
-                          visc_coef_comp,
+                          a_visc_coef,
+                          a_visc_coef_comp,
                           cratio,
                           bc,
                           theGeom,
@@ -4409,7 +4409,7 @@ PeleLM::flux_divergence (MultiFab&        fdiv,
    {
       MultiFab fdiv_SrcGhostCell(grids,dmap,nComp,fdiv.nGrow()+2,MFInfo(),Factory());
       fdiv_SrcGhostCell.setVal(0.);
-      fdiv_SrcGhostCell.copy(fdiv, fdivComp, 0, nComp);
+      MultiFab::Copy(fdiv_SrcGhostCell, fdiv, fdivComp, 0, nComp, fdiv.nGrow());
       amrex::single_level_weighted_redistribute( {fdiv_SrcGhostCell}, {fdiv}, *volfrac, fdivComp, nComp, {geom} );
    }
    EB_set_covered(fdiv,0.);
@@ -4615,7 +4615,7 @@ PeleLM::set_htt_hmixTYP ()
             {
                auto const& h_mix = hmix.array(mfi);
                baf.intersections(ba[mfi.index()],isects);
-               for (int is = 0; is < isects.size(); is++) {
+               for (long unsigned int is = 0; is < isects.size(); is++) {
                   amrex::ParallelFor(isects[is].second, [h_mix]
                   AMREX_GPU_DEVICE (int i, int j, int k) noexcept
                   {
@@ -4930,7 +4930,7 @@ PeleLM::advance (Real time,
     {
       MultiFab chi_tmp(grids,dmap,1,chi.nGrow()+2,MFInfo(),Factory());
       chi_tmp.setVal(0.);
-      chi_tmp.copy(chi_increment);
+      MultiFab::Copy(chi_tmp,chi_increment,0,0,1,chi.nGrow());
       amrex::single_level_weighted_redistribute(  {chi_tmp}, {chi_increment}, *volfrac, 0, 1, {geom} );
       EB_set_covered(chi_increment,0.0);
     }
@@ -5197,7 +5197,7 @@ PeleLM::advance (Real time,
 
    if (plot_consumption)
    {
-     for (int j=0; j<consumptionName.size(); ++j)
+     for (long int j=0; j<consumptionName.size(); ++j)
      {
        int consumptionComp = getSpeciesIdx(consumptionName[j]);
        MultiFab::Copy((*auxDiag["CONSUMPTION"]),get_new_data(RhoYdot_Type),consumptionComp,j,1,0);
@@ -5271,7 +5271,7 @@ PeleLM::advance (Real time,
       for (MFIter mfi(get_new_data(Divu_Type),TilingIfNotGPU()); mfi.isValid();++mfi)
       {
          auto isects = crsndgrids.intersections(mfi.tilebox());
-         for (int it = 0, N = isects.size(); it < N; it++)
+         for (long unsigned int it = 0, N = isects.size(); it < N; it++)
          {
             const Box& ovlp = isects[it].second;
             auto const& divu_n  = get_new_data(Divu_Type).array(mfi);
@@ -5504,7 +5504,7 @@ PeleLM::getFuncCountDM (const BoxArray& bxba, int ngrow)
      return new_dmap;
   }
 
-  fctmpnew.copy(FC,0,0,1,std::min(ngrow,FC.nGrow()),0);
+  fctmpnew.ParallelCopy(FC,0,0,1,std::min(ngrow,FC.nGrow()),0);
 
   int count = 0;
   Vector<long> vwrk(bxba.size());
@@ -5523,12 +5523,12 @@ PeleLM::getFuncCountDM (const BoxArray& bxba, int ngrow)
 
   const Vector<int>& procmap = rr.ProcessorMap();
 
-  for (int i = 0; i < vwrk.size(); i++)
+  for (long int i = 0; i < vwrk.size(); i++)
     nmtags[procmap[i]]++;
 
   AMREX_ASSERT(nmtags[ParallelDescriptor::MyProc()] == count);
 
-  for (int i = 1; i < offset.size(); i++)
+  for (long int i = 1; i < offset.size(); i++)
     offset[i] = offset[i-1] + nmtags[i-1];
 
   Vector<long> vwrktmp;
@@ -5550,16 +5550,16 @@ PeleLM::getFuncCountDM (const BoxArray& bxba, int ngrow)
     //
     // We must now assemble vwrk in the proper order.
     //
-    std::vector< std::vector<int> > table(ParallelDescriptor::NProcs());
+    Vector< Vector<int> > table(ParallelDescriptor::NProcs());
 
-    for (int i = 0; i < vwrk.size(); i++)
+    for (long int i = 0; i < vwrk.size(); i++)
       table[procmap[i]].push_back(i);
 
     int idx = 0;
-    for (int i = 0; i < table.size(); i++)
+    for (long int i = 0; i < table.size(); i++)
     {
-      std::vector<int>& tbl = table[i];
-      for (int j = 0; j < tbl.size(); j++)
+      Vector<int>& tbl = table[i];
+      for (long int j = 0; j < tbl.size(); j++)
         vwrk[tbl[j]] = vwrktmp[idx++];
     }
   }
@@ -5648,8 +5648,8 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
     MultiFab STemp(ba, dm, NUM_SPECIES+3, 0);
     MultiFab FTemp(ba, dm, Force.nComp(), 0);
 
-    STemp.copy(mf_old,first_spec,0,NUM_SPECIES+3); // Parallel copy.
-    FTemp.copy(Force);                          // Parallel copy.
+    STemp.ParallelCopy(mf_old,first_spec,0,NUM_SPECIES+3); // Parallel copy.
+    FTemp.ParallelCopy(Force);                          // Parallel copy.
 
     MultiFab fcnCntTemp(ba, dm, 1, 0);
     MultiFab diagTemp;
@@ -5659,7 +5659,7 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
     amrex::FabArray<amrex::BaseFab<int>>  react_mask;
     react_mask.define(ba, dm,  1, 0);
 #ifdef AMREX_USE_EB     
-    react_mask.copy(ebmask);
+    react_mask.ParallelCopy(ebmask);
 #else
     react_mask.setVal(1);
 #endif
@@ -5669,7 +5669,7 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
     if (do_diag)
     {
         diagTemp.define(ba, dm, auxDiag["REACTIONS"]->nComp(), 0);
-        diagTemp.copy(*auxDiag["REACTIONS"]); // Parallel copy
+        diagTemp.ParallelCopy(*auxDiag["REACTIONS"]); // Parallel copy
     }
 
     if (verbose) 
@@ -5744,7 +5744,7 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
 
     FTemp.clear();
 
-    mf_new.copy(STemp,0,first_spec,NUM_SPECIES+3); // Parallel copy.
+    mf_new.ParallelCopy(STemp,0,first_spec,NUM_SPECIES+3); // Parallel copy.
 
     STemp.clear();
 
@@ -5771,12 +5771,12 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
 
     if (do_diag)
     {
-      auxDiag["REACTIONS"]->copy(diagTemp); // Parallel copy
+      auxDiag["REACTIONS"]->ParallelCopy(diagTemp); // Parallel copy
       diagTemp.clear();
     }
 
     MultiFab& FC = get_new_data(FuncCount_Type);
-    FC.copy(fcnCntTemp,0,0,1,0,std::min(ngrow,FC.nGrow()));
+    FC.ParallelCopy(fcnCntTemp,0,0,1,0,std::min(ngrow,FC.nGrow()));
     fcnCntTemp.clear();
     //
     // Approximate covered crse chemistry (I_R) with averaged down fine I_R from previous time step.
@@ -6500,7 +6500,7 @@ PeleLM::mac_sync ()
       }
 
       Vector<int> incr_sync(NUM_STATE,0);
-      for (int i=0; i<sync_scheme.size(); ++i) {
+      for (long int i=0; i<sync_scheme.size(); ++i) {
          if (sync_scheme[i] == ReAdvect) {
             incr_sync[i] = 1;
          }
@@ -7058,7 +7058,7 @@ PeleLM::mac_sync ()
 
       MultiFab DeltaSsync(grids,dmap,1,0);
 
-      for (int n=0; n<comps_to_diffuse.size(); ++n)
+      for (long int n=0; n<comps_to_diffuse.size(); ++n)
       {
          int sigma = comps_to_diffuse[n];
          const int state_ind = AMREX_SPACEDIM + sigma;
@@ -7722,7 +7722,7 @@ PeleLM::reflux ()
 
          baf.intersections(bx,isects);
 
-         for (int it = 0, N = isects.size(); it < N; it++) {
+         for (long unsigned int it = 0, N = isects.size(); it < N; it++) {
             amrex::ParallelFor(isects[it].second, [vsync, ssync, nstate]
             AMREX_GPU_DEVICE (int i, int j, int k) noexcept
             {
@@ -8327,7 +8327,7 @@ PeleLM::setPlotVariables ()
 // because it takes a lot of space in memory and disk usage
 // To plot rho.Y, we pass into a derive function (see PeleLM_setup.cpp)
 // and it can be activated with "amr.derive_plot_vars=rhoY" in the input file
-  for (int i = 0; i < names.size(); i++)
+  for (long int i = 0; i < names.size(); i++)
   {
     const std::string name = "rho.Y("+names[i]+")";
     parent->deleteStatePlotVar(name);
@@ -8377,7 +8377,7 @@ PeleLM::writePlotFile (const std::string& dir,
   // second component of pair is component # within the state_type
   //
   std::vector<std::pair<int,int> > plot_var_map;
-  for (int typ = 0; typ < desc_lst.size(); typ++)
+  for (long int typ = 0; typ < desc_lst.size(); typ++)
   {
     for (int comp = 0; comp < desc_lst[typ].nComp();comp++)
     {
@@ -8447,7 +8447,7 @@ PeleLM::writePlotFile (const std::string& dir,
     //
     // Names of variables -- first state, then derived
     //
-    for (int i =0; i < plot_var_map.size(); i++)
+    for (long unsigned int i =0; i < plot_var_map.size(); i++)
     {
       int typ  = plot_var_map[i].first;
       int comp = plot_var_map[i].second;
@@ -8470,7 +8470,7 @@ PeleLM::writePlotFile (const std::string& dir,
          it != end;
          ++it)
     {
-      for (int i=0; i<it->second.size(); ++i)
+      for (long int i=0; i<it->second.size(); ++i)
         os << it->second[i] << '\n';
     }
 
@@ -8629,7 +8629,7 @@ PeleLM::writePlotFile (const std::string& dir,
     os << level << ' ' << grids.size() << ' ' << tnp1 << '\n';
     os << parent->levelSteps(level) << '\n';
 
-    for (int i = 0; i < grids.size(); ++i)
+    for (long int i = 0; i < grids.size(); ++i)
     {
       RealBox gridloc = RealBox(grids[i],geom.CellSize(),geom.ProbLo());
       for (int n = 0; n < AMREX_SPACEDIM; n++)
@@ -8673,7 +8673,7 @@ PeleLM::writePlotFile (const std::string& dir,
   //
   // Cull data from state variables -- use no ghost cells.
   //
-  for (int i = 0; i < plot_var_map.size(); i++)
+  for (long unsigned int i = 0; i < plot_var_map.size(); i++)
   {
     int typ  = plot_var_map[i].first;
     int comp = plot_var_map[i].second;
@@ -8818,7 +8818,7 @@ PeleLM::errorEst (TagBoxArray& tags,
   }
 #endif
 
-  for (int j=0; j<errtags.size(); ++j) {
+  for (long int j=0; j<errtags.size(); ++j) {
     std::unique_ptr<MultiFab> mf;
     if (errtags[j].Field() != std::string()) {
       mf = derive(errtags[j].Field(), time, errtags[j].NGrow());
@@ -8880,7 +8880,7 @@ PeleLM::activeControl(const int  step,
                {
                   auto const& T_arr = Tmf.array(mfi);
                   baf.intersections(bac[mfi.index()],isects);
-                  for (int is = 0; is < isects.size(); is++) {
+                  for (long unsigned int is = 0; is < isects.size(); is++) {
                      amrex::ParallelFor(isects[is].second, [T_arr]
                      AMREX_GPU_DEVICE (int i, int j, int k) noexcept
                      {
@@ -8971,7 +8971,7 @@ PeleLM::activeControl(const int  step,
          }
          if ( ctrl_verbose ) {
             Print() << " AC history arrays: \n";
-            for (int n = 0; n < ctrl_time_pts.size(); n++) {
+            for (long int n = 0; n < ctrl_time_pts.size(); n++) {
                Print() << "  ["<<n<<"] time: "<< ctrl_time_pts[n]
                                 <<", velo: "<< ctrl_velo_pts[n]
                                 <<", coft: "<< ctrl_cntl_pts[n] << "\n";
@@ -9209,7 +9209,7 @@ PeleLM::parseComposition(Vector<std::string> compositionIn,
    std::string delimiter = ":";
    int specCountIn = compositionIn.size();
    for (int i = 0; i < specCountIn; i++ ) {
-      int sep = compositionIn[i].find(delimiter);
+      long unsigned sep = compositionIn[i].find(delimiter);
       if ( sep == std::string::npos ) {
          Abort("Error parsing '"+compositionIn[i]+"' --> unable to find delimiter :");
       }
