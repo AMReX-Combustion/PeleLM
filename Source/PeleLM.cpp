@@ -5095,23 +5095,27 @@ PeleLM::advance (Real time,
 
   for (int sdc_iter=1; sdc_iter<=sdc_iterMAX; ++sdc_iter)
   {
+    bool ext_src_added = false;
 #ifdef AMREX_PARTICLES
     if (sdc_iter == 1 && do_spray_particles && !NavierStokesBase::initial_step)
     {
       AMREX_ASSERT(PeleLM::theSprayPC() != 0);
       particleMKD(time, dt, ghost_width, spray_n_grow,
                   tmp_src_width, where_width, tmp_spray_source);
+      ext_src_added = true;
     }
 #endif
 #ifdef SOOT_MODEL
     if (add_soot_src == 1)
     {
       computeSootSrc(time, dt);
+      ext_src_added = true;
     }
 #endif
 
     // Add external sources like spray and soot source terms
-    add_external_sources(time, dt);
+    if (ext_src_added)
+      add_external_sources(time, dt);
 
     if (sdc_iter == sdc_iterMAX)
       updateFluxReg = true;
