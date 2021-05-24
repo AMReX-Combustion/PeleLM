@@ -1001,7 +1001,7 @@ PeleLM::define_data ()
 {
    const int nGrow       = 0;
 #ifdef AMREX_USE_EB
-   const int nGrowEdges  = 2; // We need 2 growth cells for the redistribution when using MOL EB
+   const int nGrowEdges  = (redistribution_type == "StateRedist") ? 3 : 2;
 #else
    const int nGrowEdges  = 0; 
 #endif
@@ -2052,6 +2052,14 @@ PeleLM::initData ()
 
   old_intersect_new          = grids;
 
+#ifdef AMREX_USE_EB
+  //
+  // Perform redistribution on initial fields
+  // This changes the input velocity fields
+  //
+  InitialRedistribution();
+#endif
+
 #ifdef AMREX_PARTICLES
   NavierStokesBase::initParticleData();
 #endif
@@ -2127,7 +2135,6 @@ PeleLM::compute_instantaneous_reaction_rates (MultiFab&       R,
    if ((nGrow>0) && (how == HT_EXTRAP_GROW_CELLS))
    {
       R.FillBoundary(0,NUM_SPECIES, geom.periodicity());
-      AMREX_ASSERT(R.nGrow() == 1);
       Extrapolater::FirstOrderExtrap(R, geom, 0, NUM_SPECIES);
    }
 
@@ -4028,7 +4035,6 @@ PeleLM::getViscTerms (MultiFab& visc_terms,
    if (nGrow > 0)
    {
       visc_terms.FillBoundary(0,num_comp, geom.periodicity());
-      AMREX_ASSERT(visc_terms.nGrow() == 1);
       Extrapolater::FirstOrderExtrap(visc_terms, geom, 0, num_comp);
    }
 
@@ -4482,9 +4488,6 @@ PeleLM::compute_differential_diffusion_terms (MultiFab& D,
      D.FillBoundary(0,nc, geom.periodicity());
      DD.FillBoundary(0,1, geom.periodicity());
 
-     AMREX_ASSERT(D.nGrow() == 1);
-     AMREX_ASSERT(DD.nGrow() == 1);
-
      Extrapolater::FirstOrderExtrap(D, geom, 0, nc);
      Extrapolater::FirstOrderExtrap(DD, geom, 0, 1);
    }
@@ -4686,7 +4689,6 @@ PeleLM::set_reasonable_grow_cells_for_R (Real time)
    //
    MultiFab& React = get_data(RhoYdot_Type, time);
    React.FillBoundary(0,NUM_SPECIES, geom.periodicity());
-   AMREX_ASSERT(React.nGrow() == 1);
    Extrapolater::FirstOrderExtrap(React, geom, 0, NUM_SPECIES); //FIXME: Is this in the wrong order?
 }
 
@@ -5791,7 +5793,6 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
     //
     if (ngrow > 0)
     {
-      AMREX_ASSERT(React_new.nGrow() == 1);
       React_new.FillBoundary(0,NUM_SPECIES, geom.periodicity());
       Extrapolater::FirstOrderExtrap(React_new, geom, 0, NUM_SPECIES);
     }
@@ -8178,7 +8179,6 @@ PeleLM::calc_dpdt (Real      time,
 
    if (nGrow > 0) {
      dpdt.FillBoundary(0,1, geom.periodicity());
-     AMREX_ASSERT(dpdt.nGrow() == 1);
      Extrapolater::FirstOrderExtrap(dpdt, geom, 0, 1);
    }
 }
