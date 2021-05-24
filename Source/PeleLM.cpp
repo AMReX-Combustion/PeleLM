@@ -3577,13 +3577,13 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
    if (Dnew.nGrow() > 0)
    {
       Dnew.FillBoundary(DComp, NUM_SPECIES+1, geom.periodicity());
-      Extrapolater::FirstOrderExtrap(Dnew, geom, DComp, NUM_SPECIES+1);
+      Extrapolater::FirstOrderExtrap(Dnew, geom, DComp, NUM_SPECIES+1,Dnew.nGrow());
    }
 
    if (DDnew.nGrow() > 0)
    {
       DDnew.FillBoundary(0, 1, geom.periodicity());
-      Extrapolater::FirstOrderExtrap(DDnew, geom, 0, 1);
+      Extrapolater::FirstOrderExtrap(DDnew, geom, 0, 1,DDnew.nGrow());
    }
 
    if (verbose)
@@ -4488,8 +4488,8 @@ PeleLM::compute_differential_diffusion_terms (MultiFab& D,
      D.FillBoundary(0,nc, geom.periodicity());
      DD.FillBoundary(0,1, geom.periodicity());
 
-     Extrapolater::FirstOrderExtrap(D, geom, 0, nc);
-     Extrapolater::FirstOrderExtrap(DD, geom, 0, 1);
+     Extrapolater::FirstOrderExtrap(D, geom, 0, nc, D.nGrow());
+     Extrapolater::FirstOrderExtrap(DD, geom, 0, 1, DD.nGrow());
    }
 }
 
@@ -4688,8 +4688,10 @@ PeleLM::set_reasonable_grow_cells_for_R (Real time)
    // Ensure reasonable grow cells for R.
    //
    MultiFab& React = get_data(RhoYdot_Type, time);
-   React.FillBoundary(0,NUM_SPECIES, geom.periodicity());
-   Extrapolater::FirstOrderExtrap(React, geom, 0, NUM_SPECIES); //FIXME: Is this in the wrong order?
+   if (React.nGrow() > 0 ) {
+      React.FillBoundary(0,NUM_SPECIES, geom.periodicity());
+      Extrapolater::FirstOrderExtrap(React, geom, 0, NUM_SPECIES); //FIXME: Is this in the wrong order?
+   }
 }
 
 Real
@@ -4806,11 +4808,11 @@ PeleLM::advance (Real time,
   BL_PROFILE_VAR_START(PLM_DIFF);
   // Compute Dn and DDn (based on state at tn)
   // (Note that coeffs at tn and tnp1 were intialized in above)
-  MultiFab Dn(grids,dmap,NUM_SPECIES+2,nGrowAdvForcing,MFInfo(),Factory());
-  MultiFab DDn(grids,dmap,1,nGrowAdvForcing,MFInfo(),Factory());
+  MultiFab Dn(grids,dmap,NUM_SPECIES+2,std::max(1,nghost_force()),MFInfo(),Factory());
+  MultiFab DDn(grids,dmap,1,std::max(1,nghost_force()),MFInfo(),Factory());
   MultiFab DWbar;
   if (use_wbar) {
-     DWbar.define(grids,dmap,NUM_SPECIES,nGrowAdvForcing,MFInfo(),Factory());
+     DWbar.define(grids,dmap,NUM_SPECIES,std::max(1,nghost_force()),MFInfo(),Factory());
   }
 
   if (verbose) amrex::Print() << "Computing Dn & DDn \n";
@@ -4835,12 +4837,12 @@ PeleLM::advance (Real time,
   // Note: this was already done above for transport coefficients
   // and in advance_setup for scalar & divu
 
-  MultiFab Dnp1(grids,dmap,NUM_SPECIES+2,nGrowAdvForcing,MFInfo(),Factory());
-  MultiFab DDnp1(grids,dmap,1,nGrowAdvForcing,MFInfo(),Factory());
-  MultiFab Dhat(grids,dmap,NUM_SPECIES+2,nGrowAdvForcing,MFInfo(),Factory());
-  MultiFab DDhat(grids,dmap,1,nGrowAdvForcing,MFInfo(),Factory());
-  MultiFab chi(grids,dmap,1,nGrowAdvForcing,MFInfo(),Factory());
-  MultiFab chi_increment(grids,dmap,1,nGrowAdvForcing,MFInfo(),Factory());
+  MultiFab Dnp1(grids,dmap,NUM_SPECIES+2,std::max(1,nghost_force()),MFInfo(),Factory());
+  MultiFab DDnp1(grids,dmap,1,std::max(1,nghost_force()),MFInfo(),Factory());
+  MultiFab Dhat(grids,dmap,NUM_SPECIES+2,std::max(1,nghost_force()),MFInfo(),Factory());
+  MultiFab DDhat(grids,dmap,1,std::max(1,nghost_force()),MFInfo(),Factory());
+  MultiFab chi(grids,dmap,1,std::max(2,nghost_force()),MFInfo(),Factory());
+  MultiFab chi_increment(grids,dmap,1,std::max(2,nghost_force()),MFInfo(),Factory());
   MultiFab mac_divu(grids,dmap,1,std::max(2,nghost_force()),MFInfo(),Factory());
 
   //====================================
@@ -4857,7 +4859,7 @@ PeleLM::advance (Real time,
      auto const& ddn      = DDn.array(mfi);
      auto const& ddnp1k   = DDnp1.array(mfi);
      auto const& ddnp1kp1 = DDhat.array(mfi);
-     auto const& chi_ar      = chi.array(mfi);
+     auto const& chi_ar   = chi.array(mfi);
      amrex::ParallelFor(gbx, [dn, dnp1k, dnp1kp1, ddn, ddnp1k, ddnp1kp1, chi_ar]
      AMREX_GPU_DEVICE (int i, int j, int k) noexcept
      {
@@ -4925,7 +4927,7 @@ PeleLM::advance (Real time,
     // compute new-time thermodynamic pressure and chi_increment
     setThermoPress(tnp1);
 
-    chi_increment.setVal(0.0,nGrowAdvForcing);
+    chi_increment.setVal(0.0,chi_increment.nGrow());
     calc_dpdt(tnp1,dt,chi_increment);
     
 #ifdef AMREX_USE_EB
@@ -4946,7 +4948,7 @@ PeleLM::advance (Real time,
     {
        const Box& gbx = mfi.growntilebox();
        auto const& chi_ar      = chi.array(mfi);
-       auto const& chi_inc_ar  = chi_increment.array(mfi);
+       auto const& chi_inc_ar  = chi_increment.const_array(mfi);
        auto const& divu_ar     = mac_divu.array(mfi);
        amrex::ParallelFor(gbx, [chi_ar, chi_inc_ar, divu_ar]
        AMREX_GPU_DEVICE (int i, int j, int k) noexcept
@@ -8179,7 +8181,7 @@ PeleLM::calc_dpdt (Real      time,
 
    if (nGrow > 0) {
      dpdt.FillBoundary(0,1, geom.periodicity());
-     Extrapolater::FirstOrderExtrap(dpdt, geom, 0, 1);
+     Extrapolater::FirstOrderExtrap(dpdt, geom, 0, 1, dpdt.nGrow());
    }
 }
 
