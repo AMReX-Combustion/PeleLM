@@ -4841,7 +4841,7 @@ PeleLM::advance (Real time,
   MultiFab DDhat(grids,dmap,1,nGrowAdvForcing,MFInfo(),Factory());
   MultiFab chi(grids,dmap,1,nGrowAdvForcing,MFInfo(),Factory());
   MultiFab chi_increment(grids,dmap,1,nGrowAdvForcing,MFInfo(),Factory());
-  MultiFab mac_divu(grids,dmap,1,nGrowAdvForcing,MFInfo(),Factory());
+  MultiFab mac_divu(grids,dmap,1,std::max(2,nghost_force()),MFInfo(),Factory());
 
   //====================================
   BL_PROFILE_VAR_START(PLM_DIFF);
@@ -4918,9 +4918,9 @@ PeleLM::advance (Real time,
     BL_PROFILE_VAR_START(PLM_MAC);
     // create S^{n+1/2} by averaging old and new
 
-    MultiFab Forcing(grids,dmap,NUM_SPECIES+1,nGrowAdvForcing,MFInfo(),Factory());
+    MultiFab Forcing(grids,dmap,NUM_SPECIES+1,std::max(1,nghost_force()),MFInfo(),Factory());
     Forcing.setBndry(1.e30);
-    FillPatch(*this,mac_divu,nGrowAdvForcing,time+0.5*dt,Divu_Type,0,1,0);
+    FillPatch(*this,mac_divu,mac_divu.nGrow(),time+0.5*dt,Divu_Type,0,1,0);
 
     // compute new-time thermodynamic pressure and chi_increment
     setThermoPress(tnp1);
@@ -4963,7 +4963,7 @@ PeleLM::advance (Real time,
     }
 
     // MAC-project... and overwrite U^{ADV,*}
-    mac_project(time,dt,S_old,&mac_divu,nGrowAdvForcing,updateFluxReg);
+    mac_project(time,dt,S_old,&mac_divu,umac_n_grow,updateFluxReg);
 
     if (closed_chamber == 1 && level == 0 && Sbar != 0)
     {
@@ -5827,7 +5827,7 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
   const Real  strt_time = ParallelDescriptor::second();
   const Real  prev_time = state[State_Type].prevTime();  
 
-  int ng = godunov_hyp_grow;
+  int ng = std::max(EdgeState[0]->nGrow()+2,nghost_state());
   int sComp = std::min((int)Density, std::min((int)first_spec,(int)Temp) );
   int eComp = std::max((int)Density, std::max((int)last_spec,(int)Temp) );
   int nComp = eComp - sComp + 1;
@@ -5845,7 +5845,7 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
 #endif
   for (MFIter mfi(Smf,TilingIfNotGPU()); mfi.isValid(); ++mfi)
   {
-     const Box& gbx = mfi.growntilebox(godunov_hyp_grow);
+     const Box& gbx = mfi.growntilebox(nghost_state());
      auto fab = Smf.array(mfi);
      AMREX_HOST_DEVICE_FOR_4D ( gbx, NUM_SPECIES, i, j, k, n,
      {
