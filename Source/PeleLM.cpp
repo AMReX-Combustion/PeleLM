@@ -2382,26 +2382,25 @@ PeleLM::post_init (Real stop_time)
     return;
 
   const Real strt_time    = ParallelDescriptor::second();
-  const Real tnp1     = state[State_Type].curTime();
+  const Real tnp1         = state[State_Type].curTime();
   const int  finest_level = parent->finestLevel();
-  Real        dt_init     = 0.0;
-  Real Sbar;
+  Real dt_init  = 0.0;
+  Real dt_init2 = 0.0;
+  Real Sbar     = 0.0;
 
   Vector<Real> dt_save(finest_level+1);
   Vector<int>  nc_save(finest_level+1);
-  Real        dt_init2 = 0.0;
   Vector<Real> dt_save2(finest_level+1);
   Vector<int>  nc_save2(finest_level+1);
 
   // ensure system is solvable by creating deltaS = S - Sbar
   if (closed_chamber == 1)
   {
-
     // ensure divu is average down so computing deltaS = S - Sbar works for multilevel
-    for (int k = finest_level-1; k >= 0; k--)
+    for (int lev = finest_level-1; lev >= 0; lev--)
     {
-      PeleLM&   fine_lev = getLevel(k+1);
-      PeleLM&   crse_lev = getLevel(k);
+      PeleLM&   fine_lev = getLevel(lev+1);
+      PeleLM&   crse_lev = getLevel(lev);
 
       MultiFab& Divu_crse = crse_lev.get_new_data(Divu_Type);
       MultiFab& Divu_fine = fine_lev.get_new_data(Divu_Type);
@@ -4950,10 +4949,14 @@ PeleLM::advance (Real time,
        auto const& chi_ar      = chi.array(mfi);
        auto const& chi_inc_ar  = chi_increment.const_array(mfi);
        auto const& divu_ar     = mac_divu.array(mfi);
-       amrex::ParallelFor(gbx, [chi_ar, chi_inc_ar, divu_ar]
+       amrex::ParallelFor(gbx, [chi_ar, chi_inc_ar, divu_ar, sdc_iter]
        AMREX_GPU_DEVICE (int i, int j, int k) noexcept
        {
-          chi_ar(i,j,k) += chi_inc_ar(i,j,k);
+          if (sdc_iter == 1) {
+             chi_ar(i,j,k) = chi_inc_ar(i,j,k);
+          } else {
+             chi_ar(i,j,k) += chi_inc_ar(i,j,k);
+          }
           divu_ar(i,j,k) += chi_ar(i,j,k);
        });
     }
@@ -5348,7 +5351,6 @@ PeleLM::advance (Real time,
       //
       // Do a level project to update the pressure and velocity fields.
       //
-
       level_projector(dt,time,iteration);
 
       // restore Sbar
@@ -5829,6 +5831,7 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
   const Real  strt_time = ParallelDescriptor::second();
   const Real  prev_time = state[State_Type].prevTime();  
 
+  // For EB, we might need up to 2 more ghost cells than what EdgeState have.
   int ng = std::max(EdgeState[0]->nGrow()+2,nghost_state());
   int sComp = std::min((int)Density, std::min((int)first_spec,(int)Temp) );
   int eComp = std::max((int)Density, std::max((int)last_spec,(int)Temp) );
@@ -5995,7 +5998,7 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
     bool knownEdgeState = false;
     amrex::Gpu::DeviceVector<int> iconserv;
     iconserv.resize(1, 0);
-    iconserv[0] =  0;           // non-conservative advection for Temp
+    iconserv[0] =  (advectionType[Temp] == Conservative) ? 1 : 0;
     bool isVelocity = false;
 
     if ( use_godunov ) {
