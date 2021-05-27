@@ -117,6 +117,7 @@ Real PeleLM::p_amb_old;
 Real PeleLM::p_amb_new;
 Real PeleLM::dp0dt;
 Real PeleLM::thetabar;
+Real PeleLM::lev0cellCount = -1.0;
 Real PeleLM::dpdt_factor;
 int  PeleLM::closed_chamber;
 int  PeleLM::num_divu_iters;
@@ -2386,15 +2387,20 @@ PeleLM::post_init (Real stop_time)
   Vector<Real> dt_save2(finest_level+1);
   Vector<int>  nc_save2(finest_level+1);
 
+  if ( lev0cellCount < 0.0 ) {
+     lev0cellCount = getCellsCount();
+     Print() << " lev0cellCount beginning " << lev0cellCount << "\n";
+  }
+
   // ensure system is solvable by creating deltaS = S - Sbar
   if (closed_chamber == 1)
   {
 
     // ensure divu is average down so computing deltaS = S - Sbar works for multilevel
-    for (int k = finest_level-1; k >= 0; k--)
+    for (int lev = finest_level-1; lev >= 0; lev--)
     {
-      PeleLM&   fine_lev = getLevel(k+1);
-      PeleLM&   crse_lev = getLevel(k);
+      PeleLM&   fine_lev = getLevel(lev+1);
+      PeleLM&   crse_lev = getLevel(lev);
 
       MultiFab& Divu_crse = crse_lev.get_new_data(Divu_Type);
       MultiFab& Divu_fine = fine_lev.get_new_data(Divu_Type);
@@ -2402,17 +2408,17 @@ PeleLM::post_init (Real stop_time)
       crse_lev.average_down(Divu_fine, Divu_crse, 0, 1);
     }
 
-    // compute number of cells
-    Real num_cells = grids.numPts();
-
     // compute Sbar and subtract from S
     for (int lev = 0; lev <= finest_level; lev++)
     {
       // pointer to S
       MultiFab& divu_lev = getLevel(lev).get_new_data(Divu_Type);
-      if (lev == 0)
-      {
-        Sbar = divu_lev.sum() / num_cells;
+      if (lev == 0) {
+        // Get S sum
+        Real Ssum = getMFsum(divu_lev,0);
+
+        // Normalize by cell count / uncovered cell count if EB
+        Sbar = Ssum/lev0cellCount;
       }
       divu_lev.plus(-Sbar,0,1);
     }
@@ -2483,18 +2489,15 @@ PeleLM::post_init (Real stop_time)
         getLevel(k).calc_divu(tnp1,dt_save[k],Divu_new);
       }
 
-
       if (!hack_noavgdivu)
       {
-        for (int k = finest_level-1; k >= 0; k--)
+        for (int lev = finest_level-1; lev >= 0; lev--)
         {
-          PeleLM&   fine_lev = getLevel(k+1);
-          PeleLM&   crse_lev = getLevel(k);
-
+          PeleLM&   fine_lev = getLevel(lev+1);
+          PeleLM&   crse_lev = getLevel(lev);
           MultiFab& Divu_crse = crse_lev.get_new_data(Divu_Type);
           MultiFab& Divu_fine = fine_lev.get_new_data(Divu_Type);
-
-	  crse_lev.average_down(Divu_fine, Divu_crse, 0, 1);
+          crse_lev.average_down(Divu_fine, Divu_crse, 0, 1);
         }
       }
       //
@@ -2507,17 +2510,17 @@ PeleLM::post_init (Real stop_time)
       // ensure system is solvable by creating deltaS = S - Sbar
       if (closed_chamber == 1)
       {
-        // compute number of cells
-        Real num_cells = grids.numPts();
-
         // compute Sbar and subtract from S
         for (int lev = 0; lev <= finest_level; lev++)
         {
           // pointer to S
           MultiFab& divu_lev = getLevel(lev).get_new_data(Divu_Type);
-          if (lev == 0)
-          {
-            Sbar = divu_lev.sum() / num_cells;
+          if (lev == 0) {
+             // Get S sum
+             Real Ssum = getMFsum(divu_lev,0);
+
+             // Normalize by cell count / uncovered cell count if EB
+             Sbar = Ssum/lev0cellCount;
           }
           divu_lev.plus(-Sbar,0,1);
         }
@@ -2714,10 +2717,11 @@ PeleLM::post_init_press (Real&        dt_init,
 {
   const int  nState          = desc_lst[State_Type].nComp();
   const int  nGrow           = 0;
-  const Real tnp1        = state[State_Type].curTime();
+  const Real tnp1            = state[State_Type].curTime();
   const int  finest_level    = parent->finestLevel();
   NavierStokesBase::initial_iter = true;
-  Real Sbar_old, Sbar_new;
+  Real Sbar_old = 0.0;
+  Real Sbar_new = 0.0;
   //
   // Make space to save a copy of the initial State_Type state data
   //
@@ -2739,44 +2743,40 @@ PeleLM::post_init_press (Real&        dt_init,
     //
     // Squirrel away copy of pre-advance State_Type state
     //
-    for (int k = 0; k <= finest_level; k++)
-      MultiFab::Copy(*saved_state[k],
-                     getLevel(k).get_new_data(State_Type),
+    for (int lev = 0; lev <= finest_level; lev++) {
+      MultiFab::Copy(*saved_state[lev],
+                     getLevel(lev).get_new_data(State_Type),
                      0,
                      0,
                      nState,
                      nGrow);
+    }
 
-    for (int k = 0; k <= finest_level; k++ )
+    for (int lev = 0; lev <= finest_level; lev++ )
     {
-      getLevel(k).advance(tnp1,dt_init,1,1);
+      getLevel(lev).advance(tnp1,dt_init,1,1);
     }
     //
     // This constructs a guess at P, also sets p_old == p_new.
     //
     Vector<MultiFab*> sig(finest_level+1,nullptr);
-    for (int k = 0; k <= finest_level; k++)
+    for (int lev = 0; lev <= finest_level; lev++)
     {
-      sig[k] = &(getLevel(k).get_rho_half_time());
+      sig[lev] = &(getLevel(lev).get_rho_half_time());
     }
 
     // ensure system is solvable by creating deltaS = S - Sbar
     if (closed_chamber == 1)
     {
 
-      // compute number of cells
-      Real num_cells = grids.numPts();
-
       // ensure divu_new is average down so computing deltaS = S - Sbar works for multilevel
-      for (int k = finest_level-1; k >= 0; k--)
+      for (int lev = finest_level-1; lev >= 0; lev--)
       {
-        PeleLM&   fine_lev = getLevel(k+1);
-        PeleLM&   crse_lev = getLevel(k);
-	    
+        PeleLM&   fine_lev = getLevel(lev+1);
+        PeleLM&   crse_lev = getLevel(lev);
         MultiFab& Divu_crse = crse_lev.get_new_data(Divu_Type);
         MultiFab& Divu_fine = fine_lev.get_new_data(Divu_Type);
-
-	crse_lev.average_down(Divu_fine, Divu_crse, 0, 1);
+        crse_lev.average_down(Divu_fine, Divu_crse, 0, 1);
       }
 
       // compute Sbar and subtract from S
@@ -2784,23 +2784,25 @@ PeleLM::post_init_press (Real&        dt_init,
       {
         // pointer to S
         MultiFab& divu_lev = getLevel(lev).get_new_data(Divu_Type);
-        if (lev == 0)
-        {
-          Sbar_new = divu_lev.sum() / num_cells;
+        if (lev == 0) {
+          // Get S sum
+          Real Ssum = getMFsum(divu_lev,0);
+
+          // Normalize by cell count / uncovered cell count if EB
+          Print() << " lev0cellCount " << lev0cellCount << "\n";
+          Sbar_new = Ssum/lev0cellCount;
         }
         divu_lev.plus(-Sbar_new,0,1);
       }
-	  
+
       // ensure divu_old is average down so computing deltaS = S - Sbar works for multilevel
-      for (int k = finest_level-1; k >= 0; k--)
+      for (int lev = finest_level-1; lev >= 0; lev--)
       {
-        PeleLM&   fine_lev = getLevel(k+1);
-        PeleLM&   crse_lev = getLevel(k);
-		  
+        PeleLM&   fine_lev = getLevel(lev+1);
+        PeleLM&   crse_lev = getLevel(lev);
         MultiFab& Divu_crse = crse_lev.get_old_data(Divu_Type);
         MultiFab& Divu_fine = fine_lev.get_old_data(Divu_Type);
-
-	crse_lev.average_down(Divu_fine, Divu_crse, 0, 1);
+        crse_lev.average_down(Divu_fine, Divu_crse, 0, 1);
       }
 
       // compute Sbar and subtract from S
@@ -2808,9 +2810,12 @@ PeleLM::post_init_press (Real&        dt_init,
       {
         // pointer to S
         MultiFab& divu_lev = getLevel(lev).get_old_data(Divu_Type);
-        if (lev == 0)
-        {
-          Sbar_old = divu_lev.sum() / num_cells;
+        if (lev == 0) {
+          // Get S sum
+          Real Ssum = getMFsum(divu_lev,0);
+
+          // Normalize by cell count / uncovered cell count if EB
+          Sbar_old = Ssum/lev0cellCount;
         }
         divu_lev.plus(-Sbar_old,0,1);
       }
@@ -2822,7 +2827,7 @@ PeleLM::post_init_press (Real&        dt_init,
       projector->initialSyncProject(0,sig,parent->dtLevel(0),tnp1,
                                     havedivu);
     }
-	
+
     if (closed_chamber == 1)
     {
       // restore S_new
@@ -2841,24 +2846,24 @@ PeleLM::post_init_press (Real&        dt_init,
 
     }
 
-    for (int k = finest_level-1; k>= 0; k--)
+    for (int lev = finest_level-1; lev>= 0; lev--)
     {
-      getLevel(k).avgDown();
+      getLevel(lev).avgDown();
     }
-    for (int k = 0; k <= finest_level; k++)
+    for (int lev = 0; lev <= finest_level; lev++)
     {
       //
       // Reset state variables to initial time, but
       // do not pressure variable, only pressure time.
       //
-      getLevel(k).resetState(tnp1, dt_init, dt_init);
+      getLevel(lev).resetState(tnp1, dt_init, dt_init);
     }
     //
     // For State_Type state, restore state we saved above
     //
-    for (int k = 0; k <= finest_level; k++) {
-      MultiFab::Copy(getLevel(k).get_new_data(State_Type),
-                     *saved_state[k],
+    for (int lev = 0; lev <= finest_level; lev++) {
+      MultiFab::Copy(getLevel(lev).get_new_data(State_Type),
+                     *saved_state[lev],
                      0,
                      0,
                      nState,
@@ -2875,12 +2880,12 @@ PeleLM::post_init_press (Real&        dt_init,
   //
   // Re-instate timestep.
   //
-  for (int k = 0; k <= finest_level; k++)
+  for (int lev = 0; lev <= finest_level; lev++)
   {
-    getLevel(k).setTimeLevel(tnp1,dt_save[k],dt_save[k]);
-    if (getLevel(k).state[Press_Type].descriptor()->timeType() ==
+    getLevel(lev).setTimeLevel(tnp1,dt_save[lev],dt_save[lev]);
+    if (getLevel(lev).state[Press_Type].descriptor()->timeType() ==
         StateDescriptor::Point)
-      getLevel(k).state[Press_Type].setNewTimeLevel(tnp1+.5*dt_init);
+      getLevel(lev).state[Press_Type].setNewTimeLevel(tnp1+.5*dt_init);
   }
   parent->setDtLevel(dt_save);
   parent->setNCycle(nc_save);
@@ -5309,19 +5314,20 @@ PeleLM::advance (Real time,
    //    MultiFab::Add(get_new_data(Divu_Type),chi_increment,0,0,1,0);
 
    // subtract mean from divu
-   Real Sbar_old = 0;
-   Real Sbar_new = 0;
+   Real Sbar_old = 0.0;
+   Real Sbar_new = 0.0;
    if (closed_chamber == 1 && level == 0)
    {
       MultiFab& divu_old = get_old_data(Divu_Type);
       MultiFab& divu_new = get_new_data(Divu_Type);
 
-      // compute number of cells
-      Real num_cells = grids.numPts();
+      // Get S sums
+      Real Soldsum = getMFsum(divu_old,0);
+      Real Snewsum = getMFsum(divu_new,0);
 
-      // compute average of S at old and new times
-      Sbar_old = divu_old.sum() / num_cells;
-      Sbar_new = divu_new.sum() / num_cells;
+      // Normalize by cell count / uncovered cell count if EB
+      Sbar_old = Soldsum/lev0cellCount;
+      Sbar_new = Snewsum/lev0cellCount;
 
       // subtract mean from divu
       divu_old.plus(-Sbar_old,0,1);
@@ -5443,12 +5449,13 @@ PeleLM::adjust_p_and_divu_for_closed_chamber(MultiFab& mac_divu)
       });
    }
 
-   // compute number of cells
-   Real num_cells = grids.numPts();
+   // Get S sum and theta sum
+   Real Ssum = getMFsum(mac_divu,0);
+   Real thetasum = getMFsum(theta_halft,0);
 
-   // compute the average of mac_divu theta
-   Real Sbar = mac_divu.sum() / num_cells;
-   thetabar = theta_halft.sum() / num_cells;
+   // Normalize by cell count / uncovered cell count if EB
+   Real Sbar = Ssum/lev0cellCount;
+   thetabar  = thetasum/lev0cellCount;
 
    // subtract mean from mac_divu and theta_nph
    mac_divu.plus(-Sbar,0,1);
@@ -9254,4 +9261,119 @@ PeleLM::add_external_sources(Real /*time*/,
                              Real /*dt*/)
 {
   external_sources.setVal(0.);
+}
+
+Real
+PeleLM::getMFsum(MultiFab& a_MF,
+                 int comp)
+{
+   AMREX_ASSERT(a_MF.nComp() >= comp);
+
+#ifdef AMREX_USE_EB
+   //
+   // To get vfrac weighted sum, I need to build MF*vfrac and then do the sum
+   MultiFab MFTemp(a_MF.boxArray(),a_MF.DistributionMap(),1,0);
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+   for (MFIter mfi(a_MF,TilingIfNotGPU()); mfi.isValid(); ++mfi)
+   {
+      const Box& bx = mfi.tilebox();
+      auto const& dat = a_MF.const_array(mfi,comp);
+      auto const& temp = MFTemp.array(mfi);
+      auto const& ebfactory = dynamic_cast<EBFArrayBoxFactory const&>(Factory());
+      auto const& flagfab = ebfactory.getMultiEBCellFlagFab()[mfi];
+      auto const& flag    = flagfab.const_array();
+
+      if (flagfab.getType(bx) == FabType::covered) {              // Covered boxes
+         amrex::ParallelFor(bx, [temp]
+         AMREX_GPU_DEVICE( int i, int j, int k) noexcept
+         {
+            temp(i,j,k) = 0.0;
+         });
+      } else if (flagfab.getType(bx) == FabType::regular ) {     // Regular boxes 
+         amrex::ParallelFor(bx, [dat,temp]
+         AMREX_GPU_DEVICE( int i, int j, int k) noexcept
+         {
+            temp(i,j,k) = dat(i,j,k);
+         });
+      } else {                                                   // EB containing boxes  
+         auto vfrac = ebfactory.getVolFrac().const_array(mfi);
+         amrex::ParallelFor(bx, [dat,temp,vfrac]
+         AMREX_GPU_DEVICE( int i, int j, int k) noexcept
+         {
+            temp(i,j,k) = dat(i,j,k) * vfrac(i,j,k);
+         });
+      }
+   }
+
+   Real weighted_sum = amrex::ReduceSum(MFTemp, 0, []
+   AMREX_GPU_HOST_DEVICE (Box const& bx, Array4<Real const> const& dat ) noexcept -> Real
+   {
+      Real r = 0.0;
+      AMREX_LOOP_3D(bx,i,j,k,
+      {
+         r += dat(i,j,k);
+      });
+      return r;
+   });
+   ParallelDescriptor::ReduceRealSum(weighted_sum);
+
+   return weighted_sum;
+#else
+   Real sum = a_MF.sum(comp,false);
+   return sum;
+#endif
+}
+
+Real
+PeleLM::getCellsCount()
+{
+#ifdef AMREX_USE_EB
+   MultiFab MFTemp(grids,dmap,1,0);
+   MFTemp.setVal(1.0);
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+   for (MFIter mfi(MFTemp,TilingIfNotGPU()); mfi.isValid(); ++mfi)
+   {
+      const Box& bx = mfi.tilebox();
+      auto const& temp = MFTemp.array(mfi);
+      auto const& ebfactory = dynamic_cast<EBFArrayBoxFactory const&>(Factory());
+      auto const& flagfab = ebfactory.getMultiEBCellFlagFab()[mfi];
+      auto const& flag    = flagfab.const_array();
+
+      if (flagfab.getType(bx) == FabType::covered) {              // Covered boxes
+         amrex::ParallelFor(bx, [temp]
+         AMREX_GPU_DEVICE( int i, int j, int k) noexcept
+         {
+            temp(i,j,k) = 0.0;
+         });
+      } else if (flagfab.getType(bx) != FabType::regular ) {     // EB containing boxes
+         auto vfrac = ebfactory.getVolFrac().const_array(mfi);
+         amrex::ParallelFor(bx, [temp,vfrac]
+         AMREX_GPU_DEVICE( int i, int j, int k) noexcept
+         {
+            temp(i,j,k) *= vfrac(i,j,k);
+         });
+      }
+   }
+
+   Real count = amrex::ReduceSum(MFTemp, 0, []
+   AMREX_GPU_HOST_DEVICE (Box const& bx, Array4<Real const> const& dat ) noexcept -> Real
+   {
+      Real r = 0.0;
+      AMREX_LOOP_3D(bx,i,j,k,
+      {
+         r += dat(i,j,k);
+      });
+      return r;
+   });
+   ParallelDescriptor::ReduceRealSum(count);
+
+   return count;
+#else
+   Real count = grids.numPts();
+   return count;
+#endif
 }
