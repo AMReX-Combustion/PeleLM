@@ -2387,9 +2387,9 @@ PeleLM::post_init (Real stop_time)
   Vector<Real> dt_save2(finest_level+1);
   Vector<int>  nc_save2(finest_level+1);
 
+  // Get level 0 cells count / uncovered cells count with EB
   if ( lev0cellCount < 0.0 ) {
      lev0cellCount = getCellsCount();
-     Print() << " lev0cellCount beginning " << lev0cellCount << "\n";
   }
 
   // ensure system is solvable by creating deltaS = S - Sbar
