@@ -601,6 +601,9 @@ public:
 
   void state_stats (amrex::MultiFab& S);
 
+  amrex::Real getMFsum(amrex::MultiFab &a_MF, int comp);
+  amrex::Real getCellsCount();
+
   void zeroBoundaryVisc (amrex::MultiFab*  beta[AMREX_SPACEDIM],
                          const amrex::Real time,
                          const int  state_comp,
@@ -748,6 +751,7 @@ public:
   static amrex::Real p_amb_new;
   static amrex::Real dp0dt;
   static amrex::Real thetabar;
+  static amrex::Real lev0cellCount;
 
   static int closed_chamber;
   static amrex::Real dpdt_factor;
