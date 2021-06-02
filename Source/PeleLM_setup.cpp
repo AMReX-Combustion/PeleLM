@@ -595,17 +595,22 @@ PeleLM::variableSetUp ()
   bcs.resize(NUM_SOOT_VARS);
   name.resize(NUM_SOOT_VARS);
   set_scalar_bc(bc,phys_bc);
+  if (do_soot_solve) solve_passives = true;
   for (int i = 0; i < NUM_SOOT_VARS; i++)
   {
     bcs[i] = bc;
-    name[i] = soot_model->sootVariableName(i);
+    if (do_soot_solve)
+      name[i] = soot_model->sootVariableName(i);
+    else
+      name[i] = "fake_soot_name";
   }
   desc_lst.setComponent(State_Type,
                         first_soot,
                         name,
                         bcs,
                         pelelm_bndryfunc);
-  PeleLM::setSootIndx();
+  if (do_soot_solve)
+    PeleLM::setSootIndx();
   for (int i = first_soot; i < first_soot + NUM_SOOT_VARS; i++)
   {
     advectionType[i] = NonConservative;
@@ -868,14 +873,15 @@ PeleLM::variableSetUp ()
   std::string curv_str = "mean_progress_curvature";
   derive_lst.add(curv_str,IndexType::TheCellType(),1,&DeriveRec::GrowBoxByOne);
 #ifdef AMREX_PARTICLES
-  spraydotSetUp();
-  if (do_spray_particles)
+  if (do_spray_particles) {
+    spraydotSetUp();
     defineParticles();
+  }
 #endif
 #ifdef SOOT_MODEL
-  soot_model->define();
-  sootsrcSetUp();
-  if (add_soot_src) {
+  if (do_soot_solve) {
+    soot_model->define();
+    sootsrcSetUp();
     soot_model->addSootDerivePlotVars(derive_lst, desc_lst, Density, DEF_first_soot);
   }
 #endif
@@ -1111,19 +1117,17 @@ PeleLM::spraydotSetUp()
   pelelm_bndryfunc.setRunOnGPU(true);  // I promise the bc function will launch gpu kernels.
   BCRec bc;
   set_spraydot_bc(bc,phys_bc);
-  if (do_spray_particles) {
-    int specComp = DEF_first_spec;
-    int specEnd = DEF_first_spec + SPRAY_FUEL_NUM - 1;
-    for (int i = 0; i < num_spray_src; ++i)
-    {
-      std::string name = spraySrcName(i);
-      if (i >= specComp && i <= specEnd) {
-        desc_lst.setComponent(spraydot_Type, i, name.c_str(), bc,
-                              pelelm_bndryfunc, &cc_interp, specComp, specEnd);
-      } else {
-        desc_lst.setComponent(spraydot_Type, i, name.c_str(), bc,
-                              pelelm_bndryfunc, &cc_interp, i, i);
-      }
+  int specComp = DEF_first_spec;
+  int specEnd = DEF_first_spec + SPRAY_FUEL_NUM - 1;
+  for (int i = 0; i < num_spray_src; ++i)
+  {
+    std::string name = spraySrcName(i);
+    if (i >= specComp && i <= specEnd) {
+      desc_lst.setComponent(spraydot_Type, i, name.c_str(), bc,
+                            pelelm_bndryfunc, &cc_interp, specComp, specEnd);
+    } else {
+      desc_lst.setComponent(spraydot_Type, i, name.c_str(), bc,
+                            pelelm_bndryfunc, &cc_interp, i, i);
     }
   }
 }

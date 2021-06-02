@@ -460,7 +460,7 @@ public:
 #endif
 
 #ifdef SOOT_MODEL
-  static int add_soot_src;
+  static int do_soot_solve;
   static int plot_soot_src;
   static std::unique_ptr<SootModel> soot_model;
   static int         sootsrc_Type;
@@ -809,6 +809,7 @@ public:
   static int         have_rhort;
   static int         first_spec;
   static int         last_spec;
+  static bool        solve_passives;
   static int         first_passive;
   static amrex::Vector<std::string> spec_names;
   static int         floor_species;

@@ -84,7 +84,7 @@ PeleLM::theGhostPC()
 void
 PeleLM::particleEstTimeStep(Real& est_dt)
 {
-  if (!do_spray_particles || theSprayPC() == 0) return;
+  if (do_spray_particles != 1 || theSprayPC() == 0) return;
   BL_PROFILE("PeleLM::particleEstTimeStep()");
   Real est_dt_particle = theSprayPC()->estTimestep(level, particle_cfl);
 
@@ -107,7 +107,10 @@ PeleLM::readParticleParams()
   ParmParse pp("peleLM");
 
   pp.query("do_spray_particles", do_spray_particles);
-  if (!do_spray_particles) return;
+  if (do_spray_particles != 1) {
+    do_spray_particles = 0;
+    return;
+  }
   amrex::ParmParse ppp("particles");
   //
   // Control the verbosity of the Particle class
@@ -595,7 +598,7 @@ PeleLM::particleDerive(const std::string& name, Real time, int ngrow)
 void
 PeleLM::particle_redistribute(int lbase, bool init_part)
 {
-  if (!do_spray_particles) return;
+  if (do_spray_particles != 1) return;
   BL_PROFILE("PeleLM::particle_redistribute()");
   int flev = parent->finestLevel();
   if (theSprayPC()) {

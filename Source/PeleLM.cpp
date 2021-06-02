@@ -145,6 +145,7 @@ int  PeleLM::have_rhort;
 int  PeleLM::RhoRT;
 int  PeleLM::first_spec;
 int  PeleLM::last_spec;
+bool PeleLM::solve_passives = false;
 int  PeleLM::first_passive;
 Vector<std::string>  PeleLM::spec_names;
 int  PeleLM::floor_species;
@@ -189,7 +190,7 @@ std::unique_ptr<ProbParm> PeleLM::prob_parm;
 std::unique_ptr<ACParm> PeleLM::ac_parm;
 
 #ifdef SOOT_MODEL
-int PeleLM::add_soot_src;
+int PeleLM::do_soot_solve;
 int PeleLM::plot_soot_src;
 std::unique_ptr<SootModel> PeleLM::soot_model;
 int PeleLM::first_soot;
@@ -357,7 +358,7 @@ PeleLM::Initialize ()
 #endif
 #ifdef SOOT_MODEL
   PeleLM::sootsrc_Type              = -1;
-  PeleLM::add_soot_src              = 1;
+  PeleLM::do_soot_solve             =  1;
   PeleLM::plot_soot_src             = -1;
   PeleLM::NUM_SOOT_VARS             = -1;
   PeleLM::first_soot                = -1;
@@ -530,9 +531,11 @@ PeleLM::Initialize ()
   {
     ParmParse pplm("peleLM");
     pplm.query("plot_soot_src", plot_soot_src);
-    pplm.query("add_soot_src", add_soot_src);
+    pplm.query("do_soot_solve", do_soot_solve);
+    if (do_soot_solve != 1) do_soot_solve = 0;
   }
-  soot_model->readSootParams();
+  if (do_soot_solve)
+    soot_model->readSootParams();
 #endif
 
   if (verbose)
@@ -1653,7 +1656,7 @@ PeleLM::estTimeStep ()
      particleEstTimeStep(estdt);
 #endif
 #ifdef SOOT_MODEL
-   if (add_soot_src)
+   if (do_soot_solve)
      estSootTimeStep(estdt);
 #endif
    estdt = std::min(estdt, divu_dt);
@@ -1728,11 +1731,13 @@ PeleLM::setTimeLevel (Real time,
    state[RhoYdot_Type].setTimeLevel(time,dt_old,dt_new);
 
 #ifdef AMREX_PARTICLES
-   state[spraydot_Type].setTimeLevel(time,dt_old,dt_new);
+   if (do_spray_particles)
+     state[spraydot_Type].setTimeLevel(time,dt_old,dt_new);
 #endif
 
 #ifdef SOOT_MODEL
-   state[sootsrc_Type].setTimeLevel(time,dt_old,dt_new);
+   if (do_soot_solve)
+     state[sootsrc_Type].setTimeLevel(time,dt_old,dt_new);
 #endif
 
    state[FuncCount_Type].setTimeLevel(time,dt_old,dt_new);
@@ -2059,9 +2064,9 @@ PeleLM::initData ()
   initActiveControl();
 
 #ifdef AMREX_PARTICLES
-  defineSprayStateMF();
   if (do_spray_particles)
   {
+    defineSprayStateMF();
     if (level == 0)
       initParticles();
     else
@@ -2100,11 +2105,13 @@ PeleLM::initDataOtherTypes ()
   get_new_data(RhoYdot_Type).setVal(0);
 
 #ifdef AMREX_PARTICLES
-  get_new_data(spraydot_Type).setVal(0.);
+  if (do_spray_particles)
+    get_new_data(spraydot_Type).setVal(0.);
 #endif
 
 #ifdef SOOT_MODEL
-  get_new_data(sootsrc_Type).setVal(0.);
+  if (do_soot_solve)
+    get_new_data(sootsrc_Type).setVal(0.);
 #endif
 
   // Put something reasonable into the FuncCount variable
@@ -2224,6 +2231,7 @@ PeleLM::init (AmrLevel& old)
       });
    }
 #ifdef AMREX_PARTICLES
+   if (do_spray_particles)
    {
      const Real tnp1s = oldht->state[spraydot_Type].curTime();
      MultiFab& spraydot = get_new_data(spraydot_Type);
@@ -2249,7 +2257,7 @@ PeleLM::init (AmrLevel& old)
    }
 #endif
 #ifdef SOOT_MODEL
-   if (add_soot_src == 1) {
+   if (do_soot_solve) {
      const Real tnp1s = oldht->state[sootsrc_Type].curTime();
      MultiFab& sootsrc = get_new_data(sootsrc_Type);
      FillPatchIterator fpi(*oldht, sootsrc, sootsrc.nGrow(), tnp1s, sootsrc_Type, 0, num_soot_src);
@@ -2290,10 +2298,12 @@ PeleLM::init ()
    //
    FillCoarsePatch(get_new_data(RhoYdot_Type),0,tnp1,RhoYdot_Type,0,NUM_SPECIES);
 #ifdef AMREX_PARTICLES
-   FillCoarsePatch(get_new_data(spraydot_Type),0,tnp1,spraydot_Type,0,num_spray_src);
+   if (do_spray_particles)
+     FillCoarsePatch(get_new_data(spraydot_Type),0,tnp1,spraydot_Type,0,num_spray_src);
 #endif
 #ifdef SOOT_MODEL
-   FillCoarsePatch(get_new_data(sootsrc_Type),0,tnp1,sootsrc_Type,0,num_soot_src);
+   if (do_soot_solve)
+     FillCoarsePatch(get_new_data(sootsrc_Type),0,tnp1,sootsrc_Type,0,num_soot_src);
 #endif
    RhoH_to_Temp(get_new_data(State_Type));
    get_new_data(State_Type).setBndry(1.e30);
@@ -2381,8 +2391,8 @@ PeleLM::post_restart ()
    int step    = parent->levelSteps(0);
    int is_restart = 1;
 #ifdef AMREX_PARTICLES
-   defineSprayStateMF();
    if (do_spray_particles) {
+     defineSprayStateMF();
      particlePostRestart(parent->theRestartFile());
    }
 #endif
@@ -2441,8 +2451,8 @@ PeleLM::post_regrid (int lbase,
    }
    make_rho_curr_time();
 #ifdef AMREX_PARTICLES
-   defineSprayStateMF();
    if (do_spray_particles && theSprayPC() != 0) {
+     defineSprayStateMF();
      if (level == lbase)
        particle_redistribute(lbase);
    }
@@ -3067,10 +3077,10 @@ PeleLM::resetState (Real time,
    state[FuncCount_Type].reset();
    state[FuncCount_Type].setTimeLevel(time,dt_old,dt_new);
 #ifdef AMREX_PARTICLES
-   state[spraydot_Type].reset();
-   state[spraydot_Type].setTimeLevel(time,dt_old,dt_new);
    if (do_spray_particles)
    {
+     state[spraydot_Type].reset();
+     state[spraydot_Type].setTimeLevel(time,dt_old,dt_new);
      removeVirtualParticles();
      removeGhostParticles();
      if (level == 0) {
@@ -3087,8 +3097,10 @@ PeleLM::resetState (Real time,
    }
 #endif
 #ifdef SOOT_MODEL
-   state[sootsrc_Type].reset();
-   state[sootsrc_Type].setTimeLevel(time,dt_old,dt_new);
+   if (do_soot_solve) {
+     state[sootsrc_Type].reset();
+     state[sootsrc_Type].setTimeLevel(time,dt_old,dt_new);
+   }
 #endif
 }
 
@@ -5106,7 +5118,7 @@ PeleLM::advance (Real time,
     }
 #endif
 #ifdef SOOT_MODEL
-    if (add_soot_src == 1)
+    if (do_soot_solve)
     {
       computeSootSrc(time, dt);
       ext_src_added = true;
@@ -5219,7 +5231,7 @@ PeleLM::advance (Real time,
 
     int sComp = std::min(RhoH, std::min((int)Density, std::min((int)first_spec,(int)Temp) ) );
     int eComp = std::max(RhoH, std::max((int)Density, std::max((int)last_spec, (int)Temp) ) );
-    if (DEF_NUM_PASSIVE > 0)
+    if (DEF_NUM_PASSIVE > 0 && solve_passives)
     {
       sComp = std::min(sComp, first_passive);
       eComp = std::max(eComp, first_passive + DEF_NUM_PASSIVE - 1);
@@ -5259,7 +5271,7 @@ PeleLM::advance (Real time,
        {
           buildAdvectionForcing( i, j, k, rho, rhoY, T, dn, ddn, r, extY, extRhoH, dp0dt_d, closed_ch_d, fY, fT );
        });
-       if (DEF_NUM_PASSIVE > 0) {
+       if (DEF_NUM_PASSIVE > 0 && solve_passives) {
           auto const& ext_pass = external_sources.array(mfi,DEF_first_passive);
           auto const& fPass    = Forcing.array(mfi,NUM_SPECIES + 1);
           amrex::ParallelFor(gbx, [ext_pass, fPass]
@@ -5281,7 +5293,7 @@ PeleLM::advance (Real time,
     
     // update rho since not affected by diffusion
     scalar_advection_update(dt, Density, Density);
-    if (DEF_NUM_PASSIVE > 0) {
+    if (DEF_NUM_PASSIVE > 0 && solve_passives) {
       scalar_advection_update(dt, first_passive, first_passive + DEF_NUM_PASSIVE - 1);
     }
     make_rho_curr_time();
@@ -6093,7 +6105,7 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
   int ng = godunov_hyp_grow;
   int sComp = std::min((int)Density, std::min((int)first_spec,(int)Temp) );
   int eComp = std::max((int)Density, std::max((int)last_spec,(int)Temp) );
-  if (DEF_NUM_PASSIVE > 0)
+  if (DEF_NUM_PASSIVE > 0 && solve_passives)
   {
     sComp = std::min(sComp, first_passive);
     eComp = std::max(eComp, first_passive + DEF_NUM_PASSIVE - 1);
@@ -6168,24 +6180,40 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
                              DivU, math_bcs, d_bcrec_ptr, iconserv, geom, dt,
                              isVelocity, redistribution_type );
      }
-     EB_set_covered(*aofs, 0.);
   }
 
   // Advect passive scalars
-  if (DEF_NUM_PASSIVE > 0)
+  if (DEF_NUM_PASSIVE > 0 && solve_passives)
   {
      Vector<BCRec> math_bcs(DEF_NUM_PASSIVE);
      math_bcs = fetchBCArray(State_Type, first_passive, DEF_NUM_PASSIVE);
      BCRec  const* d_bcrec_ptr = &(m_bcrec_scalars_d.dataPtr())[first_passive-Density];
+     bool knownEdgeState = false;
+     amrex::Gpu::DeviceVector<int> iconserv;
+     iconserv.resize(DEF_NUM_PASSIVE, 0);
+     for (int comp = 0; comp < DEF_NUM_PASSIVE; ++comp)
+     {
+        iconserv[comp] = (advectionType[first_passive+comp] == Conservative) ? 1 : 0;
+     }
+     bool isVelocity = false;
 
-     MOL::ComputeAofs( *aofs, first_passive, DEF_NUM_PASSIVE, Smf, Pcomp,
-                       AMREX_D_DECL(u_mac[0],u_mac[1],u_mac[2]),
-                       AMREX_D_DECL(*EdgeState[0],*EdgeState[1],*EdgeState[2]), first_passive, false,
-                       AMREX_D_DECL(*EdgeFlux[0],*EdgeFlux[1],*EdgeFlux[2]), first_passive,
-                       math_bcs, d_bcrec_ptr, geom, dt,
-                       redistribution_type );
-     EB_set_covered(*aofs, 0.);
+     if ( use_godunov ) {
+       EBGodunov::ComputeAofs( *aofs, first_passive, DEF_NUM_PASSIVE, Smf, Pcomp,
+                               AMREX_D_DECL(u_mac[0],u_mac[1],u_mac[2]),
+                               AMREX_D_DECL(*EdgeState[0],*EdgeState[1],*EdgeState[2]), first_passive, knownEdgeState,
+                               AMREX_D_DECL(*EdgeFlux[0],*EdgeFlux[1],*EdgeFlux[2]), first_passive,
+                               Force, 0, DivU, math_bcs, d_bcrec_ptr, geom, iconserv,
+                               dt, isVelocity, redistribution_type );
+     } else {
+       EBMOL::ComputeAofs( *aofs, first_passive, DEF_NUM_PASSIVE, Smf, Pcomp,
+                           AMREX_D_DECL(u_mac[0],u_mac[1],u_mac[2]),
+                           AMREX_D_DECL(*EdgeState[0],*EdgeState[1],*EdgeState[2]), first_passive, knownEdgeState,
+                           AMREX_D_DECL(*EdgeFlux[0],*EdgeFlux[1],*EdgeFlux[2]), first_passive,
+                           DivU, math_bcs, d_bcrec_ptr, geom, iconserv, geom, dt,
+                           isVelocity, redistribution_type );
+     }
   }
+  EB_set_covered(*aofs, 0.);
 
    // Set flux, flux divergence, and face values for rho as sums of the corresponding RhoY quantities
 #ifdef _OPENMP
@@ -6384,7 +6412,7 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
     EB_set_covered_faces({AMREX_D_DECL(EdgeState[0],EdgeState[1],EdgeState[2])},Temp,1,typvals);
     EB_set_covered_faces({AMREX_D_DECL(EdgeState[0],EdgeState[1],EdgeState[2])},Density,1,typvals);
     EB_set_covered_faces({AMREX_D_DECL(EdgeState[0],EdgeState[1],EdgeState[2])},RhoH,1,typvals);
-    if (DEF_NUM_PASSIVE > 0)
+    if (DEF_NUM_PASSIVE > 0 && solve_passives)
     {
       for (int k = 0; k < DEF_NUM_PASSIVE; ++k) {
         typvals[first_passive+k] = typical_values[first_passive+k];
@@ -6486,7 +6514,7 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
 }
 
   // Advect passive scalars like soot moments
- if (DEF_NUM_PASSIVE > 0)
+ if (DEF_NUM_PASSIVE > 0 && solve_passives)
  {
    BCRec  const* d_bcrec_ptr = &(m_bcrec_scalars_d.dataPtr())[first_passive-Density];
    amrex::Gpu::DeviceVector<int> iconserv;
@@ -8681,14 +8709,19 @@ PeleLM::setPlotVariables ()
 #endif
 #ifdef SOOT_MODEL
   // Remove spray source terms unless otherwise specified
-  if (plot_soot_src == 0 && add_soot_src)
+  if (do_soot_solve)
   {
-    for (int i = 0; i < num_soot_src; i++)
+    if (plot_soot_src == 0)
     {
-      const int dcomp = AMREX_SPACEDIM + i;
-      const std::string name = "I_R_soot_" + desc_lst[State_Type].name(dcomp);
-      parent->deleteStatePlotVar(name);
+      for (int i = 0; i < num_soot_src; i++)
+      {
+        const int dcomp = AMREX_SPACEDIM + i;
+        const std::string name = "I_R_soot_" + desc_lst[State_Type].name(dcomp);
+        parent->deleteStatePlotVar(name);
+      }
     }
+  } else {
+    parent->deleteStatePlotVar("fake_soot_name");
   }
 #endif
 }
@@ -9612,7 +9645,7 @@ PeleLM::add_external_sources(Real /*time*/,
       }
 #endif
 #ifdef SOOT_MODEL
-      if (add_soot_src == 1) {
+      if (do_soot_solve) {
         auto const& sootsrc = get_new_data(sootsrc_Type).array(mfi);
         amrex::ParallelFor(box, num_soot_src,
         [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
