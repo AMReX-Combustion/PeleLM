@@ -280,7 +280,6 @@ public:
   amrex::MultiFab Sborder;
 
   static int particle_mass_tran;
-  static int particle_heat_tran;
   static int particle_mom_tran;
   static int num_spray_src;
   static amrex::Vector<std::string> sprayFuelNames;
