@@ -79,7 +79,6 @@ Then, follow these few steps to setup your run environment:
 
 3. The first time you do this, you will need to tell git that there are submodules. Git will look at the ``.gitmodules`` file in this branch and use that : ::
 
-    cd Submodules
     git submodule init 
 
 4. Finally, get the correct commits of the sub-repos set up for this branch: ::
@@ -88,7 +87,7 @@ Then, follow these few steps to setup your run environment:
 
 You are now ready to build the ``TripleFlame`` case associated with this branch. To do so: ::
 
-   cd ../Tutorials/TripleFlame
+   cd Tutorials/TripleFlame
 
 And follow the next steps !
 
