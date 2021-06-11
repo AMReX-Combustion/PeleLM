@@ -58,9 +58,23 @@ int PeleLM::num_spray_src = AMREX_SPACEDIM + 2 + SPRAY_FUEL_NUM;
 
 int PeleLM::write_spray_ascii_files = 0;
 int PeleLM::plot_spray_src = 0;
-int PeleLM::particle_mass_tran = 0;
-int PeleLM::particle_mom_tran = 0;
+int PeleLM::particle_mass_tran = 1;
+int PeleLM::particle_mom_tran = 1;
 Vector<std::string> PeleLM::sprayFuelNames;
+
+void
+getPSatCoef(Real* psat_coef,
+            ParmParse& ppp,
+            std::string fuel_name,
+            const int spf)
+{
+  std::string psat_read = fuel_name + "_psat";
+  std::vector<Real> inp_coef(4);
+  ppp.getarr(psat_read.c_str(), inp_coef);
+  for (int i = 0; i < 4; ++i) {
+    psat_coef[4 * spf + i] = inp_coef[i];
+  }
+}
 
 SprayParticleContainer*
 PeleLM::theSprayPC()
@@ -126,33 +140,36 @@ PeleLM::readParticleParams()
   if (nfuel != SPRAY_FUEL_NUM)
     amrex::Abort("Number of fuel species in input file must match SPRAY_FUEL_NUM");
 
-  sprayFuelNames.assign(nfuel, "");
-  std::vector<std::string> fuel_names;
-  std::vector<Real> crit_T;
-  std::vector<Real> boil_T;
-  std::vector<Real> spraycp;
-  std::vector<Real> latent;
-  std::vector<Real> sprayrho;
-  std::vector<Real> mu(nfuel, 0.);
-  std::vector<Real> lambda(nfuel, 0.);
-  ppp.getarr("fuel_species", fuel_names);
-  ppp.getarr("fuel_crit_temp", crit_T);
-  ppp.getarr("fuel_boil_temp", boil_T);
-  ppp.getarr("fuel_cp", spraycp);
-  ppp.getarr("fuel_latent", latent);
-  ppp.getarr("fuel_rho", sprayrho);
-  ppp.queryarr("fuel_mu", mu);
-  ppp.queryarr("fuel_lambda", lambda);
-  for (int i = 0; i < nfuel; ++i) {
-    sprayFuelNames[i] = fuel_names[i];
-    sprayData.critT[i] = crit_T[i];
-    sprayData.boilT[i] = boil_T[i];
-    sprayData.cp[i] = spraycp[i];
-    sprayData.latent[i] = latent[i];
-    sprayData.ref_latent[i] = latent[i];
-    sprayData.rho[i] = sprayrho[i];
-    sprayData.mu[i] = mu[i];
-    sprayData.lambda[i] = lambda[i];
+  if (particle_mass_tran) {
+    sprayFuelNames.assign(nfuel, "");
+    std::vector<std::string> fuel_names;
+    std::vector<Real> crit_T;
+    std::vector<Real> boil_T;
+    std::vector<Real> spraycp;
+    std::vector<Real> latent;
+    std::vector<Real> sprayrho;
+    std::vector<Real> mu(nfuel, 0.);
+    std::vector<Real> lambda(nfuel, 0.);
+    ppp.getarr("fuel_species", fuel_names);
+    ppp.getarr("fuel_crit_temp", crit_T);
+    ppp.getarr("fuel_boil_temp", boil_T);
+    ppp.getarr("fuel_cp", spraycp);
+    ppp.getarr("fuel_latent", latent);
+    ppp.getarr("fuel_rho", sprayrho);
+    ppp.queryarr("fuel_mu", mu);
+    ppp.queryarr("fuel_lambda", lambda);
+    for (int i = 0; i < nfuel; ++i) {
+      sprayFuelNames[i] = fuel_names[i];
+      sprayData.critT[i] = crit_T[i];
+      sprayData.boilT[i] = boil_T[i];
+      sprayData.cp[i] = spraycp[i];
+      sprayData.latent[i] = latent[i];
+      sprayData.ref_latent[i] = latent[i];
+      sprayData.rho[i] = sprayrho[i];
+      sprayData.mu[i] = mu[i];
+      sprayData.lambda[i] = lambda[i];
+      getPSatCoef(sprayData.psat_coef.data(), ppp, fuel_names[i], i);
+    }
   }
 
   //
