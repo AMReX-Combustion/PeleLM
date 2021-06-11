@@ -89,10 +89,11 @@ The associated user function (in pelelm_prob.H) will provide a value for each en
       amrex::Real rho_cgs, P_cgs;
       P_cgs = prob_parm.P_mean * 10.0;
 
-      EOS::PYT2R(P_cgs, massfrac, state(i,j,k,DEF_Temp), rho_cgs);
+      auto eos = pele::physics::PhysicsType::eos();
+      eos.PYT2R(P_cgs, massfrac, state(i,j,k,DEF_Temp), rho_cgs);
       state(i,j,k,Density) = rho_cgs * 1.0e3;            // CGS -> MKS conversion
 
-      EOS::TY2H(state(i,j,k,DEF_Temp), massfrac, state(i,j,k,DEF_RhoH));
+      eos.TY2H(state(i,j,k,DEF_Temp), massfrac, state(i,j,k,DEF_RhoH));
       state(i,j,k,DEF_RhoH) = state(i,j,k,DEF_RhoH) * 1.0e-4 * state(i,j,k,Density);   // CGS -> MKS conversion
 
       for (int n = 0; n < NUM_SPECIES; n++) {
@@ -106,7 +107,7 @@ Note that the conserved states are stored for species and
 enthalpy (i.e., :math:`\rho Y_i` and :math:`\rho h`); these are the variables that the user must fill
 in the initial and boundary condition routines.  Typically, however, the primitive state
 (i.e., :math:`Y_i` and :math:`T`) is known directly.  If that is the case, the user can make use of
-the compiled-in model-specific equation-of-state routines (``EOS::``) to translate primitive to conserved state
+the compiled-in model-specific equation-of-state routines (``eos.``) to translate primitive to conserved state
 values. Consult the example setups provided to see how to call these routines, and how to load the
 final values required for initial data.
 
@@ -167,15 +168,16 @@ is presented here:
        for (int n = 0; n < NUM_SPECIES; n++){
          molefrac[n] = pmf_vals[3 + n];
        }
-       EOS::X2Y(molefrac, massfrac);
+       auto eos = pele::physics::PhysicsType::eos();
+       eos.X2Y(molefrac, massfrac);
    
        amrex::Real rho_cgs, P_cgs, RhoH_temp;
        P_cgs = prob_parm.P_mean * 10.0;
    
-       EOS::PYT2R(P_cgs, massfrac, s_ext[DEF_Temp], rho_cgs);
+       eos.PYT2R(P_cgs, massfrac, s_ext[DEF_Temp], rho_cgs);
        s_ext[Density] = rho_cgs * 1.0e3;
 
-       EOS::TY2H(s_ext[DEF_Temp], massfrac, RhoH_temp);
+       eos.TY2H(s_ext[DEF_Temp], massfrac, RhoH_temp);
        s_ext[DEF_RhoH] = RhoH_temp * 1.0e-4 * s_ext[Density];   // CGS -> MKS conversion
    
        for (int n = 0; n < NUM_SPECIES; n++) {
