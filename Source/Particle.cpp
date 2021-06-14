@@ -140,16 +140,16 @@ PeleLM::readParticleParams()
   if (nfuel != SPRAY_FUEL_NUM)
     amrex::Abort("Number of fuel species in input file must match SPRAY_FUEL_NUM");
 
+  std::vector<std::string> fuel_names;
+  std::vector<Real> crit_T;
+  std::vector<Real> boil_T;
+  std::vector<Real> spraycp;
+  std::vector<Real> latent;
+  std::vector<Real> sprayrho;
+  std::vector<Real> mu(nfuel, 0.);
+  std::vector<Real> lambda(nfuel, 0.);
   if (particle_mass_tran) {
     sprayFuelNames.assign(nfuel, "");
-    std::vector<std::string> fuel_names;
-    std::vector<Real> crit_T;
-    std::vector<Real> boil_T;
-    std::vector<Real> spraycp;
-    std::vector<Real> latent;
-    std::vector<Real> sprayrho;
-    std::vector<Real> mu(nfuel, 0.);
-    std::vector<Real> lambda(nfuel, 0.);
     ppp.getarr("fuel_species", fuel_names);
     ppp.getarr("fuel_crit_temp", crit_T);
     ppp.getarr("fuel_boil_temp", boil_T);
