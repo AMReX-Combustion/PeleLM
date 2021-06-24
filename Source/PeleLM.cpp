@@ -2794,7 +2794,6 @@ PeleLM::post_init_press (Real&        dt_init,
           Real Ssum = getMFsum(divu_lev,0);
 
           // Normalize by cell count / uncovered cell count if EB
-          Print() << " lev0cellCount " << lev0cellCount << "\n";
           Sbar_new = Ssum/lev0cellCount;
         }
         divu_lev.plus(-Sbar_new,0,1);
