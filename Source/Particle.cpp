@@ -69,8 +69,8 @@ getPSatCoef(Real* psat_coef,
             const int spf)
 {
   std::string psat_read = fuel_name + "_psat";
-  std::vector<Real> inp_coef(4);
-  ppp.getarr(psat_read.c_str(), inp_coef);
+  std::vector<Real> inp_coef(4, 0.);
+  ppp.queryarr(psat_read.c_str(), inp_coef);
   for (int i = 0; i < 4; ++i) {
     psat_coef[4 * spf + i] = inp_coef[i];
   }
