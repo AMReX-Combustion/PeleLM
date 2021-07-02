@@ -5826,8 +5826,8 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
                                                         const MultiFab& DivU,
                                                         Real            dt)
 {
-
   BL_PROFILE("PLM::comp_sc_adv_fluxes_and_div()");
+
   //
   // Compute -Div(advective fluxes)  [ which is -aofs in NS, BTW ... careful...
   //
@@ -5836,13 +5836,11 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
   const Real  strt_time = ParallelDescriptor::second();
   const Real  prev_time = state[State_Type].prevTime();  
 
-  // For EB, we might need up to 2 more ghost cells than what EdgeState have.
-  int ng = std::max(EdgeState[0]->nGrow()+2,nghost_state());
   int sComp = std::min((int)Density, std::min((int)first_spec,(int)Temp) );
   int eComp = std::max((int)Density, std::max((int)last_spec,(int)Temp) );
   int nComp = eComp - sComp + 1;
 
-  FillPatchIterator S_fpi(*this,get_old_data(State_Type),ng,prev_time,State_Type,sComp,nComp);
+  FillPatchIterator S_fpi(*this,get_old_data(State_Type),nghost_state(),prev_time,State_Type,sComp,nComp);
   MultiFab& Smf=S_fpi.get_mf();
   
   int rhoYcomp = first_spec - sComp;
