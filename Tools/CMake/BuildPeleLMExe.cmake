@@ -113,7 +113,6 @@ function(build_pelelm_exe pelelm_exe_name)
        ${SRC_DIR}/PeleLM_derive.cpp
        ${SRC_DIR}/PeleLM_parm.H
        ${SRC_DIR}/PeleLM_setup.cpp
-       ${SRC_DIR}/Prob_F.H
   )
 
   target_sources(${pelelm_exe_name}
