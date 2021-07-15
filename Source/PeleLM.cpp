@@ -536,6 +536,20 @@ PeleLM::Initialize ()
     }
 
     amrex::Print() << "\n... done dumping ParmParse table.\n" << '\n';
+
+    const char* githash1 = buildInfoGetGitHash(1);
+    const char* githash2 = buildInfoGetGitHash(2);
+    const char* githash3 = buildInfoGetGitHash(3);
+    const char* githash4 = buildInfoGetGitHash(4);
+    const char* githash5 = buildInfoGetGitHash(5);
+    amrex::Print() << " ############### Build infos ###############\n";
+    amrex::Print() << " PeleLM      git hash: " << githash1 << "\n";
+    amrex::Print() << " AMReX       git hash: " << githash2 << "\n";
+    amrex::Print() << " IAMR        git hash: " << githash3 << "\n";
+    amrex::Print() << " AMReX-Hydro git hash: " << githash4 << "\n";
+    amrex::Print() << " PelePhysics git hash: " << githash5 << "\n";
+    amrex::Print() << " ###########################################\n\n";
+
   }
 
   amrex::ExecOnFinalize(PeleLM::Finalize);
@@ -8580,6 +8594,7 @@ PeleLM::writePlotFile (const std::string& dir,
     const char* githash2 = buildInfoGetGitHash(2);
     const char* githash3 = buildInfoGetGitHash(3);
     const char* githash4 = buildInfoGetGitHash(4);
+    const char* githash5 = buildInfoGetGitHash(5);
     if (strlen(githash1) > 0) {
       jobInfoFile << "PeleLM git hash: " << githash1 << "\n";
     }
@@ -8590,7 +8605,10 @@ PeleLM::writePlotFile (const std::string& dir,
       jobInfoFile << "IAMR   git hash: " << githash3 << "\n";
     }
     if (strlen(githash4) > 0) {
-      jobInfoFile << "PelePhysics git hash: " << githash4 << "\n";
+      jobInfoFile << "AMReX-Hydro git hash: " << githash4 << "\n";
+    }
+    if (strlen(githash4) > 0) {
+      jobInfoFile << "PelePhysics git hash: " << githash5 << "\n";
     }
 
     jobInfoFile << "\n\n";
