@@ -1473,9 +1473,9 @@ PeleLM::set_typical_values(bool is_restart)
     amrex::Print() << "\tTemp:    " << typical_values[Temp]    << '\n';
     amrex::Print() << "\tRhoH:    " << typical_values[RhoH]    << '\n';
     for (int i=0; i<NUM_SPECIES; ++i)
-      {
+    {
         amrex::Print() << "\tY_" << spec_names[i] << ": " << typical_values[first_spec+i] <<'\n';
-      }
+    }
 
 #ifdef USE_SUNDIALS_PP
     if (use_typ_vals_chem) {
@@ -1485,22 +1485,21 @@ PeleLM::set_typical_values(bool is_restart)
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif  
       {
-      Vector<Real> typical_values_chem;
-      typical_values_chem.resize(NUM_SPECIES+1);
-      for (int i=0; i<NUM_SPECIES; ++i) {
-	      typical_values_chem[i] = typical_values[first_spec+i] * typical_values[Density];
+         Vector<Real> typical_values_chem;
+         typical_values_chem.resize(NUM_SPECIES+1);
+         for (int i=0; i<NUM_SPECIES; ++i) {
+	         typical_values_chem[i] = typical_values[first_spec+i] * typical_values[Density];
+         }
+         typical_values_chem[NUM_SPECIES] = typical_values[Temp];
+         SetTypValsODE(typical_values_chem);
+         ReSetTolODE();
       }
-      typical_values_chem[NUM_SPECIES] = typical_values[Temp];
-      SetTypValsODE(typical_values_chem);
-      ReSetTolODE();
 #else
       // TODO: set this option back on in PP
       amrex::Print() << "Using typical values for the absolute tolerances of the ode solver not available on GPU right now\n";
 #endif  
-      }
-    }  
+    }
 #endif
-
   }
 }
 
