@@ -37,7 +37,7 @@
 
 #include <PeleLM_derive.H>
 #include <IndexDefines.H>
-#include <reactor.h>
+#include <reactor.H>
 
 using namespace amrex;
 

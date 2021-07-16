@@ -46,7 +46,7 @@
 #include <AMReX_AmrData.H>
 #endif
 
-#include <reactor.h>
+#include <reactor.H>
 #ifdef AMREX_USE_GPU
 #ifdef USE_SUNDIALS_PP
 #include <AMReX_SUNMemory.H>
@@ -5729,15 +5729,15 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
         BL_PROFILE_VAR("React()", ReactInLoop);
         Real dt_incr     = dt;
         Real time_chem   = 0;
+        int reactor_type = 2;
 #ifndef AMREX_USE_GPU
         /* Solve */
         int tmp_fctCn;
-        tmp_fctCn = react(bx, rhoY, frc_rhoY, temp, rhoH, frc_rhoH, fcl, mask,
-                          dt_incr, time_chem);
+        tmp_fctCn = react(bx, rhoY, frc_rhoY, temp, rhoH, frc_rhoH, fcl,
+                          mask, dt_incr, time_chem, reactor_type);
         dt_incr   = dt;
         time_chem = 0;
 #else
-        int reactor_type = 2;
         int tmp_fctCn;
         tmp_fctCn = react(bx, rhoY, frc_rhoY, temp, rhoH, frc_rhoH, fcl, mask, 
                           dt_incr, time_chem, reactor_type, amrex::Gpu::gpuStream());
