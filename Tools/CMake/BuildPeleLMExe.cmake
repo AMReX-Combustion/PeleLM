@@ -103,7 +103,7 @@ function(build_pelelm_exe pelelm_exe_name)
       endif()
     endif()
     if(PELELM_ENABLE_CUDA)
-      target_link_libraries(${pelelm_exe_name} PRIVATE sundials_nveccuda
+      target_link_libraries(${pelelm_exe_name} PRIVATE sundials_nveccuda)
       target_sources(${pelelm_exe_name} PRIVATE ${PELE_PHYSICS_SRC_DIR}/Reactions/AMReX_SUNMemory.cpp
                                                 ${PELE_PHYSICS_SRC_DIR}/Reactions/AMReX_SUNMemory.H)
     endif()
