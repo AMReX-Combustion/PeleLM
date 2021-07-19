@@ -2,6 +2,7 @@
 set(PELELM_EOS_MODEL Fuego)
 set(PELELM_CHEMISTRY_MODEL LiDryer)
 set(PELELM_TRANSPORT_MODEL Simple)
+set(PELELM_REACTOR_MODEL cvode)
 
 #Generic stuff for every executable
 get_filename_component(DIR_NAME ${CMAKE_CURRENT_SOURCE_DIR} NAME)
