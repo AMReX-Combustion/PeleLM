@@ -592,8 +592,10 @@ public:
   amrex::MultiFab**  EdgeFlux;
   amrex::MultiFab**  SpecDiffusionFluxn;
   amrex::MultiFab**  SpecDiffusionFluxnp1;
-
   amrex::MultiFab**  SpecDiffusionFluxWbar;
+
+  void dumpChemData();
+  amrex::MultiFab    ChemForcing;
 
   static bool                     plot_reactions;
   static bool                     plot_consumption;

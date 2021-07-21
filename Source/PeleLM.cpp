@@ -964,6 +964,7 @@ PeleLM::PeleLM ()
    if (use_wbar) {
       SpecDiffusionFluxWbar  = 0;
    }
+   ChemForcing            = 0;
 }
 
 PeleLM::PeleLM (Amr&            papa,
@@ -1061,6 +1062,10 @@ PeleLM::define_data ()
    // HACK for debugging
    if (level==0)
       stripBox = getStrip(geom);
+
+   // Make chem. forcing a class data to ba able to write the entire hierarchy.
+   ChemForcing.define(grids, dmap, NUM_SPECIES+1, 0, amrex::MFInfo(), Factory());
+   ChemForcing.setVal(0.0);
 }
 
 void
@@ -2252,6 +2257,80 @@ PeleLM::post_timestep (int crse_iteration)
       clev.average_down(Ydot_fine, Ydot_crse, 0, Ndiag);
     }
   }
+
+  // Write to disk the old state and chemforcing
+  if ( level == 0) {
+     dumpChemData();
+     Abort();
+  }
+}
+
+namespace { const std::string level_prefix{"Level_"}; }
+
+void
+PeleLM::dumpChemData()
+{
+   // At each level we dump the old state (from the latest subcycled time-step)
+   // and chemistry forcing term
+
+   std::string chemfilebase = "chemicalData";
+   const std::string& chemfilename = amrex::Concatenate(chemfilebase, parent->levelSteps(0));
+
+   amrex::PreBuildDirectorHierarchy(chemfilename, level_prefix, parent->finestLevel() + 1, true); 
+
+   // Write header
+   if(ParallelDescriptor::IOProcessor())
+   {
+      std::string HeaderFileName(chemfilename + "/Header");
+      VisMF::IO_Buffer io_buffer(VisMF::IO_Buffer_Size);
+      std::ofstream HeaderFile;
+
+      HeaderFile.rdbuf()->pubsetbuf(io_buffer.dataPtr(), io_buffer.size());
+
+      HeaderFile.open(HeaderFileName.c_str(),
+                      std::ofstream::out | std::ofstream::trunc | std::ofstream::binary);
+
+      if(!HeaderFile.good()) {
+         amrex::FileOpenFailed(HeaderFileName);
+      }
+
+      HeaderFile.precision(17);
+      HeaderFile << "HyperCLaw-V1.1\n";
+
+      // Finest level
+      HeaderFile << parent->finestLevel() << "\n";
+
+      // Coarse time step size
+      HeaderFile << crse_dt << "\n";
+
+      // Geometry
+      for(int i = 0; i < AMREX_SPACEDIM; ++i) {
+          HeaderFile << parent->Geom(0).ProbLo(i) << ' ';
+      }   
+      HeaderFile << '\n';
+
+      for(int i = 0; i < AMREX_SPACEDIM; ++i)
+          HeaderFile << parent->Geom(0).ProbHi(i) << ' ';
+      HeaderFile << '\n';
+
+      // Domain box
+      HeaderFile << parent->Geom(0).Domain() << "\n";
+
+      // BoxArrays
+      for(int lev = 0; lev <= parent->finestLevel(); ++lev) {
+         getLevel(lev).grids.writeOn(HeaderFile);
+         HeaderFile << '\n';
+      }
+   }
+
+   // Data
+   for(int lev = 0; lev <= parent->finestLevel(); ++lev) {
+      VisMF::Write(getLevel(lev).get_old_data(State_Type),
+                   amrex::MultiFabFileFullPrefix(lev, chemfilename, level_prefix, "OldState"));
+      VisMF::Write(getLevel(lev).ChemForcing,
+                   amrex::MultiFabFileFullPrefix(lev, chemfilename, level_prefix, "ChemForcing"));
+   }
+
 }
 
 void
@@ -5158,6 +5237,9 @@ PeleLM::advance (Real time,
     showMF("mysdc",Forcing,"sdc_F_befAdvChem",level,sdc_iter,parent->levelSteps(level));
     showMF("mysdc",S_old,"sdc_Sold_befAdvChem",level,sdc_iter,parent->levelSteps(level));
     showMF("mysdc",S_new,"sdc_Snew_befAdvChem",level,sdc_iter,parent->levelSteps(level));
+
+    // Copy the forcing into ChemForcing
+    MultiFab::Copy(ChemForcing,Forcing,0,0,NUM_SPECIES+1,0);
 
     advance_chemistry(S_old,S_new,dt,Forcing);
 
