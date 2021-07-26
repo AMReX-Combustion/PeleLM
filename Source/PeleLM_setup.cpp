@@ -598,18 +598,14 @@ PeleLM::variableSetUp ()
   for (int i = 0; i < NUM_SOOT_VARS; i++)
   {
     bcs[i] = bc;
-    if (do_soot_solve)
-      name[i] = soot_model->sootVariableName(i);
-    else
-      name[i] = "fake_soot_name";
+    name[i] = soot_model->sootVariableName(i);
   }
   desc_lst.setComponent(State_Type,
                         first_soot,
                         name,
                         bcs,
                         pelelm_bndryfunc);
-  if (do_soot_solve)
-    PeleLM::setSootIndx();
+  PeleLM::setSootIndx();
   for (int i = first_soot; i < first_soot + NUM_SOOT_VARS; i++)
   {
     advectionType[i] = NonConservative;
@@ -878,9 +874,9 @@ PeleLM::variableSetUp ()
   }
 #endif
 #ifdef SOOT_MODEL
+  soot_model->define();
+  sootsrcSetUp();
   if (do_soot_solve) {
-    soot_model->define();
-    sootsrcSetUp();
     soot_model->addSootDerivePlotVars(derive_lst, desc_lst, Density, DEF_first_soot);
   }
 #endif

@@ -534,8 +534,7 @@ PeleLM::Initialize ()
     pplm.query("do_soot_solve", do_soot_solve);
     if (do_soot_solve != 1) do_soot_solve = 0;
   }
-  if (do_soot_solve)
-    soot_model->readSootParams();
+  soot_model->readSootParams();
 #endif
 
   if (verbose)
@@ -8743,7 +8742,11 @@ PeleLM::setPlotVariables ()
       }
     }
   } else {
-    parent->deleteStatePlotVar("fake_soot_name");
+    for (int i = 0; i < NUM_SOOT_VARS; i++)
+    {
+      const int dcomp = first_soot + i;
+      parent->deleteStatePlotVar(desc_lst[State_Type].name(dcomp));
+    }
   }
 #endif
 }
