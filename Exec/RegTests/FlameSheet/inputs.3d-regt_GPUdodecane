@@ -13,16 +13,16 @@ peleLM.hi_bc = Interior  Interior Outflow
 #-------------------------AMR CONTROL----------------------------
 amr.n_cell          = 32 32 64         # Level 0 number of cells in each direction   
 amr.v               = 1                # AMR verbose
-amr.max_level       = 0                # maximum level number allowed
+amr.max_level       = 1                # maximum level number allowed
 amr.ref_ratio       = 2 2 2 2          # refinement ratio
 amr.regrid_int      = 2                # how often to regrid
-amr.n_error_buf     = 1 1 2 2          # number of buffer cells in error est
+amr.n_error_buf     = 2 2 2 2          # number of buffer cells in error est
 amr.grid_eff        = 0.7              # what constitutes an efficient grid
 amr.blocking_factor = 16               # block factor in grid generation (min box size)
 amr.max_grid_size   = 64               # max box size
 
 #----------------------TIME STEPING CONTROL----------------------
-max_step            = 1               # maximum number of time steps    
+max_step            = 5               # maximum number of time steps    
 stop_time           = 0.04             # final physical time
 ns.cfl              = 0.3              # cfl number for hyperbolic system
 ns.init_shrink      = 0.0001           # scale back initial timestep
@@ -47,7 +47,7 @@ prob.pmf_datafile = "dodecaneWang_pmf.dat"
 #--------------------REFINEMENT CONTROL------------------------
 amr.refinement_indicators = flame_tracer 
 amr.flame_tracer.max_level     = 3
-amr.flame_tracer.value_greater = 1.e-6
+amr.flame_tracer.value_greater = 1.e-4
 amr.flame_tracer.field_name    = Y(H)
 
 # Refinement according to temperature and gradient of temperature
@@ -73,13 +73,13 @@ ns.gravity           = 0               # body force  (gravity in MKS units)
 peleLM.mixtureFraction.format = Cantera
 peleLM.mixtureFraction.type   = mole
 peleLM.mixtureFraction.oxidTank = O2:0.21 N2:0.79
-peleLM.mixtureFraction.fuelTank = CH4:0.0414 H2:0.0412
+peleLM.mixtureFraction.fuelTank = NC12H26:1.0
 
 #--------------------NUMERICS CONTROL------------------------
-ns.init_iter         = 0               # Number of initial iterations to def pressure
-ns.num_divu_iters    = 0               # Number of DivU iteration at initialization
-ns.sdc_iterMAX       = 2               # Number of SDC iterations
-ns.num_mac_sync_iter = 2               # Number of mac_sync iterations
+ns.init_iter         = 3               # Number of initial iterations to def pressure
+ns.num_divu_iters    = 1               # Number of DivU iteration at initialization
+ns.sdc_iterMAX       = 1               # Number of SDC iterations
+ns.num_mac_sync_iter = 1               # Number of mac_sync iterations
 
 # ------------------  INPUTS TO CVODE CHEMISTRY ----------------------
 #peleLM.use_typ_vals_chem = 1          # Use species/temp typical values in CVODE   
@@ -129,9 +129,9 @@ diffuse.tensor_max_order = 4
 diffuse.v                = 0
 
 # ------------------  INPUTS TO PROJECTION CLASS -------------------
-proj.proj_tol            = 1.0e-12     # tolerence for projections
-proj.proj_abs_tol        = 1.0e-12 
-proj.sync_tol            = 1.0e-12     # tolerence for projections
+proj.proj_tol            = 1.0e-11     # tolerence for projections
+proj.proj_abs_tol        = 1.0e-11 
+proj.sync_tol            = 1.0e-11     # tolerence for projections
 proj.rho_wgt_vel_proj    = 0           # 0 => const den proj, 1 => rho weighted
 proj.do_outflow_bcs      = 0
 proj.divu_minus_s_factor = .5
@@ -141,9 +141,9 @@ nodal_proj.verbose       = 0
 proj.v                   = 0
 
 # ------------------  INPUTS TO MACPROJ CLASS -------------------
-mac.mac_tol              = 1.0e-12     # tolerence for mac projections
-mac.mac_sync_tol         = 1.0e-12     # tolerence for mac SYNC projection
-mac.mac_abs_tol          = 1.0e-12
+mac.mac_tol              = 1.0e-11     # tolerence for mac projections
+mac.mac_sync_tol         = 1.0e-11     # tolerence for mac SYNC projection
+mac.mac_abs_tol          = 1.0e-11
 mac.do_outflow_bcs       = 0
 mac.v                    = 0
 
