@@ -74,6 +74,7 @@ peleLM.mixtureFraction.format = Cantera
 peleLM.mixtureFraction.type   = mole
 peleLM.mixtureFraction.oxidTank = O2:0.21 N2:0.79
 peleLM.mixtureFraction.fuelTank = NC12H26:1.0
+peleLM.deltaT_crashOnConvFail = 0
 
 #--------------------NUMERICS CONTROL------------------------
 ns.init_iter         = 3               # Number of initial iterations to def pressure
@@ -151,6 +152,7 @@ mac.v                    = 0
 #fabarray.mfiter_tile_size = 8 8 8
 
 #--------------------------DEBUG/REGTESTS INPUTS-----------------------------
+amrex.abort_on_out_of_gpu_memory = 1
 #amrex.regtest_reduction=1
 #amrex.fpe_trap_invalid = 1
 #amrex.fpe_trap_zero = 1
