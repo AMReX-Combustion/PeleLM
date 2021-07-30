@@ -351,6 +351,7 @@ static std::string oxidizerName     = "O2";
 //
 #ifdef AMREX_USE_EB  
   static auto& cc_interp = eb_cell_cons_interp;
+  static auto& cc_interp_der = eb_cell_cons_interp;
 #else
   static auto& cc_interp = mf_cell_cons_interp;
   static auto& cc_interp_der = cell_cons_interp;
