@@ -40,14 +40,14 @@ amr.grid_log            = grdlog       # name of grid logging file
 
 #----------------------- PROBLEM PARAMETERS---------------------
 prob.P_mean = 101325.0
-prob.standoff = -.032
+prob.standoff = -.009
 prob.pertmag = 0.0004
-prob.pmf_datafile = "dodecaneWang_pmf.dat"
+prob.pmf_datafile = "heptaneLu_pmf.dat"
 
 #--------------------REFINEMENT CONTROL------------------------
 amr.refinement_indicators = flame_tracer 
 amr.flame_tracer.max_level     = 3
-amr.flame_tracer.value_greater = 1.e-4
+amr.flame_tracer.value_greater = 2.e-5
 amr.flame_tracer.field_name    = Y(H)
 
 # Refinement according to temperature and gradient of temperature
@@ -66,14 +66,14 @@ amr.flame_tracer.field_name    = Y(H)
 #amr.magvort.vorticity_greater = 300
 
 #---------------------PHYSICS CONTROL------------------------
-ns.fuelName          = NC12H26         # Fuel species name
+ns.fuelName          = NC7H16          # Fuel species name
 ns.unity_Le          = 0               # Use unity Le number transport ?
 ns.hack_nochem       = 0               # Bypass chemistry ? 0: no, 1: yes
 ns.gravity           = 0               # body force  (gravity in MKS units)
 peleLM.mixtureFraction.format = Cantera
 peleLM.mixtureFraction.type   = mole
 peleLM.mixtureFraction.oxidTank = O2:0.21 N2:0.79
-peleLM.mixtureFraction.fuelTank = NC12H26:1.0
+peleLM.mixtureFraction.fuelTank = NC7H16:1.0
 peleLM.deltaT_crashOnConvFail = 0
 
 #--------------------NUMERICS CONTROL------------------------
