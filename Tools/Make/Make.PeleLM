@@ -45,22 +45,21 @@ Blocs             += $(EOS_HOME)
 
 # Reactions
 REACTIONS_HOME = $(PELE_PHYSICS_HOME)/Reactions
-EXTERN_CORE       += $(REACTIONS_HOME)
-INCLUDE_LOCATIONS += $(REACTIONS_HOME)
-VPATH_LOCATIONS   += $(REACTIONS_HOME)
-Bpack += $(REACTIONS_HOME)/Make.package
-Blocs += $(REACTIONS_HOME)
 ifeq ($(Reactor_dir), arkode)
     USE_SUNDIALS_PP = TRUE
     USE_ARKODE_PP = TRUE
     Bpack += $(REACTIONS_HOME)/$(Reactor_dir)/Make.package
     Blocs += $(REACTIONS_HOME)/$(Reactor_dir)
+    Bpack += $(REACTIONS_HOME)/Make.package
+    Blocs += $(REACTIONS_HOME)
 endif
 ifeq ($(Reactor_dir), cvode)
     USE_SUNDIALS_PP = TRUE
     USE_CVODE_PP = TRUE
     Bpack += $(REACTIONS_HOME)/$(Reactor_dir)/Make.package
     Blocs += $(REACTIONS_HOME)/$(Reactor_dir)
+    Bpack += $(REACTIONS_HOME)/Make.package
+    Blocs += $(REACTIONS_HOME)
 endif
 ifeq ($(Reactor_dir), null)
     Bpack += $(REACTIONS_HOME)/$(Reactor_dir)/Make.package
