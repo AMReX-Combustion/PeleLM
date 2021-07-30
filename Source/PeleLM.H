@@ -683,7 +683,6 @@ public:
   static int         hack_nospecdiff;
   static int         hack_noavgdivu;
   static amrex::Real trac_diff_coef;
-  static int         use_tranlib;
   static std::string turbFile;
   static std::string fuelName;
   static std::string productName;
