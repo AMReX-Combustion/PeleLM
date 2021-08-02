@@ -200,7 +200,6 @@ function(build_pelelm_exe pelelm_exe_name)
     target_sources(${pelelm_exe_name}
        PRIVATE
          ${AMREX_HYDRO_SRC_DIR}/Redistribution/hydro_create_itracker_${PELELM_DIM}d.cpp
-         ${AMREX_HYDRO_SRC_DIR}/Redistribution/hydro_merge_redistribute.cpp
          ${AMREX_HYDRO_SRC_DIR}/Redistribution/hydro_redistribution.H
          ${AMREX_HYDRO_SRC_DIR}/Redistribution/hydro_redistribution.cpp
          ${AMREX_HYDRO_SRC_DIR}/Redistribution/hydro_state_redistribute.cpp
