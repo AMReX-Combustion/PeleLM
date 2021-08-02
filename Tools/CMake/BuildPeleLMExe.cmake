@@ -204,6 +204,7 @@ function(build_pelelm_exe pelelm_exe_name)
          ${AMREX_HYDRO_SRC_DIR}/Redistribution/hydro_redistribution.H
          ${AMREX_HYDRO_SRC_DIR}/Redistribution/hydro_redistribution.cpp
          ${AMREX_HYDRO_SRC_DIR}/Redistribution/hydro_state_redistribute.cpp
+         ${AMREX_HYDRO_SRC_DIR}/Redistribution/hydro_state_utils.cpp
 
          ${AMREX_HYDRO_SRC_DIR}/EBGodunov/hydro_ebgodunov.H
          ${AMREX_HYDRO_SRC_DIR}/EBGodunov/hydro_ebgodunov.cpp
