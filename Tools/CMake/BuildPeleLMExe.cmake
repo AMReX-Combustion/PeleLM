@@ -194,6 +194,7 @@ function(build_pelelm_exe pelelm_exe_name)
        ${AMREX_HYDRO_SRC_DIR}/Utils/hydro_constants.H
        ${AMREX_HYDRO_SRC_DIR}/Utils/hydro_compute_fluxes_from_state.cpp
        ${AMREX_HYDRO_SRC_DIR}/Utils/hydro_bcs_K.H
+       ${AMREX_HYDRO_SRC_DIR}/Utils/hydro_create_umac_grown.cpp
   )
 
   if(PELELM_ENABLE_AMREX_EB)
