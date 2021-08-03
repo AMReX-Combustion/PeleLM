@@ -124,6 +124,7 @@ Real PeleLM::lev0cellCount = -1.0;
 Real PeleLM::dpdt_factor;
 int  PeleLM::closed_chamber;
 int  PeleLM::num_divu_iters;
+int  PeleLM::nSpecGroup = NUM_SPECIES;
 int  PeleLM::init_once_done;
 int  PeleLM::do_OT_radiation;
 int  PeleLM::do_heat_sink;
@@ -568,6 +569,9 @@ PeleLM::Initialize_specific ()
     forkjoin_verbose        = false;
   
     ParmParse pplm("peleLM");
+
+    // Number of species in group for multi-component solves
+    pplm.query("speciesGroupSize",nSpecGroup);
     
     pplm.query("num_forkjoin_tasks",num_forkjoin_tasks);
     pplm.query("forkjoin_verbose",forkjoin_verbose);
@@ -3502,21 +3506,15 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
    const Vector<BCRec>& theBCs = AmrLevel::desc_lst[State_Type].getBCs();
 
    MultiFab *delta_rhs = &Force;
-   const int rhsComp = FComp;
 
    const MultiFab *alpha = 0;
-   const int alphaComp = 0, fluxComp = 0;
+   const int alphaComp = 0;
 
    FluxBoxes fb_dnp1;
    MultiFab **betan = 0; // not needed
    MultiFab **betanp1 = fb_dnp1.define(this,NUM_SPECIES+1);
    getDiffusivity(betanp1, curr_time, first_spec, 0, NUM_SPECIES); // species (rhoD)
    getDiffusivity(betanp1, curr_time, Temp, NUM_SPECIES, 1); // temperature (lambda)
-
-   Vector<int> diffuse_comp(NUM_SPECIES+1);
-   for (int icomp=0; icomp<NUM_SPECIES+1; ++icomp) {
-     diffuse_comp[icomp] = is_diffusive[first_spec + icomp];
-   }
 
    const int rho_flag = Diffusion::set_rho_flag(diffusionType[first_spec]);
    const BCRec& bc = theBCs[first_spec];
@@ -3530,24 +3528,39 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
    const bool add_old_time_divFlux = false; // rhs contains the time-explicit diff terms already
    const Real be_cn_theta_SDC = 1;
 
-   const int betaComp = 0;
-   const int visc_coef_comp = first_spec;
    const int Rho_comp = Density;
-   const int bc_comp = first_spec;
 
    const MultiFab *a[AMREX_SPACEDIM];
    for (int d=0; d<AMREX_SPACEDIM; ++d) {
        a[d] = &(area[d]);
    }
 
-   // Diffuse all the species
-   diffuse_scalar_fj(Sn, Sn, Snp1, Snp1, first_spec, NUM_SPECIES, Rho_comp,
-                     prev_time,curr_time,be_cn_theta_SDC,Rh,rho_flag,
-                     SpecDiffusionFluxn,SpecDiffusionFluxnp1,fluxComp,
-                     delta_rhs,rhsComp,alpha,alphaComp,
-                     betan,betanp1,betaComp,visc_coef,visc_coef_comp,
-                     volume,a,crse_ratio,theBCs[bc_comp],geom,
-                     add_hoop_stress,solve_mode,add_old_time_divFlux,diffuse_comp);
+   // Diffuse all the species by group of nSpecGroup
+   for (int sigma = 0; sigma < NUM_SPECIES; sigma+=nSpecGroup)
+   {
+      // Number of component of linear solve in diffuse_scalar
+      int nSpec = std::min(nSpecGroup,NUM_SPECIES-sigma);
+
+      int fluxComp     = sigma;
+      int rhsComp      = FComp + sigma;
+      int betaComp     = sigma;
+      int bcComp       = first_spec + sigma;
+      int viscCoefComp = first_spec + sigma;
+
+      Vector<int> diffuse_comp(nSpec);
+      for (int icomp=0; icomp<nSpec; ++icomp) {
+        diffuse_comp[icomp] = is_diffusive[first_spec + sigma + icomp];
+      }
+
+      // Diffuse the species group
+      diffuse_scalar_fj(Sn, Sn, Snp1, Snp1, first_spec, nSpec, Rho_comp,
+                        prev_time,curr_time,be_cn_theta_SDC,Rh,rho_flag,
+                        SpecDiffusionFluxn,SpecDiffusionFluxnp1,fluxComp,
+                        delta_rhs,rhsComp,alpha,alphaComp,
+                        betan,betanp1,betaComp,visc_coef,viscCoefComp,
+                        volume,a,crse_ratio,theBCs[bcComp],geom,
+                        add_hoop_stress,solve_mode,add_old_time_divFlux,diffuse_comp);
+   }
 
 // Here we apply to covered cells the saved reference state data 
 // in order to avoid non-physical values such as Ys=0 for all species
@@ -4336,10 +4349,10 @@ PeleLM::compute_differential_diffusion_fluxes (const MultiFab& S,
    const DistributionMapping* dmc = (has_coarse_data ? &(Scrse->DistributionMap()) : 0);
    const BoxArray* bac = (has_coarse_data ? &(Scrse->boxArray()) : 0);
 
-   MultiFab Soln(grids,dmap,1,nGrow,MFInfo(),Factory());
+   MultiFab Soln(grids,dmap,NUM_SPECIES,nGrow,MFInfo(),Factory());
    auto Solnc = std::unique_ptr<MultiFab>(new MultiFab());
    if (has_coarse_data) {
-      Solnc->define(*bac, *dmc, 1, nGrow,MFInfo(),getLevel(level-1).Factory());
+      Solnc->define(*bac, *dmc, NUM_SPECIES, nGrow,MFInfo(),getLevel(level-1).Factory());
    }
 
    LPInfo info;
@@ -4349,9 +4362,9 @@ PeleLM::compute_differential_diffusion_fluxes (const MultiFab& S,
    info.setMaxCoarseningLevel(0);
 #ifdef AMREX_USE_EB
    const auto& ebf = &(dynamic_cast<EBFArrayBoxFactory const&>(Factory()));
-   MLEBABecLap op({geom}, {grids}, {dmap}, info, {ebf});
+   MLEBABecLap op({geom}, {grids}, {dmap}, info, {ebf}, NUM_SPECIES);
 #else
-   MLABecLaplacian op({geom}, {grids}, {dmap}, info);
+   MLABecLaplacian op({geom}, {grids}, {dmap}, info, {}, NUM_SPECIES);
 #endif
 
    op.setMaxOrder(diffusion->maxOrder());
@@ -4368,27 +4381,53 @@ PeleLM::compute_differential_diffusion_fluxes (const MultiFab& S,
    Diffusion::setDomainBC(mlmg_lobc, mlmg_hibc, bc); // Same for all comps, by assumption
    op.setDomainBC(mlmg_lobc, mlmg_hibc);
 
-   for (int icomp = 0; icomp < NUM_SPECIES+1; ++icomp)
-   {
-      const int sigma = first_spec + icomp;
+   if (has_coarse_data) {
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+      for (MFIter mfi(*Solnc, TilingIfNotGPU()); mfi.isValid(); ++mfi)
       {
-         if (has_coarse_data) {
-            MultiFab::Copy(*Solnc,*Scrse,sigma,0,1,nGrow);
-            MultiFab::Divide(*Solnc,*Scrse,Density,0,1,nGrow);
-            op.setCoarseFineBC(Solnc.get(), crse_ratio[0]);
-         }
-         MultiFab::Copy(Soln,S,sigma,0,1,nGrow);
-         MultiFab::Divide(Soln,S,Density,0,1,nGrow);
-         op.setLevelBC(0, &Soln);
+          const Box& bx = mfi.tilebox();
+          auto const& sol_arr  = Solnc->array(mfi);
+          auto const& snew_arr = Scrse->const_array(mfi,first_spec);
+          auto const& rho_arr  = Scrse->const_array(mfi,Density);
+          amrex::ParallelFor(bx, [sol_arr, snew_arr, rho_arr]
+          AMREX_GPU_DEVICE(int i, int j, int k) noexcept
+          {
+              Real rhoInv = 1.0 / rho_arr(i,j,k);
+              for (int n = 0; n < NUM_SPECIES; ++n) {
+                 sol_arr(i,j,k,n) = snew_arr(i,j,k,n) * rhoInv;
+              }
+          });
       }
-      op.setScalars(a,b);
-
-      // Set beta as \rho D_m
-      Diffusion::setBeta(op,beta,betaComp+icomp);
-
-      // No multiplication by dt here.
-      Diffusion::computeExtensiveFluxes(mg, Soln, flux, fluxComp+icomp, 1, &geom, b);
+      op.setCoarseFineBC(Solnc.get(), crse_ratio[0]);
    }
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+   for (MFIter mfi(Soln, TilingIfNotGPU()); mfi.isValid(); ++mfi)
+   {
+       const Box& bx = mfi.growntilebox(nGrow);
+       auto const& sol_arr  = Soln.array(mfi);
+       auto const& snew_arr = S.const_array(mfi,first_spec);
+       auto const& rho_arr  = S.const_array(mfi,Density);
+       amrex::ParallelFor(bx, [sol_arr, snew_arr, rho_arr]
+       AMREX_GPU_DEVICE(int i, int j, int k) noexcept
+       {
+           Real rhoInv = 1.0 / rho_arr(i,j,k);
+           for (int n = 0; n < NUM_SPECIES; ++n) {
+              sol_arr(i,j,k,n) = snew_arr(i,j,k,n) * rhoInv;
+           }
+       });
+   }
+   op.setLevelBC(0, &Soln);
+   op.setScalars(a,b);
+
+   // Set beta as \rho D_m
+   Diffusion::setBeta(op,beta,betaComp,NUM_SPECIES);
+
+   // No multiplication by dt here.
+   Diffusion::computeExtensiveFluxes(mg, Soln, flux, fluxComp, NUM_SPECIES, &geom, b);
 
    Soln.clear();
 
@@ -7474,7 +7513,7 @@ PeleLM::mac_sync ()
          // on entry, Ssync = RHS for sync_for_Q diffusive solve
          // on exit,  Ssync = rho^{n+1} * sync_for_Q
          // on exit,  flux = - coeff * grad Q
-         diffusion->diffuse_Ssync(Ssync,sigma,dt,be_cn_theta,rho_half,
+         diffusion->diffuse_Ssync(Ssync,sigma,1,dt,be_cn_theta,rho_half,
                                   rho_flag,flux,0,beta,0,alpha,0);
 
          // rho Scal{n+1} = rho Scal{n+1,p} + rho^{n+1} * delta{scal}^{sync} + delta{rho}^{sync} * scal{n+1,p}
@@ -7821,15 +7860,15 @@ PeleLM::differential_spec_diffuse_sync (Real dt,
    const Vector<int> rho_flag(NUM_SPECIES,2);
    const MultiFab* alpha = 0;
 
-   FluxBoxes fb_fluxSC(this);
-   MultiFab** fluxSC = fb_fluxSC.get();
-
    const MultiFab& RhoHalftime = get_rho_half_time();
 
    int sdc_theta = 1.0;
 
-   for (int sigma = 0; sigma < NUM_SPECIES; ++sigma)
+   for (int sigma = 0; sigma < NUM_SPECIES; sigma+=nSpecGroup)
    {
+      // Number of component of linear solve in diffuse_Ssync
+      int nSpec = std::min(nSpecGroup,NUM_SPECIES-sigma);
+
       //
       // Here, we use Ssync as a source in units of s, as expected by diffuse_Ssync
       // (i.e., ds/dt ~ d(Ssync)/dt, vs. ds/dt ~ Rhs in diffuse_scalar).  This was
@@ -7841,20 +7880,11 @@ PeleLM::differential_spec_diffuse_sync (Real dt,
       // on entry, Ssync = RHS for (delta Ytilde)^sync diffusive solve
       // on exit, Ssync = rho^{n+1} * (delta Ytilde)^sync
       // on exit, fluxSC = rhoD grad (delta Ytilde)^sync
-      diffusion->diffuse_Ssync(Ssync,ssync_ind,dt,sdc_theta,
-                               RhoHalftime,rho_flag[sigma],fluxSC,0,
+      diffusion->diffuse_Ssync(Ssync,ssync_ind,nSpec,dt,sdc_theta,
+                               RhoHalftime,rho_flag[sigma],SpecDiffusionFluxnp1,sigma,
                                betanp1,sigma,alpha,0);
-      //
-      // Pull fluxes into flux array
-      // this is the rhoD grad (delta Ytilde)^sync terms in DayBell:2000 Eq (18)
-      //
-      for (int d=0; d<AMREX_SPACEDIM; ++d)
-      {
-        MultiFab::Copy(*SpecDiffusionFluxnp1[d],*fluxSC[d],0,sigma,1,0);
-      }
    }
    fb_betanp1.clear();
-   fb_fluxSC.clear();
 
    // if in the Wbar corrector, add the grad delta Wbar fluxes
    if (use_wbar && Wbar_corrector)
