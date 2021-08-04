@@ -1473,31 +1473,36 @@ PeleLM::set_typical_values(bool is_restart)
            amrex::Print() << "\tY_" << spec_names[i] << ": " << typical_values[first_spec+i] <<'\n';
        }
     }
+    update_typical_values_chem();
+  }
+}
 
+void
+PeleLM::update_typical_values_chem ()
+{
 #ifdef USE_SUNDIALS_PP
-    if (use_typ_vals_chem) {
+  if (use_typ_vals_chem) {
 #ifndef AMREX_USE_GPU
-      if (verbose) amrex::Print() << "Using typical values for the absolute tolerances of the ode solver\n";
+    if (verbose) amrex::Print() << "Using typical values for the absolute tolerances of the ode solver\n";
 #ifdef _OPENMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif  
-      {
-         Vector<Real> typical_values_chem;
-         typical_values_chem.resize(NUM_SPECIES+1);
-         for (int i=0; i<NUM_SPECIES; ++i) {
-	         typical_values_chem[i] = typical_values[first_spec+i] * typical_values[Density];
-         }
-         typical_values_chem[NUM_SPECIES] = typical_values[Temp];
-         SetTypValsODE(typical_values_chem);
-         ReSetTolODE();
+    {
+      Vector<Real> typical_values_chem;
+      typical_values_chem.resize(NUM_SPECIES+1);
+      for (int i=0; i<NUM_SPECIES; ++i) {
+        typical_values_chem[i] = typical_values[first_spec+i] * typical_values[Density] * 1.E-3; // CGS -> MKS conversion
       }
-#else
-      // TODO: set this option back on in PP
-      amrex::Print() << "Using typical values for the absolute tolerances of the ode solver not available on GPU right now\n";
-#endif  
+      typical_values_chem[NUM_SPECIES] = typical_values[Temp];
+      SetTypValsODE(typical_values_chem);
+      ReSetTolODE();
     }
-#endif
+#else
+    // TODO: set this option back on in PP
+    amrex::Print() << "Using typical values for the absolute tolerances of the ode solver not available on GPU right now\n";
+#endif  
   }
+#endif
 }
 
 void
@@ -1552,7 +1557,7 @@ PeleLM::reset_typical_values (const MultiFab& S)
       }
     }
   }
-
+  update_typical_values_chem();
   if (verbose) {
      amrex::Print() << "New typical vals: " << '\n';
      amrex::Print() << "\tVelocity: ";
