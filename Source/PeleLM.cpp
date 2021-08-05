@@ -8773,18 +8773,17 @@ PeleLM::setPlotVariables ()
 #endif
 #ifdef SOOT_MODEL
   // Remove spray source terms unless otherwise specified
-  if (do_soot_solve)
+  if (!plot_soot_src)
   {
-    if (plot_soot_src == 0)
+    for (int i = 0; i < num_soot_src; i++)
     {
-      for (int i = 0; i < num_soot_src; i++)
-      {
-        const int dcomp = AMREX_SPACEDIM + i;
-        const std::string name = "I_R_soot_" + desc_lst[State_Type].name(dcomp);
-        parent->deleteStatePlotVar(name);
-      }
+      const int dcomp = AMREX_SPACEDIM + i;
+      const std::string name = "I_R_soot_" + desc_lst[State_Type].name(dcomp);
+      parent->deleteStatePlotVar(name);
     }
-  } else {
+  }
+  if (!do_soot_solve)
+  {
     for (int i = 0; i < NUM_SOOT_VARS; i++)
     {
       const int dcomp = first_soot + i;
