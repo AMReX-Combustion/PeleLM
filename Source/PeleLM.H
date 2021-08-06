@@ -666,7 +666,6 @@ public:
   static amrex::Real htt_tempmax;
   static amrex::Real htt_hmixTYP;
   static amrex::Real typical_Y_val_min;
-  static amrex::Real typical_T_val_min;
   static int         RhoRT;
   static int         have_rhort;
   static int         first_spec;

@@ -171,7 +171,6 @@ int  PeleLM::nGrowAdvForcing=1;
 bool PeleLM::avg_down_chem;
 int  PeleLM::reset_typical_vals_int=-1;
 Real PeleLM::typical_Y_val_min=1.e-10;
-Real PeleLM::typical_T_val_min=300.;
 std::map<std::string,Real> PeleLM::typical_values_FileVals;
 bool PeleLM::def_harm_avg_cen2edge  = false;
 
@@ -1495,7 +1494,7 @@ PeleLM::update_typical_values_chem ()
           amrex::max(typical_Y_val_min,
                      typical_values[first_spec+i] * typical_values[Density] * 1.E-3); // CGS -> MKS conversion
       }
-      typical_values_chem[NUM_SPECIES] = amrex::max(typical_T_val_min, typical_values[Temp]);
+      typical_values_chem[NUM_SPECIES] = typical_values[Temp];
       SetTypValsODE(typical_values_chem);
       ReSetTolODE();
     }
