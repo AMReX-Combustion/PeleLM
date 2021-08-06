@@ -2126,8 +2126,7 @@ PeleLM::initDataOtherTypes ()
 #endif
 
 #ifdef SOOT_MODEL
-  if (do_soot_solve)
-    get_new_data(sootsrc_Type).setVal(0.);
+  get_new_data(sootsrc_Type).setVal(0.);
 #endif
 
   // Put something reasonable into the FuncCount variable
@@ -2274,7 +2273,7 @@ PeleLM::init (AmrLevel& old)
    }
 #endif
 #ifdef SOOT_MODEL
-   if (do_soot_solve) {
+   {
      const Real tnp1s = oldht->state[sootsrc_Type].curTime();
      MultiFab& sootsrc = get_new_data(sootsrc_Type);
      FillPatchIterator fpi(*oldht, sootsrc, sootsrc.nGrow(), tnp1s, sootsrc_Type, 0, num_soot_src);
