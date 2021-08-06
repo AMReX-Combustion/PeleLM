@@ -36,7 +36,7 @@ Chemistry_Model = air
 Eos_dir     := Fuego
 
 # This sets the network directory in $(PELE_PHYSICS_HOME)/Reactions
-Reactions_dir := Null
+Reactor_dir := null
 
 # This sets the transport directory in $(PELE_PHYSICS_HOME)/Transport
 Transport_dir := Constant

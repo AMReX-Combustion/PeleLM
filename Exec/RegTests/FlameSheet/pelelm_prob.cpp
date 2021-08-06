@@ -18,6 +18,7 @@ extern "C" {
         std::string pmf_datafile;
         pp.query("pmf_datafile", pmf_datafile);
         int pmf_do_average = 1;
+        pp.query("pmf_average", pmf_do_average);
         PMF::read_pmf(pmf_datafile, pmf_do_average);
     }
 }

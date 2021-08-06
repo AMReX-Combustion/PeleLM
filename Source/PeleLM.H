@@ -650,6 +650,7 @@ public:
   //
   static int         num_divu_iters;
   static int         init_once_done;
+  static int         nSpecGroup;
   static int         RhoH;
   static int         do_OT_radiation;
   static int         do_heat_sink;
@@ -683,7 +684,6 @@ public:
   static int         hack_nospecdiff;
   static int         hack_noavgdivu;
   static amrex::Real trac_diff_coef;
-  static int         use_tranlib;
   static std::string turbFile;
   static std::string fuelName;
   static std::string productName;

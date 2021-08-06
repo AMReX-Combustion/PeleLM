@@ -21,7 +21,10 @@ else
 	@echo SUCCESS
 endif
 
+##############################################################
 # PelePhysics
+##############################################################
+# Core
 PP_SRC_HOME = $(PELE_PHYSICS_HOME)/Source
 EXTERN_CORE       += $(PP_SRC_HOME)
 INCLUDE_LOCATIONS += $(PP_SRC_HOME)
@@ -29,67 +32,83 @@ VPATH_LOCATIONS   += $(PP_SRC_HOME)
 Bpack             += $(PP_SRC_HOME)/Make.package
 Blocs             += $(PP_SRC_HOME)
 
-EOS_HOME       = $(PELE_PHYSICS_HOME)/Eos
-REACTIONS_HOME = $(PELE_PHYSICS_HOME)/Reactions
-TRAN_HOME      = $(PELE_PHYSICS_HOME)/Transport
-
-# EOS
-EOS_PATH := $(EOS_HOME)/$(strip $(Eos_dir))
-include $(EOS_PATH)/Make.package
-INCLUDE_LOCATIONS += $(EOS_HOME) $(EOS_PATH)
-VPATH_LOCATIONS   += $(EOS_HOME) $(EOS_PATH)
-ifeq ($(Eos_dir), Fuego)
-  TRANSPORT_TYPE := IDEAL_GAS
-else
-  ifeq ($(Eos_dir), GammaLaw)
-    TRANSPORT_TYPE := IDEAL_GAS
-  else
-    TRANSPORT_TYPE := REAL_GAS
-  endif
-endif
-
-# Reactions
-REACTIONS_PATH := $(REACTIONS_HOME)/$(strip $(Reactions_dir))
-include $(REACTIONS_PATH)/Make.package
-INCLUDE_LOCATIONS += $(REACTIONS_HOME) $(REACTIONS_PATH)
-VPATH_LOCATIONS   += $(REACTIONS_HOME) $(REACTIONS_PATH)
-#ifdef Chemistry_Model
-  ifeq ($(Eos_dir), GammaLaw)
-    ifneq ($(Chemistry_Model), Null)
-      $(error Chemistry_Model definition not compatible with Eos_Dir=GammaLaw)
-    endif
-  endif
-  CHEM_DIR = $(PELE_PHYSICS_HOME)/Support/Fuego/Mechanism/Models/$(Chemistry_Model)
-  CHEM_ALL = $(PELE_PHYSICS_HOME)/Support/Fuego/Mechanism/Models
-  ifdef CHEM_DIR
-    VPATH_LOCATIONS += $(CHEM_DIR) $(CHEM_ALL)
-    Bpack += $(CHEM_DIR)/Make.package \
-             $(CHEM_ALL)/Make.package
-    Blocs += $(CHEM_DIR) $(CHEM_ALL)
-  else
-   $(error Invalid Chemistry_Model, $(Chemistry_Model))
-  endif
-
-  Blocs += $(PELE_PHYSICS_HOME)/Support/Fuego/Mechanism \
-           $(PELE_PHYSICS_HOME)/Support/Fuego/Evaluation
-
-#endif
-
-# PP/Utilities
+# Utilities
 include $(PELE_PHYSICS_HOME)/Utility/Make.package
 
+# EOS
+EOS_HOME = $(PELE_PHYSICS_HOME)/Eos/$(strip $(Eos_dir))
+EXTERN_CORE       += $(EOS_HOME)
+INCLUDE_LOCATIONS += $(EOS_HOME)
+VPATH_LOCATIONS   += $(EOS_HOME)
+Bpack             += $(EOS_HOME)/Make.package
+Blocs             += $(EOS_HOME)
+
+# Reactions
+REACTIONS_HOME = $(PELE_PHYSICS_HOME)/Reactions
+ifeq ($(Reactor_dir), arkode)
+    USE_SUNDIALS_PP = TRUE
+    USE_ARKODE_PP = TRUE
+    Bpack += $(REACTIONS_HOME)/$(Reactor_dir)/Make.package
+    Blocs += $(REACTIONS_HOME)/$(Reactor_dir)
+    Bpack += $(REACTIONS_HOME)/Make.package
+    Blocs += $(REACTIONS_HOME)
+endif
+ifeq ($(Reactor_dir), cvode)
+    USE_SUNDIALS_PP = TRUE
+    USE_CVODE_PP = TRUE
+    Bpack += $(REACTIONS_HOME)/$(Reactor_dir)/Make.package
+    Blocs += $(REACTIONS_HOME)/$(Reactor_dir)
+    Bpack += $(REACTIONS_HOME)/Make.package
+    Blocs += $(REACTIONS_HOME)
+endif
+ifeq ($(Reactor_dir), null)
+    Bpack += $(REACTIONS_HOME)/$(Reactor_dir)/Make.package
+    Blocs += $(REACTIONS_HOME)/$(Reactor_dir)
+endif
+
+ifdef Chemistry_Model
+  USE_FUEGO = TRUE
+  CHEM_HOME = $(PELE_PHYSICS_HOME)/Support/Fuego/Mechanism/Models/$(Chemistry_Model)
+  CHEM_ALL = $(PELE_PHYSICS_HOME)/Support/Fuego/Mechanism/Models
+  Blocs += $(PELE_PHYSICS_HOME)/Support/Fuego/Evaluation
+endif
+VPATH_LOCATIONS += $(CHEM_HOME)
+Bpack += $(CHEM_HOME)/Make.package $(CHEM_ALL)/Make.package
+Blocs += $(CHEM_HOME) $(CHEM_ALL)
+
+#REACTIONS_PATH := $(REACTIONS_HOME)/$(strip $(Reactions_dir))
+#include $(REACTIONS_PATH)/Make.package
+#INCLUDE_LOCATIONS += $(REACTIONS_HOME) $(REACTIONS_PATH)
+#VPATH_LOCATIONS   += $(REACTIONS_HOME) $(REACTIONS_PATH)
+##ifdef Chemistry_Model
+#  ifeq ($(Eos_dir), GammaLaw)
+#    ifneq ($(Chemistry_Model), Null)
+#      $(error Chemistry_Model definition not compatible with Eos_Dir=GammaLaw)
+#    endif
+#  endif
+#  CHEM_DIR = $(PELE_PHYSICS_HOME)/Support/Fuego/Mechanism/Models/$(Chemistry_Model)
+#  CHEM_ALL = $(PELE_PHYSICS_HOME)/Support/Fuego/Mechanism/Models
+#  ifdef CHEM_DIR
+#    VPATH_LOCATIONS += $(CHEM_DIR) $(CHEM_ALL)
+#    Bpack += $(CHEM_DIR)/Make.package \
+#             $(CHEM_ALL)/Make.package
+#    Blocs += $(CHEM_DIR) $(CHEM_ALL)
+#  else
+#   $(error Invalid Chemistry_Model, $(Chemistry_Model))
+#  endif
+#
+#  Blocs += $(PELE_PHYSICS_HOME)/Support/Fuego/Mechanism \
+#           $(PELE_PHYSICS_HOME)/Support/Fuego/Evaluation
+#
+##endif
+
 # Transport
-TRAN_PATH := $(TRAN_HOME)/$(strip $(Transport_dir))
-include $(TRAN_PATH)/Make.package
-INCLUDE_LOCATIONS += $(TRAN_PATH)
-VPATH_LOCATIONS   += $(TRAN_PATH)
-USE_FUEGO = FALSE
-ifeq ($(Transport_dir), Simple)
-  DEFINES += -DSIMPLE_TRANSPORT
-endif
-ifeq ($(Transport_dir), Constant)
-  DEFINES += -DCONSTANT_TRANSPORT
-endif
+TRANSPORT_HOME = $(PELE_PHYSICS_HOME)/Transport/$(Transport_dir)
+EXTERN_CORE       += $(TRANSPORT_HOME)
+INCLUDE_LOCATIONS += $(TRANSPORT_HOME)
+VPATH_LOCATIONS   += $(TRANSPORT_HOME)
+Bpack             += $(TRANSPORT_HOME)/Make.package
+Blocs             += $(TRANSPORT_HOME)
 
 #
 # Tells IAMR not to include the following: NS_error.cpp NS_setup.cpp NSBld.cpp
