@@ -445,6 +445,7 @@ public:
 
   void set_typical_values(bool restart);
   void reset_typical_values(const amrex::MultiFab& S);
+  void update_typical_values_chem();
 
   void activeControl(const int         step,
                      const int         restart,
