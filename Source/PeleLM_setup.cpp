@@ -134,7 +134,7 @@ static
 int
 species_bc[] =
 {
-  INT_DIR, EXT_DIR, FOEXTRAP, REFLECT_EVEN, REFLECT_EVEN, REFLECT_EVEN, EXT_DIR, EXT_DIR
+  INT_DIR, EXT_DIR, FOEXTRAP, REFLECT_EVEN, REFLECT_EVEN, REFLECT_EVEN, REFLECT_EVEN, REFLECT_EVEN
 };
 
 static
@@ -350,9 +350,11 @@ static std::string oxidizerName     = "O2";
 // Get EB-aware interpolater when needed
 //
 #ifdef AMREX_USE_EB  
-  static auto& cc_interp = eb_cell_cons_interp;
+  static auto& cc_interp = eb_mf_cell_cons_interp;
+  static auto& cc_interp_der = eb_cell_cons_interp;
 #else
-  static auto& cc_interp = cell_cons_interp;
+  static auto& cc_interp = mf_cell_cons_interp;
+  static auto& cc_interp_der = cell_cons_interp;
 #endif
 
 
@@ -839,7 +841,7 @@ PeleLM::variableSetUp ()
   Vector<std::string> mix_and_diss(2);
   mix_and_diss[0] = "mixture_fraction";
   mix_and_diss[1] = "Scalar_diss";
-  derive_lst.add("mixfrac",IndexType::TheCellType(),2,mix_and_diss,pelelm_dermixanddiss,grow_box_by_one,&cc_interp);
+  derive_lst.add("mixfrac",IndexType::TheCellType(),2,mix_and_diss,pelelm_dermixanddiss,grow_box_by_one,&cc_interp_der);
   derive_lst.addComponent("mixfrac",desc_lst,State_Type,Density,1);
   derive_lst.addComponent("mixfrac",desc_lst,State_Type,Temp,1);
   derive_lst.addComponent("mixfrac",desc_lst,State_Type,first_spec,NUM_SPECIES);
