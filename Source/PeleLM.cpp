@@ -1469,7 +1469,7 @@ PeleLM::set_typical_values(bool is_restart)
         }
       }
     }
-
+    update_typical_values_chem();
     if (verbose) {
        amrex::Print() << "Typical vals: " << '\n';
        amrex::Print() << "\tVelocity: ";
@@ -1485,31 +1485,37 @@ PeleLM::set_typical_values(bool is_restart)
            amrex::Print() << "\tY_" << spec_names[i] << ": " << typical_values[first_spec+i] <<'\n';
        }
     }
+  }
+}
 
+void
+PeleLM::update_typical_values_chem ()
+{
 #ifdef USE_SUNDIALS_PP
-    if (use_typ_vals_chem) {
+  if (use_typ_vals_chem) {
 #ifndef AMREX_USE_GPU
-      if (verbose) amrex::Print() << "Using typical values for the absolute tolerances of the ode solver\n";
+    if (verbose) amrex::Print() << "Using typical values for the absolute tolerances of the ode solver\n";
 #ifdef _OPENMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif  
-      {
-         Vector<Real> typical_values_chem;
-         typical_values_chem.resize(NUM_SPECIES+1);
-         for (int i=0; i<NUM_SPECIES; ++i) {
-	         typical_values_chem[i] = typical_values[first_spec+i] * typical_values[Density];
-         }
-         typical_values_chem[NUM_SPECIES] = typical_values[Temp];
-         SetTypValsODE(typical_values_chem);
-         ReSetTolODE();
+    {
+      Vector<Real> typical_values_chem;
+      typical_values_chem.resize(NUM_SPECIES+1);
+      for (int i=0; i<NUM_SPECIES; ++i) {
+        typical_values_chem[i] =
+          amrex::max(typical_Y_val_min,
+                     typical_values[first_spec+i] * typical_values[Density] * 1.E-3); // CGS -> MKS conversion
       }
-#else
-      // TODO: set this option back on in PP
-      amrex::Print() << "Using typical values for the absolute tolerances of the ode solver not available on GPU right now\n";
-#endif  
+      typical_values_chem[NUM_SPECIES] = typical_values[Temp];
+      SetTypValsODE(typical_values_chem);
+      ReSetTolODE();
     }
-#endif
+#else
+    // TODO: set this option back on in PP
+    amrex::Print() << "Using typical values for the absolute tolerances of the ode solver not available on GPU right now\n";
+#endif  
   }
+#endif
 }
 
 void
@@ -1522,18 +1528,23 @@ PeleLM::reset_typical_values (const MultiFab& S)
 
   AMREX_ASSERT(nComp == S.nComp());
 
-  for (int i=0; i<nComp; ++i)
+  for (int i=0; i<AMREX_SPACEDIM; ++i)
   {
+    const Real thisAbsMax = std::abs(S.max(i));
+    const Real thisAbsMin = std::abs(S.min(i));
+    typical_values[i] = amrex::max(thisAbsMax, thisAbsMin);
+  }
+  for (int i=AMREX_SPACEDIM; i<NUM_STATE; ++i) {
     const Real thisMax = S.max(i);
     const Real thisMin = S.min(i);
-    const Real newVal = std::abs(thisMax - thisMin);
-    if (newVal > 0)
-    {
-      if ( (i>=first_spec && i<=last_spec) )
-        typical_values[i] = newVal / typical_values[Density];
-      else
-        typical_values[i] = newVal;
-    }
+    Real newVal = std::abs(thisMax - thisMin);
+    if (newVal < 0.) newVal = 0.5 * std::abs(thisMax + thisMin);
+    typical_values[i] = newVal;
+  }
+  typical_values[RhoH] = typical_values[RhoH] / typical_values[Density];
+  for (int i=0; i<NUM_SPECIES; ++i) {
+    typical_values[first_spec + i] = std::max(typical_values[first_spec + i]/typical_values[Density],
+                                              typical_Y_val_min);
   }
   //
   // If typVals specified in inputs, these take precedence componentwise.
@@ -1564,7 +1575,7 @@ PeleLM::reset_typical_values (const MultiFab& S)
       }
     }
   }
-
+  update_typical_values_chem();
   if (verbose) {
      amrex::Print() << "New typical vals: " << '\n';
      amrex::Print() << "\tVelocity: ";
@@ -3214,7 +3225,6 @@ PeleLM::diffusionFJDriver(ForkJoin&                   fj,
                   const BCRec&                bc,
                   const Geometry&             in_geom,
                   bool                        /*add_hoop_stress*/,
-                  const Diffusion::SolveMode& solve_mode,
                   bool                        add_old_time_divFlux,
                   const amrex::Vector<int>&   a_is_diffusive,
                   bool                        has_coarse_data,
@@ -3279,7 +3289,7 @@ PeleLM::diffusionFJDriver(ForkJoin&                   fj,
                              &(fluxn[0]),&(fluxnp1[0]),fluxComp,delta_rhs,rhsComp,
                              alpha_in,alpha_in_comp,&(betan[0]),&(betanp1[0]),betaComp,
                              cratio,bc,in_geom,
-                             solve_mode,add_old_time_divFlux,a_is_diffusive);
+                             add_old_time_divFlux,a_is_diffusive);
 }
 
 void
@@ -3313,7 +3323,6 @@ PeleLM::diffuse_scalar_fj  (const Vector<MultiFab*>&  S_old,
                             const BCRec&              bc,
                             const Geometry&           theGeom,
                             bool                      add_hoop_stress,
-                            const Diffusion::SolveMode& solve_mode,
                             bool                      add_old_time_divFlux,
                             const amrex::Vector<int>& diffuse_this_comp)
 {
@@ -3328,7 +3337,7 @@ PeleLM::diffuse_scalar_fj  (const Vector<MultiFab*>&  S_old,
                                   fluxn,fluxnp1,fluxComp,delta_rhs,rhsComp,
                                   alpha_in,alpha_in_comp,betan,betanp1,betaComp,
                                   cratio,bc,theGeom,
-                                  solve_mode,add_old_time_divFlux,diffuse_this_comp);
+                                  add_old_time_divFlux,diffuse_this_comp);
   }
   else
   {
@@ -3429,7 +3438,6 @@ PeleLM::diffuse_scalar_fj  (const Vector<MultiFab*>&  S_old,
                           bc,
                           theGeom,
                           add_hoop_stress,
-                          solve_mode,
                           add_old_time_divFlux,
                           diffuse_this_comp,
                           has_coarse_data, has_delta_rhs, has_alpha_in, has_betan, has_betanp1);
@@ -3523,7 +3531,6 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
    }
 
    const bool add_hoop_stress = false; // Only true if sigma == Xvel && Geometry::IsRZ())
-   const Diffusion::SolveMode& solve_mode = Diffusion::ONEPASS;
    const bool add_old_time_divFlux = false; // rhs contains the time-explicit diff terms already
    const Real be_cn_theta_SDC = 1;
 
@@ -3558,7 +3565,7 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
                         delta_rhs,rhsComp,alpha,alphaComp,
                         betan,betanp1,betaComp,visc_coef,viscCoefComp,
                         volume,a,crse_ratio,theBCs[bcComp],geom,
-                        add_hoop_stress,solve_mode,add_old_time_divFlux,diffuse_comp);
+                        add_hoop_stress,add_old_time_divFlux,diffuse_comp);
    }
 
 // Here we apply to covered cells the saved reference state data 
@@ -3707,7 +3714,7 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
                                 &Trhs,0,&RhoCp,0,
                                 betan,betanp1,NUM_SPECIES,
                                 crse_ratio,theBCs[Temp],geom,
-                                solve_mode,add_old_time_divFlux,diffuse_this_comp);
+                                add_old_time_divFlux,diffuse_this_comp);
 
 #ifdef AMREX_USE_EB
       EB_set_covered_faces({AMREX_D_DECL(SpecDiffusionFluxnp1[0],SpecDiffusionFluxnp1[1],SpecDiffusionFluxnp1[2])},0.);

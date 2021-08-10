@@ -586,6 +586,7 @@ public:
 
   void set_typical_values(bool restart);
   void reset_typical_values(const amrex::MultiFab& S);
+  void update_typical_values_chem();
 
   void activeControl(const int         step,
                      const int         restart,
@@ -639,7 +640,6 @@ public:
                            const amrex::BCRec&                    bc,
                            const amrex::Geometry&                 geom,
                            bool                                   add_hoop_stress,
-                           const Diffusion::SolveMode&            solve_mode = Diffusion::ONEPASS,
                            bool                                   add_old_time_divFlux = true,
                            const amrex::Vector<int>&              is_diffusive = amrex::Vector<int>());
 
@@ -654,7 +654,6 @@ public:
                   const amrex::BCRec&                bc,
                   const amrex::Geometry&             geom,
                   bool                        add_hoop_stress,
-                  const Diffusion::SolveMode& solve_mode,
                   bool                        add_old_time_divFlux,
                   const amrex::Vector<int>&   is_diffusive,
                   bool                        has_coarse_data,

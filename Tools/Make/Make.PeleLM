@@ -56,6 +56,7 @@ endif
 ifeq ($(Reactor_dir), cvode)
     USE_SUNDIALS_PP = TRUE
     USE_CVODE_PP = TRUE
+    DEFINES += -DCOMPILE_JACOBIAN
     Bpack += $(REACTIONS_HOME)/$(Reactor_dir)/Make.package
     Blocs += $(REACTIONS_HOME)/$(Reactor_dir)
     Bpack += $(REACTIONS_HOME)/Make.package
@@ -75,32 +76,6 @@ endif
 VPATH_LOCATIONS += $(CHEM_HOME)
 Bpack += $(CHEM_HOME)/Make.package $(CHEM_ALL)/Make.package
 Blocs += $(CHEM_HOME) $(CHEM_ALL)
-
-#REACTIONS_PATH := $(REACTIONS_HOME)/$(strip $(Reactions_dir))
-#include $(REACTIONS_PATH)/Make.package
-#INCLUDE_LOCATIONS += $(REACTIONS_HOME) $(REACTIONS_PATH)
-#VPATH_LOCATIONS   += $(REACTIONS_HOME) $(REACTIONS_PATH)
-##ifdef Chemistry_Model
-#  ifeq ($(Eos_dir), GammaLaw)
-#    ifneq ($(Chemistry_Model), Null)
-#      $(error Chemistry_Model definition not compatible with Eos_Dir=GammaLaw)
-#    endif
-#  endif
-#  CHEM_DIR = $(PELE_PHYSICS_HOME)/Support/Fuego/Mechanism/Models/$(Chemistry_Model)
-#  CHEM_ALL = $(PELE_PHYSICS_HOME)/Support/Fuego/Mechanism/Models
-#  ifdef CHEM_DIR
-#    VPATH_LOCATIONS += $(CHEM_DIR) $(CHEM_ALL)
-#    Bpack += $(CHEM_DIR)/Make.package \
-#             $(CHEM_ALL)/Make.package
-#    Blocs += $(CHEM_DIR) $(CHEM_ALL)
-#  else
-#   $(error Invalid Chemistry_Model, $(Chemistry_Model))
-#  endif
-#
-#  Blocs += $(PELE_PHYSICS_HOME)/Support/Fuego/Mechanism \
-#           $(PELE_PHYSICS_HOME)/Support/Fuego/Evaluation
-#
-##endif
 
 # Transport
 TRANSPORT_HOME = $(PELE_PHYSICS_HOME)/Transport/$(Transport_dir)
