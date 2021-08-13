@@ -55,14 +55,14 @@ else
 	#fEXE_sources += gri30_070.f
 endif
 
-# This sets the EOS directory in $(PELE_PHYSICS_HOME)/Eos
-Eos_dir     := Fuego
+# This sets the EOS model to one in $(PELE_PHYSICS_HOME)/Eos
+Eos_Model     := Fuego
 
 # This sets the network directory in $(PELE_PHYSICS_HOME)/Reactions
 Reactor_dir := cvode
 
-# This sets the transport directory in $(PELE_PHYSICS_HOME)/Transport
-Transport_dir := Simple
+# This sets the transport to one in $(PELE_PHYSICS_HOME)/Transport
+Transport_Model := Simple
 
 Blocs   := .
 
