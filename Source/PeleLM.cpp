@@ -37,7 +37,6 @@
 #include <pelelm_prob_parm.H>
 #include <PeleLM_parm.H>
 #include <pmf_data.H>
-#include "PelePhysics.H"
 
 #include <AMReX_DataServices.H>
 #include <AMReX_AmrData.H>
@@ -188,6 +187,9 @@ bool PeleLM::def_harm_avg_cen2edge  = false;
 
 std::unique_ptr<ProbParm> PeleLM::prob_parm;
 std::unique_ptr<ACParm> PeleLM::ac_parm;
+pele::physics::transport::TransportParams<
+  pele::physics::PhysicsType::transport_type>
+  PeleLM::trans_parms;
 
 #ifdef SOOT_MODEL
 int PeleLM::do_soot_solve;
@@ -932,8 +934,7 @@ PeleLM::variableCleanUp ()
 #ifdef SOOT_MODEL
    soot_model.reset();
 #endif
-   pele::physics::transport::CloseTransport<
-     pele::physics::PhysicsType::eos_type>()();
+   trans_parms.deallocate();
 }
 
 PeleLM::PeleLM ()
@@ -1135,7 +1136,7 @@ PeleLM::init_once ()
    typical_values[RhoH] = typical_RhoH_value_default;
 
    Vector<std::string> specNames;
-   pele::physics::eos::speciesNames(specNames);
+   pele::physics::eos::speciesNames<pele::physics::PhysicsType::eos_type>(specNames);
    ParmParse pp("ht");
    for (int i=0; i<NUM_SPECIES; ++i) {
      const std::string ppStr = std::string("typValY_") + specNames[i];
@@ -1278,7 +1279,7 @@ PeleLM::init_mixture_fraction()
 {
       // Get default fuel and oxy tank composition
       Vector<std::string> specNames;
-      pele::physics::eos::speciesNames(specNames);
+      pele::physics::eos::speciesNames<pele::physics::PhysicsType::eos_type>(specNames);
       amrex::Real YF[NUM_SPECIES], YO[NUM_SPECIES];
       for (int i=0; i<NUM_SPECIES; ++i) {
          YF[i] = 0.0;
@@ -1352,7 +1353,7 @@ PeleLM::init_mixture_fraction()
 
       // Only interested in CHON -in that order. Compute Bilger weights
       amrex::Real atwCHON[4] = {0.0};
-      pele::physics::eos::atomic_weightsCHON(atwCHON);
+      pele::physics::eos::atomic_weightsCHON<pele::physics::PhysicsType::eos_type>(atwCHON);
       Beta_mix[0] = ( atwCHON[0] != 0.0 ) ? 2.0/atwCHON[0] : 0.0;
       Beta_mix[1] = ( atwCHON[1] != 0.0 ) ? 1.0/(2.0*atwCHON[1]) : 0.0;
       Beta_mix[2] = ( atwCHON[2] != 0.0 ) ? -1.0/atwCHON[2] : 0.0;
@@ -1361,7 +1362,7 @@ PeleLM::init_mixture_fraction()
       // Compute each species weight for the Bilger formulation based on elemental compo
       // Only interested in CHON -in that order.
       int ecompCHON[NUM_SPECIES*4];
-      pele::physics::eos::element_compositionCHON(ecompCHON);
+      pele::physics::eos::element_compositionCHON<pele::physics::PhysicsType::eos_type>(ecompCHON);
       amrex::Real mwt[NUM_SPECIES];
       eos.molecular_weight(mwt);
       Zfu = 0.0;
@@ -1812,7 +1813,7 @@ PeleLM::initData ()
     
   AmrData&                  amrData     = dataServices.AmrDataRef();
   Vector<std::string> names;
-  pele::physics::eos::speciesNames(names);
+  pele::physics::eos::speciesNames<pele::physics::PhysicsType::eos_type>(names);
   Vector<std::string>        plotnames   = amrData.PlotVarNames();
 
   int idT = -1, idX = -1;
@@ -1869,7 +1870,7 @@ PeleLM::initData ()
     }
     AmrData& amrData = dataServices.AmrDataRef();
     Vector<std::string> names;
-    pele::physics::eos::speciesNames(names);
+    pele::physics::eos::speciesNames<pele::physics::PhysicsType::eos_type>(names);
     Vector<std::string> plotnames = amrData.PlotVarNames();
 
     int idT = -1, idV = -1, idX = -1, idY = -1;
@@ -4775,7 +4776,7 @@ PeleLM::state_stats (MultiFab& S)
 
       if (aNegY){
          Vector<std::string> names;
-         pele::physics::eos::speciesNames(names);
+         pele::physics::eos::speciesNames<pele::physics::PhysicsType::eos_type>(names);
          amrex::Print() << "  Species w/min < 0: ";
          for (int i = 0; i < NUM_SPECIES; ++i) {
             int idx = first_spec + i - AMREX_SPACEDIM;
@@ -8187,8 +8188,7 @@ PeleLM::calcViscosity (const Real time,
    MultiFab& S_cc = fpi.get_mf();
 
    // Get the transport GPU data pointer
-   pele::physics::transport::TransParm const* ltransparm =
-     pele::physics::transport::trans_parm_g;
+   auto const* ltransparm = trans_parms.device_trans_parm();
 
 #ifdef _OPENMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
@@ -8251,8 +8251,7 @@ PeleLM::calcDiffusivity (const Real time)
    MultiFab& S_cc = fpi.get_mf();
 
    // Get the transport GPU data pointer
-   pele::physics::transport::TransParm const* ltransparm =
-     pele::physics::transport::trans_parm_g;
+   auto const* ltransparm = trans_parms.device_trans_parm();
 
 #ifdef _OPENMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
@@ -8733,7 +8732,7 @@ PeleLM::setPlotVariables ()
   AmrLevel::setPlotVariables();
 
   Vector<std::string> names;
-  pele::physics::eos::speciesNames(names);
+  pele::physics::eos::speciesNames<pele::physics::PhysicsType::eos_type>(names);
 
   
 // Here we specify to not plot all the rho.Y from the state variables
@@ -9615,7 +9614,7 @@ PeleLM::initActiveControl()
    if ( !ctrl_use_temp ) {
       // Get the fuel rhoY
       Vector<std::string> specNames;
-      pele::physics::eos::speciesNames(specNames);
+      pele::physics::eos::speciesNames<pele::physics::PhysicsType::eos_type>(specNames);
       int fuelidx = -1;
       for (int k = 0; k < NUM_SPECIES; k++) {
          if ( !specNames[k].compare(fuelName) ) fuelidx = k;
@@ -9655,7 +9654,7 @@ PeleLM::parseComposition(Vector<std::string> compositionIn,
 
    // Get species names
    Vector<std::string> specNames;
-   pele::physics::eos::speciesNames(specNames);
+   pele::physics::eos::speciesNames<pele::physics::PhysicsType::eos_type>(specNames);
 
    // For each entry in the user-provided composition, parse name and value
    std::string delimiter = ":";

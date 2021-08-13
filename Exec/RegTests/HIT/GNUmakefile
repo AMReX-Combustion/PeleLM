@@ -32,14 +32,14 @@ USE_KLU_PP      = FALSE
 # Choose model (from list below), and pmf file
 Chemistry_Model = air
 
-# This sets the EOS directory in $(PELE_PHYSICS_HOME)/Eos
-Eos_dir     := Fuego
+# This sets the EOS to one in $(PELE_PHYSICS_HOME)/Eos
+Eos_Model     := Fuego
 
 # This sets the network directory in $(PELE_PHYSICS_HOME)/Reactions
 Reactor_dir := null
 
-# This sets the transport directory in $(PELE_PHYSICS_HOME)/Transport
-Transport_dir := Simple
+# This sets the transport to one in $(PELE_PHYSICS_HOME)/Transport
+Transport_Model := Simple
 
 Blocs   := .
 

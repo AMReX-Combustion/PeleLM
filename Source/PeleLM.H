@@ -10,6 +10,7 @@
 #include <mechanism.H>
 #include <pelelm_prob_parm.H>
 #include <PeleLM_parm.H>
+#include "PelePhysics.H"
 
 #include <list>
 #include <map>
@@ -785,6 +786,9 @@ public:
 
   static std::unique_ptr<ProbParm> prob_parm;
   static std::unique_ptr<ACParm> ac_parm;
+  static pele::physics::transport::TransportParams<
+         pele::physics::PhysicsType::transport_type>
+         trans_parms;
   //
   // Protected static data.
   //
