@@ -60,6 +60,7 @@ endif
 ifeq ($(Reactor_dir), cvode)
     USE_SUNDIALS_PP = TRUE
     USE_CVODE_PP = TRUE
+    USE_KLU_PP ?= FALSE
     DEFINES += -DCOMPILE_JACOBIAN
     Bpack += $(REACTIONS_HOME)/$(Reactor_dir)/Make.package
     Blocs += $(REACTIONS_HOME)/$(Reactor_dir)
