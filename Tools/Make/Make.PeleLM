@@ -1,9 +1,6 @@
 EBASE = PeleLM
 PELE_PHYSICS_HOME ?= $(SUBMODS)/PelePhysics
 
-ifeq ($(USE_SUNDIALS_PP),TRUE) 
-  include $(PELE_PHYSICS_HOME)/ThirdParty/Make.ThirdParty
-endif
 include $(AMREX_HOME)/Tools/GNUMake/Make.defs 
 #$(info LIBRARIES_BeginPeleMake="$(LIBRARIES)")
 
@@ -63,6 +60,7 @@ endif
 ifeq ($(Reactor_dir), cvode)
     USE_SUNDIALS_PP = TRUE
     USE_CVODE_PP = TRUE
+    USE_KLU_PP ?= FALSE
     DEFINES += -DCOMPILE_JACOBIAN
     Bpack += $(REACTIONS_HOME)/$(Reactor_dir)/Make.package
     Blocs += $(REACTIONS_HOME)/$(Reactor_dir)
@@ -83,6 +81,9 @@ endif
 VPATH_LOCATIONS += $(CHEM_HOME)
 Bpack += $(CHEM_HOME)/Make.package $(CHEM_ALL)/Make.package
 Blocs += $(CHEM_HOME) $(CHEM_ALL)
+ifeq ($(USE_SUNDIALS_PP),TRUE)
+  include $(PELE_PHYSICS_HOME)/ThirdParty/Make.ThirdParty
+endif
 
 # Transport
 TRANSPORT_HOME = $(PELE_PHYSICS_HOME)/Transport/
@@ -267,13 +268,13 @@ clean::
 
 ifeq ($(USE_SUNDIALS_PP),TRUE)
   TPL:
-	cd $(PELE_PHYSICS_HOME)/ThirdParty; make AMREX_HOME=$(AMREX_HOME) USE_CUDA=$(USE_CUDA) USE_HIP=$(USE_HIP) USE_KLU=$(USE_KLU_PP) DEBUG=$(DEBUG) COMP=$(HOSTCC) NVCC=$(COMP)
+	cd $(PELE_PHYSICS_HOME)/ThirdParty; make AMREX_HOME=$(AMREX_HOME) USE_CUDA=$(USE_CUDA) USE_HIP=$(USE_HIP) USE_KLU_PP=$(USE_KLU_PP) DEBUG=$(DEBUG) COMP=$(HOSTCC) NVCC=$(COMP)
 
   TPLclean:
-	cd $(PELE_PHYSICS_HOME)/ThirdParty; make AMREX_HOME=$(AMREX_HOME) USE_CUDA=$(USE_CUDA) USE_HIP=$(USE_HIP) USE_KLU=$(USE_KLU_PP) DEBUG=$(DEBUG) COMP=$(HOSTCC) NVCC=$(COMP) clean
+	cd $(PELE_PHYSICS_HOME)/ThirdParty; make AMREX_HOME=$(AMREX_HOME) USE_CUDA=$(USE_CUDA) USE_HIP=$(USE_HIP) USE_KLU_PP=$(USE_KLU_PP) DEBUG=$(DEBUG) COMP=$(HOSTCC) NVCC=$(COMP) clean
 
   TPLrealclean:
-	cd $(PELE_PHYSICS_HOME)/ThirdParty; make AMREX_HOME=$(AMREX_HOME) USE_CUDA=$(USE_CUDA) USE_HIP=$(USE_HIP) USE_KLU=$(USE_KLU_PP) DEBUG=$(DEBUG) COMP=$(HOSTCC) NVCC=$(COMP) realclean
+	cd $(PELE_PHYSICS_HOME)/ThirdParty; make AMREX_HOME=$(AMREX_HOME) USE_CUDA=$(USE_CUDA) USE_HIP=$(USE_HIP) USE_KLU_PP=$(USE_KLU_PP) DEBUG=$(DEBUG) COMP=$(HOSTCC) NVCC=$(COMP) realclean
 else
   TPL:
   TPLclean:

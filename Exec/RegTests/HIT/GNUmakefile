@@ -25,10 +25,6 @@ PRECISION       = DOUBLE
 VERBOSE         = FALSE
 TINY_PROFILE    = FALSE
 
-# CVODE
-USE_SUNDIALS_PP = FALSE
-USE_KLU_PP      = FALSE
-
 # Choose model (from list below), and pmf file
 Chemistry_Model = air
 
