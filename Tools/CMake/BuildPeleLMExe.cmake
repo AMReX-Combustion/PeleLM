@@ -31,18 +31,41 @@ function(build_pelelm_exe pelelm_exe_name)
 
   target_include_directories(${pelelm_exe_name} SYSTEM PRIVATE "${PELE_PHYSICS_SRC_DIR}/Source")
 
-  set(PELELM_TRANSPORT_DIR "${PELE_PHYSICS_SRC_DIR}/Transport/${PELELM_TRANSPORT_MODEL}")
+  set(PELELM_TRANSPORT_DIR "${PELE_PHYSICS_SRC_DIR}/Transport")
   target_sources(${pelelm_exe_name} PRIVATE
                  ${PELELM_TRANSPORT_DIR}/Transport.H
                  ${PELELM_TRANSPORT_DIR}/Transport.cpp
-                 ${PELELM_TRANSPORT_DIR}/TransportParams.H)
+                 ${PELELM_TRANSPORT_DIR}/TransportParams.H
+                 ${PELELM_TRANSPORT_DIR}/TransportTypes.H
+                 ${PELELM_TRANSPORT_DIR}/Simple.H
+                 ${PELELM_TRANSPORT_DIR}/Sutherland.H
+                 ${PELELM_TRANSPORT_DIR}/Constant.H)
   target_include_directories(${pelelm_exe_name} SYSTEM PRIVATE ${PELELM_TRANSPORT_DIR})
+  if (PELELM_TRANSPORT_MODEL STREQUAL "Simple")
+    target_compile_definitions(${pelelm_exe_name} PRIVATE USE_SIMPLE_TRANSPORT)
+  elseif(PELELM_TRANSPORT_MODEL STREQUAL "EGLib")
+    target_compile_definitions(${pelelm_exe_name} PRIVATE EGLIB_TRANSPORT)
+  elseif(PELELM_TRANSPORT_MODEL STREQUAL "Constant")
+    target_compile_definitions(${pelelm_exe_name} PRIVATE USE_CONSTANT_TRANSPORT)
+  elseif(PELELM_TRANSPORT_MODEL STREQUAL "Sutherland")
+    target_compile_definitions(${pelelm_exe_name} PRIVATE USE_SUTHERLAND_TRANSPORT)
+  endif()
 
-  set(PELELM_EOS_DIR "${PELE_PHYSICS_SRC_DIR}/Eos/${PELELM_EOS_MODEL}")
+  set(PELELM_EOS_DIR "${PELE_PHYSICS_SRC_DIR}/Eos")
   target_sources(${pelelm_exe_name} PRIVATE
                  ${PELELM_EOS_DIR}/EOS.cpp
-                 ${PELELM_EOS_DIR}/EOS.H)
+                 ${PELELM_EOS_DIR}/EOS.H
+                 ${PELELM_EOS_DIR}/Fuego.H
+                 ${PELELM_EOS_DIR}/GammaLaw.H
+                 ${PELELM_EOS_DIR}/SRK.H)
   target_include_directories(${pelelm_exe_name} SYSTEM PRIVATE ${PELELM_EOS_DIR})
+  if (PELELM_EOS_MODEL STREQUAL "Fuego")
+    target_compile_definitions(${pelelm_exe_name} PRIVATE USE_FUEGO_EOS)
+  elseif(PELELM_EOS_MODEL STREQUAL "GammaLaw")
+    target_compile_definitions(${pelelm_exe_name} PRIVATE USE_GAMMALAW_EOS)
+  elseif(PELELM_EOS_MODEL STREQUAL "Soave-Redlich-Kwong")
+    target_compile_definitions(${pelelm_exe_name} PRIVATE USE_SRK_EOS)
+  endif()
 
   set(PELELM_MECHANISM_DIR "${PELE_PHYSICS_SRC_DIR}/Support/Fuego/Mechanism/Models/${PELELM_CHEMISTRY_MODEL}")
   target_sources(${pelelm_exe_name} PRIVATE
@@ -97,6 +120,7 @@ function(build_pelelm_exe pelelm_exe_name)
     set_source_files_properties(${PELE_PHYSICS_SRC_DIR}/Reactions/reactor.cpp PROPERTIES COMPILE_OPTIONS "${MY_CXX_FLAGS}")
     set_source_files_properties(${PELE_PHYSICS_SRC_DIR}/Reactions/reactor.H PROPERTIES COMPILE_OPTIONS "${MY_CXX_FLAGS}")
     if(PELELM_REACTOR_MODEL STREQUAL "cvode")
+      target_compile_definitions(${pelelm_exe_name} PRIVATE COMPILE_JACOBIAN)
       target_link_libraries(${pelelm_exe_name} PRIVATE sundials_cvode)
       if(PELELM_ENABLE_CUDA)
         target_sources(${pelelm_exe_name} PRIVATE ${PELE_PHYSICS_SRC_DIR}/Reactions/${PELELM_REACTOR_MODEL}/reactor_cvode_GPU.cpp)
