@@ -167,6 +167,11 @@ Real PeleLM::relative_tol_chem = 1.0e-10;
 Real PeleLM::absolute_tol_chem = 1.0e-10;
 static bool plot_rhoydot;
 int  PeleLM::nGrowAdvForcing=1;
+#ifdef ARMEX_USE_EB
+int  PeleLM::nGrowDivU=2;
+#else
+int  PeleLM::nGrowDivU=1;
+#endif
 bool PeleLM::avg_down_chem;
 int  PeleLM::reset_typical_vals_int=-1;
 Real PeleLM::typical_Y_val_min=1.e-10;
@@ -1051,7 +1056,7 @@ PeleLM::define_data ()
       auxDiag[kv.first] = std::unique_ptr<MultiFab>(new MultiFab(grids,dmap,kv.second.size(),0));
       auxDiag[kv.first]->setVal(0.0);
    }
-   const int nGrowS = amrex::max(nGrowAdvForcing, nghost_force()); // TODO: Ensure this is enough
+   const int nGrowS = nGrowAdvForcing; // TODO: Ensure this is enough
    external_sources.define(grids, dmap, NUM_STATE, nGrowS, amrex::MFInfo(), Factory());
    external_sources.setVal(0.);
    // HACK for debugging
@@ -2165,7 +2170,7 @@ PeleLM::compute_instantaneous_reaction_rates (MultiFab&       R,
    if ((nGrow>0) && (how == HT_EXTRAP_GROW_CELLS))
    {
       R.FillBoundary(0,NUM_SPECIES, geom.periodicity());
-      Extrapolater::FirstOrderExtrap(R, geom, 0, NUM_SPECIES);
+      Extrapolater::FirstOrderExtrap(R, geom, 0, NUM_SPECIES, R.nGrow());
    }
 
    if (verbose > 2)
@@ -4072,7 +4077,7 @@ PeleLM::getViscTerms (MultiFab& visc_terms,
    if (nGrow > 0)
    {
       visc_terms.FillBoundary(0,num_comp, geom.periodicity());
-      Extrapolater::FirstOrderExtrap(visc_terms, geom, 0, num_comp);
+      Extrapolater::FirstOrderExtrap(visc_terms, geom, 0, num_comp, visc_terms.nGrow());
    }
 
    if (verbose > 2)
@@ -4754,7 +4759,7 @@ PeleLM::set_reasonable_grow_cells_for_R (Real time)
    MultiFab& React = get_data(RhoYdot_Type, time);
    if (React.nGrow() > 0 ) {
       React.FillBoundary(0,NUM_SPECIES, geom.periodicity());
-      Extrapolater::FirstOrderExtrap(React, geom, 0, NUM_SPECIES); //FIXME: Is this in the wrong order?
+      Extrapolater::FirstOrderExtrap(React, geom, 0, NUM_SPECIES, React.nGrow());
    }
 }
 
@@ -4869,11 +4874,11 @@ PeleLM::advance (Real time,
   BL_PROFILE_VAR_START(PLM_DIFF);
   // Compute Dn and DDn (based on state at tn)
   // (Note that coeffs at tn and tnp1 were intialized in above)
-  MultiFab Dn(grids,dmap,NUM_SPECIES+2,std::max(1,nghost_force()),MFInfo(),Factory());
-  MultiFab DDn(grids,dmap,1,std::max(1,nghost_force()),MFInfo(),Factory());
+  MultiFab Dn(grids,dmap,NUM_SPECIES+2,nGrowAdvForcing,MFInfo(),Factory());
+  MultiFab DDn(grids,dmap,1,nGrowAdvForcing,MFInfo(),Factory());
   MultiFab DWbar;
   if (use_wbar) {
-     DWbar.define(grids,dmap,NUM_SPECIES,std::max(1,nghost_force()),MFInfo(),Factory());
+     DWbar.define(grids,dmap,NUM_SPECIES,nGrowAdvForcing,MFInfo(),Factory());
   }
 
   bool include_Wbar_terms = true;
@@ -4896,13 +4901,13 @@ PeleLM::advance (Real time,
   // Note: this was already done above for transport coefficients
   // and in advance_setup for scalar & divu
 
-  MultiFab Dnp1(grids,dmap,NUM_SPECIES+2,std::max(1,nghost_force()),MFInfo(),Factory());
-  MultiFab DDnp1(grids,dmap,1,std::max(1,nghost_force()),MFInfo(),Factory());
-  MultiFab Dhat(grids,dmap,NUM_SPECIES+2,std::max(1,nghost_force()),MFInfo(),Factory());
-  MultiFab DDhat(grids,dmap,1,std::max(1,nghost_force()),MFInfo(),Factory());
-  MultiFab chi(grids,dmap,1,std::max(2,nghost_force()),MFInfo(),Factory());
-  MultiFab chi_increment(grids,dmap,1,std::max(2,nghost_force()),MFInfo(),Factory());
-  MultiFab mac_divu(grids,dmap,1,std::max(2,nghost_force()),MFInfo(),Factory());
+  MultiFab Dnp1(grids,dmap,NUM_SPECIES+2,nGrowAdvForcing,MFInfo(),Factory());
+  MultiFab DDnp1(grids,dmap,1,nGrowAdvForcing,MFInfo(),Factory());
+  MultiFab Dhat(grids,dmap,NUM_SPECIES+2,nGrowAdvForcing,MFInfo(),Factory());
+  MultiFab DDhat(grids,dmap,1,nGrowAdvForcing,MFInfo(),Factory());
+  MultiFab chi(grids,dmap,1,nGrowDivU,MFInfo(),Factory());
+  MultiFab chi_increment(grids,dmap,1,nGrowDivU,MFInfo(),Factory());
+  MultiFab mac_divu(grids,dmap,1,nGrowDivU,MFInfo(),Factory());
 
   //====================================
   BL_PROFILE_VAR_START(PLM_DIFF);
@@ -4979,7 +4984,7 @@ PeleLM::advance (Real time,
     BL_PROFILE_VAR_START(PLM_MAC);
     // create S^{n+1/2} by averaging old and new
 
-    MultiFab Forcing(grids,dmap,NUM_SPECIES+1,std::max(1,nghost_force()),MFInfo(),Factory());
+    MultiFab Forcing(grids,dmap,NUM_SPECIES+1,nGrowAdvForcing,MFInfo(),Factory());
     Forcing.setBndry(1.e30);
     FillPatch(*this,mac_divu,mac_divu.nGrow(),time+0.5*dt,Divu_Type,0,1,0);
 
@@ -5880,7 +5885,7 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
     if (ngrow > 0)
     {
       React_new.FillBoundary(0,NUM_SPECIES, geom.periodicity());
-      Extrapolater::FirstOrderExtrap(React_new, geom, 0, NUM_SPECIES);
+      Extrapolater::FirstOrderExtrap(React_new, geom, 0, NUM_SPECIES, React_new.nGrow());
     }
   }
 
