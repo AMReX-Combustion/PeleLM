@@ -167,6 +167,11 @@ Real PeleLM::relative_tol_chem = 1.0e-10;
 Real PeleLM::absolute_tol_chem = 1.0e-10;
 static bool plot_rhoydot;
 int  PeleLM::nGrowAdvForcing=1;
+#ifdef ARMEX_USE_EB
+int  PeleLM::nGrowDivU=2;
+#else
+int  PeleLM::nGrowDivU=1;
+#endif
 bool PeleLM::avg_down_chem;
 int  PeleLM::reset_typical_vals_int=-1;
 Real PeleLM::typical_Y_val_min=1.e-10;
@@ -1011,7 +1016,7 @@ PeleLM::define_data ()
 {
    const int nGrow       = 0;
 #ifdef AMREX_USE_EB
-   const int nGrowEdges  = 2; // We need 2 growth cells for the redistribution when using MOL EB
+   const int nGrowEdges  = (redistribution_type == "StateRedist") ? 3 : 2;
 #else
    const int nGrowEdges  = 0; 
 #endif
@@ -1051,7 +1056,7 @@ PeleLM::define_data ()
       auxDiag[kv.first] = std::unique_ptr<MultiFab>(new MultiFab(grids,dmap,kv.second.size(),0));
       auxDiag[kv.first]->setVal(0.0);
    }
-   const int nGrowS = amrex::max(nGrowAdvForcing, nghost_force()); // TODO: Ensure this is enough
+   const int nGrowS = nGrowAdvForcing; // TODO: Ensure this is enough
    external_sources.define(grids, dmap, NUM_STATE, nGrowS, amrex::MFInfo(), Factory());
    external_sources.setVal(0.);
    // HACK for debugging
@@ -2081,6 +2086,14 @@ PeleLM::initData ()
 
   old_intersect_new          = grids;
 
+#ifdef AMREX_USE_EB
+  //
+  // Perform redistribution on initial fields
+  // This changes the input velocity fields
+  //
+  InitialRedistribution();
+#endif
+
 #ifdef AMREX_PARTICLES
   NavierStokesBase::initParticleData();
 #endif
@@ -2157,8 +2170,7 @@ PeleLM::compute_instantaneous_reaction_rates (MultiFab&       R,
    if ((nGrow>0) && (how == HT_EXTRAP_GROW_CELLS))
    {
       R.FillBoundary(0,NUM_SPECIES, geom.periodicity());
-      AMREX_ASSERT(R.nGrow() == 1);
-      Extrapolater::FirstOrderExtrap(R, geom, 0, NUM_SPECIES);
+      Extrapolater::FirstOrderExtrap(R, geom, 0, NUM_SPECIES, R.nGrow());
    }
 
    if (verbose > 2)
@@ -2407,14 +2419,14 @@ PeleLM::post_init (Real stop_time)
     return;
 
   const Real strt_time    = ParallelDescriptor::second();
-  const Real tnp1     = state[State_Type].curTime();
+  const Real tnp1         = state[State_Type].curTime();
   const int  finest_level = parent->finestLevel();
-  Real        dt_init     = 0.0;
-  Real Sbar;
+  Real dt_init  = 0.0;
+  Real dt_init2 = 0.0;
+  Real Sbar     = 0.0;
 
   Vector<Real> dt_save(finest_level+1);
   Vector<int>  nc_save(finest_level+1);
-  Real        dt_init2 = 0.0;
   Vector<Real> dt_save2(finest_level+1);
   Vector<int>  nc_save2(finest_level+1);
 
@@ -2426,7 +2438,6 @@ PeleLM::post_init (Real stop_time)
   // ensure system is solvable by creating deltaS = S - Sbar
   if (closed_chamber == 1)
   {
-
     // ensure divu is average down so computing deltaS = S - Sbar works for multilevel
     for (int lev = finest_level-1; lev >= 0; lev--)
     {
@@ -3610,13 +3621,13 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
    if (Dnew.nGrow() > 0)
    {
       Dnew.FillBoundary(DComp, NUM_SPECIES+1, geom.periodicity());
-      Extrapolater::FirstOrderExtrap(Dnew, geom, DComp, NUM_SPECIES+1);
+      Extrapolater::FirstOrderExtrap(Dnew, geom, DComp, NUM_SPECIES+1,Dnew.nGrow());
    }
 
    if (DDnew.nGrow() > 0)
    {
       DDnew.FillBoundary(0, 1, geom.periodicity());
-      Extrapolater::FirstOrderExtrap(DDnew, geom, 0, 1);
+      Extrapolater::FirstOrderExtrap(DDnew, geom, 0, 1,DDnew.nGrow());
    }
 
    if (verbose > 2)
@@ -4066,8 +4077,7 @@ PeleLM::getViscTerms (MultiFab& visc_terms,
    if (nGrow > 0)
    {
       visc_terms.FillBoundary(0,num_comp, geom.periodicity());
-      AMREX_ASSERT(visc_terms.nGrow() == 1);
-      Extrapolater::FirstOrderExtrap(visc_terms, geom, 0, num_comp);
+      Extrapolater::FirstOrderExtrap(visc_terms, geom, 0, num_comp, visc_terms.nGrow());
    }
 
    if (verbose > 2)
@@ -4546,11 +4556,8 @@ PeleLM::compute_differential_diffusion_terms (MultiFab& D,
      D.FillBoundary(0,nc, geom.periodicity());
      DD.FillBoundary(0,1, geom.periodicity());
 
-     AMREX_ASSERT(D.nGrow() == 1);
-     AMREX_ASSERT(DD.nGrow() == 1);
-
-     Extrapolater::FirstOrderExtrap(D, geom, 0, nc);
-     Extrapolater::FirstOrderExtrap(DD, geom, 0, 1);
+     Extrapolater::FirstOrderExtrap(D, geom, 0, nc, D.nGrow());
+     Extrapolater::FirstOrderExtrap(DD, geom, 0, 1, DD.nGrow());
    }
 }
 
@@ -4750,9 +4757,10 @@ PeleLM::set_reasonable_grow_cells_for_R (Real time)
    // Ensure reasonable grow cells for R.
    //
    MultiFab& React = get_data(RhoYdot_Type, time);
-   React.FillBoundary(0,NUM_SPECIES, geom.periodicity());
-   AMREX_ASSERT(React.nGrow() == 1);
-   Extrapolater::FirstOrderExtrap(React, geom, 0, NUM_SPECIES); //FIXME: Is this in the wrong order?
+   if (React.nGrow() > 0 ) {
+      React.FillBoundary(0,NUM_SPECIES, geom.periodicity());
+      Extrapolater::FirstOrderExtrap(React, geom, 0, NUM_SPECIES, React.nGrow());
+   }
 }
 
 Real
@@ -4897,9 +4905,9 @@ PeleLM::advance (Real time,
   MultiFab DDnp1(grids,dmap,1,nGrowAdvForcing,MFInfo(),Factory());
   MultiFab Dhat(grids,dmap,NUM_SPECIES+2,nGrowAdvForcing,MFInfo(),Factory());
   MultiFab DDhat(grids,dmap,1,nGrowAdvForcing,MFInfo(),Factory());
-  MultiFab chi(grids,dmap,1,nGrowAdvForcing,MFInfo(),Factory());
-  MultiFab chi_increment(grids,dmap,1,nGrowAdvForcing,MFInfo(),Factory());
-  MultiFab mac_divu(grids,dmap,1,nGrowAdvForcing,MFInfo(),Factory());
+  MultiFab chi(grids,dmap,1,nGrowDivU,MFInfo(),Factory());
+  MultiFab chi_increment(grids,dmap,1,nGrowDivU,MFInfo(),Factory());
+  MultiFab mac_divu(grids,dmap,1,nGrowDivU,MFInfo(),Factory());
 
   //====================================
   BL_PROFILE_VAR_START(PLM_DIFF);
@@ -4915,7 +4923,7 @@ PeleLM::advance (Real time,
      auto const& ddn      = DDn.array(mfi);
      auto const& ddnp1k   = DDnp1.array(mfi);
      auto const& ddnp1kp1 = DDhat.array(mfi);
-     auto const& chi_ar      = chi.array(mfi);
+     auto const& chi_ar   = chi.array(mfi);
      amrex::ParallelFor(gbx, [dn, dnp1k, dnp1kp1, ddn, ddnp1k, ddnp1kp1, chi_ar]
      AMREX_GPU_DEVICE (int i, int j, int k) noexcept
      {
@@ -4978,12 +4986,12 @@ PeleLM::advance (Real time,
 
     MultiFab Forcing(grids,dmap,NUM_SPECIES+1,nGrowAdvForcing,MFInfo(),Factory());
     Forcing.setBndry(1.e30);
-    FillPatch(*this,mac_divu,nGrowAdvForcing,time+0.5*dt,Divu_Type,0,1,0);
+    FillPatch(*this,mac_divu,mac_divu.nGrow(),time+0.5*dt,Divu_Type,0,1,0);
 
     // compute new-time thermodynamic pressure and chi_increment
     setThermoPress(tnp1);
 
-    chi_increment.setVal(0.0,nGrowAdvForcing);
+    chi_increment.setVal(0.0,chi_increment.nGrow());
     calc_dpdt(tnp1,dt,chi_increment);
     
 #ifdef AMREX_USE_EB
@@ -5004,12 +5012,16 @@ PeleLM::advance (Real time,
     {
        const Box& gbx = mfi.growntilebox();
        auto const& chi_ar      = chi.array(mfi);
-       auto const& chi_inc_ar  = chi_increment.array(mfi);
+       auto const& chi_inc_ar  = chi_increment.const_array(mfi);
        auto const& divu_ar     = mac_divu.array(mfi);
-       amrex::ParallelFor(gbx, [chi_ar, chi_inc_ar, divu_ar]
+       amrex::ParallelFor(gbx, [chi_ar, chi_inc_ar, divu_ar, sdc_iter]
        AMREX_GPU_DEVICE (int i, int j, int k) noexcept
        {
-          chi_ar(i,j,k) += chi_inc_ar(i,j,k);
+          if (sdc_iter == 1) {
+             chi_ar(i,j,k) = chi_inc_ar(i,j,k);
+          } else {
+             chi_ar(i,j,k) += chi_inc_ar(i,j,k);
+          }
           divu_ar(i,j,k) += chi_ar(i,j,k);
        });
     }
@@ -5024,7 +5036,7 @@ PeleLM::advance (Real time,
     if (verbose) {
         amrex::Print() << "[" << level << "]   SDC: " << sdc_iter << " - MAC projection \n";
     }
-    mac_project(time,dt,S_old,&mac_divu,nGrowAdvForcing,updateFluxReg);
+    mac_project(time,dt,S_old,&mac_divu,umac_n_grow,updateFluxReg);
 
     if (closed_chamber == 1 && level == 0 && Sbar != 0)
     {
@@ -5872,9 +5884,8 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
     //
     if (ngrow > 0)
     {
-      AMREX_ASSERT(React_new.nGrow() == 1);
       React_new.FillBoundary(0,NUM_SPECIES, geom.periodicity());
-      Extrapolater::FirstOrderExtrap(React_new, geom, 0, NUM_SPECIES);
+      Extrapolater::FirstOrderExtrap(React_new, geom, 0, NUM_SPECIES, React_new.nGrow());
     }
   }
 
@@ -5897,8 +5908,8 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
                                                         const MultiFab& DivU,
                                                         Real            dt)
 {
-
   BL_PROFILE("PLM::comp_sc_adv_fluxes_and_div()");
+
   //
   // Compute -Div(advective fluxes)  [ which is -aofs in NS, BTW ... careful...
   //
@@ -5906,12 +5917,11 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
   const Real  strt_time = ParallelDescriptor::second();
   const Real  prev_time = state[State_Type].prevTime();  
 
-  int ng = godunov_hyp_grow;
   int sComp = std::min((int)Density, std::min((int)first_spec,(int)Temp) );
   int eComp = std::max((int)Density, std::max((int)last_spec,(int)Temp) );
   int nComp = eComp - sComp + 1;
 
-  FillPatchIterator S_fpi(*this,get_old_data(State_Type),ng,prev_time,State_Type,sComp,nComp);
+  FillPatchIterator S_fpi(*this,get_old_data(State_Type),nghost_state(),prev_time,State_Type,sComp,nComp);
   MultiFab& Smf=S_fpi.get_mf();
   
   int rhoYcomp = first_spec - sComp;
@@ -5924,7 +5934,7 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
 #endif
   for (MFIter mfi(Smf,TilingIfNotGPU()); mfi.isValid(); ++mfi)
   {
-     const Box& gbx = mfi.growntilebox(godunov_hyp_grow);
+     const Box& gbx = mfi.growntilebox(nghost_state());
      auto fab = Smf.array(mfi);
      AMREX_HOST_DEVICE_FOR_4D ( gbx, NUM_SPECIES, i, j, k, n,
      {
@@ -6072,7 +6082,7 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
     bool knownEdgeState = false;
     amrex::Gpu::DeviceVector<int> iconserv;
     iconserv.resize(1, 0);
-    iconserv[0] =  0;           // non-conservative advection for Temp
+    iconserv[0] =  (advectionType[Temp] == Conservative) ? 1 : 0;
     bool isVelocity = false;
 
     if ( use_godunov ) {
@@ -8249,8 +8259,7 @@ PeleLM::calc_dpdt (Real      time,
 
    if (nGrow > 0) {
      dpdt.FillBoundary(0,1, geom.periodicity());
-     AMREX_ASSERT(dpdt.nGrow() == 1);
-     Extrapolater::FirstOrderExtrap(dpdt, geom, 0, 1);
+     Extrapolater::FirstOrderExtrap(dpdt, geom, 0, 1, dpdt.nGrow());
    }
 }
 
