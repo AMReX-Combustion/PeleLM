@@ -284,7 +284,6 @@ compute_divu(int i, int j, int k,
              amrex::Array4<const amrex::Real> const& viscTermT,
              amrex::Array4<const amrex::Real> const& viscTermY,
              amrex::Array4<const amrex::Real> const& rhoYdot,
-             amrex::Array4<const amrex::Real> const& extRho,
              amrex::Array4<const amrex::Real> const& extY,
              amrex::Array4<const amrex::Real> const& extRhoH,
              amrex::Array4<      amrex::Real> const& divu) noexcept
@@ -322,9 +321,9 @@ compute_divu(int i, int j, int k,
    for (int n = 0; n < NUM_SPECIES; n++) {
       divu(i,j,k) +=  ( viscTermY(i,j,k,n) + rhoYdot(i,j,k,n) )
                     * ( mwtinv[n] * Wbar * rhoinv - hi[n] * denominv );
-      divu(i,j,k) += extY(i,j,k,n) * mwtinv[n] * Wbar * rhoinv;
+      divu(i,j,k) += extY(i,j,k,n)
+                    * ( mwtinv[n] * Wbar * rhoinv - hi[n] * denominv );
    }
-   divu(i,j,k) += extRho(i,j,k) * rhoinv;
    divu(i,j,k) += extRhoH(i,j,k) * denominv;
 }
 

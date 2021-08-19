@@ -8514,15 +8514,14 @@ PeleLM::calc_divu (Real      time,
       auto const& vtT     = mcViscTerms.array(mfi,vtCompT);
       auto const& vtY     = mcViscTerms.array(mfi,vtCompY);
       auto const& rhoYdot = RhoYdot.array(mfi);
-      auto const& extRho  = external_sources.array(mfi,Density);
       auto const& extY    = external_sources.array(mfi,DEF_first_spec);
       auto const& extRhoH = external_sources.array(mfi,DEF_RhoH);
       auto const& du      = divu.array(mfi);
 
-      amrex::ParallelFor(bx, [ rhoY, T, vtT, vtY, rhoYdot, du, extRho, extY, extRhoH]
+      amrex::ParallelFor(bx, [ rhoY, T, vtT, vtY, rhoYdot, du, extY, extRhoH]
       AMREX_GPU_DEVICE (int i, int j, int k) noexcept
       {
-         compute_divu( i, j, k, rhoY, T, vtT, vtY, rhoYdot, extRho, extY, extRhoH, du );
+         compute_divu( i, j, k, rhoY, T, vtT, vtY, rhoYdot, extY, extRhoH, du );
       });
    }
   
