@@ -859,6 +859,7 @@ public:
   static bool def_harm_avg_cen2edge;
 
   static int nGrowAdvForcing;
+  static int nGrowDivU;
 
 };
 

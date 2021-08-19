@@ -43,7 +43,7 @@ Blocs   := .
 
 CEXE_sources +=
 F90EXE_sources +=
-CEXE_headers += 
+CEXE_headers += EBUserDefined.H
 FEXE_headers += 
 
 include $(PELELM_HOME)/Tools/Make/Make.PeleLM
