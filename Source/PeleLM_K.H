@@ -425,16 +425,16 @@ getTransportCoeff(int i, int j, int k,
    for (int n = 0; n < NUM_SPECIES; n++) {
       y[n] = rhoY(i,j,k,n) * rhoinv;
    }
+   rho *= 1.0e-3_rt;                          // MKS -> CGS conversion
+   amrex::Real Tloc = T(i,j,k);               // So that we can use const_array
 
    amrex::Real Wbar = 0.0_rt;
    eos.Y2WBAR(y, Wbar);
 
-   rho *= 1.0e-3_rt;                          // MKS -> CGS conversion
    amrex::Real rhoDi_cgs[NUM_SPECIES] = {0.0};
    amrex::Real lambda_cgs = 0.0_rt;
    amrex::Real mu_cgs = 0.0_rt;
    amrex::Real dummy_xi = 0.0_rt;
-   amrex::Real Tloc = T(i,j,k);
 
    bool get_xi = false;
    bool get_mu = true;
@@ -459,7 +459,7 @@ getTransportCoeffUnityLe(int i, int j, int k,
                          amrex::Real                      const& ScInv,
                          amrex::Real                      const& PrInv,
                          amrex::Array4<const amrex::Real> const& rhoY,
-                         amrex::Array4<      amrex::Real> const& T,
+                         amrex::Array4<const amrex::Real> const& T,
                          amrex::Array4<      amrex::Real> const& rhoDi,
                          amrex::Array4<      amrex::Real> const& lambda,
                          amrex::Array4<      amrex::Real> const& mu,
@@ -479,8 +479,9 @@ getTransportCoeffUnityLe(int i, int j, int k,
    for (int n = 0; n < NUM_SPECIES; n++) {
       y[n] = rhoY(i,j,k,n) * rhoinv;
    }
+   rho *= 1.0e-3_rt;                          // MKS -> CGS conversion
+   amrex::Real Tloc = T(i,j,k);               // So that we can use const_array
 
-   rho *= 1.0e-3_rt;                                     // MKS -> CGS conversion
    amrex::Real rhoDi_cgs[NUM_SPECIES] = {0.0};
    amrex::Real lambda_cgs = 0.0_rt;
    amrex::Real mu_cgs = 0.0_rt;
@@ -491,7 +492,7 @@ getTransportCoeffUnityLe(int i, int j, int k,
    bool get_lam = false;
    bool get_Ddiag = false;
    auto trans = pele::physics::PhysicsType::transport();
-   trans.transport(get_xi, get_mu, get_lam, get_Ddiag, T(i,j,k),
+   trans.transport(get_xi, get_mu, get_lam, get_Ddiag, Tloc,
                    rho, y, rhoDi_cgs, mu_cgs, dummy_xi, lambda_cgs, trans_parm);
 
    mu(i,j,k) = mu_cgs * 1.0e-1_rt;                       // CGS -> MKS conversions
@@ -532,7 +533,7 @@ AMREX_FORCE_INLINE
 void
 getVelViscosity(int i, int j, int k,
                 amrex::Array4<const amrex::Real> const& rhoY,
-                amrex::Array4<      amrex::Real> const& T,
+                amrex::Array4<const amrex::Real> const& T,
                 amrex::Array4<      amrex::Real> const& mu,
                 pele::physics::transport::TransParm<pele::physics::PhysicsType::eos_type,
                                                     pele::physics::PhysicsType::transport_type> const* trans_parm) noexcept
@@ -549,8 +550,9 @@ getVelViscosity(int i, int j, int k,
    for (int n = 0; n < NUM_SPECIES; n++) {
       y[n] = rhoY(i,j,k,n) * rhoinv;
    }
-
    rho *= 1.0e-3_rt;                          // MKS -> CGS conversion
+   amrex::Real Tloc = T(i,j,k);               // So that we can use const_array
+
    amrex::Real dummy_rhoDi[NUM_SPECIES] = {0.0};
    amrex::Real dummy_lambda = 0.0_rt;
    amrex::Real mu_cgs = 0.0_rt;
@@ -561,7 +563,7 @@ getVelViscosity(int i, int j, int k,
    bool get_lam = false;
    bool get_Ddiag = false;
    auto trans = pele::physics::PhysicsType::transport();
-   trans.transport(get_xi, get_mu, get_lam, get_Ddiag, T(i,j,k),
+   trans.transport(get_xi, get_mu, get_lam, get_Ddiag, Tloc,
                    rho, y, dummy_rhoDi, mu_cgs, dummy_xi, dummy_lambda, trans_parm);
 
    // Do CGS -> MKS conversions
@@ -573,7 +575,7 @@ AMREX_FORCE_INLINE
 void
 getConductivity(int i, int j, int k,
                 amrex::Array4<const amrex::Real> const& rhoY,
-                amrex::Array4<      amrex::Real> const& T,
+                amrex::Array4<const amrex::Real> const& T,
                 amrex::Array4<      amrex::Real> const& lambda,
                 pele::physics::transport::TransParm<pele::physics::PhysicsType::eos_type,
                                                     pele::physics::PhysicsType::transport_type> const* trans_parm) noexcept
@@ -590,8 +592,9 @@ getConductivity(int i, int j, int k,
    for (int n = 0; n < NUM_SPECIES; n++) {
       y[n] = rhoY(i,j,k,n) * rhoinv;
    }
-
    rho *= 1.0e-3_rt;                          // MKS -> CGS conversion
+   amrex::Real Tloc = T(i,j,k);               // So that we can use const_array
+
    amrex::Real dummy_rhoDi[NUM_SPECIES] = {0.0};
    amrex::Real lambda_cgs = 0.0_rt;
    amrex::Real dummy_mu = 0.0_rt;
@@ -602,7 +605,7 @@ getConductivity(int i, int j, int k,
    bool get_lam = true;
    bool get_Ddiag = false;
    auto trans = pele::physics::PhysicsType::transport();
-   trans.transport(get_xi, get_mu, get_lam, get_Ddiag, T(i,j,k),
+   trans.transport(get_xi, get_mu, get_lam, get_Ddiag, Tloc,
                    rho, y, dummy_rhoDi, dummy_mu, dummy_xi, lambda_cgs, trans_parm);
 
    // Do CGS -> MKS conversions
