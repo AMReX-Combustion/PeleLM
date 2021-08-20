@@ -1693,29 +1693,29 @@ PeleLM::estTimeStep ()
 }
 
 void
-PeleLM::checkTimeStep (Real dt)
+PeleLM::checkTimeStep (const Real a_time,
+                       Real a_dt)
 {
    BL_PROFILE("PLM::checkTimeStep()");
-   if (fixed_dt > 0.0 || !divu_ceiling)
+
+   if (fixed_dt > 0.0 || !divu_ceiling) {
       return;
+   }
 
-   const int   nGrow    = 1;
-   const Real  cur_time  = state[State_Type].curTime();
-   MultiFab*   DivU      = getDivCond(0,cur_time);
+   // Get class state data refs. We assume it's been FillPatched already !
+   const MultiFab& divU = get_data(Divu_Type,a_time);
+   const MultiFab& S    = get_data(State_Type,a_time);
 
-   FillPatchIterator U_fpi(*this,*DivU,nGrow,cur_time,State_Type,Xvel,AMREX_SPACEDIM);
-   MultiFab& Umf=U_fpi.get_mf();
-
-#ifdef _OPENMP
+#ifdef AMREX_USE_OMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
-   for (MFIter mfi(Umf,TilingIfNotGPU()); mfi.isValid();++mfi)
+   for (MFIter mfi(S,TilingIfNotGPU()); mfi.isValid();++mfi)
    {
-      const Box&  bx       = mfi.tilebox();
-      auto const& rho      = rho_ctime.array(mfi);
-      auto const& vel      = Umf.array(mfi);
-      auto const& divu     = DivU->array(mfi);
-      auto const& vol      = volume.const_array(mfi);
+      const Box&  bx   = mfi.tilebox();
+      auto const& rho  = rho_ctime.const_array(mfi);
+      auto const& vel  = S.const_array(mfi,0);
+      auto const& divu = divU.const_array(mfi);
+      auto const& vol  = volume.const_array(mfi);
       AMREX_D_TERM(auto const& areax = (area[0]).const_array(mfi);,
                    auto const& areay = (area[1]).const_array(mfi);,
                    auto const& areaz = (area[2]).const_array(mfi););
@@ -1725,14 +1725,13 @@ PeleLM::checkTimeStep (Real dt)
       const auto dxinv     = geom.InvCellSizeArray();
 
       amrex::ParallelFor(bx, [rho, vel, divu, vol, AMREX_D_DECL(areax,areay,areaz),
-                              divu_check_flag, divu_dt_fac, rho_min, dxinv, dt]
+                              divu_check_flag, divu_dt_fac, rho_min, dxinv, a_dt]
       AMREX_GPU_DEVICE (int i, int j, int k) noexcept
       {
          check_divu_dt(i, j, k, divu_check_flag, divu_dt_fac, rho_min, dxinv,
-                       rho, vel, divu, vol, AMREX_D_DECL(areax,areay,areaz), dt); 
+                       rho, vel, divu, vol, AMREX_D_DECL(areax,areay,areaz), a_dt); 
       });
    }
-   delete DivU;
 }
 
 void
@@ -2074,17 +2073,20 @@ PeleLM::initData ()
   {
     const Real dt       = 1.0;
     const Real dtin     = -1.0; // Dummy value denotes initialization.
-    const Real tnp1 = state[Divu_Type].curTime();
+    const Real new_time = state[Divu_Type].curTime();
     MultiFab&  Divu_new = get_new_data(Divu_Type);
+    MultiFab&  S_new    = get_new_data(State_Type);
 
-    state[State_Type].setTimeLevel(tnp1,dt,dt);
+    state[State_Type].setTimeLevel(new_time, dt, dt);
 
-    calcDiffusivity(tnp1);
+    // calcDiff uses class state and assumes FillPatched -> do it now
+    FillPatch(*this, S_new, S_new.nGrow(), new_time , State_Type, Density, NUM_STATE-(Density+1), Density);
+    calcDiffusivity(new_time);
 
-    calc_divu(tnp1,dtin,Divu_new);
+    calc_divu(new_time, dtin, Divu_new);
   }
 
-  old_intersect_new          = grids;
+  old_intersect_new = grids;
 
 #ifdef AMREX_USE_EB
   //
@@ -2102,12 +2104,8 @@ PeleLM::initData ()
 void
 PeleLM::initDataOtherTypes ()
 {
-  // Fill RhoH component using EOS function explicitly
-  const Real tnp1  = state[State_Type].curTime();
-  compute_rhohmix(tnp1,get_new_data(State_Type),RhoH);
-
   // Set initial omegadot = 0
-  get_new_data(RhoYdot_Type).setVal(0);
+  get_new_data(RhoYdot_Type).setVal(0.0);
 
   // Put something reasonable into the FuncCount variable
   get_new_data(FuncCount_Type).setVal(1);
@@ -3655,7 +3653,7 @@ PeleLM::adjust_spec_diffusion_fluxes (MultiFab* const * flux,
    const Real strt_time = ParallelDescriptor::second();
    const Box& domain = geom.Domain();
 
-   int ngrow = 3;
+   int ngrow = 1;
    MultiFab TT(grids,dmap,NUM_SPECIES,ngrow,MFInfo(),Factory());
    FillPatch(*this,TT,ngrow,time,State_Type,first_spec,NUM_SPECIES,0);
 
@@ -4608,18 +4606,17 @@ PeleLM::compute_rhoRT (const MultiFab& S,
 
    const Real strt_time = ParallelDescriptor::second();
 
-#ifdef _OPENMP
+#ifdef AMREX_USE_OMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
    {
       for (MFIter mfi(S,TilingIfNotGPU()); mfi.isValid(); ++mfi)
       {
          const Box& bx = mfi.tilebox();
-         auto const& rho     = S.array(mfi,Density);
-         auto const& rhoY    = S.array(mfi,first_spec);
-         auto const& T       = S.array(mfi,Temp);
+         auto const& rho     = S.const_array(mfi,Density);
+         auto const& rhoY    = S.const_array(mfi,first_spec);
+         auto const& T       = S.const_array(mfi,Temp);
          auto const& P       = Press.array(mfi, pComp);
-
          amrex::ParallelFor(bx, [rho, rhoY, T, P]
          AMREX_GPU_DEVICE (int i, int j, int k) noexcept
          {
@@ -4718,15 +4715,18 @@ PeleLM::advance_setup (Real time,
 {
    NavierStokesBase::advance_setup(time, dt, iteration, ncycle);
 
+   // Copy States Old -> New
    for (int k = 0; k < num_state_type; k++)
    {
       MultiFab& nstate = get_new_data(k);
       MultiFab& ostate = get_old_data(k);
       MultiFab::Copy(nstate,ostate,0,0,nstate.nComp(),nstate.nGrow());
    }
-   if (level == 0)
+   if (level == 0) {
       set_htt_hmixTYP();
+   }
 
+   // Make rho_new in NSB, rho_old already done in NSB::advance_setup
    make_rho_curr_time();
 
    RhoH_to_Temp(get_old_data(State_Type));
@@ -4773,10 +4773,9 @@ PeleLM::advance (Real time,
 
   //====================================
   BL_PROFILE_VAR("PeleLM::advance::mac", PLM_MAC);
-  if (closed_chamber == 1 && level == 0)
-  {
-    // set new-time ambient pressure to be a copy of old-time ambient pressure
-    p_amb_new = p_amb_old;
+  if (closed_chamber == 1 && level == 0) {
+      // set new-time ambient pressure to be a copy of old-time ambient pressure
+      p_amb_new = p_amb_old;
   }
   BL_PROFILE_VAR_STOP(PLM_MAC);
   //====================================
@@ -4784,55 +4783,54 @@ PeleLM::advance (Real time,
   is_predictor = true;
   updateFluxReg = false;
 
-  if (level == 0)
-  {
-    crse_dt = dt;
+  if (level == 0) {
+      crse_dt = dt;
   }
 
-  if (verbose)
-  {
-    amrex::Print() << "[" << level << "]" 
-                   << " PeleLM::advance() : starting time = " << time
-                   << " with dt = "         << dt << '\n';
+  if (verbose) {
+      amrex::Print() << "[" << level << "]" 
+                     << " PeleLM::advance() : starting time = " << time
+                     << " with dt = "         << dt << '\n';
   }
 
   //====================================
   BL_PROFILE_VAR("PeleLM::advance::setup", PLM_SETUP);
-  // swaps old and new states for all state types
+  // swaps old and new states for all state types (in NSB)
   // then copies each of the old state types into the new state types
-  advance_setup(time,dt,iteration,ncycle);
+  advance_setup(time, dt, iteration, ncycle);
 
-  MultiFab& S_new = get_new_data(State_Type);
-  MultiFab& S_old = get_old_data(State_Type);
+  MultiFab& S_new = get_new_data(State_Type);          // t^{n} state
+  MultiFab& S_old = get_old_data(State_Type);          // t^{n+1} state
 
-  const Real prev_time = state[State_Type].prevTime();
-  const Real tnp1  = state[State_Type].curTime();
+  const Real prev_time = state[State_Type].prevTime(); // t^{n}
+  const Real new_time  = state[State_Type].curTime();  // t^{n+1}
 
-  //
+  // Class state has 1 ghost cell in LM. FillPatch old/new now and use
+  // class state directly if we only <= 1 ghost cell, use FPI otherwise
+  FillPatch(*this, S_old, S_old.nGrow(), prev_time, State_Type, 0, NUM_STATE, 0);
+  FillPatch(*this, S_new, S_new.nGrow(), new_time , State_Type, 0, NUM_STATE, 0);
+
   // Calculate the time N viscosity and diffusivity
   //   Note: The viscosity and diffusivity at time N+1 are
   //         initialized here to the time N values just to
   //         have something reasonable.
   //
   const int num_diff = NUM_STATE-AMREX_SPACEDIM-1;
-  calcViscosity(prev_time,dt,iteration,ncycle);
+  calcViscosity(prev_time, dt, iteration, ncycle);
   calcDiffusivity(prev_time);
 
   MultiFab::Copy(*viscnp1_cc, *viscn_cc, 0, 0, 1, viscn_cc->nGrow());
   MultiFab::Copy(*diffnp1_cc, *diffn_cc, 0, 0, num_diff, diffn_cc->nGrow());
   
-  if (level==0 && reset_typical_vals_int>0)
-  {
-    int L0_steps = parent->levelSteps(0);
-    if (L0_steps>0 && L0_steps%reset_typical_vals_int==0)
-    {
-      reset_typical_values(get_old_data(State_Type));
-    }
+  if (level==0 && reset_typical_vals_int>0) {
+      int L0_steps = parent->levelSteps(0);
+      if (L0_steps>0 && L0_steps%reset_typical_vals_int==0) {
+          reset_typical_values(S_old);
+      }
   }
 
-  if (do_check_divudt)
-  {
-    checkTimeStep(dt);
+  if (do_check_divudt) {
+      checkTimeStep(new_time,dt);
   }
 
   Real dt_test = 0.0;
@@ -4843,13 +4841,13 @@ PeleLM::advance (Real time,
   BL_PROFILE_VAR("PeleLM::advance::diffusion", PLM_DIFF);
   if (floor_species == 1)
   {
-#ifdef _OPENMP
+#ifdef AMREX_USE_OMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
      for (MFIter mfi(S_old,TilingIfNotGPU()); mfi.isValid(); ++mfi)
      {
-        const Box& bx = mfi.tilebox();            
-        auto const& rhoY    = S_old.array(mfi,first_spec);  
+        const Box& bx     = mfi.tilebox();            
+        auto const& rhoY  = S_old.array(mfi,first_spec);  
         amrex::ParallelFor(bx, [rhoY]
         AMREX_GPU_DEVICE (int i, int j, int k) noexcept
         {
@@ -4857,9 +4855,6 @@ PeleLM::advance (Real time,
         });
      }
   }
-
-  // Build a copy of old-time rho with grow cells for use in the diffusion solves
-  make_rho_prev_time();
   BL_PROFILE_VAR_STOP(PLM_DIFF);
   //====================================
 
@@ -4878,7 +4873,7 @@ PeleLM::advance (Real time,
   MultiFab DDn(grids,dmap,1,nGrowAdvForcing,MFInfo(),Factory());
   MultiFab DWbar;
   if (use_wbar) {
-     DWbar.define(grids,dmap,NUM_SPECIES,nGrowAdvForcing,MFInfo(),Factory());
+      DWbar.define(grids,dmap,NUM_SPECIES,nGrowAdvForcing,MFInfo(),Factory());
   }
 
   bool include_Wbar_terms = true;
@@ -4893,7 +4888,7 @@ PeleLM::advance (Real time,
     previous step or divu_iter's version of I_R.  Either way, we have to make 
     sure that the nGrowAdvForcing grow cells have something reasonable in them
   */
-  set_reasonable_grow_cells_for_R(tnp1);
+  set_reasonable_grow_cells_for_R(new_time);
   BL_PROFILE_VAR_STOP(PLM_REAC);
   //====================================
 
@@ -4911,30 +4906,30 @@ PeleLM::advance (Real time,
 
   //====================================
   BL_PROFILE_VAR_START(PLM_DIFF);
-#ifdef _OPENMP
+#ifdef AMREX_USE_OMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
   for (MFIter mfi(Dn,TilingIfNotGPU()); mfi.isValid(); ++mfi)
   {
-     const Box& gbx = mfi.growntilebox();
-     auto const& dn       = Dn.array(mfi);
-     auto const& dnp1k    = Dnp1.array(mfi);
-     auto const& dnp1kp1  = Dhat.array(mfi);
-     auto const& ddn      = DDn.array(mfi);
-     auto const& ddnp1k   = DDnp1.array(mfi);
-     auto const& ddnp1kp1 = DDhat.array(mfi);
-     auto const& chi_ar   = chi.array(mfi);
-     amrex::ParallelFor(gbx, [dn, dnp1k, dnp1kp1, ddn, ddnp1k, ddnp1kp1, chi_ar]
-     AMREX_GPU_DEVICE (int i, int j, int k) noexcept
-     {
-        for (int n = 0; n < NUM_SPECIES+2; n++) {
-           dnp1k(i,j,k,n) = dn(i,j,k,n);
-           dnp1kp1(i,j,k,n) = 0.0;
-        }
-        ddnp1k(i,j,k) = ddn(i,j,k);
-        ddnp1kp1(i,j,k) = 0.0;
-        chi_ar(i,j,k) = 0.0;
-     });
+      const Box& gbx = mfi.growntilebox();
+      auto const& dn       = Dn.array(mfi);
+      auto const& dnp1k    = Dnp1.array(mfi);
+      auto const& dnp1kp1  = Dhat.array(mfi);
+      auto const& ddn      = DDn.array(mfi);
+      auto const& ddnp1k   = DDnp1.array(mfi);
+      auto const& ddnp1kp1 = DDhat.array(mfi);
+      auto const& chi_ar   = chi.array(mfi);
+      amrex::ParallelFor(gbx, [dn, dnp1k, dnp1kp1, ddn, ddnp1k, ddnp1kp1, chi_ar]
+      AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+      {
+          for (int n = 0; n < NUM_SPECIES+2; n++) {
+              dnp1k(i,j,k,n) = dn(i,j,k,n);
+              dnp1kp1(i,j,k,n) = 0.0;
+          }
+          ddnp1k(i,j,k) = ddn(i,j,k);
+          ddnp1kp1(i,j,k) = 0.0;
+          chi_ar(i,j,k) = 0.0;
+      });
   }
   BL_PROFILE_VAR_STOP(PLM_DIFF);
   //====================================
@@ -4943,107 +4938,104 @@ PeleLM::advance (Real time,
 
   BL_PROFILE_VAR_NS("PeleLM::advance::velocity_adv", PLM_VEL);
 
-  for (int sdc_iter=1; sdc_iter<=sdc_iterMAX; ++sdc_iter)
-  {
+  for (int sdc_iter=1; sdc_iter<=sdc_iterMAX; ++sdc_iter) {
 
-    // Add external sources like spray and soot source terms
-    add_external_sources(time, dt);
+      // Add external sources like spray and soot source terms
+      add_external_sources(time, dt);
 
-    if (sdc_iter == sdc_iterMAX)
-      updateFluxReg = true;
+      if (sdc_iter == sdc_iterMAX) {
+          updateFluxReg = true;
+      }
 
-    if (sdc_iter > 1)
-    {
+      if (sdc_iter > 1) {
+          //====================================
+          // compute new-time transport coefficients.
+          // New state scalars were FillPatched at the end of the previous SDC.
+          BL_PROFILE_VAR_START(PLM_DIFF);
+          calcDiffusivity(new_time);
+
+          // compute Dnp1 and DDnp1 iteratively lagged
+          bool include_Wbar_terms_np1 = true;
+          compute_differential_diffusion_terms(Dnp1,DDnp1,new_time,dt,include_Wbar_terms_np1);
+          BL_PROFILE_VAR_STOP(PLM_DIFF);
+          //====================================
+
+          //====================================
+          // compute new-time DivU with instantaneous reaction rates
+          BL_PROFILE_VAR_START(PLM_MAC);
+          calc_divu(new_time, dt, get_new_data(Divu_Type));
+          BL_PROFILE_VAR_STOP(PLM_MAC);
+          //====================================
+      }
+
       //====================================
-      // compute new-time transport coefficients
-      BL_PROFILE_VAR_START(PLM_DIFF);
-      calcDiffusivity(tnp1);
-
-      // compute Dnp1 and DDnp1 iteratively lagged
-      bool include_Wbar_terms_np1 = true;
-      compute_differential_diffusion_terms(Dnp1,DDnp1,tnp1,dt,include_Wbar_terms_np1);
-      BL_PROFILE_VAR_STOP(PLM_DIFF);
+      // compute U^{ADV,*}
+      BL_PROFILE_VAR_START(PLM_VEL);
+      dt_test = predict_velocity(dt);
+      BL_PROFILE_VAR_STOP(PLM_VEL);
       //====================================
 
       //====================================
-      // compute new-time DivU with instantaneous reaction rates
       BL_PROFILE_VAR_START(PLM_MAC);
-      calc_divu(tnp1, dt, get_new_data(Divu_Type));
-      BL_PROFILE_VAR_STOP(PLM_MAC);
-      //====================================
-    }
+      // create S^{n+1/2} by averaging old and new
 
-    //====================================
-    // compute U^{ADV,*}
-    BL_PROFILE_VAR_START(PLM_VEL);
-    dt_test = predict_velocity(dt);
-    BL_PROFILE_VAR_STOP(PLM_VEL);
-    //====================================
+      MultiFab Forcing(grids,dmap,NUM_SPECIES+1,nGrowAdvForcing,MFInfo(),Factory());
+      Forcing.setBndry(1.e30);
+      FillPatch(*this,mac_divu,mac_divu.nGrow(),time+0.5*dt,Divu_Type,0,1,0);
 
-    //====================================
-    BL_PROFILE_VAR_START(PLM_MAC);
-    // create S^{n+1/2} by averaging old and new
+      // compute new-time thermodynamic pressure and chi_increment
+      setThermoPress(new_time);
 
-    MultiFab Forcing(grids,dmap,NUM_SPECIES+1,nGrowAdvForcing,MFInfo(),Factory());
-    Forcing.setBndry(1.e30);
-    FillPatch(*this,mac_divu,mac_divu.nGrow(),time+0.5*dt,Divu_Type,0,1,0);
-
-    // compute new-time thermodynamic pressure and chi_increment
-    setThermoPress(tnp1);
-
-    chi_increment.setVal(0.0,chi_increment.nGrow());
-    calc_dpdt(tnp1,dt,chi_increment);
+      chi_increment.setVal(0.0,chi_increment.nGrow());
+      calc_dpdt(new_time,dt,chi_increment);
     
 #ifdef AMREX_USE_EB
-    {
-      MultiFab chi_tmp(grids,dmap,1,chi.nGrow()+2,MFInfo(),Factory());
-      chi_tmp.setVal(0.);
-      MultiFab::Copy(chi_tmp,chi_increment,0,0,1,chi.nGrow());
-      amrex::single_level_weighted_redistribute(  {chi_tmp}, {chi_increment}, *volfrac, 0, 1, {geom} );
-      EB_set_covered(chi_increment,0.0);
-    }
+      {
+          MultiFab chi_tmp(grids,dmap,1,chi.nGrow()+2,MFInfo(),Factory());
+          chi_tmp.setVal(0.);
+          MultiFab::Copy(chi_tmp,chi_increment,0,0,1,chi.nGrow());
+          amrex::single_level_weighted_redistribute(  {chi_tmp}, {chi_increment}, *volfrac, 0, 1, {geom} );
+          EB_set_covered(chi_increment,0.0);
+      }
 #endif
 
-    // Add chi_increment to chi and add chi to time-centered mac_divu
-#ifdef _OPENMP
+      // Add chi_increment to chi and add chi to time-centered mac_divu
+#ifdef AMREX_USE_OMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
-    for (MFIter mfi(chi,TilingIfNotGPU()); mfi.isValid(); ++mfi)
-    {
-       const Box& gbx = mfi.growntilebox();
-       auto const& chi_ar      = chi.array(mfi);
-       auto const& chi_inc_ar  = chi_increment.const_array(mfi);
-       auto const& divu_ar     = mac_divu.array(mfi);
-       amrex::ParallelFor(gbx, [chi_ar, chi_inc_ar, divu_ar, sdc_iter]
-       AMREX_GPU_DEVICE (int i, int j, int k) noexcept
-       {
-          if (sdc_iter == 1) {
-             chi_ar(i,j,k) = chi_inc_ar(i,j,k);
-          } else {
-             chi_ar(i,j,k) += chi_inc_ar(i,j,k);
-          }
-          divu_ar(i,j,k) += chi_ar(i,j,k);
-       });
-    }
+      for (MFIter mfi(chi,TilingIfNotGPU()); mfi.isValid(); ++mfi) {
+          const Box& gbx = mfi.growntilebox();
+          auto const& chi_ar      = chi.array(mfi);
+          auto const& chi_inc_ar  = chi_increment.const_array(mfi);
+          auto const& divu_ar     = mac_divu.array(mfi);
+          amrex::ParallelFor(gbx, [chi_ar, chi_inc_ar, divu_ar, sdc_iter]
+          AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+          {
+              if (sdc_iter == 1) {
+                  chi_ar(i,j,k) = chi_inc_ar(i,j,k);
+              } else {
+                  chi_ar(i,j,k) += chi_inc_ar(i,j,k);
+              }
+              divu_ar(i,j,k) += chi_ar(i,j,k);
+          });
+      }
 
-    Real Sbar = 0;
-    if (closed_chamber == 1 && level == 0)
-    {
-      Sbar = adjust_p_and_divu_for_closed_chamber(mac_divu);
-    }
+      Real Sbar = 0;
+      if (closed_chamber == 1 && level == 0) {
+        Sbar = adjust_p_and_divu_for_closed_chamber(mac_divu);
+      }
 
-    // MAC-project... and overwrite U^{ADV,*}
-    if (verbose) {
-        amrex::Print() << "[" << level << "]   SDC: " << sdc_iter << " - MAC projection \n";
-    }
-    mac_project(time,dt,S_old,&mac_divu,umac_n_grow,updateFluxReg);
+      // MAC-project... and overwrite U^{ADV,*}
+      if (verbose) {
+          amrex::Print() << "[" << level << "]   SDC: " << sdc_iter << " - MAC projection \n";
+      }
+      mac_project(time,dt,S_old,&mac_divu,umac_n_grow,updateFluxReg);
 
-    if (closed_chamber == 1 && level == 0 && Sbar != 0)
-    {
-      mac_divu.plus(Sbar,0,1); // add Sbar back to mac_divu
-    }
-    BL_PROFILE_VAR_STOP(PLM_MAC);
-    //====================================
+      if (closed_chamber == 1 && level == 0 && Sbar != 0) {
+        mac_divu.plus(Sbar,0,1); // add Sbar back to mac_divu
+      }
+      BL_PROFILE_VAR_STOP(PLM_MAC);
+      //====================================
 
     //====================================
     // Scalar advection TPROF
@@ -5261,9 +5253,12 @@ PeleLM::advance (Real time,
 
     //====================================
     BL_PROFILE_VAR_START(PLM_MAC);
-    setThermoPress(tnp1);
+    setThermoPress(new_time);
     BL_PROFILE_VAR_STOP(PLM_MAC);
     //====================================
+
+    // FillPatch the new scalar state class for the next SDC or post SDC
+    FillPatch(*this, S_new, S_new.nGrow(), new_time , State_Type, Density, NUM_STATE-(Density+1), Density);
 
     showMF("DBGSync",S_new,"DBGSync_Snew_end_sdc",level,sdc_iter,parent->levelSteps(level));
   }
@@ -5323,8 +5318,8 @@ PeleLM::advance (Real time,
    //====================================
    BL_PROFILE_VAR_START(PLM_DIFF);
    // Update transport coefficient with post-SDC state
-   calcDiffusivity(tnp1);
-   calcViscosity(tnp1,dt,iteration,ncycle);
+   calcViscosity(new_time,dt,iteration,ncycle);
+   calcDiffusivity(new_time);
    BL_PROFILE_VAR_STOP(PLM_DIFF);
    //====================================
 
@@ -5335,13 +5330,15 @@ PeleLM::advance (Real time,
    //
    //====================================
    BL_PROFILE_VAR_START(PLM_MAC);
-   setThermoPress(tnp1);
+   setThermoPress(new_time);
    BL_PROFILE_VAR_STOP(PLM_MAC);
    //====================================
 
    //====================================
    BL_PROFILE_VAR("PeleLM::advance::project", PLM_PROJ);
    calc_divu(time+dt, dt, get_new_data(Divu_Type));
+   VisMF::Write(get_new_data(Divu_Type),"newdivU");
+   VisMF::Write(get_new_data(State_Type),"newState");
 
    if (!NavierStokesBase::initial_step && level != parent->finestLevel())
    {
@@ -5381,10 +5378,15 @@ PeleLM::advance (Real time,
    if (do_mom_diff == 0) {
       velocity_advection(dt);
    }
+   VisMF::Write(get_new_data(State_Type),"newVelAfterAdv");
+   VisMF::Write(get_old_data(State_Type),"oldVelAfterAdv");
+   VisMF::Write(get_rho_half_time(),"rhoHalfAfterAdv");
+   VisMF::Write(*aofs,"aofsAfterAdv");
    
    velocity_update(dt);
    BL_PROFILE_VAR_STOP(PLM_VEL);
    //====================================
+   VisMF::Write(get_new_data(State_Type),"newVelAfterUpdate");
 
    //====================================
    BL_PROFILE_VAR_START(PLM_PROJ);
@@ -7843,41 +7845,27 @@ PeleLM::calcViscosity (const Real time,
    AMREX_ASSERT(whichTime == AmrOldTime || whichTime == AmrNewTime);
 
    MultiFab& visc = (whichTime == AmrOldTime ? *viscn_cc : *viscnp1_cc);
-   MultiFab& S = (whichTime == AmrOldTime) ? get_old_data(State_Type) : get_new_data(State_Type);
+   // --> We assume the class state data has been properly FillPatched already !
+   const MultiFab& S = (whichTime == AmrOldTime) ? get_old_data(State_Type) : get_new_data(State_Type);
   
-   // Index management
-   int sComp = amrex::min((int)first_spec,(int)Temp);
-   int eComp = amrex::max((int)last_spec, (int)Temp);
-   int nComp = eComp - sComp + 1;
-   int nGrow = 1;
-   int Tcomp =  Temp       - sComp;
-   int RYcomp = first_spec - sComp;
-
-   // Fillpatch the state   
-   FillPatchIterator fpi(*this,S,nGrow,time,State_Type,sComp,nComp);
-   MultiFab& S_cc = fpi.get_mf();
-
    // Get the transport GPU data pointer
    auto const* ltransparm = trans_parms.device_trans_parm();
 
-#ifdef _OPENMP
+#ifdef AMREX_USE_OMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
-   for (MFIter mfi(S_cc, TilingIfNotGPU()); mfi.isValid(); ++mfi)
+   for (MFIter mfi(S, TilingIfNotGPU()); mfi.isValid(); ++mfi)
    {
       const Box& gbx = mfi.growntilebox();
-      auto const& rhoY    = S_cc.array(mfi,RYcomp);
-      auto const& T       = S_cc.array(mfi,Tcomp);
+      auto const& rhoY    = S.const_array(mfi,first_spec);
+      auto const& T       = S.const_array(mfi,Temp);
       auto const& mu      = visc.array(mfi);
-
       amrex::ParallelFor(gbx, [rhoY, T, mu, ltransparm]
       AMREX_GPU_DEVICE (int i, int j, int k) noexcept
       {
          getVelViscosity( i, j, k, rhoY, T, mu, ltransparm);
       });
    }
-
-
 }
 
 void
@@ -7889,7 +7877,8 @@ PeleLM::calcDiffusivity (const Real time)
    AMREX_ASSERT(whichTime == AmrOldTime || whichTime == AmrNewTime);
 
    MultiFab& diff = (whichTime == AmrOldTime) ? *diffn_cc : *diffnp1_cc;
-   MultiFab& S = (whichTime == AmrOldTime) ? get_old_data(State_Type) : get_new_data(State_Type);
+   // --> We assume the class state data has been properly FillPatched already !
+   const MultiFab& S = (whichTime == AmrOldTime) ? get_old_data(State_Type) : get_new_data(State_Type);
 
    // for open chambers, ambient pressure is constant in time
    Real p_amb = p_amb_old;
@@ -7908,29 +7897,17 @@ PeleLM::calcDiffusivity (const Real time)
              (time - lev_0_prevtime)/(lev_0_curtime-lev_0_prevtime) * p_amb_new;
    }
 
-   // Index management
-   int sComp = amrex::min((int)first_spec, (int)Temp);
-   int eComp = amrex::max((int)last_spec,  (int)Temp);
-   int nComp = eComp - sComp + 1;
-   int nGrow = 1;
-   int Tcomp  = Temp       - sComp;
-   int RYcomp = first_spec - sComp;
-
-   // Fillpatch the state   
-   FillPatchIterator fpi(*this,S,nGrow,time,State_Type,sComp,nComp);
-   MultiFab& S_cc = fpi.get_mf();
-
    // Get the transport GPU data pointer
    auto const* ltransparm = trans_parms.device_trans_parm();
 
-#ifdef _OPENMP
+#ifdef AMREX_USE_OMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
-   for (MFIter mfi(S_cc, TilingIfNotGPU()); mfi.isValid(); ++mfi)
+   for (MFIter mfi(S, TilingIfNotGPU()); mfi.isValid(); ++mfi)
    {
       const Box& gbx = mfi.growntilebox();
-      auto const& rhoY    = S_cc.array(mfi,RYcomp);
-      auto const& T       = S_cc.array(mfi,Tcomp);
+      auto const& rhoY    = S.const_array(mfi,first_spec);
+      auto const& T       = S.const_array(mfi,Temp);
       auto const& rhoD    = diff.array(mfi,0);
       auto const& lambda  = diff.array(mfi,NUM_SPECIES);
       auto const& mu      = diff.array(mfi,NUM_SPECIES+1);

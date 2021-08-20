@@ -349,7 +349,8 @@ public:
                   amrex::Real      dt,
                   amrex::MultiFab& dpdt);
 
-  void checkTimeStep (amrex::Real dt);
+  void checkTimeStep (amrex::Real a_time,
+                      amrex::Real a_dt);
 
   void compute_differential_diffusion_fluxes (const amrex::MultiFab& S,
                                               const amrex::MultiFab* Scrse,
