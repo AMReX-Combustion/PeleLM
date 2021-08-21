@@ -5319,8 +5319,6 @@ PeleLM::advance (Real time,
    //====================================
    BL_PROFILE_VAR("PeleLM::advance::project", PLM_PROJ);
    calc_divu(time+dt, dt, get_new_data(Divu_Type));
-   VisMF::Write(get_new_data(Divu_Type),"newdivU");
-   VisMF::Write(get_new_data(State_Type),"newState");
 
    if (!NavierStokesBase::initial_step && level != parent->finestLevel())
    {
