@@ -4688,13 +4688,13 @@ PeleLM::set_htt_hmixTYP ()
       }
       ParallelDescriptor::ReduceRealMax(htt_hmixTYP);
       if (verbose > 1)
-      amrex::Print() << "setting htt_hmixTYP(via domain scan) = " << htt_hmixTYP << '\n';
+      amrex::Print() << "     setting htt_hmixTYP(via domain scan) = " << htt_hmixTYP << '\n';
    }
    else
    {
       htt_hmixTYP = typical_values[RhoH];
       if (verbose > 1)
-         amrex::Print() << "setting htt_hmixTYP(from user input) = " << htt_hmixTYP << '\n';
+         amrex::Print() << "     setting htt_hmixTYP(from user input) = " << htt_hmixTYP << '\n';
    }
 }
 
@@ -4710,7 +4710,7 @@ PeleLM::advance_setup (Real time,
    for (int k = 0; k < num_state_type; k++)
    {
       MultiFab& nstate = get_new_data(k);
-      MultiFab& ostate = get_old_data(k);
+      const MultiFab& ostate = get_old_data(k);
       MultiFab::Copy(nstate,ostate,0,0,nstate.nComp(),nstate.nGrow());
    }
    if (level == 0) {
@@ -5476,8 +5476,8 @@ PeleLM::advance (Real time,
 Real
 PeleLM::adjust_p_and_divu_for_closed_chamber(MultiFab& mac_divu)
 {
-   MultiFab& S_new = get_new_data(State_Type);
-   MultiFab& S_old = get_old_data(State_Type);
+   const MultiFab& S_new = get_new_data(State_Type);
+   const MultiFab& S_old = get_old_data(State_Type);
 
    const Real prev_time = state[State_Type].prevTime();
    const Real cur_time  = state[State_Type].curTime();
