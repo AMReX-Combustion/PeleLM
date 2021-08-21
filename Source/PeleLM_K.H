@@ -58,7 +58,7 @@ reactionRateRhoY(int i, int j, int k,
                  amrex::Array4<const amrex::Real> const& rhoY,
                  amrex::Array4<const amrex::Real> const& rhoH,
                  amrex::Array4<const amrex::Real> const& T,
-                 amrex::Array4<int>         const& mask,
+                 amrex::Array4<const int>         const& mask,
                  amrex::Array4<      amrex::Real> const& rhoYdot) noexcept
 {
    using namespace amrex::literals;
