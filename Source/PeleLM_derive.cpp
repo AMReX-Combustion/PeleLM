@@ -420,7 +420,7 @@ void pelelm_dertransportcoeff (const Box& bx, FArrayBox& derfab, int dcomp, int 
     auto       mu      = derfab.array(dcomp+NUM_SPECIES+1);
 
     // Get the transport GPU data pointer
-    pele::physics::transport::TransParm const* ltransparm = pele::physics::transport::trans_parm_g;
+    auto const* ltransparm = PeleLM::trans_parms.device_trans_parm();
 
     amrex::ParallelFor(bx,
     [T, rhoY, rhoD, lambda, mu, ltransparm] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
@@ -491,7 +491,7 @@ void pelelm_dermixanddiss (const Box& bx, FArrayBox& derfab, int dcomp, int ncom
     });
 
     // Get the transport GPU data pointer
-    pele::physics::transport::TransParm const* ltransparm = pele::physics::transport::trans_parm_g;
+    auto const* ltransparm = PeleLM::trans_parms.device_trans_parm();
 
     amrex::ParallelFor(bx_der,
     [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept

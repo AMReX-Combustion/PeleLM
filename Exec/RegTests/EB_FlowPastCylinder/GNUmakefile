@@ -26,28 +26,24 @@ PRECISION       = DOUBLE
 VERBOSE         = FALSE
 TINY_PROFILE    = FALSE
 
-# CVODE
-USE_SUNDIALS_PP = FALSE
-USE_KLU_PP      = FALSE
-
 # Choose model (from list below), and pmf file
 Chemistry_Model = air
 
-# This sets the EOS directory in $(PELE_PHYSICS_HOME)/Eos
-Eos_dir     := Fuego
+# This sets the EOS to one in $(PELE_PHYSICS_HOME)/Eos
+Eos_Model     := Fuego
 
 # This sets the network directory in $(PELE_PHYSICS_HOME)/Reactions
-Reactions_dir := Null
+Reactor_dir := null
 
-# This sets the transport directory in $(PELE_PHYSICS_HOME)/Transport
+# This sets the transport to one in $(PELE_PHYSICS_HOME)/Transport
 #Transport_dir := EGLib
-Transport_dir := Constant
+Transport_Model := Constant
 
 Blocs   := .
 
 CEXE_sources +=
 F90EXE_sources +=
-CEXE_headers += 
+CEXE_headers += EBUserDefined.H
 FEXE_headers += 
 
 include $(PELELM_HOME)/Tools/Make/Make.PeleLM

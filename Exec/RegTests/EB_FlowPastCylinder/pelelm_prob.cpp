@@ -38,5 +38,12 @@ extern "C" {
             amrex::Abort();
         }
 
+        auto& trans_parm = PeleLM::trans_parms.host_trans_parm();
+        amrex::ParmParse pptr("transport");
+        pp.query("const_viscosity", trans_parm.const_viscosity);
+        pp.query("const_bulk_viscosity", trans_parm.const_bulk_viscosity);
+        pp.query("const_conductivity", trans_parm.const_conductivity);
+        pp.query("const_diffusivity", trans_parm.const_diffusivity);
+        PeleLM::trans_parms.sync_to_device();
     }
 }

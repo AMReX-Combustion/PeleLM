@@ -269,6 +269,37 @@ jobs:
       run: |
         mpirun -n 2 ./PeleLM2d.gnu.MPI.ex inputs.2d-regt_VS max_step=2 amr.plot_files_output=0 amr.checkpoint_files_output=0
   
+  # Build and Run the FPC RegTest using Godunov with GNU7.5 and MPI support
+  FPC2D_Godunov_MPIRun:
+    name: GNU@7.5 MPI Run [FPC2D_Godunov]
+    runs-on: ubuntu-18.04
+    env: 
+      {CXXFLAGS: "-Werror -Wshadow -Woverloaded-virtual -Wunreachable-code"}
+    steps:
+    - name: Cancel previous runs
+      uses: styfle/cancel-workflow-action@0.6.0
+      with:
+        access_token: ${{github.token}}
+    - uses: actions/checkout@v2
+    - name: System Dependencies
+      run: .github/workflows/dependencies/dependencies.sh
+    - name: Repo Dependencies
+      run: Tools/CloneDeps.sh
+    - name: Build
+      env:
+         AMREX_HOME: ${GITHUB_WORKSPACE}/build/amrex
+         IAMR_HOME: ${GITHUB_WORKSPACE}/build/IAMR
+         AMREX_HYDRO_HOME: ${GITHUB_WORKSPACE}/build/AMReX-Hydro
+         PELE_PHYSICS_HOME: ${GITHUB_WORKSPACE}/build/PelePhysics
+         PELELM_HOME: ${GITHUB_WORKSPACE}
+      working-directory: ./Exec/RegTests/EB_FlowPastCylinder/
+      run: |
+        make -j 2 COMP=gnu
+    - name: Run
+      working-directory: ./Exec/RegTests/EB_FlowPastCylinder/
+      run: |
+        mpirun -n 2 ./PeleLM2d.gnu.MPI.ex inputs.2d-regt_VSGodunov max_step=2 amr.plot_files_output=0 amr.checkpoint_files_output=0
+  
   # Build and Run the 3D FPC RegTest with GNU7.5 and MPI support
   FPC3D_MPIRun:
     name: GNU@7.5 MPI Run [FPC3D]

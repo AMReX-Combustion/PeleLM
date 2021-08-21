@@ -10,6 +10,7 @@
 #include <mechanism.H>
 #include <pelelm_prob_parm.H>
 #include <PeleLM_parm.H>
+#include "PelePhysics.H"
 
 #include <list>
 #include <map>
@@ -445,6 +446,7 @@ public:
 
   void set_typical_values(bool restart);
   void reset_typical_values(const amrex::MultiFab& S);
+  void update_typical_values_chem();
 
   void activeControl(const int         step,
                      const int         restart,
@@ -498,7 +500,6 @@ public:
                            const amrex::BCRec&                    bc,
                            const amrex::Geometry&                 geom,
                            bool                                   add_hoop_stress,
-                           const Diffusion::SolveMode&            solve_mode = Diffusion::ONEPASS,
                            bool                                   add_old_time_divFlux = true,
                            const amrex::Vector<int>&              is_diffusive = amrex::Vector<int>());
 
@@ -513,7 +514,6 @@ public:
                   const amrex::BCRec&                bc,
                   const amrex::Geometry&             geom,
                   bool                        add_hoop_stress,
-                  const Diffusion::SolveMode& solve_mode,
                   bool                        add_old_time_divFlux,
                   const amrex::Vector<int>&   is_diffusive,
                   bool                        has_coarse_data,
@@ -645,11 +645,15 @@ public:
 
   static std::unique_ptr<ProbParm> prob_parm;
   static std::unique_ptr<ACParm> ac_parm;
+  static pele::physics::transport::TransportParams<
+         pele::physics::PhysicsType::transport_type>
+         trans_parms;
   //
   // Protected static data.
   //
   static int         num_divu_iters;
   static int         init_once_done;
+  static int         nSpecGroup;
   static int         RhoH;
   static int         do_OT_radiation;
   static int         do_heat_sink;
@@ -683,7 +687,6 @@ public:
   static int         hack_nospecdiff;
   static int         hack_noavgdivu;
   static amrex::Real trac_diff_coef;
-  static int         use_tranlib;
   static std::string turbFile;
   static std::string fuelName;
   static std::string productName;
@@ -710,6 +713,7 @@ public:
   static bool def_harm_avg_cen2edge;
 
   static int nGrowAdvForcing;
+  static int nGrowDivU;
 
 };
 

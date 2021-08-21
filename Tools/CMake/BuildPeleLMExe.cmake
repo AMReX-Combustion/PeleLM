@@ -31,18 +31,41 @@ function(build_pelelm_exe pelelm_exe_name)
 
   target_include_directories(${pelelm_exe_name} SYSTEM PRIVATE "${PELE_PHYSICS_SRC_DIR}/Source")
 
-  set(PELELM_TRANSPORT_DIR "${PELE_PHYSICS_SRC_DIR}/Transport/${PELELM_TRANSPORT_MODEL}")
+  set(PELELM_TRANSPORT_DIR "${PELE_PHYSICS_SRC_DIR}/Transport")
   target_sources(${pelelm_exe_name} PRIVATE
                  ${PELELM_TRANSPORT_DIR}/Transport.H
                  ${PELELM_TRANSPORT_DIR}/Transport.cpp
-                 ${PELELM_TRANSPORT_DIR}/TransportParams.H)
+                 ${PELELM_TRANSPORT_DIR}/TransportParams.H
+                 ${PELELM_TRANSPORT_DIR}/TransportTypes.H
+                 ${PELELM_TRANSPORT_DIR}/Simple.H
+                 ${PELELM_TRANSPORT_DIR}/Sutherland.H
+                 ${PELELM_TRANSPORT_DIR}/Constant.H)
   target_include_directories(${pelelm_exe_name} SYSTEM PRIVATE ${PELELM_TRANSPORT_DIR})
+  if (PELELM_TRANSPORT_MODEL STREQUAL "Simple")
+    target_compile_definitions(${pelelm_exe_name} PRIVATE USE_SIMPLE_TRANSPORT)
+  elseif(PELELM_TRANSPORT_MODEL STREQUAL "EGLib")
+    target_compile_definitions(${pelelm_exe_name} PRIVATE EGLIB_TRANSPORT)
+  elseif(PELELM_TRANSPORT_MODEL STREQUAL "Constant")
+    target_compile_definitions(${pelelm_exe_name} PRIVATE USE_CONSTANT_TRANSPORT)
+  elseif(PELELM_TRANSPORT_MODEL STREQUAL "Sutherland")
+    target_compile_definitions(${pelelm_exe_name} PRIVATE USE_SUTHERLAND_TRANSPORT)
+  endif()
 
-  set(PELELM_EOS_DIR "${PELE_PHYSICS_SRC_DIR}/Eos/${PELELM_EOS_MODEL}")
+  set(PELELM_EOS_DIR "${PELE_PHYSICS_SRC_DIR}/Eos")
   target_sources(${pelelm_exe_name} PRIVATE
                  ${PELELM_EOS_DIR}/EOS.cpp
-                 ${PELELM_EOS_DIR}/EOS.H)
+                 ${PELELM_EOS_DIR}/EOS.H
+                 ${PELELM_EOS_DIR}/Fuego.H
+                 ${PELELM_EOS_DIR}/GammaLaw.H
+                 ${PELELM_EOS_DIR}/SRK.H)
   target_include_directories(${pelelm_exe_name} SYSTEM PRIVATE ${PELELM_EOS_DIR})
+  if (PELELM_EOS_MODEL STREQUAL "Fuego")
+    target_compile_definitions(${pelelm_exe_name} PRIVATE USE_FUEGO_EOS)
+  elseif(PELELM_EOS_MODEL STREQUAL "GammaLaw")
+    target_compile_definitions(${pelelm_exe_name} PRIVATE USE_GAMMALAW_EOS)
+  elseif(PELELM_EOS_MODEL STREQUAL "Soave-Redlich-Kwong")
+    target_compile_definitions(${pelelm_exe_name} PRIVATE USE_SRK_EOS)
+  endif()
 
   set(PELELM_MECHANISM_DIR "${PELE_PHYSICS_SRC_DIR}/Support/Fuego/Mechanism/Models/${PELELM_CHEMISTRY_MODEL}")
   target_sources(${pelelm_exe_name} PRIVATE
@@ -78,26 +101,50 @@ function(build_pelelm_exe pelelm_exe_name)
   target_include_directories(${pelelm_exe_name} SYSTEM PRIVATE ${PELE_PHYSICS_SRC_DIR}/Support/Fuego/Evaluation)
   target_include_directories(${pelelm_exe_name} SYSTEM PRIVATE ${PELE_PHYSICS_SRC_DIR}/Utility)
   target_include_directories(${pelelm_exe_name} SYSTEM PRIVATE ${PELE_PHYSICS_SRC_DIR}/Support/Fuego/Mechanism/Models)
-  
-  if(PELELM_ENABLE_SUNDIALS)
-    if(PELELM_ENABLE_CUDA)
-      set(DEVICE GPU)
-    else()
-      set(DEVICE CPU)
+
+  if(PELELM_REACTOR_MODEL STREQUAL "cvode" OR PELELM_REACTOR_MODEL STREQUAL "arkode")
+    if(NOT PELELM_ENABLE_SUNDIALS)
+      message(FATAL_ERROR "cvode and arkode reauires PELELM_ENABLE_SUNDIALS ON")
     endif()
     target_compile_definitions(${pelelm_exe_name} PRIVATE USE_SUNDIALS_PP)
-    target_sources(${pelelm_exe_name} PRIVATE ${PELE_PHYSICS_SRC_DIR}/Reactions/Fuego/${DEVICE}/cvode/reactor.cpp
-                                             ${PELE_PHYSICS_SRC_DIR}/Reactions/Fuego/${DEVICE}/cvode/reactor.h)
-    set_source_files_properties(${PELE_PHYSICS_SRC_DIR}/Reactions/Fuego/${DEVICE}/cvode/reactor.cpp PROPERTIES COMPILE_OPTIONS "${MY_CXX_FLAGS}")
-    set_source_files_properties(${PELE_PHYSICS_SRC_DIR}/Reactions/Fuego/${DEVICE}/cvode/reactor.h PROPERTIES COMPILE_OPTIONS "${MY_CXX_FLAGS}")
-    target_link_libraries(${pelelm_exe_name} PRIVATE sundials_cvode)
-    target_include_directories(${pelelm_exe_name} PRIVATE ${PELE_PHYSICS_SRC_DIR}/Reactions/Fuego/${DEVICE})
-    target_include_directories(${pelelm_exe_name} PRIVATE ${PELE_PHYSICS_SRC_DIR}/Reactions/Fuego/${DEVICE}/cvode)
-    if(PELELM_ENABLE_CUDA)
-      target_sources(${pelelm_exe_name} PRIVATE ${PELE_PHYSICS_SRC_DIR}/Reactions/Fuego/${DEVICE}/AMReX_SUNMemory.cpp
-                                                ${PELE_PHYSICS_SRC_DIR}/Reactions/Fuego/${DEVICE}/AMReX_SUNMemory.H)
-      target_link_libraries(${pelelm_exe_name} PRIVATE sundials_nveccuda sundials_sunlinsolcusolversp sundials_sunmatrixcusparse)
+    if(PELELM_REACTOR_MODEL STREQUAL "arkode")
+      target_compile_definitions(${pelelm_exe_name} PRIVATE USE_ARKODE_PP)
     endif()
+  endif()
+
+  target_include_directories(${pelelm_exe_name} PRIVATE ${PELE_PHYSICS_SRC_DIR}/Reactions/${PELELM_REACTOR_MODEL})
+  if(PELELM_REACTOR_MODEL STREQUAL "cvode" OR PELELM_REACTOR_MODEL STREQUAL "arkode")
+    target_include_directories(${pelelm_exe_name} PRIVATE ${PELE_PHYSICS_SRC_DIR}/Reactions/)
+    target_sources(${pelelm_exe_name} PRIVATE ${PELE_PHYSICS_SRC_DIR}/Reactions/reactor.cpp
+                                             ${PELE_PHYSICS_SRC_DIR}/Reactions/reactor.H)
+    set_source_files_properties(${PELE_PHYSICS_SRC_DIR}/Reactions/reactor.cpp PROPERTIES COMPILE_OPTIONS "${MY_CXX_FLAGS}")
+    set_source_files_properties(${PELE_PHYSICS_SRC_DIR}/Reactions/reactor.H PROPERTIES COMPILE_OPTIONS "${MY_CXX_FLAGS}")
+    if(PELELM_REACTOR_MODEL STREQUAL "cvode")
+      target_compile_definitions(${pelelm_exe_name} PRIVATE COMPILE_JACOBIAN)
+      target_link_libraries(${pelelm_exe_name} PRIVATE sundials_cvode)
+      if(PELELM_ENABLE_CUDA)
+        target_sources(${pelelm_exe_name} PRIVATE ${PELE_PHYSICS_SRC_DIR}/Reactions/${PELELM_REACTOR_MODEL}/reactor_cvode_GPU.cpp)
+        set_source_files_properties(${PELE_PHYSICS_SRC_DIR}/Reactions/${PELELM_REACTOR_MODEL}/reactor_cvode_GPU.cpp PROPERTIES COMPILE_OPTIONS "${MY_CXX_FLAGS}")
+        target_link_libraries(${pelelm_exe_name} PRIVATE sundials_sunlinsolcusolversp sundials_sunmatrixcusparse)
+      else()
+        target_sources(${pelelm_exe_name} PRIVATE ${PELE_PHYSICS_SRC_DIR}/Reactions/${PELELM_REACTOR_MODEL}/reactor_cvode_CPU.cpp)
+        set_source_files_properties(${PELE_PHYSICS_SRC_DIR}/Reactions/${PELELM_REACTOR_MODEL}/reactor_cvode_CPU.cpp PROPERTIES COMPILE_OPTIONS "${MY_CXX_FLAGS}")
+      endif()
+    else()
+      target_sources(${pelelm_exe_name} PRIVATE ${PELE_PHYSICS_SRC_DIR}/Reactions/${PELELM_REACTOR_MODEL}/reactor_arkode.cpp)
+      set_source_files_properties(${PELE_PHYSICS_SRC_DIR}/Reactions/${PELELM_REACTOR_MODEL}/reactor_arkode.cpp PROPERTIES COMPILE_OPTIONS "${MY_CXX_FLAGS}")
+    endif()
+
+    if(PELELM_ENABLE_CUDA)
+      target_link_libraries(${pelelm_exe_name} PRIVATE sundials_nveccuda)
+      target_sources(${pelelm_exe_name} PRIVATE ${PELE_PHYSICS_SRC_DIR}/Reactions/AMReX_SUNMemory.cpp
+                                                ${PELE_PHYSICS_SRC_DIR}/Reactions/AMReX_SUNMemory.H)
+    endif()
+  else()
+    target_sources(${pelelm_exe_name} PRIVATE ${PELE_PHYSICS_SRC_DIR}/Reactions/${PELELM_REACTOR_MODEL}/reactor.cpp
+                                             ${PELE_PHYSICS_SRC_DIR}/Reactions/${PELELM_REACTOR_MODEL}/reactor.H)
+    set_source_files_properties(${PELE_PHYSICS_SRC_DIR}/Reactions/${PELELM_REACTOR_MODEL}/reactor.cpp PROPERTIES COMPILE_OPTIONS "${MY_CXX_FLAGS}")
+    set_source_files_properties(${PELE_PHYSICS_SRC_DIR}/Reactions/${PELELM_REACTOR_MODEL}/reactor.H PROPERTIES COMPILE_OPTIONS "${MY_CXX_FLAGS}")
   endif()
   
   target_sources(${pelelm_exe_name}
@@ -113,7 +160,6 @@ function(build_pelelm_exe pelelm_exe_name)
        ${SRC_DIR}/PeleLM_derive.cpp
        ${SRC_DIR}/PeleLM_parm.H
        ${SRC_DIR}/PeleLM_setup.cpp
-       ${SRC_DIR}/Prob_F.H
   )
 
   target_sources(${pelelm_exe_name}
@@ -142,7 +188,6 @@ function(build_pelelm_exe pelelm_exe_name)
        ${IAMR_SRC_DIR}/FluxBoxes.H
        ${IAMR_SRC_DIR}/PROJECTION_F.H
        ${IAMR_SRC_DIR}/NAVIERSTOKES_F.H
-       ${IAMR_SRC_DIR}/MLMG_Mac.cpp
        ${IAMR_SRC_DIR}/NS_util.cpp
        ${IAMR_SRC_DIR}/NS_util.H
        ${IAMR_SRC_DIR}/Src_${PELELM_DIM}d/NAVIERSTOKES_${PELELM_DIM}D.F90
@@ -173,16 +218,17 @@ function(build_pelelm_exe pelelm_exe_name)
        ${AMREX_HYDRO_SRC_DIR}/Utils/hydro_constants.H
        ${AMREX_HYDRO_SRC_DIR}/Utils/hydro_compute_fluxes_from_state.cpp
        ${AMREX_HYDRO_SRC_DIR}/Utils/hydro_bcs_K.H
+       ${AMREX_HYDRO_SRC_DIR}/Utils/hydro_create_umac_grown.cpp
   )
 
   if(PELELM_ENABLE_AMREX_EB)
     target_sources(${pelelm_exe_name}
        PRIVATE
          ${AMREX_HYDRO_SRC_DIR}/Redistribution/hydro_create_itracker_${PELELM_DIM}d.cpp
-         ${AMREX_HYDRO_SRC_DIR}/Redistribution/hydro_merge_redistribute.cpp
          ${AMREX_HYDRO_SRC_DIR}/Redistribution/hydro_redistribution.H
          ${AMREX_HYDRO_SRC_DIR}/Redistribution/hydro_redistribution.cpp
          ${AMREX_HYDRO_SRC_DIR}/Redistribution/hydro_state_redistribute.cpp
+         ${AMREX_HYDRO_SRC_DIR}/Redistribution/hydro_state_utils.cpp
 
          ${AMREX_HYDRO_SRC_DIR}/EBGodunov/hydro_ebgodunov.H
          ${AMREX_HYDRO_SRC_DIR}/EBGodunov/hydro_ebgodunov.cpp
