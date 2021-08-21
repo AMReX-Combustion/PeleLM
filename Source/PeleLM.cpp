@@ -1818,7 +1818,7 @@ PeleLM::initData ()
 
     int idT = -1, idV = -1, idX = -1, idY = -1;
     for (int i = 0; i < plotnames.size(); ++i) {
-      if (plotnames[i] == "temp")            idT = i;
+      if (plotnames[i] == "Temp")            idT = i;
       if (plotnames[i] == "x_velocity")      idV = i;
       if (plotnames[i] == "X("+names[0]+")") idX = i;
       if (plotnames[i] == "Y("+names[0]+")") idY = i;
@@ -1830,14 +1830,18 @@ PeleLM::initData ()
     for (int i = 0; i < AMREX_SPACEDIM; i++) {
       amrData.FillVar(S_new, level, plotnames[idV+i], Xvel+i);
       amrData.FlushGrids(idV+i);
+      Print() << "Initialized  velocity array " << i << std::endl;
     }
+
     amrData.FillVar(S_new, level, plotnames[idT], Temp);
     amrData.FlushGrids(idT);
+
     if (idY>=0) {
       for (int i = 0; i < NUM_SPECIES; i++) {
         amrData.FillVar(S_new, level, plotnames[idY+i], first_spec+i);
         amrData.FlushGrids(idY+i);
       }
+
     }
     else if (idX>=0) {
       for (int i = 0; i < NUM_SPECIES; i++) {
@@ -1879,7 +1883,7 @@ PeleLM::initData ()
     for (MFIter mfi(S_new,TilingIfNotGPU()); mfi.isValid(); ++mfi)
     {
       const Box& box = mfi.tilebox();
-      auto const& snew_arr = S_new.array(mfi);
+      auto state = S_new.array(mfi);
       ProbParm const* lprobparm = prob_parm.get();
 
       amrex::ParallelFor(box,
@@ -1887,22 +1891,26 @@ PeleLM::initData ()
       {
         amrex::Real massfrac[NUM_SPECIES] = {0.0};
         for (int n = 0; n < NUM_SPECIES; n++) {
-          massfrac[n] = snew_arr(i,j,k,DEF_first_spec+n);
+          massfrac[n] = state(i,j,k,DEF_first_spec+n);
         }
         auto eos = pele::physics::PhysicsType::eos();
 
         amrex::Real rho_cgs, P_cgs;
         P_cgs = lprobparm->P_mean * 10.0;
 
-        eos.PYT2R(P_cgs, massfrac, snew_arr(i,j,k,DEF_Temp), rho_cgs);
-        snew_arr(i,j,k,Density) = rho_cgs * 1.0e3;            // CGS -> MKS conversion
+        eos.PYT2R(P_cgs, massfrac, state(i,j,k,DEF_Temp), rho_cgs);
+        state(i,j,k,Density) = rho_cgs * 1.0e3;            // CGS -> MKS conversion
 
-        eos.TY2H(snew_arr(i,j,k,DEF_Temp), massfrac, snew_arr(i,j,k,DEF_RhoH));
-        snew_arr(i,j,k,DEF_RhoH) = snew_arr(i,j,k,DEF_RhoH) * 1.0e-4 * snew_arr(i,j,k,Density);   // CGS -> MKS conversion
+        eos.TY2H(state(i,j,k,DEF_Temp), massfrac, state(i,j,k,DEF_RhoH));
+        state(i,j,k,DEF_RhoH) = state(i,j,k,DEF_RhoH) * 1.0e-4 * state(i,j,k,Density);   // CGS -> MKS conversion
 
         for (int n = 0; n < NUM_SPECIES; n++) {
-          snew_arr(i,j,k,DEF_first_spec+n) = massfrac[n] * snew_arr(i,j,k,Density);
+          state(i,j,k,DEF_first_spec+n) = massfrac[n] * state(i,j,k,Density);
         }
+
+        state(i,j,k,Xvel) = state(i,j,k,Xvel) * 1.0e-2; // [cm/s] to [m/s]
+        state(i,j,k,Yvel) = state(i,j,k,Yvel) * 1.0e-2; // [cm/s] to [m/s]
+        state(i,j,k,Zvel) = state(i,j,k,Zvel) * 1.0e-2; // [cm/s] to [m/s]
       });
     }
   }
