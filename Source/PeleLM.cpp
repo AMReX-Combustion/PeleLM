@@ -2773,6 +2773,9 @@ PeleLM::post_init_press (Real&        dt_init,
   //
   // Iterate over the advance function.
   //
+  if (verbose) {
+    amrex::Print() << " Doing " << init_iter << " initial pressure iters \n";
+  }
   for (int iter = 0; iter < init_iter; iter++)
   {
     //
@@ -4706,6 +4709,29 @@ PeleLM::advance_setup (Real time,
 {
    NavierStokesBase::advance_setup(time, dt, iteration, ncycle);
 
+   // Perform operations on old data before copying into New:
+   // Floor species if required.
+   MultiFab& S_old = get_old_data(State_Type);
+   if (floor_species == 1)
+   {
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+      for (MFIter mfi(S_old,TilingIfNotGPU()); mfi.isValid(); ++mfi)
+      {
+         const Box& bx     = mfi.tilebox();
+         auto const& rhoY  = S_old.array(mfi,first_spec);
+         amrex::ParallelFor(bx, [rhoY]
+         AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+         {
+            fabMinMax( i, j, k, NUM_SPECIES, 0.0, Real_MAX, rhoY);
+         });
+      }
+   }
+
+   // Reset temperature
+   RhoH_to_Temp(S_old);
+
    // Copy States Old -> New
    for (int k = 0; k < num_state_type; k++)
    {
@@ -4719,8 +4745,6 @@ PeleLM::advance_setup (Real time,
 
    // Make rho_new in NSB, rho_old already done in NSB::advance_setup
    make_rho_curr_time();
-
-   RhoH_to_Temp(get_old_data(State_Type));
 
    if (plot_reactions && level == 0)
    {
@@ -4829,27 +4853,6 @@ PeleLM::advance (Real time,
   //====================================
 
   //====================================
-  BL_PROFILE_VAR("PeleLM::advance::diffusion", PLM_DIFF);
-  if (floor_species == 1)
-  {
-#ifdef AMREX_USE_OMP
-#pragma omp parallel if (Gpu::notInLaunchRegion())
-#endif
-     for (MFIter mfi(S_old,TilingIfNotGPU()); mfi.isValid(); ++mfi)
-     {
-        const Box& bx     = mfi.tilebox();
-        auto const& rhoY  = S_old.array(mfi,first_spec);
-        amrex::ParallelFor(bx, [rhoY]
-        AMREX_GPU_DEVICE (int i, int j, int k) noexcept
-        {
-           fabMinMax( i, j, k, NUM_SPECIES, 0.0, Real_MAX, rhoY);
-        });
-     }
-  }
-  BL_PROFILE_VAR_STOP(PLM_DIFF);
-  //====================================
-
-  //====================================
   BL_PROFILE_VAR_START(PLM_MAC);
   // compute old-time thermodynamic pressure
   setThermoPress(prev_time);
@@ -4857,7 +4860,7 @@ PeleLM::advance (Real time,
   //====================================
 
   //====================================
-  BL_PROFILE_VAR_START(PLM_DIFF);
+  BL_PROFILE_VAR("PeleLM::advance::diffusion", PLM_DIFF);
   // Compute Dn and DDn (based on state at tn)
   // (Note that coeffs at tn and tnp1 were intialized in above)
   MultiFab Dn(grids,dmap,NUM_SPECIES+2,nGrowAdvForcing,MFInfo(),Factory());
