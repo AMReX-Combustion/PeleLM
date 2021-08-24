@@ -418,6 +418,16 @@ PeleLM::variableSetUp ()
   //
   ParmParse ppns("ns");
   ppns.query("fuelName",fuelName);
+  int found_species = 0;
+  for (int i = 0; i < NUM_SPECIES; i++){
+    if(fuelName == spec_names[i]) found_species = 1;
+  }
+  if(found_species == 0){
+    amrex::Print() << "--- Species defined fuelName (" << fuelName << ") cannot be found! \n";
+    fuelName = spec_names[0];
+    amrex::Print() << "--- Setting fuelName as: " << fuelName << "\n";
+  }
+
   consumptionName[0] = fuelName;
   if (int nc = ppns.countval("consumptionName"))
   {
