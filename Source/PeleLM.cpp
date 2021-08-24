@@ -1943,7 +1943,9 @@ PeleLM::initData ()
 
         state(i,j,k,Xvel) = state(i,j,k,Xvel) * 1.0e-2; // [cm/s] to [m/s]
         state(i,j,k,Yvel) = state(i,j,k,Yvel) * 1.0e-2; // [cm/s] to [m/s]
-        state(i,j,k,Zvel) = state(i,j,k,Zvel) * 1.0e-2; // [cm/s] to [m/s]
+#if ( AMREX_SPACEDIM == 3 ) 
+	state(i,j,k,Zvel) = state(i,j,k,Zvel) * 1.0e-2; // [cm/s] to [m/s]
+#endif
       });
     }
   }
