@@ -5106,6 +5106,7 @@ PeleLM::advance (Real time,
        // Compute Wbar fluxes from state np1k (lagged)
        // Compute DWbar term: - \nabla \cdot \Gamma_{\overline{W}_m}
        // They will be added to the Fnp1kp1 directly in diff_diff_update()
+       DWbar.setVal(0.0); // Need this since redistribution access the ghost cells.
        MultiFab scalars_alias(S_new, amrex::make_alias, Density, NUM_SPECIES+1);
        compute_Wbar_fluxes(scalars_alias, new_time, 0, 1.0);
        flux_divergence(DWbar,0,SpecDiffusionFluxWbar,0,NUM_SPECIES,-1);
