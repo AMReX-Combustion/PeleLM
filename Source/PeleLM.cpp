@@ -6621,7 +6621,7 @@ PeleLM::mac_sync ()
       // compute U^{ADV,corr} in mac_sync_compute
       //
       //TODO: offset/subtract_avg is not used ... ?
-//      bool subtract_avg = (closed_chamber && level == 0);
+      // bool subtract_avg = (closed_chamber && level == 0);
       Real offset = 0.0;
 
       BL_PROFILE_VAR("PeleLM::mac_sync::ucorr", PLM_UCORR);
@@ -6743,10 +6743,36 @@ PeleLM::mac_sync ()
       //
       // Delete Ucorr; we're done with it.
       //
-      for (int idim = 0; idim < AMREX_SPACEDIM; ++idim)
+      for (int idim = 0; idim < AMREX_SPACEDIM; ++idim) {
          delete Ucorr[idim];
+      }
 
       Ssync.mult(dt); // Turn this into an increment over dt
+
+#ifdef AMREX_USE_EB
+      // If we use StateRedistribution, the Ssync of rhoYs don't sum up to that of rho at this point.
+      // So let's make sure that it's the case.
+      if (redistribution_type == "StateRedist" ||
+          redistribution_type == "NewStateRedist" ) {
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+          for (MFIter mfi(Ssync, TilingIfNotGPU()); mfi.isValid(); ++mfi)
+          {
+             const Box& bx = mfi.tilebox();
+             auto const& rhosync  = Ssync.array(mfi,Density-AMREX_SPACEDIM);
+             auto const& rhoYsync = Ssync.array(mfi,first_spec-AMREX_SPACEDIM);
+             amrex::ParallelFor(bx, [rhosync, rhoYsync]
+             AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+             {
+                 rhosync(i,j,k) = 0.0;
+                 for (int n = 0; n<NUM_SPECIES; n++) {
+                    rhosync(i,j,k) += rhoYsync(i,j,k,n);
+                 }
+             });
+          }
+      }
+#endif
 
       MultiFab DdWbar;
       if (use_wbar) {
@@ -6758,6 +6784,8 @@ PeleLM::mac_sync ()
          // take divergence of beta grad delta Wbar -> no redistribution on those
          DdWbar.define(grids,dmap,NUM_SPECIES,nGrowAdvForcing,MFInfo(),Factory());
          MultiFab* const * fluxWbar = SpecDiffusionFluxWbar;
+         showMF("DBGSync",*fluxWbar[0],"fluxXWbarInSync_",level,mac_sync_iter,parent->levelSteps(level));
+         showMF("DBGSync",*fluxWbar[1],"fluxYWbarInSync_",level,mac_sync_iter,parent->levelSteps(level));
          flux_divergence(DdWbar,0,fluxWbar,0,NUM_SPECIES,-1);
          DdWbar.mult(dt);
       }
@@ -6880,9 +6908,26 @@ PeleLM::mac_sync ()
          // For all species increment sync by (sync_for_rho)*Y_presync.
          // Before this, Ssync holds rho^{n+1} (delta Y)^sync
          // DeltaYsync holds Y^{n+1,p} * (delta rho)^sync
-         //
-         MultiFab::Add(Ssync,DeltaYsync,0,first_spec-AMREX_SPACEDIM,NUM_SPECIES,0);
-         MultiFab::Add(S_new,Ssync,first_spec-AMREX_SPACEDIM,first_spec,NUM_SPECIES,0);
+         // Remove DdWar if req. as it has been added both to the RHS of the diffsync solve and to the fluxes afterward.
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+         for (MFIter mfi(S_new, TilingIfNotGPU()); mfi.isValid(); ++mfi)
+         {
+            const Box& bx = mfi.tilebox();
+            auto const& rhoYnew    = S_new.array(mfi,first_spec);
+            auto const& rhoYssync  = Ssync.array(mfi,first_spec-AMREX_SPACEDIM);
+            auto const& drhoYsync  = DeltaYsync.const_array(mfi,0);
+            auto const& dWbarsync  = (use_wbar) ? DdWbar.const_array(mfi) : DeltaYsync.const_array(mfi);
+            amrex::ParallelFor(bx, NUM_SPECIES, [rhoYnew,rhoYssync,drhoYsync,
+                                                 dWbarsync,use_wbar=use_wbar]
+            AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
+            {
+                rhoYssync(i,j,k,n) += drhoYsync(i,j,k,n);
+                if (use_wbar) rhoYssync(i,j,k,n) -= dWbarsync(i,j,k,n);
+                rhoYnew(i,j,k,n) += rhoYssync(i,j,k,n);
+            });
+         }
 
          if (use_wbar) {
             // compute (overwrite) beta grad Wbar terms using the post-sync state
@@ -7079,6 +7124,7 @@ PeleLM::mac_sync ()
          Abort("FIXME: Properly deal with do_diffuse_sync=0");
       }
 
+
       BL_PROFILE_VAR_START(PLM_SSYNC);
       // Update coarse post-sync temp from rhoH and rhoY
       RhoH_to_Temp(S_new);
@@ -7173,7 +7219,7 @@ PeleLM::mac_sync ()
         MultiFab& S_crse_loc = crse_level.get_new_data(State_Type);
         MultiFab& S_fine_loc = fine_level.get_new_data(State_Type);
 
-    crse_level.average_down(S_fine_loc, S_crse_loc, RhoRT, 1);
+        crse_level.average_down(S_fine_loc, S_crse_loc, RhoRT, 1);
       }
       PeleLM& fine_level = getLevel(level+1);
       showMF("DBGSync",fine_level.get_new_data(State_Type),"sdc_SnewFine_EndSyncIter",level+1,mac_sync_iter,parent->levelSteps(level));
