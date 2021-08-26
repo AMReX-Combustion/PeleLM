@@ -10,10 +10,10 @@ AMREX_HYDRO_HOME   ?= ${SUBMODS}/AMReX-Hydro
 #
 
 DIM             = 3
-COMP            = gnu
+COMP            = intel
 DEBUG           = FALSE
 USE_MPI         = TRUE
-USE_OMP         = TRUE
+USE_OMP         = FALSE
 PRECISION       = DOUBLE
 VERBOSE         = FALSE
 
@@ -42,13 +42,13 @@ USE_SUNDIALS_3x4x = FALSE
 Chemistry_Model = air
 
 # This sets the EOS directory in $(PELE_PHYSICS_HOME)/Eos
-Eos_dir     := Fuego
+Eos_Model     := Fuego
 
 # This sets the network directory in $(PELE_PHYSICS_HOME)/Reactions
-Reactions_dir := Fuego
+Reactor_dir := null
 
 # This sets the transport directory in $(PELE_PHYSICS_HOME)/Transport
-Transport_dir := Simple
+Transport_Model := Simple
 
 Blocs   := .
 
