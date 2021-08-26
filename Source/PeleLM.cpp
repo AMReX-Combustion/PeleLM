@@ -65,6 +65,7 @@
 #include <AMReX_EBAmrUtil.H>
 #include <hydro_ebgodunov.H>
 #include <hydro_ebmol.H>
+#include <hydro_redistribution.H>
 #endif
 
 #include <AMReX_buildInfo.H>
@@ -167,8 +168,9 @@ Real PeleLM::relative_tol_chem = 1.0e-10;
 Real PeleLM::absolute_tol_chem = 1.0e-10;
 static bool plot_rhoydot;
 int  PeleLM::nGrowAdvForcing=1;
-#ifdef ARMEX_USE_EB
+#ifdef AMREX_USE_EB
 int  PeleLM::nGrowDivU=2;
+std::string PeleLM::diffusion_redistribution_type = "FluxRedist";
 #else
 int  PeleLM::nGrowDivU=1;
 #endif
@@ -445,6 +447,9 @@ PeleLM::Initialize ()
   pp.query("num_divu_iters",num_divu_iters);
 
   pp.query("do_not_use_funccount",do_not_use_funccount);
+#ifdef AMREX_USE_EB
+  pp.query("diffusion_redistribution_type",diffusion_redistribution_type);
+#endif
 
   pp.query("schmidt",schmidt);
   pp.query("prandtl",prandtl);
@@ -1015,7 +1020,9 @@ PeleLM::define_data ()
 {
    const int nGrow       = 0;
 #ifdef AMREX_USE_EB
-   const int nGrowEdges  = (redistribution_type == "StateRedist") ? 3 : 2;
+   // Only the advection piece uses this, so set based on hydro. redistribution_type
+   const int nGrowEdges  = (redistribution_type == "StateRedist"||
+                            redistribution_type == "NewStateRedist") ? 3 : 2;
 #else
    const int nGrowEdges  = 0;
 #endif
@@ -2040,6 +2047,7 @@ PeleLM::initData ()
 
   make_rho_prev_time();
   make_rho_curr_time();
+
   //
   // Initialize other types (RhoRT, divu, ...)
   //
@@ -2065,6 +2073,14 @@ PeleLM::initData ()
   //
   initActiveControl();
 
+#ifdef AMREX_USE_EB
+  //
+  // Perform redistribution on initial fields
+  // This changes the input velocity fields
+  //
+  InitialRedistribution();
+#endif
+
   //
   // Initialize divU
   //
@@ -2085,14 +2101,6 @@ PeleLM::initData ()
   }
 
   old_intersect_new = grids;
-
-#ifdef AMREX_USE_EB
-  //
-  // Perform redistribution on initial fields
-  // This changes the input velocity fields
-  //
-  InitialRedistribution();
-#endif
 
 #ifdef AMREX_PARTICLES
   NavierStokesBase::initParticleData();
@@ -3285,7 +3293,7 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
 
    MultiFab Rh; // allocated memeory not needed for this, since rho_flag=2 for Y solves
 
-   int nGrowDiff = 1;
+   int nGrowDiff = 1;       // Implicit fluxes are not redistributed, so no need for more ghost cells
    const Real prev_time = state[State_Type].prevTime();
    const Real new_time  = state[State_Type].curTime();
    const Real dt = new_time - prev_time;
@@ -3410,9 +3418,8 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
 
    //
    // Modify/update new-time fluxes to ensure sum of species fluxes = 0, then compute Dnew[m] = -Div(flux[m])
-   // Use an FPI to get proper ghost cells post diffusion solve. TODO: More than one is needed for StateRedistribution.
+   // Use an FPI to get proper ghost cells post diffusion solve.
    const BCRec& Tbc = AmrLevel::desc_lst[State_Type].getBCs()[Temp];
-   //int nGrowDiff = 1;
    FillPatchIterator fpi(*this, Force, nGrowDiff, new_time, State_Type, Density, NUM_SPECIES+1);
    MultiFab& scalars = fpi.get_mf();
 
@@ -4371,57 +4378,142 @@ PeleLM::scalar_advection_update (Real dt,
 }
 
 void
-PeleLM::flux_divergence (MultiFab&        fdiv,
-                         int              fdivComp,
-                         const MultiFab* const* f,
-                         int              fluxComp,
-                         int              nComp,
-                         Real             scale) const
+PeleLM::flux_divergenceRD(const MultiFab        &a_state,
+                          int                    stateComp,
+                          MultiFab              &a_divergence,
+                          int                    divComp,
+                          const MultiFab* const* a_fluxes,
+                          int                    fluxComp,
+                          int                    nComp,
+                          BCRec const*           d_bc,
+                          Real                   scale,
+                          Real                   a_dt,
+                          int areSpeciesFluxes)
 {
-   BL_PROFILE("PLM::flux_divergence()");
-   AMREX_ASSERT(fdiv.nComp() >= fdivComp+nComp);
+#ifdef AMREX_USE_EB
+   AMREX_ASSERT(a_divergence.nGrow() >= 1);
+   // Temporary divTemp to allow fillBoundary
+   MultiFab divTemp(grids,dmap,nComp,a_state.nGrow(),MFInfo(),Factory());
 
-//////////////////////////////////////////////////////
-// Version using AMReX computeDivergence function
-// Will be updated later once more options are available in AMReX
-//////////////////////////////////////////////////////
-//   // Need aliases for the fluxes and divergence
-//   Array<MultiFab const*, AMREX_SPACEDIM> flux_alias;
-//   AMREX_D_TERM(flux_alias[0] = new MultiFab(*f[0], amrex::make_alias, fluxComp, nComp);,
-//                flux_alias[1] = new MultiFab(*f[1], amrex::make_alias, fluxComp, nComp);,
-//                flux_alias[2] = new MultiFab(*f[2], amrex::make_alias, fluxComp, nComp););
-//
-//   MultiFab div_alias(fdiv, amrex::make_alias, fdivComp, nComp);
-//
-//#ifdef AMREX_USE_EB
-//   EB_computeDivergence(div_alias, flux_alias, geom, true);
-//#else
-//   computeDivergence(div_alias, flux_alias, geom);
-//#endif
-//   div_alias.mult(scale,0,nComp,0);
+   // Call face-centroid extensive fluxes divergence with scaling
+   flux_divergence(divTemp, 0, a_fluxes, fluxComp, nComp, scale);
 
+   // FillBoundary
+   divTemp.FillBoundary(geom.periodicity());
 
-//////////////////////////////////////////////////////
-//  PeleLM divergence function
+   // Redistribution
+   auto const& ebfact= dynamic_cast<EBFArrayBoxFactory const&>(a_state.Factory());
+
 #ifdef AMREX_USE_OMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
-   for (MFIter mfi(fdiv,TilingIfNotGPU()); mfi.isValid(); ++mfi)
+    for (MFIter mfi(a_divergence, TilingIfNotGPU()); mfi.isValid(); ++mfi)
+    {
+        auto const& bx = mfi.tilebox();
+        auto const& flagfab  = ebfact.getMultiEBCellFlagFab()[mfi];
+        auto const& flag     = flagfab.const_array();
+        auto const& div_arr  = a_divergence.array(mfi, divComp);
+        auto const& divT_arr = divTemp.array(mfi);
+        if (flagfab.getType(bx) != FabType::covered ) {
+            if (flagfab.getType(grow(bx,4)) != FabType::regular) {
+                //
+                // Redistribute
+                //
+                AMREX_D_TERM( auto apx = ebfact.getAreaFrac()[0]->const_array(mfi);,
+                              auto apy = ebfact.getAreaFrac()[1]->const_array(mfi);,
+                              auto apz = ebfact.getAreaFrac()[2]->const_array(mfi); );
+
+                AMREX_D_TERM( Array4<Real const> fcx = ebfact.getFaceCent()[0]->const_array(mfi);,
+                              Array4<Real const> fcy = ebfact.getFaceCent()[1]->const_array(mfi);,
+                              Array4<Real const> fcz = ebfact.getFaceCent()[2]->const_array(mfi););
+
+                auto const &ccc       = ebfact.getCentroid().const_array(mfi);
+                auto const &vfrac_arr = ebfact.getVolFrac().const_array(mfi);
+
+                // This is scratch space if calling StateRedistribute,
+                //  but is used as the weights (here set to 1) if calling
+                //  FluxRedistribute
+                Box gbx = bx;
+
+                if (diffusion_redistribution_type == "StateRedist" || 
+                    diffusion_redistribution_type == "NewStateRedist")
+                  gbx.grow(3);
+                else if (diffusion_redistribution_type == "FluxRedist")
+                  gbx.grow(2);
+
+                FArrayBox tmpfab(gbx, nComp);
+                Elixir eli = tmpfab.elixir();
+                Array4<Real> scratch = tmpfab.array(0);
+                if (diffusion_redistribution_type == "FluxRedist")
+                {
+                    amrex::ParallelFor(Box(scratch),
+                    [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+                    { scratch(i,j,k) = 1.;});
+                }
+
+                if (areSpeciesFluxes) {
+                    // Placeholder for eventual species-specific treatment of the redistribution
+                    Redistribution::Apply( bx, nComp, div_arr, divT_arr,
+                                           a_state.const_array(mfi, stateComp), scratch, flag,
+                                           AMREX_D_DECL(apx,apy,apz), vfrac_arr,
+                                           AMREX_D_DECL(fcx,fcy,fcz), ccc, d_bc,
+                                           geom, a_dt, diffusion_redistribution_type );
+                } else {
+                    Redistribution::Apply( bx, nComp, div_arr, divT_arr,
+                                           a_state.const_array(mfi, stateComp), scratch, flag,
+                                           AMREX_D_DECL(apx,apy,apz), vfrac_arr,
+                                           AMREX_D_DECL(fcx,fcy,fcz), ccc, d_bc,
+                                           geom, a_dt, diffusion_redistribution_type );
+                }
+            } else {
+                // Move from divTmp to outgoing MF
+                ParallelFor(bx, nComp, [div_arr, divT_arr]
+                AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
+                { div_arr( i, j, k, n ) =  divT_arr(i,j,k,n); });
+            }
+        }
+    }
+
+   EB_set_covered(a_divergence,0.);
+#else
+
+   // Call face-centroid extensive fluxes divergence with scaling
+   flux_divergence(a_divergence, divComp, a_fluxes, fluxComp, nComp, scale);
+
+#endif
+}
+
+void
+PeleLM::flux_divergence (MultiFab        &a_divergence,
+                         int              divComp,
+                         const MultiFab* const* a_fluxes,
+                         int              fluxComp,
+                         int              nComp,
+                         Real             scale)
+{
+   BL_PROFILE("PLM::flux_divergence()");
+   AMREX_ASSERT(a_divergence.nComp() >= divComp+nComp);
+
+//////////////////////////////////////////////////////
+//  PeleLM divergence function
+//  We assume that our fluxes are already face-centroid and extensive
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+   for (MFIter mfi(a_divergence,TilingIfNotGPU()); mfi.isValid(); ++mfi)
    {
       const Box& bx = mfi.tilebox();
-      AMREX_D_TERM(auto const& fluxX = f[0]->array(mfi,fluxComp);,
-                   auto const& fluxY = f[1]->array(mfi,fluxComp);,
-                   auto const& fluxZ = f[2]->array(mfi,fluxComp););
-      auto const& divergence   = fdiv.array(mfi,fdivComp);
+      AMREX_D_TERM(auto const& fluxX = a_fluxes[0]->array(mfi,fluxComp);,
+                   auto const& fluxY = a_fluxes[1]->array(mfi,fluxComp);,
+                   auto const& fluxZ = a_fluxes[2]->array(mfi,fluxComp););
+      auto const& divergence   = a_divergence.array(mfi,divComp);
       auto const& vol          = volume.const_array(mfi);
 
 #ifdef AMREX_USE_EB
       auto const& ebfactory = dynamic_cast<EBFArrayBoxFactory const&>(Factory());
       auto const& flagfab = ebfactory.getMultiEBCellFlagFab()[mfi];
       auto const& flag    = flagfab.const_array();
-#endif
 
-#ifdef AMREX_USE_EB
       if (flagfab.getType(bx) == FabType::covered) {              // Covered boxes
          amrex::ParallelFor(bx, nComp, [divergence]
          AMREX_GPU_DEVICE( int i, int j, int k, int n) noexcept
@@ -4464,16 +4556,6 @@ PeleLM::flux_divergence (MultiFab&        fdiv,
       }
 #endif
    }
-
-#ifdef AMREX_USE_EB
-   {
-      MultiFab fdiv_SrcGhostCell(grids,dmap,nComp,fdiv.nGrow()+2,MFInfo(),Factory());
-      fdiv_SrcGhostCell.setVal(0.);
-      MultiFab::Copy(fdiv_SrcGhostCell, fdiv, fdivComp, 0, nComp, fdiv.nGrow());
-      amrex::single_level_weighted_redistribute( {fdiv_SrcGhostCell}, {fdiv}, *volfrac, fdivComp, nComp, {geom} );
-   }
-   EB_set_covered(fdiv,0.);
-#endif
 }
 
 void
@@ -4503,8 +4585,15 @@ PeleLM::compute_differential_diffusion_terms (MultiFab& D,
 
    // Get scalars with proper ghost cells. Might need more than what's available in the class
    // data, so use an FPI.
-   // TODO adjust for state redistribution
    int nGrowDiff = 1;
+#ifdef AMREX_USE_EB
+   if ( diffusion_redistribution_type == "StateRedist" ||
+        diffusion_redistribution_type == "NewStateRedist" ) {
+       nGrowDiff = 3;
+   } else {
+       nGrowDiff = 2;
+   }
+#endif
 
    int sComp = std::min((int)Density, std::min((int)first_spec,(int)Temp) );
    int eComp = std::max((int)Density, std::max((int)last_spec,(int)Temp) );
@@ -4515,8 +4604,8 @@ PeleLM::compute_differential_diffusion_terms (MultiFab& D,
    std::unique_ptr<MultiFab> scalarsCrse;
    if (level > 0) {
      auto& crselev = getLevel(level-1);
-     scalarsCrse.reset(new MultiFab(crselev.boxArray(), crselev.DistributionMap(), nComp, nGrowDiff));
-     FillPatch(crselev, *scalarsCrse, nGrowDiff, time, State_Type, Density, nComp, 0);
+     scalarsCrse.reset(new MultiFab(crselev.boxArray(), crselev.DistributionMap(), nComp, 1));
+     FillPatch(crselev, *scalarsCrse, 1, time, State_Type, Density, nComp, 0);
    }
 
    //
@@ -4534,12 +4623,15 @@ PeleLM::compute_differential_diffusion_terms (MultiFab& D,
    // Compute "D":
    // D[0:NUM_SPECIES-1] = -Div( Fk )
    // D[ NUM_SPECIES+1 ] = Div( lambda Grad(T) )
-   flux_divergence(D,0,flux,0,NUM_SPECIES,-1.0);
-   flux_divergence(D,NUM_SPECIES+1,flux,NUM_SPECIES+2,1,-1.0);
+   BCRec const* d_bcrec_spec = &(m_bcrec_scalars_d.dataPtr())[first_spec-Density];
+   flux_divergenceRD(scalars,first_spec-Density,D,0,flux,0,NUM_SPECIES,d_bcrec_spec,-1.0,dt,1);
+   BCRec const* d_bcrec_temp = &(m_bcrec_scalars_d.dataPtr())[Temp-Density];
+   flux_divergenceRD(scalars,Temp-Density,D,NUM_SPECIES+1,flux,NUM_SPECIES+2,1,d_bcrec_temp,-1.0,dt);
 
    // Compute "DD":
    // DD = -Sum{ Div( hk . Fk ) } a.k.a. the "diffdiff" terms
-   flux_divergence(DD,0,flux,NUM_SPECIES+1,1,-1.0);
+   BCRec const* d_bcrec_rhoh = &(m_bcrec_scalars_d.dataPtr())[RhoH-Density];
+   flux_divergenceRD(scalars,RhoH-Density,DD,0,flux,NUM_SPECIES+1,1,d_bcrec_rhoh,-1.0,dt);
 
    if (D.nGrow() > 0 && DD.nGrow() > 0)
    {
@@ -4983,16 +5075,6 @@ PeleLM::advance (Real time,
       chi_increment.setVal(0.0, chi_increment.nGrow());
       calc_dpdt(new_time, dt, chi_increment);
 
-#ifdef AMREX_USE_EB
-      {
-          MultiFab chi_tmp(grids,dmap,1,chi.nGrow()+2,MFInfo(),Factory());
-          chi_tmp.setVal(0.);
-          MultiFab::Copy(chi_tmp,chi_increment,0,0,1,chi.nGrow());
-          amrex::single_level_weighted_redistribute(  {chi_tmp}, {chi_increment}, *volfrac, 0, 1, {geom} );
-          EB_set_covered(chi_increment,0.0);
-      }
-#endif
-
       // Add chi_increment to chi and add chi to time-centered mac_divu
 #ifdef AMREX_USE_OMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
@@ -5106,9 +5188,18 @@ PeleLM::advance (Real time,
        // Compute Wbar fluxes from state np1k (lagged)
        // Compute DWbar term: - \nabla \cdot \Gamma_{\overline{W}_m}
        // They will be added to the Fnp1kp1 directly in diff_diff_update()
-       MultiFab scalars_alias(S_new, amrex::make_alias, Density, NUM_SPECIES+1);
-       compute_Wbar_fluxes(scalars_alias, new_time, 0, 1.0);
-       flux_divergence(DWbar,0,SpecDiffusionFluxWbar,0,NUM_SPECIES,-1);
+       DWbar.setVal(0.0);
+#ifdef AMREX_USE_EB
+       int nGrowDiff = (diffusion_redistribution_type == "StateRedist" ||
+                        diffusion_redistribution_type == "NewStateRedist") ? 3 : 2;
+       FillPatchIterator fpi(*this, DWbar, nGrowDiff, new_time, State_Type, Density, NUM_SPECIES+1);
+       MultiFab& scalars = fpi.get_mf();
+#else
+       MultiFab scalars(S_new, amrex::make_alias, Density, NUM_SPECIES+1);
+#endif
+       compute_Wbar_fluxes(scalars, new_time, 0, 1.0);
+       BCRec const* d_bcrec_spec = &(m_bcrec_scalars_d.dataPtr())[first_spec-Density];
+       flux_divergenceRD(scalars, 1, DWbar,0,SpecDiffusionFluxWbar,0,NUM_SPECIES,d_bcrec_spec,-1.0,dt);
     }
 
 #ifdef AMREX_USE_OMP
@@ -6664,7 +6755,7 @@ PeleLM::mac_sync ()
          MultiFab scalars_alias(S_new, amrex::make_alias, Density, NUM_SPECIES+1);
          compute_Wbar_fluxes(scalars_alias, new_time, 1, -1.0);
 
-         // take divergence of beta grad delta Wbar
+         // take divergence of beta grad delta Wbar -> no redistribution on those
          DdWbar.define(grids,dmap,NUM_SPECIES,nGrowAdvForcing,MFInfo(),Factory());
          MultiFab* const * fluxWbar = SpecDiffusionFluxWbar;
          flux_divergence(DdWbar,0,fluxWbar,0,NUM_SPECIES,-1);
@@ -6772,6 +6863,7 @@ PeleLM::mac_sync ()
 
          // Note: DT (comp 1) and DD (comp 0) are in the same multifab
          MultiFab DiffTerms_pre(grids,dmap,2,0,MFInfo(),Factory());
+         // No redistribution for those.
          flux_divergence(DiffTerms_pre,0,GammaKp1,NUM_SPECIES+1,2,-1);
 
          // Diffuse species sync to get dGamma^{sync}, then form Gamma^{postsync} = Gamma^{presync} + dGamma^{sync}
@@ -6920,6 +7012,7 @@ PeleLM::mac_sync ()
 
             MultiFab::Add(get_new_data(State_Type),Told,0,Temp,1,0);
             compute_enthalpy_fluxes(SpecDiffusionFluxnp1,betanp1,new_time); // Compute F[N+1], F[N+2]
+            // No redistribution for implicit fluxes
             flux_divergence(DiffTerms_post,0,SpecDiffusionFluxnp1,NUM_SPECIES+1,2,-1);
 
 #ifdef AMREX_USE_OMP
@@ -7571,6 +7664,14 @@ PeleLM::differential_spec_diffuse_sync (Real dt,
    const Vector<BCRec>& theBCs = AmrLevel::desc_lst[State_Type].getBCs();
    const BCRec& bc = theBCs[first_spec];
    int nGrowDiff = 1;
+#ifdef AMREX_USE_EB
+   if ( diffusion_redistribution_type == "StateRedist" ||
+        diffusion_redistribution_type == "NewStateRedist" ) {
+       nGrowDiff = 3;
+   } else {
+       nGrowDiff = 2;
+   }
+#endif
    FillPatchIterator fpi(*this, Rhs, nGrowDiff, tnp1, State_Type, Density, NUM_SPECIES+1);
    MultiFab& scalars = fpi.get_mf();
 
@@ -7582,6 +7683,7 @@ PeleLM::differential_spec_diffuse_sync (Real dt,
    // Ssync = "RHS from diffusion solve" + (dt*sdc_theta)*div(delta Gamma)
    //
    // Recompute update with adjusted diffusion fluxes
+   // TODO : this is not redistributed ...
    //
 #ifdef AMREX_USE_OMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
@@ -8084,7 +8186,7 @@ PeleLM::calc_divu (Real      time,
 {
    BL_PROFILE("PLM::calc_divu()");
 
-   const int nGrow = 0;
+   const int nGrow = 1;
    int vtCompT = NUM_SPECIES + 1;
    int vtCompY = 0;
    MultiFab mcViscTerms(grids,dmap,NUM_SPECIES+2,nGrow,MFInfo(),Factory());
