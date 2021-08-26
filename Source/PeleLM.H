@@ -481,8 +481,8 @@ public:
 
   void adjust_spec_diffusion_fluxes (amrex::MultiFab* const * flux,
                                      const amrex::MultiFab&   S,
-                                     const amrex::BCRec&      bc,
-                                     amrex::Real              time);
+                                     const amrex::BCRec&      bc);
+
 
   void calcDiffusivity_Wbar (const amrex::Real time);
 
@@ -490,7 +490,8 @@ public:
                   amrex::Real      dt,
                   amrex::MultiFab& dpdt);
 
-  void checkTimeStep (amrex::Real dt);
+  void checkTimeStep (amrex::Real a_time,
+                      amrex::Real a_dt);
 
   void compute_differential_diffusion_fluxes (const amrex::MultiFab& S,
                                               const amrex::MultiFab* Scrse,
@@ -528,7 +529,8 @@ public:
                             amrex::MultiFab& P,
                                    int       pComp);
 
-  void compute_Wbar_fluxes(amrex::Real time,
+  void compute_Wbar_fluxes(const amrex::MultiFab &a_scalars,
+                           amrex::Real time,
                            int         inc_flag,
                            amrex::Real inc_coeff);
 
