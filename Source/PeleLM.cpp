@@ -2079,6 +2079,7 @@ PeleLM::initData ()
   // This changes the input velocity fields
   //
   InitialRedistribution();
+  set_body_state(S_new);
 #endif
 
   //
@@ -4394,6 +4395,7 @@ PeleLM::flux_divergenceRD(const MultiFab        &a_state,
    AMREX_ASSERT(a_divergence.nGrow() >= 1);
    // Temporary divTemp to allow fillBoundary
    MultiFab divTemp(grids,dmap,nComp,a_state.nGrow(),MFInfo(),Factory());
+   divTemp.setVal(0.0);
 
    // Call face-centroid extensive fluxes divergence with scaling
    flux_divergence(divTemp, 0, a_fluxes, fluxComp, nComp, scale);
