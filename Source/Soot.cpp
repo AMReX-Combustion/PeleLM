@@ -34,12 +34,13 @@ PeleLM::computeSootSrc(Real time, Real dt)
 #ifdef _OPENMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
+  bool pres_term = closed_chamber;
   for (MFIter mfi(mf, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
     const Box& gbx = mfi.growntilebox();
     auto const& q_arr = mf.array(mfi);
     auto const& mu_arr = vel_visc_cc->const_array(mfi);
     auto const& soot_arr = soot_mf.array(mfi);
-    soot_model->addSootSourceTerm(gbx, q_arr, mu_arr, soot_arr, time, dt);
+    soot_model->addSootSourceTerm(gbx, q_arr, mu_arr, soot_arr, time, dt, pres_term);
     const int sootIndx = sootComps.qSootIndx;
     SootData* sd = soot_model->getSootData_d();
     amrex::ParallelFor(gbx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
