@@ -4392,7 +4392,6 @@ PeleLM::flux_divergenceRD(const MultiFab        &a_state,
                           int areSpeciesFluxes)
 {
 #ifdef AMREX_USE_EB
-   AMREX_ASSERT(a_divergence.nGrow() >= 1);
    // Temporary divTemp to allow fillBoundary
    MultiFab divTemp(grids,dmap,nComp,a_state.nGrow(),MFInfo(),Factory());
    divTemp.setVal(0.0);
@@ -7731,7 +7730,6 @@ PeleLM::differential_spec_diffuse_sync (Real dt,
    // Ssync = "RHS from diffusion solve" + (dt*sdc_theta)*div(delta Gamma)
    //
    // Recompute update with adjusted diffusion fluxes
-   // TODO : this is not redistributed ...
    //
 #ifdef AMREX_USE_OMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
@@ -8234,7 +8232,7 @@ PeleLM::calc_divu (Real      time,
 {
    BL_PROFILE("PLM::calc_divu()");
 
-   const int nGrow = 1;
+   const int nGrow = 0;
    int vtCompT = NUM_SPECIES + 1;
    int vtCompY = 0;
    MultiFab mcViscTerms(grids,dmap,NUM_SPECIES+2,nGrow,MFInfo(),Factory());
