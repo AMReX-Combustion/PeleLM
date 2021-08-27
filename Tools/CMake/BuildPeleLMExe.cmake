@@ -219,6 +219,9 @@ function(build_pelelm_exe pelelm_exe_name)
        ${AMREX_HYDRO_SRC_DIR}/Utils/hydro_compute_fluxes_from_state.cpp
        ${AMREX_HYDRO_SRC_DIR}/Utils/hydro_bcs_K.H
        ${AMREX_HYDRO_SRC_DIR}/Utils/hydro_create_umac_grown.cpp
+
+       ${AMREX_HYDRO_SRC_DIR}/Slopes/hydro_slopes_K.H
+       ${AMREX_HYDRO_SRC_DIR}/Slopes/hydro_eb_slopes_${PELELM_DIM}D_K.H
   )
 
   if(PELELM_ENABLE_AMREX_EB)
