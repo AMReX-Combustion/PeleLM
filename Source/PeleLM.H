@@ -414,7 +414,6 @@ public:
                          int                     scalScomp,
                          const amrex::MFIter&    mfi) override;
 
-
   virtual void mac_sync () override;
   //
   // Crse/fine fixup functions.
@@ -552,20 +551,32 @@ public:
                                FluxBoxes&  fb_betan, 
                                FluxBoxes&  fb_betanp1);
 
-  void flux_divergence (amrex::MultiFab&        fdiv,
-                        int              fdivComp,
-                        const amrex::MultiFab* const* extensive_fluxes,
-                        int              fluxComp,
-                        int              nComp,
-                        amrex::Real             scale) const;
+  void flux_divergenceRD (const amrex::MultiFab  &a_state,
+                          int                     stateComp,
+                          amrex::MultiFab        &a_divergence,
+                          int                     divComp,
+                          const amrex::MultiFab* const* extensive_fluxes,
+                          int                     fluxComp,
+                          int                     nComp,
+                          amrex::BCRec const*     d_bc,
+                          amrex::Real             scale,
+                          amrex::Real             a_dt,
+                          int areSpeciesFluxes = 0);
 
-  void getDiffusivity (amrex::MultiFab* diffusivity[BL_SPACEDIM],
+  void flux_divergence (amrex::MultiFab&  a_divergence,
+                        int               divComp,
+                        const amrex::MultiFab* const* a_ext_fluxes,
+                        int               fluxComp,
+                        int               nComp,
+                        amrex::Real       scale);
+
+  void getDiffusivity (amrex::MultiFab* diffusivity[AMREX_SPACEDIM],
                        const amrex::Real time,
                        const int state_comp,
                        const int dst_comp,
                        const int num_comp);
 
-  void getDiffusivity_Wbar (amrex::MultiFab* diffusivity[BL_SPACEDIM],
+  void getDiffusivity_Wbar (amrex::MultiFab* diffusivity[AMREX_SPACEDIM],
                             const amrex::Real time);
 
   amrex::DistributionMapping getFuncCountDM (const amrex::BoxArray& bxba, int ngrow);
@@ -851,6 +862,10 @@ public:
   static int         iter_debug;
   static int         mHtoTiterMAX;
   static amrex::Vector<amrex::Real> mTmpData;
+
+#ifdef AMREX_USE_EB
+  static std::string diffusion_redistribution_type;
+#endif
   
 
   static int  ncells_chem;
