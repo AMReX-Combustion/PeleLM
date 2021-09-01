@@ -337,6 +337,7 @@ public:
   static void setSootIndx ();
   static void sootsrcSetUp ();
   void computeSootSrc (Real time, Real dt);
+  void clipSootMoments();
   void estSootTimeStep (Real& estdt);
 #endif
 

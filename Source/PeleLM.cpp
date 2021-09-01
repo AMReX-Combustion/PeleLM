@@ -5423,6 +5423,9 @@ PeleLM::advance (Real time,
     scalar_advection_update(dt, Density, Density);
     if (DEF_NUM_PASSIVE > 0 && solve_passives) {
       scalar_advection_update(dt, first_passive, first_passive + DEF_NUM_PASSIVE - 1);
+#ifdef SOOT_MODEL
+      clipSootMoments();
+#endif
     }
     make_rho_curr_time();
 

@@ -41,22 +41,33 @@ PeleLM::computeSootSrc(Real time, Real dt)
     auto const& mu_arr = vel_visc_cc->const_array(mfi);
     auto const& soot_arr = soot_mf.array(mfi);
     soot_model->addSootSourceTerm(gbx, q_arr, mu_arr, soot_arr, time, dt, pres_term);
-    const int sootIndx = sootComps.qSootIndx;
+  }
+}
+
+void
+PeleLM::clipSootMoments()
+{
+  const int nGrowOp = 0;
+  MultiFab& mf = get_new_data(State_Type);
+#ifdef _OPENMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+  for (MFIter mfi(mf, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
+    const Box gbx = mfi.tilebox();
+    auto const& q_arr = mf.array(mfi);
     SootData* sd = soot_model->getSootData_d();
-    amrex::ParallelFor(gbx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
+    amrex::ParallelFor(
+      gbx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
       GpuArray<Real, NUM_SOOT_MOMENTS + 1> moments;
       for (int mom = 0; mom < NUM_SOOT_MOMENTS + 1; ++mom) {
-        moments[mom] = q_arr(i, j, k, sootIndx + mom);
+        moments[mom] = q_arr(i, j, k, DEF_first_soot + mom);
       }
       sd->momConvClipConv(moments.data());
       for (int mom = 0; mom < NUM_SOOT_MOMENTS + 1; ++mom) {
-        q_arr(i, j, k, sootIndx + mom) = moments[mom];
+        q_arr(i, j, k, DEF_first_soot + mom) = moments[mom];
       }
     });
   }
-  // TODO: Determine the optimal way to limit time step
-  // Currently, we rely on subcycling which seems to work better
-  return;
 }
 
 void
