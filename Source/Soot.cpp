@@ -22,11 +22,7 @@ PeleLM::computeSootSrc(Real time, Real dt)
   // Get soot source data
   MultiFab& soot_mf = get_new_data(sootsrc_Type);
   soot_mf.setVal(0.);
-  // Need all scalar state variables
-  // Get fillpatched state
-  FillPatchIterator fpi(
-    *this, soot_mf, nGrowOp, time, State_Type, Density, DEF_NUM_SCALARS);
-  MultiFab& mf = fpi.get_mf();
+  MultiFab& mf = get_old_data(State_Type);
   // Get viscosity
   const TimeLevel whichTime = which_time(State_Type, time);
   AMREX_ASSERT(whichTime == AmrOldTime || whichTime == AmrNewTime);
@@ -37,7 +33,7 @@ PeleLM::computeSootSrc(Real time, Real dt)
   bool pres_term = closed_chamber;
   for (MFIter mfi(mf, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
     const Box& gbx = mfi.growntilebox();
-    auto const& q_arr = mf.array(mfi);
+    auto const& q_arr = mf.array(mfi, Density); // Only need the scalars
     auto const& mu_arr = vel_visc_cc->const_array(mfi);
     auto const& soot_arr = soot_mf.array(mfi);
     soot_model->addSootSourceTerm(gbx, q_arr, mu_arr, soot_arr, time, dt, pres_term);
@@ -54,17 +50,17 @@ PeleLM::clipSootMoments()
 #endif
   for (MFIter mfi(mf, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
     const Box gbx = mfi.tilebox();
-    auto const& q_arr = mf.array(mfi);
+    auto const& q_arr = mf.array(mfi, DEF_first_soot);
     SootData* sd = soot_model->getSootData_d();
     amrex::ParallelFor(
       gbx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
       GpuArray<Real, NUM_SOOT_MOMENTS + 1> moments;
       for (int mom = 0; mom < NUM_SOOT_MOMENTS + 1; ++mom) {
-        moments[mom] = q_arr(i, j, k, DEF_first_soot + mom);
+        moments[mom] = q_arr(i, j, k, mom);
       }
       sd->momConvClipConv(moments.data());
       for (int mom = 0; mom < NUM_SOOT_MOMENTS + 1; ++mom) {
-        q_arr(i, j, k, DEF_first_soot + mom) = moments[mom];
+        q_arr(i, j, k, mom) = moments[mom];
       }
     });
   }

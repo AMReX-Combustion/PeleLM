@@ -2134,7 +2134,9 @@ PeleLM::initData ()
     state[State_Type].setTimeLevel(new_time, dt, dt);
 
     // calcDiff uses class state and assumes FillPatched -> do it now
-    FillPatch(*this, S_new, S_new.nGrow(), new_time , State_Type, Density, NUM_STATE-(Density+1), Density);
+    int num_fill_scalar = DEF_NUM_SCALARS;
+    if (!solve_passives) num_fill_scalar -= DEF_NUM_PASSIVE;
+    FillPatch(*this, S_new, S_new.nGrow(), new_time, State_Type, Density, num_fill_scalar, Density);
     calcDiffusivity(new_time);
 
     calc_divu(new_time, dtin, Divu_new);
@@ -4570,9 +4572,6 @@ PeleLM::scalar_advection_update (Real dt,
            }
        });
    }
-
-   // Let's FillPatch the new class state density, so that it's ready for anyone using it further down in the SDC ite.
-   FillPatch(*this,S_new,S_new.nGrow(),new_time,State_Type,Density,1,Density);
 }
 
 void
@@ -5113,7 +5112,7 @@ PeleLM::advance (Real time,
   // Class state has 1 ghost cell in LM. FillPatch old/new now and use
   // class state directly if we only <= 1 ghost cell, use FPI otherwise
   FillPatch(*this, S_old, S_old.nGrow(), prev_time, State_Type, 0, NUM_STATE, 0);
-  FillPatch(*this, S_new, S_new.nGrow(), new_time , State_Type, 0, NUM_STATE, 0);
+  FillPatch(*this, S_new, S_new.nGrow(), new_time, State_Type, 0, NUM_STATE, 0);
 
 #ifdef AMREX_PARTICLES
   int nGrow_Sborder = 4; //mr: set to 1 for now, is this ok?
@@ -5265,7 +5264,7 @@ PeleLM::advance (Real time,
     }
 #endif
 #ifdef SOOT_MODEL
-    if (do_soot_solve) {
+    if (do_soot_solve && sdc_iter == 1) {
       computeSootSrc(time, dt);
       ext_src_added = true;
     }
@@ -5406,7 +5405,7 @@ PeleLM::advance (Real time,
           AMREX_GPU_DEVICE (int i, int j, int k) noexcept
           {
             for (int n = 0; n < DEF_NUM_PASSIVE; n++)
-              fPass(i,j,k,n) += ext_pass(i,j,k,n);
+              fPass(i,j,k,n) = ext_pass(i,j,k,n);
           });
        }
     }
@@ -5421,10 +5420,13 @@ PeleLM::advance (Real time,
 
     // update rho since not affected by diffusion
     scalar_advection_update(dt, Density, Density);
+    // Let's FillPatch the new class state density, so that it's ready for anyone using it further down in the SDC ite.
+    FillPatch(*this,S_new,S_new.nGrow(),new_time,State_Type,Density,1,Density);
     if (DEF_NUM_PASSIVE > 0 && solve_passives) {
       scalar_advection_update(dt, first_passive, first_passive + DEF_NUM_PASSIVE - 1);
 #ifdef SOOT_MODEL
-      clipSootMoments();
+      if (sdc_iter == sdc_iterMAX)
+        clipSootMoments();
 #endif
     }
     make_rho_curr_time();
@@ -5596,7 +5598,9 @@ PeleLM::advance (Real time,
     //====================================
 
     // FillPatch the new scalar class state for the next SDC or post SDC
-    FillPatch(*this, S_new, S_new.nGrow(), new_time , State_Type, Density, NUM_STATE-(Density+1), Density);
+    int num_fill_scalar = DEF_NUM_SCALARS;
+    if (!solve_passives) num_fill_scalar -= DEF_NUM_PASSIVE;
+    FillPatch(*this, S_new, S_new.nGrow(), new_time, State_Type, Density, num_fill_scalar, Density);
 
     showMF("DBGSync",S_new,"DBGSync_Snew_end_sdc",level,sdc_iter,parent->levelSteps(level));
 #ifdef AMREX_PARTICLES
