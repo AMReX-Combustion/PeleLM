@@ -341,9 +341,9 @@ set_species_bc (BCRec&       bc,
 //
 // Indices of fuel and oxidizer -- ParmParsed in & used in a couple places.
 //
-std::string PeleLM::fuelName        = "CH4";
+std::string PeleLM::fuelName        = "";
 std::string PeleLM::productName     = "CO2";
-Vector<std::string> PeleLM::consumptionName(1);
+Vector<std::string> PeleLM::consumptionName;
 static std::string oxidizerName     = "O2";
 
 //
@@ -415,7 +415,10 @@ PeleLM::variableSetUp ()
   //
   ParmParse ppns("ns");
   ppns.query("fuelName",fuelName);
-  consumptionName[0] = fuelName;
+  if ( !fuelName.empty() ) {
+     consumptionName.resize(1);
+     consumptionName[0] = fuelName;
+  }
   if (int nc = ppns.countval("consumptionName"))
   {
     consumptionName.resize(nc);

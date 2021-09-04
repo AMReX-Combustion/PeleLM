@@ -1349,6 +1349,9 @@ PeleLM::init_mixture_fraction()
             Abort("Unknown mixtureFraction.format ! Should be 'Cantera' or 'RealList'");
          }
       }
+      if (fuelName.empty() && !hasUserMF) {
+          Print() << " Mixture fraction definition lacks fuelName: consider using ns.fuelName keyword \n";
+      }
 
       // Only interested in CHON -in that order. Compute Bilger weights
       amrex::Real atwCHON[4] = {0.0};
@@ -9341,6 +9344,9 @@ PeleLM::initActiveControl()
 
    if ( !ctrl_use_temp ) {
       // Get the fuel rhoY
+      if (fuelName.empty()) {
+          Abort("Using activeControl based on fuel mass requires ns.fuelName !");
+      }
       Vector<std::string> specNames;
       pele::physics::eos::speciesNames<pele::physics::PhysicsType::eos_type>(specNames);
       int fuelidx = -1;
