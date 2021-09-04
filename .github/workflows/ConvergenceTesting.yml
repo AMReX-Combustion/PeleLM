@@ -8,10 +8,14 @@ jobs:
   #Run the convergence test on CoVo
   COVO_Conv:
     name: Velocity-Advection
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-18.04
     env: 
       {CXXFLAGS: "-Werror -Wshadow -Woverloaded-virtual -Wunreachable-code"}
     steps:
+    - name: Cancel previous runs
+      uses: styfle/cancel-workflow-action@0.6.0
+      with:
+        access_token: ${{github.token}}
     - uses: actions/checkout@v2
     - name: System Dependencies
       run: |
@@ -32,6 +36,7 @@ jobs:
       env:
          AMREX_HOME: ${GITHUB_WORKSPACE}/build/amrex
          IAMR_HOME: ${GITHUB_WORKSPACE}/build/IAMR
+         AMREX_HYDRO_HOME: ${GITHUB_WORKSPACE}/build/AMReX-Hydro
          PELE_PHYSICS_HOME: ${GITHUB_WORKSPACE}/build/PelePhysics
          PELELM_HOME: ${GITHUB_WORKSPACE}
       working-directory: ./Exec/RegTests/PeriodicCases
@@ -42,7 +47,7 @@ jobs:
       run: |
         cp ${GITHUB_WORKSPACE}/build/amrex/Tools/Plotfile/fcompare.gnu.ex .
         sed -i "34s/.*/    resolution = [32,64,128,256,512]/" multiRuns.py
-        sed -i "s/mpiexec -n 1/mpiexec -n 4/g" multiRuns.py 
+        sed -i "s/mpiexec -n 1/mpiexec -n 4 --oversubscribe/g" multiRuns.py 
         ./multiRuns.py --test_name GH_CI_CoVo --input_file inputs.2d_CoVo_Conv_pos45d 
         sed -i "49s/.*/    resolution = [32,64,128,256,512]/" pprocConvOrder.py
         ./pprocConvOrder.py ./fcompare.gnu.ex --test_name GH_CI_CoVo
@@ -51,10 +56,14 @@ jobs:
   #Run the convergence test on Convected Gaussian
   TempGauss_Conv:
     name: Temperature-Advection
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-18.04
     env: 
       {CXXFLAGS: "-Werror -Wshadow -Woverloaded-virtual -Wunreachable-code"}
     steps:
+    - name: Cancel previous runs
+      uses: styfle/cancel-workflow-action@0.6.0
+      with:
+        access_token: ${{github.token}}
     - uses: actions/checkout@v2
     - name: System Dependencies
       run: |
@@ -75,6 +84,7 @@ jobs:
       env:
          AMREX_HOME: ${GITHUB_WORKSPACE}/build/amrex
          IAMR_HOME: ${GITHUB_WORKSPACE}/build/IAMR
+         AMREX_HYDRO_HOME: ${GITHUB_WORKSPACE}/build/AMReX-Hydro
          PELE_PHYSICS_HOME: ${GITHUB_WORKSPACE}/build/PelePhysics
          PELELM_HOME: ${GITHUB_WORKSPACE}
       working-directory: ./Exec/RegTests/PeriodicCases
@@ -85,7 +95,7 @@ jobs:
       run: |
         cp ${GITHUB_WORKSPACE}/build/amrex/Tools/Plotfile/fcompare.gnu.ex .
         sed -i "34s/.*/    resolution = [32,64,128,256,512]/" multiRuns.py
-        sed -i "s/mpiexec -n 1/mpiexec -n 4/g" multiRuns.py 
+        sed -i "s/mpiexec -n 1/mpiexec -n 4 --oversubscribe/g" multiRuns.py 
         ./multiRuns.py --test_name GH_CI_CoGauT --input_file inputs.2d_CoGauTemp_Conv_pos45d
         sed -i '48s/.*/    vars=["density", "temp", "rhoh" ]/' pprocConvOrder.py
         sed -i "49s/.*/    resolution = [32,64,128,256,512]/" pprocConvOrder.py
@@ -95,10 +105,14 @@ jobs:
   #Run the convergence test on Convected Gaussian
   SpecGauss_Conv:
     name: Species-Advection
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-18.04
     env: 
       {CXXFLAGS: "-Werror -Wshadow -Woverloaded-virtual -Wunreachable-code"}
     steps:
+    - name: Cancel previous runs
+      uses: styfle/cancel-workflow-action@0.6.0
+      with:
+        access_token: ${{github.token}}
     - uses: actions/checkout@v2
     - name: System Dependencies
       run: |
@@ -119,6 +133,7 @@ jobs:
       env:
          AMREX_HOME: ${GITHUB_WORKSPACE}/build/amrex
          IAMR_HOME: ${GITHUB_WORKSPACE}/build/IAMR
+         AMREX_HYDRO_HOME: ${GITHUB_WORKSPACE}/build/AMReX-Hydro
          PELE_PHYSICS_HOME: ${GITHUB_WORKSPACE}/build/PelePhysics
          PELELM_HOME: ${GITHUB_WORKSPACE}
       working-directory: ./Exec/RegTests/PeriodicCases
@@ -129,7 +144,7 @@ jobs:
       run: |
         cp ${GITHUB_WORKSPACE}/build/amrex/Tools/Plotfile/fcompare.gnu.ex .
         sed -i "34s/.*/    resolution = [32,64,128,256,512]/" multiRuns.py
-        sed -i "s/mpiexec -n 1/mpiexec -n 4/g" multiRuns.py 
+        sed -i "s/mpiexec -n 1/mpiexec -n 4 --oversubscribe/g" multiRuns.py 
         ./multiRuns.py --test_name GH_CI_CoGauS --input_file inputs.2d_CoGauSpec_Conv_neg45d
         sed -i '48s/.*/    vars=["density", "Y(N2)", "Y(O2)" ]/' pprocConvOrder.py
         sed -i "49s/.*/    resolution = [32,64,128,256,512]/" pprocConvOrder.py

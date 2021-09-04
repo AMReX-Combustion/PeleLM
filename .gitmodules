@@ -1,0 +1,18 @@
+[submodule "Submodules/PelePhysics"]
+	path = Submodules/PelePhysics
+	url = https://github.com/AMReX-Combustion/PelePhysics.git
+[submodule "Submodules/amrex"]
+	path = Submodules/amrex
+	url = https://github.com/AMReX-Codes/amrex.git
+[submodule "Submodules/sundials"]
+	path = Submodules/sundials
+	url = https://github.com/LLNL/sundials.git
+[submodule "Submodules/IAMR"]
+	path = Submodules/IAMR
+	url = https://github.com/AMReX-Codes/IAMR.git
+[submodule "Submodules/googletest"]
+	path = Submodules/googletest
+	url = https://github.com/google/googletest.git
+[submodule "Submodules/AMReX-Hydro"]
+	path = Submodules/AMReX-Hydro
+	url = https://github.com/AMReX-Codes/AMReX-Hydro.git

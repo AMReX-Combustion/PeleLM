@@ -51,7 +51,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
 
-    ## Read ic.txt for nondimensionalization constants
+    ## Read initialConditions.txt for nondimensionalization constants
     dim_consts = load_dim_consts(args.root_dir)
     dim_consts.update({
         'ke_factor':            3 * dim_consts['urms0']**2,

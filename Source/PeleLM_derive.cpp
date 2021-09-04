@@ -1,15 +1,14 @@
 #include "PeleLM.H"
 #include "PeleLM_K.H"
 #include "PeleLM_derive.H"
-#include <EOS.H>
-#include <TransportParams.H>
+#include <PelePhysics.H>
+#include <mechanism.H>
 
 #ifdef AMREX_USE_EB
 #include <AMReX_EBFabFactory.H>
 #include <AMReX_EBFArrayBox.H>
 #endif
 
-#include <mechanism.h>
 
 using namespace amrex;
 
@@ -131,7 +130,8 @@ void pelelm_dermolefrac (const Box& bx, FArrayBox& derfab, int dcomp, int ncomp,
         for (int n = 0; n < NUM_SPECIES; n++) {
           Yt[n] = in_dat(i,j,k,n+1) * rhoinv;
         } 
-        EOS::Y2X(Yt,Xt);
+        auto eos = pele::physics::PhysicsType::eos();
+        eos.Y2X(Yt,Xt);
         for (int n = 0; n < NUM_SPECIES; n++) {
           der(i,j,k,n) = Xt[n];
         }
@@ -164,7 +164,8 @@ void pelelm_dermolweight (const Box& bx, FArrayBox& derfab, int dcomp, int ncomp
           Yt[n] = in_dat(i,j,k,n+1) * rhoinv;
         } 
         amrex::Real Wbar = 0.0;
-        EOS::Y2WBAR(Yt,Wbar);
+        auto eos = pele::physics::PhysicsType::eos();
+        eos.Y2WBAR(Yt,Wbar);
         der(i,j,k) = Wbar;
     });
 
@@ -196,7 +197,8 @@ void pelelm_dercpmix (const Box& bx, FArrayBox& derfab, int dcomp, int ncomp,
         }
         amrex::Real Temp = in_dat(i,j,k,1);
         amrex::Real Cpmix = 0.0;
-        EOS::TY2Cp(Temp,Yt,Cpmix);
+        auto eos = pele::physics::PhysicsType::eos();
+        eos.TY2Cp(Temp,Yt,Cpmix);
         der(i,j,k) = Cpmix * 1.0e-4; // CGS -> MKS ;
     });
 
@@ -418,7 +420,7 @@ void pelelm_dertransportcoeff (const Box& bx, FArrayBox& derfab, int dcomp, int 
     auto       mu      = derfab.array(dcomp+NUM_SPECIES+1);
 
     // Get the transport GPU data pointer
-    TransParm const* ltransparm = trans_parm_g;
+    auto const* ltransparm = PeleLM::trans_parms.device_trans_parm();
 
     amrex::ParallelFor(bx,
     [T, rhoY, rhoD, lambda, mu, ltransparm] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
@@ -489,7 +491,7 @@ void pelelm_dermixanddiss (const Box& bx, FArrayBox& derfab, int dcomp, int ncom
     });
 
     // Get the transport GPU data pointer
-    TransParm const* ltransparm = trans_parm_g;
+    auto const* ltransparm = PeleLM::trans_parms.device_trans_parm();
 
     amrex::ParallelFor(bx_der,
     [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
@@ -512,13 +514,14 @@ void pelelm_dermixanddiss (const Box& bx, FArrayBox& derfab, int dcomp, int ncom
         amrex::Real dummy_mu = 0.0;
         amrex::Real lambda_cgs = 0.0;
         amrex::Real dummy_xi = 0.0;
-
-        transport(false, false, true, false, 
-                  Tloc, rho, y, dummy_rhoDi, dummy_mu, dummy_xi, lambda_cgs, ltransparm);
+        auto trans = pele::physics::PhysicsType::transport();
+        trans.transport(false, false, true, false, 
+                        Tloc, rho, y, dummy_rhoDi, dummy_mu, dummy_xi, lambda_cgs, ltransparm);
         amrex::Real lambda = lambda_cgs * 1.0e-5;  // CGS -> MKS 
         
         amrex::Real cpmix = 0.0;
-        EOS::TY2Cp(Tloc, y, cpmix);
+        auto eos = pele::physics::PhysicsType::eos();
+        eos.TY2Cp(Tloc, y, cpmix);
         cpmix *= 0.0001;                         // CGS -> MKS conversion
 
         //grad mixt. fraction
@@ -601,7 +604,8 @@ void pelelm_derconcentration (const Box& bx, FArrayBox& derfab, int dcomp, int n
         }
         amrex::Real Temp = in_dat(i,j,k,1);
         amrex::Real Rho = in_dat(i,j,k,0) * 1.0e-3; // ! kg/m^3 -> g/cm^3
-        EOS::RTY2C(Rho,Temp,Yt,Ct);
+        auto eos = pele::physics::PhysicsType::eos();
+        eos.RTY2C(Rho,Temp,Yt,Ct);
         for (int n = 0; n < NUM_SPECIES; n++) {
           der(i,j,k,n) = Ct[n] * 1.0e6; // cm^(-3) -> m^(-3)
         }
@@ -627,8 +631,9 @@ void pelelm_dhrr (const Box& bx, FArrayBox& derfab, int dcomp, int ncomp,
     amrex::ParallelFor(bx, 
     [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
     {   
+        auto eos = pele::physics::PhysicsType::eos();
         amrex::Real hi_spec[NUM_SPECIES] = {0.0};
-        EOS::T2Hi(in_dat(i,j,k,0),hi_spec);
+        eos.T2Hi(in_dat(i,j,k,0),hi_spec);
         der(i,j,k) = 0.0;
         for (int n = 0; n < NUM_SPECIES; n++) {
             hi_spec[n] *= 0.0001;   // erg/g -> J/kg
@@ -683,10 +688,10 @@ void pelelm_dcma (const Box& bx, FArrayBox& derfab, int dcomp, int ncomp,
         calcMixtFrac(i,j,k,
                      Zox_lcl, denom_inv, fact_lcl.data(),
                      density, rhoY, mixt_frac);
-
+        auto eos = pele::physics::PhysicsType::eos();
         // HR
         amrex::Real hi_spec[NUM_SPECIES] = {0.0};
-        EOS::T2Hi(Temp(i,j,k),hi_spec);
+        eos.T2Hi(Temp(i,j,k),hi_spec);
         hr(i,j,k) = 0.0;
         for (int n = 0; n < NUM_SPECIES; n++) {
             hi_spec[n] *= 0.0001;   // erg/g -> J/kg

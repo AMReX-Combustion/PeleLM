@@ -1,8 +1,9 @@
-TOP = ../../../..
-AMREX_HOME         ?= ${TOP}/amrex
-IAMR_HOME          ?= ${TOP}/IAMR
-PELELM_HOME        ?= ${TOP}/PeleLM
-PELE_PHYSICS_HOME  ?= ${TOP}/PelePhysics
+PELELM_HOME = ../../..
+SUBMODS = ${PELELM_HOME}/Submodules
+AMREX_HOME         ?= ${SUBMODS}/amrex
+IAMR_HOME          ?= ${SUBMODS}/IAMR
+PELE_PHYSICS_HOME  ?= ${SUBMODS}/PelePhysics
+AMREX_HYDRO_HOME   ?= ${SUBMODS}/AMReX-Hydro
 
 #
 # Build configuration
@@ -24,21 +25,17 @@ PRECISION       = DOUBLE
 VERBOSE         = FALSE
 TINY_PROFILE    = FALSE
 
-# CVODE
-USE_SUNDIALS_PP = FALSE
-USE_KLU_PP      = FALSE
-
 # Choose model (from list below), and pmf file
 Chemistry_Model = air
 
-# This sets the EOS directory in $(PELE_PHYSICS_HOME)/Eos
-Eos_dir     := Fuego
+# This sets the EOS model to one of $(PELE_PHYSICS_HOME)/Eos
+Eos_Model     := Fuego
 
 # This sets the network directory in $(PELE_PHYSICS_HOME)/Reactions
-Reactions_dir := Null
+Reactor_dir := null
 
-# This sets the transport directory in $(PELE_PHYSICS_HOME)/Transport
-Transport_dir := Constant
+# This sets the transport model to one of $(PELE_PHYSICS_HOME)/Transport
+Transport_Model := Constant
 
 Blocs   := .
 

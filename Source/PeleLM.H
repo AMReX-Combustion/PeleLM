@@ -7,9 +7,10 @@
 
 #include <AMReX_ForkJoin.H>
 
-#include <mechanism.h>
+#include <mechanism.H>
 #include <pelelm_prob_parm.H>
 #include <PeleLM_parm.H>
+#include "PelePhysics.H"
 
 #include <list>
 #include <map>
@@ -282,8 +283,8 @@ public:
                          const amrex::Real       time,
                          const amrex::FArrayBox& Vel,
                          const amrex::FArrayBox& Scal,
-                         int                     scalScomp) override;
-
+                         int                     scalScomp,
+                         const amrex::MFIter&    mfi) override;
 
   virtual void mac_sync () override;
   //
@@ -327,14 +328,19 @@ public:
   static void read_particle_params ();
 #endif
 
+  //
+  // MultiFab for holding source terms like from soot and sprays
+  //
+  amrex::MultiFab external_sources;
+  void add_external_sources(amrex::Real time, amrex::Real dt);
 
   // enum YdotAction { HT_EstimateYdotNew, HT_ImproveYdotOld, HT_LeaveYdotAlone };
   // enum Solver_Status {HT_InProgress, HT_Stalled, HT_Solved};
 
   void adjust_spec_diffusion_fluxes (amrex::MultiFab* const * flux,
                                      const amrex::MultiFab&   S,
-                                     const amrex::BCRec&      bc,
-                                     amrex::Real              time);
+                                     const amrex::BCRec&      bc);
+
 
   void calcDiffusivity_Wbar (const amrex::Real time);
 
@@ -342,7 +348,8 @@ public:
                   amrex::Real      dt,
                   amrex::MultiFab& dpdt);
 
-  void checkTimeStep (amrex::Real dt);
+  void checkTimeStep (amrex::Real a_time,
+                      amrex::Real a_dt);
 
   void compute_differential_diffusion_fluxes (const amrex::MultiFab& S,
                                               const amrex::MultiFab* Scrse,
@@ -380,7 +387,8 @@ public:
                             amrex::MultiFab& P,
                                    int       pComp);
 
-  void compute_Wbar_fluxes(amrex::Real time,
+  void compute_Wbar_fluxes(const amrex::MultiFab &a_scalars,
+                           amrex::Real time,
                            int         inc_flag,
                            amrex::Real inc_coeff);
 
@@ -402,20 +410,32 @@ public:
                                FluxBoxes&  fb_betan, 
                                FluxBoxes&  fb_betanp1);
 
-  void flux_divergence (amrex::MultiFab&        fdiv,
-                        int              fdivComp,
-                        const amrex::MultiFab* const* extensive_fluxes,
-                        int              fluxComp,
-                        int              nComp,
-                        amrex::Real             scale) const;
+  void flux_divergenceRD (const amrex::MultiFab  &a_state,
+                          int                     stateComp,
+                          amrex::MultiFab        &a_divergence,
+                          int                     divComp,
+                          const amrex::MultiFab* const* extensive_fluxes,
+                          int                     fluxComp,
+                          int                     nComp,
+                          amrex::BCRec const*     d_bc,
+                          amrex::Real             scale,
+                          amrex::Real             a_dt,
+                          int areSpeciesFluxes = 0);
 
-  void getDiffusivity (amrex::MultiFab* diffusivity[BL_SPACEDIM],
+  void flux_divergence (amrex::MultiFab&  a_divergence,
+                        int               divComp,
+                        const amrex::MultiFab* const* a_ext_fluxes,
+                        int               fluxComp,
+                        int               nComp,
+                        amrex::Real       scale);
+
+  void getDiffusivity (amrex::MultiFab* diffusivity[AMREX_SPACEDIM],
                        const amrex::Real time,
                        const int state_comp,
                        const int dst_comp,
                        const int num_comp);
 
-  void getDiffusivity_Wbar (amrex::MultiFab* diffusivity[BL_SPACEDIM],
+  void getDiffusivity_Wbar (amrex::MultiFab* diffusivity[AMREX_SPACEDIM],
                             const amrex::Real time);
 
   amrex::DistributionMapping getFuncCountDM (const amrex::BoxArray& bxba, int ngrow);
@@ -439,6 +459,7 @@ public:
 
   void set_typical_values(bool restart);
   void reset_typical_values(const amrex::MultiFab& S);
+  void update_typical_values_chem();
 
   void activeControl(const int         step,
                      const int         restart,
@@ -452,6 +473,9 @@ public:
                                amrex::Real               *massFrac);
 
   void state_stats (amrex::MultiFab& S);
+
+  amrex::Real getMFsum(amrex::MultiFab &a_MF, int comp);
+  amrex::Real getCellsCount();
 
   void zeroBoundaryVisc (amrex::MultiFab*  beta[AMREX_SPACEDIM],
                          const amrex::Real time,
@@ -489,7 +513,6 @@ public:
                            const amrex::BCRec&                    bc,
                            const amrex::Geometry&                 geom,
                            bool                                   add_hoop_stress,
-                           const Diffusion::SolveMode&            solve_mode = Diffusion::ONEPASS,
                            bool                                   add_old_time_divFlux = true,
                            const amrex::Vector<int>&              is_diffusive = amrex::Vector<int>());
 
@@ -504,7 +527,6 @@ public:
                   const amrex::BCRec&                bc,
                   const amrex::Geometry&             geom,
                   bool                        add_hoop_stress,
-                  const Diffusion::SolveMode& solve_mode,
                   bool                        add_old_time_divFlux,
                   const amrex::Vector<int>&   is_diffusive,
                   bool                        has_coarse_data,
@@ -600,6 +622,7 @@ public:
   static amrex::Real p_amb_new;
   static amrex::Real dp0dt;
   static amrex::Real thetabar;
+  static amrex::Real lev0cellCount;
 
   static int closed_chamber;
   static amrex::Real dpdt_factor;
@@ -635,11 +658,15 @@ public:
 
   static std::unique_ptr<ProbParm> prob_parm;
   static std::unique_ptr<ACParm> ac_parm;
+  static pele::physics::transport::TransportParams<
+         pele::physics::PhysicsType::transport_type>
+         trans_parms;
   //
   // Protected static data.
   //
   static int         num_divu_iters;
   static int         init_once_done;
+  static int         nSpecGroup;
   static int         RhoH;
   static int         do_OT_radiation;
   static int         do_heat_sink;
@@ -673,7 +700,6 @@ public:
   static int         hack_nospecdiff;
   static int         hack_noavgdivu;
   static amrex::Real trac_diff_coef;
-  static int         use_tranlib;
   static std::string turbFile;
   static std::string fuelName;
   static std::string productName;
@@ -690,6 +716,10 @@ public:
   static int         iter_debug;
   static int         mHtoTiterMAX;
   static amrex::Vector<amrex::Real> mTmpData;
+
+#ifdef AMREX_USE_EB
+  static std::string diffusion_redistribution_type;
+#endif
   
 
   static int  ncells_chem;
@@ -700,6 +730,7 @@ public:
   static bool def_harm_avg_cen2edge;
 
   static int nGrowAdvForcing;
+  static int nGrowDivU;
 
 };
 

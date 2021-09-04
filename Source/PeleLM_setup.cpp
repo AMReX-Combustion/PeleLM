@@ -33,12 +33,11 @@
 #include <AMReX_ErrorList.H>
 #include <AMReX_FArrayBox.H>
 #include <AMReX_Utility.H>
-#include <EOS.H>
-#include <Transport.H>
+#include "PelePhysics.H"
 
 #include <PeleLM_derive.H>
 #include <IndexDefines.H>
-#include <reactor.h>
+#include <reactor.H>
 
 using namespace amrex;
 
@@ -135,7 +134,7 @@ static
 int
 species_bc[] =
 {
-  INT_DIR, EXT_DIR, FOEXTRAP, REFLECT_EVEN, REFLECT_EVEN, REFLECT_EVEN, EXT_DIR, EXT_DIR
+  INT_DIR, EXT_DIR, FOEXTRAP, REFLECT_EVEN, REFLECT_EVEN, REFLECT_EVEN, REFLECT_EVEN, REFLECT_EVEN
 };
 
 static
@@ -351,9 +350,11 @@ static std::string oxidizerName     = "O2";
 // Get EB-aware interpolater when needed
 //
 #ifdef AMREX_USE_EB  
-  static auto& cc_interp = eb_cell_cons_interp;
+  static auto& cc_interp = eb_mf_cell_cons_interp;
+  static auto& cc_interp_der = eb_cell_cons_interp;
 #else
-  static auto& cc_interp = cell_cons_interp;
+  static auto& cc_interp = mf_cell_cons_interp;
+  static auto& cc_interp_der = cell_cons_interp;
 #endif
 
 
@@ -379,20 +380,17 @@ PeleLM::variableSetUp ()
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif  
 {
+// TODO: restore this option for GPU in PP
+#ifndef AMREX_USE_GPU
 #ifdef USE_SUNDIALS_PP
   SetTolFactODE(relative_tol_chem,absolute_tol_chem);
 #endif
-#ifdef AMREX_USE_GPU
-  reactor_info(reactor_type,ncells_chem);
-#else
-  reactor_init(reactor_type,ncells_chem);
 #endif
+  reactor_init(reactor_type,ncells_chem);
 }
 
-  amrex::Print() << " Initialization of EOS (CPP)... \n";
-  EOS::init();
   amrex::Print() << " Initialization of Transport (CPP)... \n";
-  transport_init();
+  trans_parms.allocate();
 
   BCRec bc;
 
@@ -407,7 +405,7 @@ PeleLM::variableSetUp ()
   NUM_STATE = DEF_NUM_STATE;
   NUM_SCALARS = DEF_NUM_SCALARS;
 
-  EOS::speciesNames(spec_names);
+  pele::physics::eos::speciesNames<pele::physics::PhysicsType::eos_type>(spec_names);
 
   amrex::Print() << NUM_REACTIONS << " Reactions in mechanism \n";
   amrex::Print() << NUM_SPECIES << " Chemical species interpreted:\n { ";
@@ -842,7 +840,7 @@ PeleLM::variableSetUp ()
   Vector<std::string> mix_and_diss(2);
   mix_and_diss[0] = "mixture_fraction";
   mix_and_diss[1] = "Scalar_diss";
-  derive_lst.add("mixfrac",IndexType::TheCellType(),2,mix_and_diss,pelelm_dermixanddiss,grow_box_by_one,&cc_interp);
+  derive_lst.add("mixfrac",IndexType::TheCellType(),2,mix_and_diss,pelelm_dermixanddiss,grow_box_by_one,&cc_interp_der);
   derive_lst.addComponent("mixfrac",desc_lst,State_Type,Density,1);
   derive_lst.addComponent("mixfrac",desc_lst,State_Type,Temp,1);
   derive_lst.addComponent("mixfrac",desc_lst,State_Type,first_spec,NUM_SPECIES);
