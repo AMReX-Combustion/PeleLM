@@ -376,15 +376,12 @@ PeleLM::variableSetUp ()
 
   amrex::Print() << " Initialization of reactor... \n";
   int reactor_type = 2;
-#ifdef _OPENMP
+#ifdef AMREX_USE_OMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif  
 {
-// TODO: restore this option for GPU in PP
-#ifndef AMREX_USE_GPU
 #ifdef USE_SUNDIALS_PP
   SetTolFactODE(relative_tol_chem,absolute_tol_chem);
-#endif
 #endif
   reactor_init(reactor_type,ncells_chem);
 }

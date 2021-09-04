@@ -1493,8 +1493,7 @@ PeleLM::update_typical_values_chem ()
 {
 #ifdef USE_SUNDIALS_PP
   if (use_typ_vals_chem) {
-#ifndef AMREX_USE_GPU
-    if (verbose) amrex::Print() << "Using typical values for the absolute tolerances of the ode solver\n";
+    if (verbose>1) amrex::Print() << "Using typical values for the absolute tolerances of the ode solver\n";
 #ifdef AMREX_USE_OMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
@@ -1510,10 +1509,6 @@ PeleLM::update_typical_values_chem ()
       SetTypValsODE(typical_values_chem);
       ReSetTolODE();
     }
-#else
-    // TODO: set this option back on in PP
-    amrex::Print() << "Using typical values for the absolute tolerances of the ode solver not available on GPU right now\n";
-#endif
   }
 #endif
 }
