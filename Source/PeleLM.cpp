@@ -1510,7 +1510,9 @@ PeleLM::update_typical_values_chem ()
       }
       typical_values_chem[NUM_SPECIES] = typical_values[Temp];
       SetTypValsODE(typical_values_chem);
+#ifndef AMREX_USE_GPU
       ReSetTolODE();
+#endif
     }
   }
 #endif
