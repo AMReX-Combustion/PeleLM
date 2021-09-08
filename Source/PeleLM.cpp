@@ -1952,24 +1952,16 @@ PeleLM::initData ()
     ProbParm const* lprobparm = prob_parm.get();
     PmfData const* lpmfdata = pmf_data_g;
 
-#ifdef AMREX_USE_OMP
-#pragma omp parallel if (Gpu::notInLaunchRegion())
-#endif
-    for (MFIter mfi(S_new,TilingIfNotGPU()); mfi.isValid(); ++mfi)
+    auto const& sma = S_new.arrays();
+    amrex::ParallelFor(S_new,
+    [=] AMREX_GPU_DEVICE (int box_no, int i, int j, int k) noexcept
     {
-      const Box& box = mfi.tilebox();
-      auto sfab = S_new.array(mfi);
-
-      amrex::ParallelFor(box,
-      [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
-      {
 #ifdef AMREX_USE_NEWMECH
-        amrex::Abort("USE_NEWMECH feature no longer working and has to be fixed/redone");
+       amrex::Abort("USE_NEWMECH feature no longer working and has to be fixed/redone");
 #else
-        pelelm_initdata(i, j, k, sfab, geomdata, *lprobparm, lpmfdata);
+       pelelm_initdata(i, j, k, sma[box_no], geomdata, *lprobparm, lpmfdata);
 #endif
-      });
-    }
+    });
   }
 
   showMFsub("1D",S_new,stripBox,"1D_S",level);
@@ -2152,24 +2144,19 @@ PeleLM::compute_instantaneous_reaction_rates (MultiFab&       R,
    maskMF.ParallelCopy(ebmask,0,0,1);
 #endif
 
-#ifdef AMREX_USE_OMP
-#pragma omp parallel if (Gpu::notInLaunchRegion())
-#endif
-   for (MFIter mfi(S,TilingIfNotGPU()); mfi.isValid(); ++mfi)
+   auto const& sma    = S.const_arrays();
+   auto const& maskma = maskMF.const_arrays();
+   auto const& rma    = R.arrays();
+   amrex::ParallelFor(S,
+   [=] AMREX_GPU_DEVICE (int box_no, int i, int j, int k) noexcept
    {
-      const Box& bx = mfi.tilebox();
-      auto const& rhoY    = S.const_array(mfi,first_spec);
-      auto const& rhoH    = S.const_array(mfi,RhoH);
-      auto const& T       = S.const_array(mfi,Temp);
-      auto const& mask    = maskMF.const_array(mfi);
-      auto const& rhoYdot = R.array(mfi);
-
-      amrex::ParallelFor(bx, [rhoY, rhoH, T, mask, rhoYdot]
-      AMREX_GPU_DEVICE (int i, int j, int k) noexcept
-      {
-         reactionRateRhoY( i, j, k, rhoY, rhoH, T, mask, rhoYdot );
-      });
-   }
+      reactionRateRhoY(i, j, k,
+                       Array4<Real const>(sma[box_no],first_spec),
+                       Array4<Real const>(sma[box_no],RhoH),
+                       Array4<Real const>(sma[box_no],Temp),
+                       maskma[box_no],
+                       rma[box_no]);
+   });
 
    if ((nGrow>0) && (how == HT_EXTRAP_GROW_CELLS))
    {
@@ -2210,25 +2197,18 @@ PeleLM::init (AmrLevel& old)
    FillPatchIterator FctCntfpi(*oldht,FuncCount,FuncCount.nGrow(),tnp1,FuncCount_Type,0,1);
    const MultiFab& FuncCount_old = FctCntfpi.get_mf();
 
-#ifdef AMREX_USE_OMP
-#pragma omp parallel if (Gpu::notInLaunchRegion())
-#endif
-   for (MFIter mfi(Ydot_old,TilingIfNotGPU()); mfi.isValid(); ++mfi)
+   auto const& orYdotma = Ydot_old.const_arrays();
+   auto const& nrYdotma = Ydot.arrays();
+   auto const& oFctCma  = FuncCount_old.const_arrays();
+   auto const& nFctCma  = FuncCount.arrays();
+   amrex::ParallelFor(Ydot_old,
+   [=] AMREX_GPU_DEVICE (int box_no, int i, int j, int k) noexcept
    {
-      const Box& bx         = mfi.tilebox();
-      auto const& rhoYdot_n = Ydot.array(mfi);
-      auto const& rhoYdot_o = Ydot_old.const_array(mfi);
-      auto const& FctCnt_n  = FuncCount.array(mfi);
-      auto const& FctCnt_o  = FuncCount_old.const_array(mfi);
-      amrex::ParallelFor(bx, [rhoYdot_n, rhoYdot_o, FctCnt_n, FctCnt_o]
-      AMREX_GPU_DEVICE (int i, int j, int k) noexcept
-      {
-         for (int n = 0; n < NUM_SPECIES; n++) {
-            rhoYdot_n(i,j,k,n) = rhoYdot_o(i,j,k,n);
-         }
-         FctCnt_n(i,j,k) = FctCnt_o(i,j,k);
-      });
-   }
+      nFctCma[box_no](i,j,k) = oFctCma[box_no](i,j,k);
+      for (int n = 0; n < NUM_SPECIES; n++) {
+         nrYdotma[box_no](i,j,k,n) = orYdotma[box_no](i,j,k,n);
+      }
+   });
 }
 
 //
@@ -8374,23 +8354,16 @@ PeleLM::RhoH_to_Temp (MultiFab& S,
   AMREX_ALWAYS_ASSERT(nGrow <= S.nGrow());
 
   // TODO: simplified version of that function for now: no iters, no tols, ... PPhys need to be fixed
-
-#ifdef AMREX_USE_OMP
-#pragma omp parallel if (Gpu::notInLaunchRegion())
-#endif
-  for (MFIter mfi(S,TilingIfNotGPU()); mfi.isValid(); ++mfi)
+  auto const& sma    = S.arrays();
+  amrex::ParallelFor(S,
+  [=] AMREX_GPU_DEVICE (int box_no, int i, int j, int k) noexcept
   {
-     const Box& bx    = mfi.tilebox();
-     auto const& T    = S.array(mfi,Temp);
-     auto const& rho  = S.const_array(mfi,Density);
-     auto const& rhoY = S.const_array(mfi,first_spec);
-     auto const& rhoH = S.const_array(mfi,RhoH);
-     amrex::ParallelFor(bx, [T,rho,rhoY,rhoH]
-     AMREX_GPU_DEVICE (int i, int j, int k) noexcept
-     {
-        getTfromHY(i,j,k, rho, rhoY, rhoH, T);
-     });
-  }
+     getTfromHY(i, j, k,
+                Array4<Real const>(sma[box_no],Density),
+                Array4<Real const>(sma[box_no],first_spec),
+                Array4<Real const>(sma[box_no],RhoH),
+                Array4<Real>(sma[box_no],Temp));
+  });
 
   /*
   //
