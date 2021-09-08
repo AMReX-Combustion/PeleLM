@@ -2147,12 +2147,12 @@ PeleLM::compute_instantaneous_reaction_rates (MultiFab&       R,
    auto const& sma    = S.const_arrays();
    auto const& maskma = maskMF.const_arrays();
    auto const& rma    = R.arrays();
-   amrex::ParallelFor(S,
-   [=] AMREX_GPU_DEVICE (int box_no, int i, int j, int k) noexcept
+   amrex::ParallelFor(S, [=,FS=first_spec,RH=RhoH,Temp=Temp]
+   AMREX_GPU_DEVICE (int box_no, int i, int j, int k) noexcept
    {
       reactionRateRhoY(i, j, k,
-                       Array4<Real const>(sma[box_no],first_spec),
-                       Array4<Real const>(sma[box_no],RhoH),
+                       Array4<Real const>(sma[box_no],FS),
+                       Array4<Real const>(sma[box_no],RH),
                        Array4<Real const>(sma[box_no],Temp),
                        maskma[box_no],
                        rma[box_no]);
@@ -8355,13 +8355,13 @@ PeleLM::RhoH_to_Temp (MultiFab& S,
 
   // TODO: simplified version of that function for now: no iters, no tols, ... PPhys need to be fixed
   auto const& sma    = S.arrays();
-  amrex::ParallelFor(S,
-  [=] AMREX_GPU_DEVICE (int box_no, int i, int j, int k) noexcept
+  amrex::ParallelFor(S, [=,Dens=Density,FS=first_spec,RH=RhoH]
+  AMREX_GPU_DEVICE (int box_no, int i, int j, int k) noexcept
   {
      getTfromHY(i, j, k,
-                Array4<Real const>(sma[box_no],Density),
-                Array4<Real const>(sma[box_no],first_spec),
-                Array4<Real const>(sma[box_no],RhoH),
+                Array4<Real const>(sma[box_no],Dens),
+                Array4<Real const>(sma[box_no],FS),
+                Array4<Real const>(sma[box_no],RH),
                 Array4<Real>(sma[box_no],Temp));
   });
 
