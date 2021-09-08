@@ -341,9 +341,9 @@ set_species_bc (BCRec&       bc,
 //
 // Indices of fuel and oxidizer -- ParmParsed in & used in a couple places.
 //
-std::string PeleLM::fuelName        = "CH4";
+std::string PeleLM::fuelName        = "";
 std::string PeleLM::productName     = "CO2";
-Vector<std::string> PeleLM::consumptionName(1);
+Vector<std::string> PeleLM::consumptionName;
 static std::string oxidizerName     = "O2";
 
 //
@@ -376,15 +376,12 @@ PeleLM::variableSetUp ()
 
   amrex::Print() << " Initialization of reactor... \n";
   int reactor_type = 2;
-#ifdef _OPENMP
+#ifdef AMREX_USE_OMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif  
 {
-// TODO: restore this option for GPU in PP
-#ifndef AMREX_USE_GPU
 #ifdef USE_SUNDIALS_PP
   SetTolFactODE(relative_tol_chem,absolute_tol_chem);
-#endif
 #endif
   reactor_init(reactor_type,ncells_chem);
 }
@@ -418,7 +415,10 @@ PeleLM::variableSetUp ()
   //
   ParmParse ppns("ns");
   ppns.query("fuelName",fuelName);
-  consumptionName[0] = fuelName;
+  if ( !fuelName.empty() ) {
+     consumptionName.resize(1);
+     consumptionName[0] = fuelName;
+  }
   if (int nc = ppns.countval("consumptionName"))
   {
     consumptionName.resize(nc);
