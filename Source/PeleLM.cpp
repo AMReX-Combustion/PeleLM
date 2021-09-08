@@ -8355,7 +8355,7 @@ PeleLM::RhoH_to_Temp (MultiFab& S,
 
   // TODO: simplified version of that function for now: no iters, no tols, ... PPhys need to be fixed
   auto const& sma    = S.arrays();
-  amrex::ParallelFor(S, [=,Dens=Density,FS=first_spec,RH=RhoH]
+  amrex::ParallelFor(S, [=,Dens=Density,FS=first_spec,RH=RhoH,Temp=Temp]
   AMREX_GPU_DEVICE (int box_no, int i, int j, int k) noexcept
   {
      getTfromHY(i, j, k,
