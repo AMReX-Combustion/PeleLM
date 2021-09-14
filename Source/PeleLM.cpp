@@ -45,11 +45,8 @@
 #include <AMReX_AmrData.H>
 #endif
 
-#include <reactor.H>
 #ifdef AMREX_USE_GPU
-#ifdef USE_SUNDIALS_PP
 #include <AMReX_SUNMemory.H>
-#endif
 #endif
 
 #include <NAVIERSTOKES_F.H>
@@ -164,8 +161,6 @@ bool PeleLM::plot_consumption;
 bool PeleLM::plot_heat_release;
 int  PeleLM::ncells_chem;
 bool PeleLM::use_typ_vals_chem = 0;
-Real PeleLM::relative_tol_chem = 1.0e-10;
-Real PeleLM::absolute_tol_chem = 1.0e-10;
 static bool plot_rhoydot;
 int  PeleLM::nGrowAdvForcing=1;
 #ifdef AMREX_USE_EB
@@ -185,6 +180,8 @@ std::unique_ptr<ACParm> PeleLM::ac_parm;
 pele::physics::transport::TransportParams<
   pele::physics::PhysicsType::transport_type>
   PeleLM::trans_parms;
+std::string PeleLM::chem_integrator = "ReactorNull";
+std::unique_ptr<pele::physics::reactions::ReactorBase> PeleLM::m_reactor;
 
 std::string                                PeleLM::turbFile;
 std::map<std::string, Vector<std::string> > PeleLM::auxDiag_names;
@@ -340,9 +337,7 @@ PeleLM::Initialize ()
   if (initialized) return;
 
 #ifdef AMREX_USE_GPU
-#ifdef USE_SUNDIALS_PP
   amrex::sundials::MemoryHelper::Initialize();
-#endif
 #endif
 
   PeleLM::Initialize_specific();
@@ -583,9 +578,6 @@ PeleLM::Initialize_specific ()
     pplm.query("deltaT_crashOnConvFail",deltaT_crashOnConvFail);
 
     pplm.query("use_typ_vals_chem",use_typ_vals_chem);
-    pplm.query("relative_tol_chem",relative_tol_chem);
-    pplm.query("absolute_tol_chem",absolute_tol_chem);
-
     pplm.query("harm_avg_cen2edge", def_harm_avg_cen2edge);
 
     // Get boundary conditions
@@ -716,6 +708,17 @@ PeleLM::Initialize_specific ()
    PeleLM::dpdt_factor = 1.0;
    pplm.query("dpdt_factor",dpdt_factor);
 
+   // Initialize reactor: TODO might do a per level ?
+   pplm.query("chem_integrator",chem_integrator);
+   m_reactor = pele::physics::reactions::ReactorBase::create(chem_integrator);
+   const int nCell = 1;
+   const int reactType = 2;
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif  
+   {
+      m_reactor->init(reactType, nCell);
+   }
 }
 
 void
@@ -924,7 +927,6 @@ LM_Error_Value::tagCells1(int* tag, const int* tlo, const int* thi,
 void
 PeleLM::variableCleanUp ()
 {
-
    NavierStokesBase::variableCleanUp();
    ShowMF_Sets.clear();
    auxDiag_names.clear();
@@ -932,6 +934,8 @@ PeleLM::variableCleanUp ()
    prob_parm.reset();
    ac_parm.reset();
    trans_parms.deallocate();
+
+   m_reactor->close();
 }
 
 PeleLM::PeleLM ()
@@ -1494,7 +1498,6 @@ PeleLM::set_typical_values(bool is_restart)
 void
 PeleLM::update_typical_values_chem ()
 {
-#ifdef USE_SUNDIALS_PP
   if (use_typ_vals_chem) {
     if (verbose>1) amrex::Print() << "Using typical values for the absolute tolerances of the ode solver\n";
 #ifdef AMREX_USE_OMP
@@ -1509,13 +1512,9 @@ PeleLM::update_typical_values_chem ()
                      typical_values[first_spec+i] * typical_values[Density] * 1.E-3); // CGS -> MKS conversion
       }
       typical_values_chem[NUM_SPECIES] = typical_values[Temp];
-      SetTypValsODE(typical_values_chem);
-#ifndef AMREX_USE_GPU
-      ReSetTolODE();
-#endif
+      m_reactor->SetTypValsODE(typical_values_chem);
     }
   }
-#endif
 }
 
 void
@@ -5846,29 +5845,19 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
            frc_rhoH(i,j,k) *= 10.0;
         });
 
-#ifdef AMREX_USE_GPU
-        int ncells           = bx.numPts();
-        const auto ec = Gpu::ExecutionConfig(ncells);
-#endif
-
         BL_PROFILE_VAR("React()", ReactInLoop);
         Real dt_incr     = dt;
         Real time_chem   = 0;
-        int reactor_type = 2;
-#ifndef AMREX_USE_GPU
         /* Solve */
-        int tmp_fctCn;
-        tmp_fctCn = react(bx, rhoY, frc_rhoY, temp, rhoH, frc_rhoH, fcl,
-                          mask, dt_incr, time_chem, reactor_type);
+        m_reactor->react(bx, rhoY, frc_rhoY, temp,
+                         rhoH, frc_rhoH, fcl,
+                         mask, dt_incr, time_chem
+#ifdef AMREX_USE_GPU
+                         , amrex::Gpu::gpuStream()
+#endif
+                         );
         dt_incr   = dt;
         time_chem = 0;
-#else
-        int tmp_fctCn;
-        tmp_fctCn = react(bx, rhoY, frc_rhoY, temp, rhoH, frc_rhoH, fcl, mask,
-                          dt_incr, time_chem, reactor_type, amrex::Gpu::gpuStream());
-        dt_incr = dt;
-        time_chem = 0;
-#endif
         BL_PROFILE_VAR_STOP(ReactInLoop);
 
         // Convert CGS -> MKS
@@ -5884,7 +5873,6 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
 #ifdef AMREX_USE_GPU
         Gpu::Device::streamSynchronize();
 #endif
-
     }
 
     FTemp.clear();
@@ -7127,8 +7115,9 @@ PeleLM::mac_sync ()
       IntVect ratio = IntVect::TheUnitVector();
 
       for (int lev = level+1; lev <= finest_level; lev++)
+      //for (int lev = level+1; lev <= level+1; lev++)  // this makes the sync behaves way better.
       {
-         ratio               *= parent->refRatio(lev-1);
+         ratio              *= parent->refRatio(lev-1);
          PeleLM& fine_level  = getLevel(lev);
          MultiFab& S_new_lev = fine_level.get_new_data(State_Type);
          showMF("DBGSync",S_new_lev,"sdc_SnewBefIncr_inSync",level,mac_sync_iter,parent->levelSteps(level));
@@ -7141,7 +7130,7 @@ PeleLM::mac_sync ()
          const int nghost                      = S_new_lev.nGrow();
 
          MultiFab increment(fine_grids, fine_dmap, numscal, nghost,MFInfo(),getLevel(lev).Factory());
-         increment.setVal(0.0,nghost);
+         increment.setVal(0.0);
 
          SyncInterp(Ssync, level, increment, lev, ratio,
                     first_spec-AMREX_SPACEDIM, first_spec-AMREX_SPACEDIM, NUM_SPECIES+1, 1, mult,
@@ -7155,7 +7144,7 @@ PeleLM::mac_sync ()
          {
             const Box& bx = mfi.tilebox();
             auto const& rhoincr     = increment.array(mfi,Density-AMREX_SPACEDIM);
-            auto const& rhoYincr    = increment.array(mfi,first_spec-AMREX_SPACEDIM);
+            auto const& rhoYincr    = increment.const_array(mfi,first_spec-AMREX_SPACEDIM);
             auto const& S_new_incr  = S_new_lev.array(mfi,Density);
             int  rhoSumrhoY_flag    = do_set_rho_to_species_sum;
 
@@ -7353,21 +7342,6 @@ PeleLM::mac_sync ()
             MultiFab::Add(S_new_lev,increment,0,state_ind,1,nghost);
          }
       }
-   }
-
-   //
-   // Average down rho R T after interpolation of the mac_sync correction
-   //   of the individual quantities rho, Y, T.
-   //
-   for (int lev = finest_level-1; lev >= level; lev--)
-   {
-     PeleLM& fine_level = getLevel(lev+1);
-     PeleLM& crse_level = getLevel(lev);
-
-     MultiFab& S_crse_loc = crse_level.get_new_data(State_Type);
-     MultiFab& S_fine_loc = fine_level.get_new_data(State_Type);
-
-     crse_level.average_down(S_fine_loc, S_crse_loc, RhoRT, 1);
    }
    BL_PROFILE_VAR_STOP(PLM_SSYNC);
 
