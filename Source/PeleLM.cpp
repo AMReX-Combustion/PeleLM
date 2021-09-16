@@ -219,6 +219,7 @@ Vector<Real> PeleLM::typical_values;
 
 int PeleLM::sdc_iterMAX;
 int PeleLM::num_mac_sync_iter;
+int PeleLM::syncEntireHierarchy = 1;
 int PeleLM::deltaT_verbose = 0;
 int PeleLM::deltaT_crashOnConvFail = 1;
 
@@ -459,6 +460,7 @@ PeleLM::Initialize ()
   pp.query("use_wbar",use_wbar);
   pp.query("sdc_iterMAX",sdc_iterMAX);
   pp.query("num_mac_sync_iter",num_mac_sync_iter);
+  pp.query("syncEntireHierarchy",syncEntireHierarchy);
 
   pp.query("thickening_factor",constant_thick_val);
   if (constant_thick_val != -1)
@@ -7114,8 +7116,8 @@ PeleLM::mac_sync ()
       }
       IntVect ratio = IntVect::TheUnitVector();
 
-      for (int lev = level+1; lev <= finest_level; lev++)
-      //for (int lev = level+1; lev <= level+1; lev++)  // this makes the sync behaves way better.
+      int fixUpToLevel = (syncEntireHierarchy) ? finest_level : level+1;
+      for (int lev = level+1; lev <= fixUpToLevel; lev++)
       {
          ratio              *= parent->refRatio(lev-1);
          PeleLM& fine_level  = getLevel(lev);
