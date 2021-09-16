@@ -37,7 +37,6 @@
 
 #include <PeleLM_derive.H>
 #include <IndexDefines.H>
-#include <reactor.H>
 
 using namespace amrex;
 
@@ -373,18 +372,6 @@ PeleLM::variableSetUp ()
   }
 
   Initialize();
-
-  amrex::Print() << " Initialization of reactor... \n";
-  int reactor_type = 2;
-#ifdef AMREX_USE_OMP
-#pragma omp parallel if (Gpu::notInLaunchRegion())
-#endif  
-{
-#ifdef USE_SUNDIALS_PP
-  SetTolFactODE(relative_tol_chem,absolute_tol_chem);
-#endif
-  reactor_init(reactor_type,ncells_chem);
-}
 
   amrex::Print() << " Initialization of Transport (CPP)... \n";
   trans_parms.allocate();

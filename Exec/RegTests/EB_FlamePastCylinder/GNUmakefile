@@ -32,9 +32,6 @@ Chemistry_Model = LiDryer
 # This sets the EOS to one in $(PELE_PHYSICS_HOME)/Eos
 Eos_Model     := Fuego
 
-# This sets the network directory in $(PELE_PHYSICS_HOME)/Reactions
-Reactor_dir := cvode
-
 # This sets the transport to one in $(PELE_PHYSICS_HOME)/Transport
 Transport_Model := Simple
 

@@ -1,3 +1,11 @@
+# 1.0.2
+Release version 1.0.2 (in preparation)
+### Major changes:
+    * ODE integrator is now a runtime options and all the reactors in 
+      PelePhysics are accessible.
+
+### Minor changes
+
 # 1.0.1
 Release version 1.0.1 (Sept. 2021)
 ### Major changes:
