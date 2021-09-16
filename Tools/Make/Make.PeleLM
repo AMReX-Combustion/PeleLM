@@ -8,22 +8,16 @@ Bdirs += $(PELELM_HOME)/Source
 
 ifeq ($(shell uname),Darwin)
   LDFLAGS += -headerpad_max_install_names
-  all: TPLandExec
+  all: $(executable)
 	install_name_tool -add_rpath $(PELE_PHYSICS_HOME)/ThirdParty/INSTALL/$(configSpecificTPSuffix)/lib $(executable)
 	$(SILENT) $(RM) AMReX_buildInfo.cpp
 	@echo SUCCESS
 else
-  all: TPLandExec
+  all: $(executable)
 	$(SILENT) $(RM) AMReX_buildInfo.cpp
 	@echo SUCCESS
 endif
 
-TPLandExec: TPL 
-	@$(MAKE) $(MAKEFLAGS) $(executable)
-
-ifeq ($(USE_CUDA),TRUE)
-   CXXFLAGS+=-Xptxas --disable-optimizer-constants
-endif
 
 # job_info support
 CEXE_sources += AMReX_buildInfo.cpp
@@ -224,6 +218,12 @@ AMReX_buildInfo.cpp:
 
 #$(info LIBRARIES_inPeleMake="$(LIBRARIES)")
 include $(AMREX_HOME)/Tools/GNUMake/Make.rules
+
+$(objForExecs): TPL
+
+ifeq ($(USE_CUDA),TRUE)
+   CXXFLAGS+=-Xptxas --disable-optimizer-constants
+endif
 
 #$(info LIBRARIES_EndPeleMake="$(LIBRARIES)")
 clean::
