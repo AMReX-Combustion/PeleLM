@@ -41,7 +41,7 @@ jobs:
          PELELM_HOME: ${GITHUB_WORKSPACE}
       working-directory: ./Exec/RegTests/PeriodicCases
       run: |
-        make -j 2 COMP=gnu USE_SUNDIALS_PP=FALSE Reactions_dir=Null
+        make -j 2 COMP=gnu
     - name: Run
       working-directory: ./Exec/RegTests/PeriodicCases
       run: |
@@ -89,7 +89,7 @@ jobs:
          PELELM_HOME: ${GITHUB_WORKSPACE}
       working-directory: ./Exec/RegTests/PeriodicCases
       run: |
-        make -j 2 COMP=gnu USE_SUNDIALS_PP=FALSE Reactions_dir=Null
+        make -j 2 COMP=gnu
     - name: Run
       working-directory: ./Exec/RegTests/PeriodicCases
       run: |
@@ -138,7 +138,7 @@ jobs:
          PELELM_HOME: ${GITHUB_WORKSPACE}
       working-directory: ./Exec/RegTests/PeriodicCases
       run: |
-        make -j 2 COMP=gnu USE_SUNDIALS_PP=FALSE Reactions_dir=Null
+        make -j 2 COMP=gnu
     - name: Run
       working-directory: ./Exec/RegTests/PeriodicCases
       run: |
