@@ -29,6 +29,7 @@ PeleProduction
 As explained in section :ref:`sec:QUICKSTART`, `PeleLM` relies on a number of supporting softwares: 
 
 - `AMReX` is a software frameworks that provides the data structure and enable massive parallelization.
+- `AMReX-Hydro` is a suite of AMReX-based fonctionalities handling the hydrodynamic schemes.
 - `IAMR` is a parallel, adaptive mesh refinement (AMR) code that solves the variable-density incompressible Navier-Stokes equations.
 - `PelePhysics` is a repository of physics databases and implementation code. In particular, the choice of chemistry and transport models as well as associated functions and capabilities are managed in `PelePhysics`.
 
@@ -224,17 +225,16 @@ In `PeleLM`, the chemistry model (set of species, their thermodynamic and transp
    
 Here, the model ``air``, only contains 2 species (O2 and N2). The user is referred to the `PelePhysics <https://pelephysics.readthedocs.io/en/latest/>`_ documentation for a list of available mechanisms and more information regarding the EOS, chemistry and transport models specified: ::
 
-    Eos_dir       := Fuego
-    Reactions_dir := Null
-    Transport_dir := Constant
+   Eos_Model       := Fuego
+   Transport_Model := Constant
 
 You are now ready to build your first `PeleLM` executable !! Type in: ::
 
-    make -j4
+   make -j4
 
 The option here tells `make` to use up to 4 processors to create the executable (internally, `make` follows a dependency graph to ensure any required ordering in the build is satisfied). This step should generate the following file (providing that the build configuration you used matches the one above): ::
 
-    PeleLM2d.gnu.MPI.ex
+   PeleLM2d.gnu.MPI.ex
 
 You're good to go!
 
