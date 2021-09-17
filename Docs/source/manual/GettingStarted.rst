@@ -122,13 +122,9 @@ such that the following lines provide path to `PeleLM` and its dependencies. Not
    programming environment determining your available compiler should agree with your choice of ``COMP``
    in the ``GNUmakefile`` (e.g., ``PrgEnv-gnu`` module requires ``COMP=gnu``).
 
-3. Start by building the Sundials Third Party Library used to integrate the chemistry: ::
-   
-    make TPL
+3. Build `PeleLM` executable: ::
 
-   and finally build `PeleLM` executable: ::
-
-    make
+    make -j 4
 
 If successful, the resulting executable name will look something like ``PeleLM2d.gnu.ex``. Depending on your
 compilation option the actual name of the executable might vary (including ``MPI``, or ``DEBUG``, ...).
