@@ -11,6 +11,7 @@
 #include <pelelm_prob_parm.H>
 #include <PeleLM_parm.H>
 #include "PelePhysics.H"
+#include "ReactorBase.H"
 
 #include <list>
 #include <map>
@@ -803,6 +804,11 @@ public:
   static pele::physics::transport::TransportParams<
          pele::physics::PhysicsType::transport_type>
          trans_parms;
+
+  // Reactor. TODO: let's make those non-static to have per level reactors
+  static std::string chem_integrator;
+  static std::unique_ptr<pele::physics::reactions::ReactorBase> m_reactor;
+
   //
   // Protected static data.
   //
@@ -858,6 +864,7 @@ public:
   static std::map<std::string,amrex::Real> typical_values_FileVals;
   static int         sdc_iterMAX;
   static int         num_mac_sync_iter;
+  static int         syncEntireHierarchy;
   static int         deltaT_verbose;
   static int         deltaT_crashOnConvFail;
   static int         iter_debug;
@@ -871,8 +878,6 @@ public:
 
   static int  ncells_chem;
   static bool use_typ_vals_chem; 
-  static amrex::Real relative_tol_chem;
-  static amrex::Real absolute_tol_chem;
 
   static bool def_harm_avg_cen2edge;
 

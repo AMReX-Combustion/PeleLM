@@ -1,11 +1,30 @@
+# 1.0.2
+Release version 1.0.2 (in preparation)
+### Major changes:
+    * ODE integrator is now a runtime options and all the reactors in 
+      PelePhysics are accessible.
+
+### Minor changes
+
 # 1.0.1
-Release version 1.0.1 (In preparation)
+Release version 1.0.1 (Sept. 2021)
+### Major changes:
+   * EB new uses a 2nd order Godunov method with State Redistribution of the
+     expl. advection fluxes and Flux Redistribution of the expl. diffusion fluxes
+   * Advection functionalities now requires the AMReX-Hydro repository
 
 ### Minor changes
    * Revert some of HIP changes (AMREX_GPU_DEVICE -> AMREX_GPU_HOST_DEVICE)
    * Setup CMAKE compilation, AMReX/IAMR/PelePhysics submodules and automated testing (J. Rood)
    * Update EOS/Transport calls to match templated PelePhysics (L. Owen)
+   * Reduction of the number of fillPatch operation
+   * Species linear diffusion solve/apply are performed on species groups (default size NUM_SPECIES)
 
+### Dependencies stable \#
+   * PelePhysics : b2d45f0f68
+   * IAMR        : 80ca2cdc23
+   * AMReX       : a8fe43774d
+   * AMReX-Hydro : bea9f07d95
 
 # 1.0.0
 Release version 1.0.0 (January, 2021)

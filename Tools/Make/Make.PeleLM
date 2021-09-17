@@ -18,6 +18,12 @@ else
 	@echo SUCCESS
 endif
 
+
+# job_info support
+CEXE_sources += AMReX_buildInfo.cpp
+CEXE_headers += $(AMREX_HOME)/Tools/C_scripts/AMReX_buildInfo.H
+INCLUDE_LOCATIONS +=  $(AMREX_HOME)/Tools/C_scripts
+
 ##############################################################
 # PelePhysics
 ##############################################################
@@ -49,28 +55,12 @@ Blocs             += $(EOS_HOME)
 
 # Reactions
 REACTIONS_HOME = $(PELE_PHYSICS_HOME)/Reactions
-ifeq ($(Reactor_dir), arkode)
-    USE_SUNDIALS_PP = TRUE
-    USE_ARKODE_PP = TRUE
-    Bpack += $(REACTIONS_HOME)/$(Reactor_dir)/Make.package
-    Blocs += $(REACTIONS_HOME)/$(Reactor_dir)
-    Bpack += $(REACTIONS_HOME)/Make.package
-    Blocs += $(REACTIONS_HOME)
-endif
-ifeq ($(Reactor_dir), cvode)
-    USE_SUNDIALS_PP = TRUE
-    USE_CVODE_PP = TRUE
-    USE_KLU_PP ?= FALSE
-    DEFINES += -DCOMPILE_JACOBIAN
-    Bpack += $(REACTIONS_HOME)/$(Reactor_dir)/Make.package
-    Blocs += $(REACTIONS_HOME)/$(Reactor_dir)
-    Bpack += $(REACTIONS_HOME)/Make.package
-    Blocs += $(REACTIONS_HOME)
-endif
-ifeq ($(Reactor_dir), null)
-    Bpack += $(REACTIONS_HOME)/$(Reactor_dir)/Make.package
-    Blocs += $(REACTIONS_HOME)/$(Reactor_dir)
-endif
+EXTERN_CORE       += $(REACTIONS_HOME)
+INCLUDE_LOCATIONS += $(REACTIONS_HOME)
+VPATH_LOCATIONS   += $(REACTIONS_HOME)
+Bpack += $(REACTIONS_HOME)/Make.package
+Blocs += $(REACTIONS_HOME)
+include $(PELE_PHYSICS_HOME)/ThirdParty/Make.ThirdParty
 
 ifdef Chemistry_Model
   USE_FUEGO = TRUE
@@ -81,9 +71,6 @@ endif
 VPATH_LOCATIONS += $(CHEM_HOME)
 Bpack += $(CHEM_HOME)/Make.package $(CHEM_ALL)/Make.package
 Blocs += $(CHEM_HOME) $(CHEM_ALL)
-ifeq ($(USE_SUNDIALS_PP),TRUE)
-  include $(PELE_PHYSICS_HOME)/ThirdParty/Make.ThirdParty
-endif
 
 # Transport
 TRANSPORT_HOME = $(PELE_PHYSICS_HOME)/Transport/
@@ -136,7 +123,6 @@ endif
 # IAMR
 Bdirs += $(IAMR_HOME)/Source
 Bdirs += $(IAMR_HOME)/Source/Utilities
-Bdirs += $(IAMR_HOME)/Source/Src_$(DIM)d
 Bdirs += $(AMREX_HYDRO_HOME)/Utils
 Bdirs += $(AMREX_HYDRO_HOME)/Godunov
 Bdirs += $(AMREX_HYDRO_HOME)/MOL
@@ -186,18 +172,18 @@ endif
 
 # runtime parameter support for extern/ routines
 # Right now, only USE_FLCTS requires those
-ifeq ($(USE_FLCTS), TRUE)
-  f90EXE_sources += extern.f90
-
-  EXTERN_TEMPLATE := $(PELE_PHYSICS_HOME)/Testing/Source/extern_probin.template
-
-  EXTERN_PARAMETERS := $(shell $(AMREX_HOME)/Tools/F_scripts/findparams.py $(EXTERN_CORE))
-
-  extern.f90: $(EXTERN_PARAMETERS) $(EXTERN_TEMPLATE)
-  	$(AMREX_HOME)/Tools/F_scripts/write_probin.py \
-             -t $(EXTERN_TEMPLATE) -o extern.f90 -n extern \
-             --pa "$(EXTERN_PARAMETERS)" 
-endif
+#ifeq ($(USE_FLCTS), TRUE)
+#  f90EXE_sources += extern.f90
+#
+#  EXTERN_TEMPLATE := $(PELE_PHYSICS_HOME)/Testing/Source/extern_probin.template
+#
+#  EXTERN_PARAMETERS := $(shell $(AMREX_HOME)/Tools/F_scripts/findparams.py $(EXTERN_CORE))
+#
+#  extern.f90: $(EXTERN_PARAMETERS) $(EXTERN_TEMPLATE)
+#  	$(AMREX_HOME)/Tools/F_scripts/write_probin.py \
+#             -t $(EXTERN_TEMPLATE) -o extern.f90 -n extern \
+#             --pa "$(EXTERN_PARAMETERS)" 
+#endif
 
 # Hack in some LM-specific stuff
 
@@ -246,11 +232,6 @@ ifeq ($(REGRESSIONTEST),TRUE)
   DEFINES += -DREGRESSIONTEST
 endif
 
-# job_info support
-CEXE_sources += AMReX_buildInfo.cpp
-CEXE_headers += $(AMREX_HOME)/Tools/C_scripts/AMReX_buildInfo.H
-INCLUDE_LOCATIONS +=  $(AMREX_HOME)/Tools/C_scripts
-
 AMReX_buildInfo.cpp:
 	$(AMREX_HOME)/Tools/C_scripts/makebuildinfo_C.py \
           --amrex_home "$(AMREX_HOME)" \
@@ -262,22 +243,25 @@ AMReX_buildInfo.cpp:
 #$(info LIBRARIES_inPeleMake="$(LIBRARIES)")
 include $(AMREX_HOME)/Tools/GNUMake/Make.rules
 
+$(objForExecs): TPL
+
+ifeq ($(USE_CUDA),TRUE)
+   CXXFLAGS+=-Xptxas --disable-optimizer-constants
+endif
+
 #$(info LIBRARIES_EndPeleMake="$(LIBRARIES)")
 clean::
 	$(SILENT) $(RM) extern_parameters.cpp extern_parameters_F.H extern_parameters.H extern.f90
 	$(SILENT) $(RM) AMReX_buildInfo.cpp
 
-ifeq ($(USE_SUNDIALS_PP),TRUE)
-  TPL:
-	cd $(PELE_PHYSICS_HOME)/ThirdParty; make AMREX_HOME=$(AMREX_HOME) USE_CUDA=$(USE_CUDA) USE_HIP=$(USE_HIP) USE_KLU_PP=$(USE_KLU_PP) DEBUG=$(DEBUG) COMP=$(HOSTCC) NVCC=$(COMP)
+TPL:
+	@echo "==> Building SUNDIALS library"
+	@cd $(PELE_PHYSICS_HOME)/ThirdParty && $(MAKE) $(MAKEFLAGS) sundials AMREX_HOME=$(AMREX_HOME) USE_CUDA=$(USE_CUDA) USE_HIP=$(USE_HIP) PELE_USE_KLU=$(PELE_USE_KLU) DEBUG=$(DEBUG) COMP=$(HOSTCC) NVCC=$(COMP)
 
-  TPLclean:
-	cd $(PELE_PHYSICS_HOME)/ThirdParty; make AMREX_HOME=$(AMREX_HOME) USE_CUDA=$(USE_CUDA) USE_HIP=$(USE_HIP) USE_KLU_PP=$(USE_KLU_PP) DEBUG=$(DEBUG) COMP=$(HOSTCC) NVCC=$(COMP) clean
+TPLclean:
+	@echo "==> Removing SUNDIALS library"
+	@cd $(PELE_PHYSICS_HOME)/ThirdParty && $(MAKE) AMREX_HOME=$(AMREX_HOME) USE_CUDA=$(USE_CUDA) USE_HIP=$(USE_HIP) PELE_USE_KLU=$(PELE_USE_KLU) DEBUG=$(DEBUG) COMP=$(HOSTCC) NVCC=$(COMP) clean
 
-  TPLrealclean:
-	cd $(PELE_PHYSICS_HOME)/ThirdParty; make AMREX_HOME=$(AMREX_HOME) USE_CUDA=$(USE_CUDA) USE_HIP=$(USE_HIP) USE_KLU_PP=$(USE_KLU_PP) DEBUG=$(DEBUG) COMP=$(HOSTCC) NVCC=$(COMP) realclean
-else
-  TPL:
-  TPLclean:
-  TPLrealclean:
-endif
+TPLrealclean:
+	@echo "==> Removing SUNDIALS library"
+	@cd $(PELE_PHYSICS_HOME)/ThirdParty && $(MAKE) AMREX_HOME=$(AMREX_HOME) USE_CUDA=$(USE_CUDA) USE_HIP=$(USE_HIP) PELE_USE_KLU=$(PELE_USE_KLU) DEBUG=$(DEBUG) COMP=$(HOSTCC) NVCC=$(COMP) realclean

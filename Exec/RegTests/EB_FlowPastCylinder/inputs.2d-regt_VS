@@ -129,6 +129,6 @@ mac.v                    = 0
 
 #--------------------------DEBUG/REGTESTS INPUTS-----------------------------
 amrex.regtest_reduction=1
-amrex.fpe_trap_invalid = 1
-amrex.fpe_trap_zero = 1
-amrex.fpe_trap_overflow = 1
+#amrex.fpe_trap_invalid = 1
+#amrex.fpe_trap_zero = 1
+#amrex.fpe_trap_overflow = 1

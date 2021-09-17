@@ -25,9 +25,9 @@ macro(setup_test)
     set(CURRENT_TEST_BINARY_DIR ${CMAKE_BINARY_DIR}/Exec/RegTests/${TEST_EXE_DIR}/tests/${TEST_NAME})
     set(CURRENT_TEST_EXE ${CMAKE_BINARY_DIR}/Exec/RegTests/${TEST_EXE_DIR}/PeleLM-${TEST_EXE_DIR})
     # Gold files should be submodule organized by machine and compiler (these are output during configure)
-    set(PLOT_GOLD ${FCOMPARE_GOLD_FILES_DIRECTORY}/${TEST_EXE_DIR}/tests/${TEST_NAME}/plt00010)
-    # Test plot is currently expected to be after 10 steps
-    set(PLOT_TEST ${CURRENT_TEST_BINARY_DIR}/plt00010)
+    set(PLOT_GOLD ${FCOMPARE_GOLD_FILES_DIRECTORY}/${TEST_EXE_DIR}/tests/${TEST_NAME}/plt00003)
+    # Test plot is currently expected to be after 3 steps
+    set(PLOT_TEST ${CURRENT_TEST_BINARY_DIR}/plt00003)
     # Find fcompare
     if(PELELM_ENABLE_FCOMPARE_FOR_TESTS)
       set(FCOMPARE ${CMAKE_BINARY_DIR}/Submodules/amrex/Tools/Plotfile/fcompare)
@@ -65,7 +65,7 @@ endmacro(setup_test)
 # Standard regression test
 function(add_test_r TEST_NAME TEST_EXE_DIR)
     setup_test()
-    set(RUNTIME_OPTIONS "max_step=10 ${RUNTIME_OPTIONS}")
+    set(RUNTIME_OPTIONS "max_step=3 ${RUNTIME_OPTIONS}")
     add_test(${TEST_NAME} sh -c "${MPI_COMMANDS} ${CURRENT_TEST_EXE} ${MPIEXEC_POSTFLAGS} ${CURRENT_TEST_BINARY_DIR}/${TEST_NAME}.i ${RUNTIME_OPTIONS} > ${TEST_NAME}.log ${FCOMPARE_COMMAND}")
     set_tests_properties(${TEST_NAME} PROPERTIES TIMEOUT 14400 PROCESSORS ${PELELM_NP} WORKING_DIRECTORY "${CURRENT_TEST_BINARY_DIR}/" LABELS "regression" ATTACHED_FILES_ON_FAIL "${CURRENT_TEST_BINARY_DIR}/${TEST_NAME}.log")
 endfunction(add_test_r)

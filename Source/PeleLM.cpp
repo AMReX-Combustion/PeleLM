@@ -45,11 +45,8 @@
 #include <AMReX_AmrData.H>
 #endif
 
-#include <reactor.H>
 #ifdef AMREX_USE_GPU
-#ifdef USE_SUNDIALS_PP
 #include <AMReX_SUNMemory.H>
-#endif
 #endif
 
 #include <NAVIERSTOKES_F.H>
@@ -176,8 +173,6 @@ bool PeleLM::plot_consumption;
 bool PeleLM::plot_heat_release;
 int  PeleLM::ncells_chem;
 bool PeleLM::use_typ_vals_chem = 0;
-Real PeleLM::relative_tol_chem = 1.0e-10;
-Real PeleLM::absolute_tol_chem = 1.0e-10;
 static bool plot_rhoydot;
 int  PeleLM::nGrowAdvForcing=1;
 #ifdef AMREX_USE_EB
@@ -197,6 +192,8 @@ std::unique_ptr<ACParm> PeleLM::ac_parm;
 pele::physics::transport::TransportParams<
   pele::physics::PhysicsType::transport_type>
   PeleLM::trans_parms;
+std::string PeleLM::chem_integrator = "ReactorNull";
+std::unique_ptr<pele::physics::reactions::ReactorBase> PeleLM::m_reactor;
 
 #ifdef SOOT_MODEL
 int PeleLM::do_soot_solve;
@@ -244,6 +241,7 @@ Vector<Real> PeleLM::typical_values;
 
 int PeleLM::sdc_iterMAX;
 int PeleLM::num_mac_sync_iter;
+int PeleLM::syncEntireHierarchy = 1;
 int PeleLM::deltaT_verbose = 0;
 int PeleLM::deltaT_crashOnConvFail = 1;
 
@@ -324,9 +322,7 @@ PeleLM::Initialize ()
   if (initialized) return;
 
 #ifdef AMREX_USE_GPU
-#ifdef USE_SUNDIALS_PP
   amrex::sundials::MemoryHelper::Initialize();
-#endif
 #endif
 #ifdef AMREX_PARTICLES
   // Ensure default particles in NavierStokesBase aren't used
@@ -464,6 +460,7 @@ PeleLM::Initialize ()
   pp.query("use_wbar",use_wbar);
   pp.query("sdc_iterMAX",sdc_iterMAX);
   pp.query("num_mac_sync_iter",num_mac_sync_iter);
+  pp.query("syncEntireHierarchy",syncEntireHierarchy);
 
   pp.query("thickening_factor",constant_thick_val);
   if (constant_thick_val != -1)
@@ -593,9 +590,6 @@ PeleLM::Initialize_specific ()
     pplm.query("deltaT_crashOnConvFail",deltaT_crashOnConvFail);
 
     pplm.query("use_typ_vals_chem",use_typ_vals_chem);
-    pplm.query("relative_tol_chem",relative_tol_chem);
-    pplm.query("absolute_tol_chem",absolute_tol_chem);
-
     pplm.query("harm_avg_cen2edge", def_harm_avg_cen2edge);
 
     // Get boundary conditions
@@ -726,6 +720,17 @@ PeleLM::Initialize_specific ()
    PeleLM::dpdt_factor = 1.0;
    pplm.query("dpdt_factor",dpdt_factor);
 
+   // Initialize reactor: TODO might do a per level ?
+   pplm.query("chem_integrator",chem_integrator);
+   m_reactor = pele::physics::reactions::ReactorBase::create(chem_integrator);
+   const int nCell = 1;
+   const int reactType = 2;
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif  
+   {
+      m_reactor->init(reactType, nCell);
+   }
 }
 
 void
@@ -934,7 +939,6 @@ LM_Error_Value::tagCells1(int* tag, const int* tlo, const int* thi,
 void
 PeleLM::variableCleanUp ()
 {
-
    NavierStokesBase::variableCleanUp();
    ShowMF_Sets.clear();
    auxDiag_names.clear();
@@ -945,6 +949,8 @@ PeleLM::variableCleanUp ()
    soot_model.reset();
 #endif
    trans_parms.deallocate();
+
+   m_reactor->close();
 }
 
 PeleLM::PeleLM ()
@@ -1362,6 +1368,9 @@ PeleLM::init_mixture_fraction()
             Abort("Unknown mixtureFraction.format ! Should be 'Cantera' or 'RealList'");
          }
       }
+      if (fuelName.empty() && !hasUserMF) {
+          Print() << " Mixture fraction definition lacks fuelName: consider using ns.fuelName keyword \n";
+      }
 
       // Only interested in CHON -in that order. Compute Bilger weights
       amrex::Real atwCHON[4] = {0.0};
@@ -1504,10 +1513,8 @@ PeleLM::set_typical_values(bool is_restart)
 void
 PeleLM::update_typical_values_chem ()
 {
-#ifdef USE_SUNDIALS_PP
   if (use_typ_vals_chem) {
-#ifndef AMREX_USE_GPU
-    if (verbose) amrex::Print() << "Using typical values for the absolute tolerances of the ode solver\n";
+    if (verbose>1) amrex::Print() << "Using typical values for the absolute tolerances of the ode solver\n";
 #ifdef AMREX_USE_OMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
@@ -1520,15 +1527,9 @@ PeleLM::update_typical_values_chem ()
                      typical_values[first_spec+i] * typical_values[Density] * 1.E-3); // CGS -> MKS conversion
       }
       typical_values_chem[NUM_SPECIES] = typical_values[Temp];
-      SetTypValsODE(typical_values_chem);
-      ReSetTolODE();
+      m_reactor->SetTypValsODE(typical_values_chem);
     }
-#else
-    // TODO: set this option back on in PP
-    amrex::Print() << "Using typical values for the absolute tolerances of the ode solver not available on GPU right now\n";
-#endif
   }
-#endif
 }
 
 void
@@ -1982,24 +1983,16 @@ PeleLM::initData ()
     ProbParm const* lprobparm = prob_parm.get();
     PmfData const* lpmfdata = pmf_data_g;
 
-#ifdef AMREX_USE_OMP
-#pragma omp parallel if (Gpu::notInLaunchRegion())
-#endif
-    for (MFIter mfi(S_new,TilingIfNotGPU()); mfi.isValid(); ++mfi)
+    auto const& sma = S_new.arrays();
+    amrex::ParallelFor(S_new,
+    [=] AMREX_GPU_DEVICE (int box_no, int i, int j, int k) noexcept
     {
-      const Box& box = mfi.tilebox();
-      auto sfab = S_new.array(mfi);
-
-      amrex::ParallelFor(box,
-      [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
-      {
 #ifdef AMREX_USE_NEWMECH
-        amrex::Abort("USE_NEWMECH feature no longer working and has to be fixed/redone");
+       amrex::Abort("USE_NEWMECH feature no longer working and has to be fixed/redone");
 #else
-        pelelm_initdata(i, j, k, sfab, geomdata, *lprobparm, lpmfdata);
+       pelelm_initdata(i, j, k, sma[box_no], geomdata, *lprobparm, lpmfdata);
 #endif
-      });
-    }
+    });
   }
 
   showMFsub("1D",S_new,stripBox,"1D_S",level);
@@ -2203,24 +2196,19 @@ PeleLM::compute_instantaneous_reaction_rates (MultiFab&       R,
    maskMF.ParallelCopy(ebmask,0,0,1);
 #endif
 
-#ifdef AMREX_USE_OMP
-#pragma omp parallel if (Gpu::notInLaunchRegion())
-#endif
-   for (MFIter mfi(S,TilingIfNotGPU()); mfi.isValid(); ++mfi)
+   auto const& sma    = S.const_arrays();
+   auto const& maskma = maskMF.const_arrays();
+   auto const& rma    = R.arrays();
+   amrex::ParallelFor(S, [=,FS=first_spec,RH=RhoH,Temp=Temp]
+   AMREX_GPU_DEVICE (int box_no, int i, int j, int k) noexcept
    {
-      const Box& bx = mfi.tilebox();
-      auto const& rhoY    = S.const_array(mfi,first_spec);
-      auto const& rhoH    = S.const_array(mfi,RhoH);
-      auto const& T       = S.const_array(mfi,Temp);
-      auto const& mask    = maskMF.const_array(mfi);
-      auto const& rhoYdot = R.array(mfi);
-
-      amrex::ParallelFor(bx, [rhoY, rhoH, T, mask, rhoYdot]
-      AMREX_GPU_DEVICE (int i, int j, int k) noexcept
-      {
-         reactionRateRhoY( i, j, k, rhoY, rhoH, T, mask, rhoYdot );
-      });
-   }
+      reactionRateRhoY(i, j, k,
+                       Array4<Real const>(sma[box_no],FS),
+                       Array4<Real const>(sma[box_no],RH),
+                       Array4<Real const>(sma[box_no],Temp),
+                       maskma[box_no],
+                       rma[box_no]);
+   });
 
    if ((nGrow>0) && (how == HT_EXTRAP_GROW_CELLS))
    {
@@ -2261,73 +2249,50 @@ PeleLM::init (AmrLevel& old)
    FillPatchIterator FctCntfpi(*oldht,FuncCount,FuncCount.nGrow(),tnp1,FuncCount_Type,0,1);
    const MultiFab& FuncCount_old = FctCntfpi.get_mf();
 
-#ifdef AMREX_USE_OMP
-#pragma omp parallel if (Gpu::notInLaunchRegion())
-#endif
-   for (MFIter mfi(Ydot_old,TilingIfNotGPU()); mfi.isValid(); ++mfi)
+   auto const& orYdotma = Ydot_old.const_arrays();
+   auto const& nrYdotma = Ydot.arrays();
+   auto const& oFctCma  = FuncCount_old.const_arrays();
+   auto const& nFctCma  = FuncCount.arrays();
+   amrex::ParallelFor(Ydot_old,
+   [=] AMREX_GPU_DEVICE (int box_no, int i, int j, int k) noexcept
    {
-      const Box& bx         = mfi.tilebox();
-      auto const& rhoYdot_n = Ydot.array(mfi);
-      auto const& rhoYdot_o = Ydot_old.const_array(mfi);
-      auto const& FctCnt_n  = FuncCount.array(mfi);
-      auto const& FctCnt_o  = FuncCount_old.const_array(mfi);
-      amrex::ParallelFor(bx, [rhoYdot_n, rhoYdot_o, FctCnt_n, FctCnt_o]
-      AMREX_GPU_DEVICE (int i, int j, int k) noexcept
-      {
-         for (int n = 0; n < NUM_SPECIES; n++) {
-            rhoYdot_n(i,j,k,n) = rhoYdot_o(i,j,k,n);
-         }
-         FctCnt_n(i,j,k) = FctCnt_o(i,j,k);
-      });
-   }
+      nFctCma[box_no](i,j,k) = oFctCma[box_no](i,j,k);
+      for (int n = 0; n < NUM_SPECIES; n++) {
+         nrYdotma[box_no](i,j,k,n) = orYdotma[box_no](i,j,k,n);
+      }
+   });
 #ifdef AMREX_PARTICLES
    if (do_spray_particles) {
-     const Real tnp1s = oldht->state[spraydot_Type].curTime();
      MultiFab& spraydot = get_new_data(spraydot_Type);
-     FillPatchIterator fpi(*oldht, spraydot, spraydot.nGrow(), tnp1s, spraydot_Type, 0, spraydot.nComp());
+     FillPatchIterator fpi(*oldht, spraydot, spraydot.nGrow(), tnp1, spraydot_Type, 0, spraydot.nComp());
      const MultiFab& spraydot_old = fpi.get_mf();
      const int ncomp = spraydot.nComp();
-#ifdef _OPENMP
-#pragma omp parallel if (Gpu::notInLaunchRegion())
-#endif
-     for (MFIter mfi(spraydot_old,TilingIfNotGPU()); mfi.isValid(); ++mfi)
+     auto const& oSprayma = spraydot_old.const_arrays();
+     auto const& nSprayma = spraydot.arrays();
+     amrex::ParallelFor(spraydot_old,
+     [=] AMREX_GPU_DEVICE (int box_no, int i, int j, int k) noexcept
      {
-       const Box& bx         = mfi.tilebox();
-       auto const& spraydot_n = spraydot.array(mfi);
-       auto const& spraydot_o = spraydot_old.array(mfi);
-       amrex::ParallelFor(bx, [spraydot_n, spraydot_o, ncomp]
-       AMREX_GPU_DEVICE (int i, int j, int k) noexcept
-       {
-         for (int n = 0; n < ncomp; n++) {
-           spraydot_n(i,j,k,n) = spraydot_o(i,j,k,n);
-         }
-       });
-     }
+       for (int n = 0; n < ncomp; n++) {
+         nSprayma[box_no](i,j,k,n) = oSprayma[box_no](i,j,k,n);
+       }
+     });
    }
 #endif
 #ifdef SOOT_MODEL
    {
-     const Real tnp1s = oldht->state[sootsrc_Type].curTime();
      MultiFab& sootsrc = get_new_data(sootsrc_Type);
-     FillPatchIterator fpi(*oldht, sootsrc, sootsrc.nGrow(), tnp1s, sootsrc_Type, 0, num_soot_src);
+     FillPatchIterator fpi(*oldht, sootsrc, sootsrc.nGrow(), tnp1, sootsrc_Type, 0, num_soot_src);
      const MultiFab& sootsrc_old = fpi.get_mf();
      const int ncomp = sootsrc.nComp();
-#ifdef _OPENMP
-#pragma omp parallel if (Gpu::notInLaunchRegion())
-#endif
-     for (MFIter mfi(sootsrc_old,TilingIfNotGPU()); mfi.isValid(); ++mfi)
+     auto const& oSootma = sootsrc_old.const_arrays();
+     auto const& nSootma = sootsrc.arrays();
+     amrex::ParallelFor(sootsrc_old,
+     [=] AMREX_GPU_DEVICE (int box_no, int i, int j, int k) noexcept
      {
-       const Box& bx         = mfi.tilebox();
-       auto const& sootsrc_n = sootsrc.array(mfi);
-       auto const& sootsrc_o = sootsrc_old.array(mfi);
-       amrex::ParallelFor(bx, [sootsrc_n, sootsrc_o, ncomp]
-       AMREX_GPU_DEVICE (int i, int j, int k) noexcept
-       {
-         for (int n = 0; n < ncomp; n++) {
-           sootsrc_n(i,j,k,n) = sootsrc_o(i,j,k,n);
-         }
-       });
-     }
+       for (int n = 0; n < ncomp; n++) {
+         nSootma[box_no](i,j,k,n) = oSootma[box_no](i,j,k,n);
+       }
+     });
    }
 #endif
 }
@@ -6139,29 +6104,19 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
            frc_rhoH(i,j,k) *= 10.0;
         });
 
-#ifdef AMREX_USE_GPU
-        int ncells           = bx.numPts();
-        const auto ec = Gpu::ExecutionConfig(ncells);
-#endif
-
         BL_PROFILE_VAR("React()", ReactInLoop);
         Real dt_incr     = dt;
         Real time_chem   = 0;
-        int reactor_type = 2;
-#ifndef AMREX_USE_GPU
         /* Solve */
-        int tmp_fctCn;
-        tmp_fctCn = react(bx, rhoY, frc_rhoY, temp, rhoH, frc_rhoH, fcl,
-                          mask, dt_incr, time_chem, reactor_type);
+        m_reactor->react(bx, rhoY, frc_rhoY, temp,
+                         rhoH, frc_rhoH, fcl,
+                         mask, dt_incr, time_chem
+#ifdef AMREX_USE_GPU
+                         , amrex::Gpu::gpuStream()
+#endif
+                         );
         dt_incr   = dt;
         time_chem = 0;
-#else
-        int tmp_fctCn;
-        tmp_fctCn = react(bx, rhoY, frc_rhoY, temp, rhoH, frc_rhoH, fcl, mask,
-                          dt_incr, time_chem, reactor_type, amrex::Gpu::gpuStream());
-        dt_incr = dt;
-        time_chem = 0;
-#endif
         BL_PROFILE_VAR_STOP(ReactInLoop);
 
         // Convert CGS -> MKS
@@ -6177,7 +6132,6 @@ PeleLM::advance_chemistry (MultiFab&       mf_old,
 #ifdef AMREX_USE_GPU
         Gpu::Device::streamSynchronize();
 #endif
-
     }
 
     FTemp.clear();
@@ -7485,9 +7439,10 @@ PeleLM::mac_sync ()
       }
       IntVect ratio = IntVect::TheUnitVector();
 
-      for (int lev = level+1; lev <= finest_level; lev++)
+      int fixUpToLevel = (syncEntireHierarchy) ? finest_level : level+1;
+      for (int lev = level+1; lev <= fixUpToLevel; lev++)
       {
-         ratio               *= parent->refRatio(lev-1);
+         ratio              *= parent->refRatio(lev-1);
          PeleLM& fine_level  = getLevel(lev);
          MultiFab& S_new_lev = fine_level.get_new_data(State_Type);
          showMF("DBGSync",S_new_lev,"sdc_SnewBefIncr_inSync",level,mac_sync_iter,parent->levelSteps(level));
@@ -7500,7 +7455,7 @@ PeleLM::mac_sync ()
          const int nghost                      = S_new_lev.nGrow();
 
          MultiFab increment(fine_grids, fine_dmap, numscal, nghost,MFInfo(),getLevel(lev).Factory());
-         increment.setVal(0.0,nghost);
+         increment.setVal(0.0);
 
          SyncInterp(Ssync, level, increment, lev, ratio,
                     first_spec-AMREX_SPACEDIM, first_spec-AMREX_SPACEDIM, NUM_SPECIES+1, 1, mult,
@@ -7514,7 +7469,7 @@ PeleLM::mac_sync ()
          {
             const Box& bx = mfi.tilebox();
             auto const& rhoincr     = increment.array(mfi,Density-AMREX_SPACEDIM);
-            auto const& rhoYincr    = increment.array(mfi,first_spec-AMREX_SPACEDIM);
+            auto const& rhoYincr    = increment.const_array(mfi,first_spec-AMREX_SPACEDIM);
             auto const& S_new_incr  = S_new_lev.array(mfi,Density);
             int  rhoSumrhoY_flag    = do_set_rho_to_species_sum;
 
@@ -7712,21 +7667,6 @@ PeleLM::mac_sync ()
             MultiFab::Add(S_new_lev,increment,0,state_ind,1,nghost);
          }
       }
-   }
-
-   //
-   // Average down rho R T after interpolation of the mac_sync correction
-   //   of the individual quantities rho, Y, T.
-   //
-   for (int lev = finest_level-1; lev >= level; lev--)
-   {
-     PeleLM& fine_level = getLevel(lev+1);
-     PeleLM& crse_level = getLevel(lev);
-
-     MultiFab& S_crse_loc = crse_level.get_new_data(State_Type);
-     MultiFab& S_fine_loc = fine_level.get_new_data(State_Type);
-
-     crse_level.average_down(S_fine_loc, S_crse_loc, RhoRT, 1);
    }
    BL_PROFILE_VAR_STOP(PLM_SSYNC);
 
@@ -8713,23 +8653,16 @@ PeleLM::RhoH_to_Temp (MultiFab& S,
   AMREX_ALWAYS_ASSERT(nGrow <= S.nGrow());
 
   // TODO: simplified version of that function for now: no iters, no tols, ... PPhys need to be fixed
-
-#ifdef AMREX_USE_OMP
-#pragma omp parallel if (Gpu::notInLaunchRegion())
-#endif
-  for (MFIter mfi(S,TilingIfNotGPU()); mfi.isValid(); ++mfi)
+  auto const& sma    = S.arrays();
+  amrex::ParallelFor(S, [=,Dens=Density,FS=first_spec,RH=RhoH,Temp=Temp]
+  AMREX_GPU_DEVICE (int box_no, int i, int j, int k) noexcept
   {
-     const Box& bx    = mfi.tilebox();
-     auto const& T    = S.array(mfi,Temp);
-     auto const& rho  = S.const_array(mfi,Density);
-     auto const& rhoY = S.const_array(mfi,first_spec);
-     auto const& rhoH = S.const_array(mfi,RhoH);
-     amrex::ParallelFor(bx, [T,rho,rhoY,rhoH]
-     AMREX_GPU_DEVICE (int i, int j, int k) noexcept
-     {
-        getTfromHY(i,j,k, rho, rhoY, rhoH, T);
-     });
-  }
+     getTfromHY(i, j, k,
+                Array4<Real const>(sma[box_no],Dens),
+                Array4<Real const>(sma[box_no],FS),
+                Array4<Real const>(sma[box_no],RH),
+                Array4<Real>(sma[box_no],Temp));
+  });
 
   /*
   //
@@ -9721,6 +9654,9 @@ PeleLM::initActiveControl()
 
    if ( !ctrl_use_temp ) {
       // Get the fuel rhoY
+      if (fuelName.empty()) {
+          Abort("Using activeControl based on fuel mass requires ns.fuelName !");
+      }
       Vector<std::string> specNames;
       pele::physics::eos::speciesNames<pele::physics::PhysicsType::eos_type>(specNames);
       int fuelidx = -1;
