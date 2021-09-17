@@ -53,6 +53,7 @@ PeleProduction
 As explained in section :ref:`sec:QUICKSTART`, `PeleLM` relies on a number of supporting softwares: 
 
 - `AMReX` is a software frameworks that provides the data structure and enable massive parallelization.
+- `AMReX-Hydro` is a suite of AMReX-based fonctionalities handling the hydrodynamic schemes.
 - `IAMR` is a parallel, adaptive mesh refinement (AMR) code that solves the variable-density incompressible Navier-Stokes equations.
 - `PelePhysics` is a repository of physics databases and implementation code. In particular, the choice of chemistry and transport models as well as associated functions and capabilities are managed in `PelePhysics`.
 
@@ -243,15 +244,10 @@ In `PeleLM`, the chemistry model (set of species, their thermodynamic and transp
    
 Here, the methane kinetic model ``drm19``, containing 21 species is employed. The user is referred to the `PelePhysics <https://pelephysics.readthedocs.io/en/latest/>`_ documentation for a list of available mechanisms and more information regarding the EOS, chemistry and transport models specified: ::
 
-    Eos_dir       := Fuego
-    Reactions_dir := Fuego
-    Transport_dir := Simple
+   Eos_Model       := Fuego
+   Transport_Model := Simple
 
-Finally, `PeleLM` utilizes the chemical kinetic ODE integrator `CVODE <https://computing.llnl.gov/projects/sundials/cvode>`_. This Third Party Librabry (TPL) is not shipped with the `PeleLM` distribution but can be readily installed through the makefile system of `PeleLM`. To do so, type in the following command: ::
-
-    make TPL
-
-Note that the installation of `CVODE` requires CMake 3.12.1 or higher.
+`PeleLM` utilizes the chemical kinetic ODE integrator `CVODE <https://computing.llnl.gov/projects/sundials/cvode>`_. This Third Party Librabry (TPL) is not shipped with the `PeleLM` distribution but will be automatically installed through the makefile system of `PeleLM`. Note that the installation of `CVODE` requires CMake 3.12.1 or higher.
 
 You are now ready to build your first `PeleLM` executable !! Type in: ::
 
