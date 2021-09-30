@@ -17,7 +17,6 @@ option(PELELM_ENABLE_CLANG_TIDY "Enable clang-tidy analysis" OFF)
 option(PELELM_ENABLE_CPPCHECK "Enable cppcheck analysis" OFF)
 option(PELELM_ENABLE_WERROR "Treat compiler warnings as errors" OFF)
 option(PELELM_ENABLE_MASA "Enable tests that require MASA" OFF)
-option(PELELM_ENABLE_SUNDIALS "Enable SUNDIALS as ODE solver" ON)
 option(PELELM_ENABLE_FCOMPARE "Enable building fcompare when not testing" OFF)
 option(PELELM_ENABLE_TESTS "Enable regression and unit tests" OFF)
 option(PELELM_ENABLE_FCOMPARE_FOR_TESTS "Check test plots against gold files" OFF)
@@ -72,14 +71,12 @@ include(SetAmrexCompileFlags)
 
 ########################## SUNDIALS ###################################
 
-if(PELELM_ENABLE_SUNDIALS)
-  message(STATUS "SUNDIALS Configure Section")
-  set(SUNDIALS_SUBMOD_LOCATION "${CMAKE_SOURCE_DIR}/Submodules/sundials")
-  include(SetSundialsOptions)
-  #BUILD_TESTING is an old CMake keyword so don't clear it in sundials configure
-  set(CMAKE_POLICY_DEFAULT_CMP0077 NEW)
-  add_subdirectory(${SUNDIALS_SUBMOD_LOCATION} ${CMAKE_BINARY_DIR}/Submodules/sundials)
-endif()
+message(STATUS "SUNDIALS Configure Section")
+set(SUNDIALS_SUBMOD_LOCATION "${CMAKE_SOURCE_DIR}/Submodules/sundials")
+include(SetSundialsOptions)
+#BUILD_TESTING is an old CMake keyword so don't clear it in sundials configure
+set(CMAKE_POLICY_DEFAULT_CMP0077 NEW)
+add_subdirectory(${SUNDIALS_SUBMOD_LOCATION} ${CMAKE_BINARY_DIR}/Submodules/sundials)
 
 ########################### MASA #####################################
 

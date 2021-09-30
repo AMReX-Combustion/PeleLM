@@ -102,50 +102,45 @@ function(build_pelelm_exe pelelm_exe_name)
   target_include_directories(${pelelm_exe_name} SYSTEM PRIVATE ${PELE_PHYSICS_SRC_DIR}/Utility)
   target_include_directories(${pelelm_exe_name} SYSTEM PRIVATE ${PELE_PHYSICS_SRC_DIR}/Support/Fuego/Mechanism/Models)
 
-  if(PELELM_REACTOR_MODEL STREQUAL "cvode" OR PELELM_REACTOR_MODEL STREQUAL "arkode")
-    if(NOT PELELM_ENABLE_SUNDIALS)
-      message(FATAL_ERROR "cvode and arkode reauires PELELM_ENABLE_SUNDIALS ON")
-    endif()
-    target_compile_definitions(${pelelm_exe_name} PRIVATE USE_SUNDIALS_PP)
-    if(PELELM_REACTOR_MODEL STREQUAL "arkode")
-      target_compile_definitions(${pelelm_exe_name} PRIVATE USE_ARKODE_PP)
-    endif()
+  target_sources(${pelelm_exe_name}
+    PRIVATE
+      ${PELE_PHYSICS_SRC_DIR}/Reactions/ReactorArkode.H
+      ${PELE_PHYSICS_SRC_DIR}/Reactions/ReactorArkode.cpp
+      ${PELE_PHYSICS_SRC_DIR}/Reactions/ReactorBase.H
+      ${PELE_PHYSICS_SRC_DIR}/Reactions/ReactorBase.cpp
+      ${PELE_PHYSICS_SRC_DIR}/Reactions/ReactorCvode.H
+      ${PELE_PHYSICS_SRC_DIR}/Reactions/ReactorCvode.cpp
+      ${PELE_PHYSICS_SRC_DIR}/Reactions/ReactorCvodeCustomLinSolver.H
+      ${PELE_PHYSICS_SRC_DIR}/Reactions/ReactorCvodeCustomLinSolver.cpp
+      ${PELE_PHYSICS_SRC_DIR}/Reactions/ReactorCvodeJacobian.H
+      ${PELE_PHYSICS_SRC_DIR}/Reactions/ReactorCvodeJacobian.cpp
+      ${PELE_PHYSICS_SRC_DIR}/Reactions/ReactorCvodePreconditioner.H
+      ${PELE_PHYSICS_SRC_DIR}/Reactions/ReactorCvodePreconditioner.cpp
+      ${PELE_PHYSICS_SRC_DIR}/Reactions/ReactorCvodeUtils.H
+      ${PELE_PHYSICS_SRC_DIR}/Reactions/ReactorCvodeUtils.cpp
+      ${PELE_PHYSICS_SRC_DIR}/Reactions/ReactorNull.H
+      ${PELE_PHYSICS_SRC_DIR}/Reactions/ReactorNull.cpp
+      ${PELE_PHYSICS_SRC_DIR}/Reactions/ReactorRK64.H
+      ${PELE_PHYSICS_SRC_DIR}/Reactions/ReactorRK64.cpp
+      ${PELE_PHYSICS_SRC_DIR}/Reactions/ReactorTypes.H
+      ${PELE_PHYSICS_SRC_DIR}/Reactions/ReactorUtils.H
+      ${PELE_PHYSICS_SRC_DIR}/Reactions/ReactorUtils.cpp
+  )
+
+  target_include_directories(${pelelm_exe_name} PRIVATE ${PELE_PHYSICS_SRC_DIR}/Reactions)
+  target_link_libraries(${pelelm_exe_name} PRIVATE sundials_arkode sundials_cvode)
+
+  if(PELELM_ENABLE_CUDA OR PELELM_ENABLE_HIP)
+    target_sources(${pelelm_exe_name} PRIVATE ${PELE_PHYSICS_SRC_DIR}/Reactions/AMReX_SUNMemory.cpp
+                                              ${PELE_PHYSICS_SRC_DIR}/Reactions/AMReX_SUNMemory.H)
   endif()
 
-  target_include_directories(${pelelm_exe_name} PRIVATE ${PELE_PHYSICS_SRC_DIR}/Reactions/${PELELM_REACTOR_MODEL})
-  if(PELELM_REACTOR_MODEL STREQUAL "cvode" OR PELELM_REACTOR_MODEL STREQUAL "arkode")
-    target_include_directories(${pelelm_exe_name} PRIVATE ${PELE_PHYSICS_SRC_DIR}/Reactions/)
-    target_sources(${pelelm_exe_name} PRIVATE ${PELE_PHYSICS_SRC_DIR}/Reactions/reactor.cpp
-                                             ${PELE_PHYSICS_SRC_DIR}/Reactions/reactor.H)
-    set_source_files_properties(${PELE_PHYSICS_SRC_DIR}/Reactions/reactor.cpp PROPERTIES COMPILE_OPTIONS "${MY_CXX_FLAGS}")
-    set_source_files_properties(${PELE_PHYSICS_SRC_DIR}/Reactions/reactor.H PROPERTIES COMPILE_OPTIONS "${MY_CXX_FLAGS}")
-    if(PELELM_REACTOR_MODEL STREQUAL "cvode")
-      target_compile_definitions(${pelelm_exe_name} PRIVATE COMPILE_JACOBIAN)
-      target_link_libraries(${pelelm_exe_name} PRIVATE sundials_cvode)
-      if(PELELM_ENABLE_CUDA)
-        target_sources(${pelelm_exe_name} PRIVATE ${PELE_PHYSICS_SRC_DIR}/Reactions/${PELELM_REACTOR_MODEL}/reactor_cvode_GPU.cpp)
-        set_source_files_properties(${PELE_PHYSICS_SRC_DIR}/Reactions/${PELELM_REACTOR_MODEL}/reactor_cvode_GPU.cpp PROPERTIES COMPILE_OPTIONS "${MY_CXX_FLAGS}")
-        target_link_libraries(${pelelm_exe_name} PRIVATE sundials_sunlinsolcusolversp sundials_sunmatrixcusparse)
-      else()
-        target_sources(${pelelm_exe_name} PRIVATE ${PELE_PHYSICS_SRC_DIR}/Reactions/${PELELM_REACTOR_MODEL}/reactor_cvode_CPU.cpp)
-        set_source_files_properties(${PELE_PHYSICS_SRC_DIR}/Reactions/${PELELM_REACTOR_MODEL}/reactor_cvode_CPU.cpp PROPERTIES COMPILE_OPTIONS "${MY_CXX_FLAGS}")
-      endif()
-    else()
-      target_sources(${pelelm_exe_name} PRIVATE ${PELE_PHYSICS_SRC_DIR}/Reactions/${PELELM_REACTOR_MODEL}/reactor_arkode.cpp)
-      set_source_files_properties(${PELE_PHYSICS_SRC_DIR}/Reactions/${PELELM_REACTOR_MODEL}/reactor_arkode.cpp PROPERTIES COMPILE_OPTIONS "${MY_CXX_FLAGS}")
-    endif()
-
-    if(PELELM_ENABLE_CUDA)
-      target_link_libraries(${pelelm_exe_name} PRIVATE sundials_nveccuda)
-      target_sources(${pelelm_exe_name} PRIVATE ${PELE_PHYSICS_SRC_DIR}/Reactions/AMReX_SUNMemory.cpp
-                                                ${PELE_PHYSICS_SRC_DIR}/Reactions/AMReX_SUNMemory.H)
-    endif()
-  else()
-    target_sources(${pelelm_exe_name} PRIVATE ${PELE_PHYSICS_SRC_DIR}/Reactions/${PELELM_REACTOR_MODEL}/reactor.cpp
-                                             ${PELE_PHYSICS_SRC_DIR}/Reactions/${PELELM_REACTOR_MODEL}/reactor.H)
-    set_source_files_properties(${PELE_PHYSICS_SRC_DIR}/Reactions/${PELELM_REACTOR_MODEL}/reactor.cpp PROPERTIES COMPILE_OPTIONS "${MY_CXX_FLAGS}")
-    set_source_files_properties(${PELE_PHYSICS_SRC_DIR}/Reactions/${PELELM_REACTOR_MODEL}/reactor.H PROPERTIES COMPILE_OPTIONS "${MY_CXX_FLAGS}")
+  if(PELELM_ENABLE_CUDA)
+    target_link_libraries(${pelelm_exe_name} PRIVATE sundials_nveccuda sundials_sunlinsolcusolversp sundials_sunmatrixcusparse)
+  elseif(PELELM_ENABLE_HIP)
+    target_link_libraries(${pelelm_exe_name} PRIVATE sundials_nvechip)
   endif()
+
   
   target_sources(${pelelm_exe_name}
      PRIVATE
@@ -219,6 +214,9 @@ function(build_pelelm_exe pelelm_exe_name)
        ${AMREX_HYDRO_SRC_DIR}/Utils/hydro_compute_fluxes_from_state.cpp
        ${AMREX_HYDRO_SRC_DIR}/Utils/hydro_bcs_K.H
        ${AMREX_HYDRO_SRC_DIR}/Utils/hydro_create_umac_grown.cpp
+
+       ${AMREX_HYDRO_SRC_DIR}/Slopes/hydro_slopes_K.H
+       ${AMREX_HYDRO_SRC_DIR}/Slopes/hydro_eb_slopes_${PELELM_DIM}D_K.H
   )
 
   if(PELELM_ENABLE_AMREX_EB)
@@ -295,6 +293,7 @@ function(build_pelelm_exe pelelm_exe_name)
   target_include_directories(${pelelm_exe_name} PRIVATE ${AMREX_HYDRO_SRC_DIR}/Godunov)
   target_include_directories(${pelelm_exe_name} PRIVATE ${AMREX_HYDRO_SRC_DIR}/MOL)
   target_include_directories(${pelelm_exe_name} PRIVATE ${AMREX_HYDRO_SRC_DIR}/Utils)
+  target_include_directories(${pelelm_exe_name} PRIVATE ${AMREX_HYDRO_SRC_DIR}/Slopes)
   if(PELELM_ENABLE_AMREX_EB)
      target_include_directories(${pelelm_exe_name} PRIVATE ${AMREX_HYDRO_SRC_DIR}/EBMOL)
      target_include_directories(${pelelm_exe_name} PRIVATE ${AMREX_HYDRO_SRC_DIR}/EBGodunov)
