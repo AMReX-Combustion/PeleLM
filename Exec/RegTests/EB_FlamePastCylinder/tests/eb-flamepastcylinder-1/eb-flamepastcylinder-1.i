@@ -23,7 +23,7 @@ amr.blocking_factor = 16               # block factor in grid generation (min bo
 amr.max_grid_size   = 64               # max box size
 
 #----------------------TIME STEPING CONTROL----------------------
-max_step            = 20               # maximum number of time steps    
+max_step            = 3               # maximum number of time steps    
 stop_time           = 10.0             # final physical time
 ns.cfl              = 0.2              # cfl number for hyperbolic system
 ns.init_shrink      = 0.001            # scale back initial timestep
@@ -67,18 +67,13 @@ ns.num_divu_iters    = 1               # Number of DivU iteration at initializat
 ns.sdc_iterMAX       = 2               # Number of SDC iterations
 ns.num_mac_sync_iter = 2               # Number of mac_sync iterations
 
-#--------------  INPUTS TO CVODE CHEMISTRY ------------------
-#peleLM.use_typ_vals_chem  = 1         # Use typical value to scale CVODE residual
-#peleLM.relative_tol_chem  = 1.0e-8    # CVODE relative tol
-#peleLM.absolute_tol_chem  = 1.0e-6    # CVODE absolute tol
-cvode.solve_type           = dense     # Linear solver type for Newton direction
-ode.analytical_jacobian    = 0         # Use analytical Jacobian
-
-#------------  INPUTS TO CONSTANT TRANSPORT -----------------
-transport.const_viscosity        = 2.0e-05
-transport.const_bulk_viscosity   = 0.0
-transport.const_conductivity     = 0.0
-transport.const_diffusivity      = 0.0
+# --------------- INPUTS TO CHEMISTRY REACTOR ---------------
+peleLM.chem_integrator = "ReactorCvode"
+peleLM.use_typ_vals_chem = 1          # Use species/temp typical values in CVODE   
+ode.rtol = 1.0e-6                     # Relative tolerance of the chemical solve
+ode.atol = 1.0e-5                     # Absolute tolerance factor applied on typical values
+cvode.solve_type = denseAJ_direct     # CVODE Linear solve type (for Newton direction) 
+cvode.max_order  = 4                  # CVODE max BDF order. 
 
 #------------  INPUTS FOR EMBEDED BOUNDARIES ----------------
 eb2.geom_type                    = cylinder

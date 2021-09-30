@@ -11,6 +11,7 @@
 #include <pelelm_prob_parm.H>
 #include <PeleLM_parm.H>
 #include "PelePhysics.H"
+#include "ReactorBase.H"
 
 #include <list>
 #include <map>
@@ -286,7 +287,6 @@ public:
                          int                     scalScomp,
                          const amrex::MFIter&    mfi) override;
 
-
   virtual void mac_sync () override;
   //
   // Crse/fine fixup functions.
@@ -340,8 +340,8 @@ public:
 
   void adjust_spec_diffusion_fluxes (amrex::MultiFab* const * flux,
                                      const amrex::MultiFab&   S,
-                                     const amrex::BCRec&      bc,
-                                     amrex::Real              time);
+                                     const amrex::BCRec&      bc);
+
 
   void calcDiffusivity_Wbar (const amrex::Real time);
 
@@ -349,7 +349,8 @@ public:
                   amrex::Real      dt,
                   amrex::MultiFab& dpdt);
 
-  void checkTimeStep (amrex::Real dt);
+  void checkTimeStep (amrex::Real a_time,
+                      amrex::Real a_dt);
 
   void compute_differential_diffusion_fluxes (const amrex::MultiFab& S,
                                               const amrex::MultiFab* Scrse,
@@ -387,7 +388,8 @@ public:
                             amrex::MultiFab& P,
                                    int       pComp);
 
-  void compute_Wbar_fluxes(amrex::Real time,
+  void compute_Wbar_fluxes(const amrex::MultiFab &a_scalars,
+                           amrex::Real time,
                            int         inc_flag,
                            amrex::Real inc_coeff);
 
@@ -409,20 +411,32 @@ public:
                                FluxBoxes&  fb_betan, 
                                FluxBoxes&  fb_betanp1);
 
-  void flux_divergence (amrex::MultiFab&        fdiv,
-                        int              fdivComp,
-                        const amrex::MultiFab* const* extensive_fluxes,
-                        int              fluxComp,
-                        int              nComp,
-                        amrex::Real             scale) const;
+  void flux_divergenceRD (const amrex::MultiFab  &a_state,
+                          int                     stateComp,
+                          amrex::MultiFab        &a_divergence,
+                          int                     divComp,
+                          const amrex::MultiFab* const* extensive_fluxes,
+                          int                     fluxComp,
+                          int                     nComp,
+                          amrex::BCRec const*     d_bc,
+                          amrex::Real             scale,
+                          amrex::Real             a_dt,
+                          int areSpeciesFluxes = 0);
 
-  void getDiffusivity (amrex::MultiFab* diffusivity[BL_SPACEDIM],
+  void flux_divergence (amrex::MultiFab&  a_divergence,
+                        int               divComp,
+                        const amrex::MultiFab* const* a_ext_fluxes,
+                        int               fluxComp,
+                        int               nComp,
+                        amrex::Real       scale);
+
+  void getDiffusivity (amrex::MultiFab* diffusivity[AMREX_SPACEDIM],
                        const amrex::Real time,
                        const int state_comp,
                        const int dst_comp,
                        const int num_comp);
 
-  void getDiffusivity_Wbar (amrex::MultiFab* diffusivity[BL_SPACEDIM],
+  void getDiffusivity_Wbar (amrex::MultiFab* diffusivity[AMREX_SPACEDIM],
                             const amrex::Real time);
 
   amrex::DistributionMapping getFuncCountDM (const amrex::BoxArray& bxba, int ngrow);
@@ -648,6 +662,11 @@ public:
   static pele::physics::transport::TransportParams<
          pele::physics::PhysicsType::transport_type>
          trans_parms;
+
+  // Reactor. TODO: let's make those non-static to have per level reactors
+  static std::string chem_integrator;
+  static std::unique_ptr<pele::physics::reactions::ReactorBase> m_reactor;
+
   //
   // Protected static data.
   //
@@ -698,17 +717,20 @@ public:
   static std::map<std::string,amrex::Real> typical_values_FileVals;
   static int         sdc_iterMAX;
   static int         num_mac_sync_iter;
+  static int         syncEntireHierarchy;
   static int         deltaT_verbose;
   static int         deltaT_crashOnConvFail;
   static int         iter_debug;
   static int         mHtoTiterMAX;
   static amrex::Vector<amrex::Real> mTmpData;
+
+#ifdef AMREX_USE_EB
+  static std::string diffusion_redistribution_type;
+#endif
   
 
   static int  ncells_chem;
   static bool use_typ_vals_chem; 
-  static amrex::Real relative_tol_chem;
-  static amrex::Real absolute_tol_chem;
 
   static bool def_harm_avg_cen2edge;
 

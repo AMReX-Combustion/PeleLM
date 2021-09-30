@@ -37,7 +37,6 @@
 
 #include <PeleLM_derive.H>
 #include <IndexDefines.H>
-#include <reactor.H>
 
 using namespace amrex;
 
@@ -341,9 +340,9 @@ set_species_bc (BCRec&       bc,
 //
 // Indices of fuel and oxidizer -- ParmParsed in & used in a couple places.
 //
-std::string PeleLM::fuelName        = "CH4";
+std::string PeleLM::fuelName        = "";
 std::string PeleLM::productName     = "CO2";
-Vector<std::string> PeleLM::consumptionName(1);
+Vector<std::string> PeleLM::consumptionName;
 static std::string oxidizerName     = "O2";
 
 //
@@ -374,21 +373,6 @@ PeleLM::variableSetUp ()
 
   Initialize();
 
-  amrex::Print() << " Initialization of reactor... \n";
-  int reactor_type = 2;
-#ifdef _OPENMP
-#pragma omp parallel if (Gpu::notInLaunchRegion())
-#endif  
-{
-// TODO: restore this option for GPU in PP
-#ifndef AMREX_USE_GPU
-#ifdef USE_SUNDIALS_PP
-  SetTolFactODE(relative_tol_chem,absolute_tol_chem);
-#endif
-#endif
-  reactor_init(reactor_type,ncells_chem);
-}
-
   amrex::Print() << " Initialization of Transport (CPP)... \n";
   trans_parms.allocate();
 
@@ -418,17 +402,12 @@ PeleLM::variableSetUp ()
   //
   ParmParse ppns("ns");
   ppns.query("fuelName",fuelName);
-  int found_species = 0;
-  for (int i = 0; i < NUM_SPECIES; i++){
-    if(fuelName == spec_names[i]) found_species = 1;
-  }
-  if(found_species == 0){
-    amrex::Print() << "--- Species defined fuelName (" << fuelName << ") cannot be found! \n";
-    fuelName = spec_names[0];
-    amrex::Print() << "--- Setting fuelName as: " << fuelName << "\n";
+
+  if ( !fuelName.empty() ) {
+     consumptionName.resize(1);
+     consumptionName[0] = fuelName;
   }
 
-  consumptionName[0] = fuelName;
   if (int nc = ppns.countval("consumptionName"))
   {
     consumptionName.resize(nc);
