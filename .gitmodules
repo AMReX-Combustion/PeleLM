@@ -4,6 +4,9 @@
 [submodule "Submodules/amrex"]
 	path = Submodules/amrex
 	url = https://github.com/AMReX-Codes/amrex.git
+[submodule "Submodules/PeleMP"]
+	path = Submodules/PeleMP
+	url = https://github.com/AMReX-Combustion/PeleMP.git
 [submodule "Submodules/sundials"]
 	path = Submodules/sundials
 	url = https://github.com/LLNL/sundials.git
