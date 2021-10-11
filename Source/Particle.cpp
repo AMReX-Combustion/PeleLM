@@ -412,7 +412,7 @@ PeleLM::initParticles()
 }
 
 void
-PeleLM::particlePostRestart(const std::string& restart_file, bool is_checkpoint)
+PeleLM::particlePostRestart(bool is_checkpoint)
 {
   if (level > 0)
     return;
@@ -448,11 +448,6 @@ PeleLM::particleMKD (const Real       time,
   // the particles being set here are only used by finer levels.
   //
   int finest_level = parent->finestLevel();
-
-  //
-  // Check if I need to insert new particles
-  //
-  int nstep = parent->levelSteps(0);
 
   //
   // Setup the virtual particles that represent particles on finer levels
@@ -511,8 +506,6 @@ PeleLM::particleMK (const Real       time,
                     const Real       dt,
                     const int        spray_n_grow,
                     const int        tmp_src_width,
-                    const int        amr_iteration,
-                    const int        amr_ncycle,
                     amrex::MultiFab& tmp_spray_source)
 {
   theSprayPC()->moveKick(

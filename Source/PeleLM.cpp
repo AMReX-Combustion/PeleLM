@@ -2404,7 +2404,7 @@ PeleLM::post_restart ()
 #ifdef AMREX_PARTICLES
    if (do_spray_particles) {
      defineSprayStateMF();
-     particlePostRestart(parent->theRestartFile());
+     particlePostRestart();
    }
 #endif
    activeControl(step,is_restart,0.0,crse_dt);
@@ -5091,7 +5091,7 @@ PeleLM::advance (Real time,
     int finer_ref = 0;
     if (level < finest_level) finer_ref = parent->MaxRefRatio(level);
     theSprayPC()->setSprayGridInfo(
-      level, finest_level, ncycle, iteration, finer_ref,
+      level, finest_level, ncycle, finer_ref,
       ghost_width, where_width, spray_n_grow, tmp_src_width);
     nGrow_Sborder = std::max(nGrow_Sborder, spray_n_grow);
     FillPatch(*this, Sborder, nGrow_Sborder, prev_time, State_Type, 0, NUM_STATE);

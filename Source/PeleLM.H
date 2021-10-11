@@ -215,7 +215,7 @@ public:
   //
   // How to initialize at restart
   //
-  void particlePostRestart(const std::string& restart_file, bool is_checkpoint = true);
+  void particlePostRestart(bool is_checkpoint = true);
 
   //
   // Redistribute
@@ -240,8 +240,6 @@ public:
                   const amrex::Real dt,
                   const int         spray_n_grow,
                   const int         tmp_src_width,
-                  const int         amr_iteration,
-                  const int         amr_ncycle,
                   amrex::MultiFab&  tmp_spray_source);
 
   //
