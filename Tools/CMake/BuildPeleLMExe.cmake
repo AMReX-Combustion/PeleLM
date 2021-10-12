@@ -71,6 +71,43 @@ function(build_pelelm_exe pelelm_exe_name)
   target_sources(${pelelm_exe_name} PRIVATE
                  ${PELELM_MECHANISM_DIR}/mechanism.cpp
                  ${PELELM_MECHANISM_DIR}/mechanism.H)
+  # Set PeleMP flags
+  set(PELEMP_SRC_DIR ${CMAKE_SOURCE_DIR}/Submodules/PeleMP/Source)
+  if(PELELM_ENABLE_PARTICLES)
+    target_sources(${pelelm_exe_name}
+      PRIVATE
+	SprayParticlesInitInsert.cpp
+    )
+    target_compile_definitions(${pelelm_exe_name} PRIVATE SPRAY_FUEL_NUM=${PELEMP_SPRAY_FUEL_NUM})
+    target_compile_definitions(${pelelm_exe_name} PRIVATE SPRAY_PELE_LM)
+    target_sources(${pelelm_exe_name} PRIVATE
+                   ${PELEMP_SRC_DIR}/PP_Spray/SprayParticles.cpp
+                   ${PELEMP_SRC_DIR}/PP_Spray/SprayParticles.H
+                   ${PELEMP_SRC_DIR}/PP_Spray/SprayFuelData.H
+                   ${PELEMP_SRC_DIR}/PP_Spray/SprayInterpolation.H
+                   ${PELEMP_SRC_DIR}/PP_Spray/Drag.H
+                   ${PELEMP_SRC_DIR}/PP_Spray/WallFunctions.H)
+    target_include_directories(${pelelm_exe_name} PRIVATE ${PELEMP_SRC_DIR}/PP_Spray)
+  endif()
+  if(PELELM_ENABLE_SOOT AND PELELM_SOOT_MODEL)
+    target_compile_definitions(${pelelm_exe_name} PRIVATE SOOT_MODEL)
+    target_compile_definitions(${pelelm_exe_name} PRIVATE NUM_SOOT_MOMENTS=${PELEMP_NUM_SOOT_MOMENTS})
+    target_compile_definitions(${pelelm_exe_name} PRIVATE SOOT_PELE_LM)
+    set(SOOT_MOMENTS_VALUES 3 6)
+    if(NOT PELEMP_NUM_SOOT_MOMENTS IN_LIST SOOT_MOMENTS_VALUES)
+      message(FATAL_ERROR "NUM_SOOT_MOMENTS must be either 3 or 6")
+    endif()
+    target_sources(${pelelm_exe_name} PRIVATE
+                   ${PELEMP_SRC_DIR}/Soot_Models/SootModel.cpp
+                   ${PELEMP_SRC_DIR}/Soot_Models/SootModel_react.cpp
+                   ${PELEMP_SRC_DIR}/Soot_Models/SootModel_derive.cpp
+                   ${PELEMP_SRC_DIR}/Soot_Models/Constants_Soot.H
+                   ${PELEMP_SRC_DIR}/Soot_Models/SootData.H
+                   ${PELEMP_SRC_DIR}/Soot_Models/SootReactions.H
+                   ${PELEMP_SRC_DIR}/Soot_Models/SootModel.H
+                   ${PELEMP_SRC_DIR}/Soot_Models/SootModel_derive.H)
+    target_include_directories(${pelelm_exe_name} PRIVATE ${PELEMP_SRC_DIR}/Soot_Models)
+  endif()
   # Avoid warnings from mechanism.cpp for now
   if(NOT PELELM_ENABLE_CUDA)
     if(CMAKE_CXX_COMPILER_ID MATCHES "^(GNU|Clang|AppleClang)$")
@@ -155,6 +192,8 @@ function(build_pelelm_exe pelelm_exe_name)
        ${SRC_DIR}/PeleLM_derive.cpp
        ${SRC_DIR}/PeleLM_parm.H
        ${SRC_DIR}/PeleLM_setup.cpp
+       ${SRC_DIR}/Particle.cpp
+       ${SRC_DIR}/Soot.cpp
   )
 
   target_sources(${pelelm_exe_name}

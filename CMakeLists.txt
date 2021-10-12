@@ -12,6 +12,7 @@ include(PeleLMUtils)
 #General options for all executables in the project
 set(PELELM_DIM "3" CACHE STRING "Number of physical dimensions")
 option(PELELM_ENABLE_AMREX_EB "Enable EB in AMReX library" ON)
+option(PELELM_ENABLE_AMREX_PARTICLES "Enable particles in AMReX library" OFF)
 option(PELELM_ENABLE_ALL_WARNINGS "Enable all compiler warnings" ON)
 option(PELELM_ENABLE_CLANG_TIDY "Enable clang-tidy analysis" OFF)
 option(PELELM_ENABLE_CPPCHECK "Enable cppcheck analysis" OFF)

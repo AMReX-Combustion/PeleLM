@@ -2376,7 +2376,7 @@ PeleLM::post_timestep (int crse_iteration)
     const Real prev_time = state[State_Type].prevTime();
     const Real curr_time = state[State_Type].curTime();
     const Real dt = curr_time - prev_time;
-    bool injectParts = theSprayPC()->
+    bool injectParts = SprayParticleContainer::
       injectParticles(curr_time, dt, nstep, level, finest_level, *lprobparm);
     BL_PROFILE_VAR_STOP(INJECT_SPRAY);
 
@@ -5090,7 +5090,7 @@ PeleLM::advance (Real time,
     int finest_level = parent->finestLevel();
     int finer_ref = 0;
     if (level < finest_level) finer_ref = parent->MaxRefRatio(level);
-    theSprayPC()->setSprayGridInfo(
+    SprayParticleContainer::setSprayGridInfo(
       level, finest_level, ncycle, finer_ref,
       ghost_width, where_width, spray_n_grow, tmp_src_width);
     nGrow_Sborder = std::max(nGrow_Sborder, spray_n_grow);

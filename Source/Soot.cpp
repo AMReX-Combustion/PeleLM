@@ -1,3 +1,5 @@
+
+#ifdef SOOT_MODEL
 #include "PeleLM.H"
 
 void
@@ -83,3 +85,4 @@ PeleLM::estSootTimeStep(Real& est_dt)
   ParallelDescriptor::ReduceRealMin(local_dt);
   est_dt = amrex::min(est_dt, local_dt);
 }
+#endif
