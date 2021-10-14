@@ -327,7 +327,7 @@ PeleLM::Initialize ()
   if (initialized) return;
 
 #ifdef AMREX_USE_GPU
-  amrex::sundials::MemoryHelper::Initialize();
+  amrex::sundials::Initialize();
 #endif
 #ifdef AMREX_PARTICLES
   // Ensure default particles in NavierStokesBase aren't used
@@ -956,6 +956,9 @@ PeleLM::variableCleanUp ()
    trans_parms.deallocate();
 
    m_reactor->close();
+#ifdef AMREX_USE_GPU
+   amrex::sundials::Finalize();
+#endif
 }
 
 PeleLM::PeleLM ()

@@ -168,8 +168,9 @@ function(build_pelelm_exe pelelm_exe_name)
   target_link_libraries(${pelelm_exe_name} PRIVATE sundials_arkode sundials_cvode)
 
   if(PELELM_ENABLE_CUDA OR PELELM_ENABLE_HIP)
-    target_sources(${pelelm_exe_name} PRIVATE ${PELE_PHYSICS_SRC_DIR}/Reactions/AMReX_SUNMemory.cpp
-                                              ${PELE_PHYSICS_SRC_DIR}/Reactions/AMReX_SUNMemory.H)
+    target_sources(${pelelm_exe_name} PRIVATE ${AMREX_SUBMOD_LOCATION}/Src/Extern/SUNDIALS/AMReX_SUNMemory.cpp
+                                             ${AMREX_SUBMOD_LOCATION}/Src/Extern/SUNDIALS/AMReX_SUNMemory.H)
+    target_include_directories(${pelelm_exe_name} PRIVATE ${AMREX_SUBMOD_LOCATION}/Src/Extern/SUNDIALS)
   endif()
 
   if(PELELM_ENABLE_CUDA)
