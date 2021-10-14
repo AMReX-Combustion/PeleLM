@@ -1,5 +1,6 @@
 
 #ifdef SOOT_MODEL
+#include "SootModel.H"
 #include "PeleLM.H"
 
 void
@@ -20,7 +21,6 @@ PeleLM::setSootIndx()
 void
 PeleLM::computeSootSrc(Real time, Real dt)
 {
-  const int nGrowOp = 0;
   // Get soot source data
   MultiFab& soot_mf = get_new_data(sootsrc_Type);
   soot_mf.setVal(0.);
@@ -45,7 +45,6 @@ PeleLM::computeSootSrc(Real time, Real dt)
 void
 PeleLM::clipSootMoments()
 {
-  const int nGrowOp = 0;
   MultiFab& mf = get_new_data(State_Type);
 #ifdef _OPENMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())

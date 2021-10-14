@@ -19,11 +19,6 @@
 
 #ifdef AMREX_PARTICLES
 #include <AMReX_Particles.H>
-#include "SprayParticles.H"
-#endif
-
-#ifdef SOOT_MODEL
-#include "SootModel.H"
 #endif
 
 //
@@ -118,6 +113,14 @@ protected:
   amrex::RealBox box;
   int max_level;
 };
+
+// Forward declarations
+#ifdef AMREX_PARTICLES
+class SprayParticleContainer;
+#endif
+#ifdef SOOT_MODEL
+class SootModel;
+#endif
 
 class PeleLM
   :

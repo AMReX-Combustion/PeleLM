@@ -6,6 +6,7 @@
 using namespace amrex;
 
 #ifdef AMREX_PARTICLES
+#include "SprayParticles.H"
 
 namespace {
 bool virtual_particles_set = false;
@@ -257,10 +258,11 @@ PeleLM::defineSprayStateMF()
   int nGrowS = 4;
   if (level > 0) {
     int cRefRatio = parent->MaxRefRatio(level - 1);
-    if (cRefRatio > 4)
+    if (cRefRatio > 4) {
       amrex::Abort("Spray particles not supported for ref_ratio > 4");
-    else if (cRefRatio > 2)
+    } else if (cRefRatio > 2) {
       nGrowS += 3;
+    }
   }
   Sborder.define(grids, dmap, NUM_STATE, nGrowS, amrex::MFInfo(), Factory());
 }

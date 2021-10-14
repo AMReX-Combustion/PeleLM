@@ -71,6 +71,11 @@
 
 #ifdef AMREX_PARTICLES
 #include <AMReX_Particles.H>
+#include "SprayParticles.H"
+#endif
+
+#ifdef SOOT_MODEL
+#include "SootModel.H"
 #endif
 
 using namespace amrex;
@@ -1692,12 +1697,14 @@ PeleLM::estTimeStep ()
                      << estdt << ", " << divu_dt << '\n';
    }
 #ifdef AMREX_PARTICLES
-   if (do_spray_particles)
+   if (do_spray_particles) {
      particleEstTimeStep(estdt);
+   }
 #endif
 #ifdef SOOT_MODEL
-   if (do_soot_solve)
+   if (do_soot_solve) {
      estSootTimeStep(estdt);
+   }
 #endif
    estdt = std::min(estdt, divu_dt);
 
@@ -1771,13 +1778,15 @@ PeleLM::setTimeLevel (Real time,
    state[RhoYdot_Type].setTimeLevel(time,dt_old,dt_new);
 
 #ifdef AMREX_PARTICLES
-   if (do_spray_particles)
+   if (do_spray_particles) {
      state[spraydot_Type].setTimeLevel(time,dt_old,dt_new);
+   }
 #endif
 
 #ifdef SOOT_MODEL
-   if (do_soot_solve)
+   if (do_soot_solve) {
      state[sootsrc_Type].setTimeLevel(time,dt_old,dt_new);
+   }
 #endif
 
    state[FuncCount_Type].setTimeLevel(time,dt_old,dt_new);
@@ -2099,10 +2108,11 @@ PeleLM::initData ()
 #ifdef AMREX_PARTICLES
   if (do_spray_particles) {
     defineSprayStateMF();
-    if (level == 0)
+    if (level == 0) {
       initParticles();
-    else
+    } else {
       particle_redistribute(level - 1);
+    }
   }
 #endif
 #ifdef AMREX_USE_EB
@@ -2150,8 +2160,9 @@ PeleLM::initDataOtherTypes ()
   get_new_data(RhoYdot_Type).setVal(0.0);
 
 #ifdef AMREX_PARTICLES
-  if (do_spray_particles)
+  if (do_spray_particles) {
     get_new_data(spraydot_Type).setVal(0.0);
+  }
 #endif
 
 #ifdef SOOT_MODEL
@@ -2312,12 +2323,14 @@ PeleLM::init ()
    //
    FillCoarsePatch(get_new_data(RhoYdot_Type),0,tnp1,RhoYdot_Type,0,NUM_SPECIES);
 #ifdef AMREX_PARTICLES
-   if (do_spray_particles)
-     FillCoarsePatch(get_new_data(spraydot_Type),0,tnp1,spraydot_Type,0,num_spray_src);
+   if (do_spray_particles) {
+     FillCoarsePatch(get_new_data(spraydot_Type), 0, tnp1, spraydot_Type, 0, num_spray_src);
+   }
 #endif
 #ifdef SOOT_MODEL
-   if (do_soot_solve)
-     FillCoarsePatch(get_new_data(sootsrc_Type),0,tnp1,sootsrc_Type,0,num_soot_src);
+   if (do_soot_solve) {
+     FillCoarsePatch(get_new_data(sootsrc_Type), 0, tnp1, sootsrc_Type, 0, num_soot_src);
+   }
 #endif
    RhoH_to_Temp(get_new_data(State_Type));
    get_new_data(State_Type).setBndry(1.e30);
@@ -2385,7 +2398,7 @@ PeleLM::post_timestep (int crse_iteration)
     // off the next finest level and need to be added to our own level.
     //
     if ((crse_iteration < ncycle && level < finest_level) || level == 0 || injectParts) {
-      PeleLM::theSprayPC()->Redistribute(level,theSprayPC()->finestLevel(),crse_iteration);
+      theSprayPC()->Redistribute(level,theSprayPC()->finestLevel(),crse_iteration);
     }
   }
 #endif
@@ -2463,8 +2476,9 @@ PeleLM::post_regrid (int lbase,
 #ifdef AMREX_PARTICLES
    if (do_spray_particles && theSprayPC() != 0) {
      defineSprayStateMF();
-     if (level == lbase)
+     if (level == lbase) {
        particle_redistribute(lbase);
+     }
    }
 #endif
 }
@@ -2528,12 +2542,11 @@ PeleLM::checkPoint (const std::string& dir,
       }
   }
 #ifdef AMREX_PARTICLES
-  if (PeleLM::theSprayPC() && do_spray_particles)
-  {
+  if (theSprayPC() && do_spray_particles) {
     bool is_checkpoint = true;
     int write_ascii = 0; // Not for checkpoint intervals
-    PeleLM::theSprayPC()->SprayParticleIO(
-      level, is_checkpoint, write_ascii, dir, PeleLM::sprayFuelNames);
+    theSprayPC()->SprayParticleIO(
+      level, is_checkpoint, write_ascii, dir, sprayFuelNames);
   }
 #endif
 }
@@ -2756,10 +2769,12 @@ PeleLM::post_init (Real stop_time)
   if (do_spray_particles) {
     BL_PROFILE_VAR("SprayParticles::injectParticles()", INJECT_SPRAY);
     ProbParm const* lprobparm = prob_parm.get();
-    bool injectParts = theSprayPC()->
-      injectParticles(tnp1, dt_init, 0, level, finest_level, *lprobparm);
+    bool injectParts = SprayParticleContainer::injectParticles(
+      tnp1, dt_init, 0, level, finest_level, *lprobparm);
     BL_PROFILE_VAR_STOP(INJECT_SPRAY);
-    if (injectParts) theSprayPC()->Redistribute(level,theSprayPC()->finestLevel(),0);
+    if (injectParts) {
+      theSprayPC()->Redistribute(level, theSprayPC()->finestLevel(), 0);
+    }
   }
 #endif
   //
@@ -3104,9 +3119,11 @@ PeleLM::resetState (Real time,
        for (int lev = 0; lev <= parent->finestLevel(); lev++) {
          theSprayPC()->RemoveParticlesAtLevel(lev);
        }
-       if (parent->theRestartFile().empty())
+       if (parent->theRestartFile().empty()) {
          initParticles();
-       else particlePostRestart(parent->theRestartFile());
+       } else {
+         particlePostRestart();
+       }
      } else {
        particle_redistribute(level - 1);
      }
@@ -5222,7 +5239,7 @@ PeleLM::advance (Real time,
     bool ext_src_added = false;
 #ifdef AMREX_PARTICLES
     if (sdc_iter == 1 && do_spray_particles && !NavierStokesBase::initial_step) {
-      AMREX_ASSERT(PeleLM::theSprayPC() != 0);
+      AMREX_ASSERT(theSprayPC() != nullptr);
       particleMKD(time, dt, ghost_width, spray_n_grow,
                   tmp_src_width, where_width, tmp_spray_source);
       ext_src_added = true;
@@ -5571,7 +5588,7 @@ PeleLM::advance (Real time,
 #ifdef AMREX_PARTICLES
     if (do_spray_particles && sdc_iter == sdc_iterMAX && !NavierStokesBase::initial_step) {
       FillPatch(*this, Sborder, nGrow_Sborder, new_time, State_Type, 0, NUM_STATE);
-      particleMK(time, dt, spray_n_grow, tmp_src_width, iteration, ncycle, tmp_spray_source);
+      particleMK(time, dt, spray_n_grow, tmp_src_width, tmp_spray_source);
       add_external_sources(new_time, dt);
     }
 #endif
@@ -9247,11 +9264,11 @@ PeleLM::writePlotFile (const std::string& dir,
 
   VisMF::Write(plotMF,TheFullPath,how);
 #ifdef AMREX_PARTICLES
-  if (PeleLM::theSprayPC() && do_spray_particles)
+  if (theSprayPC() && do_spray_particles)
   {
     bool is_checkpoint = false;
-    PeleLM::theSprayPC()->SprayParticleIO(
-      level, is_checkpoint, write_spray_ascii_files, dir, PeleLM::sprayFuelNames);
+    theSprayPC()->SprayParticleIO(
+      level, is_checkpoint, write_spray_ascii_files, dir, sprayFuelNames);
   }
 #endif
 }
