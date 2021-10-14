@@ -6,6 +6,7 @@
 void
 PeleLM::setSootIndx()
 {
+  SootComps sootComps;
   // Indices for states we are retrieving, so everything except velocity
   sootComps.qRhoIndx = Density - AMREX_SPACEDIM;
   sootComps.qSpecIndx = first_spec - AMREX_SPACEDIM;

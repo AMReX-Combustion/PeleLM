@@ -338,9 +338,9 @@ public:
 #ifdef SOOT_MODEL
   static void setSootIndx ();
   static void sootsrcSetUp ();
-  void computeSootSrc (Real time, Real dt);
+  void computeSootSrc (amrex::Real time, amrex::Real dt);
   void clipSootMoments();
-  void estSootTimeStep (Real& estdt);
+  void estSootTimeStep (amrex::Real& estdt);
 #endif
 
   //
@@ -469,7 +469,6 @@ public:
   static int         first_soot;
   static int         NUM_SOOT_VARS;
   static int         num_soot_src;
-  static SootComps   sootComps;
 #endif
 
   //

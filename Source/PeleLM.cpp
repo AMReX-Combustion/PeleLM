@@ -207,7 +207,6 @@ std::unique_ptr<SootModel> PeleLM::soot_model;
 int PeleLM::first_soot;
 int PeleLM::NUM_SOOT_VARS;
 int PeleLM::num_soot_src;
-SootComps PeleLM::sootComps;
 #endif
 
 std::string                                PeleLM::turbFile;

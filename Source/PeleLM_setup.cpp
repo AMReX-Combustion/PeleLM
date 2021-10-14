@@ -38,6 +38,10 @@
 #include <PeleLM_derive.H>
 #include <IndexDefines.H>
 
+#ifdef SOOT_MODEL
+#include "SootModel.H"
+#endif
+
 using namespace amrex;
 
 #define DEF_LIMITS(fab,fabdat,fablo,fabhi)      \
@@ -1133,9 +1137,9 @@ PeleLM::sootsrcSetUp()
   pelelm_bndryfunc.setRunOnGPU(true);  // I promise the bc function will launch gpu kernels.
   BCRec bc;
   set_sootsrc_bc(bc,phys_bc);
-  int specComp = sootComps.specIndx;
+  int specComp = soot_model->m_sootIndx.specIndx;
   int endSpecComp = specComp + NUM_SPECIES - 1;
-  int sootComp = sootComps.sootIndx - AMREX_SPACEDIM;
+  int sootComp = soot_model->m_sootIndx.sootIndx - AMREX_SPACEDIM;
   int endSootComp = sootComp + DEF_NUM_SOOT_VARS - 1;
   for (int i = 0; i < nsootsrc; ++i)
   {
