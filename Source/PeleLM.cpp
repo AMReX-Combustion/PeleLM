@@ -715,12 +715,7 @@ PeleLM::Initialize_specific ()
    m_reactor = pele::physics::reactions::ReactorBase::create(chem_integrator);
    const int nCell = 1;
    const int reactType = 2;
-#ifdef AMREX_USE_OMP
-#pragma omp parallel if (Gpu::notInLaunchRegion())
-#endif  
-   {
-      m_reactor->init(reactType, nCell);
-   }
+   m_reactor->init(reactType, nCell);
 }
 
 void
