@@ -2771,7 +2771,7 @@ PeleLM::post_init (Real stop_time)
   if (do_spray_particles) {
     BL_PROFILE_VAR("SprayParticles::injectParticles()", INJECT_SPRAY);
     ProbParm const* lprobparm = prob_parm.get();
-    bool injectParts = SprayParticleContainer::injectParticles(
+    bool injectParts = theSprayPC()->injectParticles(
       tnp1, dt_init, 0, level, finest_level, *lprobparm);
     BL_PROFILE_VAR_STOP(INJECT_SPRAY);
     if (injectParts) {
