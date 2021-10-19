@@ -3,27 +3,11 @@
 #include "AMReX_ParmParse.H"
 #include <AMReX_ParallelDescriptor.H>
 #include <AMReX_DataServices.H>
-#include <WritePlotFile.H>
+#include <AMReX_WritePlotFile.H>
+#include <turbinflow.H>
+#include <prob_parm.H>
 
 using namespace amrex;
-
-extern "C" {
-  void fillinit(const int* turbin_enc, const int* turbin_len);
-
-  void fillvel(const int* lo, const int* hi,
-               Real* dat, const int* dlo, const int* dhi,
-               const Real* dx, const Real* plo);
-}
-
-Vector<int>
-encodeStringForFortran(const std::string& astr)
-{
-  long length = astr.size();
-  Vector<int> result(length);
-  for (int i = 0; i < length; ++i)
-    result[i] = astr[i];
-  return result;
-}
 
 void PlotFileFromMF(const MultiFab& mf,
                     const Geometry& geom,
@@ -33,7 +17,7 @@ void PlotFileFromMF(const MultiFab& mf,
   IntVect refRatio(D_DECL(2,2,2));
   Vector<std::string> names(mf.nComp());
   for (int i=0; i<mf.nComp(); ++i) {
-    names[i] = amrex::Concatenate("MF_",i,5);
+    names[i] = Concatenate("MF_",i,5);
   }
     
   writePlotFile(oFile.c_str(),mf,geom,refRatio,bgVal,names);
@@ -208,17 +192,8 @@ main (int   argc,
         }
       }
     }
-    
-    // Now that turbulence file written, read from it to fill the result
-    auto TurbDirEnc = encodeStringForFortran(TurbDir);
-    int len = TurbDirEnc.size();
-#ifdef _OPENMP
-#pragma omp parallel
-#endif
-    {
-      fillinit(&(TurbDirEnc[0]),&len);
-    }
-    
+
+    // Now that turbulence file generated, us it to initialize a new field
     Box box_res(IntVect(D_DECL(0,0,0)),
                 IntVect(D_DECL(255,255,127)));
     RealBox rb_res({D_DECL(-1,-1,0)},
@@ -241,18 +216,40 @@ main (int   argc,
 
     mf_res.setVal(0);
 
+    Real turb_scale_loc = 1.0;
+    pp.query("turb_scale_loc", turb_scale_loc);
+    Real turb_scale_vel = 1.0;
+    pp.query("turb_scale_vel", turb_scale_vel);
+
+    // Hold nose here - required because of dynamically allocated data in tp
+    AMREX_ASSERT_WITH_MESSAGE(h_prob_parm_device->tp.tph==nullptr, "Can only be one TurbParmHost");
+    ProbParmDevice h_prob_parm_device;
+    h_prob_parm_device.tp.tph = new TurbParmHost;
+
+    Vector<Real> turb_center = {{0.5 * (geom_res.ProbHi(0) + geom_res.ProbLo(0)), 0.5 * (geom_res.ProbHi(1) + geom_res.ProbLo(1))}};
+    pp.queryarr("turb_center",turb_center);
+    AMREX_ASSERT_WITH_MESSAGE(turb_center.size()==2,"turb_center must have two elements");
+    for (int n=0; n<turb_center.size(); ++n) {
+      turb_center[n] *= turb_scale_loc;
+    }
+    int turb_nplane = 32;
+    pp.query("turb_nplane",turb_nplane);
+    AMREX_ASSERT(turb_nplane > 0);
+    Real turb_conv_vel = 1;
+    pp.query("turb_conv_vel",turb_conv_vel); // Unused when only calling fill_with_turb
+    AMREX_ASSERT(turb_conv_vel > 0);
+    init_turbinflow(TurbDir,turb_scale_loc,turb_scale_vel,turb_center,turb_conv_vel,turb_nplane,h_prob_parm_device.tp);
+
 #ifdef _OPENMP
 #pragma omp parallel
 #endif
     for (MFIter mfi(mf_res,TilingIfNotGPU()); mfi.isValid(); ++mfi) {
-      const Box& box = mfi.tilebox();
-      fillvel(BL_TO_FORTRAN_BOX(box),
-              BL_TO_FORTRAN_ANYD(mf_res[mfi]),
-              geom_res.CellSize(), geom_res.ProbLo());
+      fill_with_turb(mfi.tilebox(),mf_res[mfi],0,geom_res,h_prob_parm_device.tp);
     }
     
     std::string outfile = Concatenate(pltfile,1); // Need a number other than zero for reg test to pass
     PlotFileFromMF(mf_res,geom_res,outfile);
+
   }
   Finalize();
 }
