@@ -37,6 +37,7 @@
 #include <pelelm_prob_parm.H>
 #include <PeleLM_parm.H>
 #include <pmf_data.H>
+#include <pmf.H>
 
 #include <AMReX_DataServices.H>
 #include <AMReX_AmrData.H>
@@ -175,8 +176,10 @@ Real PeleLM::typical_Y_val_min=1.e-10;
 std::map<std::string,Real> PeleLM::typical_values_FileVals;
 bool PeleLM::def_harm_avg_cen2edge  = false;
 
-std::unique_ptr<ProbParm> PeleLM::prob_parm;
-std::unique_ptr<ACParm> PeleLM::ac_parm;
+ProbParm* PeleLM::prob_parm = nullptr;
+ProbParm* PeleLM::prob_parm_d = nullptr;
+ACParm* PeleLM::ac_parm = nullptr;
+ACParm* PeleLM::ac_parm_d = nullptr;
 pele::physics::transport::TransportParams<
   pele::physics::PhysicsType::transport_type>
   PeleLM::trans_parms;
@@ -933,9 +936,13 @@ PeleLM::variableCleanUp ()
    ShowMF_Sets.clear();
    auxDiag_names.clear();
    typical_values.clear();
-   prob_parm.reset();
-   ac_parm.reset();
+   delete prob_parm;
+   delete ac_parm;
+   The_Arena()->free(prob_parm_d);
+   The_Arena()->free(ac_parm_d);
    trans_parms.deallocate();
+
+   PMF::close();
 
    m_reactor->close();
 #ifdef AMREX_USE_GPU
@@ -1249,6 +1256,12 @@ PeleLM::restart (Amr&          papa,
    NavierStokesBase::restart(papa,is,bReadSpecial);
 
    define_data();
+
+   //
+   // Copy problem parameters into device copy
+   //
+   Gpu::copy(Gpu::hostToDevice, prob_parm, prob_parm+1,
+             prob_parm_d);
 
    // Deal with typical values
    set_typical_values(true);
@@ -1764,6 +1777,12 @@ void
 PeleLM::initData ()
 {
   //
+  // Copy problem parameters into device copy
+  //
+  Gpu::copy(Gpu::hostToDevice, prob_parm, prob_parm+1,
+            prob_parm_d);
+
+  //
   // Initialize the state and the pressure.
   //
   MultiFab&   S_new    = get_new_data(State_Type);
@@ -1922,7 +1941,7 @@ PeleLM::initData ()
     {
       const Box& box = mfi.tilebox();
       auto const& snew_arr = S_new.array(mfi);
-      ProbParm const* lprobparm = prob_parm.get();
+      ProbParm const* lprobparm = prob_parm_d;
 
       amrex::ParallelFor(box,
       [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
@@ -1953,7 +1972,7 @@ PeleLM::initData ()
     S_new.setVal(0.0);
     P_new.setVal(0.0);
 
-    ProbParm const* lprobparm = prob_parm.get();
+    ProbParm const* lprobparm = prob_parm_d;
     PmfData const* lpmfdata = pmf_data_g;
 
     auto const& sma = S_new.arrays();
@@ -6026,7 +6045,7 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
      } else {
          amrex::Gpu::DeviceVector<int> iconserv;
          iconserv.resize(NUM_SPECIES, 0);
-         Gpu::copy(amrex::Gpu::hostToDevice,iconserv_h.begin(),iconserv_h.end(),iconserv.begin()); 
+         Gpu::copy(Gpu::hostToDevice,iconserv_h.begin(),iconserv_h.end(),iconserv.begin());
          EBMOL::ComputeAofs( *aofs, first_spec, NUM_SPECIES, Smf, rhoYcomp,
                              AMREX_D_DECL(u_mac[0],u_mac[1],u_mac[2]),
                              AMREX_D_DECL(*EdgeState[0],*EdgeState[1],*EdgeState[2]), first_spec, knownEdgeState,
@@ -6143,7 +6162,7 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
     } else {
         amrex::Gpu::DeviceVector<int> iconserv;
         iconserv.resize(1, 0);
-        Gpu::copy(amrex::Gpu::hostToDevice,iconserv_h.begin(),iconserv_h.end(),iconserv.begin()); 
+        Gpu::copy(Gpu::hostToDevice,iconserv_h.begin(),iconserv_h.end(),iconserv.begin());
         EBMOL::ComputeAofs( *aofs, Temp, 1, Smf, Tcomp,
                             AMREX_D_DECL(u_mac[0],u_mac[1],u_mac[2]),
                             AMREX_D_DECL(*EdgeState[0],*EdgeState[1],*EdgeState[2]), Temp, knownEdgeState,
@@ -6266,7 +6285,7 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
     } else {
         amrex::Gpu::DeviceVector<int> iconserv;
         iconserv.resize(1, 0);
-        Gpu::copy(amrex::Gpu::hostToDevice,iconserv_h.begin(),iconserv_h.end(),iconserv.begin()); 
+        Gpu::copy(Gpu::hostToDevice,iconserv_h.begin(),iconserv_h.end(),iconserv.begin());
         EBMOL::ComputeAofs( *aofs, RhoH, 1, Smf, NUM_SPECIES+1,
                             AMREX_D_DECL(u_mac[0],u_mac[1],u_mac[2]),
                             AMREX_D_DECL(*EdgeState[0],*EdgeState[1],*EdgeState[2]), RhoH, knownEdgeState,
@@ -9282,8 +9301,8 @@ PeleLM::initActiveControl()
    }
 
    // Extract data from bc: assumes flow comes in from lo side of ctrl_flameDir
-   ProbParm const* lprobparm = prob_parm.get();
-   ACParm const* lacparm = ac_parm.get();
+   ProbParm const* lprobparm = prob_parm_d;
+   ACParm const* lacparm = ac_parm_d;
    PmfData const* lpmfdata = pmf_data_g;
    amrex::Gpu::DeviceVector<amrex::Real> s_ext_v(DEF_NUM_STATE);
    amrex::Real* s_ext_d = s_ext_v.data();
@@ -9330,6 +9349,7 @@ PeleLM::initActiveControl()
 
    // Pass V_in to bc
    ac_parm->ctrl_V_in = ctrl_V_in;
+   amrex::Gpu::copy(amrex::Gpu::hostToDevice,ac_parm,ac_parm+1,ac_parm_d);
 
    if ( ctrl_verbose && ctrl_active ) {
       if ( ctrl_use_temp ) {
