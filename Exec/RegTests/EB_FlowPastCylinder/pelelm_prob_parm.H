@@ -7,7 +7,6 @@
 using namespace amrex::literals;
 
 struct ProbParm
-   : amrex::Gpu::Managed
 {
    // Shared params
     int probType = 0;  
