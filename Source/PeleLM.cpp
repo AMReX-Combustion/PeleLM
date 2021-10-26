@@ -942,7 +942,7 @@ PeleLM::variableCleanUp ()
    The_Arena()->free(ac_parm_d);
    trans_parms.deallocate();
 
-   PMF::close();
+   //PMF::close();
 
    m_reactor->close();
 #ifdef AMREX_USE_GPU
