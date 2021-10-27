@@ -639,6 +639,34 @@ fluxDivergence(int i, int j, int k,
 AMREX_GPU_HOST_DEVICE
 AMREX_FORCE_INLINE
 void
+fluxDivergenceEB(int i, int j, int k,
+                 int ncomp,
+                 AMREX_D_DECL(amrex::Array4<const amrex::Real>     const& fluxX,
+                              amrex::Array4<const amrex::Real>     const& fluxY,
+                              amrex::Array4<const amrex::Real>     const& fluxZ),
+               int                                                useEBFlux,
+               amrex::Array4<const        amrex::Real>     const& ebflux,
+               amrex::Array4<const        amrex::Real>     const& vol,
+               const amrex::Real                                & volFracInv,
+               const amrex::Real                                & scaling,
+               amrex::Array4<      amrex::Real>            const& div) noexcept
+{
+   using namespace amrex::literals;
+
+   amrex::Real factor = scaling / vol(i,j,k);
+
+   for (int n = 0; n < ncomp; n++) {
+      div(i,j,k,n) = AMREX_D_TERM (  ( fluxX(i+1,j,k,n) - fluxX(i,j,k,n) ),
+                                   + ( fluxY(i,j+1,k,n) - fluxY(i,j,k,n) ),
+                                   + ( fluxZ(i,j,k+1,n) - fluxZ(i,j,k,n) ));
+      if (useEBFlux) div(i,j,k,n) += ebflux(i,j,k,n);
+      div(i,j,k,n) *= factor * volFracInv;
+   }
+}
+
+AMREX_GPU_HOST_DEVICE
+AMREX_FORCE_INLINE
+void
 buildDiffusionForcing(int i, int j, int k,
                       amrex::Array4<const amrex::Real> const& dn,
                       amrex::Array4<const amrex::Real> const& ddn,
