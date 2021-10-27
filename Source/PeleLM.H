@@ -12,7 +12,7 @@
 #include <PeleLM_parm.H>
 #include "PelePhysics.H"
 #include "ReactorBase.H"
-
+#include <IndexDefines.H>
 #include <list>
 #include <map>
 #include <utility>
@@ -355,6 +355,7 @@ public:
   void compute_differential_diffusion_fluxes (const amrex::MultiFab& S,
                                               const amrex::MultiFab* Scrse,
                                               amrex::MultiFab* const * flux,
+					      amrex::MultiFab* ebflux,
                                               const amrex::MultiFab* const * beta,
                                               amrex::Real dt,
 					      amrex::Real time,
@@ -368,6 +369,7 @@ public:
 
   void compute_enthalpy_fluxes (amrex::MultiFab* const*       flux,
                                 const amrex::MultiFab* const* beta,
+				amrex::MultiFab*              ebflux,
 				amrex::Real		      time);
 
   enum HowToFillGrow {HT_ZERO_GROW_CELLS, HT_EXTRAP_GROW_CELLS, HT_NUM_GROW_OPTIONS};
@@ -414,6 +416,7 @@ public:
   void flux_divergenceRD (const amrex::MultiFab  &a_state,
                           int                     stateComp,
                           amrex::MultiFab        &a_divergence,
+			  const amrex::MultiFab*  ebf,
                           int                     divComp,
                           const amrex::MultiFab* const* extensive_fluxes,
                           int                     fluxComp,
@@ -426,6 +429,7 @@ public:
   void flux_divergence (amrex::MultiFab&  a_divergence,
                         int               divComp,
                         const amrex::MultiFab* const* a_ext_fluxes,
+			const amrex::MultiFab* extensive_ebfluxes,
                         int               fluxComp,
                         int               nComp,
                         amrex::Real       scale);
@@ -438,6 +442,13 @@ public:
 
   void getDiffusivity_Wbar (amrex::MultiFab* diffusivity[AMREX_SPACEDIM],
                             const amrex::Real time);
+			    
+#ifdef AMREX_USE_EB
+  void getEBState(const amrex::Real &a_time,
+                  amrex::MultiFab &stateEB,
+                  int         stateComp,
+                  int         nComp);
+#endif
 
   amrex::DistributionMapping getFuncCountDM (const amrex::BoxArray& bxba, int ngrow);
 
@@ -606,6 +617,11 @@ public:
   amrex::MultiFab**  EdgeFlux;
   amrex::MultiFab**  SpecDiffusionFluxn;
   amrex::MultiFab**  SpecDiffusionFluxnp1;
+
+#ifdef AMREX_USE_EB
+  amrex::MultiFab*   EBDiffusionFluxn;
+  amrex::MultiFab*   EBDiffusionFluxnp1;
+#endif
 
   amrex::MultiFab**  SpecDiffusionFluxWbar;
 
