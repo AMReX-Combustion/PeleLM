@@ -714,6 +714,9 @@ PeleLM::Initialize_specific ()
    pplm.query("dpdt_factor",dpdt_factor);
 
    // Initialize reactor: TODO might do a per level ?
+   if (!pplm.contains("chem_integrator")) {
+      Abort("  peleLM.chem_integrator need to be specified");
+   }
    pplm.get("chem_integrator",chem_integrator);
    m_reactor = pele::physics::reactions::ReactorBase::create(chem_integrator);
    const int nCell = 1;
