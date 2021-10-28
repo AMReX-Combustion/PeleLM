@@ -380,8 +380,8 @@ void pelelm_cc_ext_fill (Box const& bx, FArrayBox& data,
                  const Vector<BCRec>& bcr, const int bcomp,
                  const int scomp)
 {
-        ProbParm const* lprobparm = PeleLM::prob_parm.get(); 
-        ACParm const* lacparm = PeleLM::ac_parm.get(); 
+        ProbParm const* lprobparm = PeleLM::prob_parm_d;
+        ACParm const* lacparm = PeleLM::ac_parm_d;
         GpuBndryFuncFab<PeleLMCCFillExtDir> gpu_bndry_func(PeleLMCCFillExtDir{lprobparm,lacparm,pmf_data_g});
         gpu_bndry_func(bx,data,dcomp,numcomp,geom,time,bcr,bcomp,scomp);
 
