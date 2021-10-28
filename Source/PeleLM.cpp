@@ -206,7 +206,7 @@ std::unique_ptr<pele::physics::reactions::ReactorBase> PeleLM::m_reactor;
 #ifdef SOOT_MODEL
 int PeleLM::do_soot_solve;
 int PeleLM::plot_soot_src;
-std::unique_ptr<SootModel> PeleLM::soot_model;
+SootModel* PeleLM::soot_model;
 int PeleLM::first_soot;
 int PeleLM::NUM_SOOT_VARS;
 int PeleLM::num_soot_src;

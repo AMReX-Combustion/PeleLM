@@ -464,7 +464,7 @@ public:
 #ifdef SOOT_MODEL
   static int do_soot_solve;
   static int plot_soot_src;
-  static std::unique_ptr<SootModel> soot_model;
+  static SootModel* soot_model;
   static int         sootsrc_Type;
   static int         first_soot;
   static int         NUM_SOOT_VARS;
