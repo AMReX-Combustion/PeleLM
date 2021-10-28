@@ -2406,7 +2406,7 @@ PeleLM::post_timestep (int crse_iteration)
     }
     int nstep = parent->levelSteps(0);
     BL_PROFILE_VAR("SprayParticles::injectParticles()", INJECT_SPRAY);
-    ProbParm const* lprobparm = prob_parm.get();
+    ProbParm const* lprobparm = prob_parm;
     const Real prev_time = state[State_Type].prevTime();
     const Real curr_time = state[State_Type].curTime();
     const Real dt = curr_time - prev_time;
@@ -2789,7 +2789,7 @@ PeleLM::post_init (Real stop_time)
 #ifdef AMREX_PARTICLES
   if (do_spray_particles) {
     BL_PROFILE_VAR("SprayParticles::injectParticles()", INJECT_SPRAY);
-    ProbParm const* lprobparm = prob_parm.get();
+    ProbParm const* lprobparm = prob_parm;
     bool injectParts = theSprayPC()->injectParticles(
       tnp1, dt_init, 0, level, finest_level, *lprobparm);
     BL_PROFILE_VAR_STOP(INJECT_SPRAY);
@@ -6677,10 +6677,10 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
  if (DEF_NUM_PASSIVE > 0 && solve_passives)
  {
    BCRec  const* d_bcrec_ptr = &(m_bcrec_scalars_d.dataPtr())[first_passive-Density];
-   amrex::Gpu::DeviceVector<int> iconserv;
-   iconserv.resize(DEF_NUM_PASSIVE, 0);
+   Vector<int> iconserv_h;
+   iconserv_h.resize(DEF_NUM_PASSIVE, 0);
    for (int comp = 0; comp < DEF_NUM_PASSIVE; ++comp) {
-     iconserv[comp] = (advectionType[first_passive+comp] == Conservative) ? 1 : 0;
+     iconserv_h[comp] = (advectionType[first_passive+comp] == Conservative) ? 1 : 0;
    }
    const int force_pass_comp = NUM_SPECIES + 1;
    Godunov::ComputeAofs(*aofs, first_passive, DEF_NUM_PASSIVE,
@@ -6688,7 +6688,7 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
                         AMREX_D_DECL( u_mac[0], u_mac[1], u_mac[2] ),
                         AMREX_D_DECL(*EdgeState[0], *EdgeState[1], *EdgeState[2]), first_passive, false,
                         AMREX_D_DECL(*EdgeFlux[0], *EdgeFlux[1], *EdgeFlux[2]), first_passive,
-                        Force, force_pass_comp, DivU, d_bcrec_ptr, geom, iconserv,
+                        Force, force_pass_comp, DivU, d_bcrec_ptr, geom, iconserv_h,
                         dt, godunov_use_ppm, godunov_use_forces_in_trans, false );
  }
 

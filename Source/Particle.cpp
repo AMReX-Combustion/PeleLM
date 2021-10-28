@@ -413,7 +413,7 @@ PeleLM::initParticles()
     if (!particle_init_file.empty()) {
       theSprayPC()->InitFromAsciiFile(particle_init_file, NSR_SPR + NAR_SPR);
     } else if (particle_init_function > 0) {
-      ProbParm const* lprobparm = prob_parm.get();
+      ProbParm const* lprobparm = prob_parm;
       theSprayPC()->InitSprayParticles(*lprobparm);
     } else {
       Abort("Must initialize spray particles with particles.init_function or "
