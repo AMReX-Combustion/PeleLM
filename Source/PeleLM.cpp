@@ -3445,7 +3445,6 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
    adjust_spec_diffusion_fluxes(SpecDiffusionFluxnp1, scalars, Tbc);
 
    // Compute Dnp1kp1 (here called Dnew)
-//   flux_divergence(Dnew, DComp, SpecDiffusionFluxnp1, 0, NUM_SPECIES, -1);
    MultiFab* ebflux = nullptr; 
    flux_divergence(Dnew,DComp,SpecDiffusionFluxnp1,ebflux,0,NUM_SPECIES,-1);
 #ifdef AMREX_USE_OMP
@@ -3477,7 +3476,6 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
    // 1. flux[NUM_SPECIES+1] = sum_m (H_m Gamma_m)
    // 2. compute flux[NUM_SPECIES+2] = - lambda grad T
    //
-//   compute_enthalpy_fluxes(SpecDiffusionFluxnp1, betanp1, new_time);
 #ifdef AMREX_USE_EB
    if (Diffusion::useEBDirichlet()) {
       ebflux = EBDiffusionFluxnp1; 
@@ -3488,10 +3486,8 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
    // Divergence of energy fluxes:
    // 1. Dnew[N+1] = -Div(flux[N+2])
    // 2. DD = -Sum{ Div(H_m Gamma_m) }
-//   flux_divergence(Dnew,DComp+NUM_SPECIES+1,SpecDiffusionFluxnp1,NUM_SPECIES+2,1,-1);
    flux_divergence(Dnew,DComp+NUM_SPECIES+1,SpecDiffusionFluxnp1,ebflux,NUM_SPECIES+2,1,-1);
   
-//   flux_divergence(DDnew,0,SpecDiffusionFluxnp1,NUM_SPECIES+1,1,-1);
    flux_divergence(DDnew,0,SpecDiffusionFluxnp1,ebflux,NUM_SPECIES+1,1,-1);
    if (deltaT_verbose) {
       Print() << " Iterative solve for deltaT: " << std::endl;
@@ -3574,9 +3570,7 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
       MultiFab::Add(get_new_data(State_Type),Told,0,Temp,1,0);
 
       // Update energy fluxes, divergences
-//      compute_enthalpy_fluxes(SpecDiffusionFluxnp1,betanp1,new_time);
-//      flux_divergence(Dnew,DComp+NUM_SPECIES+1,SpecDiffusionFluxnp1,NUM_SPECIES+2,1,-1);
-//      flux_divergence(DDnew,0,SpecDiffusionFluxnp1,NUM_SPECIES+1,1,-1);
+
       compute_enthalpy_fluxes(SpecDiffusionFluxnp1,betanp1,ebflux,new_time);
       flux_divergence(Dnew,DComp+NUM_SPECIES+1,SpecDiffusionFluxnp1,ebflux,NUM_SPECIES+2,1,-1);
       flux_divergence(DDnew,0,SpecDiffusionFluxnp1,ebflux,NUM_SPECIES+1,1,-1);
@@ -4309,7 +4303,6 @@ PeleLM::compute_differential_diffusion_fluxes (const MultiFab& S,
    // build heat fluxes based on species fluxes, Gamma_m, and cell-centered states
    // compute flux[NUM_SPECIES+1] = sum_m (H_m Gamma_m)
    // compute flux[NUM_SPECIES+2] = - lambda grad T
-//   compute_enthalpy_fluxes(flux, beta, time);
    compute_enthalpy_fluxes(flux,beta,ebflux,time);
 #ifdef AMREX_USE_EB
    // Get rid of flux on covered faces
@@ -4692,11 +4685,9 @@ compute_differential_diffusion_fluxes(scalars,scalarsCrse.get(),flux,ebflux,beta
    // D[0:NUM_SPECIES-1] = -Div( Fk )
    // D[ NUM_SPECIES+1 ] = Div( lambda Grad(T) )
    BCRec const* d_bcrec_spec = &(m_bcrec_scalars_d.dataPtr())[first_spec-Density];
-   //flux_divergenceRD(scalars,first_spec-Density,D,0,flux,0,NUM_SPECIES,d_bcrec_spec,-1.0,dt,1);
-flux_divergenceRD(scalars,first_spec-Density,D,ebflux,0,flux,0,NUM_SPECIES,d_bcrec_spec,-1.0,dt,1);   
-  BCRec const* d_bcrec_temp = &(m_bcrec_scalars_d.dataPtr())[Temp-Density];
- //  flux_divergenceRD(scalars,Temp-Density,D,NUM_SPECIES+1,flux,NUM_SPECIES+2,1,d_bcrec_temp,-1.0,dt);
-flux_divergenceRD(scalars,Temp-Density,D,ebflux,NUM_SPECIES+1,flux,NUM_SPECIES+2,1,d_bcrec_temp,-1.0,dt);
+   flux_divergenceRD(scalars,first_spec-Density,D,ebflux,0,flux,0,NUM_SPECIES,d_bcrec_spec,-1.0,dt,1);   
+   BCRec const* d_bcrec_temp = &(m_bcrec_scalars_d.dataPtr())[Temp-Density];
+   flux_divergenceRD(scalars,Temp-Density,D,ebflux,NUM_SPECIES+1,flux,NUM_SPECIES+2,1,d_bcrec_temp,-1.0,dt);
    // Compute "DD":
    // DD = -Sum{ Div( hk . Fk ) } a.k.a. the "diffdiff" terms
    BCRec const* d_bcrec_rhoh = &(m_bcrec_scalars_d.dataPtr())[RhoH-Density];
