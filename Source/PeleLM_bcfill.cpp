@@ -162,7 +162,11 @@ struct PeleLMCCFillExtDir
 
          if (orig_comp == Xvel){
            for (int n = 0; n < AMREX_SPACEDIM; n++) {
+#ifdef PELE_USE_TURBINFLOW
+             dest(iv, dcomp + n) += s_ext[Xvel+n];
+#else
              dest(iv, dcomp + n) = s_ext[Xvel+n];
+#endif
            }
          }
          else if (orig_comp == Density){
@@ -191,7 +195,11 @@ struct PeleLMCCFillExtDir
 
          if (orig_comp == Xvel){
            for (int n = 0; n < AMREX_SPACEDIM; n++) {
+#ifdef PELE_USE_TURBINFLOW
+             dest(iv, dcomp + n) += s_ext[Xvel+n];
+#else
              dest(iv, dcomp + n) = s_ext[Xvel+n];
+#endif
            }
          }
          else if (orig_comp == Density){
@@ -222,7 +230,11 @@ struct PeleLMCCFillExtDir
 
          if (orig_comp == Xvel){
            for (int n = 0; n < AMREX_SPACEDIM; n++) {
+#ifdef PELE_USE_TURBINFLOW
+             dest(iv, dcomp + n) += s_ext[Xvel+n];
+#else
              dest(iv, dcomp + n) = s_ext[Xvel+n];
+#endif
            }
          }
          else if (orig_comp == Density){
@@ -251,7 +263,11 @@ struct PeleLMCCFillExtDir
 
          if (orig_comp == Xvel){
            for (int n = 0; n < AMREX_SPACEDIM; n++) {
+#ifdef PELE_USE_TURBINFLOW
+             dest(iv, dcomp + n) += s_ext[Xvel+n];
+#else
              dest(iv, dcomp + n) = s_ext[Xvel+n];
+#endif
            }
          }
          else if (orig_comp == Density){
@@ -283,7 +299,11 @@ struct PeleLMCCFillExtDir
 
          if (orig_comp == Xvel){
            for (int n = 0; n < AMREX_SPACEDIM; n++) {
+#ifdef PELE_USE_TURBINFLOW
+             dest(iv, dcomp + n) += s_ext[Xvel+n];
+#else
              dest(iv, dcomp + n) = s_ext[Xvel+n];
+#endif
            }
          }
          else if (orig_comp == Density){
@@ -312,7 +332,11 @@ struct PeleLMCCFillExtDir
 
          if (orig_comp == Xvel){
            for (int n = 0; n < AMREX_SPACEDIM; n++) {
+#ifdef PELE_USE_TURBINFLOW
+             dest(iv, dcomp + n) += s_ext[Xvel+n];
+#else
              dest(iv, dcomp + n) = s_ext[Xvel+n];
+#endif
            }
          }
          else if (orig_comp == Density){
@@ -352,8 +376,86 @@ void pelelm_cc_ext_fill (Box const& bx, FArrayBox& data,
 {
         ProbParm const* lprobparm = PeleLM::prob_parm_d;
         ACParm const* lacparm = PeleLM::ac_parm_d;
+
+        Print() << " Calling pelelm_cc_ext_fill with scomp " << scomp << " and dcomp " << dcomp << " and ncomp " << numcomp << "\n";
+#ifdef PELE_USE_TURBINFLOW
+        if (PeleLM::prob_parm->do_turb && scomp < AMREX_SPACEDIM)  {
+
+          ProbParm *probparmDD = PeleLM::prob_parm_d;
+          ProbParm *probparmDH = PeleLM::prob_parm;
+
+          // Copy problem parameter structs to host
+          amrex::Gpu::copy(amrex::Gpu::deviceToHost, probparmDD, probparmDD + 1, probparmDH);
+
+          for (int dir=0; dir<AMREX_SPACEDIM; ++dir) {
+
+            auto bndryBoxLO = amrex::Box(amrex::adjCellLo(geom.Domain(),dir) & bx);
+            if (bcr[1].lo()[dir]==EXT_DIR && bndryBoxLO.ok())
+            {
+              // Create box with ghost cells and set them to zero
+              amrex::IntVect growVect(amrex::IntVect::TheUnitVector());
+              int Grow = 1;
+              for(int n=0;n<AMREX_SPACEDIM;n++)
+                growVect[n] = Grow;
+              growVect[dir] = 0;
+              amrex::Box modDom = geom.Domain();
+              modDom.grow(growVect);
+              auto bndryBoxLO_ghost = amrex::Box(amrex::adjCellLo(modDom,dir) & bx);
+              data.setVal<amrex::RunOn::Host>(0.0,bndryBoxLO_ghost,Xvel,AMREX_SPACEDIM);
+
+              add_turb(bndryBoxLO, data, 0, geom, time, dir, amrex::Orientation::low, probparmDH->tp);
+              probparmDH->turb_ok[dir] = true;
+            }
+
+            auto bndryBoxHI = amrex::Box(amrex::adjCellHi(geom.Domain(),dir) & bx);
+            if (bcr[1].hi()[dir]==EXT_DIR && bndryBoxHI.ok())
+            {
+              //Create box with ghost cells and set them to zero
+              amrex::IntVect growVect(amrex::IntVect::TheUnitVector());
+              int Grow = 1;
+              for(int n=0;n<AMREX_SPACEDIM;n++)
+                growVect[n] = Grow;
+              growVect[dir] = 0;
+              amrex::Box modDom = geom.Domain();
+              modDom.grow(growVect);
+              auto bndryBoxHI_ghost = amrex::Box(amrex::adjCellHi(modDom,dir) & bx);
+              data.setVal<amrex::RunOn::Host>(0.0,bndryBoxHI_ghost,Xvel,AMREX_SPACEDIM);
+
+              add_turb(bndryBoxHI, data, 0, geom, time, dir, amrex::Orientation::high, probparmDH->tp);
+              probparmDH->turb_ok[dir+AMREX_SPACEDIM] = true;
+            }
+          }
+
+          // Copy problem parameter structs back to device
+          amrex::Gpu::copy(amrex::Gpu::hostToDevice, probparmDH, probparmDH + 1, probparmDD);
+        }
+#endif
+
         GpuBndryFuncFab<PeleLMCCFillExtDir> gpu_bndry_func(PeleLMCCFillExtDir{lprobparm,lacparm,pmf_data_g});
         gpu_bndry_func(bx,data,dcomp,numcomp,geom,time,bcr,bcomp,scomp);
+
+#ifdef PELE_USE_TURBINFLOW
+        if (PeleLM::prob_parm->do_turb && scomp < AMREX_SPACEDIM)  {
+
+          ProbParm *probparmDD = PeleLM::prob_parm_d;
+          ProbParm *probparmDH = PeleLM::prob_parm;
+
+          // Copy problem parameter structs to host
+          amrex::Gpu::copy(amrex::Gpu::deviceToHost, probparmDD, probparmDD + 1, probparmDH);
+
+          for (int dir=0; dir<AMREX_SPACEDIM; ++dir) {
+            if (probparmDH->turb_ok[dir]) {
+              probparmDH->turb_ok[dir] = false;
+            }
+            if (probparmDH->turb_ok[dir+AMREX_SPACEDIM]) {
+              probparmDH->turb_ok[dir+AMREX_SPACEDIM] = false;
+            }
+          }
+
+          // Copy problem parameter structs back to device
+          amrex::Gpu::copy(amrex::Gpu::hostToDevice, probparmDH, probparmDH + 1, probparmDD);
+        }
+#endif
 
 }
 
