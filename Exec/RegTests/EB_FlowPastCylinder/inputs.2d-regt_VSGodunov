@@ -63,6 +63,7 @@ ns.num_divu_iters    = 1               # Number of DivU iteration at initializat
 ns.sdc_iterMAX       = 2               # Number of SDC iterations
 ns.num_mac_sync_iter = 2               # Number of mac_sync iterations
 ns.use_godunov       = 1               # Use Godunov scheme for the advection term
+peleLM.chem_integrator     = "ReactorNull"
 
 #------------  INPUTS TO CONSTANT TRANSPORT -----------------
 transport.const_viscosity        = 2.0e-05

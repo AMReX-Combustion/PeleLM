@@ -183,7 +183,7 @@ ACParm* PeleLM::ac_parm_d = nullptr;
 pele::physics::transport::TransportParams<
   pele::physics::PhysicsType::transport_type>
   PeleLM::trans_parms;
-std::string PeleLM::chem_integrator = "ReactorNull";
+std::string PeleLM::chem_integrator;
 std::unique_ptr<pele::physics::reactions::ReactorBase> PeleLM::m_reactor;
 
 std::string                                PeleLM::turbFile;
@@ -714,16 +714,14 @@ PeleLM::Initialize_specific ()
    pplm.query("dpdt_factor",dpdt_factor);
 
    // Initialize reactor: TODO might do a per level ?
-   pplm.query("chem_integrator",chem_integrator);
+   if (!pplm.contains("chem_integrator")) {
+      Abort("  peleLM.chem_integrator need to be specified");
+   }
+   pplm.get("chem_integrator",chem_integrator);
    m_reactor = pele::physics::reactions::ReactorBase::create(chem_integrator);
    const int nCell = 1;
    const int reactType = 2;
-#ifdef AMREX_USE_OMP
-#pragma omp parallel if (Gpu::notInLaunchRegion())
-#endif  
-   {
-      m_reactor->init(reactType, nCell);
-   }
+   m_reactor->init(reactType, nCell);
 }
 
 void
