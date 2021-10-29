@@ -5270,7 +5270,7 @@ PeleLM::advance (Real time,
        BCRec const* d_bcrec_spec = &(m_bcrec_scalars_d.dataPtr())[first_spec-Density];
    //    flux_divergenceRD(scalars, 1, DWbar,0,SpecDiffusionFluxWbar,0,NUM_SPECIES,d_bcrec_spec,-1.0,dt);
        MultiFab* ebflux = nullptr; 
-       flux_divergenceRD(scalars, 1, DWbar,ebflux, 0, SpecDiffusionFluxWbar 0, NUM_SPECIES, d_bcrec_spec, -1.0, dt);    
+       flux_divergenceRD(scalars, 1, DWbar,ebflux, 0, SpecDiffusionFluxWbar, 0, NUM_SPECIES, d_bcrec_spec, -1.0, dt);    
     }
 
 #ifdef AMREX_USE_OMP
