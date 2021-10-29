@@ -36,6 +36,11 @@ Blocs             += $(PP_SRC_HOME)
 
 # Utilities
 include $(PELE_PHYSICS_HOME)/Utility/Make.package
+ifeq ($(USE_TURBINFLOW), TRUE)
+  DEFINES += -DPELE_USE_TURBINFLOW
+  include $(PELE_PHYSICS_HOME)/Utility/TurbInflow/Make.package
+  Blocs += $(PELE_PHYSICS_HOME)/Utility/TurbInflow
+endif
 
 # EOS
 EOS_HOME = $(PELE_PHYSICS_HOME)/Eos
