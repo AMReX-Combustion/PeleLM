@@ -1528,7 +1528,7 @@ PeleLM::update_typical_values_chem ()
                      typical_values[first_spec+i] * typical_values[Density] * 1.E-3); // CGS -> MKS conversion
       }
       typical_values_chem[NUM_SPECIES] = typical_values[Temp];
-      m_reactor->SetTypValsODE(typical_values_chem);
+      m_reactor->set_typ_vals_ode(typical_values_chem);
     }
   }
 }
