@@ -36,8 +36,6 @@
 #include <pelelm_prob.H>
 #include <pelelm_prob_parm.H>
 #include <PeleLM_parm.H>
-#include <pmf_data.H>
-#include <pmf.H>
 
 #include <AMReX_DataServices.H>
 #include <AMReX_AmrData.H>
@@ -183,6 +181,7 @@ ACParm* PeleLM::ac_parm_d = nullptr;
 pele::physics::transport::TransportParams<
   pele::physics::PhysicsType::transport_type>
   PeleLM::trans_parms;
+pele::physics::PMF::PmfData PeleLM::pmf_data;
 std::string PeleLM::chem_integrator;
 std::unique_ptr<pele::physics::reactions::ReactorBase> PeleLM::m_reactor;
 
@@ -1971,7 +1970,7 @@ PeleLM::initData ()
     P_new.setVal(0.0);
 
     ProbParm const* lprobparm = prob_parm_d;
-    PmfData const* lpmfdata = pmf_data_g;
+    pele::physics::PMF::PmfData::DataContainer const* lpmfdata = pmf_data.getDeviceData();
 
     auto const& sma = S_new.arrays();
     amrex::ParallelFor(S_new,
@@ -9301,7 +9300,7 @@ PeleLM::initActiveControl()
    // Extract data from bc: assumes flow comes in from lo side of ctrl_flameDir
    ProbParm const* lprobparm = prob_parm_d;
    ACParm const* lacparm = ac_parm_d;
-   PmfData const* lpmfdata = pmf_data_g;
+   pele::physics::PMF::PmfData::DataContainer const* lpmfdata = pmf_data.getDeviceData();
    amrex::Gpu::DeviceVector<amrex::Real> s_ext_v(DEF_NUM_STATE);
    amrex::Real* s_ext_d = s_ext_v.data();
    amrex::Real x[AMREX_SPACEDIM] = {AMREX_D_DECL(problo[0],problo[1],problo[2])};
