@@ -1,6 +1,5 @@
 #include <PeleLM.H>
 #include <pelelm_prob.H>
-#include <pmf.H>
 
 extern "C" {
     void amrex_probinit (const int* init,
@@ -17,10 +16,6 @@ extern "C" {
         pp.query("FlowDir",  PeleLM::prob_parm->FlowDir);
 
         amrex::Print() << " Flow direction : "<< PeleLM::prob_parm->FlowDir << "\n";
-
-        std::string pmf_datafile;
-        pp.query("pmf_datafile", pmf_datafile);
-        int pmf_do_average = 1;
-        PMF::read_pmf(pmf_datafile, pmf_do_average);
+        PeleLM::pmf_data.initialize();
     }
 }
