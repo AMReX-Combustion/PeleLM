@@ -377,7 +377,6 @@ void pelelm_cc_ext_fill (Box const& bx, FArrayBox& data,
         ProbParm const* lprobparm = PeleLM::prob_parm_d;
         ACParm const* lacparm = PeleLM::ac_parm_d;
 
-        Print() << " Calling pelelm_cc_ext_fill with scomp " << scomp << " and dcomp " << dcomp << " and ncomp " << numcomp << "\n";
 #ifdef PELE_USE_TURBINFLOW
         if (PeleLM::prob_parm->do_turb && scomp < AMREX_SPACEDIM)  {
 
@@ -394,13 +393,13 @@ void pelelm_cc_ext_fill (Box const& bx, FArrayBox& data,
             {
               // Create box with ghost cells and set them to zero
               amrex::IntVect growVect(amrex::IntVect::TheUnitVector());
-              int Grow = 1;
+              int Grow = 4;     // Being conservative
               for(int n=0;n<AMREX_SPACEDIM;n++)
                 growVect[n] = Grow;
               growVect[dir] = 0;
               amrex::Box modDom = geom.Domain();
               modDom.grow(growVect);
-              auto bndryBoxLO_ghost = amrex::Box(amrex::adjCellLo(modDom,dir) & bx);
+              auto bndryBoxLO_ghost = amrex::Box(amrex::adjCellLo(modDom,dir,Grow) & bx);
               data.setVal<amrex::RunOn::Host>(0.0,bndryBoxLO_ghost,Xvel,AMREX_SPACEDIM);
 
               add_turb(bndryBoxLO, data, 0, geom, time, dir, amrex::Orientation::low, probparmDH->tp);
@@ -412,13 +411,13 @@ void pelelm_cc_ext_fill (Box const& bx, FArrayBox& data,
             {
               //Create box with ghost cells and set them to zero
               amrex::IntVect growVect(amrex::IntVect::TheUnitVector());
-              int Grow = 1;
+              int Grow = 4;
               for(int n=0;n<AMREX_SPACEDIM;n++)
                 growVect[n] = Grow;
               growVect[dir] = 0;
               amrex::Box modDom = geom.Domain();
               modDom.grow(growVect);
-              auto bndryBoxHI_ghost = amrex::Box(amrex::adjCellHi(modDom,dir) & bx);
+              auto bndryBoxHI_ghost = amrex::Box(amrex::adjCellHi(modDom,dir,Grow) & bx);
               data.setVal<amrex::RunOn::Host>(0.0,bndryBoxHI_ghost,Xvel,AMREX_SPACEDIM);
 
               add_turb(bndryBoxHI, data, 0, geom, time, dir, amrex::Orientation::high, probparmDH->tp);
