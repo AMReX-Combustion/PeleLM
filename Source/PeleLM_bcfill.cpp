@@ -4,7 +4,6 @@
 #include <IndexDefines.H>
 #include <pelelm_prob.H>
 #include <PeleLM.H>
-#include <pmf_data.H>
 
 
 using namespace amrex;
@@ -118,10 +117,11 @@ struct PeleLMCCFillExtDir
 {
   ProbParm const* lprobparm; 
   ACParm const* lacparm;
-  PmfData const* lpmfdata;
+  pele::physics::PMF::PmfData::DataContainer const* lpmfdata;
 
   AMREX_GPU_HOST
-  constexpr PeleLMCCFillExtDir(ProbParm const* a_prob_parm, ACParm const* a_ac_parm, PmfData const* a_pmf_data)
+  constexpr PeleLMCCFillExtDir(ProbParm const* a_prob_parm, ACParm const* a_ac_parm,
+                               pele::physics::PMF::PmfData::DataContainer const* a_pmf_data)
       : lprobparm(a_prob_parm), lacparm(a_ac_parm), lpmfdata(a_pmf_data) {}
 
   AMREX_GPU_DEVICE
@@ -382,9 +382,9 @@ void pelelm_cc_ext_fill (Box const& bx, FArrayBox& data,
 {
         ProbParm const* lprobparm = PeleLM::prob_parm_d;
         ACParm const* lacparm = PeleLM::ac_parm_d;
-        GpuBndryFuncFab<PeleLMCCFillExtDir> gpu_bndry_func(PeleLMCCFillExtDir{lprobparm,lacparm,pmf_data_g});
+        pele::physics::PMF::PmfData::DataContainer const* lpmfdata = PeleLM::pmf_data.getDeviceData();
+        GpuBndryFuncFab<PeleLMCCFillExtDir> gpu_bndry_func(PeleLMCCFillExtDir{lprobparm,lacparm,lpmfdata});
         gpu_bndry_func(bx,data,dcomp,numcomp,geom,time,bcr,bcomp,scomp);
-
 }
 
 

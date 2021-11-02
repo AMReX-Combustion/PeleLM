@@ -6,8 +6,8 @@
 #include <AMReX_ParmParse.H>
 
 #include <pelelm_prob_parm.H>
-#include <pmf.H>
-#include <pmf_data.H>
+#include <PMF.H>
+#include <PMFData.H>
 #include <PeleLM_parm.H>
 
 #include <NavierStokesBase.H>
@@ -21,7 +21,7 @@ pelelm_initdata (int i, int j, int k,
                  amrex::Array4<amrex::Real> const& state,
                  amrex::GeometryData const& geomdata,
                  ProbParm const& prob_parm,
-                 PmfData const *pmf_data)
+                 pele::physics::PMF::PmfData::DataContainer const *pmf_data)
 {
 
     const amrex::Real* prob_lo = geomdata.ProbLo();
@@ -45,7 +45,7 @@ pelelm_initdata (int i, int j, int k,
        tanh_dist = 0.5 * (1.0 - std::tanh((std::abs(y)-tran_dist)/0.012)) + 2.5;
     }
 //    tanh_dist = 0.0; 
-    PMF::pmf(pmf_data,tanh_dist, tanh_dist, pmf_vals);  
+    pele::physics::PMF::pmf(pmf_data,tanh_dist, tanh_dist, pmf_vals);  
 
     amrex::Real massfrac[NUM_SPECIES] = {0.0};
     amrex::Real molefrac[NUM_SPECIES] = {0.0};
@@ -104,7 +104,7 @@ bcnormal(
   amrex::GeometryData const& geomdata,
   ProbParm const& prob_parm,
   ACParm const& ac_parm,
-  PmfData const *pmf_data)
+  pele::physics::PMF::PmfData::DataContainer const *pmf_data)
 {
   const amrex::Real* prob_lo = geomdata.ProbLo();
   const amrex::Real* prob_hi = geomdata.ProbHi();
@@ -147,7 +147,7 @@ bcnormal(
     amrex::GpuArray<amrex::Real, NUM_SPECIES + 4> pmf_vals = {0.0};
     amrex::Real y1 = -1.0;
     amrex::Real y2 = -1.0;
-    PMF::pmf(pmf_data,y1, y2, pmf_vals);  
+    pele::physics::PMF::pmf(pmf_data,y1, y2, pmf_vals);  
     s_ext[DEF_Temp] = pmf_vals[0];
 
     amrex::Real massfrac[NUM_SPECIES] = {0.0};

@@ -11,6 +11,7 @@
 #include <pelelm_prob_parm.H>
 #include <PeleLM_parm.H>
 #include "PelePhysics.H"
+#include "PMFData.H"
 #include "ReactorBase.H"
 
 #include <list>
@@ -806,6 +807,7 @@ public:
   static pele::physics::transport::TransportParams<
          pele::physics::PhysicsType::transport_type>
          trans_parms;
+  static pele::physics::PMF::PmfData pmf_data;
 
   // Reactor. TODO: let's make those non-static to have per level reactors
   static std::string chem_integrator;
