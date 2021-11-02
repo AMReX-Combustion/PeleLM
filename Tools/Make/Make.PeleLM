@@ -35,7 +35,7 @@ Bpack             += $(PP_SRC_HOME)/Make.package
 Blocs             += $(PP_SRC_HOME)
 
 # Utilities
-include $(PELE_PHYSICS_HOME)/Utility/Make.package
+include $(PELE_PHYSICS_HOME)/Utility/PMF/Make.package
 
 # EOS
 EOS_HOME = $(PELE_PHYSICS_HOME)/Eos

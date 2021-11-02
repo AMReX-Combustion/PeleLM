@@ -99,7 +99,7 @@ function(build_pelelm_exe pelelm_exe_name)
   set_source_files_properties(${PELELM_MECHANISM_DIR}/mechanism.H PROPERTIES COMPILE_OPTIONS "${MY_CXX_FLAGS}")
   target_include_directories(${pelelm_exe_name} SYSTEM PRIVATE ${PELELM_MECHANISM_DIR})
   target_include_directories(${pelelm_exe_name} SYSTEM PRIVATE ${PELE_PHYSICS_SRC_DIR}/Support/Fuego/Evaluation)
-  target_include_directories(${pelelm_exe_name} SYSTEM PRIVATE ${PELE_PHYSICS_SRC_DIR}/Utility)
+  target_include_directories(${pelelm_exe_name} SYSTEM PRIVATE ${PELE_PHYSICS_SRC_DIR}/Utility/PMF)
   target_include_directories(${pelelm_exe_name} SYSTEM PRIVATE ${PELE_PHYSICS_SRC_DIR}/Support/Fuego/Mechanism/Models)
 
   target_sources(${pelelm_exe_name}
@@ -251,10 +251,9 @@ function(build_pelelm_exe pelelm_exe_name)
 
   target_sources(${pelelm_exe_name}
      PRIVATE
-       ${PELE_PHYSICS_SRC_DIR}/Utility/pmf.cpp
-       ${PELE_PHYSICS_SRC_DIR}/Utility/pmf_data.cpp
-       ${PELE_PHYSICS_SRC_DIR}/Utility/pmf.H
-       ${PELE_PHYSICS_SRC_DIR}/Utility/pmf_data.H
+       ${PELE_PHYSICS_SRC_DIR}/Utility/PMF/PMFData.cpp
+       ${PELE_PHYSICS_SRC_DIR}/Utility/PMF/PMF.H
+       ${PELE_PHYSICS_SRC_DIR}/Utility/PMF/PMFData.H
   )
 
   if(NOT "${pelelm_exe_name}" STREQUAL "PeleLM-UnitTests")

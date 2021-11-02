@@ -11,8 +11,7 @@
 #include <AMReX_SPACE.H>
 
 #include "pelelm_prob_parm.H"
-#include "pmf.H"
-#include "pmf_data.H"
+#include "PMFData.H"
 #include "PeleLM_parm.H"
 
 #include "NavierStokesBase.H"
@@ -26,7 +25,7 @@ pelelm_initdata (int i, int j, int k,
                  amrex::Array4<amrex::Real> const& state,
                  amrex::GeometryData const& geomdata,
                  ProbParm const& prob_parm,
-                 PmfData const *pmf_data)
+                 pele::physics::PMF::PmfData::DataContainer const *pmf_data)
 {}
 
 AMREX_GPU_DEVICE
@@ -41,7 +40,7 @@ bcnormal(
   amrex::GeometryData const& /*geomdata*/,
   ProbParm const& /*prob_parm*/,
   ACParm const& /*lacparm*/,
-  PmfData const* /*pmf_data*/)
+  pele::physics::PMF::PmfData::DataContainer const* /*pmf_data*/)
 {
 }
 
