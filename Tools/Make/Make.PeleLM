@@ -104,6 +104,7 @@ Bdirs += $(AMREX_HYDRO_HOME)/Utils
 Bdirs += $(AMREX_HYDRO_HOME)/Godunov
 Bdirs += $(AMREX_HYDRO_HOME)/MOL
 Bdirs += $(AMREX_HYDRO_HOME)/Slopes
+Bdirs += $(AMREX_HYDRO_HOME)/Projections
 ifeq ($(USE_EB), TRUE)
    Bdirs += $(AMREX_HYDRO_HOME)/Redistribution
    Bdirs += $(AMREX_HYDRO_HOME)/EBGodunov
@@ -122,7 +123,6 @@ ifeq ($(USE_PARTICLES), TRUE)
   Pdirs += $(AMREX_HOME)/Src/Particle
 endif
 Pdirs   += $(AMREX_HOME)/Src/LinearSolvers/MLMG
-Pdirs   += $(AMREX_HOME)/Src/LinearSolvers/Projections
 
 ifeq ($(USE_EB), TRUE)
   Pdirs   += $(AMREX_HOME)/Src/EB
