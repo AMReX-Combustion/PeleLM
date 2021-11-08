@@ -7027,7 +7027,6 @@ PeleLM::mac_sync ()
                                          advectionType,prev_time,
                                          prev_pres_time,dt,NUM_STATE,
                                          be_cn_theta,
-                                         modify_reflux_normal_vel,
                                          do_mom_diff,
                                          incr_sync,
                                          last_mac_sync_iter);
@@ -7041,7 +7040,7 @@ PeleLM::mac_sync ()
                mac_projector->mac_sync_compute(level,Ucorr,Vsync,comp,
                                                comp,EdgeState, comp,rho_half,
                                                (level > 0 ? &getAdvFluxReg(level):0),
-                                               advectionType,modify_reflux_normal_vel,dt,
+                                               advectionType,dt,
                                                last_mac_sync_iter);
             }
          }
@@ -7072,7 +7071,7 @@ PeleLM::mac_sync ()
             mac_projector->mac_sync_compute(level,Ucorr,Ssync,comp,s_ind,
                                             EdgeState,comp,rho_half,
                                             (level > 0 ? &getAdvFluxReg(level):0),
-                                            advectionType,modify_reflux_normal_vel,dt,
+                                            advectionType,dt,
                                             last_mac_sync_iter);
          }
       }
