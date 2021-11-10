@@ -46,7 +46,7 @@ ifeq ($(Eos_Model),$(filter $(Eos_Model),Fuego))
    DEFINES += -DUSE_FUEGO_EOS
 endif
 ifeq ($(Eos_Model),$(filter $(Eos_Model),Soave-Redlich-Kwong))
-   DEFINES += -DUSE_SRK_EOS
+   $(error EOS Soave-Redlich-Kwong not available in PeleLM)
 endif
 INCLUDE_LOCATIONS += $(EOS_HOME)
 VPATH_LOCATIONS   += $(EOS_HOME)
