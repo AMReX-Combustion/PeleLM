@@ -11,6 +11,7 @@
 #include <pelelm_prob_parm.H>
 #include <PeleLM_parm.H>
 #include "PelePhysics.H"
+#include "PMFData.H"
 #include "ReactorBase.H"
 
 #include <list>
@@ -657,11 +658,14 @@ public:
   static amrex::Vector<amrex::Real> ctrl_velo_pts;
   static amrex::Vector<amrex::Real> ctrl_cntl_pts;
 
-  static std::unique_ptr<ProbParm> prob_parm;
-  static std::unique_ptr<ACParm> ac_parm;
+  static ProbParm* prob_parm;
+  static ProbParm* prob_parm_d;
+  static ACParm*   ac_parm;
+  static ACParm*   ac_parm_d;
   static pele::physics::transport::TransportParams<
          pele::physics::PhysicsType::transport_type>
          trans_parms;
+  static pele::physics::PMF::PmfData pmf_data;
 
   // Reactor. TODO: let's make those non-static to have per level reactors
   static std::string chem_integrator;

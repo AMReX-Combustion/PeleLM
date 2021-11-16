@@ -1,33 +1,33 @@
 #----------------------DOMAIN DEFINITION------------------------
-geometry.is_periodic = 1 0                # For each dir, 0: non-perio, 1: periodic
+geometry.is_periodic = 1 1 0              # For each dir, 0: non-perio, 1: periodic
 geometry.coord_sys   = 0                  # 0 => cart, 1 => RZ
 geometry.prob_lo     = 0.0 0.0 0.0        # x_lo y_lo (z_lo)
-geometry.prob_hi     = 0.016 0.016 0.016  # x_hi y_hi (z_hi)
+geometry.prob_hi     = 0.008 0.008 0.016  # x_hi y_hi (z_hi)
 
 # >>>>>>>>>>>>>  BC FLAGS <<<<<<<<<<<<<<<<
 # Interior, Inflow, Outflow, Symmetry,
 # SlipWallAdiab, NoSlipWallAdiab, SlipWallIsotherm, NoSlipWallIsotherm
-peleLM.lo_bc = Interior  Inflow
-peleLM.hi_bc = Interior  Outflow
+peleLM.lo_bc = Interior  Interior Inflow
+peleLM.hi_bc = Interior  Interior Outflow
 
 #-------------------------AMR CONTROL----------------------------
-amr.n_cell          = 32 32 32         # Level 0 number of cells in each direction   
+amr.n_cell          = 32 32 64         # Level 0 number of cells in each direction   
 amr.v               = 1                # AMR verbose
-amr.max_level       = 2                # maximum level number allowed
+amr.max_level       = 1                # maximum level number allowed
 amr.ref_ratio       = 2 2 2 2          # refinement ratio
 amr.regrid_int      = 2                # how often to regrid
-amr.n_error_buf     = 1 1 2 2          # number of buffer cells in error est
+amr.n_error_buf     = 2 2 2 2          # number of buffer cells in error est
 amr.grid_eff        = 0.7              # what constitutes an efficient grid
 amr.blocking_factor = 16               # block factor in grid generation (min box size)
 amr.max_grid_size   = 64               # max box size
 
 #----------------------TIME STEPING CONTROL----------------------
-max_step            = 20               # maximum number of time steps    
+max_step            = 100               # maximum number of time steps    
 stop_time           = 0.04             # final physical time
-ns.cfl              = 0.3              # cfl number for hyperbolic system
+ns.cfl              = 0.5              # cfl number for hyperbolic system
 ns.init_shrink      = 0.0001           # scale back initial timestep
 ns.change_max       = 1.1              # max timestep size increase
-ns.dt_cutoff        = 5.e-10           # level 0 timestep below which we halt
+ns.dt_cutoff        = 1.e-10           # level 0 timestep below which we halt
 
 #-------------------------IO CONTROL----------------------------
 amr.checkpoint_files_output = 0
@@ -35,19 +35,19 @@ amr.check_file          = chk          # root name of checkpoint file
 amr.check_int           = 5            # number of timesteps between checkpoints
 amr.plot_file           = plt_         # root name of plot file
 amr.plot_int            = 100          # number of timesteps between plot files
-amr.derive_plot_vars    = rhoRT mag_vort avg_pressure gradpx gradpy sumRhoYdot mass_fractions molweight rhominsumrhoY cc_transport_coeffs cpmix mixfrac_only enthalpy
+amr.derive_plot_vars    = rhoRT mag_vort avg_pressure gradpx gradpy sumRhoYdot mass_fractions rhominsumrhoY cpmix mixfrac_only enthalpy
 amr.grid_log            = grdlog       # name of grid logging file
 
 #----------------------- PROBLEM PARAMETERS---------------------
 prob.P_mean = 101325.0
-prob.standoff = -.022
+prob.standoff = -.012
 prob.pertmag = 0.0004
-pmf.datafile = "drm19_pmf.dat"
+pmf.datafile = "dodecaneLu_pmf.dat"
 
 #--------------------REFINEMENT CONTROL------------------------
 amr.refinement_indicators = flame_tracer 
 amr.flame_tracer.max_level     = 3
-amr.flame_tracer.value_greater = 1.e-6
+amr.flame_tracer.value_greater = 2.e-5
 amr.flame_tracer.field_name    = Y(H)
 
 # Refinement according to temperature and gradient of temperature
@@ -66,27 +66,29 @@ amr.flame_tracer.field_name    = Y(H)
 #amr.magvort.vorticity_greater = 300
 
 #---------------------PHYSICS CONTROL------------------------
-ns.fuelName          = H2              # Fuel species name
+ns.fuelName          = NC12H26         # Fuel species name
 ns.unity_Le          = 0               # Use unity Le number transport ?
 ns.hack_nochem       = 0               # Bypass chemistry ? 0: no, 1: yes
 ns.gravity           = 0               # body force  (gravity in MKS units)
 peleLM.mixtureFraction.format = Cantera
 peleLM.mixtureFraction.type   = mole
 peleLM.mixtureFraction.oxidTank = O2:0.21 N2:0.79
-peleLM.mixtureFraction.fuelTank = CH4:0.0414 H2:0.0412
+peleLM.mixtureFraction.fuelTank = NC12H26:1.0
+peleLM.deltaT_crashOnConvFail = 0
 
 #--------------------NUMERICS CONTROL------------------------
 ns.init_iter         = 3               # Number of initial iterations to def pressure
 ns.num_divu_iters    = 1               # Number of DivU iteration at initialization
 ns.sdc_iterMAX       = 2               # Number of SDC iterations
-ns.num_mac_sync_iter = 2               # Number of mac_sync iterations
+ns.num_mac_sync_iter = 1               # Number of mac_sync iterations
+
 
 # --------------- INPUTS TO CHEMISTRY REACTOR ---------------
 peleLM.chem_integrator = "ReactorCvode"
 peleLM.use_typ_vals_chem = 1          # Use species/temp typical values in CVODE   
 ode.rtol = 1.0e-6                     # Relative tolerance of the chemical solve
 ode.atol = 1.0e-5                     # Absolute tolerance factor applied on typical values
-cvode.solve_type = denseAJ_direct     # CVODE Linear solve type (for Newton direction) 
+cvode.solve_type = GMRES              # CVODE Linear solve type (for Newton direction) 
 cvode.max_order  = 4                  # CVODE max BDF order. 
 
 # ------------------  INPUTS TO ACTIVE CONTROL  ----------------------
@@ -98,7 +100,7 @@ active_control.height = 0.0070         # Where is the flame held ? Default assum
 active_control.v = 1                   # verbose
 active_control.velMax = 1.5            # Optional: limit inlet velocity
 active_control.changeMax = 0.2         # Optional: limit inlet velocity changes (absolute)
-active_control.flameDir  = 1           # Optional: flame main direction. Default: AMREX_SPACEDIM-1
+active_control.flameDir  = 2           # Optional: flame main direction. Default: AMREX_SPACEDIM-1
 
 # ---------------------------------------------------------------
 # ------------------  ADVANCED USER INPUTS ----------------------
@@ -130,9 +132,9 @@ diffuse.tensor_max_order = 4
 diffuse.v                = 0
 
 # ------------------  INPUTS TO PROJECTION CLASS -------------------
-proj.proj_tol            = 1.0e-12     # tolerence for projections
-proj.proj_abs_tol        = 1.0e-12 
-proj.sync_tol            = 1.0e-12     # tolerence for projections
+proj.proj_tol            = 1.0e-11     # tolerence for projections
+proj.proj_abs_tol        = 1.0e-11 
+proj.sync_tol            = 1.0e-11     # tolerence for projections
 proj.rho_wgt_vel_proj    = 0           # 0 => const den proj, 1 => rho weighted
 proj.do_outflow_bcs      = 0
 proj.divu_minus_s_factor = .5
@@ -142,9 +144,9 @@ nodal_proj.verbose       = 0
 proj.v                   = 0
 
 # ------------------  INPUTS TO MACPROJ CLASS -------------------
-mac.mac_tol              = 1.0e-12     # tolerence for mac projections
-mac.mac_sync_tol         = 1.0e-12     # tolerence for mac SYNC projection
-mac.mac_abs_tol          = 1.0e-12
+mac.mac_tol              = 1.0e-11     # tolerence for mac projections
+mac.mac_sync_tol         = 1.0e-11     # tolerence for mac SYNC projection
+mac.mac_abs_tol          = 1.0e-11
 mac.do_outflow_bcs       = 0
 mac.v                    = 0
 
@@ -152,7 +154,8 @@ mac.v                    = 0
 #fabarray.mfiter_tile_size = 8 8 8
 
 #--------------------------DEBUG/REGTESTS INPUTS-----------------------------
-amrex.regtest_reduction=1
-amrex.fpe_trap_invalid = 1
-amrex.fpe_trap_zero = 1
-amrex.fpe_trap_overflow = 1
+amrex.abort_on_out_of_gpu_memory = 1
+#amrex.regtest_reduction=1
+#amrex.fpe_trap_invalid = 1
+#amrex.fpe_trap_zero = 1
+#amrex.fpe_trap_overflow = 1

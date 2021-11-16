@@ -33,6 +33,7 @@ jobs:
          PELELM_HOME: ${GITHUB_WORKSPACE}
       run: |
         cd Exec/RegTests/FlameSheet/
+        make TPL COMP=gnu USE_MPI=FALSE
         make -j 2 COMP=gnu USE_MPI=FALSE
   
   # Build the 2D FlameSheet RegTest with GNU7.5 and MPI support
@@ -60,6 +61,7 @@ jobs:
          PELELM_HOME: ${GITHUB_WORKSPACE}
       run: |
         cd Exec/RegTests/FlameSheet/
+        make TPL COMP=gnu
         make -j 2 COMP=gnu
   
   # Build the 2D FlameSheet RegTest with GNU7.5 and MPI+OMP support
@@ -87,6 +89,7 @@ jobs:
          PELELM_HOME: ${GITHUB_WORKSPACE}
       run: |
         cd Exec/RegTests/FlameSheet/
+        make TPL COMP=gnu USE_OMP=TRUE
         make -j 2 COMP=gnu USE_OMP=TRUE
   
   # Build the 3D FlameSheet RegTest with GNU7.5 and MPI support
@@ -114,6 +117,7 @@ jobs:
          PELELM_HOME: ${GITHUB_WORKSPACE}
       run: |
         cd Exec/RegTests/FlameSheet/
+        make TPL COMP=gnu DIM=3
         make -j 2 COMP=gnu DIM=3
 
   # Build the 2D FlameSheet RegTest with CUDA and MPI support
@@ -141,6 +145,7 @@ jobs:
         export PATH=/usr/local/nvidia/bin:/usr/local/cuda/bin:${PATH}
         export LD_LIBRARY_PATH=/usr/local/nvidia/lib:/usr/local/nvidia/lib64:${LD_LIBRARY_PATH}
         cd Exec/RegTests/FlameSheet/
+        make TPL COMP=gnu USE_CUDA=TRUE
         make -j 2 COMP=gnu USE_CUDA=TRUE
 
   # Build the 2D Convected Vortex RegTest with HIP support
@@ -195,6 +200,7 @@ jobs:
          PELELM_HOME: ${GITHUB_WORKSPACE}
       working-directory: ./Exec/RegTests/FlameSheet/
       run: |
+        make TPL COMP=gnu USE_MPI=FALSE DEBUG=FALSE
         make -j 2 COMP=gnu USE_MPI=FALSE DEBUG=FALSE
     - name: Run
       working-directory: ./Exec/RegTests/FlameSheet/
@@ -226,6 +232,7 @@ jobs:
          PELELM_HOME: ${GITHUB_WORKSPACE}
       working-directory: ./Exec/RegTests/PeriodicCases/
       run: |
+        make TPL COMP=gnu USE_MPI=FALSE
         make -j 2 COMP=gnu USE_MPI=FALSE
     - name: Run
       working-directory: ./Exec/RegTests/PeriodicCases/
@@ -257,6 +264,7 @@ jobs:
          PELELM_HOME: ${GITHUB_WORKSPACE}
       working-directory: ./Exec/RegTests/EB_FlowPastCylinder/
       run: |
+        make TPL COMP=gnu
         make -j 2 COMP=gnu
     - name: Run
       working-directory: ./Exec/RegTests/EB_FlowPastCylinder/
@@ -288,6 +296,7 @@ jobs:
          PELELM_HOME: ${GITHUB_WORKSPACE}
       working-directory: ./Exec/RegTests/EB_FlowPastCylinder/
       run: |
+        make TPL COMP=gnu
         make -j 2 COMP=gnu
     - name: Run
       working-directory: ./Exec/RegTests/EB_FlowPastCylinder/
@@ -319,6 +328,7 @@ jobs:
          PELELM_HOME: ${GITHUB_WORKSPACE}
       working-directory: ./Exec/RegTests/EB_FlowPastCylinder/
       run: |
+        make TPL COMP=gnu DIM=3
         make -j 2 COMP=gnu DIM=3
     - name: Run
       working-directory: ./Exec/RegTests/EB_FlowPastCylinder/
@@ -350,6 +360,7 @@ jobs:
          PELELM_HOME: ${GITHUB_WORKSPACE}
       working-directory: ./Exec/RegTests/HIT/
       run: |
+        make TPL COMP=gnu USE_MPI=TRUE DEBUG=FALSE
         make -j 2 COMP=gnu USE_MPI=TRUE DEBUG=FALSE
     - name: Run
       working-directory: ./Exec/RegTests/HIT/
