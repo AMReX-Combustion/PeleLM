@@ -1857,7 +1857,7 @@ PeleLM::initData ()
 
     int idT = -1, idV = -1, idX = -1, idY = -1;
     for (int i = 0; i < plotnames.size(); ++i) {
-      if (plotnames[i] == "temp")            idT = i;
+      if (plotnames[i] == "Temp")            idT = i;
       if (plotnames[i] == "x_velocity")      idV = i;
       if (plotnames[i] == "X("+names[0]+")") idX = i;
       if (plotnames[i] == "Y("+names[0]+")") idY = i;
@@ -1939,6 +1939,11 @@ PeleLM::initData ()
         eos.TY2H(snew_arr(i,j,k,DEF_Temp), massfrac, snew_arr(i,j,k,DEF_RhoH));
         snew_arr(i,j,k,DEF_RhoH) = snew_arr(i,j,k,DEF_RhoH) * 1.0e-4 * snew_arr(i,j,k,Density);   // CGS -> MKS conversion
 
+        snew_arr(i,j,k,Xvel) = snew_arr(i,j,k,Xvel)/100.0; //[cm/s] to [m/s]
+        snew_arr(i,j,k,Yvel) = snew_arr(i,j,k,Yvel)/100.0; //[cm/s] to [m/s]
+#if ( AMREX_SPACEDIM == 3 )
+        snew_arr(i,j,k,Zvel) = snew_arr(i,j,k,Zvel)/100.0; //[cm/s] to [m/s]
+#endif
         for (int n = 0; n < NUM_SPECIES; n++) {
           snew_arr(i,j,k,DEF_first_spec+n) = massfrac[n] * snew_arr(i,j,k,Density);
         }
@@ -1984,10 +1989,10 @@ PeleLM::initData ()
   // the current problem.  If either of these are false this code is
   // likely to core dump.
   //
-  ParmParse pp("ht");
+  ParmParse pp2("ht");
 
   std::string velocity_plotfile;
-  pp.query("velocity_plotfile", velocity_plotfile);
+  pp2.query("velocity_plotfile", velocity_plotfile);
 
   if (!velocity_plotfile.empty())
   {
@@ -2028,7 +2033,7 @@ PeleLM::initData ()
 #pragma omp parallel
 #endif
       for (MFIter mfi(tmp,true); mfi.isValid(); ++mfi) {
-        S_new[mfi].plus(tmp[mfi], mfi.tilebox(), 0, Xvel+i, 1); // This will not work on GPU
+        S_new[mfi].plus<amrex::RunOn::Host>(tmp[mfi], mfi.tilebox(), 0, Xvel+i, 1); // This will not work on GPU
       }
       amrData.FlushGrids(idX+i);
     }
@@ -9270,7 +9275,7 @@ PeleLM::initActiveControl()
    }
 
    // Extract data from bc: assumes flow comes in from lo side of ctrl_flameDir
-   ProbParm const* lprobparm = prob_parm.get();
+   ProbParm* lprobparm = prob_parm.get();
    ACParm const* lacparm = ac_parm.get();
    PmfData const* lpmfdata = pmf_data_g;
    amrex::Gpu::DeviceVector<amrex::Real> s_ext_v(DEF_NUM_STATE);
