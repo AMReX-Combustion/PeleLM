@@ -46,7 +46,7 @@ ifeq ($(Eos_Model),$(filter $(Eos_Model),Fuego))
    DEFINES += -DUSE_FUEGO_EOS
 endif
 ifeq ($(Eos_Model),$(filter $(Eos_Model),Soave-Redlich-Kwong))
-   DEFINES += -DUSE_SRK_EOS
+   $(error EOS Soave-Redlich-Kwong not available in PeleLM)
 endif
 INCLUDE_LOCATIONS += $(EOS_HOME)
 VPATH_LOCATIONS   += $(EOS_HOME)
@@ -143,7 +143,6 @@ Pdirs   += $(AMREX_HOME)/Src/AmrCore
 Pdirs   += $(AMREX_HOME)/Src/Amr
 Pdirs   += $(AMREX_HOME)/Src/Boundary
 Pdirs   += $(AMREX_HOME)/Src/LinearSolvers/MLMG
-Pdirs   += $(AMREX_HOME)/Src/LinearSolvers/Projections
 
 ifeq ($(USE_EB), TRUE)
   Pdirs   += $(AMREX_HOME)/Src/EB

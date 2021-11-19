@@ -257,6 +257,11 @@ function(build_pelelm_exe pelelm_exe_name)
 
        ${AMREX_HYDRO_SRC_DIR}/Slopes/hydro_slopes_K.H
        ${AMREX_HYDRO_SRC_DIR}/Slopes/hydro_eb_slopes_${PELELM_DIM}D_K.H
+
+       ${AMREX_HYDRO_SRC_DIR}/Projections/hydro_MacProjector.cpp
+       ${AMREX_HYDRO_SRC_DIR}/Projections/hydro_MacProjector.H
+       ${AMREX_HYDRO_SRC_DIR}/Projections/hydro_NodalProjector.cpp
+       ${AMREX_HYDRO_SRC_DIR}/Projections/hydro_NodalProjector.H
   )
 
   if(PELELM_ENABLE_AMREX_EB)
@@ -333,6 +338,7 @@ function(build_pelelm_exe pelelm_exe_name)
   target_include_directories(${pelelm_exe_name} PRIVATE ${AMREX_HYDRO_SRC_DIR}/MOL)
   target_include_directories(${pelelm_exe_name} PRIVATE ${AMREX_HYDRO_SRC_DIR}/Utils)
   target_include_directories(${pelelm_exe_name} PRIVATE ${AMREX_HYDRO_SRC_DIR}/Slopes)
+  target_include_directories(${pelelm_exe_name} PRIVATE ${AMREX_HYDRO_SRC_DIR}/Projections)
   if(PELELM_ENABLE_AMREX_EB)
      target_include_directories(${pelelm_exe_name} PRIVATE ${AMREX_HYDRO_SRC_DIR}/EBMOL)
      target_include_directories(${pelelm_exe_name} PRIVATE ${AMREX_HYDRO_SRC_DIR}/EBGodunov)
