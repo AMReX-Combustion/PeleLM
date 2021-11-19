@@ -8789,6 +8789,7 @@ PeleLM::getForce(FArrayBox&       force,
    const auto& velocity = Vel.array();
    const auto& scalars  = Scal.array(scalScomp);
    const auto& f        = force.array(scomp);
+   const auto& ext_f    = external_sources.array(mfi);
 
    const auto  dx       = geom.CellSizeArray();
    const Real  grav     = gravity;
@@ -8798,16 +8799,11 @@ PeleLM::getForce(FArrayBox&       force,
    const Real dV_control = ctrl_dV;
 
 
-   amrex::ParallelFor(bx, [f, scalars, velocity, time, grav, pseudo_gravity, dV_control, dx, scomp, ncomp]
+   amrex::ParallelFor(bx, [f, ext_f, scalars, velocity, time, grav, pseudo_gravity, dV_control, dx, scomp, ncomp]
    AMREX_GPU_DEVICE(int i, int j, int k) noexcept
    {
-      makeForce(i,j,k, scomp, ncomp, pseudo_gravity, time, grav, dV_control, dx, velocity, scalars, f);
+      makeForce(i,j,k, scomp, ncomp, pseudo_gravity, time, grav, dV_control, dx, velocity, scalars, ext_f, f);
    });
-   // Velocity forcing
-   if (scomp == Xvel && ncomp == AMREX_SPACEDIM) {
-     const FArrayBox& ext_force = external_sources[mfi];
-     force.plus<RunOn::Device>(ext_force, bx, Xvel, Xvel, AMREX_SPACEDIM);
-   }
 }
 
 void

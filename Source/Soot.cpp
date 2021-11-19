@@ -33,7 +33,7 @@ PeleLM::computeSootSrc(Real time, Real dt)
 #ifdef _OPENMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
-  bool pres_term = closed_chamber;
+  bool pres_term = false;
   for (MFIter mfi(mf, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
     const Box& gbx = mfi.growntilebox();
     auto const& q_arr = mf.array(mfi, Density); // Only need the scalars
