@@ -5254,25 +5254,28 @@ PeleLM::advance (Real time,
   BL_PROFILE_VAR_NS("PeleLM::advance::velocity_adv", PLM_VEL);
 
   for (int sdc_iter=1; sdc_iter<=sdc_iterMAX; ++sdc_iter) {
-    bool ext_src_added = false;
+      bool ext_src_added = false;
+      if (sdc_iter == 1 && !NavierStokesBase::initial_step) {
+        ext_src_added = true;
+      }
 #ifdef AMREX_PARTICLES
-    if (sdc_iter == 1 && do_spray_particles && !NavierStokesBase::initial_step) {
-      AMREX_ASSERT(theSprayPC() != nullptr);
-      particleMKD(time, dt, ghost_width, spray_n_grow,
-                  tmp_src_width, where_width, tmp_spray_source);
-      ext_src_added = true;
-    }
+      if (do_spray_particles && ext_src_added) {
+        AMREX_ASSERT(theSprayPC() != nullptr);
+        particleMKD(time, dt, ghost_width, spray_n_grow,
+                    tmp_src_width, where_width, tmp_spray_source);
+      }
 #endif
 #ifdef SOOT_MODEL
-    if (do_soot_solve && sdc_iter == 1) {
-      computeSootSrc(time, dt);
-      ext_src_added = true;
-    }
+      if (do_soot_solve && ext_src_added) {
+        computeSootSrc(time, dt);
+      }
 #endif
 
-    // Add external sources like spray and soot source terms
-    if (ext_src_added)
-      add_external_sources(time, dt);
+      // Add external sources like spray and soot source terms
+      if (ext_src_added) {
+        add_external_sources(time, dt);
+        ext_src_added = false;
+      }
 
       if (sdc_iter == sdc_iterMAX) {
           updateFluxReg = true;
@@ -5603,13 +5606,24 @@ PeleLM::advance (Real time,
     FillPatch(*this, S_new, S_new.nGrow(), new_time, State_Type, Density, num_fill_scalar, Density);
 
     showMF("DBGSync",S_new,"DBGSync_Snew_end_sdc",level,sdc_iter,parent->levelSteps(level));
+    if (sdc_iter == sdc_iterMAX && !NavierStokesBase::initial_step) {
+      ext_src_added = true;
+    }
 #ifdef AMREX_PARTICLES
-    if (do_spray_particles && sdc_iter == sdc_iterMAX && !NavierStokesBase::initial_step) {
+    if (do_spray_particles && ext_src_added) {
       FillPatch(*this, Sborder, nGrow_Sborder, new_time, State_Type, 0, NUM_STATE);
-      particleMK(time, dt, spray_n_grow, tmp_src_width, tmp_spray_source);
-      add_external_sources(new_time, dt);
+      particleMK(new_time, dt, spray_n_grow, tmp_src_width, tmp_spray_source);
     }
 #endif
+#ifdef SOOT_MODEL
+    if (do_soot_solve && ext_src_added) {
+      computeSootSrc(new_time, dt);
+    }
+#endif
+    if (ext_src_added) {
+      add_external_sources(new_time, dt);
+      ext_src_added = false;
+    }
   }
 
    Dn.clear();
@@ -8789,7 +8803,10 @@ PeleLM::getForce(FArrayBox&       force,
    const auto& velocity = Vel.array();
    const auto& scalars  = Scal.array(scalScomp);
    const auto& f        = force.array(scomp);
-   const auto& ext_f    = external_sources.array(mfi);
+   // External momentum force
+   const auto& ext_mom  = external_sources.array(mfi, Xvel);
+   // External continuity force
+   const auto& ext_rho  = external_sources.array(mfi, Density);
 
    const auto  dx       = geom.CellSizeArray();
    const Real  grav     = gravity;
@@ -8799,10 +8816,11 @@ PeleLM::getForce(FArrayBox&       force,
    const Real dV_control = ctrl_dV;
 
 
-   amrex::ParallelFor(bx, [f, ext_f, scalars, velocity, time, grav, pseudo_gravity, dV_control, dx, scomp, ncomp]
+   amrex::ParallelFor(bx, [f, ext_mom, ext_rho, scalars, velocity, time, grav, pseudo_gravity, dV_control, dx, scomp, ncomp]
    AMREX_GPU_DEVICE(int i, int j, int k) noexcept
    {
-      makeForce(i,j,k, scomp, ncomp, pseudo_gravity, time, grav, dV_control, dx, velocity, scalars, ext_f, f);
+      makeForce(i,j,k, scomp, ncomp, pseudo_gravity, time, grav, dV_control, dx,
+                velocity, scalars, ext_mom, ext_rho, f);
    });
 }
 

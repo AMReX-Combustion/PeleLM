@@ -992,7 +992,8 @@ makeForce(int i, int j, int k,
           amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> const /*dx*/,
           amrex::Array4<const amrex::Real> const& vel,
           amrex::Array4<const amrex::Real> const& scal,
-          amrex::Array4<const amrex::Real> const& ext_f,
+          amrex::Array4<const amrex::Real> const& ext_mom,
+          amrex::Array4<const amrex::Real> const& ext_rho,
           amrex::Array4<      amrex::Real> const& force) noexcept
 {
    using namespace amrex::literals;
@@ -1017,7 +1018,7 @@ makeForce(int i, int j, int k,
          force(i,j,k,AMREX_SPACEDIM-1) += dV_control * scal(i,j,k,0);
       }
       for (int dir = 0; dir < AMREX_SPACEDIM; ++dir) {
-        force(i,j,k,dir) += ext_f(i,j,k,dir) - vel(i,j,k,dir) * ext_f(i,j,k,Density);
+        force(i,j,k,dir) += ext_mom(i,j,k,dir) - vel(i,j,k,dir) * ext_rho(i,j,k);
       }
    }
    if ( (scomp+ncomp) > AMREX_SPACEDIM - 1) {
