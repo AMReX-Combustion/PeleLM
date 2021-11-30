@@ -91,7 +91,6 @@ ns.sum_interval      = 5               # timesteps between computing mass
 ns.do_reflux         = 1               # 1 => do refluxing
 ns.do_mac_proj       = 1               # 1 => do MAC projection
 ns.do_sync_proj      = 1               # 1 => do Sync Project
-ns.divu_relax_factor = 0.0
 ns.be_cn_theta       = 0.5
 ns.do_temp           = 1
 ns.do_diffuse_sync   = 1
@@ -117,9 +116,6 @@ nodal_proj.proj_abs_tol        = 1.0e-12
 nodal_proj.sync_tol            = 1.0e-12     # tolerence for projections
 nodal_proj.rho_wgt_vel_proj    = 0           # 0 => const den proj, 1 => rho weighted
 nodal_proj.do_outflow_bcs      = 0
-nodal_proj.divu_minus_s_factor = .5
-nodal_proj.divu_minus_s_factor = 0.
-nodal_proj.proj_2              = 1
 nodal_proj.verbose             = 0
 
 # ------------------  INPUTS TO MACPROJ CLASS -------------------
