@@ -111,6 +111,13 @@ ifeq ($(USE_EB), TRUE)
    Bdirs += $(AMREX_HYDRO_HOME)/EBMOL
 endif
 
+ifeq ($(USE_TURBULENT_FORCING), TRUE)
+  DEFINES += -DAMREX_USE_TURBULENT_FORCING
+  ifeq ($(USE_FAST_FORCE), TRUE)
+    DEFINES += -DAMREX_USE_FAST_FORCE
+  endif
+endif
+
 Bpack	+= $(foreach dir, $(Bdirs), $(dir)/Make.package)
 Blocs	+= $(foreach dir, $(Bdirs), $(dir))
 
