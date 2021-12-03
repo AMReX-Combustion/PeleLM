@@ -278,15 +278,15 @@ public:
                              int       num_comp,
                              amrex::Real      time) override;
 
-  virtual void getForce (amrex::FArrayBox&       force,
-                         const amrex::Box&       bx,
-                         int                     strt_comp,
-                         int                     num_comp,
-                         const amrex::Real       time,
-                         const amrex::FArrayBox& Vel,
-                         const amrex::FArrayBox& Scal,
-                         int                     scalScomp,
-                         const amrex::MFIter&    mfi) override;
+  // virtual void getForce (amrex::FArrayBox&       force,
+  //                        const amrex::Box&       bx,
+  //                        int                     strt_comp,
+  //                        int                     num_comp,
+  //                        const amrex::Real       time,
+  //                        const amrex::FArrayBox& Vel,
+  //                        const amrex::FArrayBox& Scal,
+  //                        int                     scalScomp,
+  //                        const amrex::MFIter&    mfi) override;
 
   virtual void mac_sync () override;
   //

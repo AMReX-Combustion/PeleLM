@@ -8439,41 +8439,41 @@ PeleLM::RhoH_to_Temp (MultiFab& S,
   //htt_hmixTYP = htt_hmixTYP_SAVE;
 }
 
-void
-PeleLM::getForce(FArrayBox&       force,
-                 const Box&       bx,
-                 int              scomp,
-                 int              ncomp,
-                 const Real       time,
-                 const FArrayBox& Vel,
-                 const FArrayBox& Scal,
-                 int              scalScomp,
-                 const MFIter&    mfi)
-{
-   AMREX_ASSERT(force.box().contains(bx));
+// void
+// PeleLM::getForce(FArrayBox&       force,
+//                  const Box&       bx,
+//                  int              scomp,
+//                  int              ncomp,
+//                  const Real       time,
+//                  const FArrayBox& Vel,
+//                  const FArrayBox& Scal,
+//                  int              scalScomp,
+//                  const MFIter&    mfi)
+// {
+//    AMREX_ASSERT(force.box().contains(bx));
 
-   const auto& velocity = Vel.array();
-   const auto& scalars  = Scal.array(scalScomp);
-   const auto& f        = force.array(scomp);
+//    const auto& velocity = Vel.array();
+//    const auto& scalars  = Scal.array(scalScomp);
+//    const auto& f        = force.array(scomp);
 
-   const auto  dx       = geom.CellSizeArray();
-   const Real  grav     = gravity;
+//    const auto  dx       = geom.CellSizeArray();
+//    const Real  grav     = gravity;
 
-   // Get non-static info for the pseudo gravity forcing
-   int pseudo_gravity    = ctrl_pseudoGravity;
-   const Real dV_control = ctrl_dV;
+//    // Get non-static info for the pseudo gravity forcing
+//    int pseudo_gravity    = ctrl_pseudoGravity;
+//    const Real dV_control = ctrl_dV;
 
-   amrex::ParallelFor(bx, [f, scalars, velocity, time, grav, pseudo_gravity, dV_control, dx, scomp, ncomp]
-   AMREX_GPU_DEVICE(int i, int j, int k) noexcept
-   {
-      makeForce(i,j,k, scomp, ncomp, pseudo_gravity, time, grav, dV_control, dx, velocity, scalars, f);
-   });
-   // Velocity forcing
-   if (scomp == Xvel && ncomp == AMREX_SPACEDIM) {
-     const FArrayBox& ext_force = external_sources[mfi];
-     force.plus<RunOn::Device>(ext_force, bx, Xvel, Xvel, AMREX_SPACEDIM);
-   }
-}
+//    amrex::ParallelFor(bx, [f, scalars, velocity, time, grav, pseudo_gravity, dV_control, dx, scomp, ncomp]
+//    AMREX_GPU_DEVICE(int i, int j, int k) noexcept
+//    {
+//       makeForce(i,j,k, scomp, ncomp, pseudo_gravity, time, grav, dV_control, dx, velocity, scalars, f);
+//    });
+//    // Velocity forcing
+//    if (scomp == Xvel && ncomp == AMREX_SPACEDIM) {
+//      const FArrayBox& ext_force = external_sources[mfi];
+//      force.plus<RunOn::Device>(ext_force, bx, Xvel, Xvel, AMREX_SPACEDIM);
+//    }
+// }
 
 void
 PeleLM::setPlotVariables ()
