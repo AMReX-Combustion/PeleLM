@@ -2166,8 +2166,9 @@ PeleLM::initData ()
   old_intersect_new = grids;
 
 #ifdef AMREX_PARTICLES
-  if (NavierStokesBase::do_nspc)
+  if (NavierStokesBase::do_nspc) {
     NavierStokesBase::initParticleData();
+  }
 #endif
 }
 
@@ -2350,6 +2351,7 @@ PeleLM::init ()
      FillCoarsePatch(get_new_data(sootsrc_Type), 0, tnp1, sootsrc_Type, 0, num_soot_src);
    }
 #endif
+
    RhoH_to_Temp(get_new_data(State_Type));
    get_new_data(State_Type).setBndry(1.e30);
    showMF("sdc",get_new_data(State_Type),"sdc_new_state",level);
@@ -2492,7 +2494,7 @@ PeleLM::post_regrid (int lbase,
    }
    make_rho_curr_time();
 #ifdef AMREX_PARTICLES
-   if (do_spray_particles && theSprayPC() != 0) {
+   if (do_spray_particles && theSprayPC() != nullptr) {
      defineSprayStateMF();
      if (level == lbase) {
        particle_redistribute(lbase);
@@ -5253,30 +5255,23 @@ PeleLM::advance (Real time,
 
   BL_PROFILE_VAR_NS("PeleLM::advance::velocity_adv", PLM_VEL);
 
-  for (int sdc_iter=1; sdc_iter<=sdc_iterMAX; ++sdc_iter) {
-      bool ext_src_added = false;
-      if (sdc_iter == 1 && !NavierStokesBase::initial_step) {
-        ext_src_added = true;
-      }
+  if (!NavierStokesBase::initial_step) {
 #ifdef AMREX_PARTICLES
-      if (do_spray_particles && ext_src_added) {
-        AMREX_ASSERT(theSprayPC() != nullptr);
-        particleMKD(time, dt, ghost_width, spray_n_grow,
-                    tmp_src_width, where_width, tmp_spray_source);
-      }
+    if (do_spray_particles) {
+      AMREX_ASSERT(theSprayPC() != nullptr);
+      particleMKD(time, dt, ghost_width, spray_n_grow,
+                  tmp_src_width, where_width, tmp_spray_source);
+    }
 #endif
 #ifdef SOOT_MODEL
-      if (do_soot_solve && ext_src_added) {
-        computeSootSrc(time, dt);
-      }
+    if (do_soot_solve) {
+      computeSootSrc(time, dt);
+    }
 #endif
-
-      // Add external sources like spray and soot source terms
-      if (ext_src_added) {
-        add_external_sources(time, dt);
-        ext_src_added = false;
-      }
-
+    // Add external sources like spray and soot source terms
+    add_external_sources(time, dt);
+  }
+  for (int sdc_iter=1; sdc_iter<=sdc_iterMAX; ++sdc_iter) {
       if (sdc_iter == sdc_iterMAX) {
           updateFluxReg = true;
       }
@@ -5607,22 +5602,18 @@ PeleLM::advance (Real time,
 
     showMF("DBGSync",S_new,"DBGSync_Snew_end_sdc",level,sdc_iter,parent->levelSteps(level));
     if (sdc_iter == sdc_iterMAX && !NavierStokesBase::initial_step) {
-      ext_src_added = true;
-    }
 #ifdef AMREX_PARTICLES
-    if (do_spray_particles && ext_src_added) {
-      FillPatch(*this, Sborder, nGrow_Sborder, new_time, State_Type, 0, NUM_STATE);
-      particleMK(new_time, dt, spray_n_grow, tmp_src_width, tmp_spray_source);
-    }
+      if (do_spray_particles) {
+        FillPatch(*this, Sborder, nGrow_Sborder, new_time, State_Type, 0, NUM_STATE);
+        particleMK(new_time, dt, spray_n_grow, tmp_src_width, tmp_spray_source);
+      }
 #endif
 #ifdef SOOT_MODEL
-    if (do_soot_solve && ext_src_added) {
-      computeSootSrc(new_time, dt);
-    }
+      if (do_soot_solve) {
+        computeSootSrc(new_time, dt);
+      }
 #endif
-    if (ext_src_added) {
       add_external_sources(new_time, dt);
-      ext_src_added = false;
     }
   }
 
@@ -6354,11 +6345,11 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
      math_bcs = fetchBCArray(State_Type, first_passive, DEF_NUM_PASSIVE);
      BCRec  const* d_bcrec_ptr = &(m_bcrec_scalars_d.dataPtr())[first_passive-Density];
      bool knownEdgeState = false;
-     amrex::Gpu::DeviceVector<int> iconserv;
-     iconserv.resize(DEF_NUM_PASSIVE, 0);
+     Vector<int> iconserv_h;
+     iconserv_h.resize(DEF_NUM_PASSIVE, 0);
      for (int comp = 0; comp < DEF_NUM_PASSIVE; ++comp)
      {
-        iconserv[comp] = (advectionType[first_passive+comp] == Conservative) ? 1 : 0;
+        iconserv_h[comp] = (advectionType[first_passive+comp] == Conservative) ? 1 : 0;
      }
      bool isVelocity = false;
 
@@ -6367,14 +6358,17 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
                                AMREX_D_DECL(u_mac[0],u_mac[1],u_mac[2]),
                                AMREX_D_DECL(*EdgeState[0],*EdgeState[1],*EdgeState[2]), first_passive, knownEdgeState,
                                AMREX_D_DECL(*EdgeFlux[0],*EdgeFlux[1],*EdgeFlux[2]), first_passive,
-                               Force, 0, DivU, math_bcs, d_bcrec_ptr, geom, iconserv,
+                               Force, 0, DivU, math_bcs, d_bcrec_ptr, geom, iconserv_h,
                                dt, isVelocity, redistribution_type );
      } else {
+       amrex::Gpu::DeviceVector<int> iconserv;
+       iconserv.resize(DEF_NUM_PASSIVE, 0);
+       Gpu::copy(Gpu::hostToDevice,iconserv_h.begin(),iconserv_h.end(),iconserv.begin());
        EBMOL::ComputeAofs( *aofs, first_passive, DEF_NUM_PASSIVE, Smf, Pcomp,
                            AMREX_D_DECL(u_mac[0],u_mac[1],u_mac[2]),
                            AMREX_D_DECL(*EdgeState[0],*EdgeState[1],*EdgeState[2]), first_passive, knownEdgeState,
                            AMREX_D_DECL(*EdgeFlux[0],*EdgeFlux[1],*EdgeFlux[2]), first_passive,
-                           DivU, math_bcs, d_bcrec_ptr, geom, iconserv, geom, dt,
+                           DivU, math_bcs, d_bcrec_ptr, iconserv, geom, dt,
                            isVelocity, redistribution_type );
      }
   }
