@@ -339,10 +339,6 @@ PeleLM::Initialize ()
 {
   if (initialized) return;
 
-#ifdef AMREX_USE_GPU
-  amrex::sundials::Initialize();
-#endif
-
   PeleLM::Initialize_specific();
 
   NavierStokesBase::Initialize();
@@ -942,9 +938,6 @@ PeleLM::variableCleanUp ()
    //PMF::close();
 
    m_reactor->close();
-#ifdef AMREX_USE_GPU
-   amrex::sundials::Finalize();
-#endif
 }
 
 PeleLM::PeleLM ()
