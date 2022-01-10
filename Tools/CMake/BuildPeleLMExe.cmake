@@ -143,7 +143,7 @@ function(build_pelelm_exe pelelm_exe_name)
   set_source_files_properties(${AMREX_SUBMOD_LOCATION}/Src/Extern/SUNDIALS/AMReX_SUNMemory.cpp PROPERTIES COMPILE_OPTIONS "${MY_CXX_FLAGS}")
   set_source_files_properties(${AMREX_SUBMOD_LOCATION}/Src/Extern/SUNDIALS/AMReX_SUNMemory.H PROPERTIES COMPILE_OPTIONS "${MY_CXX_FLAGS}")
 
-  target_include_directories(${pelec_exe_name} PRIVATE ${AMREX_SUBMOD_LOCATION}/Src/Extern/SUNDIALS)
+  target_include_directories(${pelelm_exe_name} PRIVATE ${AMREX_SUBMOD_LOCATION}/Src/Extern/SUNDIALS)
 
   if(PELELM_ENABLE_CUDA)
     target_link_libraries(${pelelm_exe_name} PRIVATE sundials_nveccuda sundials_sunlinsolcusolversp sundials_sunmatrixcusparse)
