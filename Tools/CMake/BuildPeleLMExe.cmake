@@ -130,12 +130,12 @@ function(build_pelelm_exe pelelm_exe_name)
   target_include_directories(${pelelm_exe_name} PRIVATE ${PELE_PHYSICS_SRC_DIR}/Reactions)
   target_link_libraries(${pelelm_exe_name} PRIVATE sundials_arkode sundials_cvode)
 
-  target_sources(${pelec_exe_name} PRIVATE ${AMREX_SUBMOD_LOCATION}/Src/Extern/SUNDIALS/AMReX_Sundials.H
-                                           ${AMREX_SUBMOD_LOCATION}/Src/Extern/SUNDIALS/AMReX_Sundials.cpp
-                                           ${AMREX_SUBMOD_LOCATION}/Src/Extern/SUNDIALS/AMReX_NVector_MultiFab.cpp
-                                           ${AMREX_SUBMOD_LOCATION}/Src/Extern/SUNDIALS/AMReX_NVector_MultiFab.H
-                                           ${AMREX_SUBMOD_LOCATION}/Src/Extern/SUNDIALS/AMReX_SUNMemory.cpp
-                                           ${AMREX_SUBMOD_LOCATION}/Src/Extern/SUNDIALS/AMReX_SUNMemory.H)
+  target_sources(${pelelm_exe_name} PRIVATE ${AMREX_SUBMOD_LOCATION}/Src/Extern/SUNDIALS/AMReX_Sundials.H
+                                            ${AMREX_SUBMOD_LOCATION}/Src/Extern/SUNDIALS/AMReX_Sundials.cpp
+                                            ${AMREX_SUBMOD_LOCATION}/Src/Extern/SUNDIALS/AMReX_NVector_MultiFab.cpp
+                                            ${AMREX_SUBMOD_LOCATION}/Src/Extern/SUNDIALS/AMReX_NVector_MultiFab.H
+                                            ${AMREX_SUBMOD_LOCATION}/Src/Extern/SUNDIALS/AMReX_SUNMemory.cpp
+                                            ${AMREX_SUBMOD_LOCATION}/Src/Extern/SUNDIALS/AMReX_SUNMemory.H)
   set_source_files_properties(${AMREX_SUBMOD_LOCATION}/Src/Extern/SUNDIALS/AMReX_Sundials.H PROPERTIES COMPILE_OPTIONS "${MY_CXX_FLAGS}")
   set_source_files_properties(${AMREX_SUBMOD_LOCATION}/Src/Extern/SUNDIALS/AMReX_Sundials.cpp PROPERTIES COMPILE_OPTIONS "${MY_CXX_FLAGS}")
   set_source_files_properties(${AMREX_SUBMOD_LOCATION}/Src/Extern/SUNDIALS/AMReX_NVector_MultiFab.cpp PROPERTIES COMPILE_OPTIONS "${MY_CXX_FLAGS}")
