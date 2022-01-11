@@ -106,13 +106,13 @@ jobs:
           #echo "::add-matcher::.github/problem-matchers/gcc.json"
           cat ${{runner.workspace}}/build-output.txt | egrep "warning:|error:" | sort | uniq | sort -nr | \
             awk 'BEGIN{i=0}{print $0}{i++}END{print "Warnings: "i}'
-      - name: Test
-        run: |
-          for DIM in 3; do \
-            printf "\n-------- Testing ${DIM}D --------\n"; \
-            cd ${{runner.workspace}}/build-${DIM}d-${{matrix.os}}; \
-            ctest -j ${{env.NPROCS}} -LE no-ci --verbose --output-on-failure; \
-          done
+      ##- name: Test
+      ##  run: |
+      ##    for DIM in 3; do \
+      ##      printf "\n-------- Testing ${DIM}D --------\n"; \
+      ##      cd ${{runner.workspace}}/build-${DIM}d-${{matrix.os}}; \
+      ##      ctest -j ${{env.NPROCS}} -LE no-ci  --output-on-failure; \
+      ##    done
   #GNUmake:
   #  needs: Formatting
   #  runs-on: ubuntu-latest
