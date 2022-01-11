@@ -1,6 +1,8 @@
 EBASE = PeleLM
 PELE_PHYSICS_HOME ?= $(SUBMODS)/PelePhysics
 
+USE_SUNDIALS = TRUE
+
 include $(AMREX_HOME)/Tools/GNUMake/Make.defs 
 #$(info LIBRARIES_BeginPeleMake="$(LIBRARIES)")
 
