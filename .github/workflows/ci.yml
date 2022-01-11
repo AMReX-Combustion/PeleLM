@@ -111,7 +111,7 @@ jobs:
           for DIM in 3; do \
             printf "\n-------- Testing ${DIM}D --------\n"; \
             cd ${{runner.workspace}}/build-${DIM}d-${{matrix.os}}; \
-            ctest -j ${{env.NPROCS}} -LE no-ci --output-on-failure; \
+            ctest -j ${{env.NPROCS}} -LE no-ci --verbose --output-on-failure; \
           done
   #GNUmake:
   #  needs: Formatting
