@@ -53,6 +53,7 @@ PeleProduction
 As explained in section :ref:`sec:QUICKSTART`, `PeleLM` relies on a number of supporting softwares: 
 
 - `AMReX` is a software frameworks that provides the data structure and enable massive parallelization.
+- `AMReX-Hydro` is a suite of AMReX-based fonctionalities handling the hydrodynamic schemes.
 - `IAMR` is a parallel, adaptive mesh refinement (AMR) code that solves the variable-density incompressible Navier-Stokes equations.
 - `PelePhysics` is a repository of physics databases and implementation code. In particular, the choice of chemistry and transport models as well as associated functions and capabilities are managed in `PelePhysics`.
 
@@ -243,9 +244,8 @@ In `PeleLM`, the chemistry model (set of species, their thermodynamic and transp
    
 Here, the methane kinetic model ``drm19``, containing 21 species is employed. The user is referred to the `PelePhysics <https://pelephysics.readthedocs.io/en/latest/>`_ documentation for a list of available mechanisms and more information regarding the EOS, chemistry and transport models specified: ::
 
-    Eos_dir       := Fuego
-    Reactions_dir := Fuego
-    Transport_dir := Simple
+    Eos_Model       := Fuego
+    Transport_Model := Simple
 
 Finally, `PeleLM` utilizes the chemical kinetic ODE integrator `CVODE <https://computing.llnl.gov/projects/sundials/cvode>`_. This Third Party Librabry (TPL) is not shipped with the `PeleLM` distribution but can be readily installed through the makefile system of `PeleLM`. To do so, type in the following command: ::
 
@@ -399,8 +399,8 @@ You are now ready launch `PeleLM` again for another 1000 time steps ! ::
 As the simulation proceeds, an ASCII file tracking the flame position and inlet velocity (as well as other control variables) is generated: ``AC_History``. You can follow the motion of the flame tip by plotting the eigth column against the first one (flame tip vs. time step count). If `gnuplot` is available on your computer, use the following to obtain the graphs of Fig :numref:`fig:TF_ACcontrol`: ::
 
     gnuplot
-    plot "AC_History" u 1:7 w lp
-    plot "AC_History" u 1:3 w lp
+    plot "AC_History.dat" u 1:7 w lp
+    plot "AC_History.dat" u 1:3 w lp
     exit
     
 The second plot corresponds to the inlet velocity.
