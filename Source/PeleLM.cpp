@@ -1271,6 +1271,7 @@ PeleLM::restart (Amr&          papa,
 
       isp >> p_amb_old;
       p_amb_new = p_amb_old;
+      lev0cellCount = getCellsCount();
   }
 
   //
