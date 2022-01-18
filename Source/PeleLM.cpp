@@ -1271,7 +1271,6 @@ PeleLM::restart (Amr&          papa,
 
       isp >> p_amb_old;
       p_amb_new = p_amb_old;
-      lev0cellCount = getCellsCount();
   }
 
   //
@@ -2290,6 +2289,9 @@ PeleLM::post_restart ()
    int is_restart = 1;
 
    activeControl(step,is_restart,0.0,crse_dt);
+   if (level == 0 && lev0cellCount < 0.0) {
+     lev0cellCount = getCellsCount();
+   }
 }
 
 void
