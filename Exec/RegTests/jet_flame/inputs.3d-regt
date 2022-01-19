@@ -2,7 +2,7 @@
 geometry.is_periodic = 1 1 0              # For each dir, 0: non-perio, 1: periodic
 geometry.coord_sys   = 0                  # 0 => cart, 1 => RZ
 geometry.prob_lo     = 0.0 0.0 0.0        # x_lo y_lo (z_lo)
-geometry.prob_hi     = 0.0004 .0004  0.0016  # x_hi y_hi (z_hi)
+geometry.prob_hi     = 0.0004 .0004  .0004  # x_hi y_hi (z_hi)
 
 # >>>>>>>>>>>>>  BC FLAGS <<<<<<<<<<<<<<<<
 # Interior, Inflow, Outflow, Symmetry,
@@ -11,7 +11,7 @@ peleLM.lo_bc = Interior  Interior Inflow
 peleLM.hi_bc = Interior  Interior Outflow
 
 #-------------------------AMR CONTROL----------------------------
-amr.n_cell          = 32 32 128        # Level 0 number of cells in each direction   
+amr.n_cell          = 32 32 32         # Level 0 number of cells in each direction   
 amr.v               = 1                # AMR verbose
 amr.max_level       = 0                # maximum level number allowed
 amr.ref_ratio       = 2 2 2 2          # refinement ratio
@@ -40,10 +40,6 @@ amr.grid_log            = grdlog       # name of grid logging file
 
 #----------------------- PROBLEM PARAMETERS---------------------
 prob.P_mean = 101325.0
-prob.standoff = -.022
-prob.pertmag = 0.0004
-pmf.datafile = "drm19_pmf.dat"
-
 prob.turb_file = Turb.test2
 prob.turb_scale_loc = 1.0
 prob.turb_scale_vel = 1.0

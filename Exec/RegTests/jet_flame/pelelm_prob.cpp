@@ -11,10 +11,8 @@ extern "C" {
         amrex::ParmParse pp("prob");
 
         pp.query("P_mean",   PeleLM::prob_parm->P_mean);
-        pp.query("standoff", PeleLM::prob_parm->standoff);
-        pp.query("pertmag",  PeleLM::prob_parm->pertmag);
 
-        PeleLM::pmf_data.initialize();
+        // PeleLM::pmf_data.initialize();
 
 #ifdef PELE_USE_TURBINFLOW
          if (pp.countval("turb_file") > 0) {
@@ -30,7 +28,7 @@ extern "C" {
 
             PeleLM::prob_parm->do_turb = true;
 
-            // Hold nose here - required because of dynamically allocated data in tp                                                                                                          
+            // Hold nose here - required because of dynamically allocated data in tp
             AMREX_ASSERT_WITH_MESSAGE(PeleLM::prob_parm->tp.tph == nullptr,"Can only be one TurbParmHost");
             PeleLM::prob_parm->tp.tph = new TurbParmHost;
 
@@ -54,6 +52,6 @@ extern "C" {
         }
 #endif
 
-	
+
     }
 }
