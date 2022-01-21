@@ -26,7 +26,7 @@ VERBOSE         = FALSE
 TINY_PROFILE    = FALSE
 
 USE_TURBULENT_FORCING = TRUE
-USE_VELOCITY          = TRUE
+USE_VELOCITY          = FALSE
 USE_FAST_FORCE        = FALSE
 
 # Choose model (from list below), and pmf file
