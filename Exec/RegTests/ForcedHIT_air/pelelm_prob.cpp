@@ -39,8 +39,9 @@ extern "C" {
 
         ProbParm prob_parm;
 
-        pp.query("P_mean",   prob_parm.P_mean);
-        pp.query("V_in"  ,   prob_parm.V_in);
+        pp.query("P_mean",   PeleLM::prob_parm->P_mean);
+        pp.query("T_mean"  ,   PeleLM::prob_parm->T_mean);
+        pp.query("V_in"  ,   PeleLM::prob_parm->V_in);
 
         std::string pmf_datafile;
         // PeleLM::pmf_data.initialize();
