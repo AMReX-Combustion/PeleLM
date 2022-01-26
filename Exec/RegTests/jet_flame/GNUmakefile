@@ -20,7 +20,7 @@ USE_CUDA        = FALSE
 USE_HIP         = FALSE
 
 # MISC options
-DEBUG           = TRUE
+DEBUG           = FALSE
 PRECISION       = DOUBLE
 VERBOSE         = FALSE
 TINY_PROFILE    = FALSE
@@ -35,7 +35,7 @@ ifeq ($(DO_2S_CONVERGENCE),TRUE)
 	F90EXE_sources += 2step_Phi0.8_refined_CubicInterp.F90
 	DEFINES+=-DINTERP_PMF_AS_POINT
 else
-	Chemistry_Model = drm19
+	Chemistry_Model = dodecane_lu
 endif
 
 # This sets the EOS model to one in $(PELE_PHYSICS_HOME)/Eos

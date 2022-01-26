@@ -150,6 +150,8 @@ struct PeleLMCCFillExtDir
 
     amrex::Real s_ext[DEF_NUM_STATE] = {0.0};
 
+    amrex::Real eta_out;
+    
     // xlo and xhi
     int idir = 0;
     if ((bc[idir] == amrex::BCType::ext_dir) and (iv[idir] < domlo[idir])) {
@@ -158,11 +160,12 @@ struct PeleLMCCFillExtDir
          // Fill s_ext with the EXT_DIR BC value
          // bcnormal() is defined in pelelm_prob.H in problem directory in /Exec
          //
-         bcnormal(x, s_ext, idir, 1, time, geom, *lprobparm, *lacparm, lpmfdata);
+      bcnormal(x, s_ext, idir, 1, time, geom, *lprobparm, *lacparm, lpmfdata, eta_out);
 
          if (orig_comp == Xvel){
            for (int n = 0; n < AMREX_SPACEDIM; n++) {
 #ifdef PELE_USE_TURBINFLOW
+	     dest(iv, dcomp + n) *= eta_out;
              dest(iv, dcomp + n) += s_ext[Xvel+n];
 #else
              dest(iv, dcomp + n) = s_ext[Xvel+n];
@@ -191,11 +194,12 @@ struct PeleLMCCFillExtDir
        (bc[idir + AMREX_SPACEDIM] == amrex::BCType::ext_dir) and
        (iv[idir] > domhi[idir])) {
 
-         bcnormal(x, s_ext, idir, -1, time, geom, *lprobparm, *lacparm, lpmfdata);
+      bcnormal(x, s_ext, idir, -1, time, geom, *lprobparm, *lacparm, lpmfdata, eta_out);
 
          if (orig_comp == Xvel){
            for (int n = 0; n < AMREX_SPACEDIM; n++) {
 #ifdef PELE_USE_TURBINFLOW
+	     dest(iv, dcomp + n) *= eta_out;
              dest(iv, dcomp + n) += s_ext[Xvel+n];
 #else
              dest(iv, dcomp + n) = s_ext[Xvel+n];
@@ -226,11 +230,12 @@ struct PeleLMCCFillExtDir
     idir = 1;
     if ((bc[idir] == amrex::BCType::ext_dir) and (iv[idir] < domlo[idir])) {
 
-         bcnormal(x, s_ext, idir, +1, time, geom, *lprobparm, *lacparm, lpmfdata);
+      bcnormal(x, s_ext, idir, +1, time, geom, *lprobparm, *lacparm, lpmfdata, eta_out);
 
          if (orig_comp == Xvel){
            for (int n = 0; n < AMREX_SPACEDIM; n++) {
 #ifdef PELE_USE_TURBINFLOW
+             dest(iv, dcomp + n) *= eta_out;
              dest(iv, dcomp + n) += s_ext[Xvel+n];
 #else
              dest(iv, dcomp + n) = s_ext[Xvel+n];
@@ -259,11 +264,12 @@ struct PeleLMCCFillExtDir
        (bc[idir + AMREX_SPACEDIM] == amrex::BCType::ext_dir) and
        (iv[idir] > domhi[idir])) {
 
-         bcnormal(x, s_ext, idir, -1, time, geom, *lprobparm, *lacparm, lpmfdata);
+      bcnormal(x, s_ext, idir, -1, time, geom, *lprobparm, *lacparm, lpmfdata, eta_out);
 
          if (orig_comp == Xvel){
            for (int n = 0; n < AMREX_SPACEDIM; n++) {
 #ifdef PELE_USE_TURBINFLOW
+             dest(iv, dcomp + n) *= eta_out;
              dest(iv, dcomp + n) += s_ext[Xvel+n];
 #else
              dest(iv, dcomp + n) = s_ext[Xvel+n];
@@ -295,11 +301,12 @@ struct PeleLMCCFillExtDir
     idir = 2;
     if ((bc[idir] == amrex::BCType::ext_dir) and (iv[idir] < domlo[idir])) {
 
-         bcnormal(x, s_ext, idir, +1, time, geom, *lprobparm, *lacparm, lpmfdata);
-
+      bcnormal(x, s_ext, idir, +1, time, geom, *lprobparm, *lacparm, lpmfdata, eta_out);
          if (orig_comp == Xvel){
            for (int n = 0; n < AMREX_SPACEDIM; n++) {
 #ifdef PELE_USE_TURBINFLOW
+	     //amrex::Print() << eta_out << ' ';
+             dest(iv, dcomp + n) *= eta_out;
              dest(iv, dcomp + n) += s_ext[Xvel+n];
 #else
              dest(iv, dcomp + n) = s_ext[Xvel+n];
@@ -328,11 +335,12 @@ struct PeleLMCCFillExtDir
        (bc[idir + AMREX_SPACEDIM] == amrex::BCType::ext_dir) and
        (iv[idir] > domhi[idir])) {
 
-         bcnormal(x, s_ext, idir, -1, time, geom, *lprobparm, *lacparm, lpmfdata);
+      bcnormal(x, s_ext, idir, -1, time, geom, *lprobparm, *lacparm, lpmfdata, eta_out);
 
          if (orig_comp == Xvel){
            for (int n = 0; n < AMREX_SPACEDIM; n++) {
 #ifdef PELE_USE_TURBINFLOW
+             dest(iv, dcomp + n) *= eta_out;
              dest(iv, dcomp + n) += s_ext[Xvel+n];
 #else
              dest(iv, dcomp + n) = s_ext[Xvel+n];
@@ -380,7 +388,6 @@ void pelelm_cc_ext_fill (Box const& bx, FArrayBox& data,
 
 #ifdef PELE_USE_TURBINFLOW
         if (PeleLM::prob_parm->do_turb && scomp < AMREX_SPACEDIM)  {
-	  amrex::Print() << "DOING TURBINFLOW\n";
           ProbParm *probparmDD = PeleLM::prob_parm_d;
           ProbParm *probparmDH = PeleLM::prob_parm;
 
@@ -392,7 +399,6 @@ void pelelm_cc_ext_fill (Box const& bx, FArrayBox& data,
             auto bndryBoxLO = amrex::Box(amrex::adjCellLo(geom.Domain(),dir) & bx);
             if (bcr[1].lo()[dir]==EXT_DIR && bndryBoxLO.ok())
             {
-	      amrex::Print() << "DOING TURBINFLOW " << dir << " LO\n";
               // Create box with ghost cells and set them to zero
               amrex::IntVect growVect(amrex::IntVect::TheUnitVector());
               int Grow = 4;     // Being conservative

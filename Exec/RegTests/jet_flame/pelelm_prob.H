@@ -25,31 +25,20 @@ pelelm_initdata (int i, int j, int k,
                  pele::physics::PMF::PmfData::DataContainer const *pmf_data)
 {
 
-    const amrex::Real* prob_lo = geomdata.ProbLo();
-    const amrex::Real* prob_hi = geomdata.ProbHi();
-    const amrex::Real* dx      = geomdata.CellSize();
-
-    AMREX_D_TERM(const amrex::Real x = prob_lo[0] + (i+0.5)*dx[0];,
-                 const amrex::Real y = prob_lo[1] + (j+0.5)*dx[1];,
-                 const amrex::Real z = prob_lo[2] + (k+0.5)*dx[2];);
-
-    constexpr amrex::Real Pi = 3.14159265358979323846264338327950288;
     auto eos = pele::physics::PhysicsType::eos();
 
-    const amrex::Real L_x = prob_hi[0] - prob_lo[0];
-
-    amrex::Real molefrac[NUM_SPECIES] = {0.0};
     amrex::Real massfrac[NUM_SPECIES] = {0.0};
 
-    state(i,j,k,DEF_Temp) = 300;
-    molefrac[0] = 1.;
+    state(i,j,k,DEF_Temp) = prob_parm.T_ox;
 
-    eos.X2Y(molefrac, massfrac);
-
+    for (int n = 0; n < NUM_SPECIES; n++)
+    {
+        massfrac[n] = prob_parm.Y_ox[n];
+    }
 
     state(i,j,k,Xvel) = 0;
     state(i,j,k,Yvel) = 0;
-    state(i,j,k,Zvel) = 1.;
+    state(i,j,k,Zvel) = 0.;
 
     amrex::Real rho_cgs, P_cgs;
     P_cgs = prob_parm.P_mean * 10.0;
@@ -68,9 +57,21 @@ pelelm_initdata (int i, int j, int k,
 
 AMREX_GPU_DEVICE
 AMREX_FORCE_INLINE
+amrex::Real
+time_func(amrex::Real time, amrex::Real start, amrex::Real duration, amrex::Real tau)
+{
+  amrex::Real eta_time;
+  eta_time = 0.5 * (std::tanh((time - start)/(duration*tau))*
+    std::tanh((-time + start + duration)/(duration*tau))+1.0);
+  eta_time = std::min(std::max(eta_time,0.0),1.0);
+  return eta_time;
+}
+
+AMREX_GPU_DEVICE
+AMREX_FORCE_INLINE
 void
 bcnormal(
-  const amrex::Real* /*x[AMREX_SPACEDIM]*/,
+  const amrex::Real *x, /*x[AMREX_SPACEDIM]*/
   amrex::Real s_ext[DEF_NUM_STATE],
   const int idir,
   const int sgn,
@@ -78,23 +79,39 @@ bcnormal(
   amrex::GeometryData const& geomdata,
   ProbParm const& prob_parm,
   ACParm const& ac_parm,
-  pele::physics::PMF::PmfData::DataContainer const *pmf_data)
+  pele::physics::PMF::PmfData::DataContainer const *pmf_data,
+  amrex::Real& eta_out)
 {
   const amrex::Real* prob_lo = geomdata.ProbLo();
   amrex::Real molefrac[NUM_SPECIES] = {0.0};
   amrex::Real massfrac[NUM_SPECIES] = {0.0};
   auto eos = pele::physics::PhysicsType::eos();
+  amrex::Real radius = {0.0};
+  amrex::Real enthalpy;
+  int ierr;
 
-  if (sgn == 1) {
+  if (sgn == 1 && idir == 2) {
 
+    radius = std::sqrt(std::pow(x[0]-prob_parm.center_xy[0],2) + std::pow(x[1]-prob_parm.center_xy[1],2));
 
     s_ext[Xvel] = 0.0;
     s_ext[Yvel] = 0.0;
-    s_ext[Zvel] = 1.;
-    s_ext[DEF_Temp] = 300.;
 
-    molefrac[0] = 1.;
-    eos.X2Y(molefrac, massfrac);
+    amrex::Real eta = {0};
+    eta = 0.5*(1.0 - std::tanh(2.0*(radius-prob_parm.D*0.5)/(0.1*prob_parm.D*0.5)));
+    eta *= time_func(time,prob_parm.inj_start,prob_parm.inj_dur,prob_parm.tau);
+    eta_out = eta;
+
+    
+    for (int n = 0; n < NUM_SPECIES; n++)
+    {
+      massfrac[n] = eta * prob_parm.Y_fuel[n] + (1.0-eta) * prob_parm.Y_ox[n];
+    }
+    enthalpy = eta * prob_parm.H_fuel + (1.0-eta)*prob_parm.H_ox;
+
+    GET_T_GIVEN_HY(&enthalpy,massfrac,&s_ext[DEF_Temp],&ierr);
+
+    s_ext[Zvel] = eta*prob_parm.v_in;
 
     amrex::Real rho_cgs, P_cgs, RhoH_temp;
     P_cgs = prob_parm.P_mean * 10.0;

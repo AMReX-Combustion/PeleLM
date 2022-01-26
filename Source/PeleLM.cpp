@@ -9306,10 +9306,11 @@ PeleLM::initActiveControl()
    const amrex::Real time_l = -1.0;
    const auto geomdata = geom.data();
    Box dumbx({AMREX_D_DECL(0,0,0)},{AMREX_D_DECL(0,0,0)});
-   amrex::ParallelFor(dumbx, [x,s_ext_d,ctrl_flameDir_l,time_l,geomdata,lprobparm,lacparm, lpmfdata]
+   amrex::Real eta_out;
+   amrex::ParallelFor(dumbx, [x,s_ext_d,ctrl_flameDir_l,time_l,geomdata,lprobparm,lacparm, lpmfdata, &eta_out]
    AMREX_GPU_DEVICE(int /*i*/, int /*j*/, int /*k*/) noexcept
    {
-      bcnormal(x, s_ext_d, ctrl_flameDir_l, 1, time_l, geomdata, *lprobparm, *lacparm, lpmfdata);
+     bcnormal(x, s_ext_d, ctrl_flameDir_l, 1, time_l, geomdata, *lprobparm, *lacparm, lpmfdata, eta_out);
    });
    amrex::Real s_ext[DEF_NUM_STATE];
 #ifdef AMREX_USE_GPU
