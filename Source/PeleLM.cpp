@@ -935,7 +935,7 @@ PeleLM::variableCleanUp ()
    The_Arena()->free(ac_parm_d);
    trans_parms.deallocate();
 
-   //PMF::close();
+   pmf_data.deallocate();
 
    m_reactor->close();
 }
