@@ -79,8 +79,7 @@ bcnormal(
   amrex::GeometryData const& geomdata,
   ProbParm const& prob_parm,
   ACParm const& ac_parm,
-  pele::physics::PMF::PmfData::DataContainer const *pmf_data,
-  amrex::Real& eta_out)
+  pele::physics::PMF::PmfData::DataContainer const *pmf_data)
 {
   const amrex::Real* prob_lo = geomdata.ProbLo();
   amrex::Real molefrac[NUM_SPECIES] = {0.0};
@@ -94,15 +93,16 @@ bcnormal(
 
     radius = std::sqrt(std::pow(x[0]-prob_parm.center_xy[0],2) + std::pow(x[1]-prob_parm.center_xy[1],2));
 
-    s_ext[Xvel] = 0.0;
-    s_ext[Yvel] = 0.0;
-
     amrex::Real eta = {0};
     eta = 0.5*(1.0 - std::tanh(2.0*(radius-prob_parm.D*0.5)/(0.1*prob_parm.D*0.5)));
     eta *= time_func(time,prob_parm.inj_start,prob_parm.inj_dur,prob_parm.tau);
-    eta_out = eta;
 
-    
+    // s_ext come in with turbulent data. Use eta to get rid of out-of-jet data
+    s_ext[Xvel] *= eta;
+    s_ext[Yvel] *= eta;
+    s_ext[Zvel] *= eta;
+    s_ext[Zvel] += eta*prob_parm.v_in;
+
     for (int n = 0; n < NUM_SPECIES; n++)
     {
       massfrac[n] = eta * prob_parm.Y_fuel[n] + (1.0-eta) * prob_parm.Y_ox[n];
@@ -110,8 +110,6 @@ bcnormal(
     enthalpy = eta * prob_parm.H_fuel + (1.0-eta)*prob_parm.H_ox;
 
     GET_T_GIVEN_HY(&enthalpy,massfrac,&s_ext[DEF_Temp],&ierr);
-
-    s_ext[Zvel] = eta*prob_parm.v_in;
 
     amrex::Real rho_cgs, P_cgs, RhoH_temp;
     P_cgs = prob_parm.P_mean * 10.0;

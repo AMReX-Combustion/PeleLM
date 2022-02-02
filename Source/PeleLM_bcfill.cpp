@@ -24,7 +24,7 @@ struct PeleLMdummyFill
   {
     const int* domlo = geom.Domain().loVect();
     const int* domhi = geom.Domain().hiVect();
-    
+
     const int* bc = bcr->data();
 
     // Shouldn't actually ever use this, just need something computable.
@@ -35,13 +35,13 @@ struct PeleLMdummyFill
     int idir = 0;
     if ((bc[idir] == amrex::BCType::ext_dir) and (iv[idir] < domlo[idir])) {
 
-	 dest(iv, dcomp) = s_ext[0];
+      dest(iv, dcomp) = s_ext[0];
     
     } else if (
        (bc[idir + AMREX_SPACEDIM] == amrex::BCType::ext_dir) and
        (iv[idir] > domhi[idir])) {
 
-	 dest(iv, dcomp) = s_ext[0];
+      dest(iv, dcomp) = s_ext[0];
     }
 
 
@@ -55,7 +55,7 @@ struct PeleLMdummyFill
        (bc[idir + AMREX_SPACEDIM] == amrex::BCType::ext_dir) and
        (iv[idir] > domhi[idir])) {
 
-	 dest(iv, dcomp) = s_ext[0];
+      dest(iv, dcomp) = s_ext[0];
     }
 
 #if AMREX_SPACEDIM == 3
@@ -63,13 +63,13 @@ struct PeleLMdummyFill
     idir = 2;
     if ((bc[idir] == amrex::BCType::ext_dir) and (iv[idir] < domlo[idir])) {
 
-	 dest(iv, dcomp) = s_ext[0];
+       dest(iv, dcomp) = s_ext[0];
 
     } else if (
        (bc[idir + AMREX_SPACEDIM] == amrex::BCType::ext_dir) and
        (iv[idir] > domhi[idir])) {
 
-	  dest(iv, dcomp) = s_ext[0];
+       dest(iv, dcomp) = s_ext[0];
     }
 #endif
   }
@@ -150,26 +150,27 @@ struct PeleLMCCFillExtDir
 
     amrex::Real s_ext[DEF_NUM_STATE] = {0.0};
 
-    amrex::Real eta_out;
-    
     // xlo and xhi
     int idir = 0;
     if ((bc[idir] == amrex::BCType::ext_dir) and (iv[idir] < domlo[idir])) {
 
+#ifdef PELE_USE_TURBINFLOW
+         // fill s_ext with turbulent velocity data so that the user can modify it.
+         if (orig_comp == Xvel){
+           for (int n = 0; n < AMREX_SPACEDIM; n++) {
+             s_ext[Xvel+n] = dest(iv, dcomp + n);
+           }
+         }
+#endif
          //
          // Fill s_ext with the EXT_DIR BC value
          // bcnormal() is defined in pelelm_prob.H in problem directory in /Exec
          //
-      bcnormal(x, s_ext, idir, 1, time, geom, *lprobparm, *lacparm, lpmfdata, eta_out);
+         bcnormal(x, s_ext, idir, 1, time, geom, *lprobparm, *lacparm, lpmfdata);
 
          if (orig_comp == Xvel){
            for (int n = 0; n < AMREX_SPACEDIM; n++) {
-#ifdef PELE_USE_TURBINFLOW
-	     dest(iv, dcomp + n) *= eta_out;
-             dest(iv, dcomp + n) += s_ext[Xvel+n];
-#else
              dest(iv, dcomp + n) = s_ext[Xvel+n];
-#endif
            }
          }
          else if (orig_comp == Density){
@@ -194,16 +195,20 @@ struct PeleLMCCFillExtDir
        (bc[idir + AMREX_SPACEDIM] == amrex::BCType::ext_dir) and
        (iv[idir] > domhi[idir])) {
 
-      bcnormal(x, s_ext, idir, -1, time, geom, *lprobparm, *lacparm, lpmfdata, eta_out);
+#ifdef PELE_USE_TURBINFLOW
+         // fill s_ext with turbulent velocity data so that the user can modify it.
+         if (orig_comp == Xvel){
+           for (int n = 0; n < AMREX_SPACEDIM; n++) {
+             s_ext[Xvel+n] = dest(iv, dcomp + n);
+           }
+         }
+#endif
+
+         bcnormal(x, s_ext, idir, -1, time, geom, *lprobparm, *lacparm, lpmfdata);
 
          if (orig_comp == Xvel){
            for (int n = 0; n < AMREX_SPACEDIM; n++) {
-#ifdef PELE_USE_TURBINFLOW
-	     dest(iv, dcomp + n) *= eta_out;
-             dest(iv, dcomp + n) += s_ext[Xvel+n];
-#else
              dest(iv, dcomp + n) = s_ext[Xvel+n];
-#endif
            }
          }
          else if (orig_comp == Density){
@@ -230,16 +235,20 @@ struct PeleLMCCFillExtDir
     idir = 1;
     if ((bc[idir] == amrex::BCType::ext_dir) and (iv[idir] < domlo[idir])) {
 
-      bcnormal(x, s_ext, idir, +1, time, geom, *lprobparm, *lacparm, lpmfdata, eta_out);
+#ifdef PELE_USE_TURBINFLOW
+         // fill s_ext with turbulent velocity data so that the user can modify it.
+         if (orig_comp == Xvel){
+           for (int n = 0; n < AMREX_SPACEDIM; n++) {
+             s_ext[Xvel+n] = dest(iv, dcomp + n);
+           }
+         }
+#endif
+
+         bcnormal(x, s_ext, idir, +1, time, geom, *lprobparm, *lacparm, lpmfdata);
 
          if (orig_comp == Xvel){
            for (int n = 0; n < AMREX_SPACEDIM; n++) {
-#ifdef PELE_USE_TURBINFLOW
-             dest(iv, dcomp + n) *= eta_out;
-             dest(iv, dcomp + n) += s_ext[Xvel+n];
-#else
              dest(iv, dcomp + n) = s_ext[Xvel+n];
-#endif
            }
          }
          else if (orig_comp == Density){
@@ -264,16 +273,20 @@ struct PeleLMCCFillExtDir
        (bc[idir + AMREX_SPACEDIM] == amrex::BCType::ext_dir) and
        (iv[idir] > domhi[idir])) {
 
-      bcnormal(x, s_ext, idir, -1, time, geom, *lprobparm, *lacparm, lpmfdata, eta_out);
+#ifdef PELE_USE_TURBINFLOW
+         // fill s_ext with turbulent velocity data so that the user can modify it.
+         if (orig_comp == Xvel){
+           for (int n = 0; n < AMREX_SPACEDIM; n++) {
+             s_ext[Xvel+n] = dest(iv, dcomp + n);
+           }
+         }
+#endif
+
+         bcnormal(x, s_ext, idir, -1, time, geom, *lprobparm, *lacparm, lpmfdata);
 
          if (orig_comp == Xvel){
            for (int n = 0; n < AMREX_SPACEDIM; n++) {
-#ifdef PELE_USE_TURBINFLOW
-             dest(iv, dcomp + n) *= eta_out;
-             dest(iv, dcomp + n) += s_ext[Xvel+n];
-#else
              dest(iv, dcomp + n) = s_ext[Xvel+n];
-#endif
            }
          }
          else if (orig_comp == Density){
@@ -301,16 +314,19 @@ struct PeleLMCCFillExtDir
     idir = 2;
     if ((bc[idir] == amrex::BCType::ext_dir) and (iv[idir] < domlo[idir])) {
 
-      bcnormal(x, s_ext, idir, +1, time, geom, *lprobparm, *lacparm, lpmfdata, eta_out);
+#ifdef PELE_USE_TURBINFLOW
+         // fill s_ext with turbulent velocity data so that the user can modify it.
          if (orig_comp == Xvel){
            for (int n = 0; n < AMREX_SPACEDIM; n++) {
-#ifdef PELE_USE_TURBINFLOW
-	     //amrex::Print() << eta_out << ' ';
-             dest(iv, dcomp + n) *= eta_out;
-             dest(iv, dcomp + n) += s_ext[Xvel+n];
-#else
-             dest(iv, dcomp + n) = s_ext[Xvel+n];
+             s_ext[Xvel+n] = dest(iv, dcomp + n);
+           }
+         }
 #endif
+
+         bcnormal(x, s_ext, idir, +1, time, geom, *lprobparm, *lacparm, lpmfdata);
+         if (orig_comp == Xvel){
+           for (int n = 0; n < AMREX_SPACEDIM; n++) {
+             dest(iv, dcomp + n) = s_ext[Xvel+n];
            }
          }
          else if (orig_comp == Density){
@@ -335,16 +351,20 @@ struct PeleLMCCFillExtDir
        (bc[idir + AMREX_SPACEDIM] == amrex::BCType::ext_dir) and
        (iv[idir] > domhi[idir])) {
 
-      bcnormal(x, s_ext, idir, -1, time, geom, *lprobparm, *lacparm, lpmfdata, eta_out);
+#ifdef PELE_USE_TURBINFLOW
+         // fill s_ext with turbulent velocity data so that the user can modify it.
+         if (orig_comp == Xvel){
+           for (int n = 0; n < AMREX_SPACEDIM; n++) {
+             s_ext[Xvel+n] = dest(iv, dcomp + n);
+           }
+         }
+#endif
+
+         bcnormal(x, s_ext, idir, -1, time, geom, *lprobparm, *lacparm, lpmfdata);
 
          if (orig_comp == Xvel){
            for (int n = 0; n < AMREX_SPACEDIM; n++) {
-#ifdef PELE_USE_TURBINFLOW
-             dest(iv, dcomp + n) *= eta_out;
-             dest(iv, dcomp + n) += s_ext[Xvel+n];
-#else
              dest(iv, dcomp + n) = s_ext[Xvel+n];
-#endif
            }
          }
          else if (orig_comp == Density){
@@ -440,8 +460,7 @@ void pelelm_cc_ext_fill (Box const& bx, FArrayBox& data,
 
         GpuBndryFuncFab<PeleLMCCFillExtDir> gpu_bndry_func(PeleLMCCFillExtDir{lprobparm,lacparm,lpmfdata});
 
-
-	  gpu_bndry_func(bx,data,dcomp,numcomp,geom,time,bcr,bcomp,scomp);
+        gpu_bndry_func(bx,data,dcomp,numcomp,geom,time,bcr,bcomp,scomp);
 
 #ifdef PELE_USE_TURBINFLOW
         if (PeleLM::prob_parm->do_turb && scomp < AMREX_SPACEDIM)  {
