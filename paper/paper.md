@@ -67,8 +67,8 @@ their low Mach number limit [@Day:2000], where the characteristic fluid velocity
 and the effect of acoustic wave propagation is unimportant to the overall dynamics of the system. Accordingly, 
 acoustic wave propagation can be mathematically removed from the equations of motion, allowing for a numerical time 
 step based on an advective CFL condition.
-This low Mach number limit mathematically translates into a constraint on the divergence of the velocity field [@Majda:1984]. The 
-momemtum equation is then solved for using a predictor/corrector method [@Almgren:1998]. A constrained time-centered 
+This low Mach number limit mathematically translates into a constraint on the divergence of the velocity field [@Majda:1986]. The 
+momemtum equation is then solved for using a predictor/corrector method [@Almgren1998]. A constrained time-centered 
 face-centered velocity field is first obtained using a second-order Godunov procedure followed by a discrete projection 
 using time-centered source terms. At this point, the velocity field is used to advance the species and energy equations. 
 Then a semi-implicit Crank-Nicholson method is used to obtain a cell-centered velocity upon which the low Mach contrain
