@@ -69,7 +69,7 @@ acoustic wave propagation can be mathematically removed from the equations of mo
 step based on an advective CFL condition.
 This low Mach number limit mathematically translates into a constraint on the divergence of the velocity field [@Majda:1986]. The 
 momemtum equation is then solved for using a predictor/corrector method initially developed for incompressible flows [@Almgren1998]
-and later extended to reactive, variable-density flows [@Pember:1988]. A constrained time-centered 
+and later extended to reactive, variable-density flows [@Pember:1998]. A constrained time-centered 
 face-centered velocity field is first obtained using a second-order Godunov procedure followed by a discrete projection 
 using time-centered source terms. At this point, the velocity field is used to advance the species and energy equations. 
 Then a semi-implicit Crank-Nicholson method is used to obtain a cell-centered velocity upon which the low Mach contrain
