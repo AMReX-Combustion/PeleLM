@@ -9,36 +9,48 @@ tags:
   - CFD
   - low-Mach number
 authors:
-  - name: Marc Day
-    orcid: 0000-0002-1711-3963
-    affiliation: 1, 2
-  - name: John Bell
-    orcid: 0000-0002-5749-334X
-    affiliation: 1
-  - name: Andy Nonaka
-    affiliation: 1
   - name: Lucas Esclapez
     orcid: 0000-0002-2438-7292
     affiliation: 1, 2
-  - name: Anne Felden
-    affiliation: 1
+  - name: Marc Day
+    orcid: 0000-0002-1711-3963
+    affiliation: 1, 2
   - name: Emmanuel Motheau
     orcid: 0000-0003-1968-1611
     affiliation: 1
   - name: Candace Gilet
+  - name: Andy Nonaka
+    affiliation: 1
+  - name: Anne Felden
+    affiliation: 1
   - name: Weiqun Zhang
+    affiliation: 1
+  - name: John Bell
+    orcid: 0000-0002-5749-334X
     affiliation: 1
   - name: Valentina Ricciuti
   - name: Jon Rood
     affiliation: 2
   - name: Brian Friesen
-    affiliation: 1
+    affiliation: 3
+  - name: Deepak Dalakoti
+    affiliation: 4
+  - name: Armin Wehrfritz
+    affiliation: 4
+  - name: Nicolas Wimer
+    affiliation: 2
+  - name: Ray Grout
+    affiliation: 2
 affiliations:
-  - name: Center for Computational Sciences and Engineering, Lawrence Berkeley National Laboratory
+  - name: Center for Computational Sciences and Engineering, Lawrence Berkeley National Laboratory, USA
     index: 1
-  - name: High Performance Algorithms and Complex Fluids, National Renewable Energy Laboratory
+  - name: High Performance Algorithms and Complex Fluids, National Renewable Energy Laboratory, USA
     index: 2
-date: 04 September 2021
+  - name: National Energy Research Scientific Computing Center, Lawrence Berkeley National Laboratory, USA
+    index: 3
+  - name: University of New South Wales, Australia
+    index: 4
+date: 01 February 2022
 bibliography: paper.bib
 ---
 
@@ -64,7 +76,8 @@ is subsequently enforced using an approximate projection.
 The species and energy conservation equations include advection, diffusion and reactions processes as well as
 any external forcing (gravity, ...). The advection term is discretized using a second-order Godunov scheme, the 
 diffusion term is obtained using a semi-implicit Crank-Nicholson scheme while the much stiffer reaction term
-is obtained using a fully implicit Backward Differentiation Formulas scheme (such as implemented in Sundials [@SUNDIALS]).
+is obtained using a fully implicit Backward Differentiation Formulas scheme (specifically, the CVODE integrator 
+[@cvodeDocumentation] of the Sundials suite [@SUNDIALS]).
 Because of the wide scale separation between the slow hydronamics and the fast reations, this operator splitting 
 appraoch can lead to significant splitting error if not carefully integrated on time. PeleLM uses an iterative 
 Spectral Defered Correction (SDC) scheme [@Nonaka12,@Nonaka18] to ensure a tight coupling of all the processes while
@@ -91,7 +104,7 @@ formulation to achieve high performances from a small desktop stations to the wo
 it remains the only publicly available code to offers these features.
 
 PeleLM is predominantly used to study the fine scale interactions between turbulence and chemical reactions occuring in many
-combustion applications. A better understanding of these interactions is the basis for developing accurate modeling appraoches
+combustion applications. A better understanding of these interactions is the basis for developing accurate modeling approaches
 that can be used to design the next generation of low-emission combustion devices. To this end, PeleLM has been used to study
 diesel jet flame [@Dalakoti:2020], premixed dodecane/air flame chemical pathways [@Dasgupta:2019] or the effect of increasingly 
 intense turbulence [@Aspden:2019]. Notable applications also includes large scale helium plumes enabled by AMR [@Wimer:2021].
