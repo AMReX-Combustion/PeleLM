@@ -952,7 +952,7 @@ PeleLM::variableCleanUp ()
 #endif
    trans_parms.deallocate();
 
-   //PMF::close();
+   pmf_data.deallocate();
 
    m_reactor->close();
 }
@@ -2434,6 +2434,9 @@ PeleLM::post_restart ()
    }
 #endif
    activeControl(step,is_restart,0.0,crse_dt);
+   if (level == 0 && lev0cellCount < 0.0) {
+     lev0cellCount = getCellsCount();
+   }
 }
 
 void
@@ -9594,6 +9597,7 @@ PeleLM::activeControl(const int  step,
    ac_parm->ctrl_V_in = ctrl_V_in;
    ac_parm->ctrl_dV = ctrl_dV;
    ac_parm->ctrl_tBase = ctrl_tBase;
+   amrex::Gpu::copy(amrex::Gpu::hostToDevice,ac_parm,ac_parm+1,ac_parm_d);
 
    // Verbose
    if ( ctrl_verbose && !restart) {
@@ -9654,7 +9658,11 @@ PeleLM::initActiveControl()
       amrex::Error("active_control.flame_direction MUST be 0, 1 or 2 for X, Y and Z resp.");
 
    // Exit here if AC not activated
-   if ( !ctrl_active ) return;
+   if ( !ctrl_active ) {
+      ac_parm->ctrl_active = ctrl_active;
+      amrex::Gpu::copy(amrex::Gpu::hostToDevice,ac_parm,ac_parm+1,ac_parm_d);
+      return;
+   }
 
    // Activate AC in problem specific / GPU compliant sections
    ac_parm->ctrl_active = ctrl_active;
