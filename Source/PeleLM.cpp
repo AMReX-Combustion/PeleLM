@@ -70,7 +70,9 @@
 
 #ifdef AMREX_PARTICLES
 #include <AMReX_Particles.H>
+#ifdef SPRAY_PELE_LM
 #include "SprayParticles.H"
+#endif
 #endif
 
 #ifdef SOOT_MODEL
@@ -133,7 +135,7 @@ int  PeleLM::RhoH;
 int  PeleLM::do_diffuse_sync;
 int  PeleLM::do_reflux_visc;
 int  PeleLM::RhoYdot_Type;
-#ifdef AMREX_PARTICLES
+#ifdef SPRAY_PELE_LM
 int  PeleLM::spraydot_Type;
 #endif
 #ifdef SOOT_MODEL
@@ -328,7 +330,7 @@ PeleLM::Initialize ()
 {
   if (initialized) return;
 
-#ifdef AMREX_PARTICLES
+#ifdef SPRAY_PELE_LM
   // Ensure default particles in NavierStokesBase aren't used
   NavierStokesBase::do_nspc = false;
 #endif
@@ -361,7 +363,7 @@ PeleLM::Initialize ()
   PeleLM::do_diffuse_sync           = 1;
   PeleLM::do_reflux_visc            = 1;
   PeleLM::RhoYdot_Type                 = -1;
-#ifdef AMREX_PARTICLES
+#ifdef SPRAY_PELE_LM
   PeleLM::spraydot_Type             = -1;
 #endif
 #ifdef SOOT_MODEL
@@ -528,7 +530,7 @@ PeleLM::Initialize ()
 
   }
 
-#ifdef AMREX_PARTICLES
+#ifdef SPRAY_PELE_LM
   readParticleParams();
 #endif
 
@@ -1711,7 +1713,7 @@ PeleLM::estTimeStep ()
       amrex::Print() << "PeleLM::estTimeStep(): estdt, divu_dt = "
                      << estdt << ", " << divu_dt << '\n';
    }
-#ifdef AMREX_PARTICLES
+#ifdef SPRAY_PELE_LM
    if (do_spray_particles) {
      particleEstTimeStep(estdt);
    }
@@ -1792,7 +1794,7 @@ PeleLM::setTimeLevel (Real time,
 
    state[RhoYdot_Type].setTimeLevel(time,dt_old,dt_new);
 
-#ifdef AMREX_PARTICLES
+#ifdef SPRAY_PELE_LM
    if (do_spray_particles) {
      state[spraydot_Type].setTimeLevel(time,dt_old,dt_new);
    }
@@ -2126,7 +2128,7 @@ PeleLM::initData ()
   //
   initActiveControl();
 
-#ifdef AMREX_PARTICLES
+#ifdef SPRAY_PELE_LM
   if (do_spray_particles) {
     defineSprayStateMF();
     if (level == 0) {
@@ -2181,7 +2183,7 @@ PeleLM::initDataOtherTypes ()
   // Set initial omegadot = 0
   get_new_data(RhoYdot_Type).setVal(0.0);
 
-#ifdef AMREX_PARTICLES
+#ifdef SPRAY_PELE_LM
   if (do_spray_particles) {
     get_new_data(spraydot_Type).setVal(0.0);
   }
@@ -2294,7 +2296,7 @@ PeleLM::init (AmrLevel& old)
          nrYdotma[box_no](i,j,k,n) = orYdotma[box_no](i,j,k,n);
       }
    });
-#ifdef AMREX_PARTICLES
+#ifdef SPRAY_PELE_LM
    if (do_spray_particles) {
      MultiFab& spraydot = get_new_data(spraydot_Type);
      FillPatchIterator fpi(*oldht, spraydot, spraydot.nGrow(), tnp1, spraydot_Type, 0, spraydot.nComp());
@@ -2344,7 +2346,7 @@ PeleLM::init ()
    // Get best ydot data.
    //
    FillCoarsePatch(get_new_data(RhoYdot_Type),0,tnp1,RhoYdot_Type,0,NUM_SPECIES);
-#ifdef AMREX_PARTICLES
+#ifdef SPRAY_PELE_LM
    if (do_spray_particles) {
      FillCoarsePatch(get_new_data(spraydot_Type), 0, tnp1, spraydot_Type, 0, num_spray_src);
    }
@@ -2391,7 +2393,7 @@ PeleLM::post_timestep (int crse_iteration)
       clev.average_down(Ydot_fine, Ydot_crse, 0, Ndiag);
     }
   }
-#ifdef AMREX_PARTICLES
+#ifdef SPRAY_PELE_LM
   const int finest_level = parent->finestLevel();
   const int ncycle       = parent->nCycle(level);
   if (do_spray_particles) {
@@ -2437,7 +2439,7 @@ PeleLM::post_restart ()
 
    int step    = parent->levelSteps(0);
    int is_restart = 1;
-#ifdef AMREX_PARTICLES
+#ifdef SPRAY_PELE_LM
    if (do_spray_particles) {
      defineSprayStateMF();
      particlePostRestart();
@@ -2499,7 +2501,7 @@ PeleLM::post_regrid (int lbase,
       }
    }
    make_rho_curr_time();
-#ifdef AMREX_PARTICLES
+#ifdef SPRAY_PELE_LM
    if (do_spray_particles && theSprayPC() != nullptr) {
      defineSprayStateMF();
      if (level == lbase) {
@@ -2567,7 +2569,7 @@ PeleLM::checkPoint (const std::string& dir,
           }
       }
   }
-#ifdef AMREX_PARTICLES
+#ifdef SPRAY_PELE_LM
   if (theSprayPC() && do_spray_particles) {
     bool is_checkpoint = true;
     int write_ascii = 0; // Not for checkpoint intervals
@@ -2791,7 +2793,7 @@ PeleLM::post_init (Real stop_time)
   // Initialize the pressure by iterating the initial timestep.
   //
   post_init_press(dt_init, nc_save, dt_save);
-#ifdef AMREX_PARTICLES
+#ifdef SPRAY_PELE_LM
   if (do_spray_particles) {
     BL_PROFILE_VAR("SprayParticles::injectParticles()", INJECT_SPRAY);
     ProbParm const* lprobparm = prob_parm;
@@ -3133,7 +3135,7 @@ PeleLM::resetState (Real time,
 
    state[FuncCount_Type].reset();
    state[FuncCount_Type].setTimeLevel(time,dt_old,dt_new);
-#ifdef AMREX_PARTICLES
+#ifdef SPRAY_PELE_LM
    if (do_spray_particles)
    {
      state[spraydot_Type].reset();
@@ -5122,7 +5124,7 @@ PeleLM::advance (Real time,
   FillPatch(*this, S_old, S_old.nGrow(), prev_time, State_Type, 0, NUM_STATE, 0);
   FillPatch(*this, S_new, S_new.nGrow(), new_time, State_Type, 0, NUM_STATE, 0);
 
-#ifdef AMREX_PARTICLES
+#ifdef SPRAY_PELE_LM
   int nGrow_Sborder = 4; //mr: set to 1 for now, is this ok?
 
   int ghost_width = 0;
@@ -5262,7 +5264,7 @@ PeleLM::advance (Real time,
   BL_PROFILE_VAR_NS("PeleLM::advance::velocity_adv", PLM_VEL);
 
   if (!NavierStokesBase::initial_step) {
-#ifdef AMREX_PARTICLES
+#ifdef SPRAY_PELE_LM
     if (do_spray_particles) {
       AMREX_ASSERT(theSprayPC() != nullptr);
       particleMKD(time, dt, ghost_width, spray_n_grow,
@@ -5610,7 +5612,7 @@ PeleLM::advance (Real time,
 
     showMF("DBGSync",S_new,"DBGSync_Snew_end_sdc",level,sdc_iter,parent->levelSteps(level));
     if (sdc_iter == sdc_iterMAX && !NavierStokesBase::initial_step) {
-#ifdef AMREX_PARTICLES
+#ifdef SPRAY_PELE_LM
       if (do_spray_particles) {
         FillPatch(*this, Sborder, nGrow_Sborder, new_time, State_Type, 0, NUM_STATE);
         particleMK(new_time, dt, spray_n_grow, tmp_src_width, tmp_spray_source);
@@ -8865,7 +8867,7 @@ PeleLM::setPlotVariables ()
       amrex::Print() << *li << ' ';
     amrex::Print() << '\n';
   }
-#ifdef AMREX_PARTICLES
+#ifdef SPRAY_PELE_LM
   // Remove spray source terms unless otherwise specified
   if (plot_spray_src == 0 && do_spray_particles)
   {
@@ -9318,7 +9320,7 @@ PeleLM::writePlotFile (const std::string& dir,
 //#endif
 
   VisMF::Write(plotMF,TheFullPath,how);
-#ifdef AMREX_PARTICLES
+#ifdef SPRAY_PELE_LM
   if (theSprayPC() && do_spray_particles)
   {
     bool is_checkpoint = false;
@@ -9827,7 +9829,7 @@ PeleLM::add_external_sources(Real /*time*/,
                              Real /*dt*/)
 {
   external_sources.setVal(0.);
-#if defined(SOOT_MODEL) || defined(AMREX_PARTICLES)
+#if defined(SOOT_MODEL) || defined(SPRAY_PELE_LM)
   const int nghost = external_sources.nGrow();
 #ifdef _OPENMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
@@ -9836,7 +9838,7 @@ PeleLM::add_external_sources(Real /*time*/,
     {
       const Box& box = mfi.growntilebox(nghost);
       auto const& ext_fab = external_sources.array(mfi);
-#ifdef AMREX_PARTICLES
+#ifdef SPRAY_PELE_LM
       if (do_spray_particles) {
         auto const& spraydot = get_new_data(spraydot_Type).array(mfi);
         theSprayPC()->addSpraySrc(box, spraydot, ext_fab);

@@ -73,7 +73,7 @@ function(build_pelelm_exe pelelm_exe_name)
                  ${PELELM_MECHANISM_DIR}/mechanism.H)
   # Set PeleMP flags
   set(PELEMP_SRC_DIR ${CMAKE_SOURCE_DIR}/Submodules/PeleMP/Source)
-  if(PELELM_ENABLE_PARTICLES)
+  if(PELELM_ENABLE_PARTICLES AND PELEMP_SPRAY_FUEL_NUM)
     target_sources(${pelelm_exe_name}
       PRIVATE
 	SprayParticlesInitInsert.cpp

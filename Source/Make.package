@@ -5,7 +5,9 @@ CEXE_headers += pelelm_prob.H pelelm_prob_parm.H PeleLM_parm.H
 CEXE_sources += pelelm_prob.cpp
 
 ifeq ($(USE_PARTICLES), TRUE)
-  CEXE_sources += Particle.cpp
+  ifdef SPRAY_FUEL_NUM
+    CEXE_sources += Particle.cpp
+  endif
 endif
 
 ifeq ($(USE_SOOT), TRUE)

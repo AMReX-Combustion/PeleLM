@@ -116,7 +116,7 @@ protected:
 };
 
 // Forward declarations
-#ifdef AMREX_PARTICLES
+#ifdef SPRAY_PELE_LM
 class SprayParticleContainer;
 #endif
 #ifdef SOOT_MODEL
@@ -183,7 +183,7 @@ public:
   virtual void init (amrex::AmrLevel& old) override;
 
   virtual void initData () override;
-#ifdef AMREX_PARTICLES
+#ifdef SPRAY_PELE_LM
   //
   // Read particle-related inputs
   //
@@ -332,7 +332,7 @@ public:
   static void variableSetUp ();
 
   static void rhoydotSetUp ();
-#ifdef AMREX_PARTICLES
+#ifdef SPRAY_PELE_LM
   static void spraydotSetUp ();
 #endif
 
@@ -456,7 +456,7 @@ public:
   static void Finalize ();
 
 
-#ifdef AMREX_PARTICLES
+#ifdef SPRAY_PELE_LM
   static int       do_spray_particles;
   static SprayParticleContainer* theSprayPC ();
   static SprayParticleContainer* theVirtPC ();
@@ -828,7 +828,7 @@ public:
   static int         use_wbar;
   static int         FuncCount_Type;
   static int         RhoYdot_Type;
-#ifdef AMREX_PARTICLES
+#ifdef SPRAY_PELE_LM
   static int         spraydot_Type;
 #endif
   static int         divu_ceiling;

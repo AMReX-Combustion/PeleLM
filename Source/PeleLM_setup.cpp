@@ -861,7 +861,7 @@ PeleLM::variableSetUp ()
 
   std::string curv_str = "mean_progress_curvature";
   derive_lst.add(curv_str,IndexType::TheCellType(),1,&DeriveRec::GrowBoxByOne);
-#ifdef AMREX_PARTICLES
+#ifdef SPRAY_PELE_LM
   if (do_spray_particles) {
     spraydotSetUp();
     defineParticles();
@@ -1070,7 +1070,7 @@ PeleLM::rhoydotSetUp()
   }
 }
 
-#ifdef AMREX_PARTICLES
+#ifdef SPRAY_PELE_LM
 static
 int
 spraydot_bc[] =
