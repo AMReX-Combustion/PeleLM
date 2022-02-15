@@ -4027,7 +4027,7 @@ PeleLM::compute_enthalpy_fluxes (MultiFab* const*       flux,
 
   // Here it is NUM_SPECIES+2 because this is the heat flux (NUM_SPECIES+3 in enth_diff_terms in fortran)
   // No multiplication by dt here
-  Diffusion::computeExtensiveFluxes(mg, TT, flux, NUM_SPECIES+2, 1, &geom, b);
+  diffusion->computeExtensiveFluxes(mg, TT, flux, NUM_SPECIES+2, 1, area, b);
 
   //
   // Now we have flux[NUM_SPECIES+2]
@@ -4446,7 +4446,7 @@ PeleLM::compute_differential_diffusion_fluxes (const MultiFab& S,
    Diffusion::setBeta(op,beta,betaComp,NUM_SPECIES);
 
    // No multiplication by dt here.
-   Diffusion::computeExtensiveFluxes(mg, Soln, flux, fluxComp, NUM_SPECIES, &geom, b);
+   diffusion->computeExtensiveFluxes(mg, Soln, flux, fluxComp, NUM_SPECIES, area, b);
 
    Soln.clear();
 
@@ -7853,7 +7853,7 @@ PeleLM::compute_Wbar_fluxes(const MultiFab &a_scalars,
    FluxBoxes fb_flux(this,1,0);
    MultiFab** gradWbar = fb_flux.get();
 
-   Diffusion::computeExtensiveFluxes(mg, Wbar, gradWbar, 0, 1, &geom, -1.0);
+   diffusion->computeExtensiveFluxes(mg, Wbar, gradWbar, 0, 1, area, -1.0);
 
    Vector<BCRec> math_bc(1);
    math_bc = fetchBCArray(State_Type,first_spec,1);
