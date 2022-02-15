@@ -339,6 +339,7 @@ public:
 #ifdef SOOT_MODEL
   static void setSootIndx ();
   static void sootsrcSetUp ();
+  void restartFromNoSoot ();
   void computeSootSrc (amrex::Real time, amrex::Real dt);
   void clipSootMoments();
   void estSootTimeStep (amrex::Real& estdt);
@@ -465,6 +466,7 @@ public:
 #ifdef SOOT_MODEL
   static int do_soot_solve;
   static int plot_soot_src;
+  static int restart_from_no_soot;
   static SootModel* soot_model;
   static int         sootsrc_Type;
   static int         first_soot;

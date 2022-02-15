@@ -20,6 +20,22 @@ PeleLM::setSootIndx()
 }
 
 void
+PeleLM::restartFromNoSoot()
+{
+  get_old_data(sootsrc_Type).setVal(0.);
+  get_new_data(sootsrc_Type).setVal(0.);
+  Real moments[NUM_SOOT_MOMENTS+1];
+  SootData* const sd = PeleLM::soot_model->getSootData();
+  sd->initialSmallMomVals(moments);
+  MultiFab& S_new = get_new_data(State_Type);
+  MultiFab& S_old = get_old_data(State_Type);
+  for (int m = 0; m < NUM_SOOT_MOMENTS+1; ++m) {
+    S_new.setVal(moments[m], DEF_first_soot + m, 1, S_new.nGrow());
+    S_old.setVal(moments[m], DEF_first_soot + m, 1, S_old.nGrow());
+  }
+}
+
+void
 PeleLM::computeSootSrc(Real time, Real dt)
 {
   // Get soot source data
@@ -39,7 +55,7 @@ PeleLM::computeSootSrc(Real time, Real dt)
     auto const& q_arr = mf.array(mfi, Density); // Only need the scalars
     auto const& mu_arr = vel_visc_cc->const_array(mfi);
     auto const& soot_arr = soot_mf.array(mfi);
-    soot_model->addSootSourceTerm(gbx, q_arr, mu_arr, soot_arr, time, dt, pres_term);
+    soot_model->computeSootSourceTerm(gbx, q_arr, mu_arr, soot_arr, time, dt, pres_term);
   }
 }
 

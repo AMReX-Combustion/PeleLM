@@ -205,6 +205,7 @@ std::unique_ptr<pele::physics::reactions::ReactorBase> PeleLM::m_reactor;
 #ifdef SOOT_MODEL
 int PeleLM::do_soot_solve;
 int PeleLM::plot_soot_src;
+int PeleLM::restart_from_no_soot;
 SootModel* PeleLM::soot_model;
 int PeleLM::first_soot;
 int PeleLM::NUM_SOOT_VARS;
@@ -366,7 +367,8 @@ PeleLM::Initialize ()
 #ifdef SOOT_MODEL
   PeleLM::sootsrc_Type              = -1;
   PeleLM::do_soot_solve             =  1;
-  PeleLM::plot_soot_src             = -1;
+  PeleLM::restart_from_no_soot      =  0;
+  PeleLM::plot_soot_src             =  0;
   PeleLM::NUM_SOOT_VARS             = -1;
   PeleLM::first_soot                = -1;
   PeleLM::num_soot_src              = -1;
@@ -535,7 +537,10 @@ PeleLM::Initialize ()
     ParmParse pplm("peleLM");
     pplm.query("plot_soot_src", plot_soot_src);
     pplm.query("do_soot_solve", do_soot_solve);
+    pplm.query("restart_from_no_soot", restart_from_no_soot);
     if (do_soot_solve != 1) do_soot_solve = 0;
+    if (plot_soot_src != 1) plot_soot_src = 0;
+    if (restart_from_no_soot != 1) restart_from_no_soot = 0;
   }
   soot_model->readSootParams();
 #endif
@@ -1300,6 +1305,11 @@ PeleLM::restart (Amr&          papa,
   //
   initActiveControl();
 
+#ifdef SOOT_MODEL
+  if (do_soot_solve && restart_from_no_soot) {
+    restartFromNoSoot();
+  }
+#endif
 }
 
 void
@@ -5398,8 +5408,9 @@ PeleLM::advance (Real time,
           amrex::ParallelFor(gbx, [ext_pass, fPass]
           AMREX_GPU_DEVICE (int i, int j, int k) noexcept
           {
-            for (int n = 0; n < DEF_NUM_PASSIVE; n++)
+            for (int n = 0; n < DEF_NUM_PASSIVE; n++) {
               fPass(i,j,k,n) = ext_pass(i,j,k,n);
+            }
           });
        }
     }
@@ -5419,8 +5430,9 @@ PeleLM::advance (Real time,
     if (DEF_NUM_PASSIVE > 0 && solve_passives) {
       scalar_advection_update(dt, first_passive, first_passive + DEF_NUM_PASSIVE - 1);
 #ifdef SOOT_MODEL
-      if (sdc_iter == sdc_iterMAX)
+      if (sdc_iter == sdc_iterMAX) {
         clipSootMoments();
+      }
 #endif
     }
     make_rho_curr_time();
@@ -8866,19 +8878,32 @@ PeleLM::setPlotVariables ()
 #endif
 #ifdef SOOT_MODEL
   // Remove spray source terms unless otherwise specified
-  if (!plot_soot_src)
-  {
-    for (int i = 0; i < num_soot_src; i++)
-    {
-      const int dcomp = AMREX_SPACEDIM + i;
-      const std::string name = "I_R_soot_" + desc_lst[State_Type].name(dcomp);
+  if (!plot_soot_src) {
+    for (int i = 0; i < num_soot_src; i++) {
+      const int dcomp = i;
+      const std::string name = desc_lst[sootsrc_Type].name(dcomp);
       parent->deleteStatePlotVar(name);
     }
+  } else {
+    Vector<std::string> spn(NUM_SPECIES);
+    pele::physics::eos::speciesNames<pele::physics::EosType>(spn);
+    for (int i = 0; i < NUM_SPECIES; i++) {
+      const int dcomp = i + DEF_first_spec - AMREX_SPACEDIM;
+      bool relspec = false;
+      for (int j = 0; j < NUM_SOOT_GS; ++j) {
+        std::string soot_spec = soot_model->gasSpeciesName(j);
+        if (spn[i] == soot_spec) {
+          relspec = true;
+        }
+      }
+      if (!relspec) {
+        const std::string name = desc_lst[sootsrc_Type].name(dcomp);
+        parent->deleteStatePlotVar(name);
+      }
+    }
   }
-  if (!do_soot_solve)
-  {
-    for (int i = 0; i < NUM_SOOT_VARS; i++)
-    {
+  if (!do_soot_solve) {
+    for (int i = 0; i < NUM_SOOT_VARS; i++) {
       const int dcomp = first_soot + i;
       parent->deleteStatePlotVar(desc_lst[State_Type].name(dcomp));
     }
