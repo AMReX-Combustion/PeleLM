@@ -9323,7 +9323,7 @@ PeleLM::writePlotFile (const std::string& dir,
 #ifdef AMREX_PARTICLES
   if (level == 0 && theNSPC() != 0 && particles_in_plotfile)
   {
-    theNSPC()->Checkpoint(dir,"Particles");
+    theNSPC()->Checkpoint(dir,"particles");
   }
 #ifdef SPRAY_PELE_LM
   if (theSprayPC() && do_spray_particles)
