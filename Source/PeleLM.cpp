@@ -9320,6 +9320,11 @@ PeleLM::writePlotFile (const std::string& dir,
 //#endif
 
   VisMF::Write(plotMF,TheFullPath,how);
+#ifdef AMREX_PARTICLES
+  if (level == 0 && theNSPC() != 0 && particles_in_plotfile)
+  {
+    theNSPC()->Checkpoint(dir,"Particles");
+  }
 #ifdef SPRAY_PELE_LM
   if (theSprayPC() && do_spray_particles)
   {
@@ -9327,6 +9332,7 @@ PeleLM::writePlotFile (const std::string& dir,
     theSprayPC()->SprayParticleIO(
       level, is_checkpoint, write_spray_ascii_files, dir, sprayFuelNames);
   }
+#endif
 #endif
 }
 
