@@ -213,10 +213,6 @@ public:
   //
   void particleTimestamp(int ngrow);
   //
-  // Default verbosity of Particle class
-  //
-  static int particle_verbose;
-  //
   // How to initialize at restart
   //
   void particlePostRestart(bool is_checkpoint = true);
@@ -268,10 +264,6 @@ public:
   void particleEstTimeStep(amrex::Real& est_dt);
 
   //
-  // Default cfl of particles in Particle class
-  //
-  static amrex::Real particle_cfl;
-  //
   // Should we write particle ascii files?
   //
   static int write_spray_ascii_files;
@@ -283,10 +275,8 @@ public:
   /// A state array with ghost zones
   amrex::MultiFab Sborder;
 
-  static int particle_mass_tran;
-  static int particle_mom_tran;
   static int num_spray_src;
-  static amrex::Vector<std::string> sprayFuelNames;
+  static amrex::Vector<std::string> spray_fuel_names;
 
 #endif
   //

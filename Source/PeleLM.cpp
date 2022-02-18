@@ -2574,7 +2574,7 @@ PeleLM::checkPoint (const std::string& dir,
     bool is_checkpoint = true;
     int write_ascii = 0; // Not for checkpoint intervals
     theSprayPC()->SprayParticleIO(
-      level, is_checkpoint, write_ascii, dir, sprayFuelNames);
+      level, is_checkpoint, write_ascii, dir, spray_fuel_names);
   }
 #endif
 }
@@ -9330,7 +9330,7 @@ PeleLM::writePlotFile (const std::string& dir,
   {
     bool is_checkpoint = false;
     theSprayPC()->SprayParticleIO(
-      level, is_checkpoint, write_spray_ascii_files, dir, sprayFuelNames);
+      level, is_checkpoint, write_spray_ascii_files, dir, spray_fuel_names);
   }
 #endif
 #endif

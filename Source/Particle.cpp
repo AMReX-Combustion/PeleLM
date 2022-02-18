@@ -24,17 +24,12 @@ SprayParticleContainer* VirtPC = nullptr;
 SprayParticleContainer* GhostPC = nullptr;
 
 SprayData sprayData;
-amrex::Real sprayRefT = 300.;
-amrex::Real parcelSize = 1.;
-amrex::Real spraySigma = -1.; // Surface tension
-amrex::Real wall_temp = -1.;
 // Indices for spray source MultiFab
 int sprayMomSrcIndx = Xvel;
 int sprayRhoSrcIndx = Density;
 int spraySpecSrcIndx = DEF_first_spec;
 int sprayEngSrcIndx = DEF_first_spec + SPRAY_FUEL_NUM;
 SprayComps scomps;
-bool splash_model = true;
 
 void
 RemoveParticlesOnExit()
@@ -46,33 +41,22 @@ RemoveParticlesOnExit()
   delete VirtPC;
   VirtPC = nullptr;
 }
-std::string particle_init_file;
-int particle_init_function = 1;
+std::string init_file;
+int init_function = 1;
+int particle_verbose = 0;
+Real particle_cfl = 0.5;
+Real wall_temp = 300.;
+int mass_trans = 1;
+int mom_trans = 1;
 } // namespace
 
 int PeleLM::do_spray_particles = 1;
-int PeleLM::particle_verbose = 0;
-Real PeleLM::particle_cfl = 0.5;
 // momentum + density + fuel species + enthalpy
 int PeleLM::num_spray_src = AMREX_SPACEDIM + 2 + SPRAY_FUEL_NUM;
 
 int PeleLM::write_spray_ascii_files = 0;
 int PeleLM::plot_spray_src = 0;
-int PeleLM::particle_mass_tran = 1;
-int PeleLM::particle_mom_tran = 1;
-Vector<std::string> PeleLM::sprayFuelNames;
-
-void
-getPSatCoef(
-  Real* psat_coef, ParmParse& ppp, std::string fuel_name, const int spf)
-{
-  std::string psat_read = fuel_name + "_psat";
-  std::vector<Real> inp_coef(4, 0.);
-  ppp.queryarr(psat_read.c_str(), inp_coef);
-  for (int i = 0; i < 4; ++i) {
-    psat_coef[4 * spf + i] = inp_coef[i];
-  }
-}
+Vector<std::string> PeleLM::spray_fuel_names;
 
 SprayParticleContainer*
 PeleLM::theSprayPC()
@@ -125,114 +109,9 @@ PeleLM::readParticleParams()
     do_spray_particles = 0;
     return;
   }
-  amrex::ParmParse ppp("particles");
-  //
-  // Control the verbosity of the Particle class
-  ppp.query("v", particle_verbose);
-
-  ppp.get("mass_transfer", particle_mass_tran);
-  ppp.get("mom_transfer", particle_mom_tran);
-  ppp.query("cfl", particle_cfl);
-  if (particle_cfl > 0.5) {
-    amrex::Abort("particles.cfl must be <= 0.5");
-  }
-  // Number of fuel species in spray droplets
-  // Must match the number specified at compile time
-  const int nfuel = ppp.countval("fuel_species");
-  if (nfuel != SPRAY_FUEL_NUM) {
-    amrex::Abort(
-      "Number of fuel species in input file must match SPRAY_FUEL_NUM");
-  }
-
-  std::vector<std::string> fuel_names;
-  std::vector<Real> crit_T;
-  std::vector<Real> boil_T;
-  std::vector<Real> spraycp;
-  std::vector<Real> latent;
-  std::vector<Real> sprayrho;
-  std::vector<Real> mu(nfuel, 0.);
-  std::vector<Real> lambda(nfuel, 0.);
-  {
-    sprayFuelNames.assign(nfuel, "");
-    ppp.getarr("fuel_species", fuel_names);
-    ppp.getarr("fuel_crit_temp", crit_T);
-    ppp.getarr("fuel_boil_temp", boil_T);
-    ppp.getarr("fuel_cp", spraycp);
-    ppp.getarr("fuel_latent", latent);
-    ppp.getarr("fuel_rho", sprayrho);
-    ppp.queryarr("fuel_mu", mu);
-    ppp.queryarr("fuel_lambda", lambda);
-    for (int i = 0; i < nfuel; ++i) {
-      sprayFuelNames[i] = fuel_names[i];
-      sprayData.critT[i] = crit_T[i];
-      sprayData.boilT[i] = boil_T[i];
-      sprayData.cp[i] = spraycp[i];
-      sprayData.latent[i] = latent[i];
-      sprayData.ref_latent[i] = latent[i];
-      sprayData.rho[i] = sprayrho[i];
-      sprayData.mu[i] = mu[i];
-      sprayData.lambda[i] = lambda[i];
-      getPSatCoef(sprayData.psat_coef.data(), ppp, fuel_names[i], i);
-    }
-  }
-
-  //
-  // Set the number of particles per parcel
-  //
-  ppp.query("parcel_size", parcelSize);
-  ppp.query("use_splash_model", splash_model);
-  if (splash_model) {
-    if (!ppp.contains("fuel_sigma") || !ppp.contains("wall_temp")) {
-      Print() << "fuel_sigma and wall_temp must be set for splash model. "
-              << "Set use_splash_model = false to turn off splash model"
-              << std::endl;
-      Abort();
-    }
-    // Set the fuel surface tension and contact angle
-    ppp.get("fuel_sigma", spraySigma);
-    // TODO: Have this retrieved from proper boundary data
-    ppp.get("wall_temp", wall_temp);
-  }
-
-  // Must use same reference temperature for all fuels
-  // TODO: This means the reference temperature must be the same for all fuel
-  // species
-  ppp.get("fuel_ref_temp", sprayRefT);
-  //
-  // Set if spray ascii files should be written
-  //
-  ppp.query("write_spray_ascii_files", write_spray_ascii_files);
-  //
-  // Set if gas phase spray source term should be written
-  //
-  ppp.query("plot_src", plot_spray_src);
-  //
-  // Used in initData() on startup to read in a file of particles.
-  //
-  ppp.query("init_file", particle_init_file);
-  //
-  // Used in initData() on startup to set the particle field using the
-  // SprayParticlesInitInsert.cpp problem specific function
-  //
-  ppp.query("init_function", particle_init_function);
-
-  sprayData.num_ppp = parcelSize;
-  sprayData.ref_T = sprayRefT;
-  sprayData.sigma = spraySigma;
-
-  if (verbose && ParallelDescriptor::IOProcessor()) {
-    amrex::Print() << "Spray fuel species " << sprayFuelNames[0];
-    for (int i = 1; i < SPRAY_FUEL_NUM; ++i) {
-      amrex::Print() << ", " << sprayFuelNames[i];
-    }
-    amrex::Print() << std::endl;
-    amrex::Print() << "Number of particles per parcel " << parcelSize
-                   << std::endl;
-  }
-  //
-  // Force other processors to wait till directory is built.
-  //
-  ParallelDescriptor::Barrier();
+  SprayParticleContainer::readParticleParams(
+    particle_verbose, particle_cfl, wall_temp, mass_trans, mom_trans, write_spray_ascii_files,
+    plot_spray_src, init_function, init_file, sprayData, spray_fuel_names);
 }
 
 std::string
@@ -240,7 +119,7 @@ PeleLM::spraySrcName(const int i)
 {
   if (i >= spraySpecSrcIndx && i <= spraySpecSrcIndx + SPRAY_FUEL_NUM - 1) {
     const int sp = i - spraySpecSrcIndx;
-    return "I_R_spray_" + sprayFuelNames[sp];
+    return "I_R_spray_" + spray_fuel_names[sp];
   } else if (i <= AMREX_SPACEDIM) {
     return "I_R_spray_" + desc_lst[State_Type].name(i);
   } else if (i == sprayEngSrcIndx) {
@@ -279,12 +158,12 @@ PeleLM::defineParticles()
   for (int i = 0; i < SPRAY_FUEL_NUM; ++i) {
     for (int ns = 0; ns < NUM_SPECIES; ++ns) {
       std::string gas_spec = spec_names[ns];
-      if (gas_spec == sprayFuelNames[i]) {
+      if (gas_spec == spray_fuel_names[i]) {
         sprayData.indx[i] = ns;
       }
     }
     if (sprayData.indx[i] < 0) {
-      amrex::Print() << "Fuel " << sprayFuelNames[i]
+      amrex::Print() << "Fuel " << spray_fuel_names[i]
                      << " not found in species list" << std::endl;
       amrex::Abort();
     }
@@ -301,8 +180,8 @@ PeleLM::defineParticles()
     const int fspec = sprayData.indx[ns];
     sprayData.latent[ns] -= fuelEnth[fspec] * 1.E-4;
   }
-  scomps.mass_tran = PeleLM::particle_mass_tran;
-  scomps.mom_tran = PeleLM::particle_mom_tran;
+  scomps.mass_tran = mass_trans;
+  scomps.mom_tran = mom_trans;
   // Component indices for conservative variables
   scomps.rhoIndx = Density;
   scomps.momIndx = Xvel;
@@ -380,12 +259,12 @@ void
 PeleLM::createParticleData()
 {
   SprayPC = new SprayParticleContainer(
-    parent, &phys_bc, sprayData, scomps, parcelSize, wall_temp);
+    parent, &phys_bc, sprayData, scomps, wall_temp);
   theSprayPC()->SetVerbose(particle_verbose);
   VirtPC = new SprayParticleContainer(
-    parent, &phys_bc, sprayData, scomps, parcelSize, wall_temp);
+    parent, &phys_bc, sprayData, scomps, wall_temp);
   GhostPC = new SprayParticleContainer(
-    parent, &phys_bc, sprayData, scomps, parcelSize, wall_temp);
+    parent, &phys_bc, sprayData, scomps, wall_temp);
 }
 
 /**
@@ -410,9 +289,9 @@ PeleLM::initParticles()
       createParticleData();
     }
 
-    if (!particle_init_file.empty()) {
-      theSprayPC()->InitFromAsciiFile(particle_init_file, NSR_SPR + NAR_SPR);
-    } else if (particle_init_function > 0) {
+    if (!init_file.empty()) {
+      theSprayPC()->InitFromAsciiFile(init_file, NSR_SPR + NAR_SPR);
+    } else if (init_function > 0) {
       ProbParm const* lprobparm = prob_parm;
       theSprayPC()->InitSprayParticles(*lprobparm);
     } else {
