@@ -36,13 +36,12 @@ on the `GitHub page <https://github.com/AMReX-Combustion/PeleProduction.git>`_.
 
    b. The first time you do this, you will need to tell git that there are submodules. Git will look at the ``.gitmodules`` file in this branch and use that : ::
 
-        cd Submodules
         git submodule init
         git submodule update 
 
    c. Finally, get into the FlameSheet folder of the `PeleLM` submodule: ::
 
-        cd PeleLM/Exec/RegTests/FlameSheet
+        cd Submodules/PeleLM/Exec/RegTests/FlameSheet
 
 2. Individual repositories
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -102,10 +101,10 @@ and the application code).  In the following, we step through building a represe
 
 1. Regardless of which path you decided to choose in order to get the `PeleLM` code and its dependencies, you should be now be in the ``FlameSheet`` folder.
 If you have chosen Option 2 to get the `PeleLM` sources, you have already set the environement variable necessary to compile the executable.
-If you have chosen the first option, you now have to modify the ``GNUmakefile`` to ensure that the variable ``TOP`` define on the first line
+If you have chosen the first option, you now have to modify the ``GNUmakefile`` to ensure that the variable ``SUBMODS`` define on the first line
 points to the ``Submodules`` folder of `PeleProduction` : ::
 
-    TOP = /path/to/PeleProduction/Submodules
+    SUBMODS = /path/to/PeleProduction/Submodules
 
 such that the following lines provide path to `PeleLM` and its dependencies. Note that an absolute path in needed.
 
@@ -124,11 +123,11 @@ such that the following lines provide path to `PeleLM` and its dependencies. Not
 
 3. Start by building the Sundials Third Party Library used to integrate the chemistry: ::
    
-    make TPL
+    make -j4 TPL
 
    and finally build `PeleLM` executable: ::
 
-    make
+    make -j4
 
 If successful, the resulting executable name will look something like ``PeleLM2d.gnu.ex``. Depending on your
 compilation option the actual name of the executable might vary (including ``MPI``, or ``DEBUG``, ...).

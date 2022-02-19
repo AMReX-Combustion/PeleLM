@@ -404,10 +404,12 @@ PeleLM::variableSetUp ()
   //
   ParmParse ppns("ns");
   ppns.query("fuelName",fuelName);
+
   if ( !fuelName.empty() ) {
      consumptionName.resize(1);
      consumptionName[0] = fuelName;
   }
+
   if (int nc = ppns.countval("consumptionName"))
   {
     consumptionName.resize(nc);

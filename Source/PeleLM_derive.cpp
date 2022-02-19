@@ -710,7 +710,7 @@ void pelelm_dcma (const Box& bx, FArrayBox& derfab, int dcomp, int ncomp,
 //
 //  Compute vorticity
 //
-void pelelm_mgvort (const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+void pelelm_mgvort (const Box& bx, FArrayBox& derfab, int dcomp, int /*ncomp*/,
                     const FArrayBox& datfab, const Geometry& geomdata,
                     Real /*time*/, const int* /*bcrec*/, int /*level*/)
 
@@ -723,7 +723,7 @@ void pelelm_mgvort (const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp
                  const amrex::Real idz = geomdata.InvCellSize(2););
 
     amrex::Array4<amrex::Real const> const& dat_arr = datfab.const_array();
-    amrex::Array4<amrex::Real>       const&vort_arr = derfab.array();
+    amrex::Array4<amrex::Real>       const&vort_arr = derfab.array(dcomp);
 
 #ifdef AMREX_USE_EB
     const EBFArrayBox& ebfab = static_cast<EBFArrayBox const&>(datfab);

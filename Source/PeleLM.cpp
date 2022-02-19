@@ -36,8 +36,6 @@
 #include <pelelm_prob.H>
 #include <pelelm_prob_parm.H>
 #include <PeleLM_parm.H>
-#include <pmf_data.H>
-#include <pmf.H>
 
 #include <AMReX_DataServices.H>
 #include <AMReX_AmrData.H>
@@ -183,6 +181,7 @@ ACParm* PeleLM::ac_parm_d = nullptr;
 pele::physics::transport::TransportParams<
   pele::physics::PhysicsType::transport_type>
   PeleLM::trans_parms;
+pele::physics::PMF::PmfData PeleLM::pmf_data;
 std::string PeleLM::chem_integrator;
 std::unique_ptr<pele::physics::reactions::ReactorBase> PeleLM::m_reactor;
 
@@ -339,10 +338,6 @@ void
 PeleLM::Initialize ()
 {
   if (initialized) return;
-
-#ifdef AMREX_USE_GPU
-  amrex::sundials::Initialize();
-#endif
 
   PeleLM::Initialize_specific();
 
@@ -940,12 +935,9 @@ PeleLM::variableCleanUp ()
    The_Arena()->free(ac_parm_d);
    trans_parms.deallocate();
 
-   //PMF::close();
+   pmf_data.deallocate();
 
    m_reactor->close();
-#ifdef AMREX_USE_GPU
-   amrex::sundials::Finalize();
-#endif
 }
 
 PeleLM::PeleLM ()
@@ -1528,7 +1520,7 @@ PeleLM::update_typical_values_chem ()
                      typical_values[first_spec+i] * typical_values[Density] * 1.E-3); // CGS -> MKS conversion
       }
       typical_values_chem[NUM_SPECIES] = typical_values[Temp];
-      m_reactor->SetTypValsODE(typical_values_chem);
+      m_reactor->set_typ_vals_ode(typical_values_chem);
     }
   }
 }
@@ -1877,7 +1869,7 @@ PeleLM::initData ()
 
     int idT = -1, idV = -1, idX = -1, idY = -1;
     for (int i = 0; i < plotnames.size(); ++i) {
-      if (plotnames[i] == "temp")            idT = i;
+      if (plotnames[i] == "Temp")            idT = i;
       if (plotnames[i] == "x_velocity")      idV = i;
       if (plotnames[i] == "X("+names[0]+")") idX = i;
       if (plotnames[i] == "Y("+names[0]+")") idY = i;
@@ -1889,14 +1881,18 @@ PeleLM::initData ()
     for (int i = 0; i < AMREX_SPACEDIM; i++) {
       amrData.FillVar(S_new, level, plotnames[idV+i], Xvel+i);
       amrData.FlushGrids(idV+i);
+      Print() << "Initialized  velocity array " << i << std::endl;
     }
+
     amrData.FillVar(S_new, level, plotnames[idT], Temp);
     amrData.FlushGrids(idT);
+
     if (idY>=0) {
       for (int i = 0; i < NUM_SPECIES; i++) {
         amrData.FillVar(S_new, level, plotnames[idY+i], first_spec+i);
         amrData.FlushGrids(idY+i);
       }
+
     }
     else if (idX>=0) {
       for (int i = 0; i < NUM_SPECIES; i++) {
@@ -1938,30 +1934,36 @@ PeleLM::initData ()
     for (MFIter mfi(S_new,TilingIfNotGPU()); mfi.isValid(); ++mfi)
     {
       const Box& box = mfi.tilebox();
-      auto const& snew_arr = S_new.array(mfi);
-      ProbParm const* lprobparm = prob_parm_d;
+      auto state = S_new.array(mfi);
+      ProbParm const* lprobparm = prob_parm.get();
 
       amrex::ParallelFor(box,
       [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
       {
         amrex::Real massfrac[NUM_SPECIES] = {0.0};
         for (int n = 0; n < NUM_SPECIES; n++) {
-          massfrac[n] = snew_arr(i,j,k,DEF_first_spec+n);
+          massfrac[n] = state(i,j,k,DEF_first_spec+n);
         }
         auto eos = pele::physics::PhysicsType::eos();
 
         amrex::Real rho_cgs, P_cgs;
         P_cgs = lprobparm->P_mean * 10.0;
 
-        eos.PYT2R(P_cgs, massfrac, snew_arr(i,j,k,DEF_Temp), rho_cgs);
-        snew_arr(i,j,k,Density) = rho_cgs * 1.0e3;            // CGS -> MKS conversion
+        eos.PYT2R(P_cgs, massfrac, state(i,j,k,DEF_Temp), rho_cgs);
+        state(i,j,k,Density) = rho_cgs * 1.0e3;            // CGS -> MKS conversion
 
-        eos.TY2H(snew_arr(i,j,k,DEF_Temp), massfrac, snew_arr(i,j,k,DEF_RhoH));
-        snew_arr(i,j,k,DEF_RhoH) = snew_arr(i,j,k,DEF_RhoH) * 1.0e-4 * snew_arr(i,j,k,Density);   // CGS -> MKS conversion
+        eos.TY2H(state(i,j,k,DEF_Temp), massfrac, state(i,j,k,DEF_RhoH));
+        state(i,j,k,DEF_RhoH) = state(i,j,k,DEF_RhoH) * 1.0e-4 * state(i,j,k,Density);   // CGS -> MKS conversion
 
         for (int n = 0; n < NUM_SPECIES; n++) {
-          snew_arr(i,j,k,DEF_first_spec+n) = massfrac[n] * snew_arr(i,j,k,Density);
+          state(i,j,k,DEF_first_spec+n) = massfrac[n] * state(i,j,k,Density);
         }
+
+        state(i,j,k,Xvel) = state(i,j,k,Xvel) * 1.0e-2; // [cm/s] to [m/s]
+        state(i,j,k,Yvel) = state(i,j,k,Yvel) * 1.0e-2; // [cm/s] to [m/s]
+#if ( AMREX_SPACEDIM == 3 ) 
+	state(i,j,k,Zvel) = state(i,j,k,Zvel) * 1.0e-2; // [cm/s] to [m/s]
+#endif
       });
     }
   }
@@ -1971,7 +1973,7 @@ PeleLM::initData ()
     P_new.setVal(0.0);
 
     ProbParm const* lprobparm = prob_parm_d;
-    PmfData const* lpmfdata = pmf_data_g;
+    pele::physics::PMF::PmfData::DataContainer const* lpmfdata = pmf_data.getDeviceData();
 
     auto const& sma = S_new.arrays();
     amrex::ParallelFor(S_new,
@@ -2297,6 +2299,9 @@ PeleLM::post_restart ()
    int is_restart = 1;
 
    activeControl(step,is_restart,0.0,crse_dt);
+   if (level == 0 && lev0cellCount < 0.0) {
+     lev0cellCount = getCellsCount();
+   }
 }
 
 void
@@ -3821,7 +3826,7 @@ PeleLM::compute_enthalpy_fluxes (MultiFab* const*       flux,
 
   // Here it is NUM_SPECIES+2 because this is the heat flux (NUM_SPECIES+3 in enth_diff_terms in fortran)
   // No multiplication by dt here
-  Diffusion::computeExtensiveFluxes(mg, TT, flux, NUM_SPECIES+2, 1, &geom, b);
+  diffusion->computeExtensiveFluxes(mg, TT, flux, NUM_SPECIES+2, 1, area, b);
 
   //
   // Now we have flux[NUM_SPECIES+2]
@@ -4240,7 +4245,7 @@ PeleLM::compute_differential_diffusion_fluxes (const MultiFab& S,
    Diffusion::setBeta(op,beta,betaComp,NUM_SPECIES);
 
    // No multiplication by dt here.
-   Diffusion::computeExtensiveFluxes(mg, Soln, flux, fluxComp, NUM_SPECIES, &geom, b);
+   diffusion->computeExtensiveFluxes(mg, Soln, flux, fluxComp, NUM_SPECIES, area, b);
 
    Soln.clear();
 
@@ -6689,7 +6694,6 @@ PeleLM::mac_sync ()
                                          advectionType,prev_time,
                                          prev_pres_time,dt,NUM_STATE,
                                          be_cn_theta,
-                                         modify_reflux_normal_vel,
                                          do_mom_diff,
                                          incr_sync,
                                          last_mac_sync_iter);
@@ -6703,7 +6707,7 @@ PeleLM::mac_sync ()
                mac_projector->mac_sync_compute(level,Ucorr,Vsync,comp,
                                                comp,EdgeState, comp,rho_half,
                                                (level > 0 ? &getAdvFluxReg(level):0),
-                                               advectionType,modify_reflux_normal_vel,dt,
+                                               advectionType,dt,
                                                last_mac_sync_iter);
             }
          }
@@ -6734,7 +6738,7 @@ PeleLM::mac_sync ()
             mac_projector->mac_sync_compute(level,Ucorr,Ssync,comp,s_ind,
                                             EdgeState,comp,rho_half,
                                             (level > 0 ? &getAdvFluxReg(level):0),
-                                            advectionType,modify_reflux_normal_vel,dt,
+                                            advectionType,dt,
                                             last_mac_sync_iter);
          }
       }
@@ -7500,7 +7504,7 @@ PeleLM::compute_Wbar_fluxes(const MultiFab &a_scalars,
    FluxBoxes fb_flux(this,1,0);
    MultiFab** gradWbar = fb_flux.get();
 
-   Diffusion::computeExtensiveFluxes(mg, Wbar, gradWbar, 0, 1, &geom, -1.0);
+   diffusion->computeExtensiveFluxes(mg, Wbar, gradWbar, 0, 1, area, -1.0);
 
    Vector<BCRec> math_bc(1);
    math_bc = fetchBCArray(State_Type,first_spec,1);
@@ -9220,6 +9224,7 @@ PeleLM::activeControl(const int  step,
    ac_parm->ctrl_V_in = ctrl_V_in;
    ac_parm->ctrl_dV = ctrl_dV;
    ac_parm->ctrl_tBase = ctrl_tBase;
+   amrex::Gpu::copy(amrex::Gpu::hostToDevice,ac_parm,ac_parm+1,ac_parm_d);
 
    // Verbose
    if ( ctrl_verbose && !restart) {
@@ -9280,7 +9285,11 @@ PeleLM::initActiveControl()
       amrex::Error("active_control.flame_direction MUST be 0, 1 or 2 for X, Y and Z resp.");
 
    // Exit here if AC not activated
-   if ( !ctrl_active ) return;
+   if ( !ctrl_active ) {
+      ac_parm->ctrl_active = ctrl_active;
+      amrex::Gpu::copy(amrex::Gpu::hostToDevice,ac_parm,ac_parm+1,ac_parm_d);
+      return;
+   }
 
    // Activate AC in problem specific / GPU compliant sections
    ac_parm->ctrl_active = ctrl_active;
@@ -9301,7 +9310,7 @@ PeleLM::initActiveControl()
    // Extract data from bc: assumes flow comes in from lo side of ctrl_flameDir
    ProbParm const* lprobparm = prob_parm_d;
    ACParm const* lacparm = ac_parm_d;
-   PmfData const* lpmfdata = pmf_data_g;
+   pele::physics::PMF::PmfData::DataContainer const* lpmfdata = pmf_data.getDeviceData();
    amrex::Gpu::DeviceVector<amrex::Real> s_ext_v(DEF_NUM_STATE);
    amrex::Real* s_ext_d = s_ext_v.data();
    amrex::Real x[AMREX_SPACEDIM] = {AMREX_D_DECL(problo[0],problo[1],problo[2])};

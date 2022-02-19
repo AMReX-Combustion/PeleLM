@@ -99,7 +99,7 @@ function(build_pelelm_exe pelelm_exe_name)
   set_source_files_properties(${PELELM_MECHANISM_DIR}/mechanism.H PROPERTIES COMPILE_OPTIONS "${MY_CXX_FLAGS}")
   target_include_directories(${pelelm_exe_name} SYSTEM PRIVATE ${PELELM_MECHANISM_DIR})
   target_include_directories(${pelelm_exe_name} SYSTEM PRIVATE ${PELE_PHYSICS_SRC_DIR}/Support/Fuego/Evaluation)
-  target_include_directories(${pelelm_exe_name} SYSTEM PRIVATE ${PELE_PHYSICS_SRC_DIR}/Utility)
+  target_include_directories(${pelelm_exe_name} SYSTEM PRIVATE ${PELE_PHYSICS_SRC_DIR}/Utility/PMF)
   target_include_directories(${pelelm_exe_name} SYSTEM PRIVATE ${PELE_PHYSICS_SRC_DIR}/Support/Fuego/Mechanism/Models)
 
   target_sources(${pelelm_exe_name}
@@ -130,11 +130,20 @@ function(build_pelelm_exe pelelm_exe_name)
   target_include_directories(${pelelm_exe_name} PRIVATE ${PELE_PHYSICS_SRC_DIR}/Reactions)
   target_link_libraries(${pelelm_exe_name} PRIVATE sundials_arkode sundials_cvode)
 
-  if(PELELM_ENABLE_CUDA OR PELELM_ENABLE_HIP)
-    target_sources(${pelelm_exe_name} PRIVATE ${AMREX_SUBMOD_LOCATION}/Src/Extern/SUNDIALS/AMReX_SUNMemory.cpp
-                                             ${AMREX_SUBMOD_LOCATION}/Src/Extern/SUNDIALS/AMReX_SUNMemory.H)
-    target_include_directories(${pelelm_exe_name} PRIVATE ${AMREX_SUBMOD_LOCATION}/Src/Extern/SUNDIALS)
-  endif()
+  target_sources(${pelelm_exe_name} PRIVATE ${AMREX_SUBMOD_LOCATION}/Src/Extern/SUNDIALS/AMReX_Sundials.H
+                                            ${AMREX_SUBMOD_LOCATION}/Src/Extern/SUNDIALS/AMReX_Sundials.cpp
+                                            ${AMREX_SUBMOD_LOCATION}/Src/Extern/SUNDIALS/AMReX_NVector_MultiFab.cpp
+                                            ${AMREX_SUBMOD_LOCATION}/Src/Extern/SUNDIALS/AMReX_NVector_MultiFab.H
+                                            ${AMREX_SUBMOD_LOCATION}/Src/Extern/SUNDIALS/AMReX_SUNMemory.cpp
+                                            ${AMREX_SUBMOD_LOCATION}/Src/Extern/SUNDIALS/AMReX_SUNMemory.H)
+  set_source_files_properties(${AMREX_SUBMOD_LOCATION}/Src/Extern/SUNDIALS/AMReX_Sundials.H PROPERTIES COMPILE_OPTIONS "${MY_CXX_FLAGS}")
+  set_source_files_properties(${AMREX_SUBMOD_LOCATION}/Src/Extern/SUNDIALS/AMReX_Sundials.cpp PROPERTIES COMPILE_OPTIONS "${MY_CXX_FLAGS}")
+  set_source_files_properties(${AMREX_SUBMOD_LOCATION}/Src/Extern/SUNDIALS/AMReX_NVector_MultiFab.cpp PROPERTIES COMPILE_OPTIONS "${MY_CXX_FLAGS}")
+  set_source_files_properties(${AMREX_SUBMOD_LOCATION}/Src/Extern/SUNDIALS/AMReX_NVector_MultiFab.H PROPERTIES COMPILE_OPTIONS "${MY_CXX_FLAGS}")
+  set_source_files_properties(${AMREX_SUBMOD_LOCATION}/Src/Extern/SUNDIALS/AMReX_SUNMemory.cpp PROPERTIES COMPILE_OPTIONS "${MY_CXX_FLAGS}")
+  set_source_files_properties(${AMREX_SUBMOD_LOCATION}/Src/Extern/SUNDIALS/AMReX_SUNMemory.H PROPERTIES COMPILE_OPTIONS "${MY_CXX_FLAGS}")
+
+  target_include_directories(${pelelm_exe_name} PRIVATE ${AMREX_SUBMOD_LOCATION}/Src/Extern/SUNDIALS)
 
   if(PELELM_ENABLE_CUDA)
     target_link_libraries(${pelelm_exe_name} PRIVATE sundials_nveccuda sundials_sunlinsolcusolversp sundials_sunmatrixcusparse)
@@ -214,10 +223,14 @@ function(build_pelelm_exe pelelm_exe_name)
        ${AMREX_HYDRO_SRC_DIR}/Utils/hydro_constants.H
        ${AMREX_HYDRO_SRC_DIR}/Utils/hydro_compute_fluxes_from_state.cpp
        ${AMREX_HYDRO_SRC_DIR}/Utils/hydro_bcs_K.H
-       ${AMREX_HYDRO_SRC_DIR}/Utils/hydro_create_umac_grown.cpp
 
        ${AMREX_HYDRO_SRC_DIR}/Slopes/hydro_slopes_K.H
        ${AMREX_HYDRO_SRC_DIR}/Slopes/hydro_eb_slopes_${PELELM_DIM}D_K.H
+
+       ${AMREX_HYDRO_SRC_DIR}/Projections/hydro_MacProjector.cpp
+       ${AMREX_HYDRO_SRC_DIR}/Projections/hydro_MacProjector.H
+       ${AMREX_HYDRO_SRC_DIR}/Projections/hydro_NodalProjector.cpp
+       ${AMREX_HYDRO_SRC_DIR}/Projections/hydro_NodalProjector.H
   )
 
   if(PELELM_ENABLE_AMREX_EB)
@@ -251,10 +264,9 @@ function(build_pelelm_exe pelelm_exe_name)
 
   target_sources(${pelelm_exe_name}
      PRIVATE
-       ${PELE_PHYSICS_SRC_DIR}/Utility/pmf.cpp
-       ${PELE_PHYSICS_SRC_DIR}/Utility/pmf_data.cpp
-       ${PELE_PHYSICS_SRC_DIR}/Utility/pmf.H
-       ${PELE_PHYSICS_SRC_DIR}/Utility/pmf_data.H
+       ${PELE_PHYSICS_SRC_DIR}/Utility/PMF/PMFData.cpp
+       ${PELE_PHYSICS_SRC_DIR}/Utility/PMF/PMF.H
+       ${PELE_PHYSICS_SRC_DIR}/Utility/PMF/PMFData.H
   )
 
   if(NOT "${pelelm_exe_name}" STREQUAL "PeleLM-UnitTests")
@@ -295,6 +307,7 @@ function(build_pelelm_exe pelelm_exe_name)
   target_include_directories(${pelelm_exe_name} PRIVATE ${AMREX_HYDRO_SRC_DIR}/MOL)
   target_include_directories(${pelelm_exe_name} PRIVATE ${AMREX_HYDRO_SRC_DIR}/Utils)
   target_include_directories(${pelelm_exe_name} PRIVATE ${AMREX_HYDRO_SRC_DIR}/Slopes)
+  target_include_directories(${pelelm_exe_name} PRIVATE ${AMREX_HYDRO_SRC_DIR}/Projections)
   if(PELELM_ENABLE_AMREX_EB)
      target_include_directories(${pelelm_exe_name} PRIVATE ${AMREX_HYDRO_SRC_DIR}/EBMOL)
      target_include_directories(${pelelm_exe_name} PRIVATE ${AMREX_HYDRO_SRC_DIR}/EBGodunov)

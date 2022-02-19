@@ -1,6 +1,5 @@
 #include "PeleLM.H"
 #include "pelelm_prob.H"
-#include "pmf.H"
 
 extern "C" {
 void

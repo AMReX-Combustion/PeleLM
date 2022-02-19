@@ -1,6 +1,8 @@
 EBASE = PeleLM
 PELE_PHYSICS_HOME ?= $(SUBMODS)/PelePhysics
 
+USE_SUNDIALS = TRUE
+
 include $(AMREX_HOME)/Tools/GNUMake/Make.defs 
 #$(info LIBRARIES_BeginPeleMake="$(LIBRARIES)")
 
@@ -35,12 +37,13 @@ Bpack             += $(PP_SRC_HOME)/Make.package
 Blocs             += $(PP_SRC_HOME)
 
 # Utilities
-include $(PELE_PHYSICS_HOME)/Utility/Make.package
+include $(PELE_PHYSICS_HOME)/Utility/PMF/Make.package
 ifeq ($(USE_TURBINFLOW), TRUE)
   DEFINES += -DPELE_USE_TURBINFLOW
   include $(PELE_PHYSICS_HOME)/Utility/TurbInflow/Make.package
   Blocs += $(PELE_PHYSICS_HOME)/Utility/TurbInflow
 endif
+=======
 
 # EOS
 EOS_HOME = $(PELE_PHYSICS_HOME)/Eos
@@ -51,7 +54,7 @@ ifeq ($(Eos_Model),$(filter $(Eos_Model),Fuego))
    DEFINES += -DUSE_FUEGO_EOS
 endif
 ifeq ($(Eos_Model),$(filter $(Eos_Model),Soave-Redlich-Kwong))
-   DEFINES += -DUSE_SRK_EOS
+   $(error EOS Soave-Redlich-Kwong not available in PeleLM)
 endif
 INCLUDE_LOCATIONS += $(EOS_HOME)
 VPATH_LOCATIONS   += $(EOS_HOME)
@@ -109,6 +112,7 @@ Bdirs += $(AMREX_HYDRO_HOME)/Utils
 Bdirs += $(AMREX_HYDRO_HOME)/Godunov
 Bdirs += $(AMREX_HYDRO_HOME)/MOL
 Bdirs += $(AMREX_HYDRO_HOME)/Slopes
+Bdirs += $(AMREX_HYDRO_HOME)/Projections
 ifeq ($(USE_EB), TRUE)
    Bdirs += $(AMREX_HYDRO_HOME)/Redistribution
    Bdirs += $(AMREX_HYDRO_HOME)/EBGodunov
@@ -127,7 +131,6 @@ ifeq ($(USE_PARTICLES), TRUE)
   Pdirs += $(AMREX_HOME)/Src/Particle
 endif
 Pdirs   += $(AMREX_HOME)/Src/LinearSolvers/MLMG
-Pdirs   += $(AMREX_HOME)/Src/LinearSolvers/Projections
 
 ifeq ($(USE_EB), TRUE)
   Pdirs   += $(AMREX_HOME)/Src/EB
