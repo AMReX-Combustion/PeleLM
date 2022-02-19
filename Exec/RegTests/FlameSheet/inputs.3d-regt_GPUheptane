@@ -42,7 +42,7 @@ amr.grid_log            = grdlog       # name of grid logging file
 prob.P_mean = 101325.0
 prob.standoff = -.009
 prob.pertmag = 0.0004
-prob.pmf_datafile = "heptaneLu_pmf.dat"
+pmf.datafile = "heptaneLu_pmf.dat"
 
 #--------------------REFINEMENT CONTROL------------------------
 amr.refinement_indicators = flame_tracer 
@@ -110,7 +110,6 @@ ns.sum_interval      = 5               # timesteps between computing mass
 ns.do_reflux         = 1               # 1 => do refluxing
 ns.do_mac_proj       = 1               # 1 => do MAC projection
 ns.do_sync_proj      = 1               # 1 => do Sync Project
-ns.divu_relax_factor = 0.0
 ns.be_cn_theta       = 0.5
 ns.do_temp           = 1
 ns.do_diffuse_sync   = 1
@@ -131,23 +130,19 @@ diffuse.tensor_max_order = 4
 diffuse.v                = 0
 
 # ------------------  INPUTS TO PROJECTION CLASS -------------------
-proj.proj_tol            = 1.0e-11     # tolerence for projections
-proj.proj_abs_tol        = 1.0e-11 
-proj.sync_tol            = 1.0e-11     # tolerence for projections
-proj.rho_wgt_vel_proj    = 0           # 0 => const den proj, 1 => rho weighted
-proj.do_outflow_bcs      = 0
-proj.divu_minus_s_factor = .5
-proj.divu_minus_s_factor = 0.
-proj.proj_2              = 1
-nodal_proj.verbose       = 0
-proj.v                   = 0
+nodal_proj.proj_tol            = 1.0e-12     # tolerence for projections
+nodal_proj.proj_abs_tol        = 1.0e-12 
+nodal_proj.sync_tol            = 1.0e-12     # tolerence for projections
+nodal_proj.rho_wgt_vel_proj    = 0           # 0 => const den proj, 1 => rho weighted
+nodal_proj.do_outflow_bcs      = 0
+nodal_proj.verbose             = 0
 
 # ------------------  INPUTS TO MACPROJ CLASS -------------------
-mac.mac_tol              = 1.0e-11     # tolerence for mac projections
-mac.mac_sync_tol         = 1.0e-11     # tolerence for mac SYNC projection
-mac.mac_abs_tol          = 1.0e-11
-mac.do_outflow_bcs       = 0
-mac.v                    = 0
+mac_proj.mac_tol              = 1.0e-12     # tolerence for mac projections
+mac_proj.mac_sync_tol         = 1.0e-12     # tolerence for mac SYNC projection
+mac_proj.mac_abs_tol          = 1.0e-12
+mac_proj.do_outflow_bcs       = 0
+mac_proj.verbose              = 0
 
 #--------------------------OMP TILE INPUTS-----------------------------
 #fabarray.mfiter_tile_size = 8 8 8

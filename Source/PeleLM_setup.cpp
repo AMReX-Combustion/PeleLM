@@ -362,10 +362,12 @@ PeleLM::variableSetUp ()
 {
   BL_ASSERT(desc_lst.size() == 0);
 
-  prob_parm.reset(new ProbParm{});
-  ac_parm.reset(new ACParm{});
+  prob_parm = new ProbParm{};
+  ac_parm = new ACParm{};
+  prob_parm_d = (ProbParm*)The_Arena()->alloc(sizeof(ProbParm));
+  ac_parm_d   = (ACParm*)The_Arena()->alloc(sizeof(ACParm));
 
-  for (int dir = 0; dir < BL_SPACEDIM; dir++)
+  for (int dir = 0; dir < AMREX_SPACEDIM; dir++)
   {
     phys_bc.setLo(dir,SlipWall);
     phys_bc.setHi(dir,SlipWall);

@@ -40,6 +40,8 @@ below shows a list of important variables.
    +--------------------+-------------------------------------+-------------+
    | PELE_PHYSICS_HOME  | Path to PelePhysics                 | environment |
    +--------------------+-------------------------------------+-------------+
+   | AMREX_HYDRO_HOME   | Path to AMReX-Hydro                 | environment |
+   +--------------------+-------------------------------------+-------------+
    | COMP               | gnu, cray, ibm, intel, llvm, or pgi | none        |
    +--------------------+-------------------------------------+-------------+
    | DEBUG              | TRUE or FALSE                       | TRUE        |
@@ -53,6 +55,8 @@ below shows a list of important variables.
    | USE_CUDA           | TRUE or FALSE                       | FALSE       |
    +--------------------+-------------------------------------+-------------+
    | USE_HIP            | TRUE or FALSE                       | FALSE       |
+   +--------------------+-------------------------------------+-------------+
+   | USE_DPCPP          | TRUE or FALSE                       | FALSE       |
    +--------------------+-------------------------------------+-------------+
 
 .. raw:: latex
@@ -81,16 +85,16 @@ prior to running ``make``.  alternatively, in tcsh one can set
 
     setenv AMREX_HOME /path/to/amrex
 
-Path to `IAMR` (``IAMR_HOME``), `PelePhysics` (``PELE_PHYSICS_HOME``) and `PeleLM` (``PELELM_HOME``)
-should also be provided in the same manner.
+Path to `IAMR` (``IAMR_HOME``), `PelePhysics` (``PELE_PHYSICS_HOME``), `AMReX-Hydro` (``AMREX_HYDRO_HOME``)
+and `PeleLM` (``PELELM_HOME``) should also be provided in the same manner.
 
 One must set the ``COMP`` variable to choose a compiler suite (for C, C++, f90).
 Currently the list of supported compiler suites includes gnu, cray, ibm, intel, llvm,
 and pgi. One must also set the ``DIM`` variable to either 1, 2, or 3, depending
 on the dimensionality of the problem.
 
-Variables ``DEBUG``, ``USE_MPI``, ``USE_OMP``, ``USE_CUDA`` and ``USE_HIP`` are optional with default set
-to TRUE, FALSE, FALSE, FALSE and FALSE, respectively. Note that the last three entries are mutually exclusive.
+Variables ``DEBUG``, ``USE_MPI``, ``USE_OMP``, ``USE_CUDA``, ``USE_HIP``and ``USE_DPCPP`` are optional with default set
+to TRUE, FALSE, FALSE, FALSE, FALSE and FALSE, respectively. Note that the last three entries are mutually exclusive.
 The meaning of these variables should be obvious.  When ``DEBUG=TRUE``, aggressive compiler optimization flags are
 turned off and assertions in source code are turned on. For production runs, ``DEBUG`` should be set to FALSE.
 
@@ -111,13 +115,6 @@ Variables for various source file types are shown below.
 
     cEXE_headers
         C headers with .h extension.
-
-    f90EXE_sources
-        Free format Fortran source with .f90 extension.
-
-    F90EXE_sources
-        Free format Fortran source with .F90 extension.  Note that these
-        Fortran files will go through preprocessing.
 
 In the ``FlameSheet`` example, the extra source file, ``drm19Soln_seed_0.50.f`` is in a
 directory that is already in the build system's search path.  Additional files,

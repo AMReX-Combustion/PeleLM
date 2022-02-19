@@ -36,7 +36,6 @@
 #include <pelelm_prob.H>
 #include <pelelm_prob_parm.H>
 #include <PeleLM_parm.H>
-#include <pmf_data.H>
 
 #include <AMReX_DataServices.H>
 #include <AMReX_AmrData.H>
@@ -175,12 +174,15 @@ Real PeleLM::typical_Y_val_min=1.e-10;
 std::map<std::string,Real> PeleLM::typical_values_FileVals;
 bool PeleLM::def_harm_avg_cen2edge  = false;
 
-std::unique_ptr<ProbParm> PeleLM::prob_parm;
-std::unique_ptr<ACParm> PeleLM::ac_parm;
+ProbParm* PeleLM::prob_parm = nullptr;
+ProbParm* PeleLM::prob_parm_d = nullptr;
+ACParm* PeleLM::ac_parm = nullptr;
+ACParm* PeleLM::ac_parm_d = nullptr;
 pele::physics::transport::TransportParams<
   pele::physics::PhysicsType::transport_type>
   PeleLM::trans_parms;
-std::string PeleLM::chem_integrator = "ReactorNull";
+pele::physics::PMF::PmfData PeleLM::pmf_data;
+std::string PeleLM::chem_integrator;
 std::unique_ptr<pele::physics::reactions::ReactorBase> PeleLM::m_reactor;
 
 std::string                                PeleLM::turbFile;
@@ -336,10 +338,6 @@ void
 PeleLM::Initialize ()
 {
   if (initialized) return;
-
-#ifdef AMREX_USE_GPU
-  amrex::sundials::MemoryHelper::Initialize();
-#endif
 
   PeleLM::Initialize_specific();
 
@@ -711,16 +709,14 @@ PeleLM::Initialize_specific ()
    pplm.query("dpdt_factor",dpdt_factor);
 
    // Initialize reactor: TODO might do a per level ?
-   pplm.query("chem_integrator",chem_integrator);
+   if (!pplm.contains("chem_integrator")) {
+      Abort("  peleLM.chem_integrator need to be specified");
+   }
+   pplm.get("chem_integrator",chem_integrator);
    m_reactor = pele::physics::reactions::ReactorBase::create(chem_integrator);
    const int nCell = 1;
    const int reactType = 2;
-#ifdef AMREX_USE_OMP
-#pragma omp parallel if (Gpu::notInLaunchRegion())
-#endif  
-   {
-      m_reactor->init(reactType, nCell);
-   }
+   m_reactor->init(reactType, nCell);
 }
 
 void
@@ -933,9 +929,13 @@ PeleLM::variableCleanUp ()
    ShowMF_Sets.clear();
    auxDiag_names.clear();
    typical_values.clear();
-   prob_parm.reset();
-   ac_parm.reset();
+   delete prob_parm;
+   delete ac_parm;
+   The_Arena()->free(prob_parm_d);
+   The_Arena()->free(ac_parm_d);
    trans_parms.deallocate();
+
+   pmf_data.deallocate();
 
    m_reactor->close();
 }
@@ -1247,6 +1247,12 @@ PeleLM::restart (Amr&          papa,
 
    define_data();
 
+   //
+   // Copy problem parameters into device copy
+   //
+   Gpu::copy(Gpu::hostToDevice, prob_parm, prob_parm+1,
+             prob_parm_d);
+
    // Deal with typical values
    set_typical_values(true);
 
@@ -1514,7 +1520,7 @@ PeleLM::update_typical_values_chem ()
                      typical_values[first_spec+i] * typical_values[Density] * 1.E-3); // CGS -> MKS conversion
       }
       typical_values_chem[NUM_SPECIES] = typical_values[Temp];
-      m_reactor->SetTypValsODE(typical_values_chem);
+      m_reactor->set_typ_vals_ode(typical_values_chem);
     }
   }
 }
@@ -1761,6 +1767,12 @@ void
 PeleLM::initData ()
 {
   //
+  // Copy problem parameters into device copy
+  //
+  Gpu::copy(Gpu::hostToDevice, prob_parm, prob_parm+1,
+            prob_parm_d);
+
+  //
   // Initialize the state and the pressure.
   //
   MultiFab&   S_new    = get_new_data(State_Type);
@@ -1960,8 +1972,8 @@ PeleLM::initData ()
     S_new.setVal(0.0);
     P_new.setVal(0.0);
 
-    ProbParm const* lprobparm = prob_parm.get();
-    PmfData const* lpmfdata = pmf_data_g;
+    ProbParm const* lprobparm = prob_parm_d;
+    pele::physics::PMF::PmfData::DataContainer const* lpmfdata = pmf_data.getDeviceData();
 
     auto const& sma = S_new.arrays();
     amrex::ParallelFor(S_new,
@@ -2287,6 +2299,9 @@ PeleLM::post_restart ()
    int is_restart = 1;
 
    activeControl(step,is_restart,0.0,crse_dt);
+   if (level == 0 && lev0cellCount < 0.0) {
+     lev0cellCount = getCellsCount();
+   }
 }
 
 void
@@ -3811,7 +3826,7 @@ PeleLM::compute_enthalpy_fluxes (MultiFab* const*       flux,
 
   // Here it is NUM_SPECIES+2 because this is the heat flux (NUM_SPECIES+3 in enth_diff_terms in fortran)
   // No multiplication by dt here
-  Diffusion::computeExtensiveFluxes(mg, TT, flux, NUM_SPECIES+2, 1, &geom, b);
+  diffusion->computeExtensiveFluxes(mg, TT, flux, NUM_SPECIES+2, 1, area, b);
 
   //
   // Now we have flux[NUM_SPECIES+2]
@@ -4230,7 +4245,7 @@ PeleLM::compute_differential_diffusion_fluxes (const MultiFab& S,
    Diffusion::setBeta(op,beta,betaComp,NUM_SPECIES);
 
    // No multiplication by dt here.
-   Diffusion::computeExtensiveFluxes(mg, Soln, flux, fluxComp, NUM_SPECIES, &geom, b);
+   diffusion->computeExtensiveFluxes(mg, Soln, flux, fluxComp, NUM_SPECIES, area, b);
 
    Soln.clear();
 
@@ -6014,11 +6029,11 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
      math_bcs = fetchBCArray(State_Type, first_spec,NUM_SPECIES);
      BCRec  const* d_bcrec_ptr = &(m_bcrec_scalars_d.dataPtr())[first_spec-Density];
      bool knownEdgeState = false;
-     amrex::Gpu::DeviceVector<int> iconserv;
-     iconserv.resize(NUM_SPECIES, 0);
+     Vector<int> iconserv_h;
+     iconserv_h.resize(NUM_SPECIES, 0);
      for (int comp = 0; comp < NUM_SPECIES; ++comp)
      {
-        iconserv[comp] = (advectionType[first_spec+comp] == Conservative) ? 1 : 0;
+        iconserv_h[comp] = (advectionType[first_spec+comp] == Conservative) ? 1 : 0;
      }
      bool isVelocity = false;
 
@@ -6027,10 +6042,13 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
                                  AMREX_D_DECL(u_mac[0],u_mac[1],u_mac[2]),
                                  AMREX_D_DECL(*EdgeState[0],*EdgeState[1],*EdgeState[2]), first_spec, knownEdgeState,
                                  AMREX_D_DECL(*EdgeFlux[0],*EdgeFlux[1],*EdgeFlux[2]), first_spec,
-                                 Force, 0, DivU, math_bcs, d_bcrec_ptr, geom, iconserv,
+                                 Force, 0, DivU, math_bcs, d_bcrec_ptr, geom, iconserv_h,
                                  dt, isVelocity, redistribution_type );
 
      } else {
+         amrex::Gpu::DeviceVector<int> iconserv;
+         iconserv.resize(NUM_SPECIES, 0);
+         Gpu::copy(Gpu::hostToDevice,iconserv_h.begin(),iconserv_h.end(),iconserv.begin());
          EBMOL::ComputeAofs( *aofs, first_spec, NUM_SPECIES, Smf, rhoYcomp,
                              AMREX_D_DECL(u_mac[0],u_mac[1],u_mac[2]),
                              AMREX_D_DECL(*EdgeState[0],*EdgeState[1],*EdgeState[2]), first_spec, knownEdgeState,
@@ -6132,9 +6150,9 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
     math_bcs = fetchBCArray(State_Type, Temp, 1);
     BCRec  const* d_bcrec_ptr = &(m_bcrec_scalars_d.dataPtr())[Temp-Density];
     bool knownEdgeState = false;
-    amrex::Gpu::DeviceVector<int> iconserv;
-    iconserv.resize(1, 0);
-    iconserv[0] =  (advectionType[Temp] == Conservative) ? 1 : 0;
+    Vector<int> iconserv_h;
+    iconserv_h.resize(1, 0);
+    iconserv_h[0] =  (advectionType[Temp] == Conservative) ? 1 : 0;
     bool isVelocity = false;
 
     if ( use_godunov ) {
@@ -6142,9 +6160,12 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
                                 AMREX_D_DECL(u_mac[0],u_mac[1],u_mac[2]),
                                 AMREX_D_DECL(*EdgeState[0],*EdgeState[1],*EdgeState[2]), Temp, knownEdgeState,
                                 AMREX_D_DECL(*EdgeFlux[0],*EdgeFlux[1],*EdgeFlux[2]), Temp,
-                                Force, 0, DivU, math_bcs, d_bcrec_ptr, geom, iconserv,
+                                Force, 0, DivU, math_bcs, d_bcrec_ptr, geom, iconserv_h,
                                 dt, isVelocity, redistribution_type);
     } else {
+        amrex::Gpu::DeviceVector<int> iconserv;
+        iconserv.resize(1, 0);
+        Gpu::copy(Gpu::hostToDevice,iconserv_h.begin(),iconserv_h.end(),iconserv.begin());
         EBMOL::ComputeAofs( *aofs, Temp, 1, Smf, Tcomp,
                             AMREX_D_DECL(u_mac[0],u_mac[1],u_mac[2]),
                             AMREX_D_DECL(*EdgeState[0],*EdgeState[1],*EdgeState[2]), Temp, knownEdgeState,
@@ -6252,9 +6273,9 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
     math_bcs = fetchBCArray(State_Type, RhoH, 1);
     BCRec  const* d_bcrec_ptr = &(m_bcrec_scalars_d.dataPtr())[RhoH-Density];
     bool knownEdgeState = true;
-    amrex::Gpu::DeviceVector<int> iconserv;
-    iconserv.resize(1, 0);
-    iconserv[0] = (advectionType[RhoH] == Conservative) ? 1 : 0;
+    Vector<int> iconserv_h;
+    iconserv_h.resize(1, 0);
+    iconserv_h[0] = (advectionType[RhoH] == Conservative) ? 1 : 0;
     bool isVelocity = false;
 
     if ( use_godunov ) {
@@ -6262,9 +6283,12 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
                                 AMREX_D_DECL(u_mac[0],u_mac[1],u_mac[2]),
                                 AMREX_D_DECL(*EdgeState[0],*EdgeState[1],*EdgeState[2]), RhoH, knownEdgeState,
                                 AMREX_D_DECL(*EdgeFlux[0],*EdgeFlux[1],*EdgeFlux[2]), RhoH,
-                                Force, 0, DivU, math_bcs, d_bcrec_ptr, geom, iconserv,
+                                Force, 0, DivU, math_bcs, d_bcrec_ptr, geom, iconserv_h,
                                 dt, isVelocity, redistribution_type);
     } else {
+        amrex::Gpu::DeviceVector<int> iconserv;
+        iconserv.resize(1, 0);
+        Gpu::copy(Gpu::hostToDevice,iconserv_h.begin(),iconserv_h.end(),iconserv.begin());
         EBMOL::ComputeAofs( *aofs, RhoH, 1, Smf, NUM_SPECIES+1,
                             AMREX_D_DECL(u_mac[0],u_mac[1],u_mac[2]),
                             AMREX_D_DECL(*EdgeState[0],*EdgeState[1],*EdgeState[2]), RhoH, knownEdgeState,
@@ -6316,11 +6340,11 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
 {
   BCRec  const* d_bcrec_ptr = &(m_bcrec_scalars_d.dataPtr())[first_spec-Density];
 
-  amrex::Gpu::DeviceVector<int> iconserv;
-  iconserv.resize(NUM_SPECIES, 0);
+  Vector<int> iconserv_h;
+  iconserv_h.resize(NUM_SPECIES, 0);
   for (int comp = 0; comp < NUM_SPECIES; ++comp)
   {
-     iconserv[comp] = (advectionType[first_spec+comp] == Conservative) ? 1 : 0;
+     iconserv_h[comp] = (advectionType[first_spec+comp] == Conservative) ? 1 : 0;
   }
 
   Godunov::ComputeAofs(*aofs, first_spec, NUM_SPECIES,
@@ -6328,7 +6352,7 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
                         AMREX_D_DECL( u_mac[0], u_mac[1], u_mac[2] ),
                         AMREX_D_DECL(*EdgeState[0], *EdgeState[1], *EdgeState[2]), first_spec, false,
                         AMREX_D_DECL(*EdgeFlux[0], *EdgeFlux[1], *EdgeFlux[2]), first_spec,
-                        Force, 0, DivU, d_bcrec_ptr, geom, iconserv,
+                        Force, 0, DivU, d_bcrec_ptr, geom, iconserv_h,
                         dt, godunov_use_ppm, godunov_use_forces_in_trans, false );
 }
 
@@ -6375,9 +6399,9 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
 {
   BCRec  const* d_bcrec_ptr = &(m_bcrec_scalars_d.dataPtr())[Temp-Density];
 
-  amrex::Gpu::DeviceVector<int> iconserv;
-  iconserv.resize(1, 0);
-  iconserv[0] = (advectionType[Temp] == Conservative) ? 1 : 0;
+  Vector<int> iconserv_h;
+  iconserv_h.resize(1, 0);
+  iconserv_h[0] = (advectionType[Temp] == Conservative) ? 1 : 0;
 
 
   Godunov::ComputeAofs(*aofs, Temp, 1,
@@ -6385,7 +6409,7 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
                        AMREX_D_DECL( u_mac[0], u_mac[1], u_mac[2] ),
                        AMREX_D_DECL(*EdgeState[0], *EdgeState[1], *EdgeState[2]), Temp, false,
                        AMREX_D_DECL(*EdgeFlux[0], *EdgeFlux[1], *EdgeFlux[2]), Temp,
-                       Force, NUM_SPECIES, DivU, d_bcrec_ptr, geom, iconserv,
+                       Force, NUM_SPECIES, DivU, d_bcrec_ptr, geom, iconserv_h,
                        dt, godunov_use_ppm, godunov_use_forces_in_trans, false );
 
 }
@@ -6419,16 +6443,16 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
 {
   BCRec  const* d_bcrec_ptr = &(m_bcrec_scalars_d.dataPtr())[RhoH-Density];
 
-  amrex::Gpu::DeviceVector<int> iconserv;
-  iconserv.resize(1, 0);
-  iconserv[0] = (advectionType[RhoH] == Conservative) ? 1 : 0;
+  Vector<int> iconserv_h;
+  iconserv_h.resize(1, 0);
+  iconserv_h[0] = (advectionType[RhoH] == Conservative) ? 1 : 0;
 
   Godunov::ComputeAofs(*aofs, RhoH, 1,
                        Smf, NUM_SPECIES+1,
                        AMREX_D_DECL( u_mac[0], u_mac[1], u_mac[2] ),
                        AMREX_D_DECL(*EdgeState[0], *EdgeState[1], *EdgeState[2]), RhoH, true,
                        AMREX_D_DECL(*EdgeFlux[0], *EdgeFlux[1], *EdgeFlux[2]), RhoH,
-                       Force, NUM_SPECIES+1, DivU, d_bcrec_ptr, geom, iconserv,
+                       Force, NUM_SPECIES+1, DivU, d_bcrec_ptr, geom, iconserv_h,
                        dt, godunov_use_ppm, godunov_use_forces_in_trans, false );
 }
 
@@ -6670,7 +6694,6 @@ PeleLM::mac_sync ()
                                          advectionType,prev_time,
                                          prev_pres_time,dt,NUM_STATE,
                                          be_cn_theta,
-                                         modify_reflux_normal_vel,
                                          do_mom_diff,
                                          incr_sync,
                                          last_mac_sync_iter);
@@ -6684,7 +6707,7 @@ PeleLM::mac_sync ()
                mac_projector->mac_sync_compute(level,Ucorr,Vsync,comp,
                                                comp,EdgeState, comp,rho_half,
                                                (level > 0 ? &getAdvFluxReg(level):0),
-                                               advectionType,modify_reflux_normal_vel,dt,
+                                               advectionType,dt,
                                                last_mac_sync_iter);
             }
          }
@@ -6715,7 +6738,7 @@ PeleLM::mac_sync ()
             mac_projector->mac_sync_compute(level,Ucorr,Ssync,comp,s_ind,
                                             EdgeState,comp,rho_half,
                                             (level > 0 ? &getAdvFluxReg(level):0),
-                                            advectionType,modify_reflux_normal_vel,dt,
+                                            advectionType,dt,
                                             last_mac_sync_iter);
          }
       }
@@ -7481,7 +7504,7 @@ PeleLM::compute_Wbar_fluxes(const MultiFab &a_scalars,
    FluxBoxes fb_flux(this,1,0);
    MultiFab** gradWbar = fb_flux.get();
 
-   Diffusion::computeExtensiveFluxes(mg, Wbar, gradWbar, 0, 1, &geom, -1.0);
+   diffusion->computeExtensiveFluxes(mg, Wbar, gradWbar, 0, 1, area, -1.0);
 
    Vector<BCRec> math_bc(1);
    math_bc = fetchBCArray(State_Type,first_spec,1);
@@ -9201,6 +9224,7 @@ PeleLM::activeControl(const int  step,
    ac_parm->ctrl_V_in = ctrl_V_in;
    ac_parm->ctrl_dV = ctrl_dV;
    ac_parm->ctrl_tBase = ctrl_tBase;
+   amrex::Gpu::copy(amrex::Gpu::hostToDevice,ac_parm,ac_parm+1,ac_parm_d);
 
    // Verbose
    if ( ctrl_verbose && !restart) {
@@ -9261,7 +9285,11 @@ PeleLM::initActiveControl()
       amrex::Error("active_control.flame_direction MUST be 0, 1 or 2 for X, Y and Z resp.");
 
    // Exit here if AC not activated
-   if ( !ctrl_active ) return;
+   if ( !ctrl_active ) {
+      ac_parm->ctrl_active = ctrl_active;
+      amrex::Gpu::copy(amrex::Gpu::hostToDevice,ac_parm,ac_parm+1,ac_parm_d);
+      return;
+   }
 
    // Activate AC in problem specific / GPU compliant sections
    ac_parm->ctrl_active = ctrl_active;
@@ -9280,9 +9308,9 @@ PeleLM::initActiveControl()
    }
 
    // Extract data from bc: assumes flow comes in from lo side of ctrl_flameDir
-   ProbParm const* lprobparm = prob_parm.get();
-   ACParm const* lacparm = ac_parm.get();
-   PmfData const* lpmfdata = pmf_data_g;
+   ProbParm const* lprobparm = prob_parm_d;
+   ACParm const* lacparm = ac_parm_d;
+   pele::physics::PMF::PmfData::DataContainer const* lpmfdata = pmf_data.getDeviceData();
    amrex::Gpu::DeviceVector<amrex::Real> s_ext_v(DEF_NUM_STATE);
    amrex::Real* s_ext_d = s_ext_v.data();
    amrex::Real x[AMREX_SPACEDIM] = {AMREX_D_DECL(problo[0],problo[1],problo[2])};
@@ -9328,6 +9356,7 @@ PeleLM::initActiveControl()
 
    // Pass V_in to bc
    ac_parm->ctrl_V_in = ctrl_V_in;
+   amrex::Gpu::copy(amrex::Gpu::hostToDevice,ac_parm,ac_parm+1,ac_parm_d);
 
    if ( ctrl_verbose && ctrl_active ) {
       if ( ctrl_use_temp ) {

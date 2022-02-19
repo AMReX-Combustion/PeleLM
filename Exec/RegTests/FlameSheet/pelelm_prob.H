@@ -7,8 +7,8 @@
 #include <AMReX_SPACE.H>
 
 #include <pelelm_prob_parm.H>
-#include <pmf.H>
-#include <pmf_data.H>
+#include <PMF.H>
+#include <PMFData.H>
 #include <PeleLM_parm.H>
 
 #include <NavierStokesBase.H>
@@ -22,7 +22,7 @@ pelelm_initdata (int i, int j, int k,
                  amrex::Array4<amrex::Real> const& state,
                  amrex::GeometryData const& geomdata,
                  ProbParm const& prob_parm,
-                 PmfData const *pmf_data)
+                 pele::physics::PMF::PmfData::DataContainer const *pmf_data)
 {
 
     const amrex::Real* prob_lo = geomdata.ProbLo();
@@ -80,7 +80,7 @@ pelelm_initdata (int i, int j, int k,
     y2 = (z - prob_parm.standoff + 0.5*dx[2] + pert)*100;
 #endif
 
-    PMF::pmf(pmf_data,y1, y2, pmf_vals);
+    pele::physics::PMF::pmf(pmf_data,y1, y2, pmf_vals);
 
     state(i,j,k,DEF_Temp) = pmf_vals[0];;
 
@@ -125,7 +125,7 @@ bcnormal(
   amrex::GeometryData const& geomdata,
   ProbParm const& prob_parm,
   ACParm const& ac_parm,
-  PmfData const *pmf_data)
+  pele::physics::PMF::PmfData::DataContainer const *pmf_data)
 {
   const amrex::Real* prob_lo = geomdata.ProbLo();
   amrex::GpuArray<amrex::Real, NUM_SPECIES + 4> pmf_vals = {0.0};
@@ -134,7 +134,7 @@ bcnormal(
   auto eos = pele::physics::PhysicsType::eos();
 
   if (sgn == 1) {
-    PMF::pmf(pmf_data,prob_lo[idir], prob_lo[idir], pmf_vals);
+    pele::physics::PMF::pmf(pmf_data,prob_lo[idir], prob_lo[idir], pmf_vals);
 
     if (!ac_parm.ctrl_active || time <= 0.0) {
        s_ext[Xvel] = 0.0;

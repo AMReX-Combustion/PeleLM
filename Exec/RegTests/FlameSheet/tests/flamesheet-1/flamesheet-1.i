@@ -42,7 +42,7 @@ amr.grid_log            = grdlog       # name of grid logging file
 prob.P_mean = 101325.0
 prob.standoff = -.022
 prob.pertmag = 0.0004
-prob.pmf_datafile = "drm19_pmf.dat"
+pmf.datafile = "drm19_pmf.dat"
 
 #--------------------REFINEMENT CONTROL------------------------
 amr.refinement_indicators = flame_tracer 

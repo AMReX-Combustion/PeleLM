@@ -44,7 +44,7 @@ prob.P_mean       = 101325.0
 prob.T_mean       = 298.0
 prob.MeanFlow     = 15.0
 prob.FlowDir      = 0
-prob.pmf_datafile = "pmf_040_01Atm.dat"
+pmf.datafile = "pmf_040_01Atm.dat"
 
 #--------------------REFINEMENT CONTROL------------------------
 amr.refinement_indicators = gradT

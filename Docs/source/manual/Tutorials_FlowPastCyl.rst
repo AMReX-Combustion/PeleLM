@@ -29,6 +29,7 @@ PeleProduction
 As explained in section :ref:`sec:QUICKSTART`, `PeleLM` relies on a number of supporting softwares: 
 
 - `AMReX` is a software frameworks that provides the data structure and enable massive parallelization.
+- `AMReX-Hydro` is a suite of AMReX-based fonctionalities handling the hydrodynamic schemes.
 - `IAMR` is a parallel, adaptive mesh refinement (AMR) code that solves the variable-density incompressible Navier-Stokes equations.
 - `PelePhysics` is a repository of physics databases and implementation code. In particular, the choice of chemistry and transport models as well as associated functions and capabilities are managed in `PelePhysics`.
 
@@ -96,7 +97,7 @@ A cylinder of radius 0.0035 m is placed in the middle of the flow at (0.0:0.0).
      | |FPC_a| |
      +---------+
 
-The geometry of the problem is specified in the first block of the ``inputs.2d-regt_VS``: ::
+The geometry of the problem is specified in the first block of the ``inputs.2d-regt``: ::
 
    #----------------------DOMAIN DEFINITION------------------------                                                                        
    geometry.is_periodic = 0 0             # Periodicity in each direction: 0 => no, 1 => yes
@@ -116,10 +117,10 @@ In the present case, the EB geometry is a simple cylinder (or sphere) which is r
 
    #------------  INPUTS FOR EMBEDED BOUNDARIES ----------------
    eb2.geom_type                    = sphere
-   eb2.sphere_radius                = 0.0035
+   eb2.sphere_radius                = 0.005
    eb2.sphere_center                = 0.00 0.00
    eb2.sphere_has_fluid_inside      = 0 
-   eb2.small_volfrac                = 1.0e-4
+   eb2.small_volfrac                = 1.0e-2
 
 Note that the last parameter is used to specify a volume fraction (ratio of the uncovered surface (2D) or volume (3D) over the cell surface or volume) threshold below which a cell is considered fully covered. This prevents the appearance of extremely small partially covered cells which are numerically unstable.
 
@@ -155,11 +156,11 @@ Specifying dirichlet ``Inflow`` conditions in `PeleLM` can seem daunting at firs
 
 Note that in the present case, the default values of pressure and temperature are employed since their respective keywords are not specified in the input file.
 
-Finally, this test uses a constant set of transport parameters rather relying on the EGLib library 
-(see :ref:`sec:model:EqSets` for more details on EGLib). These transport parameters are specified in the ``CONSTANT TRANSPORT`` block: ::
+Finally, this test uses a constant set of transport parameters rather relying on the Simple library 
+(see :ref:`sec:model:EqSets` for more details on Simple and EGLib). These transport parameters are specified in the ``CONSTANT TRANSPORT`` block: ::
 
     #------------  INPUTS TO CONSTANT TRANSPORT -----------------
-    transport.const_viscosity        = 2.0e-04
+    transport.const_viscosity        = 3.0e-04
     transport.const_bulk_viscosity   = 0.0 
     transport.const_conductivity     = 0.0 
     transport.const_diffusivity      = 0.0 
@@ -169,7 +170,7 @@ Using these parameters, it is possible to evaluate the Reynolds number, based on
 
 .. math::
 
-   Re = \frac{\rho U_{inf} D}{\mu} = \frac{1.175 * 3 * 0.007}{2.0e-05} \sim 1200 
+   Re = \frac{\rho U_{inf} D}{\mu} = \frac{1.175 * 3 * 0.01}{3.0e-05} = 1175 
 
 This relatively high value ensures that the flow will exhibit vortex shedding.
 
@@ -224,9 +225,14 @@ In `PeleLM`, the chemistry model (set of species, their thermodynamic and transp
    
 Here, the model ``air``, only contains 2 species (O2 and N2). The user is referred to the `PelePhysics <https://pelephysics.readthedocs.io/en/latest/>`_ documentation for a list of available mechanisms and more information regarding the EOS, chemistry and transport models specified: ::
 
-    Eos_dir       := Fuego
-    Reactions_dir := Null
-    Transport_dir := Constant
+    Eos_Model       := Fuego
+    Transport_Model := Constant
+
+Finally, `PeleLM` utilizes the chemical kinetic ODE integrator `CVODE <https://computing.llnl.gov/projects/sundials/cvode>`_. This Third Party Librabry (TPL) is not shipped with the `PeleLM` distribution but can be readily installed through the makefile system of `PeleLM`. To do so, type in the following command: ::
+
+    make -j4 TPL
+
+Note that the installation of `CVODE` requires CMake 3.12.1 or higher.
 
 You are now ready to build your first `PeleLM` executable !! Type in: ::
 
@@ -255,7 +261,7 @@ Time-stepping parameters in ``input.2d-regt`` are specified in the ``TIME STEPIN
 
 The final simulation time is set to 0.05 s. `PeleLM` solves for the advection, diffusion and reaction processes in time, but only the advection term is treated explicitly and thus it constrains the maximum time step size :math:`dt_{CFL}`. This constraint is formulated with a classical Courant-Friedrich-Levy (CFL) number, specified via the keyword ``ns.cfl``.
 Additionally, as it is the case here, the initial solution is often made-up by the user and local mixture composition and temperature can result in the introduction of unreasonably fast chemical scales.
-To ease the numerical integration of this initial transient, the parameter ``ns.init_shrink`` allows to shrink the inital `dt` (evaluated from the CFL constraint) by a factor (usually smaller than 1), and let it relax towards :math:`dt_{CFL}`at a rate given by ``ns.change_max`` as the simulation proceeds. Since the present case does not involve complex chemiscal processes, this parameter is kept to 1.0.
+To ease the numerical integration of this initial transient, the parameter ``ns.init_shrink`` allows to shrink the inital `dt` (evaluated from the CFL constraint) by a factor (usually smaller than 1), and let it relax towards :math:`dt_{CFL}`at a rate given by ``ns.change_max`` as the simulation proceeds. Since the present case does not involve complex chemical processes, this parameter is kept to 1.0.
 
 Input/output from `PeleLM` are specified in the ``IO CONTROL`` block: ::
 
@@ -273,11 +279,11 @@ We have specified here that a checkpoint file will be generated every 50 ms and 
 
 You finally have all the information necessary to run the first of several steps. Type in: ::
 
-    ./PeleLM2d.gnu.MPI.ex inputs.2d-regt_VS
+    ./PeleLM2d.gnu.MPI.ex inputs.2d-regt
 
 A lot of information is printed directly on the screen during a `PeleLM` simulation, but it will not be detailed in the present tutorial. If you wish to store these information for later analysis, you can instead use: ::
 
-    ./PeleLM2d.gnu.MPI.ex inputs.2d-regt_VS > logCoarseRun.dat &
+    ./PeleLM2d.gnu.MPI.ex inputs.2d-regt > logCoarseRun.dat &
     
 Whether you have used one or the other command, the computation finishes within a couple of minutes and you should obtain a set of ``plt_****`` files (and maybe a set appended with .old*********** if you used both commands). Use `Amrvis <https://amrex-codes.github.io/amrex/docs_html/Visualization.html>`_ to vizualize the results. Use the following command to open the entire set of solutions: ::
 
@@ -304,21 +310,21 @@ As can be seen from Fig :numref:`fig:FPC_Coarse`, the flow has not yet transitio
  - the flow is initially symmetric and the transition to the familiar periodic flow is due to the growth of infinitesimal perturbations in the shear layer of the wake. Because the flow is artificially too symmetric, this transition can be delayed until round-off errors sufficiently accumulate.
  - the numerical dissipation introduced by this coarse grid results in an effective Reynolds number probably significantly lower than the value estimated above.
 
-Before adding refinement levels, we will first pursue the simulation until the flow reaches a periodic vortex shedding state. To do so, restart the simulation from the checkpoint file generated at the end of the first run and set the final simulation time to 200 ms: ::
+Before adding refinement levels, we will first pursue the simulation until the flow reaches a periodic vortex shedding state. To do so, restart the simulation from the checkpoint file generated at the end of the first run and set the final simulation time to 250 ms: ::
    
     #-------------------------IO CONTROL----------------------------
     ...
-    amr.restart             = chk_01327 # Restart from checkpoint ?
+    amr.restart             = chk_01345 # Restart from checkpoint ?
 
     ...
 
     #----------------------TIME STEPING CONTROL----------------------
     ...
-    stop_time      = 0.20            # final physical time
+    stop_time      = 0.25            # final physical time
 
 and restart the simulation ::
 
-    ./PeleLM2d.gnu.MPI.ex inputs.2d-regt_VS > logCoarseRun2.dat &
+    ./PeleLM2d.gnu.MPI.ex inputs.2d-regt > logCoarseRun2.dat &
 
 
 The flow has now fully transition and you can use Amrvis to visualize the serie of vortex in the wake of the cylinder. In the next step, we will add finer grid patches around the EB geometry and in high vorticity regions.
@@ -353,25 +359,25 @@ In the example above, the grid is refined up to level 1 at the location where th
 
 With these new parameters, change the `checkpoint` file from which to restart and allow regridding upon restart by updating the following lines in the ``IO CONTROL`` block: ::
 
-    amr.restart             = chk_06195 # Restart from checkpoint ?
+    amr.restart             = chk_06797 # Restart from checkpoint ?
     amr.regrid_on_restart   = 1
 
-, increase the `stop_time` to 300 ms in the ``TIME STEPING CONTROL`` block: ::
+, increase the `stop_time` to 350 ms in the ``TIME STEPING CONTROL`` block: ::
 
-    stop_time      = 0.30            # final physical time
+    stop_time      = 0.35            # final physical time
 
 and start the simulation again (using multiple processor if available) ::
 
-    mpirun -n 4 ./PeleLM2d.gnu.MPI.ex inputs.2d-regt_VS > log2Levels.dat &
+    mpirun -n 4 ./PeleLM2d.gnu.MPI.ex inputs.2d-regt > log2Levels.dat &
 
 Once again, use Amrvis to visualize the effects of refinement: after an initial transient, the flow return to a smooth periodic vortex shedding and the boundary layer of the cylinder is now significantly better captured but still far from fully refined.
 As a final step, we will add another level of refinement, only at the vicinity of the cylinder since the level 1 resolution appears sufficient to discretize the vortices in the wake. To do so, simply allow for another level of refinement: ::
 
     amr.max_level       = 2          # maximum level number allowed
 
-and since the vorticity refinement criterion only refine up to level 1, the level 2 will only be located around the EB. Update the `checkpoint` file in the ``IO CONTROL`` block, increase the `stop_time` to 350 ms in the the ``TIME STEPING CONTROL`` and restart the simulation: ::
+and since the vorticity refinement criterion only refine up to level 1, the level 2 will only be located around the EB. Update the `checkpoint` file in the ``IO CONTROL`` block, increase the `stop_time` to 400 ms in the the ``TIME STEPING CONTROL`` and restart the simulation: ::
 
-    mpirun -n 4 ./PeleLM2d.gnu.MPI.ex inputs.2d-regt_VS > log3Levels.dat &
+    mpirun -n 4 ./PeleLM2d.gnu.MPI.ex inputs.2d-regt > log3Levels.dat &
 
 You should obtain a flow with a vorticity field similar to Fig. :numref:`fig:FPC_VortFinal`.
 For the purpose of the present tutorial, this will be our final solution but one can see that the flow has not yet return to a periodic vortex shedding and additinal resolution could be added locally to obtain smoother flow features.
@@ -381,7 +387,7 @@ For the purpose of the present tutorial, this will be our final solution but one
 
 .. _fig:FPC_VortFinal:
 
-.. table:: Contour plots of vorticit at t = 350 ms with 2 levels of refinements.
+.. table:: Contour plots of vorticit at t = 400 ms with 2 levels of refinements.
      :align: center
 
      +---------+
