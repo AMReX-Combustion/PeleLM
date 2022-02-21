@@ -100,7 +100,7 @@ PeleLM::particleEstTimeStep(Real& est_dt)
 }
 
 void
-PeleLM::readParticleParams()
+PeleLM::readSprayParams()
 {
   ParmParse pp("peleLM");
 
@@ -109,7 +109,7 @@ PeleLM::readParticleParams()
     do_spray_particles = 0;
     return;
   }
-  SprayParticleContainer::readParticleParams(
+  SprayParticleContainer::readSprayParams(
     particle_verbose, particle_cfl, wall_temp, mass_trans, mom_trans, write_spray_ascii_files,
     plot_spray_src, init_function, init_file, sprayData, spray_fuel_names);
 }

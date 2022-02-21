@@ -531,7 +531,7 @@ PeleLM::Initialize ()
   }
 
 #ifdef SPRAY_PELE_LM
-  readParticleParams();
+  readSprayParams();
 #endif
 
 #ifdef SOOT_MODEL

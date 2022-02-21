@@ -185,9 +185,9 @@ public:
   virtual void initData () override;
 #ifdef SPRAY_PELE_LM
   //
-  // Read particle-related inputs
+  // Read spray related inputs
   //
-  static void readParticleParams();
+  static void readSprayParams();
   //
   // Define particle related variables
   //
