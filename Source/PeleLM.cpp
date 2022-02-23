@@ -6670,6 +6670,7 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
    for (int comp = 0; comp < DEF_NUM_PASSIVE; ++comp) {
      iconserv_h[comp] = (advectionType[first_passive+comp] == Conservative) ? 1 : 0;
    }
+   bool godunov_use_ppm = ( advection_scheme == "Godunov_PPM" ) ? true : false;
    const int force_pass_comp = NUM_SPECIES + 1;
    Godunov::ComputeAofs(*aofs, first_passive, DEF_NUM_PASSIVE,
                         Smf, Pcomp,
