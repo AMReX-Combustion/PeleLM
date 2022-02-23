@@ -276,7 +276,7 @@ public:
   amrex::MultiFab Sborder;
 
   static int num_spray_src;
-  static amrex::Vector<std::string> spray_fuel_names;
+  static std::string sprayFuelNames[SPRAY_FUEL_NUM];
 
 #endif
   //

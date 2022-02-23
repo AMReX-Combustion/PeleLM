@@ -56,7 +56,7 @@ int PeleLM::num_spray_src = AMREX_SPACEDIM + 2 + SPRAY_FUEL_NUM;
 
 int PeleLM::write_spray_ascii_files = 0;
 int PeleLM::plot_spray_src = 0;
-Vector<std::string> PeleLM::spray_fuel_names;
+std::string PeleLM::sprayFuelNames[SPRAY_FUEL_NUM];
 
 SprayParticleContainer*
 PeleLM::theSprayPC()
@@ -111,7 +111,7 @@ PeleLM::readSprayParams()
   }
   SprayParticleContainer::readSprayParams(
     particle_verbose, particle_cfl, wall_temp, mass_trans, mom_trans, write_spray_ascii_files,
-    plot_spray_src, init_function, init_file, sprayData, spray_fuel_names);
+    plot_spray_src, init_function, init_file, sprayData, sprayFuelNames);
 }
 
 std::string
@@ -119,7 +119,7 @@ PeleLM::spraySrcName(const int i)
 {
   if (i >= spraySpecSrcIndx && i <= spraySpecSrcIndx + SPRAY_FUEL_NUM - 1) {
     const int sp = i - spraySpecSrcIndx;
-    return "I_R_spray_" + spray_fuel_names[sp];
+    return "I_R_spray_" + sprayFuelNames[sp];
   } else if (i <= AMREX_SPACEDIM) {
     return "I_R_spray_" + desc_lst[State_Type].name(i);
   } else if (i == sprayEngSrcIndx) {
@@ -158,12 +158,12 @@ PeleLM::defineParticles()
   for (int i = 0; i < SPRAY_FUEL_NUM; ++i) {
     for (int ns = 0; ns < NUM_SPECIES; ++ns) {
       std::string gas_spec = spec_names[ns];
-      if (gas_spec == spray_fuel_names[i]) {
+      if (gas_spec == sprayFuelNames[i]) {
         sprayData.indx[i] = ns;
       }
     }
     if (sprayData.indx[i] < 0) {
-      amrex::Print() << "Fuel " << spray_fuel_names[i]
+      amrex::Print() << "Fuel " << sprayFuelNames[i]
                      << " not found in species list" << std::endl;
       amrex::Abort();
     }
