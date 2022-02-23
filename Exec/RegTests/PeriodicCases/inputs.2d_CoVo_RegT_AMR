@@ -60,6 +60,7 @@ ns.fuelName          = N2              # Fuel species name
 ns.unity_Le          = 0               # Use unity Le number transport ?
 ns.hack_nochem       = 0               # Bypass chemistry ? 0: no, 1: yes
 ns.gravity           = 0               # body force  (gravity in MKS units)
+ns.advection_scheme  = "Godunov_PPM"
 
 #--------------------NUMERICS CONTROL------------------------
 ns.init_iter         = 3               # Number of initial iterations to def pressure

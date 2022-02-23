@@ -230,11 +230,8 @@ function(build_pelelm_exe pelelm_exe_name)
        ${IAMR_SRC_DIR}/Diffusion.H
        ${IAMR_SRC_DIR}/NavierStokesBase.H
        ${IAMR_SRC_DIR}/FluxBoxes.H
-       ${IAMR_SRC_DIR}/PROJECTION_F.H
-       ${IAMR_SRC_DIR}/NAVIERSTOKES_F.H
        ${IAMR_SRC_DIR}/NS_util.cpp
        ${IAMR_SRC_DIR}/NS_util.H
-       ${IAMR_SRC_DIR}/Src_${PELELM_DIM}d/NAVIERSTOKES_${PELELM_DIM}D.F90
   )
 
   target_sources(${pelelm_exe_name}

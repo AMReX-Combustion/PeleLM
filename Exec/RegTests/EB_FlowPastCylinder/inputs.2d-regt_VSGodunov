@@ -62,7 +62,7 @@ ns.init_iter         = 3               # Number of initial iterations to def pre
 ns.num_divu_iters    = 1               # Number of DivU iteration at initialization
 ns.sdc_iterMAX       = 2               # Number of SDC iterations
 ns.num_mac_sync_iter = 2               # Number of mac_sync iterations
-ns.use_godunov       = 1               # Use Godunov scheme for the advection term
+ns.advection_scheme  = "Godunov_PLM"   # Godunov with piecewise linear limiters
 peleLM.chem_integrator     = "ReactorNull"
 
 #------------  INPUTS TO CONSTANT TRANSPORT -----------------
