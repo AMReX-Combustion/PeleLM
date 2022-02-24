@@ -5124,7 +5124,6 @@ PeleLM::advance (Real time,
   int nGrow_Sborder = 4; //mr: set to 1 for now, is this ok?
 
   int ghost_width = 0;
-  int where_width = 0;
   int spray_n_grow = 0;
   int tmp_src_width = 0;
   if (do_spray_particles) {
@@ -5133,7 +5132,7 @@ PeleLM::advance (Real time,
     if (level < finest_level) finer_ref = parent->MaxRefRatio(level);
     SprayParticleContainer::setSprayGridInfo(
       level, finest_level, ncycle, finer_ref,
-      ghost_width, where_width, spray_n_grow, tmp_src_width);
+      ghost_width, spray_n_grow, tmp_src_width);
     nGrow_Sborder = std::max(nGrow_Sborder, spray_n_grow);
     FillPatch(*this, Sborder, nGrow_Sborder, prev_time, State_Type, 0, NUM_STATE);
     if (Sborder.nGrow() < nGrow_Sborder) {
@@ -5264,7 +5263,7 @@ PeleLM::advance (Real time,
     if (do_spray_particles) {
       AMREX_ASSERT(theSprayPC() != nullptr);
       particleMKD(time, dt, ghost_width, spray_n_grow,
-                  tmp_src_width, where_width, tmp_spray_source);
+                  tmp_src_width, tmp_spray_source);
     }
 #endif
 #ifdef SOOT_MODEL
