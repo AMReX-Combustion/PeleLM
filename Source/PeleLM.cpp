@@ -6637,13 +6637,6 @@ PeleLM::mac_sync ()
          sync_scheme[i] = UseEdgeState;
       }
 
-      Vector<int> incr_sync(NUM_STATE,0);
-      for (long int i=0; i<sync_scheme.size(); ++i) {
-         if (sync_scheme[i] == ReAdvect) {
-            incr_sync[i] = 1;
-         }
-      }
-
       // After solving for mac_sync_phi in mac_sync_solve(), we
       // can now do the sync advect step in mac_sync_compute().
       // This consists of two steps
@@ -6655,13 +6648,12 @@ PeleLM::mac_sync ()
       BL_PROFILE_VAR("PeleLM::mac_sync::Vsync", PLM_VSYNC);
       if (do_mom_diff == 0)
       {
-         mac_projector->mac_sync_compute(level,Ucorr,u_mac,Vsync,Ssync,rho_half,
+         mac_projector->mac_sync_compute(level,Ucorr,u_mac,Vsync,Ssync,
                                          (level > 0) ? &getAdvFluxReg(level) : 0,
                                          advectionType,prev_time,
-                                         prev_pres_time,dt,NUM_STATE,
+                                         dt,AMREX_SPACEDIM,
                                          be_cn_theta,
                                          do_mom_diff,
-                                         incr_sync,
                                          last_mac_sync_iter);
       }
       else
@@ -6671,7 +6663,7 @@ PeleLM::mac_sync ()
             if (sync_scheme[comp]==UseEdgeState)
             {
                mac_projector->mac_sync_compute(level,Ucorr,Vsync,comp,
-                                               comp,EdgeState, comp,rho_half,
+                                               comp,EdgeState, comp,
                                                (level > 0 ? &getAdvFluxReg(level):0),
                                                advectionType,dt,
                                                last_mac_sync_iter);
@@ -6702,7 +6694,7 @@ PeleLM::mac_sync ()
             // is no diffusion for this term
             //
             mac_projector->mac_sync_compute(level,Ucorr,Ssync,comp,s_ind,
-                                            EdgeState,comp,rho_half,
+                                            EdgeState,comp,
                                             (level > 0 ? &getAdvFluxReg(level):0),
                                             advectionType,dt,
                                             last_mac_sync_iter);
