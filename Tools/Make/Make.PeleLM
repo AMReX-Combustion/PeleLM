@@ -135,6 +135,7 @@ Bdirs += $(AMREX_HYDRO_HOME)/Godunov
 Bdirs += $(AMREX_HYDRO_HOME)/MOL
 Bdirs += $(AMREX_HYDRO_HOME)/Slopes
 Bdirs += $(AMREX_HYDRO_HOME)/Projections
+Bdirs += $(AMREX_HYDRO_HOME)/BDS
 ifeq ($(USE_EB), TRUE)
    Bdirs += $(AMREX_HYDRO_HOME)/Redistribution
    Bdirs += $(AMREX_HYDRO_HOME)/EBGodunov
