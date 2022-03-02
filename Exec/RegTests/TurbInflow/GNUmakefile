@@ -1,53 +1,29 @@
-PELELM_HOME = ../../..
-SUBMODS = ${PELELM_HOME}/Submodules
-AMREX_HOME         ?= ${SUBMODS}/amrex
-IAMR_HOME          ?= ${SUBMODS}/IAMR
-PELE_PHYSICS_HOME  ?= ${SUBMODS}/PelePhysics
-AMREX_HYDRO_HOME   ?= ${SUBMODS}/AMReX-Hydro
+TOP = ../../../..
+AMREX_HOME         ?= ${TOP}/amrex
+PELELM_HOME        ?= ${TOP}/PeleLM
+PELE_PHYSICS_HOME  ?= ${TOP}/PelePhysics
+AMREX_HYDRO_HOME   ?= ${TOP}/AMReX-Hydro
 
-DEBUG	= FALSE
-#DEBUG	= TRUE
-DIM	= 3
-COMP    = gcc
-PRECISION = DOUBLE
-USE_MPI   = TRUE
-USE_OMP   = FALSE
 
-EBASE     = main
-#EBASE     = turbToFab
+# AMReX
+DIM             = 3
+DEBUG           = TRUE
+PRECISION       = DOUBLE
+VERBOSE         = FALSE
+TINY_PROFILE    = FALSE
 
-#NEEDS_FORT = FALSE
-NEEDS_FORT = TRUE
+# Compilation
+COMP            = gnu
+USE_MPI         = TRUE
+USE_OMP         = FALSE
+USE_CUDA        = FALSE
+USE_HIP         = FALSE
 
-include $(AMREX_HOME)/Tools/GNUMake/Make.defs
+# PeleLM
 
-CEXE_sources += $(EBASE).cpp
-ifeq ($(NEEDS_FORT), TRUE)
-  F90EXE_sources += $(EBASE)_nd.F90
-endif
+# PelePhysics
+Chemistry_Model = air
+Eos_Model       = Fuego
+Transport_Model = Simple
 
-INCLUDE_LOCATIONS += $(AMREX_HOME)/Src/Base
-include $(AMREX_HOME)/Src/Base/Make.package
-vpathdir += $(AMREX_HOME)/Src/Base
-
-INCLUDE_LOCATIONS += $(AMREX_HOME)/Src/Extern/amrdata
-include $(AMREX_HOME)/Src/Extern/amrdata/Make.package
-vpathdir += $(AMREX_HOME)/Src/Extern/amrdata
-
-INCLUDE_LOCATIONS += $(AMREX_HOME)/Tools/C_util
-include $(AMREX_HOME)/Tools/C_util/Make.package
-vpathdir += $(AMREX_HOME)/Tools/C_util
-
-INCLUDE_LOCATIONS += $(IAMR_HOME)/Source/TurbInflow
-include $(IAMR_HOME)/Source/TurbInflow/Make.package
-vpathdir += $(IAMR_HOME)/Source/TurbInflow
-
-vpath %.c   : . $(vpathdir)
-vpath %.h   : . $(vpathdir)
-vpath %.cpp : . $(vpathdir)
-vpath %.H   : . $(vpathdir)
-vpath %.F   : . $(vpathdir)
-vpath %.f   : . $(vpathdir)
-vpath %.f90 : . $(vpathdir)
-
-include $(AMREX_HOME)/Tools/GNUMake/Make.rules
+include $(PELELM_HOME)/Tools/Make/Make.PeleLM
