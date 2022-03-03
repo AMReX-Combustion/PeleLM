@@ -180,6 +180,7 @@ pele::physics::transport::TransportParams<
 pele::physics::PMF::PmfData PeleLM::pmf_data;
 std::string PeleLM::chem_integrator;
 std::unique_ptr<pele::physics::reactions::ReactorBase> PeleLM::m_reactor;
+pele::physics::turbinflow::TurbInflow PeleLM::turb_inflow;
 
 std::string                                PeleLM::turbFile;
 std::map<std::string, Vector<std::string> > PeleLM::auxDiag_names;

@@ -118,11 +118,13 @@ struct PeleLMCCFillExtDir
   ProbParm const* lprobparm; 
   ACParm const* lacparm;
   pele::physics::PMF::PmfData::DataContainer const* lpmfdata;
+  int m_do_turbinflow = 0;
 
   AMREX_GPU_HOST
   constexpr PeleLMCCFillExtDir(ProbParm const* a_prob_parm, ACParm const* a_ac_parm,
-                               pele::physics::PMF::PmfData::DataContainer const* a_pmf_data)
-      : lprobparm(a_prob_parm), lacparm(a_ac_parm), lpmfdata(a_pmf_data) {}
+                               pele::physics::PMF::PmfData::DataContainer const* a_pmf_data,
+                               int a_do_turbinflow)
+      : lprobparm(a_prob_parm), lacparm(a_ac_parm), lpmfdata(a_pmf_data), m_do_turbinflow(a_do_turbinflow) {}
 
   AMREX_GPU_DEVICE
   void operator()(
@@ -154,6 +156,11 @@ struct PeleLMCCFillExtDir
     int idir = 0;
     if ((bc[idir] == amrex::BCType::ext_dir) and (iv[idir] < domlo[idir])) {
 
+         if (m_do_turbinflow && orig_comp == Xvel) {
+           for (int n = 0; n < AMREX_SPACEDIM; n++) {
+             s_ext[Xvel+n] = dest(iv, dcomp + n);
+           }
+         }
          //
          // Fill s_ext with the EXT_DIR BC value
          // bcnormal() is defined in pelelm_prob.H in problem directory in /Exec
@@ -187,6 +194,12 @@ struct PeleLMCCFillExtDir
        (bc[idir + AMREX_SPACEDIM] == amrex::BCType::ext_dir) and
        (iv[idir] > domhi[idir])) {
 
+         if (m_do_turbinflow && orig_comp == Xvel) {
+           for (int n = 0; n < AMREX_SPACEDIM; n++) {
+             s_ext[Xvel+n] = dest(iv, dcomp + n);
+           }
+         }
+
          bcnormal(x, s_ext, idir, -1, time, geom, *lprobparm, *lacparm, lpmfdata);
 
          if (orig_comp == Xvel){
@@ -218,6 +231,11 @@ struct PeleLMCCFillExtDir
     idir = 1;
     if ((bc[idir] == amrex::BCType::ext_dir) and (iv[idir] < domlo[idir])) {
 
+         if (m_do_turbinflow && orig_comp == Xvel) {
+           for (int n = 0; n < AMREX_SPACEDIM; n++) {
+             s_ext[Xvel+n] = dest(iv, dcomp + n);
+           }
+         }
          bcnormal(x, s_ext, idir, +1, time, geom, *lprobparm, *lacparm, lpmfdata);
 
          if (orig_comp == Xvel){
@@ -247,6 +265,11 @@ struct PeleLMCCFillExtDir
        (bc[idir + AMREX_SPACEDIM] == amrex::BCType::ext_dir) and
        (iv[idir] > domhi[idir])) {
 
+         if (m_do_turbinflow && orig_comp == Xvel) {
+           for (int n = 0; n < AMREX_SPACEDIM; n++) {
+             s_ext[Xvel+n] = dest(iv, dcomp + n);
+           }
+         }
          bcnormal(x, s_ext, idir, -1, time, geom, *lprobparm, *lacparm, lpmfdata);
 
          if (orig_comp == Xvel){
@@ -279,6 +302,11 @@ struct PeleLMCCFillExtDir
     idir = 2;
     if ((bc[idir] == amrex::BCType::ext_dir) and (iv[idir] < domlo[idir])) {
 
+         if (m_do_turbinflow && orig_comp == Xvel) {
+           for (int n = 0; n < AMREX_SPACEDIM; n++) {
+             s_ext[Xvel+n] = dest(iv, dcomp + n);
+           }
+         }
          bcnormal(x, s_ext, idir, +1, time, geom, *lprobparm, *lacparm, lpmfdata);
 
          if (orig_comp == Xvel){
@@ -308,6 +336,11 @@ struct PeleLMCCFillExtDir
        (bc[idir + AMREX_SPACEDIM] == amrex::BCType::ext_dir) and
        (iv[idir] > domhi[idir])) {
 
+         if (m_do_turbinflow && orig_comp == Xvel) {
+           for (int n = 0; n < AMREX_SPACEDIM; n++) {
+             s_ext[Xvel+n] = dest(iv, dcomp + n);
+           }
+         }
          bcnormal(x, s_ext, idir, -1, time, geom, *lprobparm, *lacparm, lpmfdata);
 
          if (orig_comp == Xvel){
@@ -350,11 +383,52 @@ void pelelm_cc_ext_fill (Box const& bx, FArrayBox& data,
                  const Vector<BCRec>& bcr, const int bcomp,
                  const int scomp)
 {
-        ProbParm const* lprobparm = PeleLM::prob_parm_d;
-        ACParm const* lacparm = PeleLM::ac_parm_d;
-        pele::physics::PMF::PmfData::DataContainer const* lpmfdata = PeleLM::pmf_data.getDeviceData();
-        GpuBndryFuncFab<PeleLMCCFillExtDir> gpu_bndry_func(PeleLMCCFillExtDir{lprobparm,lacparm,lpmfdata});
-        gpu_bndry_func(bx,data,dcomp,numcomp,geom,time,bcr,bcomp,scomp);
+    // Get device pointers
+    ProbParm const* lprobparm = PeleLM::prob_parm_d;
+    ACParm const* lacparm = PeleLM::ac_parm_d;
+    pele::physics::PMF::PmfData::DataContainer const* lpmfdata = PeleLM::pmf_data.getDeviceData();
+
+    // Fill turbulence data if requested
+    if (PeleLM::turb_inflow.is_initialized() && scomp < AMREX_SPACEDIM) {
+        for (int dir=0; dir<AMREX_SPACEDIM; ++dir) {
+            auto bndryBoxLO = amrex::Box(amrex::adjCellLo(geom.Domain(),dir) & bx);
+            if (bcr[1].lo()[dir]==EXT_DIR && bndryBoxLO.ok())
+            {
+                // Create box with ghost cells and set them to zero
+                amrex::IntVect growVect(amrex::IntVect::TheUnitVector());
+                int Grow = 4;     // Being conservative
+                for(int n=0;n<AMREX_SPACEDIM;n++) {
+                    growVect[n] = Grow;
+                }
+                growVect[dir] = 0;
+                amrex::Box modDom = geom.Domain();
+                modDom.grow(growVect);
+                auto bndryBoxLO_ghost = amrex::Box(amrex::adjCellLo(modDom,dir,Grow) & bx);
+                data.setVal<amrex::RunOn::Host>(0.0,bndryBoxLO_ghost,Xvel,AMREX_SPACEDIM);
+                PeleLM::turb_inflow.add_turb(bndryBoxLO, data, 0, geom, time, dir, amrex::Orientation::low);
+            }
+
+            auto bndryBoxHI = amrex::Box(amrex::adjCellHi(geom.Domain(),dir) & bx);
+            if (bcr[1].hi()[dir]==EXT_DIR && bndryBoxHI.ok())
+            {
+                //Create box with ghost cells and set them to zero
+                amrex::IntVect growVect(amrex::IntVect::TheUnitVector());
+                int Grow = 4;
+                for(int n=0;n<AMREX_SPACEDIM;n++) {
+                    growVect[n] = Grow;
+                }
+                growVect[dir] = 0;
+                amrex::Box modDom = geom.Domain();
+                modDom.grow(growVect);
+                auto bndryBoxHI_ghost = amrex::Box(amrex::adjCellHi(modDom,dir,Grow) & bx);
+                data.setVal<amrex::RunOn::Host>(0.0,bndryBoxHI_ghost,Xvel,AMREX_SPACEDIM);
+                PeleLM::turb_inflow.add_turb(bndryBoxHI, data, 0, geom, time, dir, amrex::Orientation::high);
+            }
+        }
+    }
+
+    GpuBndryFuncFab<PeleLMCCFillExtDir> gpu_bndry_func(PeleLMCCFillExtDir{lprobparm,lacparm,lpmfdata,PeleLM::turb_inflow.is_initialized()});
+    gpu_bndry_func(bx,data,dcomp,numcomp,geom,time,bcr,bcomp,scomp);
 }
 
 

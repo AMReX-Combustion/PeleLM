@@ -375,8 +375,9 @@ PeleLM::variableSetUp ()
 
   Initialize();
 
-  amrex::Print() << " Initialization of Transport (CPP)... \n";
+  amrex::Print() << " Initialization of Transport ... \n";
   trans_parms.allocate();
+  turb_inflow.init(DefaultGeometry());
 
   BCRec bc;
 
