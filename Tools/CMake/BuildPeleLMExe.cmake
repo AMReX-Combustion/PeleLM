@@ -215,6 +215,10 @@ function(build_pelelm_exe pelelm_exe_name)
        ${AMREX_HYDRO_SRC_DIR}/MOL/hydro_mol_edge_state_K.H
        ${AMREX_HYDRO_SRC_DIR}/MOL/hydro_mol_edge_state.cpp
 
+       ${AMREX_HYDRO_SRC_DIR}/BDS/hydro_bds.H
+       ${AMREX_HYDRO_SRC_DIR}/BDS/hydro_bds.cpp
+       ${AMREX_HYDRO_SRC_DIR}/BDS/hydro_bds_edge_state_${PELELM_DIM}D.cpp
+
        ${AMREX_HYDRO_SRC_DIR}/Utils/hydro_utils.H
        ${AMREX_HYDRO_SRC_DIR}/Utils/hydro_utils.cpp
        ${AMREX_HYDRO_SRC_DIR}/Utils/hydro_extrap_vel_to_faces.cpp
@@ -305,6 +309,7 @@ function(build_pelelm_exe pelelm_exe_name)
   #AMReX-Hydro include directories
   target_include_directories(${pelelm_exe_name} PRIVATE ${AMREX_HYDRO_SRC_DIR}/Godunov)
   target_include_directories(${pelelm_exe_name} PRIVATE ${AMREX_HYDRO_SRC_DIR}/MOL)
+  target_include_directories(${pelelm_exe_name} PRIVATE ${AMREX_HYDRO_SRC_DIR}/BDS)
   target_include_directories(${pelelm_exe_name} PRIVATE ${AMREX_HYDRO_SRC_DIR}/Utils)
   target_include_directories(${pelelm_exe_name} PRIVATE ${AMREX_HYDRO_SRC_DIR}/Slopes)
   target_include_directories(${pelelm_exe_name} PRIVATE ${AMREX_HYDRO_SRC_DIR}/Projections)
