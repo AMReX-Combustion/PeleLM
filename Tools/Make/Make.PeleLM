@@ -104,6 +104,7 @@ Bdirs += $(IAMR_HOME)/Source
 Bdirs += $(IAMR_HOME)/Source/Utilities
 Bdirs += $(AMREX_HYDRO_HOME)/Utils
 Bdirs += $(AMREX_HYDRO_HOME)/Godunov
+Bdirs += $(AMREX_HYDRO_HOME)/BDS
 Bdirs += $(AMREX_HYDRO_HOME)/MOL
 Bdirs += $(AMREX_HYDRO_HOME)/Slopes
 Bdirs += $(AMREX_HYDRO_HOME)/Projections
