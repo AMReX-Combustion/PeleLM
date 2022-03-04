@@ -1,7 +1,13 @@
 
 #ifdef SOOT_MODEL
 #include "SootModel.H"
+#include "SootModel_derive.H"
 #include "PeleLM.H"
+#include "IndexDefines.H"
+
+namespace {
+static Box the_same_box (const Box& b)    { return b; }
+}
 
 void
 PeleLM::setSootIndx()
@@ -33,6 +39,29 @@ PeleLM::restartFromNoSoot()
     S_new.setVal(moments[m], DEF_first_soot + m, 1, S_new.nGrow());
     S_old.setVal(moments[m], DEF_first_soot + m, 1, S_old.nGrow());
   }
+}
+
+void
+PeleLM::addSootDerivePlotVars(DeriveList& derive_lst,
+                              const DescriptorList& desc_lst)
+{
+    // Add in soot variables
+  Vector<std::string> sootNames = {"rho_soot", "sum_rho_soot"};
+  derive_lst.add(
+    "soot_vars", IndexType::TheCellType(), sootNames.size(), sootNames,
+    soot_genvars, the_same_box);
+  derive_lst.addComponent("soot_vars", desc_lst, State_Type, Density, 1);
+  derive_lst.addComponent(
+    "soot_vars", desc_lst, State_Type, DEF_first_soot, NUM_SOOT_MOMENTS + 1);
+
+  // Variables associated with the second mode (large particles)
+  Vector<std::string> large_part_names = {"NL", "soot_V_L", "soot_S_L"};
+  derive_lst.add(
+    "soot_large_particles", IndexType::TheCellType(), large_part_names.size(),
+    large_part_names, soot_largeparticledata, the_same_box);
+  derive_lst.addComponent(
+    "soot_large_particles", desc_lst, State_Type, DEF_first_soot,
+    NUM_SOOT_MOMENTS + 1);
 }
 
 void

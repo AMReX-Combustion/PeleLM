@@ -329,6 +329,8 @@ public:
 #ifdef SOOT_MODEL
   static void setSootIndx ();
   static void sootsrcSetUp ();
+  static void addSootDerivePlotVars (amrex::DeriveList& derive_lst,
+                                     const amrex::DescriptorList& desc_lst);
   void restartFromNoSoot ();
   void computeSootSrc (amrex::Real time, amrex::Real dt);
   void clipSootMoments();
