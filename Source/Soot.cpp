@@ -5,10 +5,6 @@
 #include "PeleLM.H"
 #include "IndexDefines.H"
 
-namespace {
-static Box the_same_box (const Box& b)    { return b; }
-}
-
 void
 PeleLM::setSootIndx()
 {
@@ -45,11 +41,11 @@ void
 PeleLM::addSootDerivePlotVars(DeriveList& derive_lst,
                               const DescriptorList& desc_lst)
 {
-    // Add in soot variables
+  // Add in soot variables
   Vector<std::string> sootNames = {"rho_soot", "sum_rho_soot"};
   derive_lst.add(
     "soot_vars", IndexType::TheCellType(), sootNames.size(), sootNames,
-    soot_genvars, the_same_box);
+    soot_genvars, amrex::DeriveRec::TheSameBox);
   derive_lst.addComponent("soot_vars", desc_lst, State_Type, Density, 1);
   derive_lst.addComponent(
     "soot_vars", desc_lst, State_Type, DEF_first_soot, NUM_SOOT_MOMENTS + 1);
@@ -58,7 +54,7 @@ PeleLM::addSootDerivePlotVars(DeriveList& derive_lst,
   Vector<std::string> large_part_names = {"NL", "soot_V_L", "soot_S_L"};
   derive_lst.add(
     "soot_large_particles", IndexType::TheCellType(), large_part_names.size(),
-    large_part_names, soot_largeparticledata, the_same_box);
+    large_part_names, soot_largeparticledata, amrex::DeriveRec::TheSameBox);
   derive_lst.addComponent(
     "soot_large_particles", desc_lst, State_Type, DEF_first_soot,
     NUM_SOOT_MOMENTS + 1);
