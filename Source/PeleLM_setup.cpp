@@ -872,7 +872,7 @@ PeleLM::variableSetUp ()
   soot_model->define();
   sootsrcSetUp();
   if (do_soot_solve) {
-    soot_model->addSootDerivePlotVars(derive_lst, desc_lst, Density, DEF_first_soot);
+    soot_model->addSootDerivePlotVars(derive_lst, desc_lst, State_Type, Density, DEF_first_soot);
   }
 #endif
 
