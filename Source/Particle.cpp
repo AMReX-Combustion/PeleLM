@@ -363,26 +363,26 @@ PeleLM::particleMKD(
     amrex::Print()
       << "moveKickDrift ... updating particle positions and velocity\n";
   }
-
+  auto const* ltransparm = PeleLM::trans_parms.device_trans_parm();
   // Do the valid particles themselves
   theSprayPC()->moveKickDrift(
     Sborder, tmp_spray_source, level, dt, time,
     false, // not virtual particles
     false, // not ghost particles
     spray_n_grow, tmp_src_width,
-    true); // Move the particles
+    true, ltransparm); // Move the particles
   // Only need the coarsest virtual particles here.
   if (level < finest_level) {
     theVirtPC()->moveKickDrift(
       Sborder, tmp_spray_source, level, dt, time, true, false, spray_n_grow,
-      tmp_src_width, true);
+      tmp_src_width, true, ltransparm);
   }
 
   // Miiiight need all Ghosts
   if (theGhostPC() != nullptr && level != 0) {
     theGhostPC()->moveKickDrift(
       Sborder, tmp_spray_source, level, dt, time, false, true, spray_n_grow,
-      tmp_src_width, true);
+      tmp_src_width, true, ltransparm);
   }
   MultiFab& spraydot = get_new_data(spraydot_Type);
   spraydot.setVal(0.);
@@ -402,20 +402,21 @@ PeleLM::particleMK(
   const int tmp_src_width,
   amrex::MultiFab& tmp_spray_source)
 {
+  auto const* ltransparm = PeleLM::trans_parms.device_trans_parm();
   theSprayPC()->moveKick(
     Sborder, tmp_spray_source, level, dt, time, false, false, spray_n_grow,
-    tmp_src_width);
+    tmp_src_width, ltransparm);
 
   if (level < parent->finestLevel() && theVirtPC() != nullptr) {
     theVirtPC()->moveKick(
       Sborder, tmp_spray_source, level, dt, time, true, false, spray_n_grow,
-      tmp_src_width);
+      tmp_src_width, ltransparm);
   }
   // Ghost particles need to be kicked except during the final iteration.
   if (theGhostPC() != nullptr && level != 0) {
     theGhostPC()->moveKick(
       Sborder, tmp_spray_source, level, dt, time, false, true, spray_n_grow,
-      tmp_src_width);
+      tmp_src_width, ltransparm);
   }
   MultiFab& spraydot = get_new_data(spraydot_Type);
   spraydot.setVal(0.);
