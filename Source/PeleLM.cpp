@@ -71,10 +71,6 @@
 #endif
 #endif
 
-#ifdef SOOT_MODEL
-#include "SootModel.H"
-#endif
-
 using namespace amrex;
 
 static Box stripBox; // used for debugging
@@ -541,7 +537,7 @@ PeleLM::Initialize ()
     if (plot_soot_src != 1) plot_soot_src = 0;
     if (restart_from_no_soot != 1) restart_from_no_soot = 0;
   }
-  soot_model->readSootParams();
+  readSootParams();
 #endif
 
   if (verbose > 0)
@@ -952,7 +948,7 @@ PeleLM::variableCleanUp ()
    The_Arena()->free(prob_parm_d);
    The_Arena()->free(ac_parm_d);
 #ifdef SOOT_MODEL
-   delete soot_model;
+   cleanupSootModel();
 #endif
    trans_parms.deallocate();
 
@@ -8848,37 +8844,7 @@ PeleLM::setPlotVariables ()
   }
 #endif
 #ifdef SOOT_MODEL
-  // Remove spray source terms unless otherwise specified
-  if (!plot_soot_src) {
-    for (int i = 0; i < num_soot_src; i++) {
-      const int dcomp = i;
-      const std::string name = desc_lst[sootsrc_Type].name(dcomp);
-      parent->deleteStatePlotVar(name);
-    }
-  } else {
-    Vector<std::string> spn(NUM_SPECIES);
-    pele::physics::eos::speciesNames<pele::physics::EosType>(spn);
-    for (int i = 0; i < NUM_SPECIES; i++) {
-      const int dcomp = i + DEF_first_spec - AMREX_SPACEDIM;
-      bool relspec = false;
-      for (int j = 0; j < NUM_SOOT_GS; ++j) {
-        std::string soot_spec = soot_model->gasSpeciesName(j);
-        if (spn[i] == soot_spec) {
-          relspec = true;
-        }
-      }
-      if (!relspec) {
-        const std::string name = desc_lst[sootsrc_Type].name(dcomp);
-        parent->deleteStatePlotVar(name);
-      }
-    }
-  }
-  if (!do_soot_solve) {
-    for (int i = 0; i < NUM_SOOT_VARS; i++) {
-      const int dcomp = first_soot + i;
-      parent->deleteStatePlotVar(desc_lst[State_Type].name(dcomp));
-    }
-  }
+  setSootSrcPlot();
 #endif
 }
 
