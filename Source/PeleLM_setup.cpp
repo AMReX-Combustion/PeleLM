@@ -375,8 +375,25 @@ PeleLM::variableSetUp ()
 
   Initialize();
 
+  amrex::Print() << " Initialization of EOS (CPP)... \n";
+#ifdef USE_MANIFOLD_EOS
+  amrex::Print() << " Initialization of Table (CPP)... \n";
+  tabfunc_data.initialize();
+  eos_parms.allocate(tabfunc_data.device_tabfunc_data());
+#else
+  eos_parms.allocate();
+#endif
+
+  // Give the eosparm to the reactor
+  m_reactor->set_eos_parm(eos_parms.device_eos_parm());
+  
+#ifdef USE_MANIFOLD_TRANSPORT
+  amrex::Print() << " Initialization of Tabulated Transport (CPP)... \n";
+  trans_parms.allocate(tabfunc_data.device_tabfunc_data());
+#else
   amrex::Print() << " Initialization of Transport (CPP)... \n";
   trans_parms.allocate();
+#endif
 
   BCRec bc;
 

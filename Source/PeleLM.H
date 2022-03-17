@@ -321,6 +321,7 @@ public:
 
   static void Initialize ();
   static void Initialize_specific ();
+  template <typename EOSType>
   static void init_mixture_fraction ();
   static void Finalize ();
     
@@ -559,38 +560,6 @@ public:
 
   static void init_transport (int iEG);
 
-  void reactionRateRhoY_pphys(amrex::FArrayBox&       RhoYdot,
-                          const amrex::FArrayBox& RhoY,
-                          const amrex::FArrayBox& RhoH,
-                          const amrex::FArrayBox& T,
-                          const amrex::BaseFab<int>& mask,
-                          const amrex::Box&       box,
-                          int              sCompRhoY,
-                          int              sCompRhoH,
-                          int              sCompT,
-                          int              sCompRhoYdot) const;
-
-  void getHmixGivenTY_pphys (amrex::FArrayBox&       hmix,
-                         const amrex::FArrayBox& T,
-                         const amrex::FArrayBox& Y,
-                         const amrex::Box&       box,
-                         int              sCompT,
-                         int              sCompY,
-                         int              sCompH) const;
-
-  static int getTGivenHY_pphys (amrex::FArrayBox&       T,
-                     const amrex::FArrayBox& H,
-                     const amrex::FArrayBox& Y,
-                     const amrex::Box&       box,
-                     int              sCompH,
-                     int              sCompY,
-                     int              sCompT,
-                     const amrex::Real&      errMAX = -1);
-
-  void HfromT_pphys(const int* lo, const int* hi,
-		     amrex::Real*       H, ARLIM_P(Hlo), ARLIM_P(Hhi),
-		     const amrex::Real* T, ARLIM_P(Tlo), ARLIM_P(Thi));
-
   static void RhoH_to_Temp (amrex::MultiFab& S,
                             int       nGrow = 0,
                             int       dominmax = false);
@@ -665,6 +634,10 @@ public:
   static pele::physics::transport::TransportParams<
          pele::physics::PhysicsType::transport_type>
          trans_parms;
+  static pele::physics::eos::EosParams<
+         pele::physics::PhysicsType::eos_type>
+         eos_parms;
+  static pele::physics::TabFuncParams tabfunc_data;
   static pele::physics::PMF::PmfData pmf_data;
 
   // Reactor. TODO: let's make those non-static to have per level reactors

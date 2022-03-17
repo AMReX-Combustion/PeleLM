@@ -59,7 +59,8 @@ reactionRateRhoY(int i, int j, int k,
                  amrex::Array4<const amrex::Real> const& rhoH,
                  amrex::Array4<const amrex::Real> const& T,
                  amrex::Array4<const int>         const& mask,
-                 amrex::Array4<      amrex::Real> const& rhoYdot) noexcept
+                 amrex::Array4<      amrex::Real> const& rhoYdot,
+		 const pele::physics::eos::EosParm<pele::physics::PhysicsType::eos_type> * eosparm) noexcept
 {
    using namespace amrex::literals;
 
@@ -71,17 +72,15 @@ reactionRateRhoY(int i, int j, int k,
       return;
    }
 
-   auto eos = pele::physics::PhysicsType::eos();
+   auto eos = pele::physics::PhysicsType::eos(eosparm);
    // Get rho & Ys from rhoYs.
-   amrex::Real rho = 0.0_rt;
-   for (int n = 0; n < NUM_SPECIES; n++) {
-      rho += rhoY(i,j,k,n);
-   }
-   amrex::Real rhoinv = 1.0_rt / rho;
+   amrex::Real rho, rhoinv;
    amrex::Real y[NUM_SPECIES] = {0.0_rt};
+   amrex::Real massdens[NUM_SPECIES] = {0.0_rt};
    for (int n = 0; n < NUM_SPECIES; n++) {
-      y[n] = rhoY(i,j,k,n) * rhoinv;
+      massdens[n] = rhoY(i,j,k,n);
    }
+   eos.RY2RRinvY(massdens, rho, rhoinv, y);
 
    // Get T from Y/H.
    amrex::Real Tloc = T(i,j,k);
@@ -104,7 +103,8 @@ getPGivenRTY(int i, int j, int k,
              amrex::Array4<const amrex::Real> const& rho,
              amrex::Array4<const amrex::Real> const& rhoY,
              amrex::Array4<const amrex::Real> const& T,
-             amrex::Array4<      amrex::Real> const& P) noexcept
+             amrex::Array4<      amrex::Real> const& P,
+	     const pele::physics::eos::EosParm<pele::physics::PhysicsType::eos_type> * eosparm) noexcept
 {
    using namespace amrex::literals;
 
@@ -116,7 +116,7 @@ getPGivenRTY(int i, int j, int k,
       y[n] = rhoY(i,j,k,n) * rhoinv;
    }
 
-   auto eos = pele::physics::PhysicsType::eos();
+   auto eos = pele::physics::PhysicsType::eos(eosparm);
    eos.RTY2P(rho_cgs, T(i,j,k), y, P(i,j,k));
    P(i,j,k) = P(i,j,k) * 0.1_rt;                         // CGS -> MKS conversion
 }
@@ -129,7 +129,8 @@ getRHmixGivenTY(int i, int j, int k,
                 amrex::Array4<const amrex::Real> const& rho,
                 amrex::Array4<const amrex::Real> const& rhoY,
                 amrex::Array4<const amrex::Real> const& T,
-                amrex::Array4<      amrex::Real> const& Hmix) noexcept
+                amrex::Array4<      amrex::Real> const& Hmix,
+		const pele::physics::eos::EosParm<pele::physics::PhysicsType::eos_type> * eosparm) noexcept
 {
    using namespace amrex::literals;
 
@@ -139,7 +140,7 @@ getRHmixGivenTY(int i, int j, int k,
       y[n] = rhoY(i,j,k,n) * rhoinv;
    }
 
-   auto eos = pele::physics::PhysicsType::eos();
+   auto eos = pele::physics::PhysicsType::eos(eosparm);
    eos.TY2H(T(i,j,k), y, Hmix(i,j,k));
    Hmix(i,j,k) = Hmix(i,j,k) * 1.0e-4_rt * rho(i,j,k);   // CGS -> MKS conversion
 }
@@ -150,7 +151,8 @@ void
 getMwmixGivenRY(int i, int j, int k,
                 amrex::Array4<const amrex::Real> const& rho,
                 amrex::Array4<const amrex::Real> const& rhoY,
-                amrex::Array4<      amrex::Real> const& Mwmix) noexcept
+                amrex::Array4<      amrex::Real> const& Mwmix,
+		const pele::physics::eos::EosParm<pele::physics::PhysicsType::eos_type> * eosparm) noexcept
 {
    using namespace amrex::literals;
 
@@ -160,7 +162,7 @@ getMwmixGivenRY(int i, int j, int k,
       y[n] = rhoY(i,j,k,n) * rhoinv;
    }
 
-   auto eos = pele::physics::PhysicsType::eos();
+   auto eos = pele::physics::PhysicsType::eos(eosparm);
    eos.Y2WBAR(y, Mwmix(i,j,k));
    Mwmix(i,j,k) = Mwmix(i,j,k) * 0.001_rt;            // CGS -> MKS conversion
 }
@@ -170,12 +172,13 @@ AMREX_FORCE_INLINE
 void
 getHGivenT(int i, int j, int k,
            amrex::Array4<const amrex::Real> const& T,
-           amrex::Array4<      amrex::Real> const& Hi) noexcept
+           amrex::Array4<      amrex::Real> const& Hi,
+	   const pele::physics::eos::EosParm<pele::physics::PhysicsType::eos_type> * eosparm) noexcept
 {
    using namespace amrex::literals;
 
    amrex::Real hi_spec[NUM_SPECIES] = {0.0_rt};
-   auto eos = pele::physics::PhysicsType::eos();
+   auto eos = pele::physics::PhysicsType::eos(eosparm);
    eos.T2Hi(T(i,j,k), hi_spec);
    for (int n = 0; n < NUM_SPECIES; n++) {
       Hi(i,j,k,n) = hi_spec[n] * 0.0001_rt;            // CGS -> MKS conversion
@@ -198,38 +201,46 @@ buildAdvectionForcing(int i, int j, int k,
                       amrex::Real                      const& dp0dt,
                       int                              const& closed_chamber,
                       amrex::Array4<      amrex::Real> const& forceY,
-                      amrex::Array4<      amrex::Real> const& forceT) noexcept
+                      amrex::Array4<      amrex::Real> const& forceT,
+		      const pele::physics::eos::EosParm<pele::physics::PhysicsType::eos_type> * eosparm) noexcept
 {
    using namespace amrex::literals;
-
-   // Get species enthalpy
-   amrex::Real hi_spec[NUM_SPECIES] = {0.0};
-   auto eos = pele::physics::PhysicsType::eos();
-   eos.T2Hi(T(i,j,k), hi_spec);
 
    // For species mass fractions
    amrex::Real rhoinv = 1.0_rt / rho(i,j,k);
    amrex::Real y[NUM_SPECIES] = {0.0};
 
-   forceT(i,j,k) = dn(i,j,k,NUM_SPECIES+1) + ddn(i,j,k);
-
    for (int n = 0; n < NUM_SPECIES; n++) {
       y[n] = rhoY(i,j,k,n) * rhoinv;                                 // get y
       forceY(i,j,k,n) = r(i,j,k,n) + dn(i,j,k,n);                    // forceY = Rk + Dnk
-      forceT(i,j,k) -= forceY(i,j,k,n) * hi_spec[n] * 0.0001_rt;     // forceT -= Sum{ hk. (Rk + Dnk) } with CGS -> MKS conversion of hk
-   }
-   for (int n = 0; n < NUM_SPECIES; n++) {
       forceY(i,j,k,n) += extY(i,j,k,n);
    }
+
+   forceT(i,j,k) = 0.0;
+
+   // TODO: Make more elegant than ifdef
+#ifndef USE_MANIFOLD_EOS
+   forceT(i,j,k) = dn(i,j,k,NUM_SPECIES+1) + ddn(i,j,k);
+
+   // Get species enthalpy
+   amrex::Real hi_spec[NUM_SPECIES] = {0.0};
+   auto eos = pele::physics::PhysicsType::eos(eosparm);
+   eos.T2Hi(T(i,j,k), hi_spec);
+   
+   for (int n = 0; n < NUM_SPECIES; n++) {
+     forceT(i,j,k) -=  r(i,j,k,n) + dn(i,j,k,n) * hi_spec[n] * 0.0001_rt;     // forceT -= Sum{ hk. (Rk + Dnk) } with CGS -> MKS conversion of hk
+   }
+   
    forceT(i,j,k) += extRhoH(i,j,k);
-
+   
    if ( closed_chamber == 1 ) forceT(i,j,k) += dp0dt;                // Add dp0/dt
-
+   
    amrex::Real cpmix = 0.0_rt;
    eos.TY2Cp(T(i,j,k), y, cpmix);
    amrex::Real cpmixinv = 1.0_rt / cpmix * 1.0e4_rt;                 // CGS -> MKS conversion
    forceT(i,j,k) *= rhoinv * cpmixinv;
-
+#endif
+   
 }
 
 AMREX_GPU_HOST_DEVICE
@@ -239,7 +250,8 @@ getCpmixGivenRYT(int i, int j, int k,
                  amrex::Array4<const amrex::Real> const& rho,
                  amrex::Array4<const amrex::Real> const& rhoY,
                  amrex::Array4<const amrex::Real> const& T,
-                 amrex::Array4<      amrex::Real> const& cpmix) noexcept
+                 amrex::Array4<      amrex::Real> const& cpmix,
+		 const pele::physics::eos::EosParm<pele::physics::PhysicsType::eos_type> * eosparm) noexcept
 {
    using namespace amrex::literals;
 
@@ -249,32 +261,12 @@ getCpmixGivenRYT(int i, int j, int k,
       y[n] = rhoY(i,j,k,n) * rhoinv;
    }
 
-   auto eos = pele::physics::PhysicsType::eos();
+   auto eos = pele::physics::PhysicsType::eos(eosparm);
    eos.TY2Cp(T(i,j,k), y, cpmix(i,j,k));
    cpmix(i,j,k) *= 0.0001_rt;                         // CGS -> MKS conversion
 }
 
-AMREX_GPU_HOST_DEVICE
-AMREX_FORCE_INLINE
-void
-getTGivenHY(int i, int j, int k,
-            amrex::Array4<const amrex::Real> const& rho,
-            amrex::Array4<const amrex::Real> const& rhoY,
-            amrex::Array4<const amrex::Real> const& rhoH,
-            amrex::Array4<      amrex::Real> const& T) noexcept
-{
-   using namespace amrex::literals;
-
-   amrex::Real rhoinv  = 1.0_rt / rho(i,j,k);
-   amrex::Real y[NUM_SPECIES] = {0.0};
-   for (int n = 0; n < NUM_SPECIES; n++) {
-      y[n] = rhoY(i,j,k,n) * rhoinv;
-   }
-   amrex::Real H = rhoH(i,j,k) * rhoinv * 1.0e4_rt;   // MKS -> CGS conversion
-   auto eos = pele::physics::PhysicsType::eos();
-   eos.HY2T(H, y, T(i,j,k));
-}
-
+template <typename EOSType>
 AMREX_GPU_HOST_DEVICE
 AMREX_FORCE_INLINE
 void
@@ -287,11 +279,12 @@ compute_divu(int i, int j, int k,
              amrex::Array4<const amrex::Real> const& extRho,
              amrex::Array4<const amrex::Real> const& extY,
              amrex::Array4<const amrex::Real> const& extRhoH,
-             amrex::Array4<      amrex::Real> const& divu) noexcept
+             amrex::Array4<      amrex::Real> const& divu, 
+	     const pele::physics::eos::EosParm<pele::physics::PhysicsType::eos_type>* eosparm) noexcept
 {
    using namespace amrex::literals;
 
-   auto eos = pele::physics::PhysicsType::eos();
+   auto eos = pele::physics::PhysicsType::eos(eosparm);
    amrex::Real mwtinv[NUM_SPECIES] = {0.0};
    eos.inv_molecular_weight(mwtinv);
 
@@ -328,6 +321,54 @@ compute_divu(int i, int j, int k,
    divu(i,j,k) += extRhoH(i,j,k) * denominv;
 }
 
+template <>
+AMREX_GPU_HOST_DEVICE
+AMREX_FORCE_INLINE
+void
+compute_divu<pele::physics::eos::Manifold>(int i, int j, int k,
+             amrex::Array4<const amrex::Real> const& rhoY,
+             amrex::Array4<const amrex::Real> const& T,
+             amrex::Array4<const amrex::Real> const& viscTermT,
+             amrex::Array4<const amrex::Real> const& viscTermY,
+             amrex::Array4<const amrex::Real> const& rhoYdot,
+             amrex::Array4<const amrex::Real> const& extRho,
+             amrex::Array4<const amrex::Real> const& extY,
+             amrex::Array4<const amrex::Real> const& extRhoH,
+             amrex::Array4<      amrex::Real> const& divu, 
+	     const pele::physics::eos::EosParm<pele::physics::PhysicsType::eos_type>* eosparm) noexcept
+{
+   using namespace amrex::literals;
+
+   // Get rho & Ys from rhoYs.
+   amrex::Real rho, rhoinv;
+   amrex::Real y[NUM_SPECIES] = {0.0_rt};
+   amrex::Real massdens[NUM_SPECIES] = {0.0_rt};
+   for (int n = 0; n < NUM_SPECIES; n++) {
+      massdens[n] = rhoY(i,j,k,n);
+   }
+
+   auto eos = pele::physics::PhysicsType::eos(eosparm);
+   eos.RY2RRinvY(massdens, rho, rhoinv, y);
+   amrex::Real derivs[NUM_SPECIES-1] = {0.0};
+   eos.Y2dRdY(y, derivs);
+   divu(i,j,k) = 0.0;
+   for (int n = 0; n < NUM_SPECIES-1; n++) {
+     derivs[n] *= 1.0e3; // CGS -> MKS conversion
+     divu(i,j,k) += derivs[n] * (viscTermY(i,j,k,n) + rhoYdot(i,j,k,n) + extY(i,j,k,n));
+     
+     if (i==-40) {
+       std::cout << j <<  " C " << y[n] << "  DIVU  :  " << divu(i,j,k) << " " << derivs[n] << " " << viscTermY(i,j,k,n) + rhoYdot(i,j,k,n) + extY(i,j,k,n)
+		 << " " << viscTermY(i,j,k,n) << " " << rhoYdot(i,j,k,n) << " " << extY(i,j,k,n) << " " << rho << std::endl;
+		 }
+   }
+   // First -rhoinv: from divu = -1/rho Drho/Dt
+   // Second rhoinv: convert from D(rho*xi)/Dt to Dxi/Dt
+   divu(i,j,k) *= -rhoinv*rhoinv;
+   
+   // TODO: does this need to be included for manifold??
+   divu(i,j,k) += extRho(i,j,k) * rhoinv;
+}
+
 AMREX_GPU_HOST_DEVICE
 AMREX_FORCE_INLINE
 void
@@ -348,22 +389,21 @@ AMREX_GPU_HOST_DEVICE
 AMREX_FORCE_INLINE
 amrex::Real
 getGammaInv(int i, int j, int k,
-         amrex::Array4<const amrex::Real> const& rhoY,
-         amrex::Array4<const amrex::Real> const& T) noexcept
+	    amrex::Array4<const amrex::Real> const& rhoY,
+	    amrex::Array4<const amrex::Real> const& T,
+	    const pele::physics::eos::EosParm<pele::physics::PhysicsType::eos_type>* eosparm) noexcept
 {
    using namespace amrex::literals;
 
-   auto eos = pele::physics::PhysicsType::eos();
-   // Get rho & Y from rhoY
-   amrex::Real rho = 0.0_rt;
+   auto eos = pele::physics::PhysicsType::eos(eosparm);
+   // Get rho & Ys from rhoYs.
+   amrex::Real rho, rhoinv;
+   amrex::Real y[NUM_SPECIES] = {0.0_rt};
+   amrex::Real massdens[NUM_SPECIES] = {0.0_rt};
    for (int n = 0; n < NUM_SPECIES; n++) {
-      rho += rhoY(i,j,k,n);
+      massdens[n] = rhoY(i,j,k,n);
    }
-   amrex::Real rhoinv = 1.0_rt / rho;
-   amrex::Real y[NUM_SPECIES] = {0.0};
-   for (int n = 0; n < NUM_SPECIES; n++) {
-      y[n] = rhoY(i,j,k,n) * rhoinv;
-   }
+   eos.RY2RRinvY(massdens, rho, rhoinv, y);
 
    amrex::Real cpmix = 0.0_rt;
    eos.TY2Cp(T(i,j,k), y, cpmix);
@@ -382,11 +422,12 @@ getRhoGivenTYP(int i, int j, int k,
                amrex::Array4<const amrex::Real> const& T,
                amrex::Array4<const amrex::Real> const& Y,
                amrex::Real                      const& Patm,
-               amrex::Array4<      amrex::Real> const& rho) noexcept
+               amrex::Array4<      amrex::Real> const& rho,
+	       const pele::physics::eos::EosParm<pele::physics::PhysicsType::eos_type> * eosparm) noexcept
 {
    using namespace amrex::literals;
 
-   auto eos = pele::physics::PhysicsType::eos();
+   auto eos = pele::physics::PhysicsType::eos(eosparm);
    amrex::Real P_cgs = Patm * pele::physics::Constants::PATM;
    amrex::Real y[NUM_SPECIES] = {0.0};
    for (int n = 0; n < NUM_SPECIES; n++) {
@@ -397,6 +438,7 @@ getRhoGivenTYP(int i, int j, int k,
    rho(i,j,k) = rho_cgs * 1.0e3_rt;            // CGS -> MKS conversion
 }
 
+#ifndef USE_MANIFOLD_EOS
 AMREX_GPU_HOST_DEVICE
 AMREX_FORCE_INLINE
 void
@@ -416,15 +458,14 @@ getTransportCoeff(int i, int j, int k,
    eos.inv_molecular_weight(mwtinv);
 
    // Get rho & Y from rhoY
-   amrex::Real rho = 0.0_rt;
+      // Get rho & Ys from rhoYs.
+   amrex::Real rho, rhoinv;
+   amrex::Real y[NUM_SPECIES] = {0.0_rt};
+   amrex::Real massdens[NUM_SPECIES] = {0.0_rt};
    for (int n = 0; n < NUM_SPECIES; n++) {
-      rho += rhoY(i,j,k,n);
+      massdens[n] = rhoY(i,j,k,n);
    }
-   amrex::Real rhoinv = 1.0_rt / rho;
-   amrex::Real y[NUM_SPECIES] = {0.0};
-   for (int n = 0; n < NUM_SPECIES; n++) {
-      y[n] = rhoY(i,j,k,n) * rhoinv;
-   }
+   eos.RY2RRinvY(massdens, rho, rhoinv, y);
    rho *= 1.0e-3_rt;                          // MKS -> CGS conversion
    amrex::Real Tloc = T(i,j,k);               // So that we can use const_array
 
@@ -451,6 +492,57 @@ getTransportCoeff(int i, int j, int k,
    lambda(i,j,k) = lambda_cgs * 1.0e-5_rt;
    mu(i,j,k) = mu_cgs * 1.0e-1_rt;
 }
+
+#else
+// TODO: template this (also maybe use unity Le instead)
+AMREX_GPU_HOST_DEVICE
+AMREX_FORCE_INLINE
+void
+getTransportCoeff(int i, int j, int k,
+                  amrex::Array4<const amrex::Real> const& rhoY,
+                  amrex::Array4<const amrex::Real> const& T,
+                  amrex::Array4<      amrex::Real> const& rhoDi,
+                  amrex::Array4<      amrex::Real> const& lambda,
+                  amrex::Array4<      amrex::Real> const& mu,
+                  pele::physics::transport::TransParm<pele::physics::PhysicsType::eos_type,
+                                                      pele::physics::PhysicsType::transport_type> const* trans_parm) noexcept
+{
+   using namespace amrex::literals;
+
+   // TODO: Get correct rho here
+   // Get rho & Y from rhoY
+   amrex::Real rho, rhoinv;
+   amrex::Real y[NUM_SPECIES] = {0.0};
+   amrex::Real massdens[NUM_SPECIES];
+   for (int n = 0; n < NUM_SPECIES; n++) {
+      massdens[n] = rhoY(i,j,k,n);
+   }
+   pele::physics::PhysicsType::eos_type::RY2RRinvY(massdens, rho, rhoinv, y);
+
+   rho *= 1.0e-3_rt;                          // MKS -> CGS conversion
+   amrex::Real Tloc = T(i,j,k);               // So that we can use const_array
+
+   amrex::Real rhoDi_cgs[NUM_SPECIES] = {0.0};
+   amrex::Real lambda_cgs = 0.0_rt;
+   amrex::Real mu_cgs = 0.0_rt;
+   amrex::Real dummy_xi = 0.0_rt;
+
+   bool get_xi = false;
+   bool get_mu = true;
+   bool get_lam = false;
+   bool get_Ddiag = true;
+   auto trans = pele::physics::PhysicsType::transport();
+   trans.transport(get_xi, get_mu, get_lam, get_Ddiag, Tloc,
+                   rho, y, rhoDi_cgs, mu_cgs, dummy_xi, lambda_cgs, trans_parm);
+
+   // Do CGS -> MKS conversions
+   for (int n = 0; n < NUM_SPECIES; n++) {
+      rhoDi(i,j,k,n) = rhoDi_cgs[n] * 1.0e-1_rt;
+   }
+   lambda(i,j,k) = 0.0; //lambda_cgs * 1.0e-5_rt;
+   mu(i,j,k) = mu_cgs * 1.0e-1_rt;
+}
+#endif
 
 AMREX_GPU_HOST_DEVICE
 AMREX_FORCE_INLINE
@@ -512,11 +604,12 @@ getTfromHY(int i, int j, int k,
            amrex::Array4<const amrex::Real> const& rho,
            amrex::Array4<const amrex::Real> const& rhoY,
            amrex::Array4<const amrex::Real> const& rhoH,
-           amrex::Array4<      amrex::Real> const& T) noexcept
+           amrex::Array4<      amrex::Real> const& T,
+	   const pele::physics::eos::EosParm<pele::physics::PhysicsType::eos_type> * eosparm) noexcept
 {
    using namespace amrex::literals;
 
-   auto eos = pele::physics::PhysicsType::eos();
+   auto eos = pele::physics::PhysicsType::eos(eosparm);
    amrex::Real rhoinv = 1.0_rt / rho(i,j,k);
    amrex::Real y[NUM_SPECIES] = {0.0};
    for (int n = 0; n < NUM_SPECIES; n++) {
@@ -540,16 +633,14 @@ getVelViscosity(int i, int j, int k,
 {
    using namespace amrex::literals;
 
-   // Get rho & Y from rhoY
-   amrex::Real rho = 0.0_rt;
+   // Get rho & Ys from rhoYs.
+   amrex::Real rho, rhoinv;
+   amrex::Real y[NUM_SPECIES] = {0.0_rt};
+   amrex::Real massdens[NUM_SPECIES] = {0.0_rt};
    for (int n = 0; n < NUM_SPECIES; n++) {
-      rho += rhoY(i,j,k,n);
+      massdens[n] = rhoY(i,j,k,n);
    }
-   amrex::Real rhoinv = 1.0_rt / rho;
-   amrex::Real y[NUM_SPECIES] = {0.0};
-   for (int n = 0; n < NUM_SPECIES; n++) {
-      y[n] = rhoY(i,j,k,n) * rhoinv;
-   }
+   pele::physics::PhysicsType::eos_type::RY2RRinvY(massdens, rho, rhoinv, y);
    rho *= 1.0e-3_rt;                          // MKS -> CGS conversion
    amrex::Real Tloc = T(i,j,k);               // So that we can use const_array
 
@@ -582,16 +673,14 @@ getConductivity(int i, int j, int k,
 {
    using namespace amrex::literals;
 
-   // Get rho & Y from rhoY
-   amrex::Real rho = 0.0_rt;
+   // Get rho & Ys from rhoYs.
+   amrex::Real rho, rhoinv;
+   amrex::Real y[NUM_SPECIES] = {0.0_rt};
+   amrex::Real massdens[NUM_SPECIES] = {0.0_rt};
    for (int n = 0; n < NUM_SPECIES; n++) {
-      rho += rhoY(i,j,k,n);
+      massdens[n] = rhoY(i,j,k,n);
    }
-   amrex::Real rhoinv = 1.0_rt / rho;
-   amrex::Real y[NUM_SPECIES] = {0.0};
-   for (int n = 0; n < NUM_SPECIES; n++) {
-      y[n] = rhoY(i,j,k,n) * rhoinv;
-   }
+   pele::physics::PhysicsType::eos_type::RY2RRinvY(massdens, rho, rhoinv, y);
    rho *= 1.0e-3_rt;                          // MKS -> CGS conversion
    amrex::Real Tloc = T(i,j,k);               // So that we can use const_array
 

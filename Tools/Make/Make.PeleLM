@@ -48,6 +48,9 @@ endif
 ifeq ($(Eos_Model),$(filter $(Eos_Model),Soave-Redlich-Kwong))
    $(error EOS Soave-Redlich-Kwong not available in PeleLM)
 endif
+ifeq ($(Eos_Model),$(filter $(Eos_Model),Manifold))
+   DEFINES += -DUSE_MANIFOLD_EOS
+endif
 INCLUDE_LOCATIONS += $(EOS_HOME)
 VPATH_LOCATIONS   += $(EOS_HOME)
 Bpack             += $(EOS_HOME)/Make.package
@@ -89,6 +92,9 @@ ifeq ($(Transport_Model), Constant)
 endif
 ifeq ($(Transport_Model), Sutherland)
   DEFINES += -DUSE_SUTHERLAND_TRANSPORT
+endif
+ifeq ($(Transport_Model), Manifold)
+  DEFINES += -DUSE_MANIFOLD_TRANSPORT
 endif
 
 #

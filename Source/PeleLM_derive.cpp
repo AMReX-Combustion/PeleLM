@@ -426,6 +426,12 @@ void pelelm_dertransportcoeff (const Box& bx, FArrayBox& derfab, int dcomp, int 
     [T, rhoY, rhoD, lambda, mu, ltransparm] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
     {
         getTransportCoeff( i, j, k, rhoY, T, rhoD, lambda, mu, ltransparm);
+	/*
+	if (j == 0 && k==0) {
+	  std::cout << "rhoD in Derive: " << rhoD(i,j,k,0)
+		    << " " <<rhoD(i,j,k,1) << std::endl;
+	}
+	*/
     });
 
 }

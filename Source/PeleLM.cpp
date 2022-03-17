@@ -181,6 +181,10 @@ ACParm* PeleLM::ac_parm_d = nullptr;
 pele::physics::transport::TransportParams<
   pele::physics::PhysicsType::transport_type>
   PeleLM::trans_parms;
+pele::physics::eos::EosParams<
+  pele::physics::PhysicsType::eos_type>
+  PeleLM::eos_parms;
+pele::physics::TabFuncParams PeleLM::tabfunc_data;
 pele::physics::PMF::PmfData PeleLM::pmf_data;
 std::string PeleLM::chem_integrator;
 std::unique_ptr<pele::physics::reactions::ReactorBase> PeleLM::m_reactor;
@@ -303,11 +307,12 @@ PeleLM::compute_rhohmix (Real      time,
          auto const& rhoY    = S.const_array(mfi,first_spec);
          auto const& T       = S.const_array(mfi,Temp);
          auto const& rhoHm   = rhohmix.array(mfi,dComp);
+	 auto const* leosparm = eos_parms.device_eos_parm();
 
-         amrex::ParallelFor(bx, [rho, rhoY, T, rhoHm]
+         amrex::ParallelFor(bx, [rho, rhoY, T, rhoHm, leosparm]
          AMREX_GPU_DEVICE (int i, int j, int k) noexcept
          {
-            getRHmixGivenTY( i, j, k, rho, rhoY, T, rhoHm );
+	   getRHmixGivenTY( i, j, k, rho, rhoY, T, rhoHm, leosparm );
          });
       }
    }
@@ -460,6 +465,11 @@ PeleLM::Initialize ()
   }
 
   pp.query("use_wbar",use_wbar);
+#ifdef USE_MANIFOLD_EOS
+  if (use_wbar) {
+    amrex::Abort("Use of Wbar fluxes is incompatible with Manifold EOS");
+  }
+#endif
   pp.query("sdc_iterMAX",sdc_iterMAX);
   pp.query("num_mac_sync_iter",num_mac_sync_iter);
   pp.query("syncEntireHierarchy",syncEntireHierarchy);
@@ -870,6 +880,138 @@ LM_Error_Value::LM_Error_Value (LMEF_BOX _lmef_box, const amrex::RealBox& _box, 
 {
 }
 
+
+template<typename EOSType>
+void
+PeleLM::init_mixture_fraction()
+{
+      // Get default fuel and oxy tank composition
+      Vector<std::string> specNames;
+      pele::physics::eos::speciesNames<pele::physics::PhysicsType::eos_type>(specNames);
+      amrex::Real YF[NUM_SPECIES], YO[NUM_SPECIES];
+      for (int i=0; i<NUM_SPECIES; ++i) {
+         YF[i] = 0.0;
+         YO[i] = 0.0;
+         if (!specNames[i].compare("O2"))  YO[i] = 0.233;
+         if (!specNames[i].compare("N2"))  YO[i] = 0.767;
+         if (!specNames[i].compare(fuelName)) YF[i] = 1.0;
+      }
+
+      auto eos = pele::physics::PhysicsType::eos();
+      // Overwrite with user-defined value if provided in input file
+      ParmParse pp("peleLM");
+      std::string MFformat;
+      int hasUserMF = pp.contains("mixtureFraction.format");
+      if ( hasUserMF ) {
+         pp.query("mixtureFraction.format", MFformat);
+         if ( !MFformat.compare("Cantera")) {             // use a Cantera-like format with <SpeciesName>:<Value>, default in 0.0
+            std::string MFCompoType;
+            pp.query("mixtureFraction.type", MFCompoType);
+            Vector<std::string> compositionIn;
+            int entryCount = pp.countval("mixtureFraction.oxidTank");
+            compositionIn.resize(entryCount);
+            pp.getarr("mixtureFraction.oxidTank",compositionIn,0,entryCount);
+            parseComposition(compositionIn, MFCompoType, YO);
+            entryCount = pp.countval("mixtureFraction.fuelTank");
+            compositionIn.resize(entryCount);
+            pp.getarr("mixtureFraction.fuelTank",compositionIn,0,entryCount);
+            parseComposition(compositionIn, MFCompoType, YF);
+         } else if ( !MFformat.compare("RealList")) {     // use a list of Real. MUST contains an entry for each species in the mixture
+            std::string MFCompoType;
+            pp.query("mixtureFraction.type", MFCompoType);
+            if ( !MFCompoType.compare("mass") ) {
+               int entryCount = pp.countval("mixtureFraction.oxidTank");
+               AMREX_ALWAYS_ASSERT(entryCount==NUM_SPECIES);
+               Vector<amrex::Real> compositionIn(NUM_SPECIES);
+               pp.getarr("mixtureFraction.oxidTank",compositionIn,0,NUM_SPECIES);
+               for (int i=0; i<NUM_SPECIES; ++i) {
+                  YO[i] = compositionIn[i];
+               }
+               entryCount = pp.countval("mixtureFraction.fuelTank");
+               AMREX_ALWAYS_ASSERT(entryCount==NUM_SPECIES);
+               pp.getarr("mixtureFraction.fuelTank",compositionIn,0,NUM_SPECIES);
+               for (int i=0; i<NUM_SPECIES; ++i) {
+                  YF[i] = compositionIn[i];
+               }
+            } else if ( !MFCompoType.compare("mole") ) {
+               amrex::Real XF[NUM_SPECIES], XO[NUM_SPECIES];
+               int entryCount = pp.countval("mixtureFraction.oxidTank");
+               AMREX_ALWAYS_ASSERT(entryCount==NUM_SPECIES);
+               Vector<amrex::Real> compositionIn(NUM_SPECIES);
+               pp.getarr("mixtureFraction.oxidTank",compositionIn,0,NUM_SPECIES);
+               for (int i=0; i<NUM_SPECIES; ++i) {
+                  XO[i] = compositionIn[i];
+               }
+               entryCount = pp.countval("mixtureFraction.fuelTank");
+               AMREX_ALWAYS_ASSERT(entryCount==NUM_SPECIES);
+               pp.getarr("mixtureFraction.fuelTank",compositionIn,0,NUM_SPECIES);
+               for (int i=0; i<NUM_SPECIES; ++i) {
+                  XF[i] = compositionIn[i];
+               }
+
+               eos.X2Y(XO,YO);
+               eos.X2Y(XF,YF);
+            } else {
+               Abort("Unknown mixtureFraction.type ! Should be 'mass' or 'mole'");
+            }
+         } else {
+            Abort("Unknown mixtureFraction.format ! Should be 'Cantera' or 'RealList'");
+         }
+      }
+      if (fuelName.empty() && !hasUserMF) {
+          Print() << " Mixture fraction definition lacks fuelName: consider using ns.fuelName keyword \n";
+      }
+
+      // Only interested in CHON -in that order. Compute Bilger weights
+      amrex::Real atwCHON[4] = {0.0};
+      pele::physics::eos::atomic_weightsCHON<pele::physics::PhysicsType::eos_type>(atwCHON);
+      Beta_mix[0] = ( atwCHON[0] != 0.0 ) ? 2.0/atwCHON[0] : 0.0;
+      Beta_mix[1] = ( atwCHON[1] != 0.0 ) ? 1.0/(2.0*atwCHON[1]) : 0.0;
+      Beta_mix[2] = ( atwCHON[2] != 0.0 ) ? -1.0/atwCHON[2] : 0.0;
+      Beta_mix[3] = 0.0;
+
+      // Compute each species weight for the Bilger formulation based on elemental compo
+      // Only interested in CHON -in that order.
+      int ecompCHON[NUM_SPECIES*4];
+      pele::physics::eos::element_compositionCHON<pele::physics::PhysicsType::eos_type>(ecompCHON);
+      amrex::Real mwt[NUM_SPECIES];
+      eos.molecular_weight(mwt);
+      Zfu = 0.0;
+      Zox = 0.0;
+      for (int i=0; i<NUM_SPECIES; ++i) {
+         spec_Bilger_fact[i] = 0.0;
+         for (int k = 0; k < 4; k++) {
+            spec_Bilger_fact[i] += Beta_mix[k] * (ecompCHON[i*4 + k]*atwCHON[k]/mwt[i]);
+         }
+         Zfu += spec_Bilger_fact[i]*YF[i];
+         Zox += spec_Bilger_fact[i]*YO[i];
+      }
+
+      mixture_fraction_ready = true;
+}
+
+// For manifold transport, just find the variable that corresponds to Z 
+template<>
+void
+PeleLM::init_mixture_fraction<pele::physics::eos::Manifold>()
+{
+  // TODO: does this work on GPU?
+  // Replace using species_names function when that capability is added
+  const auto tf_data = tabfunc_data.host_tabfunc_data();
+  int idx_zmix = pele::physics::eos::get_var_index("ZMIX", tf_data.dimnames, tf_data.Nvar, tf_data.len_str, false);
+  if (idx_zmix >= 0) {
+    mixture_fraction_ready = true;
+    for (int i=0; i<NUM_SPECIES; ++i) {
+      spec_Bilger_fact[i] = 0.0;
+    }
+    spec_Bilger_fact[idx_zmix] = 1.0;
+  }
+  else {
+    mixture_fraction_ready = false;
+  }
+    
+}
+
 void
 LM_Error_Value::tagCells(int* tag, const int* tlo, const int* thi,
                          const int* tagval, const int* clearval,
@@ -937,8 +1079,11 @@ PeleLM::variableCleanUp ()
    delete ac_parm;
    The_Arena()->free(prob_parm_d);
    The_Arena()->free(ac_parm_d);
+   eos_parms.deallocate();
    trans_parms.deallocate();
-
+#ifdef USE_MANIFOLD_EOS
+   tabfunc_data.deallocate();
+#endif
    //PMF::close();
 
    m_reactor->close();
@@ -1283,121 +1428,13 @@ PeleLM::restart (Amr&          papa,
   //
   // Initialize mixture fraction data.
   //
-  init_mixture_fraction();
+  init_mixture_fraction<pele::physics::PhysicsType::eos_type>();
 
   //
   // Initialize active control
   //
   initActiveControl();
 
-}
-
-void
-PeleLM::init_mixture_fraction()
-{
-      // Get default fuel and oxy tank composition
-      Vector<std::string> specNames;
-      pele::physics::eos::speciesNames<pele::physics::PhysicsType::eos_type>(specNames);
-      amrex::Real YF[NUM_SPECIES], YO[NUM_SPECIES];
-      for (int i=0; i<NUM_SPECIES; ++i) {
-         YF[i] = 0.0;
-         YO[i] = 0.0;
-         if (!specNames[i].compare("O2"))  YO[i] = 0.233;
-         if (!specNames[i].compare("N2"))  YO[i] = 0.767;
-         if (!specNames[i].compare(fuelName)) YF[i] = 1.0;
-      }
-
-      auto eos = pele::physics::PhysicsType::eos();
-      // Overwrite with user-defined value if provided in input file
-      ParmParse pp("peleLM");
-      std::string MFformat;
-      int hasUserMF = pp.contains("mixtureFraction.format");
-      if ( hasUserMF ) {
-         pp.query("mixtureFraction.format", MFformat);
-         if ( !MFformat.compare("Cantera")) {             // use a Cantera-like format with <SpeciesName>:<Value>, default in 0.0
-            std::string MFCompoType;
-            pp.query("mixtureFraction.type", MFCompoType);
-            Vector<std::string> compositionIn;
-            int entryCount = pp.countval("mixtureFraction.oxidTank");
-            compositionIn.resize(entryCount);
-            pp.getarr("mixtureFraction.oxidTank",compositionIn,0,entryCount);
-            parseComposition(compositionIn, MFCompoType, YO);
-            entryCount = pp.countval("mixtureFraction.fuelTank");
-            compositionIn.resize(entryCount);
-            pp.getarr("mixtureFraction.fuelTank",compositionIn,0,entryCount);
-            parseComposition(compositionIn, MFCompoType, YF);
-         } else if ( !MFformat.compare("RealList")) {     // use a list of Real. MUST contains an entry for each species in the mixture
-            std::string MFCompoType;
-            pp.query("mixtureFraction.type", MFCompoType);
-            if ( !MFCompoType.compare("mass") ) {
-               int entryCount = pp.countval("mixtureFraction.oxidTank");
-               AMREX_ALWAYS_ASSERT(entryCount==NUM_SPECIES);
-               Vector<amrex::Real> compositionIn(NUM_SPECIES);
-               pp.getarr("mixtureFraction.oxidTank",compositionIn,0,NUM_SPECIES);
-               for (int i=0; i<NUM_SPECIES; ++i) {
-                  YO[i] = compositionIn[i];
-               }
-               entryCount = pp.countval("mixtureFraction.fuelTank");
-               AMREX_ALWAYS_ASSERT(entryCount==NUM_SPECIES);
-               pp.getarr("mixtureFraction.fuelTank",compositionIn,0,NUM_SPECIES);
-               for (int i=0; i<NUM_SPECIES; ++i) {
-                  YF[i] = compositionIn[i];
-               }
-            } else if ( !MFCompoType.compare("mole") ) {
-               amrex::Real XF[NUM_SPECIES], XO[NUM_SPECIES];
-               int entryCount = pp.countval("mixtureFraction.oxidTank");
-               AMREX_ALWAYS_ASSERT(entryCount==NUM_SPECIES);
-               Vector<amrex::Real> compositionIn(NUM_SPECIES);
-               pp.getarr("mixtureFraction.oxidTank",compositionIn,0,NUM_SPECIES);
-               for (int i=0; i<NUM_SPECIES; ++i) {
-                  XO[i] = compositionIn[i];
-               }
-               entryCount = pp.countval("mixtureFraction.fuelTank");
-               AMREX_ALWAYS_ASSERT(entryCount==NUM_SPECIES);
-               pp.getarr("mixtureFraction.fuelTank",compositionIn,0,NUM_SPECIES);
-               for (int i=0; i<NUM_SPECIES; ++i) {
-                  XF[i] = compositionIn[i];
-               }
-
-               eos.X2Y(XO,YO);
-               eos.X2Y(XF,YF);
-            } else {
-               Abort("Unknown mixtureFraction.type ! Should be 'mass' or 'mole'");
-            }
-         } else {
-            Abort("Unknown mixtureFraction.format ! Should be 'Cantera' or 'RealList'");
-         }
-      }
-      if (fuelName.empty() && !hasUserMF) {
-          Print() << " Mixture fraction definition lacks fuelName: consider using ns.fuelName keyword \n";
-      }
-
-      // Only interested in CHON -in that order. Compute Bilger weights
-      amrex::Real atwCHON[4] = {0.0};
-      pele::physics::eos::atomic_weightsCHON<pele::physics::PhysicsType::eos_type>(atwCHON);
-      Beta_mix[0] = ( atwCHON[0] != 0.0 ) ? 2.0/atwCHON[0] : 0.0;
-      Beta_mix[1] = ( atwCHON[1] != 0.0 ) ? 1.0/(2.0*atwCHON[1]) : 0.0;
-      Beta_mix[2] = ( atwCHON[2] != 0.0 ) ? -1.0/atwCHON[2] : 0.0;
-      Beta_mix[3] = 0.0;
-
-      // Compute each species weight for the Bilger formulation based on elemental compo
-      // Only interested in CHON -in that order.
-      int ecompCHON[NUM_SPECIES*4];
-      pele::physics::eos::element_compositionCHON<pele::physics::PhysicsType::eos_type>(ecompCHON);
-      amrex::Real mwt[NUM_SPECIES];
-      eos.molecular_weight(mwt);
-      Zfu = 0.0;
-      Zox = 0.0;
-      for (int i=0; i<NUM_SPECIES; ++i) {
-         spec_Bilger_fact[i] = 0.0;
-         for (int k = 0; k < 4; k++) {
-            spec_Bilger_fact[i] += Beta_mix[k] * (ecompCHON[i*4 + k]*atwCHON[k]/mwt[i]);
-         }
-         Zfu += spec_Bilger_fact[i]*YF[i];
-         Zox += spec_Bilger_fact[i]*YO[i];
-      }
-
-      mixture_fraction_ready = true;
 }
 
 void
@@ -1970,6 +2007,7 @@ PeleLM::initData ()
     P_new.setVal(0.0);
 
     ProbParm const* lprobparm = prob_parm_d;
+    auto const* leosparm = eos_parms.device_eos_parm();
     pele::physics::PMF::PmfData::DataContainer const* lpmfdata = pmf_data.getDeviceData();
 
     auto const& sma = S_new.arrays();
@@ -1979,7 +2017,7 @@ PeleLM::initData ()
 #ifdef AMREX_USE_NEWMECH
        amrex::Abort("USE_NEWMECH feature no longer working and has to be fixed/redone");
 #else
-       pelelm_initdata(i, j, k, sma[box_no], geomdata, *lprobparm, lpmfdata);
+       pelelm_initdata(i, j, k, sma[box_no], geomdata, *lprobparm, lpmfdata, leosparm);
 #endif
     });
   }
@@ -2078,7 +2116,7 @@ PeleLM::initData ()
   //
   // Initialize mixture fraction data.
   //
-  init_mixture_fraction();
+  init_mixture_fraction<pele::physics::PhysicsType::eos_type>();
 
   //
   // Initialize active control
@@ -2167,7 +2205,8 @@ PeleLM::compute_instantaneous_reaction_rates (MultiFab&       R,
    auto const& sma    = S.const_arrays();
    auto const& maskma = maskMF.const_arrays();
    auto const& rma    = R.arrays();
-   amrex::ParallelFor(S, [=,FS=first_spec,RH=RhoH,Temp=Temp]
+   auto const* leosparm = eos_parms.device_eos_parm();
+   amrex::ParallelFor(S, [=,FS=first_spec,RH=RhoH,Temp=Temp, leosparm=leosparm]
    AMREX_GPU_DEVICE (int box_no, int i, int j, int k) noexcept
    {
       reactionRateRhoY(i, j, k,
@@ -2175,7 +2214,8 @@ PeleLM::compute_instantaneous_reaction_rates (MultiFab&       R,
                        Array4<Real const>(sma[box_no],RH),
                        Array4<Real const>(sma[box_no],Temp),
                        maskma[box_no],
-                       rma[box_no]);
+                       rma[box_no],
+		       leosparm);
    });
 
    if ((nGrow>0) && (how == HT_EXTRAP_GROW_CELLS))
@@ -2570,8 +2610,10 @@ PeleLM::post_init (Real stop_time)
         }
       }
 
+      std::cout << "before divu proj" << std::endl;
       projector->initialVelocityProject(0,divu_time,havedivu,1);
-
+      std::cout << "after divu proj" << std::endl;
+      
       if (closed_chamber == 1)
       {
         // restore S
@@ -3424,8 +3466,11 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
    FillPatchIterator fpi(*this, Force, nGrowDiff, new_time, State_Type, Density, NUM_SPECIES+1);
    MultiFab& scalars = fpi.get_mf();
 
+   // TODO: Make this more elegant than ifdef
+#ifndef USE_MANIFOLD_EOS   
    adjust_spec_diffusion_fluxes(SpecDiffusionFluxnp1, scalars, Tbc);
-
+#endif
+   
    // Compute Dnp1kp1 (here called Dnew)
    flux_divergence(Dnew, DComp, SpecDiffusionFluxnp1, 0, NUM_SPECIES, -1);
 
@@ -3499,19 +3544,20 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
          auto const& rhoY    = Snp1[0]->const_array(mfi,first_spec);
          auto const& T       = Snp1[0]->const_array(mfi,Temp);
          auto const& RhoCpm  = RhoCp.array(mfi);
+	 auto const* leosparm = eos_parms.device_eos_parm();
 
          // Things needed to store T
          auto const& T_old   = Told.array(mfi);
-
+	 
          amrex::ParallelFor(bx, [rhs, rhoH_o, rhoH_n, force, dnp1kp1, ddnp1kp1, dtinv,
-                                 rho, rhoY, T, RhoCpm, T_old]
+                                 rho, rhoY, T, RhoCpm, T_old, leosparm]
          AMREX_GPU_DEVICE (int i, int j, int k) noexcept
          {
             // Trhs computation
             rhs(i,j,k) =  ( rhoH_o(i,j,k) - rhoH_n(i,j,k) ) * dtinv +
                         + force(i,j,k) + dnp1kp1(i,j,k) + ddnp1kp1(i,j,k);
             // rhoCpmix computation
-            getCpmixGivenRYT( i, j, k, rho, rhoY, T, RhoCpm );
+            getCpmixGivenRYT( i, j, k, rho, rhoY, T, RhoCpm, leosparm );
             RhoCpm(i,j,k) *= rho(i,j,k);
 
             // Store Told
@@ -3563,11 +3609,12 @@ PeleLM::differential_diffusion_update (MultiFab& Force,
          auto const& rhoY    = Snp1[0]->const_array(mfi,first_spec);
          auto const& T       = Snp1[0]->const_array(mfi,Temp);
          auto const& rhoHm   = Snp1[0]->array(mfi,RhoH);
+	 auto const* leosparm = eos_parms.device_eos_parm();
 
-         amrex::ParallelFor(bx, [rho, rhoY, T, rhoHm]
+         amrex::ParallelFor(bx, [rho, rhoY, T, rhoHm, leosparm]
          AMREX_GPU_DEVICE (int i, int j, int k) noexcept
          {
-            getRHmixGivenTY( i, j, k, rho, rhoY, T, rhoHm );
+	   getRHmixGivenTY( i, j, k, rho, rhoY, T, rhoHm, leosparm );
          });
       }
 
@@ -3838,11 +3885,12 @@ PeleLM::compute_enthalpy_fluxes (MultiFab* const*       flux,
        const Box& gbx = mfi.growntilebox();
        auto const& T  = TT.const_array(mfi);
        auto const& Hi = Enth.array(mfi,0);
+       auto const* leosparm = eos_parms.device_eos_parm();
 
-       amrex::ParallelFor(gbx, [T, Hi]
+       amrex::ParallelFor(gbx, [T, Hi, leosparm]
        AMREX_GPU_DEVICE (int i, int j, int k) noexcept
        {
-          getHGivenT( i, j, k, T, Hi );
+	 getHGivenT( i, j, k, T, Hi, leosparm );
        });
    }
 
@@ -4252,8 +4300,11 @@ PeleLM::compute_differential_diffusion_fluxes (const MultiFab& S,
    }
 
    // Modify update/fluxes to preserve flux sum = 0 (conservatively correct Gamma_m)
+   // TODO: Make more elegant
+#ifndef USE_MANIFOLD_EOS
    adjust_spec_diffusion_fluxes(flux, S, bc);
-
+#endif
+   
    // build heat fluxes based on species fluxes, Gamma_m, and cell-centered states
    // compute flux[NUM_SPECIES+1] = sum_m (H_m Gamma_m)
    // compute flux[NUM_SPECIES+2] = - lambda grad T
@@ -4692,7 +4743,8 @@ PeleLM::compute_rhoRT (const MultiFab& S,
    AMREX_ASSERT(pComp<Press.nComp());
 
    const Real strt_time = ParallelDescriptor::second();
-
+   auto const* leosparm = eos_parms.device_eos_parm();
+   
 #ifdef AMREX_USE_OMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
@@ -4704,10 +4756,10 @@ PeleLM::compute_rhoRT (const MultiFab& S,
          auto const& rhoY    = S.const_array(mfi,first_spec);
          auto const& T       = S.const_array(mfi,Temp);
          auto const& P       = Press.array(mfi, pComp);
-         amrex::ParallelFor(bx, [rho, rhoY, T, P]
+         amrex::ParallelFor(bx, [rho, rhoY, T, P, leosparm]
          AMREX_GPU_DEVICE (int i, int j, int k) noexcept
          {
-            getPGivenRTY( i, j, k, rho, rhoY, T, P );
+	   getPGivenRTY( i, j, k, rho, rhoY, T, P, leosparm);
          });
       }
    }
@@ -5092,11 +5144,20 @@ PeleLM::advance (Real time,
                   chi_ar(i,j,k) = chi_inc_ar(i,j,k);
               } else {
                   chi_ar(i,j,k) += chi_inc_ar(i,j,k);
-              }
+              } // FIXME HACK HACK HACK should be += below
               divu_ar(i,j,k) += chi_ar(i,j,k);
           });
       }
-
+      amrex::Real chimax = chi.norm0();
+      amrex::Real chiavg = chi.norm1();
+      amrex::Real chiincmax = chi_increment.norm0();
+      amrex::Real chiincavg = chi_increment.norm1();
+      amrex::Real divumax = mac_divu.norm0();
+      amrex::Real divuavg = mac_divu.norm1();
+      std::cout << "Chi max : " << chimax << " avg: " << chiavg << std::endl;
+      std::cout << "Inc max : " << chiincmax << " avg: " << chiincavg << std::endl;
+      std::cout << "Div max : " << divumax << " avg: " << divuavg << std::endl;
+      
       Real Sbar = 0;
       if (closed_chamber == 1 && level == 0) {
         Sbar = adjust_p_and_divu_for_closed_chamber(mac_divu);
@@ -5146,13 +5207,14 @@ PeleLM::advance (Real time,
        auto const& extRhoH = external_sources.const_array(mfi, DEF_RhoH);
        auto const& fY      = Forcing.array(mfi,0);
        auto const& fT      = Forcing.array(mfi,NUM_SPECIES);
+       auto const* leosparm = eos_parms.device_eos_parm();
        Real        dp0dt_d = dp0dt;
        int     closed_ch_d = closed_chamber;
 
-       amrex::ParallelFor(gbx, [rho, rhoY, T, dn, ddn, r, fY, fT, extY, extRhoH, dp0dt_d, closed_ch_d]
+       amrex::ParallelFor(gbx, [rho, rhoY, T, dn, ddn, r, fY, fT, extY, extRhoH, dp0dt_d, closed_ch_d, leosparm]
        AMREX_GPU_DEVICE (int i, int j, int k) noexcept
        {
-          buildAdvectionForcing( i, j, k, rho, rhoY, T, dn, ddn, r, extY, extRhoH, dp0dt_d, closed_ch_d, fY, fT );
+	 buildAdvectionForcing( i, j, k, rho, rhoY, T, dn, ddn, r, extY, extRhoH, dp0dt_d, closed_ch_d, fY, fT, leosparm );
        });
     }
 
@@ -5378,15 +5440,16 @@ PeleLM::advance (Real time,
             auto const& Hi  = EnthFab.array();
             auto const& r   = get_new_data(RhoYdot_Type).const_array(mfi);
             auto const& HRR = (*auxDiag["HEATRELEASE"]).array(mfi);
+	    auto const* leosparm = eos_parms.device_eos_parm();
 
-            amrex::ParallelFor(bx, [T, Hi, HRR, r]
+            amrex::ParallelFor(bx, [T, Hi, HRR, r, leosparm]
             AMREX_GPU_DEVICE (int i, int j, int k) noexcept
             {
-               getHGivenT( i, j, k, T, Hi );
-               HRR(i,j,k) = 0.0;
-               for (int n = 0; n < NUM_SPECIES; n++) {
-                  HRR(i,j,k) -= Hi(i,j,k,n) * r(i,j,k,n);
-               }
+	       getHGivenT( i, j, k, T, Hi, leosparm );
+	       HRR(i,j,k) = 0.0;
+	       for (int n = 0; n < NUM_SPECIES; n++) {
+	 	 HRR(i,j,k) -= Hi(i,j,k,n) * r(i,j,k,n);
+	       }
             });
          }
       }
@@ -5593,14 +5656,15 @@ PeleLM::adjust_p_and_divu_for_closed_chamber(MultiFab& mac_divu)
       auto const& T_o     = S_old.const_array(mfi,Temp);
       auto const& T_n     = S_new.const_array(mfi,Temp);
       auto const& theta   = theta_halft.array(mfi);
+      auto const* leosparm = eos_parms.device_eos_parm();
       amrex::Real pamb_o  = p_amb_old;
       amrex::Real pamb_n  = p_amb_new;
 
-      amrex::ParallelFor(bx, [rhoY_o, rhoY_n, T_o, T_n, theta, pamb_o, pamb_n]
+      amrex::ParallelFor(bx, [rhoY_o, rhoY_n, T_o, T_n, theta, pamb_o, pamb_n, leosparm]
       AMREX_GPU_DEVICE (int i, int j, int k) noexcept
       {
-         amrex::Real gammaInv_o = getGammaInv( i, j, k, rhoY_o, T_o );
-         amrex::Real gammaInv_n = getGammaInv( i, j, k, rhoY_n, T_n );
+	amrex::Real gammaInv_o = getGammaInv( i, j, k, rhoY_o, T_o, leosparm );
+	amrex::Real gammaInv_n = getGammaInv( i, j, k, rhoY_n, T_n, leosparm );
          theta(i,j,k) = 0.5 * ( gammaInv_o/pamb_o + gammaInv_n/pamb_n );
       });
    }
@@ -6093,10 +6157,15 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
          amrex::ParallelFor(bx, [ adv_rho, adv_rhoY ]
          AMREX_GPU_DEVICE (int i, int j, int k) noexcept
          {
+	   //TODO: Make this and below more elelgant than ifdef
+#ifndef USE_MANIFOLD_EOS	   
             adv_rho(i,j,k) = 0.0;
             for (int n = 0; n < NUM_SPECIES; n++) {
                adv_rho(i,j,k) += adv_rhoY(i,j,k,n);
             }
+#else
+	    adv_rho(i,j,k) = adv_rhoY(i,j,k,NUM_SPECIES-1);
+#endif
          });
 
          for (int dir=0; dir<AMREX_SPACEDIM; dir++)
@@ -6109,12 +6178,17 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
             amrex::ParallelFor(ebx, [rho, rho_F, rhoY, rhoY_F]
             AMREX_GPU_DEVICE (int i, int j, int k) noexcept
             {
+#ifndef	USE_MANIFOLD_EOS      
                rho(i,j,k) = 0.0;
                rho_F(i,j,k) = 0.0;
                for (int n = 0; n < NUM_SPECIES; n++) {
                   rho(i,j,k) += rhoY(i,j,k,n);
                   rho_F(i,j,k) += rhoY_F(i,j,k,n);
                }
+#else
+	       rho(i,j,k) = rhoY(i,j,k,NUM_SPECIES-1);
+	       rho_F(i,j,k) = rhoY_F(i,j,k,NUM_SPECIES-1);
+#endif
             });
          }
       }
@@ -6223,14 +6297,15 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
               auto const& rhoY    = EdgeState[d]->array(S_mfi,first_spec);
               auto const& T       = EdgeState[d]->array(S_mfi,Temp);
               auto const& rhoHm   = EdgeState[d]->array(S_mfi,RhoH);
+	      auto const* leosparm = eos_parms.device_eos_parm();
 
-              amrex::ParallelFor(ebox, [rho, rhoY, T, rhoHm]
+              amrex::ParallelFor(ebox, [rho, rhoY, T, rhoHm, leosparm]
               AMREX_GPU_DEVICE (int i, int j, int k) noexcept
               {
                  if (rho(i,j,k) <= 0.0) {       // These are covered ghost cells.
                     rhoHm(i,j,k) = 0.0;
                  } else {
-                    getRHmixGivenTY( i, j, k, rho, rhoY, T, rhoHm );
+		   getRHmixGivenTY( i, j, k, rho, rhoY, T, rhoHm, leosparm);
                  }
               });
            }
@@ -6363,10 +6438,15 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
     amrex::ParallelFor(bx, [ adv_rho, adv_rhoY ]
     AMREX_GPU_DEVICE (int i, int j, int k) noexcept
     {
+      //TODO: Make this and below more elegant than an ifdef
+#ifndef USE_MANIFOLD_EOS
       adv_rho(i,j,k) = 0.0;
       for (int n = 0; n < NUM_SPECIES; n++) {
         adv_rho(i,j,k) += adv_rhoY(i,j,k,n);
       }
+#else
+      adv_rho(i,j,k) = adv_rhoY(i,j,k,NUM_SPECIES-1);
+#endif
     });
 
     for (int dir=0; dir<AMREX_SPACEDIM; dir++)
@@ -6379,12 +6459,17 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
       amrex::ParallelFor(ebx, [rho, rho_F, rhoY, rhoY_F]
       AMREX_GPU_DEVICE (int i, int j, int k) noexcept
       {
+#ifndef USE_MANIFOLD_EOS	
         rho(i,j,k) = 0.0;
         rho_F(i,j,k) = 0.0;
         for (int n = 0; n < NUM_SPECIES; n++) {
           rho(i,j,k) += rhoY(i,j,k,n);
           rho_F(i,j,k) += rhoY_F(i,j,k,n);
         }
+#else
+	rho(i,j,k) = rhoY(i,j,k,NUM_SPECIES-1);
+	rho_F(i,j,k) = rhoY_F(i,j,k,NUM_SPECIES-1);
+#endif
       });
     }
   }
@@ -6424,11 +6509,12 @@ PeleLM::compute_scalar_advection_fluxes_and_divergence (const MultiFab& Force,
       auto const& rhoY    = EdgeState[idim]->const_array(S_mfi,first_spec);
       auto const& T       = EdgeState[idim]->const_array(S_mfi,Temp);
       auto const& rhoHm   = EdgeState[idim]->array(S_mfi,RhoH);
+      auto const* leosparm = eos_parms.device_eos_parm();
 
-      amrex::ParallelFor(ebox, [rho, rhoY, T, rhoHm]
+      amrex::ParallelFor(ebox, [rho, rhoY, T, rhoHm, leosparm]
       AMREX_GPU_DEVICE (int i, int j, int k) noexcept
       {
-          getRHmixGivenTY( i, j, k, rho, rhoY, T, rhoHm );
+	getRHmixGivenTY( i, j, k, rho, rhoY, T, rhoHm, leosparm );
       });
     }
   }
@@ -6970,13 +7056,14 @@ PeleLM::mac_sync ()
                auto const& rhoY    = S_new.const_array(mfi,first_spec);
                auto const& T       = S_new.const_array(mfi,Temp);
                auto const& RhoCpm  = RhoCp_post.array(mfi);
+	       auto const* leosparm = eos_parms.device_eos_parm();	 
 
                // Things needed to store T
                auto const& T_old   = Told.array(mfi);
 
                amrex::ParallelFor(bx, [rhs, dT_pre, dd_pre, dT_post, dd_post, rhoH_eta, rhoH_0, ssync, dt, L,
                                        rho, rhoY, T, RhoCpm,
-                                       T_old]
+                                       T_old, leosparm]
                AMREX_GPU_DEVICE (int i, int j, int k) noexcept
                {
                   // Trhs computation
@@ -6986,7 +7073,7 @@ PeleLM::mac_sync ()
                   }
 
                   // rhoCpmix computation
-                  getCpmixGivenRYT( i, j, k, rho, rhoY, T, RhoCpm );
+                  getCpmixGivenRYT( i, j, k, rho, rhoY, T, RhoCpm, leosparm );
                   RhoCpm(i,j,k) *= rho(i,j,k);
 
                   // Store Told
@@ -7069,11 +7156,12 @@ PeleLM::mac_sync ()
                auto const& rhoY    = S_new.const_array(mfi,first_spec);
                auto const& T       = S_new.const_array(mfi,Temp);
                auto const& rhoHm   = S_new.array(mfi,RhoH);
+	       auto const* leosparm = eos_parms.device_eos_parm();
 
-               amrex::ParallelFor(bx, [rho, rhoY, T, rhoHm]
+               amrex::ParallelFor(bx, [rho, rhoY, T, rhoHm, leosparm]
                AMREX_GPU_DEVICE (int i, int j, int k) noexcept
                {
-                  getRHmixGivenTY( i, j, k, rho, rhoY, T, rhoHm );
+		 getRHmixGivenTY( i, j, k, rho, rhoY, T, rhoHm, leosparm );
                });
             }
 
@@ -7413,10 +7501,11 @@ PeleLM::compute_Wbar_fluxes(const MultiFab &a_scalars,
       auto const& rho     = a_scalars.const_array(mfi,0);
       auto const& rhoY    = a_scalars.const_array(mfi,1);
       auto const& Wbar_ar = Wbar.array(mfi);
-      amrex::ParallelFor(gbx, [rho, rhoY, Wbar_ar]
+      auto const* leosparm = eos_parms.device_eos_parm();
+      amrex::ParallelFor(gbx, [rho, rhoY, Wbar_ar, leosparm]
       AMREX_GPU_DEVICE (int i, int j, int k) noexcept
       {
-         getMwmixGivenRY(i, j, k, rho, rhoY, Wbar_ar);
+	getMwmixGivenRY(i, j, k, rho, rhoY, Wbar_ar, leosparm);
       });
    }
 
@@ -7472,10 +7561,11 @@ PeleLM::compute_Wbar_fluxes(const MultiFab &a_scalars,
          auto const& rho     = mfc.array(mfi,0);
          auto const& rhoY    = mfc.array(mfi,1);
          auto const& Wbar_ar = Wbar_crse.array(mfi);
-         amrex::ParallelFor(gbx, [rho, rhoY, Wbar_ar]
+	 auto const* leosparm = eos_parms.device_eos_parm();
+         amrex::ParallelFor(gbx, [rho, rhoY, Wbar_ar, leosparm]
          AMREX_GPU_DEVICE (int i, int j, int k) noexcept
          {
-            getMwmixGivenRY(i, j, k, rho, rhoY, Wbar_ar);
+	   getMwmixGivenRY(i, j, k, rho, rhoY, Wbar_ar, leosparm);
          });
       }
       visc_op.setCoarseFineBC(&Wbar_crse, crse_ratio[0]);
@@ -8028,12 +8118,21 @@ PeleLM::calcDiffusivity (const Real time)
          AMREX_GPU_DEVICE (int i, int j, int k) noexcept
          {
             getTransportCoeffUnityLe( i, j, k, ScInv, PrInv, rhoY, T, rhoD, lambda, mu, ltransparm);
+	    /*
+	    if (i==0 && j == 0 && k==0) {
+	      std::cout << "rhoD in getTrans UNITY: " << rhoD(i,j,k,0)
+		    << " " <<rhoD(i,j,k,1) << std::endl;
+		    }*/
          });
       } else {
          amrex::ParallelFor(gbx, [rhoY, T, rhoD, lambda, mu, ltransparm]
          AMREX_GPU_DEVICE (int i, int j, int k) noexcept
          {
             getTransportCoeff( i, j, k, rhoY, T, rhoD, lambda, mu, ltransparm);
+	    /*if (i==0 && j == 0 && k==0) {
+	      std::cout << "rhoD in getTrans DIFFDIFF: " << rhoD(i,j,k,0)
+			<< " " <<rhoD(i,j,k,1) << std::endl;
+			}*/
          });
       }
    }
@@ -8235,19 +8334,22 @@ PeleLM::calc_divu (Real      time,
    // if we are in an init_iter or regular time step (time=dt, dt>0), use instananeous
    MultiFab   RhoYdotTmp;
    MultiFab&  S       = get_data(State_Type,time);
+   // TODO: MORE HACK HACK HACK FIXME DELETE
    const bool use_IR  = (time == 0 && dt > 0);
 
    MultiFab& RhoYdot = (use_IR) ? get_new_data(RhoYdot_Type) : RhoYdotTmp;
 
+   std::cout << "USING IR " << use_IR << std::endl;
    if (!use_IR)
    {
-     if (time == 0)
+     // TODO: HACK HACK HACK FIXME DELETE
+     if (false) //(time == 0)
      {
        // initial projection, set omegadot to zero
        RhoYdot.define(grids,dmap,NUM_SPECIES,0,MFInfo(),Factory());
        RhoYdot.setVal(0.0);
      }
-     else if (dt > 0)
+     else if (true) //(dt > 0)
      {
        // init_iter or regular time step, use instantaneous omegadot
        RhoYdot.define(grids,dmap,NUM_SPECIES,0,MFInfo(),Factory());
@@ -8258,6 +8360,7 @@ PeleLM::calc_divu (Real      time,
        amrex::Abort("bad divu_logic - shouldn't be here");
      }
    }
+   std::cout << "IN CALCDIVU, MAX RHOYDOT IS " << RhoYdot.max(0) << std::endl;
 
 #ifdef AMREX_USE_OMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
@@ -8274,11 +8377,12 @@ PeleLM::calc_divu (Real      time,
       auto const& extY    = external_sources.const_array(mfi,DEF_first_spec);
       auto const& extRhoH = external_sources.const_array(mfi,DEF_RhoH);
       auto const& du      = divu.array(mfi);
+      auto const* leosparm = eos_parms.device_eos_parm();
 
-      amrex::ParallelFor(bx, [ rhoY, T, vtT, vtY, rhoYdot, du, extRho, extY, extRhoH]
+      amrex::ParallelFor(bx, [ rhoY, T, vtT, vtY, rhoYdot, du, extRho, extY, extRhoH, leosparm]
       AMREX_GPU_DEVICE (int i, int j, int k) noexcept
       {
-         compute_divu( i, j, k, rhoY, T, vtT, vtY, rhoYdot, extRho, extY, extRhoH, du );
+	compute_divu<pele::physics::PhysicsType::eos_type>( i, j, k, rhoY, T, vtT, vtY, rhoYdot, extRho, extY, extRhoH, du, leosparm );
       });
    }
 
@@ -8358,14 +8462,16 @@ PeleLM::RhoH_to_Temp (MultiFab& S,
 
   // TODO: simplified version of that function for now: no iters, no tols, ... PPhys need to be fixed
   auto const& sma    = S.arrays();
-  amrex::ParallelFor(S, [=,Dens=Density,FS=first_spec,RH=RhoH,Temp=Temp]
+  auto const* leosparm = eos_parms.device_eos_parm();
+  amrex::ParallelFor(S, [=,Dens=Density,FS=first_spec,RH=RhoH,Temp=Temp,leosparm=leosparm]
   AMREX_GPU_DEVICE (int box_no, int i, int j, int k) noexcept
   {
      getTfromHY(i, j, k,
                 Array4<Real const>(sma[box_no],Dens),
                 Array4<Real const>(sma[box_no],FS),
                 Array4<Real const>(sma[box_no],RH),
-                Array4<Real>(sma[box_no],Temp));
+                Array4<Real>(sma[box_no],Temp),
+		leosparm);
   });
 
   /*
@@ -9277,11 +9383,13 @@ PeleLM::initActiveControl()
    if ( ctrl_active && ( ctrl_flameDir > 2 ) )
       amrex::Error("active_control.flame_direction MUST be 0, 1 or 2 for X, Y and Z resp.");
 
-   // Exit here if AC not activated
-   if ( !ctrl_active ) return;
 
    // Activate AC in problem specific / GPU compliant sections
    ac_parm->ctrl_active = ctrl_active;
+   std::cout << "INIT AC " << ac_parm->ctrl_active;
+   
+   // Exit here if AC not activated
+   if ( !ctrl_active ) return;
 
    // Resize vector for temporal average
    ctrl_time_pts.resize(ctrl_NavgPts+1,-1.0);
