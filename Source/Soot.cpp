@@ -1,5 +1,5 @@
 
-#ifdef SOOT_MODEL
+#ifdef PELELM_USE_SOOT
 #include "SootModel.H"
 #include "SootModel_derive.H"
 #include "PeleLM.H"

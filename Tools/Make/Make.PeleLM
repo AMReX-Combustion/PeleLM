@@ -104,7 +104,7 @@ SKIP_NS_SPECIFIC_CODE = TRUE
 
 ifeq ($(USE_PARTICLES), TRUE)
   ifdef SPRAY_FUEL_NUM
-    DEFINES += -DSPRAY_PELE_LM
+    DEFINES += -DPELELM_USE_SPRAY
     DEFINES += -DSPRAY_FUEL_NUM=$(SPRAY_FUEL_NUM)
     Bpack += $(PELEMP_HOME)/Source/PP_Spray/Make.package
     Blocs += $(PELEMP_HOME)/Source/PP_Spray
@@ -117,8 +117,7 @@ ifeq ($(USE_SOOT), TRUE)
     ifeq (,$(filter $(NUM_SOOT_MOMENTS),3 6))
         $(error NUM_SOOT_MOMENTS must be 3 or 6)
     endif
-  DEFINES+=-DSOOT_PELE_LM
-  DEFINES+=-DSOOT_MODEL
+  DEFINES+=-DPELELM_USE_SOOT
   DEFINES+=-DNUM_SOOT_MOMENTS=$(NUM_SOOT_MOMENTS)
   Bpack   += $(PELEMP_HOME)/Source/Soot_Models/Make.package
   Blocs   += $(PELEMP_HOME)/Source/Soot_Models

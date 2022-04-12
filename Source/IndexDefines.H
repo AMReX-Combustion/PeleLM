@@ -13,7 +13,7 @@
 #define DEF_Temp DEF_RhoH + 1
 #define DEF_RhoRT DEF_Temp + 1
 #define DEF_first_passive DEF_RhoRT + 1
-#ifdef SOOT_MODEL
+#ifdef PELELM_USE_SOOT
 #define DEF_NUM_SOOT_VARS NUM_SOOT_MOMENTS + 1
 #define DEF_first_soot DEF_first_passive
 #else

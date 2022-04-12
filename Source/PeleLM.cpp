@@ -66,7 +66,7 @@
 
 #ifdef AMREX_PARTICLES
 #include <AMReX_Particles.H>
-#ifdef SPRAY_PELE_LM
+#ifdef PELELM_USE_SPRAY
 #include "SprayParticles.H"
 #endif
 #endif
@@ -127,10 +127,10 @@ int  PeleLM::RhoH;
 int  PeleLM::do_diffuse_sync;
 int  PeleLM::do_reflux_visc;
 int  PeleLM::RhoYdot_Type;
-#ifdef SPRAY_PELE_LM
+#ifdef PELELM_USE_SPRAY
 int  PeleLM::spraydot_Type;
 #endif
-#ifdef SOOT_MODEL
+#ifdef PELELM_USE_SOOT
 int  PeleLM::sootsrc_Type;
 #endif
 int  PeleLM::FuncCount_Type;
@@ -197,7 +197,7 @@ std::string PeleLM::chem_integrator;
 std::unique_ptr<pele::physics::reactions::ReactorBase> PeleLM::m_reactor;
 pele::physics::turbinflow::TurbInflow PeleLM::turb_inflow;
 
-#ifdef SOOT_MODEL
+#ifdef PELELM_USE_SOOT
 int PeleLM::do_soot_solve;
 int PeleLM::plot_soot_src;
 int PeleLM::restart_from_no_soot;
@@ -323,7 +323,7 @@ PeleLM::Initialize ()
 {
   if (initialized) return;
 
-#ifdef SPRAY_PELE_LM
+#ifdef PELELM_USE_SPRAY
   // Ensure default particles in NavierStokesBase aren't used
   NavierStokesBase::do_nspc = false;
 #endif
@@ -356,10 +356,10 @@ PeleLM::Initialize ()
   PeleLM::do_diffuse_sync           = 1;
   PeleLM::do_reflux_visc            = 1;
   PeleLM::RhoYdot_Type                 = -1;
-#ifdef SPRAY_PELE_LM
+#ifdef PELELM_USE_SPRAY
   PeleLM::spraydot_Type             = -1;
 #endif
-#ifdef SOOT_MODEL
+#ifdef PELELM_USE_SOOT
   PeleLM::sootsrc_Type              = -1;
   PeleLM::do_soot_solve             =  1;
   PeleLM::restart_from_no_soot      =  0;
@@ -523,11 +523,11 @@ PeleLM::Initialize ()
 
   }
 
-#ifdef SPRAY_PELE_LM
+#ifdef PELELM_USE_SPRAY
   readSprayParams();
 #endif
 
-#ifdef SOOT_MODEL
+#ifdef PELELM_USE_SOOT
   {
     ParmParse pplm("peleLM");
     pplm.query("plot_soot_src", plot_soot_src);
@@ -947,7 +947,7 @@ PeleLM::variableCleanUp ()
    delete ac_parm;
    The_Arena()->free(prob_parm_d);
    The_Arena()->free(ac_parm_d);
-#ifdef SOOT_MODEL
+#ifdef PELELM_USE_SOOT
    cleanupSootModel();
 #endif
    trans_parms.deallocate();
@@ -1300,7 +1300,7 @@ PeleLM::restart (Amr&          papa,
   //
   initActiveControl();
 
-#ifdef SOOT_MODEL
+#ifdef PELELM_USE_SOOT
   if (do_soot_solve && restart_from_no_soot) {
     restartFromNoSoot();
   }
@@ -1706,12 +1706,12 @@ PeleLM::estTimeStep ()
       amrex::Print() << "PeleLM::estTimeStep(): estdt, divu_dt = "
                      << estdt << ", " << divu_dt << '\n';
    }
-#ifdef SPRAY_PELE_LM
+#ifdef PELELM_USE_SPRAY
    if (do_spray_particles) {
      particleEstTimeStep(estdt);
    }
 #endif
-#ifdef SOOT_MODEL
+#ifdef PELELM_USE_SOOT
    if (do_soot_solve) {
      estSootTimeStep(estdt);
    }
@@ -1787,13 +1787,13 @@ PeleLM::setTimeLevel (Real time,
 
    state[RhoYdot_Type].setTimeLevel(time,dt_old,dt_new);
 
-#ifdef SPRAY_PELE_LM
+#ifdef PELELM_USE_SPRAY
    if (do_spray_particles) {
      state[spraydot_Type].setTimeLevel(time,dt_old,dt_new);
    }
 #endif
 
-#ifdef SOOT_MODEL
+#ifdef PELELM_USE_SOOT
    if (do_soot_solve) {
      state[sootsrc_Type].setTimeLevel(time,dt_old,dt_new);
    }
@@ -2121,7 +2121,7 @@ PeleLM::initData ()
   //
   initActiveControl();
 
-#ifdef SPRAY_PELE_LM
+#ifdef PELELM_USE_SPRAY
   if (do_spray_particles) {
     defineSprayStateMF();
     if (level == 0) {
@@ -2176,13 +2176,13 @@ PeleLM::initDataOtherTypes ()
   // Set initial omegadot = 0
   get_new_data(RhoYdot_Type).setVal(0.0);
 
-#ifdef SPRAY_PELE_LM
+#ifdef PELELM_USE_SPRAY
   if (do_spray_particles) {
     get_new_data(spraydot_Type).setVal(0.0);
   }
 #endif
 
-#ifdef SOOT_MODEL
+#ifdef PELELM_USE_SOOT
   get_new_data(sootsrc_Type).setVal(0.0);
 #endif
 
@@ -2289,7 +2289,7 @@ PeleLM::init (AmrLevel& old)
          nrYdotma[box_no](i,j,k,n) = orYdotma[box_no](i,j,k,n);
       }
    });
-#ifdef SPRAY_PELE_LM
+#ifdef PELELM_USE_SPRAY
    if (do_spray_particles) {
      MultiFab& spraydot = get_new_data(spraydot_Type);
      FillPatchIterator fpi(*oldht, spraydot, spraydot.nGrow(), tnp1, spraydot_Type, 0, spraydot.nComp());
@@ -2306,7 +2306,7 @@ PeleLM::init (AmrLevel& old)
      });
    }
 #endif
-#ifdef SOOT_MODEL
+#ifdef PELELM_USE_SOOT
    {
      MultiFab& sootsrc = get_new_data(sootsrc_Type);
      FillPatchIterator fpi(*oldht, sootsrc, sootsrc.nGrow(), tnp1, sootsrc_Type, 0, num_soot_src);
@@ -2339,12 +2339,12 @@ PeleLM::init ()
    // Get best ydot data.
    //
    FillCoarsePatch(get_new_data(RhoYdot_Type),0,tnp1,RhoYdot_Type,0,NUM_SPECIES);
-#ifdef SPRAY_PELE_LM
+#ifdef PELELM_USE_SPRAY
    if (do_spray_particles) {
      FillCoarsePatch(get_new_data(spraydot_Type), 0, tnp1, spraydot_Type, 0, num_spray_src);
    }
 #endif
-#ifdef SOOT_MODEL
+#ifdef PELELM_USE_SOOT
    if (do_soot_solve) {
      FillCoarsePatch(get_new_data(sootsrc_Type), 0, tnp1, sootsrc_Type, 0, num_soot_src);
    }
@@ -2386,7 +2386,7 @@ PeleLM::post_timestep (int crse_iteration)
       clev.average_down(Ydot_fine, Ydot_crse, 0, Ndiag);
     }
   }
-#ifdef SPRAY_PELE_LM
+#ifdef PELELM_USE_SPRAY
   const int finest_level = parent->finestLevel();
   const int ncycle       = parent->nCycle(level);
   if (do_spray_particles) {
@@ -2432,7 +2432,7 @@ PeleLM::post_restart ()
 
    int step    = parent->levelSteps(0);
    int is_restart = 1;
-#ifdef SPRAY_PELE_LM
+#ifdef PELELM_USE_SPRAY
    if (do_spray_particles) {
      defineSprayStateMF();
      particlePostRestart();
@@ -2494,7 +2494,7 @@ PeleLM::post_regrid (int lbase,
       }
    }
    make_rho_curr_time();
-#ifdef SPRAY_PELE_LM
+#ifdef PELELM_USE_SPRAY
    if (do_spray_particles && theSprayPC() != nullptr) {
      defineSprayStateMF();
      if (level == lbase) {
@@ -2562,7 +2562,7 @@ PeleLM::checkPoint (const std::string& dir,
           }
       }
   }
-#ifdef SPRAY_PELE_LM
+#ifdef PELELM_USE_SPRAY
   if (theSprayPC() && do_spray_particles) {
     bool is_checkpoint = true;
     int write_ascii = 0; // Not for checkpoint intervals
@@ -2786,7 +2786,7 @@ PeleLM::post_init (Real stop_time)
   // Initialize the pressure by iterating the initial timestep.
   //
   post_init_press(dt_init, nc_save, dt_save);
-#ifdef SPRAY_PELE_LM
+#ifdef PELELM_USE_SPRAY
   if (do_spray_particles) {
     BL_PROFILE_VAR("SprayParticles::injectParticles()", INJECT_SPRAY);
     ProbParm const* lprobparm = prob_parm;
@@ -3128,7 +3128,7 @@ PeleLM::resetState (Real time,
 
    state[FuncCount_Type].reset();
    state[FuncCount_Type].setTimeLevel(time,dt_old,dt_new);
-#ifdef SPRAY_PELE_LM
+#ifdef PELELM_USE_SPRAY
    if (do_spray_particles)
    {
      state[spraydot_Type].reset();
@@ -3150,7 +3150,7 @@ PeleLM::resetState (Real time,
      }
    }
 #endif
-#ifdef SOOT_MODEL
+#ifdef PELELM_USE_SOOT
    if (do_soot_solve) {
      state[sootsrc_Type].reset();
      state[sootsrc_Type].setTimeLevel(time,dt_old,dt_new);
@@ -5117,7 +5117,7 @@ PeleLM::advance (Real time,
   FillPatch(*this, S_old, S_old.nGrow(), prev_time, State_Type, 0, NUM_STATE, 0);
   FillPatch(*this, S_new, S_new.nGrow(), new_time, State_Type, 0, NUM_STATE, 0);
 
-#ifdef SPRAY_PELE_LM
+#ifdef PELELM_USE_SPRAY
   int nGrow_Sborder = 4; //mr: set to 1 for now, is this ok?
 
   int ghost_width = 0;
@@ -5256,14 +5256,14 @@ PeleLM::advance (Real time,
   BL_PROFILE_VAR_NS("PeleLM::advance::velocity_adv", PLM_VEL);
 
   if (!NavierStokesBase::initial_step) {
-#ifdef SPRAY_PELE_LM
+#ifdef PELELM_USE_SPRAY
     if (do_spray_particles) {
       AMREX_ASSERT(theSprayPC() != nullptr);
       particleMKD(time, dt, ghost_width, spray_n_grow,
                   tmp_src_width, tmp_spray_source);
     }
 #endif
-#ifdef SOOT_MODEL
+#ifdef PELELM_USE_SOOT
     if (do_soot_solve) {
       computeSootSrc(time, dt);
     }
@@ -5423,7 +5423,7 @@ PeleLM::advance (Real time,
     FillPatch(*this,S_new,S_new.nGrow(),new_time,State_Type,Density,1,Density);
     if (DEF_NUM_PASSIVE > 0 && solve_passives) {
       scalar_advection_update(dt, first_passive, first_passive + DEF_NUM_PASSIVE - 1);
-#ifdef SOOT_MODEL
+#ifdef PELELM_USE_SOOT
       if (sdc_iter == sdc_iterMAX) {
         clipSootMoments();
       }
@@ -5604,13 +5604,13 @@ PeleLM::advance (Real time,
 
     showMF("DBGSync",S_new,"DBGSync_Snew_end_sdc",level,sdc_iter,parent->levelSteps(level));
     if (sdc_iter == sdc_iterMAX && !NavierStokesBase::initial_step) {
-#ifdef SPRAY_PELE_LM
+#ifdef PELELM_USE_SPRAY
       if (do_spray_particles) {
         FillPatch(*this, Sborder, nGrow_Sborder, new_time, State_Type, 0, NUM_STATE);
         particleMK(new_time, dt, spray_n_grow, tmp_src_width, tmp_spray_source);
       }
 #endif
-#ifdef SOOT_MODEL
+#ifdef PELELM_USE_SOOT
       if (do_soot_solve) {
         computeSootSrc(new_time, dt);
       }
@@ -8832,7 +8832,7 @@ PeleLM::setPlotVariables ()
       amrex::Print() << *li << ' ';
     amrex::Print() << '\n';
   }
-#ifdef SPRAY_PELE_LM
+#ifdef PELELM_USE_SPRAY
   // Remove spray source terms unless otherwise specified
   if (plot_spray_src == 0 && do_spray_particles)
   {
@@ -8843,7 +8843,7 @@ PeleLM::setPlotVariables ()
     }
   }
 #endif
-#ifdef SOOT_MODEL
+#ifdef PELELM_USE_SOOT
   setSootSrcPlot();
 #endif
 }
@@ -9260,7 +9260,7 @@ PeleLM::writePlotFile (const std::string& dir,
   {
     theNSPC()->Checkpoint(dir,"particles");
   }
-#ifdef SPRAY_PELE_LM
+#ifdef PELELM_USE_SPRAY
   if (theSprayPC() && do_spray_particles)
   {
     bool is_checkpoint = false;
@@ -9770,7 +9770,7 @@ PeleLM::add_external_sources(Real /*time*/,
                              Real /*dt*/)
 {
   external_sources.setVal(0.);
-#if defined(SOOT_MODEL) || defined(SPRAY_PELE_LM)
+#if defined(PELELM_USE_SOOT) || defined(PELELM_USE_SPRAY)
   const int nghost = external_sources.nGrow();
 #ifdef _OPENMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
@@ -9779,13 +9779,13 @@ PeleLM::add_external_sources(Real /*time*/,
     {
       const Box& box = mfi.growntilebox(nghost);
       auto const& ext_fab = external_sources.array(mfi);
-#ifdef SPRAY_PELE_LM
+#ifdef PELELM_USE_SPRAY
       if (do_spray_particles) {
         auto const& spraydot = get_new_data(spraydot_Type).array(mfi);
         theSprayPC()->addSpraySrc(box, spraydot, ext_fab);
       }
 #endif
-#ifdef SOOT_MODEL
+#ifdef PELELM_USE_SOOT
       if (do_soot_solve) {
         auto const& sootsrc = get_new_data(sootsrc_Type).array(mfi);
         amrex::ParallelFor(box, num_soot_src,

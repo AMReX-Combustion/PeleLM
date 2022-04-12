@@ -5,7 +5,7 @@
 
 using namespace amrex;
 
-#ifdef AMREX_PARTICLES
+#ifdef PELELM_USE_SPRAY
 #include "SprayParticles.H"
 
 namespace {

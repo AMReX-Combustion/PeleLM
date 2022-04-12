@@ -38,7 +38,7 @@
 #include <PeleLM_derive.H>
 #include <IndexDefines.H>
 
-#ifdef SOOT_MODEL
+#ifdef PELELM_USE_SOOT
 #include "SootModel.H"
 #endif
 
@@ -341,7 +341,7 @@ set_species_bc (BCRec&       bc,
   }
 }
 
-#ifdef SOOT_MODEL
+#ifdef PELELM_USE_SOOT
 static
 int
 sootsrc_bc[] =
@@ -394,7 +394,7 @@ PeleLM::variableSetUp ()
   ac_parm = new ACParm{};
   prob_parm_d = (ProbParm*)The_Arena()->alloc(sizeof(ProbParm));
   ac_parm_d   = (ACParm*)The_Arena()->alloc(sizeof(ACParm));
-#ifdef SOOT_MODEL
+#ifdef PELELM_USE_SOOT
   soot_model = new SootModel{};
 #endif
 
@@ -582,7 +582,7 @@ PeleLM::variableSetUp ()
   if (is_diffusive[Density])
     amrex::Abort("PeleLM::variableSetUp(): density cannot diffuse");
 
-#ifdef SOOT_MODEL
+#ifdef PELELM_USE_SOOT
   first_soot = DEF_first_soot;
   NUM_SOOT_VARS = DEF_NUM_SOOT_VARS;
   num_soot_src = NUM_SPECIES + 4 + NUM_SOOT_VARS;
@@ -862,13 +862,13 @@ PeleLM::variableSetUp ()
 
   std::string curv_str = "mean_progress_curvature";
   derive_lst.add(curv_str,IndexType::TheCellType(),1,&DeriveRec::GrowBoxByOne);
-#ifdef SPRAY_PELE_LM
+#ifdef PELELM_USE_SPRAY
   if (do_spray_particles) {
     spraydotSetUp();
     defineParticles();
   }
 #endif
-#ifdef SOOT_MODEL
+#ifdef PELELM_USE_SOOT
   soot_model->define();
   sootsrcSetUp();
   if (do_soot_solve) {
@@ -1071,7 +1071,7 @@ PeleLM::rhoydotSetUp()
   }
 }
 
-#ifdef SPRAY_PELE_LM
+#ifdef PELELM_USE_SPRAY
 static
 int
 spraydot_bc[] =
@@ -1123,7 +1123,7 @@ PeleLM::spraydotSetUp()
 }
 #endif
 
-#ifdef SOOT_MODEL
+#ifdef PELELM_USE_SOOT
 void
 PeleLM::sootsrcSetUp()
 {

@@ -117,10 +117,10 @@ protected:
 };
 
 // Forward declarations
-#ifdef SPRAY_PELE_LM
+#ifdef PELELM_USE_SPRAY
 class SprayParticleContainer;
 #endif
-#ifdef SOOT_MODEL
+#ifdef PELELM_USE_SOOT
 class SootModel;
 #endif
 
@@ -184,7 +184,7 @@ public:
   virtual void init (amrex::AmrLevel& old) override;
 
   virtual void initData () override;
-#ifdef SPRAY_PELE_LM
+#ifdef PELELM_USE_SPRAY
   //
   // Read spray related inputs
   //
@@ -322,11 +322,11 @@ public:
   static void variableSetUp ();
 
   static void rhoydotSetUp ();
-#ifdef SPRAY_PELE_LM
+#ifdef PELELM_USE_SPRAY
   static void spraydotSetUp ();
 #endif
 
-#ifdef SOOT_MODEL
+#ifdef PELELM_USE_SOOT
   static void setSootIndx ();
   static void readSootParams ();
   static void sootsrcSetUp ();
@@ -452,14 +452,14 @@ public:
   static void Finalize ();
 
 
-#ifdef SPRAY_PELE_LM
+#ifdef PELELM_USE_SPRAY
   static int       do_spray_particles;
   static SprayParticleContainer* theSprayPC ();
   static SprayParticleContainer* theVirtPC ();
   static SprayParticleContainer* theGhostPC ();
 #endif
 
-#ifdef SOOT_MODEL
+#ifdef PELELM_USE_SOOT
   static int do_soot_solve;
   static int plot_soot_src;
   static int restart_from_no_soot;
@@ -825,7 +825,7 @@ public:
   static int         use_wbar;
   static int         FuncCount_Type;
   static int         RhoYdot_Type;
-#ifdef SPRAY_PELE_LM
+#ifdef PELELM_USE_SPRAY
   static int         spraydot_Type;
 #endif
   static int         divu_ceiling;

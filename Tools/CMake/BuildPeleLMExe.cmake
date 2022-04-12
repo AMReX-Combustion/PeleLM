@@ -73,13 +73,13 @@ function(build_pelelm_exe pelelm_exe_name)
                  ${PELELM_MECHANISM_DIR}/mechanism.H)
   # Set PeleMP flags
   set(PELEMP_SRC_DIR ${CMAKE_SOURCE_DIR}/Submodules/PeleMP/Source)
-  if(PELELM_ENABLE_PARTICLES AND PELEMP_SPRAY_FUEL_NUM)
+  if(PELELM_ENABLE_AMREX_PARTICLES AND PELEMP_SPRAY_FUEL_NUM GREATER 0)
     target_sources(${pelelm_exe_name}
       PRIVATE
 	SprayParticlesInitInsert.cpp
     )
     target_compile_definitions(${pelelm_exe_name} PRIVATE SPRAY_FUEL_NUM=${PELEMP_SPRAY_FUEL_NUM})
-    target_compile_definitions(${pelelm_exe_name} PRIVATE SPRAY_PELE_LM)
+    target_compile_definitions(${pelelm_exe_name} PRIVATE PELELM_USE_SPRAY)
     target_sources(${pelelm_exe_name} PRIVATE
                    ${PELEMP_SRC_DIR}/PP_Spray/SprayParticles.cpp
                    ${PELEMP_SRC_DIR}/PP_Spray/SprayParticles.H
@@ -89,10 +89,9 @@ function(build_pelelm_exe pelelm_exe_name)
                    ${PELEMP_SRC_DIR}/PP_Spray/WallFunctions.H)
     target_include_directories(${pelelm_exe_name} PRIVATE ${PELEMP_SRC_DIR}/PP_Spray)
   endif()
-  if(PELELM_ENABLE_SOOT AND PELELM_SOOT_MODEL)
-    target_compile_definitions(${pelelm_exe_name} PRIVATE SOOT_MODEL)
+  if(PELELM_ENABLE_SOOT)
     target_compile_definitions(${pelelm_exe_name} PRIVATE NUM_SOOT_MOMENTS=${PELEMP_NUM_SOOT_MOMENTS})
-    target_compile_definitions(${pelelm_exe_name} PRIVATE SOOT_PELE_LM)
+    target_compile_definitions(${pelelm_exe_name} PRIVATE PELELM_USE_SOOT)
     set(SOOT_MOMENTS_VALUES 3 6)
     if(NOT PELEMP_NUM_SOOT_MOMENTS IN_LIST SOOT_MOMENTS_VALUES)
       message(FATAL_ERROR "NUM_SOOT_MOMENTS must be either 3 or 6")
