@@ -5118,33 +5118,9 @@ PeleLM::advance (Real time,
   FillPatch(*this, S_new, S_new.nGrow(), new_time, State_Type, 0, NUM_STATE, 0);
 
 #ifdef PELELM_USE_SPRAY
-  int nGrow_Sborder = 4; //mr: set to 1 for now, is this ok?
-
-  int ghost_width = 0;
-  int spray_n_grow = 0;
-  int tmp_src_width = 0;
   if (do_spray_particles) {
-    int finest_level = parent->finestLevel();
-    int finer_ref = 0;
-    if (level < finest_level) finer_ref = parent->MaxRefRatio(level);
-    SprayParticleContainer::setSprayGridInfo(
-      level, finest_level, ncycle, finer_ref,
-      ghost_width, spray_n_grow, tmp_src_width);
-    nGrow_Sborder = std::max(nGrow_Sborder, spray_n_grow);
-    FillPatch(*this, Sborder, nGrow_Sborder, prev_time, State_Type, 0, NUM_STATE);
-    if (Sborder.nGrow() < nGrow_Sborder) {
-      Print() << "PeleLM::do_sdc_iteration thinks Sborder needs " << nGrow_Sborder
-              << " grow cells, but Sborder defined with only " << Sborder.nGrow() << std::endl;
-      Abort();
-    }
+    resetSprayMF(prev_time);
   }
-  showMF("spray",Sborder,"Sborder_before_sdc",level,parent->levelSteps(level));
-
-  // We must make a temporary spray source term to ensure number of ghost
-  // cells are correct
-  MultiFab tmp_spray_source(
-    grids, dmap, num_spray_src, tmp_src_width, amrex::MFInfo(), Factory());
-  tmp_spray_source.setVal(0.);
 #endif
 
   //
@@ -5259,8 +5235,7 @@ PeleLM::advance (Real time,
 #ifdef PELELM_USE_SPRAY
     if (do_spray_particles) {
       AMREX_ASSERT(theSprayPC() != nullptr);
-      particleMKD(time, dt, ghost_width, spray_n_grow,
-                  tmp_src_width, tmp_spray_source);
+      particleMKD(time, dt);
     }
 #endif
 #ifdef PELELM_USE_SOOT
@@ -5606,8 +5581,8 @@ PeleLM::advance (Real time,
     if (sdc_iter == sdc_iterMAX && !NavierStokesBase::initial_step) {
 #ifdef PELELM_USE_SPRAY
       if (do_spray_particles) {
-        FillPatch(*this, Sborder, nGrow_Sborder, new_time, State_Type, 0, NUM_STATE);
-        particleMK(new_time, dt, spray_n_grow, tmp_src_width, tmp_spray_source);
+        FillPatch(*this, Sborder, Sborder.nGrow(), new_time, State_Type, 0, NUM_STATE);
+        particleMK(new_time, dt);
       }
 #endif
 #ifdef PELELM_USE_SOOT

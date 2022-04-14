@@ -202,6 +202,10 @@ public:
   //
   void defineSprayStateMF();
   //
+  // Fill patch on state and reset tmp_spray_source to 0
+  //
+  void resetSprayMF(amrex::Real time);
+  //
   // Initialize particle locations and velocities (and strengths if relevant)
   //
   void initParticles();
@@ -227,20 +231,13 @@ public:
   // Setup ghost and virtual particles and do moveKickDrift
   //
   void particleMKD(const amrex::Real time,
-                   const amrex::Real dt,
-                   const int         ghost_width,
-                   const int         spray_n_grow,
-                   const int         tmp_src_width,
-                   amrex::MultiFab&  tmp_spray_source);
+                   const amrex::Real dt);
 
   //
   // Do the moveKick for active and ghost particles
   //
   void particleMK(const amrex::Real time,
-                  const amrex::Real dt,
-                  const int         spray_n_grow,
-                  const int         tmp_src_width,
-                  amrex::MultiFab&  tmp_spray_source);
+                  const amrex::Real dt);
 
   //
   // Setup virtual particles if necessary
@@ -274,6 +271,9 @@ public:
 
   /// A state array with ghost zones
   amrex::MultiFab Sborder;
+
+  /// A source MultiFab with proper ghost cells
+  amrex::MultiFab tmp_spray_source;
 
   static int num_spray_src;
   static std::string sprayFuelNames[SPRAY_FUEL_NUM];

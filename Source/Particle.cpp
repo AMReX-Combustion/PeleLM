@@ -77,6 +77,17 @@ PeleLM::theGhostPC()
 }
 
 void
+PeleLM::resetSprayMF(amrex::Real time)
+{
+  int finest_level = parent->finestLevel();
+  int ncycle = parent->nCycle(level);
+  int spray_state_ghosts =
+    SprayParticleContainer::getStateGhostCells(level, finest_level, ncycle);
+  tmp_spray_source.setVal(0.);
+  FillPatch(*this, Sborder, spray_state_ghosts, time, State_Type, 0, NUM_STATE);
+}
+
+void
 PeleLM::particleEstTimeStep(Real& est_dt)
 {
   if (do_spray_particles != 1 || theSprayPC() == nullptr) {
@@ -110,8 +121,9 @@ PeleLM::readSprayParams()
     return;
   }
   SprayParticleContainer::readSprayParams(
-    particle_verbose, particle_cfl, wall_temp, mass_trans, mom_trans, write_spray_ascii_files,
-    plot_spray_src, init_function, init_file, sprayData, sprayFuelNames);
+    particle_verbose, particle_cfl, wall_temp, mass_trans, mom_trans,
+    write_spray_ascii_files, plot_spray_src, init_function, init_file,
+    sprayData, sprayFuelNames);
 }
 
 std::string
@@ -134,16 +146,17 @@ PeleLM::spraySrcName(const int i)
 void
 PeleLM::defineSprayStateMF()
 {
-  int nGrowS = 4;
-  if (level > 0) {
-    int cRefRatio = parent->MaxRefRatio(level - 1);
-    if (cRefRatio > 4) {
-      amrex::Abort("Spray particles not supported for ref_ratio > 4");
-    } else if (cRefRatio > 2) {
-      nGrowS += 3;
-    }
-  }
-  Sborder.define(grids, dmap, NUM_STATE, nGrowS, amrex::MFInfo(), Factory());
+  int finest_level = parent->finestLevel();
+  int ncycle = parent->nCycle(level);
+  int spray_state_ghosts =
+    SprayParticleContainer::getStateGhostCells(level, finest_level, ncycle);
+  int spray_source_ghosts =
+    SprayParticleContainer::getSourceGhostCells(level, finest_level, ncycle);
+  Sborder.define(
+    grids, dmap, NUM_STATE, spray_state_ghosts, amrex::MFInfo(), Factory());
+  tmp_spray_source.define(
+    grids, dmap, num_spray_src, spray_source_ghosts, amrex::MFInfo(),
+    Factory());
 }
 
 void
@@ -250,13 +263,13 @@ PeleLM::removeGhostParticles()
 void
 PeleLM::createParticleData()
 {
-  SprayPC = new SprayParticleContainer(
-    parent, &phys_bc, sprayData, scomps, wall_temp);
+  SprayPC =
+    new SprayParticleContainer(parent, &phys_bc, sprayData, scomps, wall_temp);
   theSprayPC()->SetVerbose(particle_verbose);
-  VirtPC = new SprayParticleContainer(
-    parent, &phys_bc, sprayData, scomps, wall_temp);
-  GhostPC = new SprayParticleContainer(
-    parent, &phys_bc, sprayData, scomps, wall_temp);
+  VirtPC =
+    new SprayParticleContainer(parent, &phys_bc, sprayData, scomps, wall_temp);
+  GhostPC =
+    new SprayParticleContainer(parent, &phys_bc, sprayData, scomps, wall_temp);
 }
 
 /**
@@ -321,13 +334,7 @@ PeleLM::particlePostRestart(bool is_checkpoint)
 }
 
 void
-PeleLM::particleMKD(
-  const Real time,
-  const Real dt,
-  const int ghost_width,
-  const int spray_n_grow,
-  const int tmp_src_width,
-  amrex::MultiFab& tmp_spray_source)
+PeleLM::particleMKD(const Real time, const Real dt)
 {
   //
   // Setup ghost particles for use in finer levels. Note that ghost
@@ -335,19 +342,23 @@ PeleLM::particleMKD(
   // the particles being set here are only used by finer levels.
   //
   int finest_level = parent->finestLevel();
-
+  int ncycle = parent->nCycle(level);
+  int spray_state_ghosts =
+    SprayParticleContainer::getStateGhostCells(level, finest_level, ncycle);
+  int spray_source_ghosts =
+    SprayParticleContainer::getSourceGhostCells(level, finest_level, ncycle);
   //
   // Setup the virtual particles that represent particles on finer levels
-  //
-  if (level < finest_level)
-    setupVirtualParticles();
-
-  //
-  // Make a copy of the particles on this level into ghost particles
+  // and make a copy of the particles on this level into ghost particles
   // for the finer level
   //
-  if (level < finest_level)
+  if (level < finest_level) {
+    setupVirtualParticles();
+    int finer_ref = parent->MaxRefRatio(level);
+    int ghost_width = SprayParticleContainer::getGhostPartCells(
+      level + 1, finest_level, finer_ref);
     setupGhostParticles(ghost_width);
+  }
 
   // Advance the particle velocities to the half-time and the positions to
   // the new time
@@ -357,63 +368,74 @@ PeleLM::particleMKD(
   }
   auto const* ltransparm = PeleLM::trans_parms.device_trans_parm();
   // Do the valid particles themselves
+  bool isVirt = false;
+  bool isGhost = false;
+  bool doMove = true;
   theSprayPC()->moveKickDrift(
-    Sborder, tmp_spray_source, level, dt, time,
-    false, // not virtual particles
-    false, // not ghost particles
-    spray_n_grow, tmp_src_width,
-    true, ltransparm); // Move the particles
+    Sborder, tmp_spray_source, level, dt, time, isVirt, isGhost,
+    spray_state_ghosts, spray_source_ghosts, doMove, ltransparm);
   // Only need the coarsest virtual particles here.
   if (level < finest_level) {
+    isVirt = true;
+    isGhost = false;
     theVirtPC()->moveKickDrift(
-      Sborder, tmp_spray_source, level, dt, time, true, false, spray_n_grow,
-      tmp_src_width, true, ltransparm);
+      Sborder, tmp_spray_source, level, dt, time, isVirt, isGhost,
+      spray_state_ghosts, spray_source_ghosts, doMove, ltransparm);
   }
 
   // Miiiight need all Ghosts
   if (theGhostPC() != nullptr && level != 0) {
+    isVirt = false;
+    isGhost = true;
     theGhostPC()->moveKickDrift(
-      Sborder, tmp_spray_source, level, dt, time, false, true, spray_n_grow,
-      tmp_src_width, true, ltransparm);
+      Sborder, tmp_spray_source, level, dt, time, isVirt, isGhost,
+      spray_state_ghosts, spray_source_ghosts, doMove, ltransparm);
   }
   MultiFab& spraydot = get_new_data(spraydot_Type);
   spraydot.setVal(0.);
   // Must call transfer source after moveKick and moveKickDrift
   // on all particle types
   theSprayPC()->transferSource(
-    tmp_src_width, level, tmp_spray_source, spraydot);
+    spray_source_ghosts, level, tmp_spray_source, spraydot);
   spraydot.FillBoundary(geom.periodicity());
   Extrapolater::FirstOrderExtrap(spraydot, geom, 0, spraydot.nComp());
 }
 
 void
-PeleLM::particleMK(
-  const Real time,
-  const Real dt,
-  const int spray_n_grow,
-  const int tmp_src_width,
-  amrex::MultiFab& tmp_spray_source)
+PeleLM::particleMK(const Real time, const Real dt)
 {
   auto const* ltransparm = PeleLM::trans_parms.device_trans_parm();
+  int finest_level = parent->finestLevel();
+  int ncycle = parent->nCycle(level);
+  int spray_state_ghosts =
+    SprayParticleContainer::getStateGhostCells(level, finest_level, ncycle);
+  int spray_source_ghosts =
+    SprayParticleContainer::getSourceGhostCells(level, finest_level, ncycle);
+  bool isVirt = false;
+  bool isGhost = false;
   theSprayPC()->moveKick(
-    Sborder, tmp_spray_source, level, dt, time, false, false, spray_n_grow,
-    tmp_src_width, ltransparm);
+    Sborder, tmp_spray_source, level, dt, time, isVirt, isGhost,
+    spray_state_ghosts, spray_source_ghosts, ltransparm);
 
   if (level < parent->finestLevel() && theVirtPC() != nullptr) {
+    isVirt = true;
+    isGhost = false;
     theVirtPC()->moveKick(
-      Sborder, tmp_spray_source, level, dt, time, true, false, spray_n_grow,
-      tmp_src_width, ltransparm);
+      Sborder, tmp_spray_source, level, dt, time, isVirt, isGhost,
+      spray_state_ghosts, spray_source_ghosts, ltransparm);
   }
   // Ghost particles need to be kicked except during the final iteration.
   if (theGhostPC() != nullptr && level != 0) {
+    isVirt = false;
+    isGhost = true;
     theGhostPC()->moveKick(
-      Sborder, tmp_spray_source, level, dt, time, false, true, spray_n_grow,
-      tmp_src_width, ltransparm);
+      Sborder, tmp_spray_source, level, dt, time, isVirt, isGhost,
+      spray_state_ghosts, spray_source_ghosts, ltransparm);
   }
   MultiFab& spraydot = get_new_data(spraydot_Type);
   spraydot.setVal(0.);
   theSprayPC()->transferSource(
-    tmp_src_width, level, tmp_spray_source, spraydot);
+    spray_source_ghosts, level, tmp_spray_source, spraydot);
   spraydot.FillBoundary(geom.periodicity());
   Extrapolater::FirstOrderExtrap(spraydot, geom, 0, spraydot.nComp());
 }
