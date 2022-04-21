@@ -421,12 +421,21 @@ void pelelm_dertransportcoeff (const Box& bx, FArrayBox& derfab, int dcomp, int 
 
     // Get the transport GPU data pointer
     auto const* ltransparm = PeleLM::trans_parms.device_trans_parm();
-
-    amrex::ParallelFor(bx,
-    [T, rhoY, rhoD, lambda, mu, ltransparm] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
-    {
-        getTransportCoeff( i, j, k, rhoY, T, rhoD, lambda, mu, ltransparm);
-    });
+    if ( PeleLM::unity_Le ) {
+      amrex::Real ScInv = 1.0/PeleLM::schmidt;
+      amrex::Real PrInv = 1.0/PeleLM::prandtl;
+      amrex::ParallelFor(bx,
+			 [T, rhoY, rhoD, lambda, mu, ScInv, PrInv, ltransparm] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+      {
+	getTransportCoeffUnityLe( i, j, k, ScInv, PrInv, rhoY, T, rhoD, lambda, mu, ltransparm);
+      });
+    } else {
+      amrex::ParallelFor(bx,
+      [T, rhoY, rhoD, lambda, mu, ltransparm] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+      {
+          getTransportCoeff( i, j, k, rhoY, T, rhoD, lambda, mu, ltransparm);
+      });
+    }
 
 }
 

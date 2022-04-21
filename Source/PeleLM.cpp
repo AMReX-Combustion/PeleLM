@@ -1039,7 +1039,7 @@ PeleLM::define_data ()
    raii_fbs.push_back(std::unique_ptr<FluxBoxes>{new FluxBoxes(this, nEdgeStates, nGrowEdges)});
    EdgeFlux  = raii_fbs.back()->get();
 
-   if (NUM_SPECIES>0 && !unity_Le)
+   if (NUM_SPECIES>0)
    {
      raii_fbs.push_back(std::unique_ptr<FluxBoxes>{new FluxBoxes(this, NUM_SPECIES+3, nGrow)});
      SpecDiffusionFluxn   = raii_fbs.back()->get();
