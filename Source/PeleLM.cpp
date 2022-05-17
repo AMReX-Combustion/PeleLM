@@ -2567,7 +2567,7 @@ PeleLM::checkPoint (const std::string& dir,
     bool is_checkpoint = true;
     int write_ascii = 0; // Not for checkpoint intervals
     theSprayPC()->SprayParticleIO(
-      level, is_checkpoint, write_ascii, dir, sprayFuelNames);
+      level, is_checkpoint, write_ascii, dir, spray_fuel_names);
   }
 #endif
 }
@@ -8897,7 +8897,11 @@ PeleLM::writePlotFile (const std::string& dir,
     // add in vol frac
     n_data_items++;
 #endif
-
+#ifdef PELELM_USE_SPRAY
+    if (do_spray_particles) {
+      n_data_items += spray_derive_vars.size();
+    }
+#endif
   Real tnp1 = state[State_Type].curTime();
 
   if (level == 0 && ParallelDescriptor::IOProcessor())
@@ -8946,7 +8950,13 @@ PeleLM::writePlotFile (const std::string& dir,
     //add in vol frac
     os << "volFrac\n";
 #endif
-
+#ifdef PELELM_USE_SPRAY
+    if (do_spray_particles) {
+      for (int i = 0; i < spray_derive_vars.size(); ++i) {
+        os << spray_derive_vars[i] << '\n';
+      }
+    }
+#endif
     os << AMREX_SPACEDIM << '\n';
     os << parent->cumTime() << '\n';
     int f_lev = parent->finestLevel();
@@ -9210,8 +9220,18 @@ PeleLM::writePlotFile (const std::string& dir,
 
     // set covered values for ease of viewing
     EB_set_covered(plotMF, 0.0);
+    cnt++;
 #endif
-
+#ifdef PELELM_USE_SPRAY
+    if (do_spray_particles && spray_derive_vars.size() > 0) {
+      setupVirtualParticles();
+      theSprayPC()->computeDerivedVars(plotMF, level, cnt, spray_derive_vars, spray_fuel_names);
+      if (level != parent->finestLevel()) {
+        theVirtPC()->computeDerivedVars(plotMF, level, cnt, spray_derive_vars, spray_fuel_names);
+      }
+      removeVirtualParticles();
+    }
+#endif
   //
   // Use the Full pathname when naming the MultiFab.
   //
@@ -9240,7 +9260,7 @@ PeleLM::writePlotFile (const std::string& dir,
   {
     bool is_checkpoint = false;
     theSprayPC()->SprayParticleIO(
-      level, is_checkpoint, write_spray_ascii_files, dir, sprayFuelNames);
+      level, is_checkpoint, write_spray_ascii_files, dir, spray_fuel_names);
   }
 #endif
 #endif

@@ -276,7 +276,8 @@ public:
   amrex::MultiFab tmp_spray_source;
 
   static int num_spray_src;
-  static std::string sprayFuelNames[SPRAY_FUEL_NUM];
+  static std::string spray_fuel_names[SPRAY_FUEL_NUM];
+  static amrex::Vector<std::string> spray_derive_vars;
 
 #endif
   //
