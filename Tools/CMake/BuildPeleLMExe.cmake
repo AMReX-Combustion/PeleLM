@@ -101,6 +101,7 @@ function(build_pelelm_exe pelelm_exe_name)
   target_include_directories(${pelelm_exe_name} SYSTEM PRIVATE ${PELE_PHYSICS_SRC_DIR}/Support/Fuego/Evaluation)
   target_include_directories(${pelelm_exe_name} SYSTEM PRIVATE ${PELE_PHYSICS_SRC_DIR}/Utility/PMF)
   target_include_directories(${pelelm_exe_name} SYSTEM PRIVATE ${PELE_PHYSICS_SRC_DIR}/Utility/TurbInflow)
+  target_include_directories(${pelelm_exe_name} SYSTEM PRIVATE ${PELE_PHYSICS_SRC_DIR}/Utility/PltFileManager)
   target_include_directories(${pelelm_exe_name} SYSTEM PRIVATE ${PELE_PHYSICS_SRC_DIR}/Support/Fuego/Mechanism/Models)
 
   target_sources(${pelelm_exe_name}
@@ -271,6 +272,9 @@ function(build_pelelm_exe pelelm_exe_name)
        ${PELE_PHYSICS_SRC_DIR}/Utility/PMF/PMFData.H
        ${PELE_PHYSICS_SRC_DIR}/Utility/TurbInflow/turbinflow.cpp
        ${PELE_PHYSICS_SRC_DIR}/Utility/TurbInflow/turbinflow.H
+       ${PELE_PHYSICS_SRC_DIR}/Utility/PltFileManager/PltFileManager.cpp
+       ${PELE_PHYSICS_SRC_DIR}/Utility/PltFileManager/PltFileManager.H
+       ${PELE_PHYSICS_SRC_DIR}/Utility/PltFileManager/PltFileManagerBCFill.H
   )
 
   if(NOT "${pelelm_exe_name}" STREQUAL "PeleLM-UnitTests")
