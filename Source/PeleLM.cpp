@@ -31,18 +31,11 @@
 #include <NS_util.H>
 #include <AMReX_GpuContainers.H>
 
-#include <PPHYS_CONSTANTS.H>
 #include <PeleLM_K.H>
 #include <pelelm_prob.H>
 #include <pelelm_prob_parm.H>
 #include <PeleLM_parm.H>
-
-#include <AMReX_DataServices.H>
-#include <AMReX_AmrData.H>
-#if defined(AMREX_USE_NEWMECH) || defined(AMREX_USE_VELOCITY)
-#include <AMReX_DataServices.H>
-#include <AMReX_AmrData.H>
-#endif
+#include <PltFileManager.H>
 
 #ifdef AMREX_USE_GPU
 #include <AMReX_SUNMemory.H>
@@ -1775,70 +1768,9 @@ PeleLM::initData ()
   MultiFab&   S_new    = get_new_data(State_Type);
   MultiFab&   P_new    = get_new_data(Press_Type);
 
-#ifdef AMREX_USE_NEWMECH
-  //
-  // This code has a few drawbacks.  It assumes that the physical
-  // domain size of the current problem is the same as that of the
-  // one that generated the pltfile.  It also assumes that the pltfile
-  // has at least as many levels as does the current problem.  If
-  // either of these are false this code is likely to core dump.
-  //
-  ParmParse pp("ht");
-
-  std::string pltfile;
-  pp.query("pltfile", pltfile);
-  if (pltfile.empty())
-    amrex::Abort("You must specify `pltfile'");
-  if (verbose)
-    amrex::Print() << "initData: reading data from: " << pltfile << '\n';
-
-  DataServices::SetBatchMode();
-  FileType fileType(NEWPLT);
-  DataServices dataServices(pltfile, fileType);
-
-  if (!dataServices.AmrDataOk())
-    //
-    // This calls ParallelDescriptor::EndParallel() and exit()
-    //
-    DataServices::Dispatch(DataServices::ExitRequest, NULL);
-
-  AmrData&                  amrData     = dataServices.AmrDataRef();
-  Vector<std::string> names;
-  pele::physics::eos::speciesNames<pele::physics::PhysicsType::eos_type>(names);
-  Vector<std::string>        plotnames   = amrData.PlotVarNames();
-
-  int idT = -1, idX = -1;
-  for (int i = 0; i < plotnames.size(); ++i)
-  {
-    if (plotnames[i] == "temp")       idT = i;
-    if (plotnames[i] == "x_velocity") idX = i;
-  }
-  //
-  // In the plotfile the mass fractions directly follow the velocities.
-  //
-  int idSpec = idX + AMREX_SPACEDIM;
-
-  for (int i = 0; i < AMREX_SPACEDIM; i++)
-  {
-    amrData.FillVar(S_new, level, plotnames[idX+i], Xvel+i);
-    amrData.FlushGrids(idX+i);
-  }
-  amrData.FillVar(S_new, level, plotnames[idT], Temp);
-  amrData.FlushGrids(idT);
-
-  for (int i = 0; i < NUM_SPECIES; i++)
-  {
-    amrData.FillVar(S_new, level, plotnames[idSpec+i], first_spec+i);
-    amrData.FlushGrids(idSpec+i);
-  }
-
-  if (verbose) amrex::Print() << "initData: finished init from pltfile" << '\n';
-#endif
-
-  ParmParse pp("pelelm");
-  if (pp.countval("pltfile_for_init") > 0) {
-    S_new.setVal(0.0);
-    P_new.setVal(0.0);
+  // If the user provide an initDataPlt, fill the data from there.
+  ParmParse pp("peleLM");
+  if (pp.countval("initDataPlt") > 0) {
 
     //
     // This code has a few drawbacks.  It assumes that the physical
@@ -1847,79 +1779,65 @@ PeleLM::initData ()
     // has at least as many levels as does the current problem.  If
     // either of these are false this code is likely to core dump.
     //
+    S_new.setVal(0.0);
+    P_new.setVal(0.0);
 
     std::string pltfile;
-    pp.get("pltfile_for_init", pltfile);
+    pp.query("initDataPlt", pltfile);
     if (verbose)
       amrex::Print() << "initData: reading data from: " << pltfile << '\n';
 
-    DataServices::SetBatchMode();
-    Amrvis::FileType fileType(Amrvis::NEWPLT);
-    DataServices dataServices(pltfile, fileType);
-    if (!dataServices.AmrDataOk()) {
-      DataServices::Dispatch(DataServices::ExitRequest, NULL);
-    }
-    AmrData& amrData = dataServices.AmrDataRef();
+    // Use PelePhysics PltFileManager
+    pele::physics::pltfilemanager::PltFileManager pltData(pltfile); 
+    Vector<std::string>  plotnames   = pltData.getVariableList();
+
+    // Find required data in pltfile
     Vector<std::string> names;
     pele::physics::eos::speciesNames<pele::physics::PhysicsType::eos_type>(names);
-    Vector<std::string> plotnames = amrData.PlotVarNames();
 
-    int idT = -1, idV = -1, idX = -1, idY = -1;
-    for (int i = 0; i < plotnames.size(); ++i) {
-      if (plotnames[i] == "temp")            idT = i;
-      if (plotnames[i] == "x_velocity")      idV = i;
-      if (plotnames[i] == "X("+names[0]+")") idX = i;
-      if (plotnames[i] == "Y("+names[0]+")") idY = i;
-    }
-
-    if (verbose) {
-      Print() << "Initializing data from pltfile: \"" << pltfile << "\" for level " << level << std::endl;
-    }
-    for (int i = 0; i < AMREX_SPACEDIM; i++) {
-      amrData.FillVar(S_new, level, plotnames[idV+i], Xvel+i);
-      amrData.FlushGrids(idV+i);
-    }
-    amrData.FillVar(S_new, level, plotnames[idT], Temp);
-    amrData.FlushGrids(idT);
-    if (idY>=0) {
-      for (int i = 0; i < NUM_SPECIES; i++) {
-        amrData.FillVar(S_new, level, plotnames[idY+i], first_spec+i);
-        amrData.FlushGrids(idY+i);
+    int idT = -1, idX = -1, idY = -1, nSpecPlt = 0;
+    for (int i = 0; i < plotnames.size(); ++i)
+    {
+      std::string firstChars = plotnames[i].substr(0, 2);
+      if (plotnames[i] == "temp")       idT = i;
+      if (plotnames[i] == "x_velocity") idX = i;
+      if (firstChars == "Y(")     nSpecPlt += 1;
+      if (firstChars == "Y(" && idY < 0 ) {  // species might not be ordered in the order of the current mech.
+        idY = i;
       }
     }
-    else if (idX>=0) {
-      for (int i = 0; i < NUM_SPECIES; i++) {
-        amrData.FillVar(S_new, level, plotnames[idX+i], first_spec+i);
-        amrData.FlushGrids(idX+i);
-      }
+    //
+    // In the plotfile the mass fractions directly follow the velocities.
+    //
+    int idSpec = idX + AMREX_SPACEDIM;
+ 
+    // Velocity
+    pltData.fillPatchFromPlt(level, geom, idX, Xvel, AMREX_SPACEDIM,
+                             S_new);
 
-#ifdef AMREX_USE_OMP
-#pragma omp parallel if (Gpu::notInLaunchRegion())
-#endif
-      for (MFIter mfi(S_new,TilingIfNotGPU()); mfi.isValid(); ++mfi)
-      {
-        const Box& box = mfi.tilebox();
-        auto sfab = S_new.array(mfi);
+    // Temperature
+    pltData.fillPatchFromPlt(level, geom, idT, Temp, 1,
+                             S_new);
 
-        amrex::ParallelFor(box,
-        [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
-        {
-          amrex::Real Yt[NUM_SPECIES] = {0.0};
-          amrex::Real Xt[NUM_SPECIES] = {0.0};
-          for (int n = 0; n < NUM_SPECIES; n++) {
-            Yt[n] = sfab(i,j,k,n+1);
+    // Species
+    // Hold the species in temporary MF before copying to level data
+    // in case the number of species differs.
+    MultiFab speciesPlt(grids, dmap, nSpecPlt, 0); 
+    pltData.fillPatchFromPlt(level, geom, idSpec, 0, nSpecPlt,
+                             speciesPlt);
+    for (int i = 0; i < NUM_SPECIES; i++) {
+       std::string specString = "Y("+spec_names[i]+")";
+       int foundSpec = 0;
+       for (int iplt = 0; iplt < nSpecPlt; iplt++) {
+          if ( specString == plotnames[idY+iplt] ) {
+             MultiFab::Copy(S_new, speciesPlt, iplt, DEF_first_spec+i, 1, 0);
+             foundSpec = 1;
           }
-          auto eos = pele::physics::PhysicsType::eos();
-          eos.X2Y(Xt,Yt);
-          for (int n = 0; n < NUM_SPECIES; n++) {
-            sfab(i,j,k,n) = Xt[n];
-          }
-        });
-      }
+       }
+       if (!foundSpec) S_new.setVal(0.0,DEF_first_spec+i,1);
     }
-    else {
-      Abort("pltfile_for_init: plotfile not compatible, cannot initialize");
-    }
+
+    if (verbose) amrex::Print() << "initData: finished init from pltfile" << '\n';
 
 #ifdef AMREX_USE_OMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
@@ -1966,11 +1884,7 @@ PeleLM::initData ()
     amrex::ParallelFor(S_new,
     [=] AMREX_GPU_DEVICE (int box_no, int i, int j, int k) noexcept
     {
-#ifdef AMREX_USE_NEWMECH
-       amrex::Abort("USE_NEWMECH feature no longer working and has to be fixed/redone");
-#else
        pelelm_initdata(i, j, k, sma[box_no], geomdata, *lprobparm, lpmfdata);
-#endif
     });
   }
 
@@ -1981,71 +1895,43 @@ PeleLM::initData ()
   //
   computeGradP(state[Press_Type].curTime());
 
-#ifdef AMREX_USE_VELOCITY
   //
-  // We want to add the velocity from the supplied plotfile
-  // to what we already put into the velocity field via FORT_INITDATA.
+  // We might want to add the velocity from the supplied plotfile
+  // to what we already put into the velocity field via init_data
   //
-  // This code has a few drawbacks.  It assumes that the physical
-  // domain size of the current problem is the same as that of the
-  // one that generated the pltfile.  It also assumes that the pltfile
-  // has at least as many levels (with the same refinement ratios) as does
-  // the current problem.  If either of these are false this code is
-  // likely to core dump.
-  //
-  ParmParse pp("ht");
-
   std::string velocity_plotfile;
-  pp.query("velocity_plotfile", velocity_plotfile);
+  pp.query("initVelocityPlt", velocity_plotfile);
 
-  if (!velocity_plotfile.empty())
-  {
+  if (!velocity_plotfile.empty()) {
     if (verbose)
-      amrex::Print() << "initData: reading data from: " << velocity_plotfile << '\n';
+      amrex::Print() << "initData: reading velocity from: " << velocity_plotfile << '\n';
 
-    DataServices::SetBatchMode();
-    Amrvis::FileType fileType(Amrvis::NEWPLT);
-    DataServices dataServices(velocity_plotfile, fileType);
+    // Use PelePhysics PltFileManager
+    pele::physics::pltfilemanager::PltFileManager pltData(velocity_plotfile); 
+    Vector<std::string>  plotnames   = pltData.getVariableList();
 
-    if (!dataServices.AmrDataOk())
-      //
-      // This calls ParallelDescriptor::EndParallel() and exit()
-      //
-      DataServices::Dispatch(DataServices::ExitRequest, NULL);
-
-    AmrData&                  amrData   = dataServices.AmrDataRef();
-    Vector<std::string>        plotnames = amrData.PlotVarNames();
-
-    if (amrData.FinestLevel() < level)
-      amrex::Abort("initData: not enough levels in plotfile");
-
-    if (amrData.ProbDomain()[level] != Domain())
-      amrex::Abort("initData: problem domains do not match");
+    // Find required data in pltfile
+    Vector<std::string> names;
+    pele::physics::eos::speciesNames<pele::physics::PhysicsType::eos_type>(names);
 
     int idX = -1;
     for (int i = 0; i < plotnames.size(); ++i)
-      if (plotnames[i] == "x_velocity") idX = i;
-
-    if (idX == -1)
-      amrex::Abort("Could not find velocity fields in supplied velocity_plotfile");
-
-    MultiFab tmp(S_new.boxArray(), S_new.DistributionMap(), 1, 0);
-    for (int i = 0; i < AMREX_SPACEDIM; i++)
     {
-      amrData.FillVar(tmp, level, plotnames[idX+i], 0);
-#ifdef AMREX_USE_OMP
-#pragma omp parallel
-#endif
-      for (MFIter mfi(tmp,true); mfi.isValid(); ++mfi) {
-        S_new[mfi].plus(tmp[mfi], mfi.tilebox(), 0, Xvel+i, 1); // This will not work on GPU
-      }
-      amrData.FlushGrids(idX+i);
+      if (plotnames[i] == "x_velocity") idX = i;
     }
+    if (idX == -1)
+      amrex::Abort("Could not find velocity fields in supplied peleLM.initVelocityPlt");
+ 
+    MultiFab tmp(S_new.boxArray(), S_new.DistributionMap(), 1, 0);
+
+    // Velocity
+    pltData.fillPatchFromPlt(level, geom, idX, 0, AMREX_SPACEDIM,
+                             tmp);
+    MultiFab::Add(S_new,tmp,0,Xvel,AMREX_SPACEDIM,0);
 
     if (verbose)
-      amrex::Print() << "initData: finished init from velocity_plotfile" << '\n';
+      amrex::Print() << "initData: finished init from peleLM.initVelocityPlt" << '\n';
   }
-#endif /*AMREX_USE_VELOCITY*/
 
   make_rho_prev_time();
   make_rho_curr_time();
