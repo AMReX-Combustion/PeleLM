@@ -119,22 +119,7 @@ VPATH_LOCATIONS   += $(Blocs)
 #INCLUDE_LOCATIONS += $(AMREX_HOME)/Src/F_Interfaces/Base
 #VPATH_LOCATIONS   += $(AMREX_HOME)/Src/F_Interfaces/Base
 
-ifeq ($(USE_FLCTS), TRUE)
-  DEFINES += -DBL_DO_FLCT
-  include $(IAMR_HOME)/Source/TurbInflow/Make.package
-  VPATH_LOCATIONS += $(IAMR_HOME)/Source/TurbInflow
-  EXTERN_CORE += $(IAMR_HOME)/Source/TurbInflow
-endif
-
 # Hack in some LM-specific stuff
-
-ifeq ($(USE_VELOCITY), TRUE)
-  DEFINES += -DAMREX_USE_VELOCITY
-endif
-
-ifeq ($(USE_NEWMECH), TRUE)
-  DEFINES += -DAMREX_USE_NEWMECH
-endif
 
 # Enable time-dependent turbulence forcing term
 ifeq ($(USE_TDEPFORCING), TRUE)
@@ -171,7 +156,6 @@ AMReX_buildInfo.cpp:
 	$(AMREX_HOME)/Tools/C_scripts/makebuildinfo_C.py \
           --amrex_home "$(AMREX_HOME)" \
           --COMP "$(COMP)" --COMP_VERSION "$(COMP_VERSION)" \
-          --FCOMP "$(FCOMP)" --FCOMP_VERSION "$(FCOMP_VERSION)" \
           --MODULES "Chemistry=$(Chemistry_Model)" \
           --GIT "$(PELELM_HOME) $(AMREX_HOME) $(IAMR_HOME) $(AMREX_HYDRO_HOME) $(PELE_PHYSICS_HOME)"
 
