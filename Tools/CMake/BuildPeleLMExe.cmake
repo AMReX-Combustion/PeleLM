@@ -173,6 +173,7 @@ function(build_pelelm_exe pelelm_exe_name)
      PRIVATE
        ${IAMR_SRC_DIR}/SyncRegister.cpp
        ${IAMR_SRC_DIR}/NS_init_eb2.cpp
+       ${IAMR_SRC_DIR}/EBUserDefined.H
        ${IAMR_SRC_DIR}/NS_getForce.cpp
        ${IAMR_SRC_DIR}/OutFlowBC.cpp
        ${IAMR_SRC_DIR}/FluxBoxes.cpp
