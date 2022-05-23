@@ -2,6 +2,7 @@ EBASE = PeleLM
 PELE_PHYSICS_HOME ?= $(SUBMODS)/PelePhysics
 
 USE_SUNDIALS = TRUE
+BL_NO_FORT = TRUE
 
 include $(AMREX_HOME)/Tools/GNUMake/Make.defs 
 #$(info LIBRARIES_BeginPeleMake="$(LIBRARIES)")
@@ -29,21 +30,7 @@ INCLUDE_LOCATIONS +=  $(AMREX_HOME)/Tools/C_scripts
 ##############################################################
 # PelePhysics
 ##############################################################
-# Core
-PP_SRC_HOME = $(PELE_PHYSICS_HOME)/Source
-INCLUDE_LOCATIONS += $(PP_SRC_HOME)
-VPATH_LOCATIONS   += $(PP_SRC_HOME)
-Bpack             += $(PP_SRC_HOME)/Make.package
-Blocs             += $(PP_SRC_HOME)
-
-# Utilities
-Bpack += $(PELE_PHYSICS_HOME)/Utility/PMF/Make.package
-Blocs += $(PELE_PHYSICS_HOME)/Utility/PMF
-Bpack += $(PELE_PHYSICS_HOME)/Utility/TurbInflow/Make.package
-Blocs += $(PELE_PHYSICS_HOME)/Utility/TurbInflow
-
-# EOS
-EOS_HOME = $(PELE_PHYSICS_HOME)/Eos
+# EOS models switches
 ifeq ($(Eos_Model),$(filter $(Eos_Model),GammaLaw))
    DEFINES += -DUSE_GAMMALAW_EOS
 endif
@@ -51,37 +38,10 @@ ifeq ($(Eos_Model),$(filter $(Eos_Model),Fuego))
    DEFINES += -DUSE_FUEGO_EOS
 endif
 ifeq ($(Eos_Model),$(filter $(Eos_Model),Soave-Redlich-Kwong))
-   $(error EOS Soave-Redlich-Kwong not available in PeleLM)
+   DEFINES += -DUSE_SRK_EOS
 endif
-INCLUDE_LOCATIONS += $(EOS_HOME)
-VPATH_LOCATIONS   += $(EOS_HOME)
-Bpack             += $(EOS_HOME)/Make.package
-Blocs             += $(EOS_HOME)
 
-# Reactions
-REACTIONS_HOME = $(PELE_PHYSICS_HOME)/Reactions
-EXTERN_CORE       += $(REACTIONS_HOME)
-INCLUDE_LOCATIONS += $(REACTIONS_HOME)
-VPATH_LOCATIONS   += $(REACTIONS_HOME)
-Bpack += $(REACTIONS_HOME)/Make.package
-Blocs += $(REACTIONS_HOME)
-include $(PELE_PHYSICS_HOME)/ThirdParty/Make.ThirdParty
-
-ifdef Chemistry_Model
-  USE_FUEGO = TRUE
-  CHEM_HOME = $(PELE_PHYSICS_HOME)/Support/Fuego/Mechanism/Models/$(Chemistry_Model)
-  CHEM_ALL = $(PELE_PHYSICS_HOME)/Support/Fuego/Mechanism/Models
-  Blocs += $(PELE_PHYSICS_HOME)/Support/Fuego/Evaluation
-endif
-VPATH_LOCATIONS += $(CHEM_HOME)
-Bpack += $(CHEM_HOME)/Make.package $(CHEM_ALL)/Make.package
-Blocs += $(CHEM_HOME) $(CHEM_ALL)
-
-# Transport
-TRANSPORT_HOME = $(PELE_PHYSICS_HOME)/Transport/
-include $(TRANSPORT_HOME)/Make.package
-INCLUDE_LOCATIONS += $(TRANSPORT_HOME)
-VPATH_LOCATIONS   += $(TRANSPORT_HOME)
+# Transport model switches
 ifeq ($(Transport_Model), Simple)
   DEFINES += -DUSE_SIMPLE_TRANSPORT
 endif
@@ -95,6 +55,18 @@ endif
 ifeq ($(Transport_Model), Sutherland)
   DEFINES += -DUSE_SUTHERLAND_TRANSPORT
 endif
+
+ifeq ($(PELE_USE_KLU), TRUE)
+  DEFINES += -DPELE_USE_KLU
+endif
+
+ChemDir  = Support/Mechanism/Models/$(Chemistry_Model)
+
+PPdirs  := Utility/PMF Utility/TurbInflow Utility/PltFileManager Source $(ChemDir) Reactions Eos Transport
+
+Bpack += $(foreach dir, $(PPdirs), $(PELE_PHYSICS_HOME)/$(dir)/Make.package)
+Blocs += $(foreach dir, $(PPdirs), $(PELE_PHYSICS_HOME)/$(dir))
+include $(PELE_PHYSICS_HOME)/ThirdParty/Make.ThirdParty
 
 #
 # Tells IAMR not to include the following: NS_error.cpp NS_setup.cpp NSBld.cpp
@@ -145,43 +117,7 @@ VPATH_LOCATIONS   += $(Blocs)
 #INCLUDE_LOCATIONS += $(AMREX_HOME)/Src/F_Interfaces/Base
 #VPATH_LOCATIONS   += $(AMREX_HOME)/Src/F_Interfaces/Base
 
-ifeq ($(USE_FLCTS), TRUE)
-  DEFINES += -DBL_DO_FLCT
-  include $(IAMR_HOME)/Source/TurbInflow/Make.package
-  VPATH_LOCATIONS += $(IAMR_HOME)/Source/TurbInflow
-  EXTERN_CORE += $(IAMR_HOME)/Source/TurbInflow
-endif
-
-# runtime parameter support for extern/ routines
-# Right now, only USE_FLCTS requires those
-#ifeq ($(USE_FLCTS), TRUE)
-#  f90EXE_sources += extern.f90
-#
-#  EXTERN_TEMPLATE := $(PELE_PHYSICS_HOME)/Testing/Source/extern_probin.template
-#
-#  EXTERN_PARAMETERS := $(shell $(AMREX_HOME)/Tools/F_scripts/findparams.py $(EXTERN_CORE))
-#
-#  extern.f90: $(EXTERN_PARAMETERS) $(EXTERN_TEMPLATE)
-#  	$(AMREX_HOME)/Tools/F_scripts/write_probin.py \
-#             -t $(EXTERN_TEMPLATE) -o extern.f90 -n extern \
-#             --pa "$(EXTERN_PARAMETERS)" 
-#endif
-
 # Hack in some LM-specific stuff
-
-AMRVIS_HOME = $(AMREX_HOME)/Src/Extern/amrdata
-include $(PELELM_HOME)/Tools/Make/AmrData.mk
-INCLUDE_LOCATIONS += $(AMRVIS_HOME)
-VPATH_LOCATIONS   += $(AMRVIS_HOME)
-DEFINES += -DAMREX_NOLINEVALUES -DAMREX_PARALLEL_IO
-
-ifeq ($(USE_VELOCITY), TRUE)
-  DEFINES += -DAMREX_USE_VELOCITY
-endif
-
-ifeq ($(USE_NEWMECH), TRUE)
-  DEFINES += -DAMREX_USE_NEWMECH
-endif
 
 # Enable time-dependent turbulence forcing term
 ifeq ($(USE_TDEPFORCING), TRUE)
@@ -218,7 +154,6 @@ AMReX_buildInfo.cpp:
 	$(AMREX_HOME)/Tools/C_scripts/makebuildinfo_C.py \
           --amrex_home "$(AMREX_HOME)" \
           --COMP "$(COMP)" --COMP_VERSION "$(COMP_VERSION)" \
-          --FCOMP "$(FCOMP)" --FCOMP_VERSION "$(FCOMP_VERSION)" \
           --MODULES "Chemistry=$(Chemistry_Model)" \
           --GIT "$(PELELM_HOME) $(AMREX_HOME) $(IAMR_HOME) $(AMREX_HYDRO_HOME) $(PELE_PHYSICS_HOME)"
 
@@ -233,7 +168,6 @@ endif
 
 #$(info LIBRARIES_EndPeleMake="$(LIBRARIES)")
 clean::
-	$(SILENT) $(RM) extern_parameters.cpp extern_parameters_F.H extern_parameters.H extern.f90
 	$(SILENT) $(RM) AMReX_buildInfo.cpp
 
 TPL:
