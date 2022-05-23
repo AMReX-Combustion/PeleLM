@@ -67,7 +67,7 @@ function(build_pelelm_exe pelelm_exe_name)
     target_compile_definitions(${pelelm_exe_name} PRIVATE USE_SRK_EOS)
   endif()
 
-  set(PELELM_MECHANISM_DIR "${PELE_PHYSICS_SRC_DIR}/Support/Fuego/Mechanism/Models/${PELELM_CHEMISTRY_MODEL}")
+  set(PELELM_MECHANISM_DIR "${PELE_PHYSICS_SRC_DIR}/Support/Mechanism/Models/${PELELM_CHEMISTRY_MODEL}")
   target_sources(${pelelm_exe_name} PRIVATE
                  ${PELELM_MECHANISM_DIR}/mechanism.cpp
                  ${PELELM_MECHANISM_DIR}/mechanism.H)
@@ -98,11 +98,10 @@ function(build_pelelm_exe pelelm_exe_name)
   set_source_files_properties(${PELELM_MECHANISM_DIR}/mechanism.cpp PROPERTIES COMPILE_OPTIONS "${MY_CXX_FLAGS}")
   set_source_files_properties(${PELELM_MECHANISM_DIR}/mechanism.H PROPERTIES COMPILE_OPTIONS "${MY_CXX_FLAGS}")
   target_include_directories(${pelelm_exe_name} SYSTEM PRIVATE ${PELELM_MECHANISM_DIR})
-  target_include_directories(${pelelm_exe_name} SYSTEM PRIVATE ${PELE_PHYSICS_SRC_DIR}/Support/Fuego/Evaluation)
   target_include_directories(${pelelm_exe_name} SYSTEM PRIVATE ${PELE_PHYSICS_SRC_DIR}/Utility/PMF)
   target_include_directories(${pelelm_exe_name} SYSTEM PRIVATE ${PELE_PHYSICS_SRC_DIR}/Utility/TurbInflow)
   target_include_directories(${pelelm_exe_name} SYSTEM PRIVATE ${PELE_PHYSICS_SRC_DIR}/Utility/PltFileManager)
-  target_include_directories(${pelelm_exe_name} SYSTEM PRIVATE ${PELE_PHYSICS_SRC_DIR}/Support/Fuego/Mechanism/Models)
+  target_include_directories(${pelelm_exe_name} SYSTEM PRIVATE ${PELE_PHYSICS_SRC_DIR}/Support/Mechanism/Models)
 
   target_sources(${pelelm_exe_name}
     PRIVATE
