@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Building with GNU Make &mdash; PeleLM 2018.10 documentation</title>
+      <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="_static/doctools.js"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="PeleLM control" href="RunningPeleLM.html" />
+    <link rel="prev" title="Setting up a new PeleLM Case" href="ProblemSetup.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="index.html" class="icon icon-home"> PeleLM
+            <img src="_static/swirlH2Fast_OH_vort_256.png" class="logo" alt="Logo"/>
+          </a>
+              <div class="version">
+                2018.10
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Documentation contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="GettingStarted.html"><cite>PeleLM</cite> Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Model.html">The <cite>PeleLM</cite> Model</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ProblemSetup.html">Setting up a new <cite>PeleLM</cite> Case</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Building with GNU Make</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#dissecting-a-simple-make-file">Dissecting a Simple Make File</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#tweaking-the-make-system">Tweaking the Make System</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#specifying-your-own-compiler-gcc-on-macos">Specifying your own compiler / GCC on macOS</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="RunningPeleLM.html"><cite>PeleLM</cite> control</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Visualization.html">Visualization</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Tutorials.html">Tutorials</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">PeleLM</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home"></a> &raquo;</li>
+      <li>Building with GNU Make</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/GNUmakeSystem.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="building-with-gnu-make">
+<span id="sec-build-make"></span><h1>Building with GNU Make<a class="headerlink" href="#building-with-gnu-make" title="Permalink to this heading"></a></h1>
+<p>The build of <cite>PeleLM</cite> is managed with GNUmake.  For a specific case setup and
+run configuration, you write your own make input files that define a number of
+variables and build rules, and then invoke <code class="docutils literal notranslate"><span class="pre">make</span></code> to initiate the build process.
+This will result in an executable upon successful completion. Temporary
+files generated in the building process (such as object files) are stored in a
+directory named  <code class="docutils literal notranslate"><span class="pre">tmp_build_dir</span></code> in such a way that allows multiple build
+configurations to co-exist.</p>
+<section id="dissecting-a-simple-make-file">
+<h2>Dissecting a Simple Make File<a class="headerlink" href="#dissecting-a-simple-make-file" title="Permalink to this heading"></a></h2>
+<p>An example input file for GNU Make can be found in any of the example setup,
+such as <code class="docutils literal notranslate"><span class="pre">$(PELELM_HOME)/Exec/RegTests/FlameSheet</span></code>. Table <a class="reference internal" href="#tab-makevars"><span class="std std-numref">1</span></a>
+below shows a list of important variables.</p>
+<span id="tab-makevars"></span><table class="docutils align-default" id="id1">
+<caption><span class="caption-number">1 </span><span class="caption-text">Important make variables</span><a class="headerlink" href="#id1" title="Permalink to this table"></a></caption>
+<colgroup>
+<col style="width: 29%" />
+<col style="width: 53%" />
+<col style="width: 19%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Variable</p></th>
+<th class="head"><p>Value</p></th>
+<th class="head"><p>Default</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>AMREX_HOME</p></td>
+<td><p>Path to amrex</p></td>
+<td><p>environment</p></td>
+</tr>
+<tr class="row-odd"><td><p>IAMR_HOME</p></td>
+<td><p>Path to IAMR</p></td>
+<td><p>environment</p></td>
+</tr>
+<tr class="row-even"><td><p>PELELM_HOME</p></td>
+<td><p>Path to PeleLM</p></td>
+<td><p>environment</p></td>
+</tr>
+<tr class="row-odd"><td><p>PELE_PHYSICS_HOME</p></td>
+<td><p>Path to PelePhysics</p></td>
+<td><p>environment</p></td>
+</tr>
+<tr class="row-even"><td><p>AMREX_HYDRO_HOME</p></td>
+<td><p>Path to AMReX-Hydro</p></td>
+<td><p>environment</p></td>
+</tr>
+<tr class="row-odd"><td><p>COMP</p></td>
+<td><p>gnu, cray, ibm, intel, llvm, or pgi</p></td>
+<td><p>none</p></td>
+</tr>
+<tr class="row-even"><td><p>DEBUG</p></td>
+<td><p>TRUE or FALSE</p></td>
+<td><p>TRUE</p></td>
+</tr>
+<tr class="row-odd"><td><p>DIM</p></td>
+<td><p>2 or 3</p></td>
+<td><p>none</p></td>
+</tr>
+<tr class="row-even"><td><p>USE_MPI</p></td>
+<td><p>TRUE or FALSE</p></td>
+<td><p>FALSE</p></td>
+</tr>
+<tr class="row-odd"><td><p>USE_OMP</p></td>
+<td><p>TRUE or FALSE</p></td>
+<td><p>FALSE</p></td>
+</tr>
+<tr class="row-even"><td><p>USE_CUDA</p></td>
+<td><p>TRUE or FALSE</p></td>
+<td><p>FALSE</p></td>
+</tr>
+<tr class="row-odd"><td><p>USE_HIP</p></td>
+<td><p>TRUE or FALSE</p></td>
+<td><p>FALSE</p></td>
+</tr>
+<tr class="row-even"><td><p>USE_DPCPP</p></td>
+<td><p>TRUE or FALSE</p></td>
+<td><p>FALSE</p></td>
+</tr>
+</tbody>
+</table>
+<p>At the beginning of <code class="docutils literal notranslate"><span class="pre">$(PELELM_HOME)/Exec/FlameSheet/GNUmakefile</span></code>, the make
+variable <code class="docutils literal notranslate"><span class="pre">AMREX_HOME</span></code> is set to the path to the top directory of AMReX.  Note that in
+the example <code class="code highlight cpp c++ docutils literal highlight-c++"><span class="o">?=</span><span class="w"></span></code> is a conditional variable assignment operator that only
+has an effect if <code class="docutils literal notranslate"><span class="pre">AMREX_HOME</span></code> has not been defined (including in the
+environment). The make variable can also take it value from the corresponding
+environment variable, <code class="docutils literal notranslate"><span class="pre">AMREX_HOME</span></code>, if it exists.  For
+example in bash, one can set</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">export</span> <span class="nv">AMREX_HOME</span><span class="o">=</span>/path/to/amrex
+</pre></div>
+</div>
+<p>prior to running <code class="docutils literal notranslate"><span class="pre">make</span></code>.  alternatively, in tcsh one can set</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>setenv AMREX_HOME /path/to/amrex
+</pre></div>
+</div>
+<p>Path to <cite>IAMR</cite> (<code class="docutils literal notranslate"><span class="pre">IAMR_HOME</span></code>), <cite>PelePhysics</cite> (<code class="docutils literal notranslate"><span class="pre">PELE_PHYSICS_HOME</span></code>), <cite>AMReX-Hydro</cite> (<code class="docutils literal notranslate"><span class="pre">AMREX_HYDRO_HOME</span></code>)
+and <cite>PeleLM</cite> (<code class="docutils literal notranslate"><span class="pre">PELELM_HOME</span></code>) should also be provided in the same manner.</p>
+<p>One must set the <code class="docutils literal notranslate"><span class="pre">COMP</span></code> variable to choose a compiler suite (for C, C++, f90).
+Currently the list of supported compiler suites includes gnu, cray, ibm, intel, llvm,
+and pgi. One must also set the <code class="docutils literal notranslate"><span class="pre">DIM</span></code> variable to either 1, 2, or 3, depending
+on the dimensionality of the problem.</p>
+<p>Variables <code class="docutils literal notranslate"><span class="pre">DEBUG</span></code>, <code class="docutils literal notranslate"><span class="pre">USE_MPI</span></code>, <code class="docutils literal notranslate"><span class="pre">USE_OMP</span></code>, <code class="docutils literal notranslate"><span class="pre">USE_CUDA</span></code>, <code class="docutils literal notranslate"><span class="pre">USE_HIP``and</span> <span class="pre">``USE_DPCPP</span></code> are optional with default set
+to TRUE, FALSE, FALSE, FALSE, FALSE and FALSE, respectively. Note that the last three entries are mutually exclusive.
+The meaning of these variables should be obvious.  When <code class="docutils literal notranslate"><span class="pre">DEBUG=TRUE</span></code>, aggressive compiler optimization flags are
+turned off and assertions in source code are turned on. For production runs, <code class="docutils literal notranslate"><span class="pre">DEBUG</span></code> should be set to FALSE.</p>
+<p>After defining these make variables, an application code may also wish to
+include its own Make.package file (e.g., <code class="docutils literal notranslate"><span class="pre">./Make.package</span></code>) or otherwise
+directly append source files to the build system, using operator <code class="docutils literal notranslate"><span class="pre">+=</span></code>.
+Variables for various source file types are shown below.</p>
+<blockquote>
+<div><dl class="simple">
+<dt>CEXE_sources</dt><dd><p>C++ source files. Note that C++ source files are assumed to have a .cpp
+extension.</p>
+</dd>
+<dt>CEXE_headers</dt><dd><p>C++ headers with .h or .H extension.</p>
+</dd>
+<dt>cEXE_sources</dt><dd><p>C source files with .c extension.</p>
+</dd>
+<dt>cEXE_headers</dt><dd><p>C headers with .h extension.</p>
+</dd>
+</dl>
+</div></blockquote>
+<p>In the <code class="docutils literal notranslate"><span class="pre">FlameSheet</span></code> example, the extra source file, <code class="docutils literal notranslate"><span class="pre">drm19Soln_seed_0.50.f</span></code> is in a
+directory that is already in the build system’s search path.  Additional files,
+that are local to this setup, such as <code class="docutils literal notranslate"><span class="pre">pele_prob.cpp</span></code> need to be added to the appropriate
+file list explicitly as well.  If this case included files in a separate folder
+(e.g., <code class="docutils literal notranslate"><span class="pre">mysrcdir</span></code>), you will then need to add the following:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nv">VPATH_LOCATIONS</span> <span class="o">+=</span> mysrcdir
+<span class="nv">INCLUDE_LOCATIONS</span> <span class="o">+=</span> mysrcdir
+</pre></div>
+</div>
+<p>Here <code class="docutils literal notranslate"><span class="pre">VPATH_LOCATIONS</span></code> and <code class="docutils literal notranslate"><span class="pre">INCLUDE_LOCATIONS</span></code> are the search path for
+source and header files, respectively.</p>
+<p>Finally, <cite>PeleLM</cite> requires a number of defines and setup for every case that must be processed
+into final filelists for building, and various defines for complilation – these are managed
+in the make include file <code class="docutils literal notranslate"><span class="pre">$(PELELM_HOME)/Tools/Make/Make.PeleLM</span></code>.  In particular, this
+file contains macros to find the chemistry mechanism/model files associated with the string
+value of the <code class="docutils literal notranslate"><span class="pre">Chemistry_Model</span></code> variable.  Look in <code class="docutils literal notranslate"><span class="pre">$(PELELM_HOME)/Tools/Make/Make.PeleLM</span></code>
+for a list of currently recognized models, and to see which folder that the string maps to
+in <code class="docutils literal notranslate"><span class="pre">$(PELE_PHYSICS_HOME)/Support/Fuego/Mechanism/Models</span></code> folder.  That folder will contain
+a <code class="docutils literal notranslate"><span class="pre">Make.package</span></code> that appends the model-specific source files to the build list (typically
+a C-source file generated by <cite>FUEGO</cite> from a CHEMKIN-compatible set of specification files – see
+the file <code class="docutils literal notranslate"><span class="pre">$(PELE_PHYSICS_HOME)/README.rst</span></code> for more information on model generation.</p>
+</section>
+<section id="tweaking-the-make-system">
+<h2>Tweaking the Make System<a class="headerlink" href="#tweaking-the-make-system" title="Permalink to this heading"></a></h2>
+<p>The GNU Make build system is located in the <cite>AMReX</cite> source code distribution in
+<code class="docutils literal notranslate"><span class="pre">$(AMREX_HOME)/Tools/GNUMake</span></code>.  You can read <code class="docutils literal notranslate"><span class="pre">README.md</span></code> and the make files there for more information.
+Here we will give a brief overview.</p>
+<p>Besides building executable, other common make commands include:</p>
+<blockquote>
+<div><dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">clean</span></code></dt><dd><p>This removes the executable, .o files, and the temporarily generated
+files. Note that one can add additional targets to this rule using the
+double colon (::)</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">realclean</span></code></dt><dd><p>This removes all files generated by make.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">help</span></code></dt><dd><p>This shows the rules for compilation.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">print-xxx</span></code></dt><dd><p>This shows the value of variable xxx. This is very useful for debugging
+and tweaking the make system.</p>
+</dd>
+</dl>
+</div></blockquote>
+<p>Compiler flags are set in <code class="docutils literal notranslate"><span class="pre">$(AMREX_HOME)/Tools/GNUMake/comps/</span></code>. Note that variables
+like <code class="docutils literal notranslate"><span class="pre">CC</span></code> and <code class="docutils literal notranslate"><span class="pre">CFLAGS</span></code> are reset in that directory and their values in
+environment variables are disregarded.  Site-specific setups (e.g., the MPI
+installation) are in <code class="docutils literal notranslate"><span class="pre">$(AMREX_HOME)/Tools/GNUMake/sites/</span></code>, which includes a generic
+setup in <code class="docutils literal notranslate"><span class="pre">Make.unknown</span></code>. You can override the setup by having your own
+<code class="docutils literal notranslate"><span class="pre">sites/Make.$(host_name)</span></code> file, where variable <code class="docutils literal notranslate"><span class="pre">host_name</span></code> is your host
+name in the make system and can be found via <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">print-host_name</span></code>.  You can
+also have an <code class="docutils literal notranslate"><span class="pre">$(AMREX_HOME)/Tools/GNUMake/Make.local</span></code> file to override various
+variables. See <code class="docutils literal notranslate"><span class="pre">$(AMREX_HOME)/Tools/GNUMake/Make.local.template</span></code> for an example.</p>
+</section>
+<section id="specifying-your-own-compiler-gcc-on-macos">
+<span id="sec-build-local"></span><h2>Specifying your own compiler / GCC on macOS<a class="headerlink" href="#specifying-your-own-compiler-gcc-on-macos" title="Permalink to this heading"></a></h2>
+<p>The <code class="docutils literal notranslate"><span class="pre">$(AMREX_HOME)/Tools/GNUMake/Make.local</span></code> file can also be used to specify your
+own compile commands by setting the valiables <code class="docutils literal notranslate"><span class="pre">CXX</span></code>, <code class="docutils literal notranslate"><span class="pre">CC</span></code>, <code class="docutils literal notranslate"><span class="pre">FC</span></code>, and
+<code class="docutils literal notranslate"><span class="pre">F90</span></code>. This might be neccarry if your systems contains non-standard names for
+compiler commands.</p>
+<p>For example, mac OSX Xcode ships with its own (woefully outdated) version of GCC
+(4.2.1). It is therefore recommended to install GCC using the <a class="reference external" href="https://brew.sh">homebrew</a> package manager. Running <code class="docutils literal notranslate"><span class="pre">brew</span> <span class="pre">install</span> <span class="pre">gcc</span></code> installs gcc
+with names reflecting the version number. If GCC 8.2 is installed, homebrew
+installs it as <code class="docutils literal notranslate"><span class="pre">gcc-8</span></code>. AMReX can be built using <code class="docutils literal notranslate"><span class="pre">gcc-8</span></code> without MPI by
+using the following <code class="docutils literal notranslate"><span class="pre">$(AMREX_HOME)/Tools/GNUMake/Make.local</span></code>:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>ifeq <span class="o">(</span><span class="k">$(</span>USE_MPI<span class="k">)</span>,TRUE<span class="o">)</span>
+  <span class="nv">CXX</span> <span class="o">=</span> mpicxx
+  <span class="nv">CC</span>  <span class="o">=</span> mpicc
+  <span class="nv">FC</span>  <span class="o">=</span> mpif90
+  <span class="nv">F90</span> <span class="o">=</span> mpif90
+<span class="k">else</span>
+  <span class="nv">CXX</span> <span class="o">=</span> g++-8
+  <span class="nv">CC</span>  <span class="o">=</span> gcc-8
+  <span class="nv">FC</span>  <span class="o">=</span> gfortran-8
+  <span class="nv">F90</span> <span class="o">=</span> gfortran-8
+endif
+</pre></div>
+</div>
+<p>For building with MPI, we assume <code class="docutils literal notranslate"><span class="pre">mpicxx</span></code>, <code class="docutils literal notranslate"><span class="pre">mpif90</span></code>, etc. provide access to
+the correct underlying compilers.</p>
+<p>Note that if you are building <cite>PeleLM</cite> using homebrew’s gcc, it is recommended
+that you use homebrew’s mpich. Normally is it fine to simply install its
+binaries: <code class="docutils literal notranslate"><span class="pre">brew</span> <span class="pre">install</span> <span class="pre">mpich</span></code>. But if you are experiencing problems, we
+suggest building mpich usinging homebrew’s gcc: <code class="docutils literal notranslate"><span class="pre">brew</span> <span class="pre">install</span> <span class="pre">mpich</span>
+<span class="pre">--cc=gcc-8</span></code>.</p>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="ProblemSetup.html" class="btn btn-neutral float-left" title="Setting up a new PeleLM Case" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="RunningPeleLM.html" class="btn btn-neutral float-right" title="PeleLM control" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright AMReX Copyright (c) 2018, The Regents of the University of California, through Lawrence Berkeley National Laboratory and the Alliance for Sustainable Energy, LLC., through National Renewable Energy Laboratory (subject to receipt of any required approvals from the U.S. Dept. of Energy).  All rights reserved..</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

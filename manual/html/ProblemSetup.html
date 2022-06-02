@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Setting up a new PeleLM Case &mdash; PeleLM 2018.10 documentation</title>
+      <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="_static/doctools.js"></script>
+        <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Building with GNU Make" href="GNUmakeSystem.html" />
+    <link rel="prev" title="The PeleLM Model" href="Model.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="index.html" class="icon icon-home"> PeleLM
+            <img src="_static/swirlH2Fast_OH_vort_256.png" class="logo" alt="Logo"/>
+          </a>
+              <div class="version">
+                2018.10
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Documentation contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="GettingStarted.html"><cite>PeleLM</cite> Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Model.html">The <cite>PeleLM</cite> Model</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Setting up a new <cite>PeleLM</cite> Case</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#initial-conditions">Initial Conditions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#boundary-conditions">Boundary Conditions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#refinement-criteria">Refinement Criteria</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="GNUmakeSystem.html">Building with GNU Make</a></li>
+<li class="toctree-l1"><a class="reference internal" href="RunningPeleLM.html"><cite>PeleLM</cite> control</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Visualization.html">Visualization</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Tutorials.html">Tutorials</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">PeleLM</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home"></a> &raquo;</li>
+      <li>Setting up a new <cite>PeleLM</cite> Case</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/ProblemSetup.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="setting-up-a-new-pelelm-case">
+<span id="sec-newcase"></span><h1>Setting up a new <cite>PeleLM</cite> Case<a class="headerlink" href="#setting-up-a-new-pelelm-case" title="Permalink to this heading"></a></h1>
+<p>In order to set up and run a new case in <cite>PeleLM</cite>, the user must provide problem-specific code for two main tasks</p>
+<ul class="simple">
+<li><p>Initial conditions</p></li>
+<li><p>Boundary conditions</p></li>
+</ul>
+<p>These functions are typically collected into a single subfolder in <code class="docutils literal notranslate"><span class="pre">${PELELM_HOME}/Exec</span></code>, such as <code class="docutils literal notranslate"><span class="pre">FlameSheet</span></code>.
+The user can organize these tasks in any way that is convenient - the examples distributed with <code class="docutils literal notranslate"><span class="pre">PeleLM</span></code>
+represent a certain style for managing this with some level of flexibility, but the basic requirement is
+simply that source be linked into the build for the functions <code class="docutils literal notranslate"><span class="pre">pelelm_initdata</span></code> for initial conditions
+and <code class="docutils literal notranslate"><span class="pre">bcnormal</span></code> for boundary conditions.</p>
+<section id="initial-conditions">
+<h2>Initial Conditions<a class="headerlink" href="#initial-conditions" title="Permalink to this heading"></a></h2>
+<p>At the beginning of a <cite>PeleLM</cite> run, for each level, after grids are generated, the cell-centered values of
+the state must be initialized.  In the code, this is done in an <code class="docutils literal notranslate"><span class="pre">MFIter</span></code> loop over grids, and a call to
+the user’s initialization function, <code class="docutils literal notranslate"><span class="pre">pelelm_initdata</span></code>, that must be provided:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="k">for</span> <span class="p">(</span><span class="n">MFIter</span> <span class="n">mfi</span><span class="p">(</span><span class="n">S_new</span><span class="p">,</span><span class="n">TilingIfNotGPU</span><span class="p">());</span> <span class="n">mfi</span><span class="o">.</span><span class="n">isValid</span><span class="p">();</span> <span class="o">++</span><span class="n">mfi</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="n">const</span> <span class="n">Box</span><span class="o">&amp;</span> <span class="n">box</span> <span class="o">=</span> <span class="n">mfi</span><span class="o">.</span><span class="n">validbox</span><span class="p">();</span>
+    <span class="n">auto</span> <span class="n">sfab</span> <span class="o">=</span> <span class="n">S_new</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">mfi</span><span class="p">);</span>
+
+    <span class="n">amrex</span><span class="p">::</span><span class="n">ParallelFor</span><span class="p">(</span><span class="n">box</span><span class="p">,</span>
+    <span class="p">[</span><span class="o">=</span><span class="p">]</span> <span class="n">AMREX_GPU_DEVICE</span> <span class="p">(</span><span class="nb">int</span> <span class="n">i</span><span class="p">,</span> <span class="nb">int</span> <span class="n">j</span><span class="p">,</span> <span class="nb">int</span> <span class="n">k</span><span class="p">)</span> <span class="n">noexcept</span>
+    <span class="p">{</span>
+      <span class="n">pelelm_initdata</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">sfab</span><span class="p">,</span> <span class="n">geomdata</span><span class="p">,</span> <span class="o">*</span><span class="n">lprobparm</span><span class="p">,</span> <span class="n">lpmfdata</span><span class="p">);</span>
+    <span class="p">});</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>where <code class="docutils literal notranslate"><span class="pre">(i,j,k)</span></code> are the cell indices, <code class="docutils literal notranslate"><span class="pre">sfab</span></code> is a light data pointer to the initial state MultiFab and <code class="docutils literal notranslate"><span class="pre">geomdata</span></code>, <code class="docutils literal notranslate"><span class="pre">lprobparm</span></code>
+and <code class="docutils literal notranslate"><span class="pre">lpmfdata</span></code> are container for the geometry, user-define input and PMF data.
+The associated user function (in pelelm_prob.H) will provide a value for each entry of the state (velocity, density, mass fraction, …) :</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">AMREX_GPU_DEVICE</span>
+<span class="n">AMREX_FORCE_INLINE</span>
+<span class="n">void</span>
+<span class="n">pelelm_initdata</span> <span class="p">(</span><span class="nb">int</span> <span class="n">i</span><span class="p">,</span> <span class="nb">int</span> <span class="n">j</span><span class="p">,</span> <span class="nb">int</span> <span class="n">k</span><span class="p">,</span>
+                 <span class="n">amrex</span><span class="p">::</span><span class="n">Array4</span><span class="o">&lt;</span><span class="n">amrex</span><span class="p">::</span><span class="n">Real</span><span class="o">&gt;</span> <span class="n">const</span><span class="o">&amp;</span> <span class="n">state</span><span class="p">,</span>
+                 <span class="n">amrex</span><span class="p">::</span><span class="n">GeometryData</span> <span class="n">const</span><span class="o">&amp;</span> <span class="n">geomdata</span><span class="p">,</span>
+                 <span class="n">ProbParm</span> <span class="n">const</span><span class="o">&amp;</span> <span class="n">prob_parm</span><span class="p">,</span>
+                 <span class="n">PmfData</span> <span class="n">const</span> <span class="o">*</span><span class="n">pmf_data</span><span class="p">)</span>
+<span class="p">{</span>
+
+   <span class="n">const</span> <span class="n">amrex</span><span class="p">::</span><span class="n">Real</span><span class="o">*</span> <span class="n">prob_lo</span> <span class="o">=</span> <span class="n">geomdata</span><span class="o">.</span><span class="n">ProbLo</span><span class="p">();</span>
+   <span class="n">const</span> <span class="n">amrex</span><span class="p">::</span><span class="n">Real</span><span class="o">*</span> <span class="n">prob_hi</span> <span class="o">=</span> <span class="n">geomdata</span><span class="o">.</span><span class="n">ProbHi</span><span class="p">();</span>
+   <span class="n">const</span> <span class="n">amrex</span><span class="p">::</span><span class="n">Real</span><span class="o">*</span> <span class="n">dx</span>      <span class="o">=</span> <span class="n">geomdata</span><span class="o">.</span><span class="n">CellSize</span><span class="p">();</span>
+
+   <span class="n">const</span> <span class="n">amrex</span><span class="p">::</span><span class="n">Real</span> <span class="n">z</span> <span class="o">=</span> <span class="n">prob_lo</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">+</span> <span class="p">(</span><span class="n">k</span><span class="o">+</span><span class="mf">0.5</span><span class="p">)</span><span class="o">*</span><span class="n">dx</span><span class="p">[</span><span class="mi">2</span><span class="p">];</span>
+   <span class="n">const</span> <span class="n">amrex</span><span class="p">::</span><span class="n">Real</span> <span class="n">y</span> <span class="o">=</span> <span class="n">prob_lo</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="p">(</span><span class="n">j</span><span class="o">+</span><span class="mf">0.5</span><span class="p">)</span><span class="o">*</span><span class="n">dx</span><span class="p">[</span><span class="mi">1</span><span class="p">];</span>
+   <span class="n">const</span> <span class="n">amrex</span><span class="p">::</span><span class="n">Real</span> <span class="n">x</span> <span class="o">=</span> <span class="n">prob_lo</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="p">(</span><span class="n">i</span><span class="o">+</span><span class="mf">0.5</span><span class="p">)</span><span class="o">*</span><span class="n">dx</span><span class="p">[</span><span class="mi">0</span><span class="p">];</span>
+
+   <span class="n">constexpr</span> <span class="n">amrex</span><span class="p">::</span><span class="n">Real</span> <span class="n">Pi</span> <span class="o">=</span> <span class="mf">3.14159265358979323846264338327950288</span><span class="p">;</span>
+   <span class="n">const</span> <span class="n">amrex</span><span class="p">::</span><span class="n">Real</span> <span class="n">L_x</span> <span class="o">=</span> <span class="n">prob_hi</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">prob_lo</span><span class="p">[</span><span class="mi">0</span><span class="p">];</span>
+   <span class="n">const</span> <span class="n">amrex</span><span class="p">::</span><span class="n">Real</span> <span class="n">L_y</span> <span class="o">=</span> <span class="n">prob_hi</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">prob_lo</span><span class="p">[</span><span class="mi">1</span><span class="p">];</span>
+
+
+   <span class="o">...</span>
+
+
+   <span class="n">state</span><span class="p">(</span><span class="n">i</span><span class="p">,</span><span class="n">j</span><span class="p">,</span><span class="n">k</span><span class="p">,</span><span class="n">DEF_Temp</span><span class="p">)</span> <span class="o">=</span> <span class="n">prob_parm</span><span class="o">.</span><span class="n">Temp</span><span class="p">;</span>
+
+   <span class="k">for</span> <span class="p">(</span><span class="nb">int</span> <span class="n">n</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">n</span> <span class="o">&lt;</span> <span class="n">NUM_SPECIES</span><span class="p">;</span> <span class="n">n</span><span class="o">++</span><span class="p">){</span>
+     <span class="n">massfrac</span><span class="p">[</span><span class="n">n</span><span class="p">]</span> <span class="o">=</span> <span class="mf">1.0</span><span class="o">/</span><span class="n">NUM_SPECIES</span><span class="p">;</span>
+   <span class="p">}</span>
+
+
+   <span class="n">state</span><span class="p">(</span><span class="n">i</span><span class="p">,</span><span class="n">j</span><span class="p">,</span><span class="n">k</span><span class="p">,</span><span class="n">Xvel</span><span class="p">)</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">;</span>
+   <span class="n">state</span><span class="p">(</span><span class="n">i</span><span class="p">,</span><span class="n">j</span><span class="p">,</span><span class="n">k</span><span class="p">,</span><span class="n">Yvel</span><span class="p">)</span> <span class="o">=</span>  <span class="n">prob_parm</span><span class="o">.</span><span class="n">Vel</span><span class="p">;</span>
+<span class="c1">#elif ( AMREX_SPACEDIM == 3 )</span>
+   <span class="n">state</span><span class="p">(</span><span class="n">i</span><span class="p">,</span><span class="n">j</span><span class="p">,</span><span class="n">k</span><span class="p">,</span><span class="n">Zvel</span><span class="p">)</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">;</span>
+<span class="c1">#endif</span>
+
+   <span class="n">amrex</span><span class="p">::</span><span class="n">Real</span> <span class="n">rho_cgs</span><span class="p">,</span> <span class="n">P_cgs</span><span class="p">;</span>
+   <span class="n">P_cgs</span> <span class="o">=</span> <span class="n">prob_parm</span><span class="o">.</span><span class="n">P_mean</span> <span class="o">*</span> <span class="mf">10.0</span><span class="p">;</span>
+
+   <span class="n">auto</span> <span class="n">eos</span> <span class="o">=</span> <span class="n">pele</span><span class="p">::</span><span class="n">physics</span><span class="p">::</span><span class="n">PhysicsType</span><span class="p">::</span><span class="n">eos</span><span class="p">();</span>
+   <span class="n">eos</span><span class="o">.</span><span class="n">PYT2R</span><span class="p">(</span><span class="n">P_cgs</span><span class="p">,</span> <span class="n">massfrac</span><span class="p">,</span> <span class="n">state</span><span class="p">(</span><span class="n">i</span><span class="p">,</span><span class="n">j</span><span class="p">,</span><span class="n">k</span><span class="p">,</span><span class="n">DEF_Temp</span><span class="p">),</span> <span class="n">rho_cgs</span><span class="p">);</span>
+   <span class="n">state</span><span class="p">(</span><span class="n">i</span><span class="p">,</span><span class="n">j</span><span class="p">,</span><span class="n">k</span><span class="p">,</span><span class="n">Density</span><span class="p">)</span> <span class="o">=</span> <span class="n">rho_cgs</span> <span class="o">*</span> <span class="mf">1.0e3</span><span class="p">;</span>            <span class="o">//</span> <span class="n">CGS</span> <span class="o">-&gt;</span> <span class="n">MKS</span> <span class="n">conversion</span>
+
+   <span class="n">eos</span><span class="o">.</span><span class="n">TY2H</span><span class="p">(</span><span class="n">state</span><span class="p">(</span><span class="n">i</span><span class="p">,</span><span class="n">j</span><span class="p">,</span><span class="n">k</span><span class="p">,</span><span class="n">DEF_Temp</span><span class="p">),</span> <span class="n">massfrac</span><span class="p">,</span> <span class="n">state</span><span class="p">(</span><span class="n">i</span><span class="p">,</span><span class="n">j</span><span class="p">,</span><span class="n">k</span><span class="p">,</span><span class="n">DEF_RhoH</span><span class="p">));</span>
+   <span class="n">state</span><span class="p">(</span><span class="n">i</span><span class="p">,</span><span class="n">j</span><span class="p">,</span><span class="n">k</span><span class="p">,</span><span class="n">DEF_RhoH</span><span class="p">)</span> <span class="o">=</span> <span class="n">state</span><span class="p">(</span><span class="n">i</span><span class="p">,</span><span class="n">j</span><span class="p">,</span><span class="n">k</span><span class="p">,</span><span class="n">DEF_RhoH</span><span class="p">)</span> <span class="o">*</span> <span class="mf">1.0e-4</span> <span class="o">*</span> <span class="n">state</span><span class="p">(</span><span class="n">i</span><span class="p">,</span><span class="n">j</span><span class="p">,</span><span class="n">k</span><span class="p">,</span><span class="n">Density</span><span class="p">);</span>   <span class="o">//</span> <span class="n">CGS</span> <span class="o">-&gt;</span> <span class="n">MKS</span> <span class="n">conversion</span>
+
+   <span class="k">for</span> <span class="p">(</span><span class="nb">int</span> <span class="n">n</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">n</span> <span class="o">&lt;</span> <span class="n">NUM_SPECIES</span><span class="p">;</span> <span class="n">n</span><span class="o">++</span><span class="p">)</span> <span class="p">{</span>
+     <span class="n">state</span><span class="p">(</span><span class="n">i</span><span class="p">,</span><span class="n">j</span><span class="p">,</span><span class="n">k</span><span class="p">,</span><span class="n">DEF_first_spec</span><span class="o">+</span><span class="n">n</span><span class="p">)</span> <span class="o">=</span> <span class="n">massfrac</span><span class="p">[</span><span class="n">n</span><span class="p">]</span> <span class="o">*</span> <span class="n">state</span><span class="p">(</span><span class="n">i</span><span class="p">,</span><span class="n">j</span><span class="p">,</span><span class="n">k</span><span class="p">,</span><span class="n">Density</span><span class="p">);</span>
+   <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Note home the geometry data are retrived from the <code class="docutils literal notranslate"><span class="pre">geomdata</span></code> object to obtain the coordinate of each cell center.
+The state data indices (<code class="docutils literal notranslate"><span class="pre">Xvel</span></code>, <code class="docutils literal notranslate"><span class="pre">Yvel</span></code>, <code class="docutils literal notranslate"><span class="pre">Density</span></code>, … ) are prescribed in the <code class="docutils literal notranslate"><span class="pre">$(PELELM_HOME)/Source/IndexDefines.H</span></code> file.
+Note that the conserved states are stored for species and
+enthalpy (i.e., <span class="math notranslate nohighlight">\(\rho Y_i\)</span> and <span class="math notranslate nohighlight">\(\rho h\)</span>); these are the variables that the user must fill
+in the initial and boundary condition routines.  Typically, however, the primitive state
+(i.e., <span class="math notranslate nohighlight">\(Y_i\)</span> and <span class="math notranslate nohighlight">\(T\)</span>) is known directly.  If that is the case, the user can make use of
+the compiled-in model-specific equation-of-state routines (<code class="docutils literal notranslate"><span class="pre">eos.</span></code>) to translate primitive to conserved state
+values. Consult the example setups provided to see how to call these routines, and how to load the
+final values required for initial data.</p>
+<p>The runtime option (such as initial temperature, inlet velocity, …) are gathered in the <code class="docutils literal notranslate"><span class="pre">ProbParm</span></code> C++ structure defined in <code class="docutils literal notranslate"><span class="pre">pelelm_prob_parm.H</span></code> and filled from the input file in <code class="docutils literal notranslate"><span class="pre">pelelm_prob.cpp</span></code> using <cite>AMReX</cite> parser. This structure can be modified by the user to hold any data necessary for initial or boundary conditions.</p>
+</section>
+<section id="boundary-conditions">
+<h2>Boundary Conditions<a class="headerlink" href="#boundary-conditions" title="Permalink to this heading"></a></h2>
+<p>In <cite>PeleLM</cite>, a single function is used to fill all the state
+component at physical boundaries. The function <code class="docutils literal notranslate"><span class="pre">bcnormal</span></code>
+is in the <code class="docutils literal notranslate"><span class="pre">pelelm_prob.H</span></code> file. The main objective of this
+function is to fill the <code class="docutils literal notranslate"><span class="pre">s_ext</span></code> array fill boundary state
+data.
+The function <code class="docutils literal notranslate"><span class="pre">bcnormal</span></code> is called on each side (<cite>lo</cite> or <cite>hi</cite>)
+for each spatial dimension and will be used to fill the ghost cells
+of the state variables for which the <cite>PeleLM</cite> internal boundary condition is
+<code class="docutils literal notranslate"><span class="pre">EXT_DIR</span></code> (external Dirichlet) on that face. For example, specifying
+a <cite>PeleLM</cite> <code class="docutils literal notranslate"><span class="pre">Inflow</span></code> boundary condition on the lower face in the y direction in the
+input file leads to an <code class="docutils literal notranslate"><span class="pre">EXT_DIR</span></code> for species mass fraction, which then need
+to be provided in <code class="docutils literal notranslate"><span class="pre">bcnormal</span></code>. An example of the <code class="docutils literal notranslate"><span class="pre">bcnormal</span></code> of the FlameSheet
+is presented here:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">AMREX_GPU_DEVICE</span>
+<span class="n">AMREX_FORCE_INLINE</span>
+<span class="n">void</span>
+<span class="n">bcnormal</span><span class="p">(</span>
+  <span class="n">const</span> <span class="n">amrex</span><span class="p">::</span><span class="n">Real</span> <span class="n">x</span><span class="p">[</span><span class="n">AMREX_SPACEDIM</span><span class="p">],</span>
+  <span class="n">amrex</span><span class="p">::</span><span class="n">Real</span> <span class="n">s_ext</span><span class="p">[</span><span class="n">DEF_NUM_STATE</span><span class="p">],</span>
+  <span class="n">const</span> <span class="nb">int</span> <span class="n">idir</span><span class="p">,</span>
+  <span class="n">const</span> <span class="nb">int</span> <span class="n">sgn</span><span class="p">,</span>
+  <span class="n">const</span> <span class="n">amrex</span><span class="p">::</span><span class="n">Real</span> <span class="n">time</span><span class="p">,</span>
+  <span class="n">amrex</span><span class="p">::</span><span class="n">GeometryData</span> <span class="n">const</span><span class="o">&amp;</span> <span class="n">geomdata</span><span class="p">,</span>
+  <span class="n">ProbParm</span> <span class="n">const</span><span class="o">&amp;</span> <span class="n">prob_parm</span><span class="p">,</span>
+  <span class="n">ACParm</span> <span class="n">const</span><span class="o">&amp;</span> <span class="n">ac_parm</span><span class="p">,</span>
+  <span class="n">PmfData</span> <span class="n">const</span> <span class="o">*</span><span class="n">pmf_data</span><span class="p">)</span>
+<span class="p">{</span>
+  <span class="n">const</span> <span class="n">amrex</span><span class="p">::</span><span class="n">Real</span><span class="o">*</span> <span class="n">prob_lo</span> <span class="o">=</span> <span class="n">geomdata</span><span class="o">.</span><span class="n">ProbLo</span><span class="p">();</span>
+  <span class="n">const</span> <span class="n">amrex</span><span class="p">::</span><span class="n">Real</span><span class="o">*</span> <span class="n">prob_hi</span> <span class="o">=</span> <span class="n">geomdata</span><span class="o">.</span><span class="n">ProbHi</span><span class="p">();</span>
+  <span class="n">amrex</span><span class="p">::</span><span class="n">GpuArray</span><span class="o">&lt;</span><span class="n">amrex</span><span class="p">::</span><span class="n">Real</span><span class="p">,</span> <span class="n">NUM_SPECIES</span> <span class="o">+</span> <span class="mi">4</span><span class="o">&gt;</span> <span class="n">pmf_vals</span> <span class="o">=</span> <span class="p">{</span><span class="mf">0.0</span><span class="p">};</span>
+  <span class="n">amrex</span><span class="p">::</span><span class="n">Real</span> <span class="n">molefrac</span><span class="p">[</span><span class="n">NUM_SPECIES</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="mf">0.0</span><span class="p">};</span>
+  <span class="n">amrex</span><span class="p">::</span><span class="n">Real</span> <span class="n">massfrac</span><span class="p">[</span><span class="n">NUM_SPECIES</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="mf">0.0</span><span class="p">};</span>
+
+  <span class="k">if</span> <span class="p">(</span><span class="n">sgn</span> <span class="o">==</span> <span class="mi">1</span><span class="p">)</span> <span class="p">{</span>
+    <span class="n">PMF</span><span class="p">::</span><span class="n">pmf</span><span class="p">(</span><span class="n">pmf_data</span><span class="p">,</span><span class="n">prob_lo</span><span class="p">[</span><span class="n">idir</span><span class="p">],</span> <span class="n">prob_lo</span><span class="p">[</span><span class="n">idir</span><span class="p">],</span> <span class="n">pmf_vals</span><span class="p">);</span>
+
+    <span class="n">s_ext</span><span class="p">[</span><span class="n">Xvel</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">;</span>
+<span class="c1">#if ( AMREX_SPACEDIM == 2 )</span>
+    <span class="n">s_ext</span><span class="p">[</span><span class="n">Yvel</span><span class="p">]</span> <span class="o">=</span> <span class="n">pmf_vals</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">*</span><span class="mf">1e-2</span><span class="p">;</span>
+<span class="c1">#elif (AMREX_SPACEDIM == 3)</span>
+    <span class="n">s_ext</span><span class="p">[</span><span class="n">Yvel</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">;</span>
+    <span class="n">s_ext</span><span class="p">[</span><span class="n">Zvel</span><span class="p">]</span> <span class="o">=</span> <span class="n">pmf_vals</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">*</span><span class="mf">1e-2</span><span class="p">;</span>
+<span class="c1">#endif</span>
+
+    <span class="n">s_ext</span><span class="p">[</span><span class="n">DEF_Temp</span><span class="p">]</span> <span class="o">=</span> <span class="n">pmf_vals</span><span class="p">[</span><span class="mi">0</span><span class="p">];</span>
+
+    <span class="k">for</span> <span class="p">(</span><span class="nb">int</span> <span class="n">n</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">n</span> <span class="o">&lt;</span> <span class="n">NUM_SPECIES</span><span class="p">;</span> <span class="n">n</span><span class="o">++</span><span class="p">){</span>
+      <span class="n">molefrac</span><span class="p">[</span><span class="n">n</span><span class="p">]</span> <span class="o">=</span> <span class="n">pmf_vals</span><span class="p">[</span><span class="mi">3</span> <span class="o">+</span> <span class="n">n</span><span class="p">];</span>
+    <span class="p">}</span>
+    <span class="n">auto</span> <span class="n">eos</span> <span class="o">=</span> <span class="n">pele</span><span class="p">::</span><span class="n">physics</span><span class="p">::</span><span class="n">PhysicsType</span><span class="p">::</span><span class="n">eos</span><span class="p">();</span>
+    <span class="n">eos</span><span class="o">.</span><span class="n">X2Y</span><span class="p">(</span><span class="n">molefrac</span><span class="p">,</span> <span class="n">massfrac</span><span class="p">);</span>
+
+    <span class="n">amrex</span><span class="p">::</span><span class="n">Real</span> <span class="n">rho_cgs</span><span class="p">,</span> <span class="n">P_cgs</span><span class="p">,</span> <span class="n">RhoH_temp</span><span class="p">;</span>
+    <span class="n">P_cgs</span> <span class="o">=</span> <span class="n">prob_parm</span><span class="o">.</span><span class="n">P_mean</span> <span class="o">*</span> <span class="mf">10.0</span><span class="p">;</span>
+
+    <span class="n">eos</span><span class="o">.</span><span class="n">PYT2R</span><span class="p">(</span><span class="n">P_cgs</span><span class="p">,</span> <span class="n">massfrac</span><span class="p">,</span> <span class="n">s_ext</span><span class="p">[</span><span class="n">DEF_Temp</span><span class="p">],</span> <span class="n">rho_cgs</span><span class="p">);</span>
+    <span class="n">s_ext</span><span class="p">[</span><span class="n">Density</span><span class="p">]</span> <span class="o">=</span> <span class="n">rho_cgs</span> <span class="o">*</span> <span class="mf">1.0e3</span><span class="p">;</span>
+
+    <span class="n">eos</span><span class="o">.</span><span class="n">TY2H</span><span class="p">(</span><span class="n">s_ext</span><span class="p">[</span><span class="n">DEF_Temp</span><span class="p">],</span> <span class="n">massfrac</span><span class="p">,</span> <span class="n">RhoH_temp</span><span class="p">);</span>
+    <span class="n">s_ext</span><span class="p">[</span><span class="n">DEF_RhoH</span><span class="p">]</span> <span class="o">=</span> <span class="n">RhoH_temp</span> <span class="o">*</span> <span class="mf">1.0e-4</span> <span class="o">*</span> <span class="n">s_ext</span><span class="p">[</span><span class="n">Density</span><span class="p">];</span>   <span class="o">//</span> <span class="n">CGS</span> <span class="o">-&gt;</span> <span class="n">MKS</span> <span class="n">conversion</span>
+
+    <span class="k">for</span> <span class="p">(</span><span class="nb">int</span> <span class="n">n</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">n</span> <span class="o">&lt;</span> <span class="n">NUM_SPECIES</span><span class="p">;</span> <span class="n">n</span><span class="o">++</span><span class="p">)</span> <span class="p">{</span>
+      <span class="n">s_ext</span><span class="p">[</span><span class="n">DEF_first_spec</span><span class="o">+</span><span class="n">n</span><span class="p">]</span> <span class="o">=</span> <span class="n">massfrac</span><span class="p">[</span><span class="n">n</span><span class="p">]</span> <span class="o">*</span> <span class="n">s_ext</span><span class="p">[</span><span class="n">Density</span><span class="p">];</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>The <code class="docutils literal notranslate"><span class="pre">sgn</span></code> input takes a value of 1 on the low face and -1 on the high face,
+while <code class="docutils literal notranslate"><span class="pre">ìdir</span></code> provide the spatial direction (0, 1 or 2 corresponding to  X, Y or Z, respectively).
+This allow to differentiate between the various boundary conditions when more than 1 <code class="docutils literal notranslate"><span class="pre">ÈXT_DIR</span></code>
+is needed. In this example, the boundary conditions are extracted from a pre-computed premixed flame
+which data are stored in the <code class="docutils literal notranslate"><span class="pre">pmf_data</span></code> structure.</p>
+<p>Here, we’ve made use of a local convenience function,
+<code class="docutils literal notranslate"><span class="pre">bcnormal</span></code> endowed with the knowledge of all boundary values, and
+extract the appropriate quantity from the results of that call.  This
+was done to localize all boundary condition calculations to a single
+routine in the code, and helps to preserve consistency.  This is only
+one style though, and as long as appropriate Dirichlet values are set
+for this state, it makes no difference how the work is organized.
+For example, data may be provided by interpolating “live data” being
+actively generated by a co-running separate code, by interpolating data
+files, evaluating functional forms, etc.</p>
+<p>Note that although the array structure to be filled contains valid cell-centered state data where it
+overlaps the valid domain, the values set in the grow cells of the container will be applied on the
+boundary face of the corresponding cells.  Internally, all <cite>PeleLM</cite> code understands to apply
+Dirichlet conditions on the boundary faces.</p>
+</section>
+<section id="refinement-criteria">
+<span id="sec-refcrit-pelelm"></span><h2>Refinement Criteria<a class="headerlink" href="#refinement-criteria" title="Permalink to this heading"></a></h2>
+<p>The dynamic creation and destruction of grid levels is a fundamental part of <cite>PeleLM</cite>’s capabilities. The
+process for this is described in some detail in the <cite>AMReX</cite> documentation, but we summarize the key points
+here.</p>
+<p>At regular intervals (set by the user), each Amr level that is not the finest allowed for the run
+will invoke a “regrid” operation.  When invoked, a list of error tagging functions is traversed. For each,
+a field specific to that function is derived from the state over the level, and passed through a kernel
+that “set“‘s or “clear“‘s a flag on each cell.  The field and function for each error tagging quantity is
+identified in the setup phase of the code where the state descriptors are defined (i.e., in <cite>PeleLM_setup.cpp</cite>).
+Each function in the list adds or removes to the list of cells tagged for refinement. This final list of tagged
+cells is sent to a grid generation routine, which uses the Berger-Rigoutsos algorithm to create rectangular grids
+which will define a new finer level (or set of levels).  State data is filled over these new grids, copying where
+possible, and interpolating from coarser level when no fine data is available.  Once this process is complete,
+the existing Amr level(s) is removed, the new one is inserted into the hierarchy, and the time integration
+continues.</p>
+<p>The traditional <cite>AMReX</cite> approach to setting up and controlling the regrid process involves explicitly
+creating (“hard coding”) a number of functions directly into <cite>PeleLM</cite>’s setup code. (Consult the source code
+and <cite>AMReX</cite> documentation for precisely how this is done).  <cite>PeleLM</cite> provides a limited capability to augment
+the standard set of error functions that is based entirely on runtime data specified in the inputs (ParmParse)
+data.  The following example portion of a ParmParse’d input file demonstrates the usage of this feature:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">amr</span><span class="o">.</span><span class="n">refinement_indicators</span> <span class="o">=</span> <span class="n">flame_tracer</span> <span class="n">lo_temp</span> <span class="n">gradT</span>
+
+<span class="n">amr</span><span class="o">.</span><span class="n">flame_tracer</span><span class="o">.</span><span class="n">max_level</span> <span class="o">=</span> <span class="mi">3</span>
+<span class="n">amr</span><span class="o">.</span><span class="n">flame_tracer</span><span class="o">.</span><span class="n">value_greater</span> <span class="o">=</span> <span class="mf">1.e-6</span>
+<span class="n">amr</span><span class="o">.</span><span class="n">flame_tracer</span><span class="o">.</span><span class="n">field_name</span> <span class="o">=</span> <span class="n">Y</span><span class="p">(</span><span class="n">H</span><span class="p">)</span>
+
+<span class="n">amr</span><span class="o">.</span><span class="n">lo_temp</span><span class="o">.</span><span class="n">max_level</span> <span class="o">=</span> <span class="mi">1</span>
+<span class="n">amr</span><span class="o">.</span><span class="n">lo_temp</span><span class="o">.</span><span class="n">value_less</span> <span class="o">=</span> <span class="mi">450</span>
+<span class="n">amr</span><span class="o">.</span><span class="n">lo_temp</span><span class="o">.</span><span class="n">field_name</span> <span class="o">=</span> <span class="n">temp</span>
+
+<span class="n">amr</span><span class="o">.</span><span class="n">gradT</span><span class="o">.</span><span class="n">max_level</span> <span class="o">=</span> <span class="mi">2</span>
+<span class="n">amr</span><span class="o">.</span><span class="n">gradT</span><span class="o">.</span><span class="n">adjacent_difference_greater</span> <span class="o">=</span> <span class="mi">20</span>
+<span class="n">amr</span><span class="o">.</span><span class="n">gradT</span><span class="o">.</span><span class="n">field_name</span> <span class="o">=</span> <span class="n">temp</span>
+<span class="n">amr</span><span class="o">.</span><span class="n">gradT</span><span class="o">.</span><span class="n">start_time</span> <span class="o">=</span> <span class="mf">0.001</span>
+<span class="n">amr</span><span class="o">.</span><span class="n">gradT</span><span class="o">.</span><span class="n">end_name</span> <span class="o">=</span> <span class="mf">0.002</span>
+</pre></div>
+</div>
+<p>Here, we have added three new custom-named criteria – <code class="docutils literal notranslate"><span class="pre">flame_tracer</span></code>: cells with the mass fraction of H greater than 1 ppm;
+<code class="docutils literal notranslate"><span class="pre">lo_temp</span></code>: cells with T less than 450K, and <code class="docutils literal notranslate"><span class="pre">gradT</span></code>: cells having a temperature difference of 20K from that of their
+immediate neighbor.  The first will trigger up to Amr level 3, the second only to level 1, and the third to level 2.
+The third will be active only when the problem time is between 0.001 and 0.002 seconds.</p>
+<p>Note that these additional user-created criteria operate in addition to those defined as defaults.  Also note that
+these can be modified between restarts of the code.  By default, the new criteria will take effect at the next
+scheduled regrid operation.  Alternatively, the user may restart with <code class="docutils literal notranslate"><span class="pre">amr.regrid_on_restart</span> <span class="pre">=</span> <span class="pre">1</span></code> in order to
+do a full (all-levels) regrid after reading the checkpoint data and before advancing any cells.</p>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="Model.html" class="btn btn-neutral float-left" title="The PeleLM Model" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="GNUmakeSystem.html" class="btn btn-neutral float-right" title="Building with GNU Make" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright AMReX Copyright (c) 2018, The Regents of the University of California, through Lawrence Berkeley National Laboratory and the Alliance for Sustainable Energy, LLC., through National Renewable Energy Laboratory (subject to receipt of any required approvals from the U.S. Dept. of Energy).  All rights reserved..</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

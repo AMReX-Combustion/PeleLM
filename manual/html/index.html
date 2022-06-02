@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Welcome to the documentation for PeleLM &mdash; PeleLM 2018.10 documentation</title>
+      <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="_static/doctools.js"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="PeleLM Quickstart" href="GettingStarted.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="#" class="icon icon-home"> PeleLM
+            <img src="_static/swirlH2Fast_OH_vort_256.png" class="logo" alt="Logo"/>
+          </a>
+              <div class="version">
+                2018.10
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Documentation contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="GettingStarted.html"><cite>PeleLM</cite> Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Model.html">The <cite>PeleLM</cite> Model</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ProblemSetup.html">Setting up a new <cite>PeleLM</cite> Case</a></li>
+<li class="toctree-l1"><a class="reference internal" href="GNUmakeSystem.html">Building with GNU Make</a></li>
+<li class="toctree-l1"><a class="reference internal" href="RunningPeleLM.html"><cite>PeleLM</cite> control</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Visualization.html">Visualization</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Tutorials.html">Tutorials</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="#">PeleLM</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="#" class="icon icon-home"></a> &raquo;</li>
+      <li>Welcome to the documentation for <cite>PeleLM</cite></li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/index.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="welcome-to-the-documentation-for-pelelm">
+<h1>Welcome to the documentation for <cite>PeleLM</cite><a class="headerlink" href="#welcome-to-the-documentation-for-pelelm" title="Permalink to this heading"></a></h1>
+<p><cite>PeleLM</cite> is an adaptive-mesh low Mach number hydrodynamics code for reacting flows.  <cite>PeleLM</cite> has an
+official project <a class="reference external" href="https://amrex-combustion.github.io/PeleLM/">homepage</a>, and can be obtained via
+<a class="reference external" href="https://github.com/AMReX-Combustion/PeleLM">GitHub</a>.  If you need help or have questions, please join the users <a class="reference external" href="https://groups.google.com/forum/#!forum/pelelmusers">forum</a>. The documentation pages appearing here
+are distributed with the code in the <code class="docutils literal notranslate"><span class="pre">Docs</span></code> folder as “restructured text” files.  The html is built
+automatically with certain pushes to the <cite>PeleLM</cite> GibHub repository and are maintained online by
+<a class="reference external" href="https://pelelm.readthedocs.io/en/latest">ReadTheDocs</a>.  A local version can also be built as follows</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>cd ${PELELM_DIR}/Docs
+make html
+</pre></div>
+</div>
+<p>where <code class="docutils literal notranslate"><span class="pre">PELELM_DIR</span></code> is the location of your clone of the <cite>PeleLM</cite> repository.  To view the local pages,
+point your web browser at the file <code class="docutils literal notranslate"><span class="pre">${PELELM_DIR}/Docs/build/html/index.html</span></code>.</p>
+<p><strong>Current docs build status on ReadTheDocs:</strong></p>
+<img alt="https://readthedocs.org/projects/pelelm/badge" src="https://readthedocs.org/projects/pelelm/badge" />
+<div class="toctree-wrapper compound">
+<p class="caption" role="heading"><span class="caption-text">Documentation contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="GettingStarted.html"><cite>PeleLM</cite> Quickstart</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="GettingStarted.html#obtaining-pelelm">Obtaining <cite>PeleLM</cite></a></li>
+<li class="toctree-l2"><a class="reference internal" href="GettingStarted.html#building-pelelm">Building <cite>PeleLM</cite></a></li>
+<li class="toctree-l2"><a class="reference internal" href="GettingStarted.html#running-pelelm">Running <cite>PeleLM</cite></a></li>
+<li class="toctree-l2"><a class="reference internal" href="GettingStarted.html#visualization-of-the-results">Visualization of the results</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="Model.html">The <cite>PeleLM</cite> Model</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="Model.html#overview-of-pelelm">Overview of <cite>PeleLM</cite></a></li>
+<li class="toctree-l2"><a class="reference internal" href="Model.html#the-low-mach-number-flow-equations">The low Mach number flow equations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="Model.html#the-pelelm-temporal-integration">The <cite>PeleLM</cite> temporal integration</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="ProblemSetup.html">Setting up a new <cite>PeleLM</cite> Case</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="ProblemSetup.html#initial-conditions">Initial Conditions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ProblemSetup.html#boundary-conditions">Boundary Conditions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ProblemSetup.html#refinement-criteria">Refinement Criteria</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="GNUmakeSystem.html">Building with GNU Make</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="GNUmakeSystem.html#dissecting-a-simple-make-file">Dissecting a Simple Make File</a></li>
+<li class="toctree-l2"><a class="reference internal" href="GNUmakeSystem.html#tweaking-the-make-system">Tweaking the Make System</a></li>
+<li class="toctree-l2"><a class="reference internal" href="GNUmakeSystem.html#specifying-your-own-compiler-gcc-on-macos">Specifying your own compiler / GCC on macOS</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="RunningPeleLM.html"><cite>PeleLM</cite> control</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="RunningPeleLM.html#physical-units">Physical Units</a></li>
+<li class="toctree-l2"><a class="reference internal" href="RunningPeleLM.html#control-parameters">Control parameters</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="Visualization.html">Visualization</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="Visualization.html#amrvis">Amrvis</a></li>
+<li class="toctree-l2"><a class="reference internal" href="Visualization.html#visit">VisIt</a></li>
+<li class="toctree-l2"><a class="reference internal" href="Visualization.html#paraview">ParaView</a></li>
+<li class="toctree-l2"><a class="reference internal" href="Visualization.html#yt">yt</a></li>
+<li class="toctree-l2"><a class="reference internal" href="Visualization.html#sensei">SENSEI</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="Tutorials.html">Tutorials</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="Tutorials_FlowPastCyl.html">Tutorial - Non-reacting flow past a cylinder</a></li>
+<li class="toctree-l2"><a class="reference internal" href="Tutorials_TripleFlame.html">Tutorial - A simple triple flame</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</section>
+<section id="indices-and-tables">
+<h1>Indices and tables<a class="headerlink" href="#indices-and-tables" title="Permalink to this heading"></a></h1>
+<ul class="simple">
+<li><p><a class="reference internal" href="genindex.html"><span class="std std-ref">Index</span></a></p></li>
+<li><p><a class="reference internal" href="search.html"><span class="std std-ref">Search Page</span></a></p></li>
+</ul>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="GettingStarted.html" class="btn btn-neutral float-right" title="PeleLM Quickstart" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright AMReX Copyright (c) 2018, The Regents of the University of California, through Lawrence Berkeley National Laboratory and the Alliance for Sustainable Energy, LLC., through National Renewable Energy Laboratory (subject to receipt of any required approvals from the U.S. Dept. of Energy).  All rights reserved..</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

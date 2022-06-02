@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tutorial - A simple triple flame &mdash; PeleLM 2018.10 documentation</title>
+      <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="_static/doctools.js"></script>
+        <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="prev" title="Tutorial - Non-reacting flow past a cylinder" href="Tutorials_FlowPastCyl.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="index.html" class="icon icon-home"> PeleLM
+            <img src="_static/swirlH2Fast_OH_vort_256.png" class="logo" alt="Logo"/>
+          </a>
+              <div class="version">
+                2018.10
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Documentation contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="GettingStarted.html"><cite>PeleLM</cite> Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Model.html">The <cite>PeleLM</cite> Model</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ProblemSetup.html">Setting up a new <cite>PeleLM</cite> Case</a></li>
+<li class="toctree-l1"><a class="reference internal" href="GNUmakeSystem.html">Building with GNU Make</a></li>
+<li class="toctree-l1"><a class="reference internal" href="RunningPeleLM.html"><cite>PeleLM</cite> control</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Visualization.html">Visualization</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="Tutorials.html">Tutorials</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="Tutorials_FlowPastCyl.html">Tutorial - Non-reacting flow past a cylinder</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Tutorial - A simple triple flame</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#introduction">Introduction</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#setting-up-your-environment">Setting-up your environment</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#peleproduction">PeleProduction</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#step-by-step-instructions">Step by step instructions</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#numerical-setup">Numerical setup</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#test-case-and-boundary-conditions">Test case and boundary conditions</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#inflow-specification">Inflow specification</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#initial-solution">Initial solution</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#numerical-scheme">Numerical scheme</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#building-the-executable">Building the executable</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#initial-transient-phase">Initial transient phase</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#first-step-the-initial-solution">First step: the initial solution</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#running-the-problem-on-a-coarse-grid">Running the problem on a coarse grid</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#steady-state-problem-activating-the-flame-control">Steady-state problem: activating the flame control</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#refinement-of-the-computation">Refinement of the computation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#analysis">Analysis</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">PeleLM</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home"></a> &raquo;</li>
+          <li><a href="Tutorials.html">Tutorials</a> &raquo;</li>
+      <li>Tutorial - A simple triple flame</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/Tutorials_TripleFlame.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="tutorial-a-simple-triple-flame">
+<span id="sec-tutorialtf"></span><h1>Tutorial - A simple triple flame<a class="headerlink" href="#tutorial-a-simple-triple-flame" title="Permalink to this heading"></a></h1>
+<section id="introduction">
+<span id="sec-tuto-tf-intro"></span><h2>Introduction<a class="headerlink" href="#introduction" title="Permalink to this heading"></a></h2>
+<p>Laminar flames have the potential to reveal the fundamental structure of combustion
+without the added complexities of turbulence.
+They also aid in our understanding of the more complex turbulent flames.
+Depending on the fuel involved and the flow configuration, the laminar flames can take on a number of interesting geometries.
+For example, as practical combustion systems often operate in partially premixed mode,
+with one or more fuel injections, a wide range of fresh gas compositions can be observed;
+and these conditions favor the appearance of edge flames, see Fig. <a class="reference internal" href="#fig-tripleflameintro"><span class="std std-numref">7</span></a>.</p>
+<span id="fig-tripleflameintro"></span><table class="docutils align-center" id="id6">
+<caption><span class="caption-number">7 </span><span class="caption-text">Normalized heat release rate (top) and temperature (bottom) contours of two-dimensional (2D) laminar lifted flames of ethylene.</span><a class="headerlink" href="#id6" title="Permalink to this table"></a></caption>
+<colgroup>
+<col style="width: 100%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="_images/TripleFlame_C2H4300.png"><img alt="a" src="_images/TripleFlame_C2H4300.png" style="width: 100%;" /></a></p></td>
+</tr>
+</tbody>
+</table>
+<p>Edge flames are composed of lean and rich premixed flame wings usually surrounding a central
+anchoring diffusion flame extending from a single point <a class="reference internal" href="#pci2007" id="id1"><span>[PCI2007]</span></a>. Edge flames play
+an important role in flame stabilization, re-ignition and propagation.
+Simple fuels can exhibit up to three burning branches while diesel fuel, with a low temperature combustion mode,
+can exhibit up to 5 branches.</p>
+<p>The goal of this tutorial is to setup a simple 2D laminar triple edge flame configuration with <cite>PeleLM</cite>.
+This document provides step by step instructions to properly set-up the domain and boundary conditions,
+construct an initial solution, and provides guidance on how to monitor and influence the initial transient to reach
+a final steady-state solution.
+In a final Section, post-processing tools available in <cite>PeleAnalysis</cite> are used to extract information about
+the triple flame.</p>
+</section>
+<section id="setting-up-your-environment">
+<span id="sec-tuto-tf-prepstep"></span><h2>Setting-up your environment<a class="headerlink" href="#setting-up-your-environment" title="Permalink to this heading"></a></h2>
+<section id="peleproduction">
+<h3>PeleProduction<a class="headerlink" href="#peleproduction" title="Permalink to this heading"></a></h3>
+<p>As explained in section <a class="reference internal" href="GettingStarted.html#sec-quickstart"><span class="std std-ref">PeleLM Quickstart</span></a>, <cite>PeleLM</cite> relies on a number of supporting softwares:</p>
+<ul class="simple">
+<li><p><cite>AMReX</cite> is a software frameworks that provides the data structure and enable massive parallelization.</p></li>
+<li><p><cite>AMReX-Hydro</cite> is a suite of AMReX-based fonctionalities handling the hydrodynamic schemes.</p></li>
+<li><p><cite>IAMR</cite> is a parallel, adaptive mesh refinement (AMR) code that solves the variable-density incompressible Navier-Stokes equations.</p></li>
+<li><p><cite>PelePhysics</cite> is a repository of physics databases and implementation code. In particular, the choice of chemistry and transport models as well as associated functions and capabilities are managed in <cite>PelePhysics</cite>.</p></li>
+</ul>
+<p>All of these codes have their own development cycle, and it can make the setup of a <cite>PeleLM</cite> run a bit tricky.
+To simplify the process, <a class="reference external" href="https://github.com/AMReX-Combustion/PeleProduction">PeleProduction</a> will be employed. <cite>PeleProduction</cite> is a collection of run folders for various <cite>Pele</cite> codes and processing. It includes git submodules for the dependent codes
+(such as <cite>PeleLM</cite>, <cite>PelePhysics</cite>, <cite>AMReX</cite>, etc), that can be frozen to a particular commit.
+This organizational strategy enables to manage the interactions between the various dependent repositories
+(to keep them all compatible with each other).</p>
+</section>
+<section id="step-by-step-instructions">
+<h3>Step by step instructions<a class="headerlink" href="#step-by-step-instructions" title="Permalink to this heading"></a></h3>
+<p>First, make sure that “git” is installed on your machine—we recommend version 1.7.x or higher.
+Then, follow these few steps to setup your run environment:</p>
+<ol class="arabic">
+<li><p>Download the <cite>PeleProduction</cite> repository and :</p>
+<div class="highlight-rst notranslate"><div class="highlight"><pre><span></span>git clone https://github.com/AMReX-Combustion/PeleProduction.git
+
+cd PeleProduction
+</pre></div>
+</div>
+</li>
+<li><p>Switch to the TripleFlame branch :</p>
+<div class="highlight-rst notranslate"><div class="highlight"><pre><span></span>git checkout -b Tutorials remotes/origin/Tutorials
+</pre></div>
+</div>
+</li>
+<li><p>The first time you do this, you will need to tell git that there are submodules. Git will look at the <code class="docutils literal notranslate"><span class="pre">.gitmodules</span></code> file in this branch and use that :</p>
+<div class="highlight-rst notranslate"><div class="highlight"><pre><span></span>git submodule init
+</pre></div>
+</div>
+</li>
+<li><p>Finally, get the correct commits of the sub-repos set up for this branch:</p>
+<div class="highlight-rst notranslate"><div class="highlight"><pre><span></span>git submodule update
+</pre></div>
+</div>
+</li>
+</ol>
+<p>You are now ready to build the <code class="docutils literal notranslate"><span class="pre">TripleFlame</span></code> case associated with this branch. To do so:</p>
+<div class="highlight-rst notranslate"><div class="highlight"><pre><span></span>cd Tutorials/TripleFlame
+</pre></div>
+</div>
+<p>And follow the next steps !</p>
+</section>
+</section>
+<section id="numerical-setup">
+<h2>Numerical setup<a class="headerlink" href="#numerical-setup" title="Permalink to this heading"></a></h2>
+<p>In this section we review the content of the various input files for the Triple Flame test case. To get additional information about the keywords discussed, the user is referred to section <a class="reference internal" href="RunningPeleLM.html#sec-control"><span class="std std-ref">PeleLM control</span></a>.</p>
+<section id="test-case-and-boundary-conditions">
+<h3>Test case and boundary conditions<a class="headerlink" href="#test-case-and-boundary-conditions" title="Permalink to this heading"></a></h3>
+<p>Direct Numerical Simulations (DNS) are performed on a 2x4 <span class="math notranslate nohighlight">\(cm^2\)</span> 2D computational domain
+using a 64x128 base grid and up to 4 levels of refinement (although we will start with a lower number of levels).
+The refinement ratio between each level is set to 2. With 4 levels, this means that the minimum grid size inside the reaction layer will be just below 20 <span class="math notranslate nohighlight">\(μm\)</span>.
+The maximum box size is fixed at 32, and the base (level 0) grid is composed of 8 boxes,
+as shown in Fig <a class="reference internal" href="#fig-tf-numsetup"><span class="std std-numref">8</span></a>.</p>
+<p>Symmetric boundary conditions are used in the transverse (<span class="math notranslate nohighlight">\(x\)</span>) direction, while <code class="docutils literal notranslate"><span class="pre">Inflow</span></code> (dirichlet) and <code class="docutils literal notranslate"><span class="pre">Outflow</span></code> (neumann) boundary conditions are used in the main flow direction (<span class="math notranslate nohighlight">\(y\)</span>). The flow goes from the bottom to the top of the domain. The specificities of the <code class="docutils literal notranslate"><span class="pre">Inflow</span></code> boundary condition are explained in subsection <a class="reference internal" href="#sec-tuto-tf-inflowspec"><span class="std std-ref">Inflow specification</span></a></p>
+<span id="fig-tf-numsetup"></span><table class="docutils align-center" id="id7">
+<caption><span class="caption-number">8 </span><span class="caption-text">Sketch of the computational domain with level 0 box decomposition (left) and input mixture fraction profile (right).</span><a class="headerlink" href="#id7" title="Permalink to this table"></a></caption>
+<colgroup>
+<col style="width: 100%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="_images/SetupSketch.png"><img alt="b" src="_images/SetupSketch.png" style="width: 100%;" /></a></p></td>
+</tr>
+</tbody>
+</table>
+<p>The geometry of the problem is specified in the first block of the <code class="docutils literal notranslate"><span class="pre">inputs.2d-regt</span></code>:</p>
+<div class="highlight-rst notranslate"><div class="highlight"><pre><span></span>#----------------------DOMAIN DEFINITION------------------------
+geometry.is_periodic = 0 0       # Periodicity in each direction: 0 =&gt; no, 1 =&gt; yes
+geometry.coord_sys   = 0         # 0 =&gt; cart, 1 =&gt; RZ
+geometry.prob_lo     = 0. 0.     # x_lo y_lo
+geometry.prob_hi     = 0.02 0.04 # x_hi y_hi
+</pre></div>
+</div>
+<p>The second block determines the boundary conditions. Refer to Fig <a class="reference internal" href="#fig-tf-numsetup"><span class="std std-numref">8</span></a>:</p>
+<div class="highlight-rst notranslate"><div class="highlight"><pre><span></span># &gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;  BC FLAGS &lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;
+# Interior, Inflow, Outflow, Symmetry,
+# SlipWallAdiab, NoSlipWallAdiab, SlipWallIsotherm, NoSlipWallIsotherm
+peleLM.lo_bc = Symmetry  Inflow
+peleLM.hi_bc = Symmetry  Outflow
+</pre></div>
+</div>
+<p>The number of levels, refinement ratio between levels, maximium grid size as well as other related refinement parameters are set under the third block  :</p>
+<div class="highlight-rst notranslate"><div class="highlight"><pre><span></span>#-------------------------AMR CONTROL----------------------------
+amr.n_cell          = 64 128     # Level 0 number of cells in each direction
+amr.v               = 1          # amr verbosity level
+amr.max_level       = 1          # maximum level number allowed
+amr.ref_ratio       = 2 2 2 2    # refinement ratio
+amr.regrid_int      = 2          # how often to regrid
+amr.n_error_buf     = 1 1 1 2    # number of buffer cells in error est
+amr.grid_eff        = 0.9        # what constitutes an efficient grid
+amr.grid_eff        = 0.7        # what constitutes an efficient grid
+amr.blocking_factor = 16         # block factor in grid generation
+amr.max_grid_size   = 32         # maximum box size
+</pre></div>
+</div>
+</section>
+<section id="inflow-specification">
+<span id="sec-tuto-tf-inflowspec"></span><h3>Inflow specification<a class="headerlink" href="#inflow-specification" title="Permalink to this heading"></a></h3>
+<p>The edge flame is stabilized against an incoming mixing layer with a uniform velocity profile. The mixing
+layer is prescribed using an hyperbolic tangent of mixture fraction <span class="math notranslate nohighlight">\(z\)</span> between 0 and 1, as can be seen in Fig <a class="reference internal" href="#fig-tf-numsetup"><span class="std std-numref">8</span></a>:</p>
+<div class="math notranslate nohighlight">
+\[z(x) = 0.5 \Big(1 + tanh \Big( \frac{x - 0.6(x_{hi} + x_{lo})}{0.05(x_{hi} - x_{lo})} \Big) \Big)\]</div>
+<p>where <span class="math notranslate nohighlight">\(z\)</span> is based on the classical elemental composition <a class="reference internal" href="#cf1990" id="id3"><span>[CF1990]</span></a>:</p>
+<div class="math notranslate nohighlight">
+\[z =  \frac{\beta - \beta_{ox}}{\beta_{fu} - \beta_{ox}}\]</div>
+<p>where <span class="math notranslate nohighlight">\(\beta\)</span> is Bilger’s coupling function, and subscript <span class="math notranslate nohighlight">\(ox\)</span> and <span class="math notranslate nohighlight">\(fu\)</span> correspond to oxidizer and fuel streams respectively.</p>
+<p>Specifying dirichlet <code class="docutils literal notranslate"><span class="pre">Inflow</span></code> conditions in <cite>PeleLM</cite> can seem daunting at first. But it is actually a very flexible process. We walk the user through the details of it for the Triple Flame case just described. The files involved are:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">pelelm_prob_parm.H</span></code>, assemble in a C++ namespace <code class="docutils literal notranslate"><span class="pre">ProbParm</span></code> the input variables as well as other variables used in the initialization process.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">pelelm_prob.cpp</span></code>, initialize and provide default values to the entries of <code class="docutils literal notranslate"><span class="pre">ProbParm</span></code> and allow the user to pass run-time value using the <cite>AMReX</cite> parser (<code class="docutils literal notranslate"><span class="pre">ParmParse</span></code>). In the present case, the parser will read the parameters in the <code class="docutils literal notranslate"><span class="pre">PROBLEM</span> <span class="pre">PARAMETERS</span></code> block:</p>
+<div class="highlight-rst notranslate"><div class="highlight"><pre><span></span>prob.P_mean = 101325.0
+prob.T_in = 300.0
+prob.V_in = 0.85
+prob.Zst = 0.055
+</pre></div>
+</div>
+</li>
+<li><p>finally, <code class="docutils literal notranslate"><span class="pre">pelelm_prob.H</span></code> contains the <code class="docutils literal notranslate"><span class="pre">pelelm_initdata</span></code> and <code class="docutils literal notranslate"><span class="pre">bcnormal</span></code> functions responsible for generating the initial and boundary conditions, resspectively.</p></li>
+</ul>
+<p>Note that in our specific case, we compute the input value of the mass fractions (Y) <em>directly</em> in <code class="docutils literal notranslate"><span class="pre">bcnormal</span></code>, using the <code class="docutils literal notranslate"><span class="pre">ProbParm</span></code> variables. We do not need any additional information, because we hard coded the hyperbolic tangent profile of <span class="math notranslate nohighlight">\(z\)</span> (see previous formula) and there is a direct relation with the mass fraction profiles. The interested reader can look at the function <code class="docutils literal notranslate"><span class="pre">set_Y_from_Ksi</span></code> and <code class="docutils literal notranslate"><span class="pre">set_Y_from_Phi</span></code> in <code class="docutils literal notranslate"><span class="pre">pelelm_prob.H</span></code>.</p>
+</section>
+<section id="initial-solution">
+<h3>Initial solution<a class="headerlink" href="#initial-solution" title="Permalink to this heading"></a></h3>
+<p>An initial field of the main variables is always required to start a simulation.
+Ideally, you want for this initial solution to approximate the final (steady-state in our case) solution as much as possible.
+This will speed up the initial transient and avoid many convergence issues.
+In the present tutorial, an initial solution is constructed by imposing the same inlet hyperbolic tangent of mixture fraction than described in subsection <a class="reference internal" href="#sec-tuto-tf-inflowspec"><span class="std std-ref">Inflow specification</span></a> everywhere in the domain; and reconstructing the species mass fraction profiles from it.
+To ensure ignition of the mixture, a progressively widening Gaussian profile of temperature is added, starting from about 1 cm, and stretching until the outlet of the domain. The initial temperature field is shown in Fig <a class="reference internal" href="#fig-tf-initialsol"><span class="std std-numref">9</span></a>, along with the parameters controlling the shape of the hot spot.</p>
+<span id="fig-tf-initialsol"></span><table class="docutils align-center" id="id8">
+<caption><span class="caption-number">9 </span><span class="caption-text">Initial temperature field (left) as well as widening gaussian 1D y-profiles (right) and associated parameters. The initial solution contains 2 levels.</span><a class="headerlink" href="#id8" title="Permalink to this table"></a></caption>
+<colgroup>
+<col style="width: 100%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="_images/InitialSol.001.png"><img alt="c" src="_images/InitialSol.001.png" style="width: 100%;" /></a></p></td>
+</tr>
+</tbody>
+</table>
+<p>This initial solution is constructed via the routine <code class="docutils literal notranslate"><span class="pre">pelelm_initdata()</span></code>, in the file <code class="docutils literal notranslate"><span class="pre">pelelm_prob.H</span></code>. Additional information is provided as comments in this file for the eager reader, but nothing is required from the user at this point.</p>
+</section>
+<section id="numerical-scheme">
+<h3>Numerical scheme<a class="headerlink" href="#numerical-scheme" title="Permalink to this heading"></a></h3>
+<p>The <code class="docutils literal notranslate"><span class="pre">NUMERICS</span> <span class="pre">CONTROL</span></code> block can be modified by the user to increase the number of SDC iterations. Note that there are many other parameters controlling the numerical algorithm that the advanced user can tweak, but we will not talk about them in the present Tutorial. The interested user can refer to section <a class="reference internal" href="RunningPeleLM.html#sec-control-pelelm"><span class="std std-ref">PeleLM algorithm controls</span></a>.</p>
+</section>
+</section>
+<section id="building-the-executable">
+<h2>Building the executable<a class="headerlink" href="#building-the-executable" title="Permalink to this heading"></a></h2>
+<p>The last necessary step before starting the simulation consists of building the PeleLM executable. AMReX applications use a makefile system to ensure that all the required source code from the dependent libraries be properly compiled and linked. The <code class="docutils literal notranslate"><span class="pre">GNUmakefile</span></code> provides some compile-time options regarding the simulation we want to perform. The first four lines of the file specify the paths towards the source code of <cite>PeleLM</cite>, <cite>AMReX</cite>, <cite>IAMR</cite> and <cite>PelePhysics</cite> and should not be changed.</p>
+<p>Next comes the build configuration block:</p>
+<div class="highlight-rst notranslate"><div class="highlight"><pre><span></span><span class="gh">#</span>
+<span class="gh"># Build configuration</span>
+<span class="gh">#</span>
+DIM             = 2
+COMP            = gnu
+DEBUG           = FALSE
+USE_MPI         = TRUE
+USE_OMP         = FALSE
+USE_CUDA        = FALSE
+PRECISION       = DOUBLE
+VERBOSE         = FALSE
+TINY_PROFILE    = FALSE
+</pre></div>
+</div>
+<p>It allows the user to specify the number of spatial dimensions (2D), the compiler (<code class="docutils literal notranslate"><span class="pre">gnu</span></code>) and the parallelism paradigm (in the present case only MPI is used). The other options can be activated for debugging and profiling purposes.</p>
+<p>In <cite>PeleLM</cite>, the chemistry model (set of species, their thermodynamic and transport properties as well as the description of their of chemical interactions) is specified at compile time. Chemistry models available in <cite>PelePhysics</cite> can used in <cite>PeleLM</cite> by specifying the name of the folder in <cite>PelePhysics/Support/Fuego/Mechanisms/Models</cite> containing the relevant files, for example:</p>
+<div class="highlight-rst notranslate"><div class="highlight"><pre><span></span>Chemistry_Model = drm19
+</pre></div>
+</div>
+<p>Here, the methane kinetic model <code class="docutils literal notranslate"><span class="pre">drm19</span></code>, containing 21 species is employed. The user is referred to the <a class="reference external" href="https://pelephysics.readthedocs.io/en/latest/">PelePhysics</a> documentation for a list of available mechanisms and more information regarding the EOS, chemistry and transport models specified:</p>
+<div class="highlight-rst notranslate"><div class="highlight"><pre><span></span>Eos_Model       := Fuego
+Transport_Model := Simple
+</pre></div>
+</div>
+<p>Finally, <cite>PeleLM</cite> utilizes the chemical kinetic ODE integrator <a class="reference external" href="https://computing.llnl.gov/projects/sundials/cvode">CVODE</a>. This Third Party Librabry (TPL) is not shipped with the <cite>PeleLM</cite> distribution but can be readily installed through the makefile system of <cite>PeleLM</cite>. To do so, type in the following command:</p>
+<div class="highlight-rst notranslate"><div class="highlight"><pre><span></span>make TPL
+</pre></div>
+</div>
+<p>Note that the installation of <cite>CVODE</cite> requires CMake 3.12.1 or higher.</p>
+<p>You are now ready to build your first <cite>PeleLM</cite> executable !! Type in:</p>
+<div class="highlight-rst notranslate"><div class="highlight"><pre><span></span>make -j4
+</pre></div>
+</div>
+<p>The option here tells <cite>make</cite> to use up to 4 processors to create the executable (internally, <cite>make</cite> follows a dependency graph to ensure any required ordering in the build is satisfied). This step should generate the following file (providing that the build configuration you used matches the one above):</p>
+<div class="highlight-rst notranslate"><div class="highlight"><pre><span></span>PeleLM2d.gnu.MPI.ex
+</pre></div>
+</div>
+<p>You’re good to go !</p>
+</section>
+<section id="initial-transient-phase">
+<h2>Initial transient phase<a class="headerlink" href="#initial-transient-phase" title="Permalink to this heading"></a></h2>
+<section id="first-step-the-initial-solution">
+<h3>First step: the initial solution<a class="headerlink" href="#first-step-the-initial-solution" title="Permalink to this heading"></a></h3>
+<p>When performing time-dependent numerical simulations, it is good practice to verify the initial solution. To do so, we will run <cite>PeleLM</cite> for a single time step, to generate an initial plotfile <code class="docutils literal notranslate"><span class="pre">plt_00000</span></code>.</p>
+<p>Time-stepping parameters in <code class="docutils literal notranslate"><span class="pre">input.2d-regt</span></code> are specified in the <code class="docutils literal notranslate"><span class="pre">TIME</span> <span class="pre">STEPING</span> <span class="pre">CONTROL</span></code> block:</p>
+<div class="highlight-rst notranslate"><div class="highlight"><pre><span></span>#----------------------TIME STEPING CONTROL----------------------
+max_step       = 1               # maximum number of time steps
+stop_time      = 4.00            # final physical time
+ns.cfl         = 0.1             # cfl number for hyperbolic system
+ns.init_shrink = 0.01            # scale back initial timestep
+ns.change_max  = 1.1             # max timestep size increase
+ns.dt_cutoff   = 5.e-10          # level 0 timestep below which we halt
+</pre></div>
+</div>
+<p>The maximum number of time steps is set to 1 for now, while the final simulation time is 4.0 s. Note that, when both <code class="docutils literal notranslate"><span class="pre">max_step</span></code> and <code class="docutils literal notranslate"><span class="pre">stop_time</span></code> are specified, the more stringent constraint will control the termination of the simulation. <cite>PeleLM</cite> solves for the advection, diffusion and reaction processes in time, but only the advection term is treated explicitly and thus it constrains the maximum time step size <span class="math notranslate nohighlight">\(dt_{CFL}\)</span>. This constraint is formulated with a classical Courant-Friedrich-Levy (CFL) number, specified via the keyword <code class="docutils literal notranslate"><span class="pre">ns.cfl</span></code>. Additionally, as it is the case here, the initial solution is often made-up by the user and local mixture composition and temperature can result in the introduction of unreasonably fast chemical scales. To ease the numerical integration of this initial transient, the parameter <code class="docutils literal notranslate"><span class="pre">ns.init_shrink</span></code> allows to shrink the inital <cite>dt</cite> (evaluated from the CFL constraint) by a factor (usually smaller than 1), and let it relax towards <span class="math notranslate nohighlight">\(dt_{CFL}\)</span> as the simulation proceeds.</p>
+<p>Input/output from <cite>PeleLM</cite> are specified in the <code class="docutils literal notranslate"><span class="pre">IO</span> <span class="pre">CONTROL</span></code> block:</p>
+<div class="highlight-rst notranslate"><div class="highlight"><pre><span></span>#-------------------------IO CONTROL----------------------------
+#amr.restart           = chk01000 # Restart from checkpoint ?
+#amr.regrid_on_restart = 1        # Perform regriding upon restart ?
+amr.checkpoint_files_output = 0   # Dump check file ? 0: no, 1: yes
+amr.check_file      = chk         # root name of checkpoint file
+amr.check_int       = 100         # number of timesteps between checkpoints
+amr.plot_file       = plt         # root name of plotfiles
+amr.plot_int        = 20          # number of timesteps between plotfiles
+amr.derive_plot_vars=rhoRT mag_vort avg_pressure gradpx gradpy diveru mass_fractions mixfrac
+amr.grid_log        = grdlog      # name of grid logging file
+</pre></div>
+</div>
+<p>The first two lines (commented out for now) are only used when restarting a simulation from a <cite>checkpoint</cite> file and will be useful later during this tutorial. Information pertaining to the checkpoint and plot_file files name and output frequency can be specified there. <cite>PeleLM</cite> will always generate an initial plotfile <code class="docutils literal notranslate"><span class="pre">plt_00000</span></code> if the initialization is properly completed, and a final plotfile at the end of the simulation. It is possible to request including <cite>derived variables</cite> in the plotfiles by appending their names to the <code class="docutils literal notranslate"><span class="pre">amr.derive_plot_vars</span></code> keyword. These variables are derived from the <cite>state variables</cite> (velocity, density, temperature, <span class="math notranslate nohighlight">\(\rho Y_k\)</span>, <span class="math notranslate nohighlight">\(\rho h\)</span>) which are automatically included in the plotfile. Note also that the name of the <code class="docutils literal notranslate"><span class="pre">probin</span></code> file used to specify the initial/boundary conditions is defined here.</p>
+<p>You finally have all the information necessary to run the first of several steps to generate a steady triple flame. Type in:</p>
+<div class="highlight-rst notranslate"><div class="highlight"><pre><span></span>./PeleLM2d.gnu.MPI.ex inputs.2d-regt
+</pre></div>
+</div>
+<p>A lot of information is printed directly on the screen during a <cite>PeleLM</cite> simulation, but it will not be detailed in the present tutorial. If you wish to store these information for later analysis, you can instead use:</p>
+<div class="highlight-rst notranslate"><div class="highlight"><pre><span></span>./PeleLM2d.gnu.MPI.ex inputs.2d-regt &gt; logCheckInitialSolution.dat &amp;
+</pre></div>
+</div>
+<p>Whether you have used one or the other command, within 30 s you should obtain a <code class="docutils literal notranslate"><span class="pre">plt_00000</span></code> and a <code class="docutils literal notranslate"><span class="pre">plt_00001</span></code> files (or even more, appended with .old*********** if you used both commands). Use <a class="reference external" href="https://amrex-codes.github.io/amrex/docs_html/Visualization.html">Amrvis</a> to vizualize <code class="docutils literal notranslate"><span class="pre">plt_00000</span></code> and make sure the solution matches the one shown in Fig. <a class="reference internal" href="#fig-tf-initialsol"><span class="std std-numref">9</span></a>.</p>
+</section>
+<section id="running-the-problem-on-a-coarse-grid">
+<h3>Running the problem on a coarse grid<a class="headerlink" href="#running-the-problem-on-a-coarse-grid" title="Permalink to this heading"></a></h3>
+<p>As mentioned above, the initial solution is relatively far from the steady-state triple flame we wish to obtain. An inexpensive and rapid way to transition from the initial solution to an established triple flame is to perform a coarse (using only 2 AMR levels) simulation using a single SDC iteration for a few initial number of time steps (here we start with 1000). To do so, update (or verify !) these associated keywords in the <code class="docutils literal notranslate"><span class="pre">input.2d-regt</span></code>:</p>
+<div class="highlight-rst notranslate"><div class="highlight"><pre><span></span><span class="gh">#-------------------------AMR CONTROL----------------------------</span>
+<span class="gh">...</span>
+<span class="gh">amr.max_level     = 1             # maximum level number allowed</span>
+<span class="gh">...</span>
+<span class="gh">#----------------------TIME STEPING CONTROL----------------------</span>
+<span class="gh">...</span>
+<span class="gh">max_step          = 1000          # maximum number of time steps</span>
+<span class="gh">...</span>
+<span class="gh">#--------------------NUMERICS CONTROL------------------------</span>
+<span class="gh">...</span>
+ns.sdc_iterMAX    = 1             # Number of SDC iterations
+</pre></div>
+</div>
+<p>In order to later on continue the simulation with refined parameters, we need to trigger the generation of a checkpoint file, in the <code class="docutils literal notranslate"><span class="pre">IO</span> <span class="pre">CONTROL</span></code> block:</p>
+<div class="highlight-rst notranslate"><div class="highlight"><pre><span></span>amr.checkpoint_files_output = 1   # Dump check file ? 0: no, 1: yes
+</pre></div>
+</div>
+<p>To be able to complete this first step relatively quickly, it is advised to run <cite>PeleLM</cite> using at least 4 MPI processes. It will then take a couple of hours to reach completion. To be able to monitor the simulation while it is running, use the following command:</p>
+<div class="highlight-rst notranslate"><div class="highlight"><pre><span></span>mpirun -n 4 ./PeleLM2d.gnu.MPI.ex inputs.2d-regt &gt; logCheckInitialTransient.dat &amp;
+</pre></div>
+</div>
+<p>A plotfile is generated every 20 time steps (as specified via the <code class="docutils literal notranslate"><span class="pre">amr.plot_int</span></code> keyword in the <code class="docutils literal notranslate"><span class="pre">IO</span> <span class="pre">CONTROL</span></code> block). This will allow you to visualize and monitor the evolution of the flame. Use the following command to open multiple plotfiles at once with <a class="reference external" href="https://amrex-codes.github.io/amrex/docs_html/Visualization.html">Amrvis</a>:</p>
+<div class="highlight-rst notranslate"><div class="highlight"><pre><span></span>amrvis -a plt????0
+</pre></div>
+</div>
+<p>An animation of the flame evolution during this initial transient is provided in Fig <a class="reference internal" href="#fig-tf-inittransient"><span class="std std-numref">10</span></a>.</p>
+<span id="fig-tf-inittransient"></span><table class="docutils align-center" id="id9">
+<caption><span class="caption-number">10 </span><span class="caption-text">Temperature (left) and divu (right) fields from 0 to 2000 time steps (0-?? ms).</span><a class="headerlink" href="#id9" title="Permalink to this table"></a></caption>
+<colgroup>
+<col style="width: 100%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="_images/InitTransient.gif"><img alt="d" src="_images/InitTransient.gif" style="width: 60%;" /></a></p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="steady-state-problem-activating-the-flame-control">
+<h3>Steady-state problem: activating the flame control<a class="headerlink" href="#steady-state-problem-activating-the-flame-control" title="Permalink to this heading"></a></h3>
+<p>The speed of propagation of a triple flame is not easy to determine a-priori. As such it is useful,
+at least until the flame settles, to have some sort of stabilization mechanism to prevent
+flame blow-off or flashback. In the present configuration, the position of the flame front can be tracked
+at each time step (using an isoline of temperature) and the input velocity is adjusted to maintain
+its location at a fixed distance from the inlet (1 cm in the present case).</p>
+<p>The parameters of the active control are listed in <cite>INPUTS TO ACTIVE CONTROL</cite> block of <code class="docutils literal notranslate"><span class="pre">inputs.2d-regt</span></code>:</p>
+<div class="highlight-rst notranslate"><div class="highlight"><pre><span></span># --------------  INPUTS TO ACTIVE CONTROL  -----------------
+active_control.on = 1                  # Use AC ?
+active_control.use_temp = 1            # Default in fuel mass, rather use iso-T position ?
+active_control.temperature = 1400.0    # Value of iso-T ?
+active_control.tau = 1.0e-4            # Control tau (should ~ 10 dt)
+active_control.height = 0.01           # Where is the flame held ? Default assumes coordinate along Y in 2D or Z in 3D.
+active_control.v = 1                   # verbose
+active_control.velMax = 2.0            # Optional: limit inlet velocity
+active_control.changeMax = 0.1         # Optional: limit inlet velocity changes (absolute)
+active_control.flameDir  = 1           # Optional: flame main direction. Default: AMREX_SPACEDIM-1
+active_control.pseudo_gravity = 1      # Optional: add density proportional force to compensate for the acceleration
+                                       #           of the gas due to inlet velocity changes
+</pre></div>
+</div>
+<p>The first keyword activates the active control and the second one specify that the flame will be tracked based on an iso-line of temperature, the value of which is provided in the third keyword. The following parameters controls the relaxation of the inlet velocity to
+the steady state velocity of the triple flame. <code class="docutils literal notranslate"><span class="pre">tau</span></code> is a relaxation time scale, that should be of the order of ten times the simulation time-step.
+<code class="docutils literal notranslate"><span class="pre">height</span></code> is the user-defined location where the triple flame should settle, <code class="docutils literal notranslate"><span class="pre">changeMax</span></code> and <code class="docutils literal notranslate"><span class="pre">velMax</span></code> control the maximum velocity increment and maximum inlet velocity, respectively. The user is referred to <a class="reference internal" href="#camcs2006" id="id5"><span>[CAMCS2006]</span></a> for an overview of the method and corresponding parameters.
+The <code class="docutils literal notranslate"><span class="pre">pseudo_gravity</span></code> triggers a manufactured force added to the momemtum equation to compensate for the acceleration of different density gases.</p>
+<p>Once these paremeters are set, you continue the previous simulation by uncommenting the first two lines of the <code class="docutils literal notranslate"><span class="pre">IO</span> <span class="pre">CONTROL</span></code> block in the input file:</p>
+<div class="highlight-rst notranslate"><div class="highlight"><pre><span></span>amr.restart           = chk01000 # Restart from checkpoint ?
+amr.regrid_on_restart = 1        # Perform regriding upon restart ?
+</pre></div>
+</div>
+<p>The first line provides the last <cite>checkpoint</cite> file generated during the first simulation performed for 1000 time steps. Note that the second line, forcing regriding of the simulation upon restart, is not essential at this point. Finally, update the <code class="docutils literal notranslate"><span class="pre">max_step</span></code> to allow the simulation to proceed further:</p>
+<div class="highlight-rst notranslate"><div class="highlight"><pre><span></span><span class="gh">#----------------------TIME STEPING CONTROL----------------------</span>
+<span class="gh">...</span>
+max_step          = 2000          # maximum number of time steps
+</pre></div>
+</div>
+<p>You are now ready launch <cite>PeleLM</cite> again for another 1000 time steps !</p>
+<div class="highlight-rst notranslate"><div class="highlight"><pre><span></span>mpirun -n 4 ./PeleLM2d.gnu.MPI.ex inputs.2d-regt &gt; logCheckControl.dat &amp;
+</pre></div>
+</div>
+<p>As the simulation proceeds, an ASCII file tracking the flame position and inlet velocity (as well as other control variables) is generated: <code class="docutils literal notranslate"><span class="pre">AC_History</span></code>. You can follow the motion of the flame tip by plotting the eigth column against the first one (flame tip vs. time step count). If <cite>gnuplot</cite> is available on your computer, use the following to obtain the graphs of Fig <a class="reference internal" href="#fig-tf-accontrol"><span class="std std-numref">11</span></a>:</p>
+<div class="highlight-rst notranslate"><div class="highlight"><pre><span></span>gnuplot
+plot &quot;AC_History.dat&quot; u 1:7 w lp
+plot &quot;AC_History.dat&quot; u 1:3 w lp
+exit
+</pre></div>
+</div>
+<p>The second plot corresponds to the inlet velocity.</p>
+<span id="fig-tf-accontrol"></span><table class="docutils align-center" id="id10">
+<caption><span class="caption-number">11 </span><span class="caption-text">Flame tip position (left) and inlet velocity (right) as function of time step count from 1000 to 2000 step using the inlet velocity control.</span><a class="headerlink" href="#id10" title="Permalink to this table"></a></caption>
+<colgroup>
+<col style="width: 100%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="_images/ACcontrol.png"><img alt="e" src="_images/ACcontrol.png" style="width: 100%;" /></a></p></td>
+</tr>
+</tbody>
+</table>
+<p>At this point, you have a stabilized methane/air triple flame and will now use AMR features to improve the quality of your simulation.</p>
+</section>
+</section>
+<section id="refinement-of-the-computation">
+<h2>Refinement of the computation<a class="headerlink" href="#refinement-of-the-computation" title="Permalink to this heading"></a></h2>
+<p>Before going further, it is important to look at the results of the current simulation. The left panel of Fig. <a class="reference internal" href="#fig-tf-coarsefield"><span class="std std-numref">12</span></a>
+displays the temperature field, while a zoom-in of the flame edge region colored by several important variables
+is provided on the right side.
+Note that <cite>DivU</cite>, the <cite>HeatRelease</cite> and the <cite>CH4_consumption</cite> are good markers of the reaction/diffusion processes in our case.
+What is striking from these images is the lack of resolution of the triple flame, particularly in the reaction zone.
+We also clearly see square unsmooth shapes in the field of intermediate species, where <cite>Y(HCO)</cite> is found to closely match the region of high <cite>CH4_consumption</cite> while <cite>Y(CH3O)</cite> is located closer to the cold gases, on the outer layer of the triple flame.</p>
+<span id="fig-tf-coarsefield"></span><table class="docutils align-center" id="id11">
+<caption><span class="caption-number">12 </span><span class="caption-text">Details of the triple flame tip obtained with the initial coarse 2-level mesh.</span><a class="headerlink" href="#id11" title="Permalink to this table"></a></caption>
+<colgroup>
+<col style="width: 100%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="_images/CoarseDetails.png"><img alt="f" src="_images/CoarseDetails.png" style="width: 100%;" /></a></p></td>
+</tr>
+</tbody>
+</table>
+<p>Our first level of refinement must specifically target the reactive layer of the flame. As seen from Fig. <a class="reference internal" href="#fig-tf-coarsefield"><span class="std std-numref">12</span></a>, one can choose from several variables to reach that goal. In the following, we will use the CH3O species as a tracer of the flame position. Start by increasing the number of AMR levels by one in the <cite>AMR CONTROL</cite> block:</p>
+<div class="highlight-rst notranslate"><div class="highlight"><pre><span></span>amr.max_level       = 2          # maximum level number allowed
+</pre></div>
+</div>
+<p>Then provide a definition of the new refinement critera in the <cite>REFINEMENT CONTROL</cite> block:</p>
+<div class="highlight-rst notranslate"><div class="highlight"><pre><span></span>#--------------------REFINEMENT CONTROL------------------------
+amr.refinement_indicators = hi_temp gradT flame_tracer   # Declare set of refinement indicators
+
+amr.hi_temp.max_level     = 1
+amr.hi_temp.value_greater = 800
+amr.hi_temp.field_name    = temp
+
+amr.gradT.max_level                   = 1
+amr.gradT.adjacent_difference_greater = 200
+amr.gradT.field_name                  = temp
+
+amr.flame_tracer.max_level     = 2
+amr.flame_tracer.value_greater = 1.0e-6
+amr.flame_tracer.field_name    = Y(CH3O)
+</pre></div>
+</div>
+<p>The first line simply declares a set of refinement indicators which are subsequently defined. For each indicator, the user can provide a limit up to which AMR level this indicator will be used to refine. Then there are multiple possibilities to specify the actual criterion: <code class="docutils literal notranslate"><span class="pre">value_greater</span></code>, <code class="docutils literal notranslate"><span class="pre">value_less</span></code>, <code class="docutils literal notranslate"><span class="pre">vorticity_greater</span></code> or <code class="docutils literal notranslate"><span class="pre">adjacent_difference_greater</span></code>. In each case, the user specify a threshold value and the name of variable on which it applies (except for the <code class="docutils literal notranslate"><span class="pre">vorticity_greater</span></code>). In the example above, the grid is refined up to level 1 at the location wheres the temperature is above 800 K or where the temperature difference between adjacent cells exceed 200 K. These two criteria were used up to that point. The last indicator will now enable to add level 2 grid patches at location where the flame tracer (<cite>Y(CH3O)</cite>) is above 1.0e-6.</p>
+<p>With these new parameters, update the <cite>checkpoint</cite> file from which to restart:</p>
+<div class="highlight-rst notranslate"><div class="highlight"><pre><span></span>amr.restart           = chk02000 # Restart from checkpoint ?
+</pre></div>
+</div>
+<p>and increase the <code class="docutils literal notranslate"><span class="pre">max_step</span></code> to 2300 and start the simulation again !</p>
+<div class="highlight-rst notranslate"><div class="highlight"><pre><span></span>mpirun -n 4 ./PeleLM2d.gnu.MPI.ex inputs.2d-regt &gt; log3Levels.dat &amp;
+</pre></div>
+</div>
+<p>Visualization of the 3-levels simulation results indicates that the flame front is now better repesented on the fine grid, but there are still only a couple of cells across the flame front thickness. The flame tip velocity, captured in the <cite>AC_history</cite>, also exhibits a significant change with the addition of the third level (even past the initial transient). In the present case, the flame tip velocity is our main quantity of interest and we will now add another refinement level to ensure that this quantity is fairly well capture. We will use the same refinement indicators and simply update the <code class="docutils literal notranslate"><span class="pre">max_level</span></code> as well as the level at which each refinement criteria is used:</p>
+<div class="highlight-rst notranslate"><div class="highlight"><pre><span></span>amr.max_level       = 3          # maximum level number allowed
+
+<span class="cp">...</span>
+
+amr.restart           = chk02300 # Restart from checkpoint ?
+
+<span class="cp">...</span>
+
+amr.gradT.max_level                   = 2
+
+<span class="cp">...</span>
+
+amr.flame_tracer.max_level     = 3
+</pre></div>
+</div>
+<p>and increase the <code class="docutils literal notranslate"><span class="pre">max_step</span></code> to 2600. The temporal evolution of the inlet velocity also shows that our active control parameters induce rather strong oscillations of the velocity before it settles. To illustrate how we can tune the AC parameters to limit this behavior, we will increase the <code class="docutils literal notranslate"><span class="pre">tau</span></code> parameter:</p>
+<div class="highlight-rst notranslate"><div class="highlight"><pre><span></span>active_control.tau = 4.0e-4            # Control tau (should ~ 10 dt)
+</pre></div>
+</div>
+<p>Let’s start the simulation again !</p>
+<div class="highlight-rst notranslate"><div class="highlight"><pre><span></span>mpirun -n 4 ./PeleLM2d.gnu.MPI.ex inputs.2d-regt &gt; log4Levels.dat &amp;
+</pre></div>
+</div>
+<p>Finally, we will now improve <cite>PeleLM</cite> algorithm accuracy itself. So far, for computational expense reasons, we have only used a single SDC iteration which provide a relatively weak coupling between the slow advection and the fast diffusion/reaction processes, as well as a loose enforcement of the velocity divergence constrain (see <a class="reference external" href="https://pelelm.readthedocs.io/en/latest/Model.html">PeleLM description</a> for more information). We will now increase the number of SDC iteration to two, allowing to reach the theoretical second order convergence property of the algorithm:</p>
+<div class="highlight-rst notranslate"><div class="highlight"><pre><span></span>#--------------------NUMERICS CONTROL------------------------
+ ...
+ ns.sdc_iterMAX    = 2             # Number of SDC iterations
+</pre></div>
+</div>
+<p>and further continue the simulation to reach 2800 time steps. Note that, as with an increase of the maximum refinement level, increasing the number of SDC iterations incurs a significant increase of the computational time per coarse time step. Let’s complete this final step:</p>
+<div class="highlight-rst notranslate"><div class="highlight"><pre><span></span>mpirun -n 4 ./PeleLM2d.gnu.MPI.ex inputs.2d-regt &gt; log4Levels_2SDC.dat &amp;
+</pre></div>
+</div>
+<p>Figure <a class="reference internal" href="#fig-tf-accontrol-full"><span class="std std-numref">13</span></a> shows the entire history of the inlet velocity starting when the AC was activated (1000th time step). We can see that every change in the numerical setup induced a slight change in the triple flame propagation velocity, eventually leading to a nearly constant value, sufficient for the purpose of this tutorial.</p>
+<span id="fig-tf-accontrol-full"></span><table class="docutils align-center" id="id12">
+<caption><span class="caption-number">13 </span><span class="caption-text">Inlet velocity history during the successive simulations performed during this tutorial.</span><a class="headerlink" href="#id12" title="Permalink to this table"></a></caption>
+<colgroup>
+<col style="width: 100%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="_images/ACcontrol_complete.png"><img alt="g" src="_images/ACcontrol_complete.png" style="width: 100%;" /></a></p></td>
+</tr>
+</tbody>
+</table>
+<p>At this point, the simulation is considered complete and the next section provide some pointer to further analyze the results.</p>
+</section>
+<section id="analysis">
+<h2>Analysis<a class="headerlink" href="#analysis" title="Permalink to this heading"></a></h2>
+<dl class="citation">
+<dt class="label" id="pci2007"><span class="brackets"><a class="fn-backref" href="#id1">PCI2007</a></span></dt>
+<dd><ol class="upperalpha simple" start="19">
+<li><p>Chung, Stabilization, propagation and instability of tribrachial triple flames, Proceedings of the Combustion Institute 31 (2007) 877–892</p></li>
+</ol>
+</dd>
+<dt class="label" id="cf1990"><span class="brackets"><a class="fn-backref" href="#id3">CF1990</a></span></dt>
+<dd><ol class="upperalpha simple" start="18">
+<li><p>Bilger, S. Starner, R. Kee, On reduced mechanisms for methane-air combustion in nonpremixed flames, Combustion and Flames 80 (1990) 135-149</p></li>
+</ol>
+</dd>
+<dt class="label" id="camcs2006"><span class="brackets"><a class="fn-backref" href="#id5">CAMCS2006</a></span></dt>
+<dd><ol class="upperalpha simple" start="10">
+<li><p>Bell, M. Day, J. Grcar, M. Lijewski, Active Control for Statistically Stationary Turbulent PremixedFlame Simulations, Communications in Applied Mathematics and Computational Science 1 (2006) 29-51</p></li>
+</ol>
+</dd>
+</dl>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="Tutorials_FlowPastCyl.html" class="btn btn-neutral float-left" title="Tutorial - Non-reacting flow past a cylinder" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright AMReX Copyright (c) 2018, The Regents of the University of California, through Lawrence Berkeley National Laboratory and the Alliance for Sustainable Energy, LLC., through National Renewable Energy Laboratory (subject to receipt of any required approvals from the U.S. Dept. of Energy).  All rights reserved..</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

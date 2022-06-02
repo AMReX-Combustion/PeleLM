@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PeleLM Quickstart &mdash; PeleLM 2018.10 documentation</title>
+      <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="_static/doctools.js"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="The PeleLM Model" href="Model.html" />
+    <link rel="prev" title="Welcome to the documentation for PeleLM" href="index.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="index.html" class="icon icon-home"> PeleLM
+            <img src="_static/swirlH2Fast_OH_vort_256.png" class="logo" alt="Logo"/>
+          </a>
+              <div class="version">
+                2018.10
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Documentation contents:</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#"><cite>PeleLM</cite> Quickstart</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#obtaining-pelelm">Obtaining <cite>PeleLM</cite></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#peleproduction">1. PeleProduction</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#individual-repositories">2. Individual repositories</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#building-pelelm">Building <cite>PeleLM</cite></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#running-pelelm">Running <cite>PeleLM</cite></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#visualization-of-the-results">Visualization of the results</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="Model.html">The <cite>PeleLM</cite> Model</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ProblemSetup.html">Setting up a new <cite>PeleLM</cite> Case</a></li>
+<li class="toctree-l1"><a class="reference internal" href="GNUmakeSystem.html">Building with GNU Make</a></li>
+<li class="toctree-l1"><a class="reference internal" href="RunningPeleLM.html"><cite>PeleLM</cite> control</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Visualization.html">Visualization</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Tutorials.html">Tutorials</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">PeleLM</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home"></a> &raquo;</li>
+      <li><cite>PeleLM</cite> Quickstart</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/GettingStarted.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="pelelm-quickstart">
+<span id="sec-quickstart"></span><h1><cite>PeleLM</cite> Quickstart<a class="headerlink" href="#pelelm-quickstart" title="Permalink to this heading"></a></h1>
+<p><cite>PeleLM</cite> was created in 2017 by renaming <cite>LMC</cite>, the low Mach code from <a class="reference external" href="https://ccse.lbl.gov">CCSE</a>,
+and is built on the <cite>AMReX</cite> library, the <cite>AMReX-Hydro</cite> set of advection schemes, the <cite>IAMR</cite> code and the <cite>PelePhysics</cite> chemistry and thermodynamics library.
+For the impatient, the following summarizes how to obtain <cite>PeleLM</cite> and all the supporting software
+required, and how to build and run a simple case in order to obtain a first set of results.
+A thorough discussion of the model equations, and time stepping algorithms in <cite>PeleLM</cite> is
+given in <a class="reference internal" href="Model.html#sec-model"><span class="std std-ref">The PeleLM Model</span></a>.  More details about the make system are given in <a class="reference internal" href="GNUmakeSystem.html#sec-build-make"><span class="std std-ref">Building with GNU Make</span></a>.
+Parameters provided for runtime control of <cite>PeleLM</cite> are discussed in <a class="reference internal" href="RunningPeleLM.html#sec-control"><span class="std std-ref">PeleLM control</span></a>.  Visualization
+of the results from <cite>PeleLM</cite> is discussed in <a class="reference internal" href="Visualization.html#sec-visualization"><span class="std std-ref">Visualization</span></a>.</p>
+<section id="obtaining-pelelm">
+<h2>Obtaining <cite>PeleLM</cite><a class="headerlink" href="#obtaining-pelelm" title="Permalink to this heading"></a></h2>
+<p>First, make sure that “git” is installed on your machine—we recommend version 1.7.x or higher.</p>
+<p>Then, there are two options to obtain <cite>PeleLM</cite> and its dependencies:</p>
+<section id="peleproduction">
+<h3>1. PeleProduction<a class="headerlink" href="#peleproduction" title="Permalink to this heading"></a></h3>
+<dl class="simple">
+<dt><cite>PeleProduction</cite> enables the user to obtain a consistent version of <cite>PeleLM</cite> and all its dependencies</dt><dd><p>with a single git clone (from the user). This is the prefered option when one wants to use <cite>PeleLM</cite></p>
+</dd>
+</dl>
+<p>but do not intend to make development into the code. More information on <cite>PeleProduction</cite> can be found
+on the <a class="reference external" href="https://github.com/AMReX-Combustion/PeleProduction.git">GitHub page</a>.</p>
+<blockquote>
+<div><ol class="loweralpha">
+<li><p>Download the <cite>PeleProduction</cite> repository and :</p>
+<div class="highlight-rst notranslate"><div class="highlight"><pre><span></span>git clone https://github.com/AMReX-Combustion/PeleProduction.git
+
+cd PeleProduction
+</pre></div>
+</div>
+</li>
+<li><p>The first time you do this, you will need to tell git that there are submodules. Git will look at the <code class="docutils literal notranslate"><span class="pre">.gitmodules</span></code> file in this branch and use that :</p>
+<div class="highlight-rst notranslate"><div class="highlight"><pre><span></span>git submodule init
+git submodule update
+</pre></div>
+</div>
+</li>
+<li><p>Finally, get into the FlameSheet folder of the <cite>PeleLM</cite> submodule:</p>
+<div class="highlight-rst notranslate"><div class="highlight"><pre><span></span>cd Submodules/PeleLM/Exec/RegTests/FlameSheet
+</pre></div>
+</div>
+</li>
+</ol>
+</div></blockquote>
+</section>
+<section id="individual-repositories">
+<h3>2. Individual repositories<a class="headerlink" href="#individual-repositories" title="Permalink to this heading"></a></h3>
+<p>Alternatively, all the individual dependencies of <cite>PeleLM</cite> can be obtained independently.
+The user then needs to provide environment variables for each of <cite>AMReX</cite>, <cite>IAMR</cite>, <cite>AMReX-Hydro</cite>, <cite>PelePhysics</cite> and <cite>PeleLM</cite> installation path.
+This method is intended for users wanting to modify the <cite>PeleLM</cite> source code and who are more comfortable with maintaining up-to-date the four repositories.</p>
+<blockquote>
+<div><ol class="loweralpha">
+<li><p>Download the <cite>AMReX</cite> repository by typing:</p>
+<div class="highlight-rst notranslate"><div class="highlight"><pre><span></span>git clone https://github.com/AMReX-Codes/amrex.git
+</pre></div>
+</div>
+</li>
+</ol>
+<blockquote>
+<div><p>This will create a folder called <code class="docutils literal notranslate"><span class="pre">amrex/</span></code> on your machine. Set the environment variable, <code class="docutils literal notranslate"><span class="pre">AMREX_HOME</span></code>, on your
+machine to point to the path name where you have put <cite>AMReX</cite>:</p>
+<div class="highlight-rst notranslate"><div class="highlight"><pre><span></span>export AMREX_HOME=/path/to/amrex/
+</pre></div>
+</div>
+</div></blockquote>
+<ol class="loweralpha" start="2">
+<li><p>Download the <cite>IAMR</cite> repository by typing:</p>
+<div class="highlight-rst notranslate"><div class="highlight"><pre><span></span>git clone https://github.com/AMReX-Codes/IAMR.git
+</pre></div>
+</div>
+</li>
+</ol>
+<blockquote>
+<div><p>This will create a folder called <code class="docutils literal notranslate"><span class="pre">IAMR/</span></code> on your machine.
+Set the environment variable, <code class="docutils literal notranslate"><span class="pre">IAMR_HOME</span></code>.
+Then switch to the <code class="docutils literal notranslate"><span class="pre">development</span></code> branch of IAMR:</p>
+<div class="highlight-rst notranslate"><div class="highlight"><pre><span></span>cd IAMR
+git checkout -b development origin/development
+</pre></div>
+</div>
+</div></blockquote>
+<ol class="loweralpha" start="3">
+<li><p>Download the <cite>AMReX-Hydro</cite> repository by typing:</p>
+<div class="highlight-rst notranslate"><div class="highlight"><pre><span></span>git clone https://github.com/AMReX-Codes/AMReX-Hydro.git
+</pre></div>
+</div>
+</li>
+</ol>
+<blockquote>
+<div><p>This will create a folder called <code class="docutils literal notranslate"><span class="pre">AMReX-Hydro/</span></code> on your machine.
+Set the environment variable, <code class="docutils literal notranslate"><span class="pre">AMREX_HYDRO_HOME</span></code>.</p>
+</div></blockquote>
+<ol class="loweralpha" start="4">
+<li><p>Clone the <cite>PeleLM</cite> and <cite>PelePhysics</cite> repositories:</p>
+<div class="highlight-rst notranslate"><div class="highlight"><pre><span></span>git clone https://github.com/AMReX-Combustion/PeleLM.git
+git clone https://github.com/AMReX-Combustion/PelePhysics.git
+</pre></div>
+</div>
+</li>
+</ol>
+<blockquote>
+<div><p>This will create folders called <code class="docutils literal notranslate"><span class="pre">PeleLM</span></code> and <code class="docutils literal notranslate"><span class="pre">PelePhysics</span></code> on your machine.
+Set the environment variables, <code class="docutils literal notranslate"><span class="pre">PELELM_HOME</span></code> and <code class="docutils literal notranslate"><span class="pre">PELE_PHYSICS_HOME</span></code>, respectively to where you put these.</p>
+</div></blockquote>
+<ol class="loweralpha" start="4">
+<li><p>Periodically update each of these repositories by typing <code class="docutils literal notranslate"><span class="pre">git</span> <span class="pre">pull</span></code> within each repository.</p></li>
+<li><p>Finally, get into the <code class="docutils literal notranslate"><span class="pre">FlameSheet</span></code> folder of <cite>PeleLM</cite> :</p>
+<div class="highlight-rst notranslate"><div class="highlight"><pre><span></span>cd PeleLM/Exec/RegTests/FlameSheet
+</pre></div>
+</div>
+</li>
+</ol>
+</div></blockquote>
+</section>
+</section>
+<section id="building-pelelm">
+<h2>Building <cite>PeleLM</cite><a class="headerlink" href="#building-pelelm" title="Permalink to this heading"></a></h2>
+<p>In <cite>PeleLM</cite> each different problem setup is stored in its own
+sub-folder under <code class="docutils literal notranslate"><span class="pre">$(PELELM_HOME)/Exec/</span></code>, and a local version of the
+<cite>PeleLM</cite> executable is built directly in that folder (object libraries are not used to manage <cite>AMReX</cite>
+and the application code).  In the following, we step through building a representative <cite>PeleLM</cite> executable.</p>
+<p>1. Regardless of which path you decided to choose in order to get the <cite>PeleLM</cite> code and its dependencies, you should be now be in the <code class="docutils literal notranslate"><span class="pre">FlameSheet</span></code> folder.
+If you have chosen Option 2 to get the <cite>PeleLM</cite> sources, you have already set the environement variable necessary to compile the executable.
+If you have chosen the first option, you now have to modify the <code class="docutils literal notranslate"><span class="pre">GNUmakefile</span></code> to ensure that the variable <code class="docutils literal notranslate"><span class="pre">SUBMODS</span></code> define on the first line
+points to the <code class="docutils literal notranslate"><span class="pre">Submodules</span></code> folder of <cite>PeleProduction</cite> :</p>
+<div class="highlight-rst notranslate"><div class="highlight"><pre><span></span>SUBMODS = /path/to/PeleProduction/Submodules
+</pre></div>
+</div>
+<p>such that the following lines provide path to <cite>PeleLM</cite> and its dependencies. Note that an absolute path in needed.</p>
+<ol class="arabic" start="2">
+<li><p>Edit the <code class="docutils literal notranslate"><span class="pre">GNUmakefile</span></code> to ensure that the following are set:</p>
+<div class="highlight-rst notranslate"><div class="highlight"><pre><span></span>DIM = 2
+COMP = gnu (or your favorite C++/F90 compiler suite)
+DEBUG = FALSE
+USE_MPI = FALSE
+USE_OMP = FALSE
+</pre></div>
+</div>
+<p>If you want to try compilers other than those in the GNU suite, and you find that they don’t
+work, please let us know.  Note that for centers managing their enviroments with “modules”, the
+programming environment determining your available compiler should agree with your choice of <code class="docutils literal notranslate"><span class="pre">COMP</span></code>
+in the <code class="docutils literal notranslate"><span class="pre">GNUmakefile</span></code> (e.g., <code class="docutils literal notranslate"><span class="pre">PrgEnv-gnu</span></code> module requires <code class="docutils literal notranslate"><span class="pre">COMP=gnu</span></code>).</p>
+</li>
+<li><p>Start by building the Sundials Third Party Library used to integrate the chemistry:</p>
+<div class="highlight-rst notranslate"><div class="highlight"><pre><span></span>make -j4 TPL
+</pre></div>
+</div>
+<p>and finally build <cite>PeleLM</cite> executable:</p>
+<div class="highlight-rst notranslate"><div class="highlight"><pre><span></span>make -j4
+</pre></div>
+</div>
+</li>
+</ol>
+<p>If successful, the resulting executable name will look something like <code class="docutils literal notranslate"><span class="pre">PeleLM2d.gnu.ex</span></code>. Depending on your
+compilation option the actual name of the executable might vary (including <code class="docutils literal notranslate"><span class="pre">MPI</span></code>, or <code class="docutils literal notranslate"><span class="pre">DEBUG</span></code>, …).</p>
+</section>
+<section id="running-pelelm">
+<h2>Running <cite>PeleLM</cite><a class="headerlink" href="#running-pelelm" title="Permalink to this heading"></a></h2>
+<p>1. <cite>PeleLM</cite> takes an input file as its first command-line argument.  The file
+contains a set of parameter definitions that will override defaults set in the code.
+To run <cite>PeleLM</cite> in serial with an example inputs file, type:</p>
+<div class="highlight-rst notranslate"><div class="highlight"><pre><span></span>./PeleLM2d.gnu.ex inputs.2d-regt
+</pre></div>
+</div>
+<ol class="arabic simple" start="2">
+<li><p>While running, <cite>PeleLM</cite> typically generates subfolders in the current folder that are named <code class="docutils literal notranslate"><span class="pre">plt00000/</span></code>, <code class="docutils literal notranslate"><span class="pre">plt00020/</span></code>, etc, and <code class="docutils literal notranslate"><span class="pre">chk00000/</span></code>, <code class="docutils literal notranslate"><span class="pre">chk00020/</span></code>, etc. These are “plotfiles” and “checkpoint” files. The plotfiles are used for visualization of derived fields; the checkpoint files are used for restarting the code.</p></li>
+</ol>
+<p>The output folders contain a collection of ASCII and binary files.  The field data is generally written in a self-describing binary format; the ASCII header files provide additional metadata to give the AMReX-compatible readers context to the field data.</p>
+</section>
+<section id="visualization-of-the-results">
+<h2>Visualization of the results<a class="headerlink" href="#visualization-of-the-results" title="Permalink to this heading"></a></h2>
+<p>There are several options for visualizing the data.  The popular
+packages <cite>Vis-It</cite> and <cite>Paraview</cite> <a class="reference external" href="https://amrex-codes.github.io/amrex/docs_html/Visualization_Chapter.html">support the AMReX file format natively</a>,
+as does the <cite>yt</cite> python package.  The standard tool used within the
+<cite>AMReX</cite>-community is <a class="reference external" href="https://github.com/AMReX-Codes/Amrvis">Amrvis</a>, a package developed and supported
+by CCSE that is designed specifically for highly efficient visualization
+of block-structured hierarchical AMR data, however there are limited visualization
+tools available in <cite>Amrvis</cite>, so most users make use of multiple tools depending on their needs.</p>
+<p>For more information on how to use <cite>Amrvis</cite> and <cite>VisIt</cite>, refer to the <cite>AMReX</cite>
+User’s guide in the <cite>AMReX</cite> git repository for download/build/usage instructions.</p>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="index.html" class="btn btn-neutral float-left" title="Welcome to the documentation for PeleLM" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="Model.html" class="btn btn-neutral float-right" title="The PeleLM Model" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright AMReX Copyright (c) 2018, The Regents of the University of California, through Lawrence Berkeley National Laboratory and the Alliance for Sustainable Energy, LLC., through National Renewable Energy Laboratory (subject to receipt of any required approvals from the U.S. Dept. of Energy).  All rights reserved..</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

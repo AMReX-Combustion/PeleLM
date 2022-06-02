@@ -1,0 +1,858 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Visualization &mdash; PeleLM 2018.10 documentation</title>
+      <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="_static/doctools.js"></script>
+        <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Tutorials" href="Tutorials.html" />
+    <link rel="prev" title="PeleLM control" href="RunningPeleLM.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="index.html" class="icon icon-home"> PeleLM
+            <img src="_static/swirlH2Fast_OH_vort_256.png" class="logo" alt="Logo"/>
+          </a>
+              <div class="version">
+                2018.10
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Documentation contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="GettingStarted.html"><cite>PeleLM</cite> Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Model.html">The <cite>PeleLM</cite> Model</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ProblemSetup.html">Setting up a new <cite>PeleLM</cite> Case</a></li>
+<li class="toctree-l1"><a class="reference internal" href="GNUmakeSystem.html">Building with GNU Make</a></li>
+<li class="toctree-l1"><a class="reference internal" href="RunningPeleLM.html"><cite>PeleLM</cite> control</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Visualization</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#amrvis">Amrvis</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#building-amrvis-on-macos">Building Amrvis on macOS</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#visit">VisIt</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#paraview">ParaView</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#yt">yt</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#using-on-a-local-workstation">Using on a local workstation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#using-yt-at-nersc-under-development">Using yt at NERSC (<em>under development</em>)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#interactive-yt-with-jupyter-notebooks">Interactive yt with Jupyter notebooks</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#parallel">Parallel</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#sensei">SENSEI</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#system-architecture">System Architecture</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#amrex-integration">AMReX Integration</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#compiling-with-gnu-make">Compiling with GNU Make</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#parmparse-configuration">ParmParse Configuration</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#back-end-selection-and-configuration">Back-end Selection and Configuration</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#obtaining-sensei">Obtaining SENSEI</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#sensei-vm">SENSEI VM</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#nersc-cori">NERSC Cori</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#amrlevel-tutorial-with-catalyst">AmrLevel Tutorial with Catalyst</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#amrlevel-tutorial-with-libsim">AmrLevel Tutorial with Libsim</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="Tutorials.html">Tutorials</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">PeleLM</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home"></a> &raquo;</li>
+      <li>Visualization</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/Visualization.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="visualization">
+<span id="sec-visualization"></span><h1>Visualization<a class="headerlink" href="#visualization" title="Permalink to this heading"></a></h1>
+<p>There are several visualization tools that can be used for AMReX plotfiles. The
+standard tool used within the AMReX-community is Amrvis, a package developed
+and supported by CCSE that is designed specifically for highly efficient
+visualization of block-structured hierarchical AMR data. Plotfiles can also be
+viewed using the VisIt, ParaView, and yt packages. Particle data can be viewed
+using ParaView.</p>
+<div class="toctree-wrapper compound">
+</div>
+<section id="amrvis">
+<span id="sec-amrvis"></span><h2>Amrvis<a class="headerlink" href="#amrvis" title="Permalink to this heading"></a></h2>
+<p>Our favorite visualization tool is Amrvis. We heartily encourage you to build
+the <code class="docutils literal notranslate"><span class="pre">amrvis1d</span></code>, <code class="docutils literal notranslate"><span class="pre">amrvis2d</span></code>, and <code class="docutils literal notranslate"><span class="pre">amrvis3d</span></code> executables, and to try using
+them to visualize your data. A very useful feature is View/Dataset, which
+allows you to actually view the numbers in a spreadsheet that is nested to
+reflect the AMR hierarchy – this can be handy for debugging. You can modify how
+many levels of data you want to see, whether you want to see the grid boxes or
+not, what palette you use, etc. Below are some instructions and tips for using
+Amrvis; you can find additional information in Amrvis/Docs/Amrvis.tex (which
+you can build into a pdf using pdflatex).</p>
+<ol class="arabic">
+<li><p>Download and build :</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="go">git clone https://github.com/AMReX-Codes/Amrvis</span>
+</pre></div>
+</div>
+<p>Then cd into Amrvis/, edit the GNUmakefile by setting <code class="docutils literal notranslate"><span class="pre">COMP</span></code> to the
+compiler suite you have.</p>
+<p>Type <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">DIM=1</span></code>, <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">DIM=2</span></code>, or <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">DIM=3</span></code> to build, resulting
+in an executable that looks like amrvis2d…ex.</p>
+<p>If you want to build amrvis with <code class="docutils literal notranslate"><span class="pre">DIM=3</span></code>, you must first download and build
+<code class="docutils literal notranslate"><span class="pre">volpack</span></code>:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="go">git clone https://ccse.lbl.gov/pub/Downloads/volpack.git</span>
+</pre></div>
+</div>
+<p>Then cd into volpack/ and type <code class="docutils literal notranslate"><span class="pre">make</span></code>.</p>
+<p>Note: Amrvis requires the OSF/Motif libraries and headers. If you don’t have
+these you will need to install the development version of motif through your
+package manager.  <code class="docutils literal notranslate"><span class="pre">lesstif</span></code> gives some functionality and will allow you to
+build the amrvis executable, but Amrvis may exhibit subtle anomalies.</p>
+<p>On most Linux distributions, the motif library is provided by the
+<code class="docutils literal notranslate"><span class="pre">openmotif</span></code> package, and its header files (like Xm.h) are provided by
+<code class="docutils literal notranslate"><span class="pre">openmotif-devel</span></code>. If those packages are not installed, then use the
+OS-specific package management tool to install them.</p>
+<p>You may then want to create an alias to amrvis2d, for example</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="go">alias amrvis2d /tmp/Amrvis/amrvis2d...ex</span>
+</pre></div>
+</div>
+</li>
+<li><p>Run the command <code class="docutils literal notranslate"><span class="pre">cp</span> <span class="pre">Amrvis/amrvis.defaults</span> <span class="pre">~/.amrvis.defaults</span></code>.  Then, in
+your copy, edit the line containing “palette” line to point to, e.g.,
+“palette /home/username/Amrvis/Palette”. The other lines control options
+such as the initial field to display, the number format, widow size, etc.
+If there are multiple instances of the same option, the last option takes
+precedence.</p></li>
+<li><p>Generally the plotfiles have the form pltXXXXX (the plt prefix can be
+changed), where XXXXX is a number corresponding to the timestep the file was
+output. <code class="docutils literal notranslate"><span class="pre">amrvis2d</span> <span class="pre">&lt;filename&gt;</span></code> or <code class="docutils literal notranslate"><span class="pre">amrvis3d</span> <span class="pre">&lt;filename&gt;</span></code> to see a single
+plotfile, or for 2D data sets, <code class="docutils literal notranslate"><span class="pre">amrvis2d</span> <span class="pre">-a</span> <span class="pre">plt*</span></code>, which will animate the
+sequence of plotfiles. FArrayBoxes and MultiFabs can also be viewed with the
+<code class="docutils literal notranslate"><span class="pre">-fab</span></code> and <code class="docutils literal notranslate"><span class="pre">-mf</span></code> options. When opening MultiFabs, use the name of the
+MultiFab’s header file <code class="docutils literal notranslate"><span class="pre">amrvis2d</span> <span class="pre">-mf</span> <span class="pre">MyMultiFab_H</span></code>.</p>
+<p>You can use the “Variable” menu to change the variable.
+You can left-click drag a box around a region and click “View”
+<span class="math notranslate nohighlight">\(\rightarrow\)</span> “Dataset” in order to look at the actual numerical
+values (see <a class="reference internal" href="#fig-amrvis"><span class="std std-numref">2</span></a>).  Or you can simply left
+click on a point to obtain the numerical value.  You can also export the
+pictures in several different formats under “File/Export”.  In 2D you can
+right and center click to get line-out plots.  In 3D you can right and
+center click to change the planes, and the hold shift+(right or center)
+click to get line-out plots.</p>
+<p>We have created a number of routines to convert AMReX plotfile data other
+formats (such as matlab), but in order to properly interpret the
+hierarchical AMR data, each tends to have its own idiosyncrasies. If you
+would like to display the data in another format, please contact Marc Day
+(<a class="reference external" href="mailto:MSDay&#37;&#52;&#48;lbl&#46;gov">MSDay<span>&#64;</span>lbl<span>&#46;</span>gov</a>) and we will point you to whatever we have that can help.</p>
+</li>
+</ol>
+<span id="fig-amrvis"></span><table class="docutils align-center" id="id3">
+<caption><span class="caption-number">2 </span><span class="caption-text">2D and 3D images generated using Amrvis</span><a class="headerlink" href="#id3" title="Permalink to this table"></a></caption>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="_images/Amrvis_2d.png"><img alt="a" src="_images/Amrvis_2d.png" style="width: 100%;" /></a></p></td>
+<td><p><a class="reference internal" href="_images/Amrvis_3d.png"><img alt="b" src="_images/Amrvis_3d.png" style="width: 100%;" /></a></p></td>
+</tr>
+</tbody>
+</table>
+<section id="building-amrvis-on-macos">
+<h3>Building Amrvis on macOS<a class="headerlink" href="#building-amrvis-on-macos" title="Permalink to this heading"></a></h3>
+<p>As previously outlined at the end of section <a class="reference internal" href="GNUmakeSystem.html#sec-build-make"><span class="std std-ref">Building with GNU Make</span></a>, it is
+recommended to build using the <a class="reference external" href="https://brew.sh">homebrew</a> package manager to
+install gcc. Furthermore, you will also need x11 and openmotif. These can be
+installed using homebrew also:</p>
+<ol class="arabic simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">brew</span> <span class="pre">cask</span> <span class="pre">install</span> <span class="pre">xquartz</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">brew</span> <span class="pre">install</span> <span class="pre">openmotif</span></code></p></li>
+</ol>
+<p>Note that when the <code class="docutils literal notranslate"><span class="pre">GNUmakefile</span></code> detects a macOS install, it assumes that
+dependencies are installed in the locations that Homebrew uses. Namely the
+<code class="docutils literal notranslate"><span class="pre">/usr/local/</span></code> tree for regular dependencies and the <code class="docutils literal notranslate"><span class="pre">/opt/</span></code> tree for X11.</p>
+</section>
+</section>
+<section id="visit">
+<span id="sec-visit"></span><h2>VisIt<a class="headerlink" href="#visit" title="Permalink to this heading"></a></h2>
+<p>AMReX data can also be visualized by VisIt, an open source visualization and
+analysis software. To follow along with this example, first build and run the
+first heat equation tutorial code (see the section on XXX).</p>
+<p>Next, download and install VisIt from
+<a class="reference external" href="https://wci.llnl.gov/simulation/computer-codes/visit">https://wci.llnl.gov/simulation/computer-codes/visit</a>.  To open a single
+plotfile, run VisIt, then select “File” <span class="math notranslate nohighlight">\(\rightarrow\)</span> “Open file …”,
+then select the Header file associated the the plotfile of interest (e.g.,
+plt00000/Header).  Assuming you ran the simulation in 2D, here are instructions
+for making a simple plot:</p>
+<ul class="simple">
+<li><p>To view the data, select “Add” <span class="math notranslate nohighlight">\(\rightarrow\)</span> “Pseudocolor”
+<span class="math notranslate nohighlight">\(\rightarrow\)</span> “phi”, and then select “Draw”.</p></li>
+<li><p>To view the grid structure (not particularly interesting yet, but when we
+add AMR it will be), select “ <span class="math notranslate nohighlight">\(\rightarrow\)</span> “subset”
+<span class="math notranslate nohighlight">\(\rightarrow\)</span> “levels”. Then double-click the text “Subset - levels”,
+enable the “Wireframe” option, select “Apply”, select “Dismiss”, and then
+select “Draw”.</p></li>
+<li><p>To save the image, select “File” <span class="math notranslate nohighlight">\(\rightarrow\)</span> “Set save options”,
+then customize the image format to your liking, then click “Save”.</p></li>
+</ul>
+<p>Your image should look similar to the left side of <a class="reference internal" href="#fig-visit"><span class="std std-numref">3</span></a>.</p>
+<span id="fig-visit"></span><table class="docutils align-center" id="id4">
+<caption><span class="caption-number">3 </span><span class="caption-text">: 2D (left) and 3D (right) images generated using VisIt.</span><a class="headerlink" href="#id4" title="Permalink to this table"></a></caption>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="_images/VisIt_2D.png"><img alt="c" src="_images/VisIt_2D.png" style="width: 100%;" /></a></p></td>
+<td><p><a class="reference internal" href="_images/VisIt_3D.png"><img alt="d" src="_images/VisIt_3D.png" style="width: 100%;" /></a></p></td>
+</tr>
+</tbody>
+</table>
+<p>In 3D, you must apply the “Operators” <span class="math notranslate nohighlight">\(\rightarrow\)</span> “Slicing”
+<span class="math notranslate nohighlight">\(\rightarrow\)</span> “ThreeSlice”, with the “ThreeSlice operator attribute” set
+to <code class="docutils literal notranslate"><span class="pre">x=0.25</span></code>, <code class="docutils literal notranslate"><span class="pre">y=0.25</span></code>, and <code class="docutils literal notranslate"><span class="pre">z=0.25</span></code>. You can left-click and drag over the
+image to rotate the image to generate something similar to right side of
+<a class="reference internal" href="#fig-visit"><span class="std std-numref">3</span></a>.</p>
+<p>To make a movie, you must first create a text file named <code class="docutils literal notranslate"><span class="pre">movie.visit</span></code> with a
+list of the Header files for the individual frames. This can most easily be
+done using the command:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="go">~/amrex/Tutorials/Basic/HeatEquation_EX1_C&gt; ls -1 plt*/Header | tee movie.visit</span>
+<span class="go">plt00000/Header</span>
+<span class="go">plt01000/Header</span>
+<span class="go">plt02000/Header</span>
+<span class="go">plt03000/Header</span>
+<span class="go">plt04000/Header</span>
+<span class="go">plt05000/Header</span>
+<span class="go">plt06000/Header</span>
+<span class="go">plt07000/Header</span>
+<span class="go">plt08000/Header</span>
+<span class="go">plt09000/Header</span>
+<span class="go">plt10000/Header</span>
+</pre></div>
+</div>
+<p>The next step is to run VisIt, select “File” <span class="math notranslate nohighlight">\(\rightarrow\)</span> “Open file
+…”, then select movie.visit. Create an image to your liking and press the
+“play” button on the VCR-like control panel to preview all the frames. To save
+the movie, choose “File” <span class="math notranslate nohighlight">\(\rightarrow\)</span> “Save movie …”, and follow the
+on-screen instructions.</p>
+</section>
+<section id="paraview">
+<span id="section-1"></span><h2>ParaView<a class="headerlink" href="#paraview" title="Permalink to this heading"></a></h2>
+<p>The open source visualization package ParaView v5.5 can be used to view 3D
+plotfiles, and particle data. Download the package at
+<a class="reference external" href="https://www.paraview.org/">https://www.paraview.org/</a>.</p>
+<p>To open a single plotfile (for example, you could run the
+<code class="docutils literal notranslate"><span class="pre">HeatEquation_EX1_C</span></code> in 3D):</p>
+<ol class="arabic simple">
+<li><p>Run ParaView v5.5, then select “File” <span class="math notranslate nohighlight">\(\rightarrow\)</span> “Open”.</p></li>
+<li><p>Navigate <strong>into</strong> the plotfile directory, and <strong>manually</strong> type in “Header”.
+ParaView will ask you about the file type – choose “Boxlib 3D Files”</p></li>
+<li><p>Under the “Cell Arrays” field, select a variable (e.g., “phi”) and click
+“Apply”.</p></li>
+<li><p>Under “Representation” select “Surface”.</p></li>
+<li><p>Under “Coloring” select the variable you chose above.</p></li>
+<li><p>To add planes, near the top left you will see a cube icon with a green plane
+slicing through it. If you hover your mouse over it, it will say “Slice”.
+Click that button.</p></li>
+<li><p>You can play with the Plane Parameters to define a plane of data to view, as
+shown in <a class="reference internal" href="#fig-paraview"><span class="std std-numref">1</span></a>.</p></li>
+</ol>
+<figure class="align-default" id="id5">
+<span id="fig-paraview"></span><a class="reference internal image-reference" href="_images/ParaView.png"><img alt="_images/ParaView.png" src="_images/ParaView.png" style="width: 3.1in;" /></a>
+<figcaption>
+<p><span class="caption-number">1 </span><span class="caption-text">: Plotfile image generated with ParaView</span><a class="headerlink" href="#id5" title="Permalink to this image"></a></p>
+</figcaption>
+</figure>
+<p>To visualize particle data within plofile directories (for example, you could
+run the <code class="docutils literal notranslate"><span class="pre">ShortRangeParticles</span></code> example):</p>
+<ol class="arabic simple">
+<li><p>Run ParaView v5.5, and select  then  “File” <span class="math notranslate nohighlight">\(\rightarrow\)</span> “Open”. You
+will see a combined “plt..” group. Click on “+” to expand the group, if you
+want inspect the files in the group. You can select an individual plotfile
+directory or select a group of directories to read them a time series, as
+shown in <a class="reference internal" href="#fig-paraview-filegroup"><span class="std std-numref">2</span></a>, and click OK.</p></li>
+</ol>
+<figure class="align-default" id="id6">
+<span id="fig-paraview-filegroup"></span><a class="reference internal image-reference" href="_images/ParaView_filegroup.png"><img alt="_images/ParaView_filegroup.png" src="_images/ParaView_filegroup.png" style="width: 3.1in;" /></a>
+<figcaption>
+<p><span class="caption-number">2 </span><span class="caption-text">: File dialog in ParaView showing a group of plotfile directories selected</span><a class="headerlink" href="#id6" title="Permalink to this image"></a></p>
+</figcaption>
+</figure>
+<ol class="arabic simple">
+<li><p>The “Properties” panel in ParaView allows you to specify the “Particle
+Type”, which defaults to “particles”. Using the “Properties” panel, you can
+also choose which point arrays to read.</p></li>
+<li><p>Click “Apply” and under “Representation” select “Point Gaussian”.</p></li>
+<li><p>Change the Gaussian Radius if you like. You can scroll through the frames
+with the VCR-like controls at the top, as shown in
+<a class="reference internal" href="#fig-paraview-particles"><span class="std std-numref">3</span></a>.</p></li>
+</ol>
+<figure class="align-default" id="id7">
+<span id="fig-paraview-particles"></span><a class="reference internal image-reference" href="_images/ParaView_particles.png"><img alt="_images/ParaView_particles.png" src="_images/ParaView_particles.png" style="width: 3.1in;" /></a>
+<figcaption>
+<p><span class="caption-number">3 </span><span class="caption-text">: Particle image generated with ParaView</span><a class="headerlink" href="#id7" title="Permalink to this image"></a></p>
+</figcaption>
+</figure>
+</section>
+<section id="yt">
+<span id="section-2"></span><h2>yt<a class="headerlink" href="#yt" title="Permalink to this heading"></a></h2>
+<p>yt, an open source Python package available at <a class="reference external" href="http://yt-project.org/">http://yt-project.org/</a>, can be
+used for analyzing and visualizing mesh and particle data generated by
+AMReX codes. Some of the AMReX developers are also yt project members.  Below
+we describe how to use  on both a local workstation, as well as at the NERSC
+HPC facility for high-throughput visualization of large data sets.</p>
+<p>Note - AMReX datasets require yt version 3.4 or greater.</p>
+<section id="using-on-a-local-workstation">
+<h3>Using on a local workstation<a class="headerlink" href="#using-on-a-local-workstation" title="Permalink to this heading"></a></h3>
+<p>Running yt on a local system generally provides good interactivity, but limited
+performance. Consequently, this configuration is best when doing exploratory
+visualization (e.g., experimenting with camera angles, lighting, and color
+schemes) of small data sets.</p>
+<p>To use yt on an AMReX plot file, first start a Jupyter notebook or an IPython
+kernel, and import the <code class="docutils literal notranslate"><span class="pre">yt</span></code> module:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">In</span> <span class="p">[</span><span class="mi">1</span><span class="p">]:</span> <span class="kn">import</span> <span class="nn">yt</span>
+
+<span class="n">In</span> <span class="p">[</span><span class="mi">2</span><span class="p">]:</span> <span class="nb">print</span><span class="p">(</span><span class="n">yt</span><span class="o">.</span><span class="n">__version__</span><span class="p">)</span>
+<span class="mf">3.4</span><span class="o">-</span><span class="n">dev</span>
+</pre></div>
+</div>
+<p>Next, load a plot file; in this example we use a plot file from the Nyx
+cosmology application:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">In</span> <span class="p">[</span><span class="mi">3</span><span class="p">]:</span> <span class="n">ds</span> <span class="o">=</span> <span class="n">yt</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">&quot;plt00401&quot;</span><span class="p">)</span>
+<span class="n">yt</span> <span class="p">:</span> <span class="p">[</span><span class="n">INFO</span>     <span class="p">]</span> <span class="mi">2017</span><span class="o">-</span><span class="mi">05</span><span class="o">-</span><span class="mi">23</span> <span class="mi">10</span><span class="p">:</span><span class="mi">03</span><span class="p">:</span><span class="mi">56</span><span class="p">,</span><span class="mi">182</span> <span class="n">Parameters</span><span class="p">:</span> <span class="n">current_time</span>              <span class="o">=</span> <span class="mf">0.00605694344696544</span>
+<span class="n">yt</span> <span class="p">:</span> <span class="p">[</span><span class="n">INFO</span>     <span class="p">]</span> <span class="mi">2017</span><span class="o">-</span><span class="mi">05</span><span class="o">-</span><span class="mi">23</span> <span class="mi">10</span><span class="p">:</span><span class="mi">03</span><span class="p">:</span><span class="mi">56</span><span class="p">,</span><span class="mi">182</span> <span class="n">Parameters</span><span class="p">:</span> <span class="n">domain_dimensions</span>         <span class="o">=</span> <span class="p">[</span><span class="mi">128</span> <span class="mi">128</span> <span class="mi">128</span><span class="p">]</span>
+<span class="n">yt</span> <span class="p">:</span> <span class="p">[</span><span class="n">INFO</span>     <span class="p">]</span> <span class="mi">2017</span><span class="o">-</span><span class="mi">05</span><span class="o">-</span><span class="mi">23</span> <span class="mi">10</span><span class="p">:</span><span class="mi">03</span><span class="p">:</span><span class="mi">56</span><span class="p">,</span><span class="mi">182</span> <span class="n">Parameters</span><span class="p">:</span> <span class="n">domain_left_edge</span>          <span class="o">=</span> <span class="p">[</span> <span class="mf">0.</span>  <span class="mf">0.</span>  <span class="mf">0.</span><span class="p">]</span>
+<span class="n">yt</span> <span class="p">:</span> <span class="p">[</span><span class="n">INFO</span>     <span class="p">]</span> <span class="mi">2017</span><span class="o">-</span><span class="mi">05</span><span class="o">-</span><span class="mi">23</span> <span class="mi">10</span><span class="p">:</span><span class="mi">03</span><span class="p">:</span><span class="mi">56</span><span class="p">,</span><span class="mi">183</span> <span class="n">Parameters</span><span class="p">:</span> <span class="n">domain_right_edge</span>         <span class="o">=</span> <span class="p">[</span> <span class="mf">14.24501</span>  <span class="mf">14.24501</span>  <span class="mf">14.24501</span><span class="p">]</span>
+
+<span class="n">In</span> <span class="p">[</span><span class="mi">4</span><span class="p">]:</span> <span class="n">ds</span><span class="o">.</span><span class="n">field_list</span>
+<span class="n">Out</span><span class="p">[</span><span class="mi">4</span><span class="p">]:</span>
+<span class="p">[(</span><span class="s1">&#39;DM&#39;</span><span class="p">,</span> <span class="s1">&#39;particle_mass&#39;</span><span class="p">),</span>
+ <span class="p">(</span><span class="s1">&#39;DM&#39;</span><span class="p">,</span> <span class="s1">&#39;particle_position_x&#39;</span><span class="p">),</span>
+ <span class="p">(</span><span class="s1">&#39;DM&#39;</span><span class="p">,</span> <span class="s1">&#39;particle_position_y&#39;</span><span class="p">),</span>
+ <span class="p">(</span><span class="s1">&#39;DM&#39;</span><span class="p">,</span> <span class="s1">&#39;particle_position_z&#39;</span><span class="p">),</span>
+ <span class="p">(</span><span class="s1">&#39;DM&#39;</span><span class="p">,</span> <span class="s1">&#39;particle_velocity_x&#39;</span><span class="p">),</span>
+ <span class="p">(</span><span class="s1">&#39;DM&#39;</span><span class="p">,</span> <span class="s1">&#39;particle_velocity_y&#39;</span><span class="p">),</span>
+ <span class="p">(</span><span class="s1">&#39;DM&#39;</span><span class="p">,</span> <span class="s1">&#39;particle_velocity_z&#39;</span><span class="p">),</span>
+ <span class="p">(</span><span class="s1">&#39;all&#39;</span><span class="p">,</span> <span class="s1">&#39;particle_mass&#39;</span><span class="p">),</span>
+ <span class="p">(</span><span class="s1">&#39;all&#39;</span><span class="p">,</span> <span class="s1">&#39;particle_position_x&#39;</span><span class="p">),</span>
+ <span class="p">(</span><span class="s1">&#39;all&#39;</span><span class="p">,</span> <span class="s1">&#39;particle_position_y&#39;</span><span class="p">),</span>
+ <span class="p">(</span><span class="s1">&#39;all&#39;</span><span class="p">,</span> <span class="s1">&#39;particle_position_z&#39;</span><span class="p">),</span>
+ <span class="p">(</span><span class="s1">&#39;all&#39;</span><span class="p">,</span> <span class="s1">&#39;particle_velocity_x&#39;</span><span class="p">),</span>
+ <span class="p">(</span><span class="s1">&#39;all&#39;</span><span class="p">,</span> <span class="s1">&#39;particle_velocity_y&#39;</span><span class="p">),</span>
+ <span class="p">(</span><span class="s1">&#39;all&#39;</span><span class="p">,</span> <span class="s1">&#39;particle_velocity_z&#39;</span><span class="p">),</span>
+ <span class="p">(</span><span class="s1">&#39;boxlib&#39;</span><span class="p">,</span> <span class="s1">&#39;density&#39;</span><span class="p">),</span>
+ <span class="p">(</span><span class="s1">&#39;boxlib&#39;</span><span class="p">,</span> <span class="s1">&#39;particle_mass_density&#39;</span><span class="p">)]</span>
+</pre></div>
+</div>
+<p>From here one can make slice plots, 3-D volume renderings, etc. An example of
+the slice plot feature is shown below:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">In</span> <span class="p">[</span><span class="mi">9</span><span class="p">]:</span> <span class="n">slc</span> <span class="o">=</span> <span class="n">yt</span><span class="o">.</span><span class="n">SlicePlot</span><span class="p">(</span><span class="n">ds</span><span class="p">,</span> <span class="s2">&quot;z&quot;</span><span class="p">,</span> <span class="s2">&quot;density&quot;</span><span class="p">)</span>
+<span class="n">yt</span> <span class="p">:</span> <span class="p">[</span><span class="n">INFO</span>     <span class="p">]</span> <span class="mi">2017</span><span class="o">-</span><span class="mi">05</span><span class="o">-</span><span class="mi">23</span> <span class="mi">10</span><span class="p">:</span><span class="mi">08</span><span class="p">:</span><span class="mi">25</span><span class="p">,</span><span class="mi">358</span> <span class="n">xlim</span> <span class="o">=</span> <span class="mf">0.000000</span> <span class="mf">14.245010</span>
+<span class="n">yt</span> <span class="p">:</span> <span class="p">[</span><span class="n">INFO</span>     <span class="p">]</span> <span class="mi">2017</span><span class="o">-</span><span class="mi">05</span><span class="o">-</span><span class="mi">23</span> <span class="mi">10</span><span class="p">:</span><span class="mi">08</span><span class="p">:</span><span class="mi">25</span><span class="p">,</span><span class="mi">358</span> <span class="n">ylim</span> <span class="o">=</span> <span class="mf">0.000000</span> <span class="mf">14.245010</span>
+<span class="n">yt</span> <span class="p">:</span> <span class="p">[</span><span class="n">INFO</span>     <span class="p">]</span> <span class="mi">2017</span><span class="o">-</span><span class="mi">05</span><span class="o">-</span><span class="mi">23</span> <span class="mi">10</span><span class="p">:</span><span class="mi">08</span><span class="p">:</span><span class="mi">25</span><span class="p">,</span><span class="mi">359</span> <span class="n">xlim</span> <span class="o">=</span> <span class="mf">0.000000</span> <span class="mf">14.245010</span>
+<span class="n">yt</span> <span class="p">:</span> <span class="p">[</span><span class="n">INFO</span>     <span class="p">]</span> <span class="mi">2017</span><span class="o">-</span><span class="mi">05</span><span class="o">-</span><span class="mi">23</span> <span class="mi">10</span><span class="p">:</span><span class="mi">08</span><span class="p">:</span><span class="mi">25</span><span class="p">,</span><span class="mi">359</span> <span class="n">ylim</span> <span class="o">=</span> <span class="mf">0.000000</span> <span class="mf">14.245010</span>
+
+<span class="n">In</span> <span class="p">[</span><span class="mi">10</span><span class="p">]:</span> <span class="n">slc</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+
+<span class="n">In</span> <span class="p">[</span><span class="mi">11</span><span class="p">]:</span> <span class="n">slc</span><span class="o">.</span><span class="n">save</span><span class="p">()</span>
+<span class="n">yt</span> <span class="p">:</span> <span class="p">[</span><span class="n">INFO</span>     <span class="p">]</span> <span class="mi">2017</span><span class="o">-</span><span class="mi">05</span><span class="o">-</span><span class="mi">23</span> <span class="mi">10</span><span class="p">:</span><span class="mi">08</span><span class="p">:</span><span class="mi">34</span><span class="p">,</span><span class="mi">021</span> <span class="n">Saving</span> <span class="n">plot</span> <span class="n">plt00401_Slice_z_density</span><span class="o">.</span><span class="n">png</span>
+<span class="n">Out</span><span class="p">[</span><span class="mi">11</span><span class="p">]:</span> <span class="p">[</span><span class="s1">&#39;plt00401_Slice_z_density.png&#39;</span><span class="p">]</span>
+</pre></div>
+</div>
+<p>The resulting image is <a class="reference internal" href="#fig-yt-nyx-slice-plot"><span class="std std-numref">4</span></a>. One can also make
+volume renderings with ; an example is show below:</p>
+<figure class="align-default" id="id8">
+<span id="fig-yt-nyx-slice-plot"></span><img alt="_images/yt_Nyx_density_slice.png" src="_images/yt_Nyx_density_slice.png" />
+<figcaption>
+<p><span class="caption-number">4 </span><span class="caption-text">: Slice plot of <span class="math notranslate nohighlight">\(128^3\)</span> Nyx simulation using yt.</span><a class="headerlink" href="#id8" title="Permalink to this image"></a></p>
+</figcaption>
+</figure>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">In</span> <span class="p">[</span><span class="mi">12</span><span class="p">]:</span> <span class="n">sc</span> <span class="o">=</span> <span class="n">yt</span><span class="o">.</span><span class="n">create_scene</span><span class="p">(</span><span class="n">ds</span><span class="p">,</span> <span class="n">field</span><span class="o">=</span><span class="s2">&quot;density&quot;</span><span class="p">,</span> <span class="n">lens_type</span><span class="o">=</span><span class="s2">&quot;perspective&quot;</span><span class="p">)</span>
+
+<span class="n">In</span> <span class="p">[</span><span class="mi">13</span><span class="p">]:</span> <span class="n">source</span> <span class="o">=</span> <span class="n">sc</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+<span class="n">In</span> <span class="p">[</span><span class="mi">14</span><span class="p">]:</span> <span class="n">source</span><span class="o">.</span><span class="n">tfh</span><span class="o">.</span><span class="n">set_bounds</span><span class="p">((</span><span class="mf">1e8</span><span class="p">,</span> <span class="mf">1e15</span><span class="p">))</span>
+
+<span class="n">In</span> <span class="p">[</span><span class="mi">15</span><span class="p">]:</span> <span class="n">source</span><span class="o">.</span><span class="n">tfh</span><span class="o">.</span><span class="n">set_log</span><span class="p">(</span><span class="kc">True</span><span class="p">)</span>
+
+<span class="n">In</span> <span class="p">[</span><span class="mi">16</span><span class="p">]:</span> <span class="n">source</span><span class="o">.</span><span class="n">tfh</span><span class="o">.</span><span class="n">grey_opacity</span> <span class="o">=</span> <span class="kc">True</span>
+
+<span class="n">In</span> <span class="p">[</span><span class="mi">17</span><span class="p">]:</span> <span class="n">sc</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+<span class="o">&lt;</span><span class="n">Scene</span> <span class="n">Object</span><span class="o">&gt;</span><span class="p">:</span>
+<span class="n">Sources</span><span class="p">:</span>
+    <span class="n">source_00</span><span class="p">:</span> <span class="o">&lt;</span><span class="n">Volume</span> <span class="n">Source</span><span class="o">&gt;</span><span class="p">:</span><span class="n">YTRegion</span> <span class="p">(</span><span class="n">plt00401</span><span class="p">):</span> <span class="p">,</span> <span class="n">center</span><span class="o">=</span><span class="p">[</span>  <span class="mf">1.09888770e+25</span>   <span class="mf">1.09888770e+25</span>   <span class="mf">1.09888770e+25</span><span class="p">]</span> <span class="n">cm</span><span class="p">,</span> <span class="n">left_edge</span><span class="o">=</span><span class="p">[</span> <span class="mf">0.</span>  <span class="mf">0.</span>  <span class="mf">0.</span><span class="p">]</span> <span class="n">cm</span><span class="p">,</span> <span class="n">right_edge</span><span class="o">=</span><span class="p">[</span>  <span class="mf">2.19777540e+25</span>   <span class="mf">2.19777540e+25</span>   <span class="mf">2.19777540e+25</span><span class="p">]</span> <span class="n">cm</span> <span class="n">transfer_function</span><span class="p">:</span><span class="kc">None</span>
+<span class="n">Camera</span><span class="p">:</span>
+    <span class="o">&lt;</span><span class="n">Camera</span> <span class="n">Object</span><span class="o">&gt;</span><span class="p">:</span>
+    <span class="n">position</span><span class="p">:[</span> <span class="mf">14.24501</span>  <span class="mf">14.24501</span>  <span class="mf">14.24501</span><span class="p">]</span> <span class="n">code_length</span>
+    <span class="n">focus</span><span class="p">:[</span> <span class="mf">7.122505</span>  <span class="mf">7.122505</span>  <span class="mf">7.122505</span><span class="p">]</span> <span class="n">code_length</span>
+    <span class="n">north_vector</span><span class="p">:[</span> <span class="mf">0.81649658</span> <span class="o">-</span><span class="mf">0.40824829</span> <span class="o">-</span><span class="mf">0.40824829</span><span class="p">]</span>
+    <span class="n">width</span><span class="p">:[</span> <span class="mf">21.367515</span>  <span class="mf">21.367515</span>  <span class="mf">21.367515</span><span class="p">]</span> <span class="n">code_length</span>
+    <span class="n">light</span><span class="p">:</span><span class="kc">None</span>
+    <span class="n">resolution</span><span class="p">:(</span><span class="mi">512</span><span class="p">,</span> <span class="mi">512</span><span class="p">)</span>
+<span class="n">Lens</span><span class="p">:</span> <span class="o">&lt;</span><span class="n">Lens</span> <span class="n">Object</span><span class="o">&gt;</span><span class="p">:</span>
+    <span class="n">lens_type</span><span class="p">:</span><span class="n">perspective</span>
+    <span class="n">viewpoint</span><span class="p">:[</span> <span class="mf">0.95423473</span>  <span class="mf">0.95423473</span>  <span class="mf">0.95423473</span><span class="p">]</span> <span class="n">code_length</span>
+
+<span class="n">In</span> <span class="p">[</span><span class="mi">19</span><span class="p">]:</span> <span class="n">sc</span><span class="o">.</span><span class="n">save</span><span class="p">()</span>
+<span class="n">yt</span> <span class="p">:</span> <span class="p">[</span><span class="n">INFO</span>     <span class="p">]</span> <span class="mi">2017</span><span class="o">-</span><span class="mi">05</span><span class="o">-</span><span class="mi">23</span> <span class="mi">10</span><span class="p">:</span><span class="mi">15</span><span class="p">:</span><span class="mi">07</span><span class="p">,</span><span class="mi">825</span> <span class="n">Rendering</span> <span class="n">scene</span> <span class="p">(</span><span class="n">Can</span> <span class="n">take</span> <span class="n">a</span> <span class="k">while</span><span class="p">)</span><span class="o">.</span>
+<span class="n">yt</span> <span class="p">:</span> <span class="p">[</span><span class="n">INFO</span>     <span class="p">]</span> <span class="mi">2017</span><span class="o">-</span><span class="mi">05</span><span class="o">-</span><span class="mi">23</span> <span class="mi">10</span><span class="p">:</span><span class="mi">15</span><span class="p">:</span><span class="mi">07</span><span class="p">,</span><span class="mi">825</span> <span class="n">Creating</span> <span class="n">volume</span>
+<span class="n">yt</span> <span class="p">:</span> <span class="p">[</span><span class="n">INFO</span>     <span class="p">]</span> <span class="mi">2017</span><span class="o">-</span><span class="mi">05</span><span class="o">-</span><span class="mi">23</span> <span class="mi">10</span><span class="p">:</span><span class="mi">15</span><span class="p">:</span><span class="mi">07</span><span class="p">,</span><span class="mi">996</span> <span class="n">Creating</span> <span class="n">transfer</span> <span class="n">function</span>
+<span class="n">yt</span> <span class="p">:</span> <span class="p">[</span><span class="n">INFO</span>     <span class="p">]</span> <span class="mi">2017</span><span class="o">-</span><span class="mi">05</span><span class="o">-</span><span class="mi">23</span> <span class="mi">10</span><span class="p">:</span><span class="mi">15</span><span class="p">:</span><span class="mi">07</span><span class="p">,</span><span class="mi">997</span> <span class="n">Calculating</span> <span class="n">data</span> <span class="n">bounds</span><span class="o">.</span> <span class="n">This</span> <span class="n">may</span> <span class="n">take</span> <span class="n">a</span> <span class="k">while</span><span class="o">.</span>
+<span class="n">Set</span> <span class="n">the</span> <span class="n">TransferFunctionHelper</span><span class="o">.</span><span class="n">bounds</span> <span class="n">to</span> <span class="n">avoid</span> <span class="n">this</span><span class="o">.</span>
+<span class="n">yt</span> <span class="p">:</span> <span class="p">[</span><span class="n">INFO</span>     <span class="p">]</span> <span class="mi">2017</span><span class="o">-</span><span class="mi">05</span><span class="o">-</span><span class="mi">23</span> <span class="mi">10</span><span class="p">:</span><span class="mi">15</span><span class="p">:</span><span class="mi">16</span><span class="p">,</span><span class="mi">471</span> <span class="n">Saving</span> <span class="n">render</span> <span class="n">plt00401_Render_density</span><span class="o">.</span><span class="n">png</span>
+</pre></div>
+</div>
+<p>The output of this is <a class="reference internal" href="#fig-yt-nyx-vol-rend"><span class="std std-numref">5</span></a>.</p>
+<figure class="align-default" id="id9">
+<span id="fig-yt-nyx-vol-rend"></span><img alt="_images/yt_Nyx_density_vol_rend.png" src="_images/yt_Nyx_density_vol_rend.png" />
+<figcaption>
+<p><span class="caption-number">5 </span><span class="caption-text">Volume rendering of <span class="math notranslate nohighlight">\(128^3\)</span> Nyx simulation using yt. This corresponds
+to the same plot file used to generate the slice plot in
+<a class="reference internal" href="#fig-yt-nyx-slice-plot"><span class="std std-numref">4</span></a>.</span><a class="headerlink" href="#id9" title="Permalink to this image"></a></p>
+</figcaption>
+</figure>
+</section>
+<section id="using-yt-at-nersc-under-development">
+<h3>Using yt at NERSC (<em>under development</em>)<a class="headerlink" href="#using-yt-at-nersc-under-development" title="Permalink to this heading"></a></h3>
+<p>Because yt is Python-based, it is portable and can be used in many software
+environments. Here we focus on yt’s capabilities at NERSC, which provides
+resources for performing both interactive and batch queue-based visualization
+and analysis of AMReX data. Coupled with yt’s MPI and OpenMP parallelization
+capabilities, this can enable high-throughput visualization and analysis
+workflows.</p>
+</section>
+<section id="interactive-yt-with-jupyter-notebooks">
+<h3>Interactive yt with Jupyter notebooks<a class="headerlink" href="#interactive-yt-with-jupyter-notebooks" title="Permalink to this heading"></a></h3>
+<p>Unlike VisIt (see the section on <a class="reference internal" href="#sec-visit"><span class="std std-ref">VisIt</span></a>), yt has no client-server
+interface. Such an interface is often crucial when one has large data sets
+generated on a remote system, but wishes to visualize the data on a local
+workstation. Both copying the data between the two systems, as well as
+visualizing the data itself on a workstation, can be prohibitively slow.</p>
+<p>Fortunately, NERSC has implemented several resources which allow one to
+interact with yt remotely, emulating a client-server model. In particular,
+NERSC now hosts Jupyter notebooks which run IPython kernels on the Cori system;
+this provides users access to the <code class="docutils literal notranslate"><span class="pre">$HOME</span></code>, <code class="docutils literal notranslate"><span class="pre">/project</span></code>, and <code class="docutils literal notranslate"><span class="pre">$SCRATCH</span></code>
+file systems from a web browser-based Jupyter notebook.  <strong>*Please note that
+Jupyter hosting at NERSC is still under development, and the environment may
+change without notice.*</strong></p>
+<p>NERSC also provides Anaconda Python, which allows users to create their own
+customizable Python environments. It is recommended to install yt in such an
+environment. One can do so with the following example:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="go">user@cori10:~&gt; module load python/3.5-anaconda</span>
+<span class="go">user@cori10:~&gt; conda create -p $HOME/yt-conda numpy</span>
+<span class="go">user@cori10:~&gt; source activate $HOME/yt-conda</span>
+<span class="gp gp-VirtualEnv">(/global/homes/u/user/yt-conda/)</span> <span class="go">user@cori10:~&gt; pip install yt</span>
+</pre></div>
+</div>
+<p>More information about Anaconda Python at NERSC is here:
+<a class="reference external" href="http://www.nersc.gov/users/data-analytics/data-analytics/python/anaconda-python/">http://www.nersc.gov/users/data-analytics/data-analytics/python/anaconda-python/</a>.</p>
+<p>One can then configure this Anaconda environment to run in a Jupyter notebook
+hosted on the Cori system. Currently this is available in two places: on
+<a class="reference external" href="https://ipython.nersc.gov">https://ipython.nersc.gov</a>, and on <a class="reference external" href="https://jupyter-dev.nersc.gov">https://jupyter-dev.nersc.gov</a>.  The latter
+likely reflects what the stable, production environment for Jupyter notebooks
+will look like at NERSC, but it is still under development and subject to
+change. To load this custom Python kernel in a Jupyter notebook, follow the
+instructions at this URL under the “Custom Kernels” heading:
+<a class="reference external" href="http://www.nersc.gov/users/data-analytics/data-analytics/web-applications-for-data-analytics">http://www.nersc.gov/users/data-analytics/data-analytics/web-applications-for-data-analytics</a>.
+After writing the appropriate <code class="docutils literal notranslate"><span class="pre">kernel.json</span></code> file, the custom kernel will
+appear as an available Jupyter notebook. Then one can interactively visualize
+AMReX plot files in the web browser. <a class="footnote-reference brackets" href="#id2" id="id1">1</a></p>
+</section>
+<section id="parallel">
+<h3>Parallel<a class="headerlink" href="#parallel" title="Permalink to this heading"></a></h3>
+<p>Besides the benefit of no longer needing to move data back and forth between
+NERSC and one’s local workstation to do visualization and analysis, an
+additional feature of yt which takes advantage of the computational resources
+at NERSC is its parallelization capabilities. yt supports both MPI- and
+OpenMP-based parallelization of various tasks, which are discussed here:
+<a class="reference external" href="http://yt-project.org/doc/analyzing/parallel_computation.html">http://yt-project.org/doc/analyzing/parallel_computation.html</a>.</p>
+<p>Configuring yt for MPI parallelization at NERSC is a more complex task than
+discussed in the official yt documentation; the command <code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">mpi4py</span></code>
+is not sufficient. Rather, one must compile <code class="docutils literal notranslate"><span class="pre">mpi4py</span></code> from source using the
+Cray compiler wrappers <code class="docutils literal notranslate"><span class="pre">cc</span></code>, <code class="docutils literal notranslate"><span class="pre">CC</span></code>, and <code class="docutils literal notranslate"><span class="pre">ftn</span></code> on Cori. Instructions for
+compiling <code class="docutils literal notranslate"><span class="pre">mpi4py</span></code> at NERSC are provided here:
+<a class="reference external" href="http://www.nersc.gov/users/data-analytics/data-analytics/python/anaconda-python/#toc-anchor-3">http://www.nersc.gov/users/data-analytics/data-analytics/python/anaconda-python/#toc-anchor-3</a>.
+After <code class="docutils literal notranslate"><span class="pre">mpi4py</span></code> has been compiled, one can use the regular Python interpreter
+in the Anaconda environment as normal; when executing yt operations which
+support MPI parallelization, the multiple MPI processes will spawn
+automatically.</p>
+<p>Although several components of yt support MPI parallelization, a few are
+particularly useful:</p>
+<ul>
+<li><p><strong>Time series analysis.</strong> Often one runs a simulation for many time steps
+and periodically writes plot files to disk for visualization and
+post-processing. yt supports parallelization over time series data via the
+<code class="docutils literal notranslate"><span class="pre">DatasetSeries</span></code> object. yt can iterate over a <code class="docutils literal notranslate"><span class="pre">DatasetSeries</span></code> in
+parallel, with different MPI processes operating on different elements of the
+series. This page provides more documentation:
+<a class="reference external" href="http://yt-project.org/doc/analyzing/time_series_analysis.html#time-series-analysis">http://yt-project.org/doc/analyzing/time_series_analysis.html#time-series-analysis</a>.</p></li>
+<li><p><strong>Volume rendering</strong>. yt implements spatial decomposition among MPI
+processes for volume rendering procedures, which can be computationally
+expensive. Note that yt also implements OpenMP parallelization in volume
+rendering, and so one can execute volume rendering with a hybrid MPI+OpenMP
+approach. See this URL for more detail:
+<a class="reference external" href="http://yt-project.org/doc/visualizing/volume_rendering.html?highlight=openmp#openmp-parallelization">http://yt-project.org/doc/visualizing/volume_rendering.html?highlight=openmp#openmp-parallelization</a>.</p></li>
+<li><p><strong>Generic parallelization over multiple objects.</strong> Sometimes one wishes to
+loop over a series which is not a <code class="docutils literal notranslate"><span class="pre">DatasetSeries</span></code>, e.g., performing
+translational or rotational operations on a camera to make a volume rendering
+in which the field of view moves through the simulation. In this case, one is
+applying a set of operations on a single object (a single plot file), rather
+than over a time series of data. For this workflow, yt provides the
+<code class="docutils literal notranslate"><span class="pre">parallel_objects()</span></code> function. See this URL for more details:
+<a class="reference external" href="http://yt-project.org/doc/analyzing/parallel_computation.html#parallelizing-over-multiple-objects">http://yt-project.org/doc/analyzing/parallel_computation.html#parallelizing-over-multiple-objects</a>.</p>
+<blockquote>
+<div><p>An example of MPI parallelization in yt is shown below, where one animates a
+time series of plot files from an IAMR simulation while revolving the camera
+such that it completes two full revolutions over the span of the animation:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">yt</span>
+<span class="kn">import</span> <span class="nn">glob</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+
+<span class="n">yt</span><span class="o">.</span><span class="n">enable_parallelism</span><span class="p">()</span>
+
+<span class="n">base_dir1</span> <span class="o">=</span> <span class="s1">&#39;/global/cscratch1/sd/user/Nyx_run_p1&#39;</span>
+<span class="n">base_dir2</span> <span class="o">=</span> <span class="s1">&#39;/global/cscratch1/sd/user/Nyx_run_p2&#39;</span>
+<span class="n">base_dir3</span> <span class="o">=</span> <span class="s1">&#39;/global/cscratch1/sd/user/Nyx_run_p3&#39;</span>
+
+<span class="n">glob1</span> <span class="o">=</span> <span class="n">glob</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="n">base_dir1</span> <span class="o">+</span> <span class="s1">&#39;/plt*&#39;</span><span class="p">)</span>
+<span class="n">glob2</span> <span class="o">=</span> <span class="n">glob</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="n">base_dir2</span> <span class="o">+</span> <span class="s1">&#39;/plt*&#39;</span><span class="p">)</span>
+<span class="n">glob3</span> <span class="o">=</span> <span class="n">glob</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="n">base_dir3</span> <span class="o">+</span> <span class="s1">&#39;/plt*&#39;</span><span class="p">)</span>
+
+<span class="n">files</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">glob1</span> <span class="o">+</span> <span class="n">glob2</span> <span class="o">+</span> <span class="n">glob3</span><span class="p">)</span>
+
+<span class="n">ts</span> <span class="o">=</span> <span class="n">yt</span><span class="o">.</span><span class="n">DatasetSeries</span><span class="p">(</span><span class="n">files</span><span class="p">,</span> <span class="n">parallel</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+<span class="n">frame</span> <span class="o">=</span> <span class="mi">0</span>
+<span class="n">num_frames</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">ts</span><span class="p">)</span>
+<span class="n">num_revol</span> <span class="o">=</span> <span class="mi">2</span>
+
+<span class="n">slices</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">ts</span><span class="p">))</span>
+
+<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">yt</span><span class="o">.</span><span class="n">parallel_objects</span><span class="p">(</span><span class="n">slices</span><span class="p">):</span>
+    <span class="n">sc</span> <span class="o">=</span> <span class="n">yt</span><span class="o">.</span><span class="n">create_scene</span><span class="p">(</span><span class="n">ts</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">lens_type</span><span class="o">=</span><span class="s1">&#39;perspective&#39;</span><span class="p">,</span> <span class="n">field</span><span class="o">=</span><span class="s1">&#39;z_velocity&#39;</span><span class="p">)</span>
+
+    <span class="n">source</span> <span class="o">=</span> <span class="n">sc</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">source</span><span class="o">.</span><span class="n">tfh</span><span class="o">.</span><span class="n">set_bounds</span><span class="p">((</span><span class="mf">1e-2</span><span class="p">,</span> <span class="mf">9e+0</span><span class="p">))</span>
+    <span class="n">source</span><span class="o">.</span><span class="n">tfh</span><span class="o">.</span><span class="n">set_log</span><span class="p">(</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">source</span><span class="o">.</span><span class="n">tfh</span><span class="o">.</span><span class="n">grey_opacity</span> <span class="o">=</span> <span class="kc">False</span>
+
+    <span class="n">cam</span> <span class="o">=</span> <span class="n">sc</span><span class="o">.</span><span class="n">camera</span>
+
+    <span class="n">cam</span><span class="o">.</span><span class="n">rotate</span><span class="p">(</span><span class="n">num_revol</span><span class="o">*</span><span class="p">(</span><span class="mf">2.0</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">)</span><span class="o">*</span><span class="p">(</span><span class="n">i</span><span class="o">/</span><span class="n">num_frames</span><span class="p">),</span>
+               <span class="n">rot_center</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">]))</span>
+
+    <span class="n">sc</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">sigma_clip</span><span class="o">=</span><span class="mf">5.0</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>When executed on 4 CPUs on a Haswell node of Cori, the output looks like the following:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">user</span><span class="nd">@nid00009</span><span class="p">:</span><span class="o">~/</span><span class="n">yt_vis</span><span class="o">/&gt;</span> <span class="n">srun</span> <span class="o">-</span><span class="n">n</span> <span class="mi">4</span> <span class="o">-</span><span class="n">c</span> <span class="mi">2</span> <span class="o">--</span><span class="n">cpu_bind</span><span class="o">=</span><span class="n">cores</span> <span class="n">python</span> <span class="n">make_yt_movie</span><span class="o">.</span><span class="n">py</span>
+<span class="n">yt</span> <span class="p">:</span> <span class="p">[</span><span class="n">INFO</span>     <span class="p">]</span> <span class="mi">2017</span><span class="o">-</span><span class="mi">05</span><span class="o">-</span><span class="mi">23</span> <span class="mi">16</span><span class="p">:</span><span class="mi">51</span><span class="p">:</span><span class="mi">33</span><span class="p">,</span><span class="mi">565</span> <span class="n">Global</span> <span class="n">parallel</span> <span class="n">computation</span> <span class="n">enabled</span><span class="p">:</span> <span class="mi">0</span> <span class="o">/</span> <span class="mi">4</span>
+<span class="n">yt</span> <span class="p">:</span> <span class="p">[</span><span class="n">INFO</span>     <span class="p">]</span> <span class="mi">2017</span><span class="o">-</span><span class="mi">05</span><span class="o">-</span><span class="mi">23</span> <span class="mi">16</span><span class="p">:</span><span class="mi">51</span><span class="p">:</span><span class="mi">33</span><span class="p">,</span><span class="mi">565</span> <span class="n">Global</span> <span class="n">parallel</span> <span class="n">computation</span> <span class="n">enabled</span><span class="p">:</span> <span class="mi">2</span> <span class="o">/</span> <span class="mi">4</span>
+<span class="n">yt</span> <span class="p">:</span> <span class="p">[</span><span class="n">INFO</span>     <span class="p">]</span> <span class="mi">2017</span><span class="o">-</span><span class="mi">05</span><span class="o">-</span><span class="mi">23</span> <span class="mi">16</span><span class="p">:</span><span class="mi">51</span><span class="p">:</span><span class="mi">33</span><span class="p">,</span><span class="mi">566</span> <span class="n">Global</span> <span class="n">parallel</span> <span class="n">computation</span> <span class="n">enabled</span><span class="p">:</span> <span class="mi">1</span> <span class="o">/</span> <span class="mi">4</span>
+<span class="n">yt</span> <span class="p">:</span> <span class="p">[</span><span class="n">INFO</span>     <span class="p">]</span> <span class="mi">2017</span><span class="o">-</span><span class="mi">05</span><span class="o">-</span><span class="mi">23</span> <span class="mi">16</span><span class="p">:</span><span class="mi">51</span><span class="p">:</span><span class="mi">33</span><span class="p">,</span><span class="mi">566</span> <span class="n">Global</span> <span class="n">parallel</span> <span class="n">computation</span> <span class="n">enabled</span><span class="p">:</span> <span class="mi">3</span> <span class="o">/</span> <span class="mi">4</span>
+<span class="n">P003</span> <span class="n">yt</span> <span class="p">:</span> <span class="p">[</span><span class="n">INFO</span>     <span class="p">]</span> <span class="mi">2017</span><span class="o">-</span><span class="mi">05</span><span class="o">-</span><span class="mi">23</span> <span class="mi">16</span><span class="p">:</span><span class="mi">51</span><span class="p">:</span><span class="mi">33</span><span class="p">,</span><span class="mi">957</span> <span class="n">Parameters</span><span class="p">:</span> <span class="n">current_time</span>              <span class="o">=</span> <span class="mf">0.103169376949795</span>
+<span class="n">P003</span> <span class="n">yt</span> <span class="p">:</span> <span class="p">[</span><span class="n">INFO</span>     <span class="p">]</span> <span class="mi">2017</span><span class="o">-</span><span class="mi">05</span><span class="o">-</span><span class="mi">23</span> <span class="mi">16</span><span class="p">:</span><span class="mi">51</span><span class="p">:</span><span class="mi">33</span><span class="p">,</span><span class="mi">957</span> <span class="n">Parameters</span><span class="p">:</span> <span class="n">domain_dimensions</span>         <span class="o">=</span> <span class="p">[</span><span class="mi">128</span> <span class="mi">128</span> <span class="mi">128</span><span class="p">]</span>
+<span class="n">P003</span> <span class="n">yt</span> <span class="p">:</span> <span class="p">[</span><span class="n">INFO</span>     <span class="p">]</span> <span class="mi">2017</span><span class="o">-</span><span class="mi">05</span><span class="o">-</span><span class="mi">23</span> <span class="mi">16</span><span class="p">:</span><span class="mi">51</span><span class="p">:</span><span class="mi">33</span><span class="p">,</span><span class="mi">957</span> <span class="n">Parameters</span><span class="p">:</span> <span class="n">domain_left_edge</span>          <span class="o">=</span> <span class="p">[</span> <span class="mf">0.</span>  <span class="mf">0.</span>  <span class="mf">0.</span><span class="p">]</span>
+<span class="n">P003</span> <span class="n">yt</span> <span class="p">:</span> <span class="p">[</span><span class="n">INFO</span>     <span class="p">]</span> <span class="mi">2017</span><span class="o">-</span><span class="mi">05</span><span class="o">-</span><span class="mi">23</span> <span class="mi">16</span><span class="p">:</span><span class="mi">51</span><span class="p">:</span><span class="mi">33</span><span class="p">,</span><span class="mi">958</span> <span class="n">Parameters</span><span class="p">:</span> <span class="n">domain_right_edge</span>         <span class="o">=</span> <span class="p">[</span> <span class="mf">6.28318531</span>  <span class="mf">6.28318531</span>  <span class="mf">6.28318531</span><span class="p">]</span>
+<span class="n">P000</span> <span class="n">yt</span> <span class="p">:</span> <span class="p">[</span><span class="n">INFO</span>     <span class="p">]</span> <span class="mi">2017</span><span class="o">-</span><span class="mi">05</span><span class="o">-</span><span class="mi">23</span> <span class="mi">16</span><span class="p">:</span><span class="mi">51</span><span class="p">:</span><span class="mi">33</span><span class="p">,</span><span class="mi">969</span> <span class="n">Parameters</span><span class="p">:</span> <span class="n">current_time</span>              <span class="o">=</span> <span class="mf">0.0</span>
+<span class="n">P000</span> <span class="n">yt</span> <span class="p">:</span> <span class="p">[</span><span class="n">INFO</span>     <span class="p">]</span> <span class="mi">2017</span><span class="o">-</span><span class="mi">05</span><span class="o">-</span><span class="mi">23</span> <span class="mi">16</span><span class="p">:</span><span class="mi">51</span><span class="p">:</span><span class="mi">33</span><span class="p">,</span><span class="mi">969</span> <span class="n">Parameters</span><span class="p">:</span> <span class="n">domain_dimensions</span>         <span class="o">=</span> <span class="p">[</span><span class="mi">128</span> <span class="mi">128</span> <span class="mi">128</span><span class="p">]</span>
+<span class="n">P002</span> <span class="n">yt</span> <span class="p">:</span> <span class="p">[</span><span class="n">INFO</span>     <span class="p">]</span> <span class="mi">2017</span><span class="o">-</span><span class="mi">05</span><span class="o">-</span><span class="mi">23</span> <span class="mi">16</span><span class="p">:</span><span class="mi">51</span><span class="p">:</span><span class="mi">33</span><span class="p">,</span><span class="mi">969</span> <span class="n">Parameters</span><span class="p">:</span> <span class="n">current_time</span>              <span class="o">=</span> <span class="mf">0.0687808060674485</span>
+<span class="n">P000</span> <span class="n">yt</span> <span class="p">:</span> <span class="p">[</span><span class="n">INFO</span>     <span class="p">]</span> <span class="mi">2017</span><span class="o">-</span><span class="mi">05</span><span class="o">-</span><span class="mi">23</span> <span class="mi">16</span><span class="p">:</span><span class="mi">51</span><span class="p">:</span><span class="mi">33</span><span class="p">,</span><span class="mi">969</span> <span class="n">Parameters</span><span class="p">:</span> <span class="n">domain_left_edge</span>          <span class="o">=</span> <span class="p">[</span> <span class="mf">0.</span>  <span class="mf">0.</span>  <span class="mf">0.</span><span class="p">]</span>
+<span class="n">P002</span> <span class="n">yt</span> <span class="p">:</span> <span class="p">[</span><span class="n">INFO</span>     <span class="p">]</span> <span class="mi">2017</span><span class="o">-</span><span class="mi">05</span><span class="o">-</span><span class="mi">23</span> <span class="mi">16</span><span class="p">:</span><span class="mi">51</span><span class="p">:</span><span class="mi">33</span><span class="p">,</span><span class="mi">969</span> <span class="n">Parameters</span><span class="p">:</span> <span class="n">domain_dimensions</span>         <span class="o">=</span> <span class="p">[</span><span class="mi">128</span> <span class="mi">128</span> <span class="mi">128</span><span class="p">]</span>
+<span class="n">P000</span> <span class="n">yt</span> <span class="p">:</span> <span class="p">[</span><span class="n">INFO</span>     <span class="p">]</span> <span class="mi">2017</span><span class="o">-</span><span class="mi">05</span><span class="o">-</span><span class="mi">23</span> <span class="mi">16</span><span class="p">:</span><span class="mi">51</span><span class="p">:</span><span class="mi">33</span><span class="p">,</span><span class="mi">970</span> <span class="n">Parameters</span><span class="p">:</span> <span class="n">domain_right_edge</span>         <span class="o">=</span> <span class="p">[</span> <span class="mf">6.28318531</span>  <span class="mf">6.28318531</span>  <span class="mf">6.28318531</span><span class="p">]</span>
+<span class="n">P002</span> <span class="n">yt</span> <span class="p">:</span> <span class="p">[</span><span class="n">INFO</span>     <span class="p">]</span> <span class="mi">2017</span><span class="o">-</span><span class="mi">05</span><span class="o">-</span><span class="mi">23</span> <span class="mi">16</span><span class="p">:</span><span class="mi">51</span><span class="p">:</span><span class="mi">33</span><span class="p">,</span><span class="mi">970</span> <span class="n">Parameters</span><span class="p">:</span> <span class="n">domain_left_edge</span>          <span class="o">=</span> <span class="p">[</span> <span class="mf">0.</span>  <span class="mf">0.</span>  <span class="mf">0.</span><span class="p">]</span>
+<span class="n">P002</span> <span class="n">yt</span> <span class="p">:</span> <span class="p">[</span><span class="n">INFO</span>     <span class="p">]</span> <span class="mi">2017</span><span class="o">-</span><span class="mi">05</span><span class="o">-</span><span class="mi">23</span> <span class="mi">16</span><span class="p">:</span><span class="mi">51</span><span class="p">:</span><span class="mi">33</span><span class="p">,</span><span class="mi">970</span> <span class="n">Parameters</span><span class="p">:</span> <span class="n">domain_right_edge</span>         <span class="o">=</span> <span class="p">[</span> <span class="mf">6.28318531</span>  <span class="mf">6.28318531</span>  <span class="mf">6.28318531</span><span class="p">]</span>
+<span class="n">P001</span> <span class="n">yt</span> <span class="p">:</span> <span class="p">[</span><span class="n">INFO</span>     <span class="p">]</span> <span class="mi">2017</span><span class="o">-</span><span class="mi">05</span><span class="o">-</span><span class="mi">23</span> <span class="mi">16</span><span class="p">:</span><span class="mi">51</span><span class="p">:</span><span class="mi">33</span><span class="p">,</span><span class="mi">973</span> <span class="n">Parameters</span><span class="p">:</span> <span class="n">current_time</span>              <span class="o">=</span> <span class="mf">0.0343922351851018</span>
+<span class="n">P001</span> <span class="n">yt</span> <span class="p">:</span> <span class="p">[</span><span class="n">INFO</span>     <span class="p">]</span> <span class="mi">2017</span><span class="o">-</span><span class="mi">05</span><span class="o">-</span><span class="mi">23</span> <span class="mi">16</span><span class="p">:</span><span class="mi">51</span><span class="p">:</span><span class="mi">33</span><span class="p">,</span><span class="mi">973</span> <span class="n">Parameters</span><span class="p">:</span> <span class="n">domain_dimensions</span>         <span class="o">=</span> <span class="p">[</span><span class="mi">128</span> <span class="mi">128</span> <span class="mi">128</span><span class="p">]</span>
+<span class="n">P001</span> <span class="n">yt</span> <span class="p">:</span> <span class="p">[</span><span class="n">INFO</span>     <span class="p">]</span> <span class="mi">2017</span><span class="o">-</span><span class="mi">05</span><span class="o">-</span><span class="mi">23</span> <span class="mi">16</span><span class="p">:</span><span class="mi">51</span><span class="p">:</span><span class="mi">33</span><span class="p">,</span><span class="mi">974</span> <span class="n">Parameters</span><span class="p">:</span> <span class="n">domain_left_edge</span>          <span class="o">=</span> <span class="p">[</span> <span class="mf">0.</span>  <span class="mf">0.</span>  <span class="mf">0.</span><span class="p">]</span>
+<span class="n">P001</span> <span class="n">yt</span> <span class="p">:</span> <span class="p">[</span><span class="n">INFO</span>     <span class="p">]</span> <span class="mi">2017</span><span class="o">-</span><span class="mi">05</span><span class="o">-</span><span class="mi">23</span> <span class="mi">16</span><span class="p">:</span><span class="mi">51</span><span class="p">:</span><span class="mi">33</span><span class="p">,</span><span class="mi">974</span> <span class="n">Parameters</span><span class="p">:</span> <span class="n">domain_right_edge</span>         <span class="o">=</span> <span class="p">[</span> <span class="mf">6.28318531</span>  <span class="mf">6.28318531</span>  <span class="mf">6.28318531</span><span class="p">]</span>
+<span class="n">P000</span> <span class="n">yt</span> <span class="p">:</span> <span class="p">[</span><span class="n">INFO</span>     <span class="p">]</span> <span class="mi">2017</span><span class="o">-</span><span class="mi">05</span><span class="o">-</span><span class="mi">23</span> <span class="mi">16</span><span class="p">:</span><span class="mi">51</span><span class="p">:</span><span class="mi">34</span><span class="p">,</span><span class="mi">589</span> <span class="n">Rendering</span> <span class="n">scene</span> <span class="p">(</span><span class="n">Can</span> <span class="n">take</span> <span class="n">a</span> <span class="k">while</span><span class="p">)</span><span class="o">.</span>
+<span class="n">P000</span> <span class="n">yt</span> <span class="p">:</span> <span class="p">[</span><span class="n">INFO</span>     <span class="p">]</span> <span class="mi">2017</span><span class="o">-</span><span class="mi">05</span><span class="o">-</span><span class="mi">23</span> <span class="mi">16</span><span class="p">:</span><span class="mi">51</span><span class="p">:</span><span class="mi">34</span><span class="p">,</span><span class="mi">590</span> <span class="n">Creating</span> <span class="n">volume</span>
+<span class="n">P003</span> <span class="n">yt</span> <span class="p">:</span> <span class="p">[</span><span class="n">INFO</span>     <span class="p">]</span> <span class="mi">2017</span><span class="o">-</span><span class="mi">05</span><span class="o">-</span><span class="mi">23</span> <span class="mi">16</span><span class="p">:</span><span class="mi">51</span><span class="p">:</span><span class="mi">34</span><span class="p">,</span><span class="mi">592</span> <span class="n">Rendering</span> <span class="n">scene</span> <span class="p">(</span><span class="n">Can</span> <span class="n">take</span> <span class="n">a</span> <span class="k">while</span><span class="p">)</span><span class="o">.</span>
+<span class="n">P002</span> <span class="n">yt</span> <span class="p">:</span> <span class="p">[</span><span class="n">INFO</span>     <span class="p">]</span> <span class="mi">2017</span><span class="o">-</span><span class="mi">05</span><span class="o">-</span><span class="mi">23</span> <span class="mi">16</span><span class="p">:</span><span class="mi">51</span><span class="p">:</span><span class="mi">34</span><span class="p">,</span><span class="mi">592</span> <span class="n">Rendering</span> <span class="n">scene</span> <span class="p">(</span><span class="n">Can</span> <span class="n">take</span> <span class="n">a</span> <span class="k">while</span><span class="p">)</span><span class="o">.</span>
+<span class="n">P003</span> <span class="n">yt</span> <span class="p">:</span> <span class="p">[</span><span class="n">INFO</span>     <span class="p">]</span> <span class="mi">2017</span><span class="o">-</span><span class="mi">05</span><span class="o">-</span><span class="mi">23</span> <span class="mi">16</span><span class="p">:</span><span class="mi">51</span><span class="p">:</span><span class="mi">34</span><span class="p">,</span><span class="mi">593</span> <span class="n">Creating</span> <span class="n">volume</span>
+<span class="n">P002</span> <span class="n">yt</span> <span class="p">:</span> <span class="p">[</span><span class="n">INFO</span>     <span class="p">]</span> <span class="mi">2017</span><span class="o">-</span><span class="mi">05</span><span class="o">-</span><span class="mi">23</span> <span class="mi">16</span><span class="p">:</span><span class="mi">51</span><span class="p">:</span><span class="mi">34</span><span class="p">,</span><span class="mi">593</span> <span class="n">Creating</span> <span class="n">volume</span>
+<span class="n">P001</span> <span class="n">yt</span> <span class="p">:</span> <span class="p">[</span><span class="n">INFO</span>     <span class="p">]</span> <span class="mi">2017</span><span class="o">-</span><span class="mi">05</span><span class="o">-</span><span class="mi">23</span> <span class="mi">16</span><span class="p">:</span><span class="mi">51</span><span class="p">:</span><span class="mi">34</span><span class="p">,</span><span class="mi">606</span> <span class="n">Rendering</span> <span class="n">scene</span> <span class="p">(</span><span class="n">Can</span> <span class="n">take</span> <span class="n">a</span> <span class="k">while</span><span class="p">)</span><span class="o">.</span>
+<span class="n">P001</span> <span class="n">yt</span> <span class="p">:</span> <span class="p">[</span><span class="n">INFO</span>     <span class="p">]</span> <span class="mi">2017</span><span class="o">-</span><span class="mi">05</span><span class="o">-</span><span class="mi">23</span> <span class="mi">16</span><span class="p">:</span><span class="mi">51</span><span class="p">:</span><span class="mi">34</span><span class="p">,</span><span class="mi">607</span> <span class="n">Creating</span> <span class="n">volume</span>
+</pre></div>
+</div>
+<p>Because the <code class="docutils literal notranslate"><span class="pre">parallel_objects()</span></code> function transforms the loop into a
+data-parallel problem, this procedure strong scales nearly perfectly to an
+arbitrarily large number of MPI processes, allowing for rapid rendering of
+large time series of data.</p>
+</div></blockquote>
+</li>
+</ul>
+<dl class="footnote brackets">
+<dt class="label" id="id2"><span class="brackets"><a class="fn-backref" href="#id1">1</a></span></dt>
+<dd><p>It is convenient to use the
+magic command <code class="docutils literal notranslate"><span class="pre">%matplotlib</span> <span class="pre">inline</span></code> in order to render matplotlib
+figures in the same browser window as the notebook, as opposed to displaying it
+as a new window.</p>
+</dd>
+</dl>
+</section>
+</section>
+<section id="sensei">
+<h2>SENSEI<a class="headerlink" href="#sensei" title="Permalink to this heading"></a></h2>
+<p>SENSEI is a light weight framework for in situ data analysis. SENSEI’s data
+model and API provide uniform access to and run time selection of a diverse set
+of visualization and analysis back ends including VisIt Libsim, ParaView
+Catalyst, VTK-m, Ascent, ADIOS, Yt, and Python.</p>
+<section id="system-architecture">
+<h3>System Architecture<a class="headerlink" href="#system-architecture" title="Permalink to this heading"></a></h3>
+<figure class="align-default" id="id10">
+<span id="sensei-arch"></span><img alt="_images/sensei_amrex_arch_sm_824.png" src="_images/sensei_amrex_arch_sm_824.png" />
+<figcaption>
+<p><span class="caption-number">6 </span><span class="caption-text">SENSEI’s in situ architecture enables use of a diverse of back ends which
+can be selected at run time via an XML configuration file</span><a class="headerlink" href="#id10" title="Permalink to this image"></a></p>
+</figcaption>
+</figure>
+<p>The three major architectural components in SENSEI are <em>data adaptors</em> which
+present simulation data in SENSEI’s data model, <em>analysis adaptors</em> which
+present the back end data consumers to the simulation, and <em>bridge code</em> from
+which the simulation manages adaptors and periodically pushes data through the
+system. SENSEI comes equipped with a number of analysis adaptors enabling use
+of popular analysis and visualization libraries such as VisIt Libsim, ParaView
+Catalyst, Python, and ADIOS to name a few. AMReX contains SENSEI data adaptors
+and bridge code making it easy to use in AMReX based simulation codes.</p>
+<p>SENSEI provides a <em>configurable analysis adaptor</em> which uses an XML file to
+select and configure one or more back ends at run time. Run time selection of
+the back end via XML means one user can access Catalyst, another Libsim, yet
+another Python with no changes to the code.  This is depicted in figure
+<a class="reference internal" href="#sensei-arch"><span class="std std-numref">6</span></a>. On the left side of the figure AMReX produces data, the
+bridge code pushes the data through the configurable analysis adaptor to the
+back end that was selected at run time.</p>
+</section>
+<section id="amrex-integration">
+<h3>AMReX Integration<a class="headerlink" href="#amrex-integration" title="Permalink to this heading"></a></h3>
+<p>AMReX codes based on <code class="code highlight cpp c++ docutils literal highlight-c++"><span class="n">amrex</span><span class="o">::</span><span class="n">Amr</span><span class="w"></span></code> can use SENSEI simply by enabling it in
+the build and run via ParmParse parameters.  AMReX codes based on
+<code class="code highlight cpp c++ docutils literal highlight-c++"><span class="n">amrex</span><span class="o">::</span><span class="n">AmrMesh</span><span class="w"></span></code> need to additionally invoke the bridge code in
+<code class="code highlight cpp c++ docutils literal highlight-c++"><span class="n">amrex</span><span class="o">::</span><span class="n">AmrMeshInSituBridge</span><span class="w"></span></code>.</p>
+</section>
+<section id="compiling-with-gnu-make">
+<h3>Compiling with GNU Make<a class="headerlink" href="#compiling-with-gnu-make" title="Permalink to this heading"></a></h3>
+<p>For codes making use of AMReX’s build system add the following variable to the
+code’s main <code class="code docutils literal notranslate"><span class="pre">GNUmakefile</span></code>.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nv">USE_SENSEI_INSITU</span> <span class="o">=</span> TRUE
+</pre></div>
+</div>
+<p>When set, AMReX’s make files will query environment variables for the lists of
+compiler and linker flags, include directories, and link libraries. These lists
+can be quite elaborate when using more sophisticated back ends, and are best
+set automatically using the <code class="code docutils literal notranslate"><span class="pre">sensei_config</span></code> command line tool that should
+be installed with SENSEI. Prior to invoking make use the following command to
+set these variables:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">source</span> sensei_config
+</pre></div>
+</div>
+<p>Typically, the <code class="code docutils literal notranslate"><span class="pre">sensei_config</span></code> tool is in the users PATH after loading
+the desired SENSEI module. After configuring the build environment with
+<code class="code docutils literal notranslate"><span class="pre">sensei_config</span></code>, proceed as usual.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>make -j4 -f GNUmakefile
+</pre></div>
+</div>
+</section>
+<section id="parmparse-configuration">
+<h3>ParmParse Configuration<a class="headerlink" href="#parmparse-configuration" title="Permalink to this heading"></a></h3>
+<p>Once an AMReX code has been compiled with SENSEI features enabled, it will need
+to be enabled and configured at runtime. This is done using ParmParse input file.
+The following 3 ParmParse parameters are used:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">sensei</span><span class="o">.</span><span class="n">enabled</span> <span class="o">=</span> <span class="mi">1</span>
+<span class="n">sensei</span><span class="o">.</span><span class="n">config</span> <span class="o">=</span> <span class="n">render_iso_catalyst_2d</span><span class="o">.</span><span class="n">xml</span>
+<span class="n">sensei</span><span class="o">.</span><span class="n">frequency</span> <span class="o">=</span> <span class="mi">2</span>
+</pre></div>
+</div>
+<p><code class="code docutils literal notranslate"><span class="pre">sensei.enabled</span></code> turns SENSEI on or off.  <code class="code docutils literal notranslate"><span class="pre">sensei.config</span></code> points to
+the SENSEI XML file which selects and configures the desired back end.
+<code class="code docutils literal notranslate"><span class="pre">sensei.frequency</span></code> controls the number of level 0 time steps in between
+SENSEI processing.</p>
+</section>
+<section id="back-end-selection-and-configuration">
+<h3>Back-end Selection and Configuration<a class="headerlink" href="#back-end-selection-and-configuration" title="Permalink to this heading"></a></h3>
+<p>The back end is selected and configured at run time using the SENSEI XML file.
+The XML sets parameters specific to SENSEI and to the chosen back end. Many of
+the back ends have sophisticated configuration mechanisms which SENSEI makes
+use of.  For example the following XML configuration was used on NERSC’s Cori
+with IAMR to render 10 iso surfaces, shown in figure <a class="reference internal" href="#rt-visit"><span class="std std-numref">7</span></a>, using
+VisIt Libsim.</p>
+<div class="highlight-xml notranslate"><div class="highlight"><pre><span></span><span class="nt">&lt;sensei&gt;</span>
+  <span class="nt">&lt;analysis</span> <span class="na">type=</span><span class="s">&quot;libsim&quot;</span> <span class="na">frequency=</span><span class="s">&quot;1&quot;</span> <span class="na">mode=</span><span class="s">&quot;batch&quot;</span>
+    <span class="na">visitdir=</span><span class="s">&quot;/usr/common/software/sensei/visit&quot;</span>
+    <span class="na">session=</span><span class="s">&quot;rt_sensei_configs/visit_rt_contour_alpha_10.session&quot;</span>
+    <span class="na">image-filename=</span><span class="s">&quot;rt_contour_%ts&quot;</span> <span class="na">image-width=</span><span class="s">&quot;1555&quot;</span> <span class="na">image-height=</span><span class="s">&quot;815&quot;</span>
+    <span class="na">image-format=</span><span class="s">&quot;png&quot;</span> <span class="na">enabled=</span><span class="s">&quot;1&quot;</span><span class="nt">/&gt;</span>
+<span class="nt">&lt;/sensei&gt;</span>
+</pre></div>
+</div>
+<p>The <em>session</em> attribute names a session file that contains VisIt specific
+runtime configuration. The session file is generated using VisIt GUI on a
+representative dataset. Usually this data set is generated in a low resolution
+run of the desired simulation.</p>
+<figure class="align-default" id="id11">
+<span id="rt-visit"></span><img alt="_images/rt_2048_visit_000500.png" src="_images/rt_2048_visit_000500.png" />
+<figcaption>
+<p><span class="caption-number">7 </span><span class="caption-text">SENSEI-Libsim in situ visualization of a Raleigh-Taylor instability computed
+by IAMR on NERSC Cori using 2048 cores.</span><a class="headerlink" href="#id11" title="Permalink to this image"></a></p>
+</figcaption>
+</figure>
+<p>The same run and visualization was repeated using ParaView Catalyst, shown in
+figure <a class="reference internal" href="#rt-pv"><span class="std std-numref">8</span></a>, by providing the following XML configuration.</p>
+<div class="highlight-xml notranslate"><div class="highlight"><pre><span></span><span class="nt">&lt;sensei&gt;</span>
+  <span class="nt">&lt;analysis</span> <span class="na">type=</span><span class="s">&quot;catalyst&quot;</span> <span class="na">pipeline=</span><span class="s">&quot;pythonscript&quot;</span>
+    <span class="na">filename=</span><span class="s">&quot;rt_sensei_configs/rt_contour.py&quot;</span> <span class="na">enabled=</span><span class="s">&quot;1&quot;</span> <span class="nt">/&gt;</span>
+<span class="nt">&lt;/sensei&gt;</span>
+</pre></div>
+</div>
+<p>Here the <em>filename</em> attribute is used to pass Catalyst a Catalyst specific
+configuration that was generated using the ParaView GUI on a representative
+dataset.</p>
+<figure class="align-default" id="id12">
+<span id="rt-pv"></span><img alt="_images/rt_2048_paraview_000500.png" src="_images/rt_2048_paraview_000500.png" />
+<figcaption>
+<p><span class="caption-number">8 </span><span class="caption-text">SENSEI-Catalyst in situ visualization of a Raleigh-Taylor instability
+computed by IAMR on NERSC Cori using 2048 cores.</span><a class="headerlink" href="#id12" title="Permalink to this image"></a></p>
+</figcaption>
+</figure>
+</section>
+<section id="obtaining-sensei">
+<h3>Obtaining SENSEI<a class="headerlink" href="#obtaining-sensei" title="Permalink to this heading"></a></h3>
+<p>SENSEI is hosted on Kitware’s Gitlab site at <a class="reference external" href="https://gitlab.kitware.com/sensei/sensei">https://gitlab.kitware.com/sensei/sensei</a>
+It’s best to checkout the latest release rather than working on the master branch.</p>
+<p>To ease the burden of wrangling back end installs SENSEI provides two platforms
+with all dependencies pre-installed, a VirtualBox VM, and a NERSC Cori
+deployment. New users are encouraged to experiment with one of these.</p>
+</section>
+<section id="sensei-vm">
+<h3>SENSEI VM<a class="headerlink" href="#sensei-vm" title="Permalink to this heading"></a></h3>
+<p>The SENSEI VM comes with all of SENSEI’s dependencies and the major back ends
+such as VisIt and ParaView installed. The VM is the easiest way to test things
+out. It also can be used to see how installs were done and the environment
+configured.</p>
+</section>
+<section id="nersc-cori">
+<h3>NERSC Cori<a class="headerlink" href="#nersc-cori" title="Permalink to this heading"></a></h3>
+<p>SENSEI is deployed at NERSC on Cori. The NERSC deployment includes the major
+back ends such as ParaView Catalyst, VisIt Libsim, and Python.</p>
+<section id="amrlevel-tutorial-with-catalyst">
+<h4>AmrLevel Tutorial with Catalyst<a class="headerlink" href="#amrlevel-tutorial-with-catalyst" title="Permalink to this heading"></a></h4>
+<p>The following steps show how to run the tutorial with ParaView Catalyst. The
+simulation will periodically write images during the run.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>ssh cori.nersc.gov
+<span class="nb">cd</span> <span class="nv">$SCRATCH</span>
+git clone https://github.com/AMReX-Codes/amrex.git
+<span class="nb">cd</span> amrex/Tutorials/Amr/Advection_AmrLevel/Exec/SingleVortex
+module use /usr/common/software/sensei/modulefiles
+module load sensei/2.1.0-catalyst-shared
+<span class="nb">source</span> sensei_config
+vim GNUmakefile
+<span class="c1"># USE_SENSEI_INSITU=TRUE</span>
+make -j4 -f GNUmakefile
+vim inputs
+<span class="c1"># sensei.enabled=1</span>
+<span class="c1"># sensei.config=sensei/render_iso_catalyst_2d.xml</span>
+salloc -C haswell -N <span class="m">1</span> -t <span class="m">00</span>:30:00 -q debug
+<span class="nb">cd</span> <span class="nv">$SCRATCH</span>/amrex/Tutorials/Amr/Advection_AmrLevel/Exec/SingleVortex
+./main2d.gnu.haswell.MPI.ex inputs
+</pre></div>
+</div>
+</section>
+<section id="amrlevel-tutorial-with-libsim">
+<h4>AmrLevel Tutorial with Libsim<a class="headerlink" href="#amrlevel-tutorial-with-libsim" title="Permalink to this heading"></a></h4>
+<p>The following steps show how to run the tutorial with VisIt Libsim. The
+simulation will periodically write images during the run.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>ssh cori.nersc.gov
+<span class="nb">cd</span> <span class="nv">$SCRATCH</span>
+git clone https://github.com/AMReX-Codes/amrex.git
+<span class="nb">cd</span> amrex/Tutorials/Amr/Advection_AmrLevel/Exec/SingleVortex
+module use /usr/common/software/sensei/modulefiles
+module load sensei/2.1.0-libsim-shared
+<span class="nb">source</span> sensei_config
+vim GNUmakefile
+<span class="c1"># USE_SENSEI_INSITU=TRUE</span>
+make -j4 -f GNUmakefile
+vim inputs
+<span class="c1"># sensei.enabled=1</span>
+<span class="c1"># sensei.config=sensei/render_iso_libsim_2d.xml</span>
+salloc -C haswell -N <span class="m">1</span> -t <span class="m">00</span>:30:00 -q debug
+./main2d.gnu.haswell.MPI.ex inputs
+</pre></div>
+</div>
+</section>
+</section>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="RunningPeleLM.html" class="btn btn-neutral float-left" title="PeleLM control" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="Tutorials.html" class="btn btn-neutral float-right" title="Tutorials" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright AMReX Copyright (c) 2018, The Regents of the University of California, through Lawrence Berkeley National Laboratory and the Alliance for Sustainable Energy, LLC., through National Renewable Energy Laboratory (subject to receipt of any required approvals from the U.S. Dept. of Energy).  All rights reserved..</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

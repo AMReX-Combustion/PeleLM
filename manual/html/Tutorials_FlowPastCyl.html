@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tutorial - Non-reacting flow past a cylinder &mdash; PeleLM 2018.10 documentation</title>
+      <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="_static/doctools.js"></script>
+        <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Tutorial - A simple triple flame" href="Tutorials_TripleFlame.html" />
+    <link rel="prev" title="Tutorials" href="Tutorials.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="index.html" class="icon icon-home"> PeleLM
+            <img src="_static/swirlH2Fast_OH_vort_256.png" class="logo" alt="Logo"/>
+          </a>
+              <div class="version">
+                2018.10
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Documentation contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="GettingStarted.html"><cite>PeleLM</cite> Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Model.html">The <cite>PeleLM</cite> Model</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ProblemSetup.html">Setting up a new <cite>PeleLM</cite> Case</a></li>
+<li class="toctree-l1"><a class="reference internal" href="GNUmakeSystem.html">Building with GNU Make</a></li>
+<li class="toctree-l1"><a class="reference internal" href="RunningPeleLM.html"><cite>PeleLM</cite> control</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Visualization.html">Visualization</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="Tutorials.html">Tutorials</a><ul class="current">
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Tutorial - Non-reacting flow past a cylinder</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#introduction">Introduction</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#setting-up-your-environment">Setting-up your environment</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#peleproduction">PeleProduction</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#step-by-step-instructions">Step by step instructions</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#numerical-setup">Numerical setup</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#test-case-and-boundary-conditions">Test case and boundary conditions</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#problem-specifications">Problem specifications</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#initial-solution">Initial solution</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#numerical-scheme">Numerical scheme</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#building-the-executable">Building the executable</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#running-the-problem-on-a-coarse-grid">Running the problem on a coarse grid</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#refinement-of-the-computation">Refinement of the computation</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="Tutorials_TripleFlame.html">Tutorial - A simple triple flame</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">PeleLM</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home"></a> &raquo;</li>
+          <li><a href="Tutorials.html">Tutorials</a> &raquo;</li>
+      <li>Tutorial - Non-reacting flow past a cylinder</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/Tutorials_FlowPastCyl.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="tutorial-non-reacting-flow-past-a-cylinder">
+<span id="sec-tutorialflowpastcyl"></span><h1>Tutorial - Non-reacting flow past a cylinder<a class="headerlink" href="#tutorial-non-reacting-flow-past-a-cylinder" title="Permalink to this heading"></a></h1>
+<section id="introduction">
+<span id="sec-tuto-fpc-intro"></span><h2>Introduction<a class="headerlink" href="#introduction" title="Permalink to this heading"></a></h2>
+<p><cite>PeleLM</cite> enables the representation of complex non-Cartesian
+geometries using an embedded boundary (EB) method. This method relies on intersecting an
+arbitrary surface with the Cartesian matrix of uniform cells, and modifies the numerical stencils
+near cells that are cut by the EB.</p>
+<p>The goal of this tutorial is to setup a simple 2-dimentional flow past cylinder case in <cite>PeleLM</cite>.
+This document provides step by step instructions to properly set-up the domain and boundary conditions,
+construct an initial solution.</p>
+</section>
+<section id="setting-up-your-environment">
+<span id="sec-tuto-fpc-prepstep"></span><h2>Setting-up your environment<a class="headerlink" href="#setting-up-your-environment" title="Permalink to this heading"></a></h2>
+<section id="peleproduction">
+<h3>PeleProduction<a class="headerlink" href="#peleproduction" title="Permalink to this heading"></a></h3>
+<p>As explained in section <a class="reference internal" href="GettingStarted.html#sec-quickstart"><span class="std std-ref">PeleLM Quickstart</span></a>, <cite>PeleLM</cite> relies on a number of supporting softwares:</p>
+<ul class="simple">
+<li><p><cite>AMReX</cite> is a software frameworks that provides the data structure and enable massive parallelization.</p></li>
+<li><p><cite>AMReX-Hydro</cite> is a suite of AMReX-based fonctionalities handling the hydrodynamic schemes.</p></li>
+<li><p><cite>IAMR</cite> is a parallel, adaptive mesh refinement (AMR) code that solves the variable-density incompressible Navier-Stokes equations.</p></li>
+<li><p><cite>PelePhysics</cite> is a repository of physics databases and implementation code. In particular, the choice of chemistry and transport models as well as associated functions and capabilities are managed in <cite>PelePhysics</cite>.</p></li>
+</ul>
+<p>All of these codes have their own development cycle, and it can make the setup of a <cite>PeleLM</cite> run a bit tricky.
+To simplify the process, <a class="reference external" href="https://github.com/AMReX-Combustion/PeleProduction">PeleProduction</a> will be employed. <cite>PeleProduction</cite> is a collection of run folders for various <cite>Pele</cite> codes and processing. It includes git submodules for the dependent codes
+(such as <cite>PeleLM</cite>, <cite>PelePhysics</cite>, <cite>AMReX</cite>, etc), that can be frozen to a particular commit.
+This organizational strategy enables to manage the interactions between the various dependent repositories
+(to keep them all compatible with each other).</p>
+</section>
+<section id="step-by-step-instructions">
+<h3>Step by step instructions<a class="headerlink" href="#step-by-step-instructions" title="Permalink to this heading"></a></h3>
+<p>First, make sure that “git” is installed on your machine—we recommend version 1.7.x or higher.
+Then, follow these few steps to setup your run environment:</p>
+<ol class="arabic">
+<li><p>Download the <cite>PeleProduction</cite> repository and :</p>
+<div class="highlight-rst notranslate"><div class="highlight"><pre><span></span>git clone https://github.com/AMReX-Combustion/PeleProduction.git
+
+cd PeleProduction
+</pre></div>
+</div>
+</li>
+<li><p>Switch to the TripleFlame branch :</p>
+<div class="highlight-rst notranslate"><div class="highlight"><pre><span></span>git checkout Tutorials
+</pre></div>
+</div>
+</li>
+<li><p>The first time you do this, you will need to tell git that there are submodules. Git will look at the <code class="docutils literal notranslate"><span class="pre">.gitmodules</span></code> file in this branch and use that :</p>
+<div class="highlight-rst notranslate"><div class="highlight"><pre><span></span>git submodule init
+</pre></div>
+</div>
+</li>
+<li><p>Finally, get the correct commits of the sub-repos set up for this branch:</p>
+<div class="highlight-rst notranslate"><div class="highlight"><pre><span></span>git submodule update
+</pre></div>
+</div>
+</li>
+</ol>
+<p>You are now ready to build the <code class="docutils literal notranslate"><span class="pre">FlowPastCylinder</span></code> case associated with this branch. To do so:</p>
+<div class="highlight-rst notranslate"><div class="highlight"><pre><span></span>cd Tutorials/FlowPastCylinder
+</pre></div>
+</div>
+<p>And follow the next steps !</p>
+</section>
+</section>
+<section id="numerical-setup">
+<h2>Numerical setup<a class="headerlink" href="#numerical-setup" title="Permalink to this heading"></a></h2>
+<p>In this section we review the content of the various input files for the flow past cylinder test case. To get additional information about the keywords discussed, the user is referred to section <a class="reference internal" href="RunningPeleLM.html#sec-control"><span class="std std-ref">PeleLM control</span></a>.</p>
+<section id="test-case-and-boundary-conditions">
+<h3>Test case and boundary conditions<a class="headerlink" href="#test-case-and-boundary-conditions" title="Permalink to this heading"></a></h3>
+<p>Direct Numerical Simulations (DNS) is performed on a 12x4 <span class="math notranslate nohighlight">\(cm^2\)</span> 2D computational domain, with the bottom left corner located at (-0.02:-0.02) and the top right corner at (0.10:0.02).
+The base grid is decomposed into 192x64 cells and up to 3 levels of refinement (although we will start with a single level).
+The refinement ratio between each level is set to 2.
+The maximum box size is fixed at 64, and the base (level 0) grid is composed of 3 boxes,
+as shown in Fig <a class="reference internal" href="#fig-fpc-numsetup"><span class="std std-numref">4</span></a>.</p>
+<p>Periodic boundary conditions are used in the transverse (<span class="math notranslate nohighlight">\(y\)</span>) direction, while <code class="docutils literal notranslate"><span class="pre">Inflow</span></code> (dirichlet) and <code class="docutils literal notranslate"><span class="pre">Outflow</span></code> (neumann) boundary conditions are used in the main flow direction (<span class="math notranslate nohighlight">\(x\)</span>). The flow goes from left to right.
+A cylinder of radius 0.0035 m is placed in the middle of the flow at (0.0:0.0).</p>
+<span id="fig-fpc-numsetup"></span><table class="docutils align-center" id="id2">
+<caption><span class="caption-number">4 </span><span class="caption-text">Sketch of the computational domain with level 0 box decomposition.</span><a class="headerlink" href="#id2" title="Permalink to this table"></a></caption>
+<colgroup>
+<col style="width: 100%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="_images/SetupSketchFPC.png"><img alt="FPC_a" src="_images/SetupSketchFPC.png" style="width: 100%;" /></a></p></td>
+</tr>
+</tbody>
+</table>
+<p>The geometry of the problem is specified in the first block of the <code class="docutils literal notranslate"><span class="pre">inputs.2d-regt</span></code>:</p>
+<div class="highlight-rst notranslate"><div class="highlight"><pre><span></span>#----------------------DOMAIN DEFINITION------------------------
+geometry.is_periodic = 0 0             # Periodicity in each direction: 0 =&gt; no, 1 =&gt; yes
+geometry.coord_sys   = 0               # 0 =&gt; cart, 1 =&gt; RZ
+geometry.prob_lo     = -0.02 -0.02     # x_lo y_lo
+geometry.prob_hi     =  0.10  0.02     # x_hi y_hi
+</pre></div>
+</div>
+<p>The second block determines the boundary conditions. Note that <cite>Interior</cite> is used to indicate periodic boundary conditions. Refer to Fig <a class="reference internal" href="#fig-fpc-numsetup"><span class="std std-numref">4</span></a>:</p>
+<div class="highlight-rst notranslate"><div class="highlight"><pre><span></span># &gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;  BC FLAGS &lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;
+# Interior, Inflow, Outflow, Symmetry,
+# SlipWallAdiab, NoSlipWallAdiab, SlipWallIsotherm, NoSlipWallIsotherm
+peleLM.lo_bc = Inflow   SlipWallAdiab
+peleLM.hi_bc = Outflow  SlipWallAdiab
+</pre></div>
+</div>
+<p>In the present case, the EB geometry is a simple cylinder (or sphere) which is readily available from the <cite>AMReX</cite> library and only a few paremeters need to be specified by the user. This is done further down in the input file:</p>
+<div class="highlight-rst notranslate"><div class="highlight"><pre><span></span>#------------  INPUTS FOR EMBEDED BOUNDARIES ----------------
+eb2.geom_type                    = sphere
+eb2.sphere_radius                = 0.005
+eb2.sphere_center                = 0.00 0.00
+eb2.sphere_has_fluid_inside      = 0
+eb2.small_volfrac                = 1.0e-2
+</pre></div>
+</div>
+<p>Note that the last parameter is used to specify a volume fraction (ratio of the uncovered surface (2D) or volume (3D) over the cell surface or volume) threshold below which a cell is considered fully covered. This prevents the appearance of extremely small partially covered cells which are numerically unstable.</p>
+<p>The number of levels, refinement ratio between levels, maximium grid size as well as other related refinement parameters are set under the third block  :</p>
+<div class="highlight-rst notranslate"><div class="highlight"><pre><span></span>#-------------------------AMR CONTROL----------------------------
+amr.n_cell          = 192 64     # Level 0 number of cells in each direction
+amr.v               = 1          # amr verbosity level
+amr.max_level       = 0          # maximum level number allowed
+amr.ref_ratio       = 2 2 2 2    # refinement ratio
+amr.regrid_int      = 2          # how often to regrid
+amr.n_error_buf     = 2 2 2 2    # number of buffer cells in error est
+amr.grid_eff        = 0.7        # what constitutes an efficient grid
+amr.blocking_factor = 16         # block factor in grid generation
+amr.max_grid_size   = 64         # maximum box size
+</pre></div>
+</div>
+</section>
+<section id="problem-specifications">
+<span id="sec-tuto-fpc-inflowspec"></span><h3>Problem specifications<a class="headerlink" href="#problem-specifications" title="Permalink to this heading"></a></h3>
+<p>This very simple problem only has three user-defined problem parameters: the inflow velocity magnitude, the pressure and the temperature. This setup is also constructed to be able to perform the simulation of mixture perturbation crossing over the cylinder so that a switch is available to run this case rather than the simple vortex shedding past a cylinder.
+Specifying dirichlet <code class="docutils literal notranslate"><span class="pre">Inflow</span></code> conditions in <cite>PeleLM</cite> can seem daunting at first. But it is actually a very flexible process. We walk the user through the details which involve the following files:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">pelelm_prob_parm.H</span></code>, assemble in a C++ struct <code class="docutils literal notranslate"><span class="pre">ProbParm</span></code> the input variables as well as other variables used in the initialization process.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">pelelm_prob.cpp</span></code>, initialize and provide default values to the entries of <code class="docutils literal notranslate"><span class="pre">ProbParm</span></code> and allow the user to pass run-time value using the <cite>AMReX</cite> parser (<code class="docutils literal notranslate"><span class="pre">ParmParse</span></code>). In the present case, the parser will read the parameters in the <code class="docutils literal notranslate"><span class="pre">PROBLEM</span> <span class="pre">PARAMETERS</span></code> block:</p>
+<div class="highlight-rst notranslate"><div class="highlight"><pre><span></span>prob.type         = VortexShedding
+prob.meanFlowMag  = 3.0
+</pre></div>
+</div>
+</li>
+<li><p>finally, <code class="docutils literal notranslate"><span class="pre">pelelm_prob.H</span></code> contains the <code class="docutils literal notranslate"><span class="pre">pelelm_initdata</span></code> and <code class="docutils literal notranslate"><span class="pre">bcnormal</span></code> functions responsible for generating the initial and boundary conditions, respectively.</p></li>
+</ul>
+<p>Note that in the present case, the default values of pressure and temperature are employed since their respective keywords are not specified in the input file.</p>
+<p>Finally, this test uses a constant set of transport parameters rather relying on the Simple library
+(see <span class="xref std std-ref">sec:model:EqSets</span> for more details on Simple and EGLib). These transport parameters are specified in the <code class="docutils literal notranslate"><span class="pre">CONSTANT</span> <span class="pre">TRANSPORT</span></code> block:</p>
+<div class="highlight-rst notranslate"><div class="highlight"><pre><span></span>#------------  INPUTS TO CONSTANT TRANSPORT -----------------
+transport.const_viscosity        = 3.0e-04
+transport.const_bulk_viscosity   = 0.0
+transport.const_conductivity     = 0.0
+transport.const_diffusivity      = 0.0
+</pre></div>
+</div>
+<p>Only the viscosity in the present case, and note that CGS units are employed while specifying these properties.
+Using these parameters, it is possible to evaluate the Reynolds number, based on the inflow velocity and the cylinder diameter:</p>
+<div class="math notranslate nohighlight">
+\[Re = \frac{\rho U_{inf} D}{\mu} = \frac{1.175 * 3 * 0.01}{3.0e-05} = 1175\]</div>
+<p>This relatively high value ensures that the flow will exhibit vortex shedding.</p>
+</section>
+<section id="initial-solution">
+<h3>Initial solution<a class="headerlink" href="#initial-solution" title="Permalink to this heading"></a></h3>
+<p>An initial field of the main variables is always required to start a simulation. In the present case, the computational domain is filled with air in the condition of pressure and temperature provided by the user (or the default ones). An initial constant velocity of <code class="docutils literal notranslate"><span class="pre">meanFlowMag</span></code> is used, but note that <cite>PeleLM</cite> performs an initial velocity projection to enforce the low Mach number constraint which overwrite this initial velocity.</p>
+<p>This initial solution is constructed via the routine <code class="docutils literal notranslate"><span class="pre">pelelm_initdata()</span></code>, in the file <code class="docutils literal notranslate"><span class="pre">pelelm_prob.H</span></code>. Additional information is provided as comments in this file for the eager reader, but nothing is required from the user at this point.</p>
+</section>
+<section id="numerical-scheme">
+<h3>Numerical scheme<a class="headerlink" href="#numerical-scheme" title="Permalink to this heading"></a></h3>
+<p>The <code class="docutils literal notranslate"><span class="pre">NUMERICS</span> <span class="pre">CONTROL</span></code> block can be modified by the user to increase the number of SDC iterations. Note that there are many other parameters controlling the numerical algorithm that the advanced user can tweak, but we will not talk about them in the present Tutorial. The interested user can refer to section <a class="reference internal" href="RunningPeleLM.html#sec-control-pelelm"><span class="std std-ref">PeleLM algorithm controls</span></a>.</p>
+</section>
+</section>
+<section id="building-the-executable">
+<h2>Building the executable<a class="headerlink" href="#building-the-executable" title="Permalink to this heading"></a></h2>
+<p>The last necessary step before starting the simulation consists of building the PeleLM executable. AMReX applications use a makefile system to ensure that all the required source code from the dependent libraries be properly compiled and linked. The <code class="docutils literal notranslate"><span class="pre">GNUmakefile</span></code> provides some compile-time options regarding the simulation we want to perform.
+The first line can be modified to specify the absolute path to the <cite>PeleProduction</cite> directory while the next four lines specify the paths towards the source code of <cite>PeleLM</cite>, <cite>AMReX</cite>, <cite>IAMR</cite> and <cite>PelePhysics</cite> and should not be changed.</p>
+<p>Next comes the build configuration block:</p>
+<div class="highlight-rst notranslate"><div class="highlight"><pre><span></span><span class="gh">#</span>
+<span class="gh"># Build configuration</span>
+<span class="gh">#</span>
+
+# AMREX options
+DIM             = 2
+USE_EB          = TRUE
+
+# Compiler / parrallel paradigms
+COMP            = gnu
+USE_MPI         = TRUE
+USE_OMP         = FALSE
+USE_CUDA        = FALSE
+USE_HIP         = FALSE
+
+# MISC options
+DEBUG           = FALSE
+PRECISION       = DOUBLE
+VERBOSE         = FALSE
+TINY_PROFILE    = FALSE
+</pre></div>
+</div>
+<p>It allows the user to specify the number of spatial dimensions (2D), trigger the compilation of the EB source code, the compiler (<code class="docutils literal notranslate"><span class="pre">gnu</span></code>) and the parallelism paradigm (in the present case only MPI is used). The other options can be activated for debugging and profiling purposes.</p>
+<p>In <cite>PeleLM</cite>, the chemistry model (set of species, their thermodynamic and transport properties as well as the description of their of chemical interactions) is specified at compile time. Chemistry models available in <cite>PelePhysics</cite> can used in <cite>PeleLM</cite> by specifying the name of the folder in <cite>PelePhysics/Support/Fuego/Mechanisms/Models</cite> containing the relevant files, for example:</p>
+<div class="highlight-rst notranslate"><div class="highlight"><pre><span></span>Chemistry_Model = air
+</pre></div>
+</div>
+<p>Here, the model <code class="docutils literal notranslate"><span class="pre">air</span></code>, only contains 2 species (O2 and N2). The user is referred to the <a class="reference external" href="https://pelephysics.readthedocs.io/en/latest/">PelePhysics</a> documentation for a list of available mechanisms and more information regarding the EOS, chemistry and transport models specified:</p>
+<div class="highlight-rst notranslate"><div class="highlight"><pre><span></span>Eos_Model       := Fuego
+Transport_Model := Constant
+</pre></div>
+</div>
+<p>Finally, <cite>PeleLM</cite> utilizes the chemical kinetic ODE integrator <a class="reference external" href="https://computing.llnl.gov/projects/sundials/cvode">CVODE</a>. This Third Party Librabry (TPL) is not shipped with the <cite>PeleLM</cite> distribution but can be readily installed through the makefile system of <cite>PeleLM</cite>. To do so, type in the following command:</p>
+<div class="highlight-rst notranslate"><div class="highlight"><pre><span></span>make -j4 TPL
+</pre></div>
+</div>
+<p>Note that the installation of <cite>CVODE</cite> requires CMake 3.12.1 or higher.</p>
+<p>You are now ready to build your first <cite>PeleLM</cite> executable !! Type in:</p>
+<div class="highlight-rst notranslate"><div class="highlight"><pre><span></span>make -j4
+</pre></div>
+</div>
+<p>The option here tells <cite>make</cite> to use up to 4 processors to create the executable (internally, <cite>make</cite> follows a dependency graph to ensure any required ordering in the build is satisfied). This step should generate the following file (providing that the build configuration you used matches the one above):</p>
+<div class="highlight-rst notranslate"><div class="highlight"><pre><span></span>PeleLM2d.gnu.MPI.ex
+</pre></div>
+</div>
+<p>You’re good to go!</p>
+</section>
+<section id="running-the-problem-on-a-coarse-grid">
+<h2>Running the problem on a coarse grid<a class="headerlink" href="#running-the-problem-on-a-coarse-grid" title="Permalink to this heading"></a></h2>
+<p>As a first step towards obtaining the classical Von-Karman alleys, we will now let the flow establish using only the coarse base grid. The simulation will last for 50 ms.</p>
+<p>Time-stepping parameters in <code class="docutils literal notranslate"><span class="pre">input.2d-regt</span></code> are specified in the <code class="docutils literal notranslate"><span class="pre">TIME</span> <span class="pre">STEPING</span> <span class="pre">CONTROL</span></code> block:</p>
+<div class="highlight-rst notranslate"><div class="highlight"><pre><span></span>#----------------------TIME STEPING CONTROL----------------------
+max_step       = 300000          # Maximum number of time steps
+stop_time      = 0.05            # final physical time
+ns.cfl         = 0.3             # cfl number for hyperbolic system
+ns.init_shrink = 1.0             # scale back initial timestep
+ns.change_max  = 1.1             # max timestep size increase
+ns.dt_cutoff   = 5.e-10          # level 0 timestep below which we halt
+</pre></div>
+</div>
+<p>The final simulation time is set to 0.05 s. <cite>PeleLM</cite> solves for the advection, diffusion and reaction processes in time, but only the advection term is treated explicitly and thus it constrains the maximum time step size <span class="math notranslate nohighlight">\(dt_{CFL}\)</span>. This constraint is formulated with a classical Courant-Friedrich-Levy (CFL) number, specified via the keyword <code class="docutils literal notranslate"><span class="pre">ns.cfl</span></code>.
+Additionally, as it is the case here, the initial solution is often made-up by the user and local mixture composition and temperature can result in the introduction of unreasonably fast chemical scales.
+To ease the numerical integration of this initial transient, the parameter <code class="docutils literal notranslate"><span class="pre">ns.init_shrink</span></code> allows to shrink the inital <cite>dt</cite> (evaluated from the CFL constraint) by a factor (usually smaller than 1), and let it relax towards <span class="math notranslate nohighlight">\(dt_{CFL}\)</span> as the simulation proceeds. Since the present case does not involve complex chemical processes, this parameter is kept to 1.0.</p>
+<p>Input/output from <cite>PeleLM</cite> are specified in the <code class="docutils literal notranslate"><span class="pre">IO</span> <span class="pre">CONTROL</span></code> block:</p>
+<div class="highlight-rst notranslate"><div class="highlight"><pre><span></span>#-------------------------IO CONTROL----------------------------
+amr.checkpoint_files_output = 1   # Dump check file ? 0: no, 1: yes
+amr.check_file      = chk_        # root name of checkpoint file
+amr.check_per       = 0.05        # frequency of checkpoints
+amr.plot_file       = plt_        # root name of plotfiles
+amr.plot_per        = 0.005       # frequency of plotfiles
+amr.derive_plot_vars=rhoRT mag_vort avg_pressure gradpx gradpy
+amr.grid_log        = grdlog      # name of grid logging file
+</pre></div>
+</div>
+<p>Information pertaining to the checkpoint and plot_file files name and output frequency can be specified there.
+We have specified here that a checkpoint file will be generated every 50 ms and a plotfile every 5 ms. <cite>PeleLM</cite> will always generate an initial plotfile <code class="docutils literal notranslate"><span class="pre">plt_00000</span></code> if the initialization is properly completed, and a final plotfile at the end of the simulation. It is possible to request including <cite>derived variables</cite> in the plotfiles by appending their names to the <code class="docutils literal notranslate"><span class="pre">amr.derive_plot_vars</span></code> keyword. These variables are derived from the <cite>state variables</cite> (velocity, density, temperature, <span class="math notranslate nohighlight">\(\rho Y_k\)</span>, <span class="math notranslate nohighlight">\(\rho h\)</span>) which are automatically included in the plotfile.</p>
+<p>You finally have all the information necessary to run the first of several steps. Type in:</p>
+<div class="highlight-rst notranslate"><div class="highlight"><pre><span></span>./PeleLM2d.gnu.MPI.ex inputs.2d-regt
+</pre></div>
+</div>
+<p>A lot of information is printed directly on the screen during a <cite>PeleLM</cite> simulation, but it will not be detailed in the present tutorial. If you wish to store these information for later analysis, you can instead use:</p>
+<div class="highlight-rst notranslate"><div class="highlight"><pre><span></span>./PeleLM2d.gnu.MPI.ex inputs.2d-regt &gt; logCoarseRun.dat &amp;
+</pre></div>
+</div>
+<p>Whether you have used one or the other command, the computation finishes within a couple of minutes and you should obtain a set of <code class="docutils literal notranslate"><span class="pre">plt_****</span></code> files (and maybe a set appended with .old*********** if you used both commands). Use <a class="reference external" href="https://amrex-codes.github.io/amrex/docs_html/Visualization.html">Amrvis</a> to vizualize the results. Use the following command to open the entire set of solutions:</p>
+<div class="highlight-rst notranslate"><div class="highlight"><pre><span></span>amrvis -a plt_?????
+</pre></div>
+</div>
+<span id="fig-fpc-coarse"></span><table class="docutils align-center" id="id3">
+<caption><span class="caption-number">5 </span><span class="caption-text">Contour plots of velocity components, vorticity, pressure and volume fraction at t = 50 ms on the coarse grid.</span><a class="headerlink" href="#id3" title="Permalink to this table"></a></caption>
+<colgroup>
+<col style="width: 100%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="_images/FPC_Coarse_50ms.png"><img alt="FPC_b" src="_images/FPC_Coarse_50ms.png" style="width: 100%;" /></a></p></td>
+</tr>
+</tbody>
+</table>
+<p>At this point, you have established a flow with a large recirculation zone in the wake of the cylinder, but the flow has not yet fully transitioned to periodic vortex shedding.
+The flow is depicted in Fig <a class="reference internal" href="#fig-fpc-coarse"><span class="std std-numref">5</span></a> showing a few of the available contour plots at 50 ms. Note that the value of the fully covered cells is set to zero.</p>
+<p>As can be seen from Fig <a class="reference internal" href="#fig-fpc-coarse"><span class="std std-numref">5</span></a>, the flow has not yet transitioned to the familiar Von-Karman alleys and two aspects of the current simulation can delay or even prevent the onset of vortex shedding:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>the flow is initially symmetric and the transition to the familiar periodic flow is due to the growth of infinitesimal perturbations in the shear layer of the wake. Because the flow is artificially too symmetric, this transition can be delayed until round-off errors sufficiently accumulate.</p></li>
+<li><p>the numerical dissipation introduced by this coarse grid results in an effective Reynolds number probably significantly lower than the value estimated above.</p></li>
+</ul>
+</div></blockquote>
+<p>Before adding refinement levels, we will first pursue the simulation until the flow reaches a periodic vortex shedding state. To do so, restart the simulation from the checkpoint file generated at the end of the first run and set the final simulation time to 250 ms:</p>
+<div class="highlight-rst notranslate"><div class="highlight"><pre><span></span><span class="gh">#-------------------------IO CONTROL----------------------------</span>
+<span class="gh">...</span>
+amr.restart             = chk_01345 # Restart from checkpoint ?
+
+<span class="cp">...</span>
+
+<span class="gh">#----------------------TIME STEPING CONTROL----------------------</span>
+<span class="gh">...</span>
+stop_time      = 0.25            # final physical time
+</pre></div>
+</div>
+<p>and restart the simulation</p>
+<div class="highlight-rst notranslate"><div class="highlight"><pre><span></span>./PeleLM2d.gnu.MPI.ex inputs.2d-regt &gt; logCoarseRun2.dat &amp;
+</pre></div>
+</div>
+<p>The flow has now fully transition and you can use Amrvis to visualize the serie of vortex in the wake of the cylinder. In the next step, we will add finer grid patches around the EB geometry and in high vorticity regions.</p>
+</section>
+<section id="refinement-of-the-computation">
+<h2>Refinement of the computation<a class="headerlink" href="#refinement-of-the-computation" title="Permalink to this heading"></a></h2>
+<p>We will now add a first level of refinement. In the present simulation, the refinement criteria could be based on several characteristics of the flow: velocity gradients, vorticity, pressure, … In the following, we will simply use vorticity.
+Additionally, by construction the geometry must be built to the finest level which act as a refinement criteria based on the gradient of volume fraction. This is beneficial in this case in order to help refine the cylinder boundary layer.
+Start by increasing the number of AMR levels to one in the <code class="docutils literal notranslate"><span class="pre">AMR</span> <span class="pre">CONTROL</span></code> block:</p>
+<div class="highlight-rst notranslate"><div class="highlight"><pre><span></span>amr.max_level       = 1          # maximum level number allowed
+</pre></div>
+</div>
+<p>Then provide a definition of the new refinement critera in the <code class="docutils literal notranslate"><span class="pre">REFINEMENT</span> <span class="pre">CONTROL</span></code> block:</p>
+<div class="highlight-rst notranslate"><div class="highlight"><pre><span></span>#--------------------REFINEMENT CONTROL------------------------
+# Refinement according to the vorticity, no field_name needed
+amr.refinement_indicators     = lowvort highvort
+amr.lowvort.max_level         = 1
+amr.lowvort.value_less        = -1000
+amr.lowvort.field_name        = mag_vort
+
+amr.highvort.max_level         = 1
+amr.highvort.value_greater     = 1000
+amr.highvort.field_name        = mag_vort
+
+# Refine the EB
+ns.refine_cutcells            = 1
+</pre></div>
+</div>
+<p>The first line simply declares a set of refinement indicators which are subsequently defined. For each indicator, the user can provide a limit up to which AMR level this indicator will be used to refine. Then there are multiple possibilities to specify the actual criterion: <code class="docutils literal notranslate"><span class="pre">value_greater</span></code>, <code class="docutils literal notranslate"><span class="pre">value_less</span></code>, <code class="docutils literal notranslate"><span class="pre">vorticity_greater</span></code> or <code class="docutils literal notranslate"><span class="pre">adjacent_difference_greater</span></code>. In each case, the user specify a threshold value and the name of variable on which it applies (except for the <code class="docutils literal notranslate"><span class="pre">vorticity_greater</span></code>).
+In the example above, the grid is refined up to level 1 at the location where the vorticity magnitude is above 1000 <span class="math notranslate nohighlight">\(s^{-1}\)</span> as well as on the cut cells (where the cylinder intersect with the edges of cell).  Note that in the present case, the <code class="docutils literal notranslate"><span class="pre">vorticity_greater</span></code> was not used to ensure that regions of both low and high vorticity are refined.</p>
+<p>With these new parameters, change the <cite>checkpoint</cite> file from which to restart and allow regridding upon restart by updating the following lines in the <code class="docutils literal notranslate"><span class="pre">IO</span> <span class="pre">CONTROL</span></code> block:</p>
+<div class="highlight-rst notranslate"><div class="highlight"><pre><span></span>amr.restart             = chk_06797 # Restart from checkpoint ?
+amr.regrid_on_restart   = 1
+</pre></div>
+</div>
+<p>, increase the <cite>stop_time</cite> to 350 ms in the <code class="docutils literal notranslate"><span class="pre">TIME</span> <span class="pre">STEPING</span> <span class="pre">CONTROL</span></code> block:</p>
+<div class="highlight-rst notranslate"><div class="highlight"><pre><span></span>stop_time      = 0.35            # final physical time
+</pre></div>
+</div>
+<p>and start the simulation again (using multiple processor if available)</p>
+<div class="highlight-rst notranslate"><div class="highlight"><pre><span></span>mpirun -n 4 ./PeleLM2d.gnu.MPI.ex inputs.2d-regt &gt; log2Levels.dat &amp;
+</pre></div>
+</div>
+<p>Once again, use Amrvis to visualize the effects of refinement: after an initial transient, the flow return to a smooth periodic vortex shedding and the boundary layer of the cylinder is now significantly better captured but still far from fully refined.
+As a final step, we will add another level of refinement, only at the vicinity of the cylinder since the level 1 resolution appears sufficient to discretize the vortices in the wake. To do so, simply allow for another level of refinement:</p>
+<div class="highlight-rst notranslate"><div class="highlight"><pre><span></span>amr.max_level       = 2          # maximum level number allowed
+</pre></div>
+</div>
+<p>and since the vorticity refinement criterion only refine up to level 1, the level 2 will only be located around the EB. Update the <cite>checkpoint</cite> file in the <code class="docutils literal notranslate"><span class="pre">IO</span> <span class="pre">CONTROL</span></code> block, increase the <cite>stop_time</cite> to 400 ms in the the <code class="docutils literal notranslate"><span class="pre">TIME</span> <span class="pre">STEPING</span> <span class="pre">CONTROL</span></code> and restart the simulation:</p>
+<div class="highlight-rst notranslate"><div class="highlight"><pre><span></span>mpirun -n 4 ./PeleLM2d.gnu.MPI.ex inputs.2d-regt &gt; log3Levels.dat &amp;
+</pre></div>
+</div>
+<p>You should obtain a flow with a vorticity field similar to Fig. <a class="reference internal" href="#fig-fpc-vortfinal"><span class="std std-numref">6</span></a>.
+For the purpose of the present tutorial, this will be our final solution but one can see that the flow has not yet return to a periodic vortex shedding and additinal resolution could be added locally to obtain smoother flow features.</p>
+<span id="fig-fpc-vortfinal"></span><table class="docutils align-center" id="id4">
+<caption><span class="caption-number">6 </span><span class="caption-text">Contour plots of vorticit at t = 400 ms with 2 levels of refinements.</span><a class="headerlink" href="#id4" title="Permalink to this table"></a></caption>
+<colgroup>
+<col style="width: 100%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="_images/FPC_VorticityFinal.png"><img alt="FPC_c" src="_images/FPC_VorticityFinal.png" style="width: 100%;" /></a></p></td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="Tutorials.html" class="btn btn-neutral float-left" title="Tutorials" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="Tutorials_TripleFlame.html" class="btn btn-neutral float-right" title="Tutorial - A simple triple flame" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright AMReX Copyright (c) 2018, The Regents of the University of California, through Lawrence Berkeley National Laboratory and the Alliance for Sustainable Energy, LLC., through National Renewable Energy Laboratory (subject to receipt of any required approvals from the U.S. Dept. of Energy).  All rights reserved..</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
