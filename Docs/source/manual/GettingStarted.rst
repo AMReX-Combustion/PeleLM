@@ -79,8 +79,8 @@ This method is intended for users wanting to modify the `PeleLM` source code and
 
    d. Clone the `PeleLM` and `PelePhysics` repositories: ::
 
-        git clone git@github.com:AMReX-Combustion/PeleLM.git
-        git clone git@github.com:AMReX-Combustion/PelePhysics.git
+        git clone https://github.com/AMReX-Combustion/PeleLM.git
+        git clone https://github.com/AMReX-Combustion/PelePhysics.git
 
      This will create folders called ``PeleLM`` and ``PelePhysics`` on your machine.
      Set the environment variables, ``PELELM_HOME`` and ``PELE_PHYSICS_HOME``, respectively to where you put these.
