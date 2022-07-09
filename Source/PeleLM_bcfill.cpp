@@ -131,7 +131,7 @@ struct PeleLMCCFillExtDir
     const amrex::IntVect& iv,
     amrex::Array4<amrex::Real> const& dest,
     const int dcomp,
-    const int /*numcomp*/,
+    const int numcomp,
     amrex::GeometryData const& geom,
     const amrex::Real time,
     const amrex::BCRec* bcr,
@@ -152,6 +152,8 @@ struct PeleLMCCFillExtDir
 
     amrex::Real s_ext[DEF_NUM_STATE] = {0.0};
 
+    bool iv_is_on_extdir = false;
+
     // xlo and xhi
     int idir = 0;
     if ((bc[idir] == amrex::BCType::ext_dir) and (iv[idir] < domlo[idir])) {
@@ -161,35 +163,8 @@ struct PeleLMCCFillExtDir
              s_ext[Xvel+n] = dest(iv, dcomp + n);
            }
          }
-         //
-         // Fill s_ext with the EXT_DIR BC value
-         // bcnormal() is defined in pelelm_prob.H in problem directory in /Exec
-         //
          bcnormal(x, s_ext, idir, 1, time, geom, *lprobparm, *lacparm, lpmfdata);
-
-         if (orig_comp == Xvel){
-           for (int n = 0; n < AMREX_SPACEDIM; n++) {
-             dest(iv, dcomp + n) = s_ext[Xvel+n];
-           }
-         }
-         else if (orig_comp == Density){
-             dest(iv, dcomp) = s_ext[Density];
-         }
-         else if (orig_comp == DEF_first_spec){
-           for (int n = 0; n < NUM_SPECIES; n++) {
-             dest(iv, dcomp + n) = s_ext[DEF_first_spec+n];
-           }
-         }
-         else if (orig_comp == DEF_RhoH){
-            dest(iv, dcomp) = s_ext[DEF_RhoH];
-         }
-         else if (orig_comp == DEF_Temp){
-            dest(iv, dcomp) = s_ext[DEF_Temp];
-         }
-         else if (orig_comp == DEF_RhoRT){
-            dest(iv, dcomp) = 0.0;
-         }
-
+         iv_is_on_extdir = true;
     } else if (
        (bc[idir + AMREX_SPACEDIM] == amrex::BCType::ext_dir) and
        (iv[idir] > domhi[idir])) {
@@ -199,31 +174,8 @@ struct PeleLMCCFillExtDir
              s_ext[Xvel+n] = dest(iv, dcomp + n);
            }
          }
-
          bcnormal(x, s_ext, idir, -1, time, geom, *lprobparm, *lacparm, lpmfdata);
-
-         if (orig_comp == Xvel){
-           for (int n = 0; n < AMREX_SPACEDIM; n++) {
-             dest(iv, dcomp + n) = s_ext[Xvel+n];
-           }
-         }
-         else if (orig_comp == Density){
-             dest(iv, dcomp) = s_ext[Density];
-         }
-         else if (orig_comp == DEF_first_spec){
-           for (int n = 0; n < NUM_SPECIES; n++) {
-             dest(iv, dcomp + n) = s_ext[DEF_first_spec+n];
-           }
-         }
-         else if (orig_comp == DEF_RhoH){
-            dest(iv, dcomp) = s_ext[DEF_RhoH];
-         }
-         else if (orig_comp == DEF_Temp){
-            dest(iv, dcomp) = s_ext[DEF_Temp];
-         }
-         else if (orig_comp == DEF_RhoRT){
-            dest(iv, dcomp) = 0.0;
-         }
+         iv_is_on_extdir = true;
     }
 
 
@@ -237,30 +189,7 @@ struct PeleLMCCFillExtDir
            }
          }
          bcnormal(x, s_ext, idir, +1, time, geom, *lprobparm, *lacparm, lpmfdata);
-
-         if (orig_comp == Xvel){
-           for (int n = 0; n < AMREX_SPACEDIM; n++) {
-             dest(iv, dcomp + n) = s_ext[Xvel+n];
-           }
-         }
-         else if (orig_comp == Density){
-             dest(iv, dcomp) = s_ext[Density];
-         }
-         else if (orig_comp == DEF_first_spec){
-           for (int n = 0; n < NUM_SPECIES; n++) {
-             dest(iv, dcomp + n) = s_ext[DEF_first_spec+n];
-           }
-         }
-         else if (orig_comp == DEF_RhoH){
-            dest(iv, dcomp) = s_ext[DEF_RhoH];
-         }
-         else if (orig_comp == DEF_Temp){
-            dest(iv, dcomp) = s_ext[DEF_Temp];
-         }
-         else if (orig_comp == DEF_RhoRT){
-            dest(iv, dcomp) = 0.0;
-         }
-
+         iv_is_on_extdir = true;
     } else if (
        (bc[idir + AMREX_SPACEDIM] == amrex::BCType::ext_dir) and
        (iv[idir] > domhi[idir])) {
@@ -271,30 +200,7 @@ struct PeleLMCCFillExtDir
            }
          }
          bcnormal(x, s_ext, idir, -1, time, geom, *lprobparm, *lacparm, lpmfdata);
-
-         if (orig_comp == Xvel){
-           for (int n = 0; n < AMREX_SPACEDIM; n++) {
-             dest(iv, dcomp + n) = s_ext[Xvel+n];
-           }
-         }
-         else if (orig_comp == Density){
-             dest(iv, dcomp) = s_ext[Density];
-         }
-         else if (orig_comp == DEF_first_spec){
-           for (int n = 0; n < NUM_SPECIES; n++) {
-             dest(iv, dcomp + n) = s_ext[DEF_first_spec+n];
-           }
-         }
-         else if (orig_comp == DEF_RhoH){
-            dest(iv, dcomp) = s_ext[DEF_RhoH];
-         }
-         else if (orig_comp == DEF_Temp){
-            dest(iv, dcomp) = s_ext[DEF_Temp];
-         }
-         else if (orig_comp == DEF_RhoRT){
-            dest(iv, dcomp) = 0.0;
-         }
-
+         iv_is_on_extdir = true;
     }
 
 #if AMREX_SPACEDIM == 3
@@ -308,30 +214,7 @@ struct PeleLMCCFillExtDir
            }
          }
          bcnormal(x, s_ext, idir, +1, time, geom, *lprobparm, *lacparm, lpmfdata);
-
-         if (orig_comp == Xvel){
-           for (int n = 0; n < AMREX_SPACEDIM; n++) {
-             dest(iv, dcomp + n) = s_ext[Xvel+n];
-           }
-         }
-         else if (orig_comp == Density){
-             dest(iv, dcomp) = s_ext[Density];
-         }
-         else if (orig_comp == DEF_first_spec){
-           for (int n = 0; n < NUM_SPECIES; n++) {
-             dest(iv, dcomp + n) = s_ext[DEF_first_spec+n];
-           }
-         }
-         else if (orig_comp == DEF_RhoH){
-            dest(iv, dcomp) = s_ext[DEF_RhoH];
-         }
-         else if (orig_comp == DEF_Temp){
-            dest(iv, dcomp) = s_ext[DEF_Temp];
-         }
-         else if (orig_comp == DEF_RhoRT){
-            dest(iv, dcomp) = 0.0;
-         }
-
+         iv_is_on_extdir = true;
     } else if (
        (bc[idir + AMREX_SPACEDIM] == amrex::BCType::ext_dir) and
        (iv[idir] > domhi[idir])) {
@@ -342,32 +225,44 @@ struct PeleLMCCFillExtDir
            }
          }
          bcnormal(x, s_ext, idir, -1, time, geom, *lprobparm, *lacparm, lpmfdata);
-
-         if (orig_comp == Xvel){
-           for (int n = 0; n < AMREX_SPACEDIM; n++) {
-             dest(iv, dcomp + n) = s_ext[Xvel+n];
-           }
-         }
-         else if (orig_comp == Density){
-             dest(iv, dcomp) = s_ext[Density];
-         }
-         else if (orig_comp == DEF_first_spec){
-           for (int n = 0; n < NUM_SPECIES; n++) {
-             dest(iv, dcomp + n) = s_ext[DEF_first_spec+n];
-           }
-         }
-         else if (orig_comp == DEF_RhoH){
-            dest(iv, dcomp) = s_ext[DEF_RhoH];
-         }
-         else if (orig_comp == DEF_Temp){
-            dest(iv, dcomp) = s_ext[DEF_Temp];
-         }
-         else if (orig_comp == DEF_RhoRT){
-            dest(iv, dcomp) = 0.0;
-         }
-
+         iv_is_on_extdir = true;
     }
 #endif
+
+    if (iv_is_on_extdir) {
+        if (orig_comp == Xvel){
+          // IAMR sometimes call on a per velocity component basis
+          // So don't loop over all the components if only one is requested
+          for (int n = 0; n < std::min(AMREX_SPACEDIM,numcomp); n++) {
+            dest(iv, dcomp + n) = s_ext[Xvel+n];
+          }
+        }
+        else if (orig_comp == Yvel){
+            dest(iv, dcomp) = s_ext[Yvel];
+        }
+#if AMREX_SPACEDIM == 3
+        else if (orig_comp == Zvel){
+            dest(iv, dcomp) = s_ext[Zvel];
+        }
+#endif
+        else if (orig_comp == Density){
+            dest(iv, dcomp) = s_ext[Density];
+        }
+        else if (orig_comp == DEF_first_spec){
+          for (int n = 0; n < NUM_SPECIES; n++) {
+            dest(iv, dcomp + n) = s_ext[DEF_first_spec+n];
+          }
+        }
+        else if (orig_comp == DEF_RhoH){
+           dest(iv, dcomp) = s_ext[DEF_RhoH];
+        }
+        else if (orig_comp == DEF_Temp){
+           dest(iv, dcomp) = s_ext[DEF_Temp];
+        }
+        else if (orig_comp == DEF_RhoRT){
+           dest(iv, dcomp) = 0.0;
+        }
+    }
  }
 };
 
