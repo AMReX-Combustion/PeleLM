@@ -295,12 +295,11 @@ PeleLM::initParticles()
       createParticleData();
     }
 
+    ProbParm const* lprobparm = prob_parm;
+    theSprayPC()->InitSprayParticles(true, *lprobparm);
     if (!init_file.empty()) {
       theSprayPC()->InitFromAsciiFile(init_file, NSR_SPR + NAR_SPR);
-    } else if (init_function > 0) {
-      ProbParm const* lprobparm = prob_parm;
-      theSprayPC()->InitSprayParticles(*lprobparm);
-    } else {
+    } else if (init_function == 0) {
       Abort("Must initialize spray particles with particles.init_function or "
             "particles.init_file");
     }
@@ -325,6 +324,8 @@ PeleLM::particlePostRestart(bool is_checkpoint)
     //
     // Make sure to call RemoveParticlesOnExit() on exit.
     //
+    ProbParm const* lprobparm = prob_parm;
+    theSprayPC()->InitSprayParticles(false, *lprobparm);
     amrex::ExecOnFinalize(RemoveParticlesOnExit);
     {
       theSprayPC()->Restart(
