@@ -46,8 +46,6 @@ int init_function = 1;
 int particle_verbose = 0;
 Real particle_cfl = 0.5;
 Real wall_temp = 300.;
-bool mass_trans = true;
-bool mom_trans = true;
 } // namespace
 
 int PeleLM::do_spray_particles = 1;
@@ -122,9 +120,9 @@ PeleLM::readSprayParams()
     return;
   }
   SprayParticleContainer::readSprayParams(
-    particle_verbose, particle_cfl, wall_temp, mass_trans, mom_trans,
-    write_spray_ascii_files, plot_spray_src, init_function, init_file,
-    sprayData, spray_fuel_names, spray_derive_vars);
+    particle_verbose, particle_cfl, wall_temp, write_spray_ascii_files,
+    plot_spray_src, init_function, init_file, sprayData, spray_fuel_names,
+    spray_derive_vars);
 }
 
 std::string
@@ -194,8 +192,6 @@ PeleLM::defineParticles()
     const int fspec = sprayData.indx[ns];
     sprayData.latent[ns] -= fuelEnth[fspec] * 1.E-4;
   }
-  scomps.mass_trans = mass_trans;
-  scomps.mom_trans = mom_trans;
   // Component indices for conservative variables
   scomps.rhoIndx = Density;
   scomps.momIndx = Xvel;
