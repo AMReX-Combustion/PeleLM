@@ -733,11 +733,13 @@ check_divu_dt(int i, int j, int k,
          dtcell = (rho_is_okay) ? ( rho(i,j,k) - rhomin ) / denom : std::abs( rho(i,j,k) ) / denom;
       }
    }
+#ifndef AMREX_USE_DPCPP
    if (dt>dtcell) {
       printf(" ERROR: check_divu_dt - [%i,%i,%i] dtcell %f8.6 > dt %f8.6", i, j, k, dtcell, dt);
    } else if (dt>dtcell*dtfactor) {
       printf(" WARNING: check_divu_dt - [%i,%i,%i] dtcell*dtfactor %f8.6 > dt %f8.6", i, j, k, dtcell*dtfactor, dt);
    }
+#endif
 }
 
 // Full est_divu_dt function - TODO: not available due to limitation of amrex::ReduceMin
