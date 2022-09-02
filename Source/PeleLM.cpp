@@ -3028,21 +3028,6 @@ PeleLM::resetState (Real time,
    if (do_spray_particles) {
      state[spraydot_Type].reset();
      state[spraydot_Type].setTimeLevel(time,dt_old,dt_new);
-     removeVirtualParticles();
-     removeGhostParticles();
-     if (level == 0) {
-       theSprayPC()->resetID(1);
-       for (int lev = 0; lev <= parent->finestLevel(); lev++) {
-         theSprayPC()->RemoveParticlesAtLevel(lev);
-       }
-       if (parent->theRestartFile().empty()) {
-         initParticles();
-       } else {
-         particlePostRestart();
-       }
-     } else {
-       particle_redistribute(level - 1);
-     }
    }
 #endif
 #ifdef PELELM_USE_SOOT
