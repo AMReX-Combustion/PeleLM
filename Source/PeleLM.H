@@ -220,7 +220,7 @@ public:
   //
   // How to initialize at restart
   //
-  void particlePostRestart(bool is_checkpoint = true);
+  void particleRestart(std::string restart_file);
 
   //
   // Redistribute
@@ -454,7 +454,7 @@ public:
 
 
 #ifdef PELELM_USE_SPRAY
-  static int       do_spray_particles;
+  static bool       do_spray_particles;
   static SprayParticleContainer* theSprayPC ();
   static SprayParticleContainer* theVirtPC ();
   static SprayParticleContainer* theGhostPC ();

@@ -1,11 +1,11 @@
 
+#ifdef PELELM_USE_SPRAY
 #include "IndexDefines.H"
 #include "PeleLM.H"
 #include <AMReX_Extrapolater.H>
 
 using namespace amrex;
 
-#ifdef PELELM_USE_SPRAY
 #include "SprayParticles.H"
 
 namespace {
@@ -48,7 +48,7 @@ Real particle_cfl = 0.5;
 Real wall_temp = 300.;
 } // namespace
 
-int PeleLM::do_spray_particles = 1;
+bool PeleLM::do_spray_particles = true;
 // momentum + density + fuel species + enthalpy
 int PeleLM::num_spray_src = AMREX_SPACEDIM + 2 + SPRAY_FUEL_NUM;
 
@@ -89,9 +89,6 @@ PeleLM::resetSprayMF(amrex::Real time)
 void
 PeleLM::particleEstTimeStep(Real& est_dt)
 {
-  if (do_spray_particles != 1 || theSprayPC() == nullptr) {
-    return;
-  }
   BL_PROFILE("PeleLM::particleEstTimeStep()");
   Real est_dt_particle = theSprayPC()->estTimestep(level, particle_cfl);
 
@@ -115,8 +112,7 @@ PeleLM::readSprayParams()
   ParmParse pp("peleLM");
 
   pp.query("do_spray_particles", do_spray_particles);
-  if (do_spray_particles != 1) {
-    do_spray_particles = 0;
+  if (!do_spray_particles) {
     return;
   }
   SprayParticleContainer::readSprayParams(
@@ -285,50 +281,51 @@ PeleLM::initParticles()
   // Make sure to call RemoveParticlesOnExit() on exit.
   //
   amrex::ExecOnFinalize(RemoveParticlesOnExit);
+  createParticleData();
 
-  if (do_spray_particles) {
-    if (theSprayPC() == nullptr) {
-      createParticleData();
-    }
-
-    ProbParm const* lprobparm = prob_parm;
-    theSprayPC()->InitSprayParticles(true, *lprobparm);
-    if (!init_file.empty()) {
-      theSprayPC()->InitFromAsciiFile(init_file, NSR_SPR + NAR_SPR);
-    } else if (init_function == 0) {
-      Abort("Must initialize spray particles with particles.init_function or "
-            "particles.init_file");
-    }
-    if (particle_verbose > 1)
-      amrex::Print() << "Total number of initial particles "
-                     << theSprayPC()->TotalNumberOfParticles(false, false)
-                     << std::endl;
+  ProbParm const* lprobparm = prob_parm;
+  theSprayPC()->InitSprayParticles(true, *lprobparm);
+  if (!init_file.empty()) {
+    theSprayPC()->InitFromAsciiFile(init_file, NSR_SPR + NAR_SPR);
+  } else if (init_function == 0) {
+    Abort("Must initialize spray particles with particles.init_function or "
+          "particles.init_file");
+  }
+  if (particle_verbose > 1) {
+    amrex::Print() << "Total number of initial particles "
+                   << theSprayPC()->TotalNumberOfParticles(false, false)
+                   << std::endl;
   }
 }
 
 void
-PeleLM::particlePostRestart(bool is_checkpoint)
+PeleLM::particleRestart(std::string restart_file)
 {
   if (level > 0) {
     return;
   }
 
-  if (do_spray_particles) {
-    AMREX_ASSERT(SprayPC == nullptr);
-    createParticleData();
+  AMREX_ASSERT(SprayPC == nullptr);
+  createParticleData();
 
-    //
-    // Make sure to call RemoveParticlesOnExit() on exit.
-    //
-    ProbParm const* lprobparm = prob_parm;
-    theSprayPC()->InitSprayParticles(false, *lprobparm);
-    amrex::ExecOnFinalize(RemoveParticlesOnExit);
-    {
-      theSprayPC()->Restart(
-        parent->theRestartFile(), "particles", is_checkpoint);
-      amrex::Gpu::Device::streamSynchronize();
-    }
+  //
+  // Make sure to call RemoveParticlesOnExit() on exit.
+  //
+  std::string restart_partfile = restart_file + "/particles";
+  bool reinit = false;
+  if (!FileSystem::Exists(restart_partfile)) {
+    std::string warn_msg = "Restart file does not contain particles, particles "
+                           "are being initialized from scratch";
+    Warning(warn_msg);
+    reinit = true;
   }
+  ProbParm const* lprobparm = prob_parm;
+  theSprayPC()->InitSprayParticles(reinit, *lprobparm);
+  amrex::ExecOnFinalize(RemoveParticlesOnExit);
+  if (!reinit) {
+    theSprayPC()->Restart(restart_file, "particles");
+  }
+  Gpu::Device::streamSynchronize();
 }
 
 void
@@ -438,153 +435,78 @@ PeleLM::particleMK(const Real time, const Real dt)
   Extrapolater::FirstOrderExtrap(spraydot, geom, 0, spraydot.nComp());
 }
 
-// TODO: This has not been checked or updated, use with caution
-#if 0
-std::unique_ptr<MultiFab>
-PeleLM::particleDerive(const std::string& name, Real time, int ngrow)
-{
-  BL_PROFILE("PeleLM::particleDerive()");
-
-  if (theSprayPC() && name == "particle_count") {
-    amrex::Abort("Should not be called until it is updated");
-    std::unique_ptr<MultiFab> derive_dat(new MultiFab(grids, dmap, 1, 0));
-    MultiFab temp_dat(grids, dmap, 1, 0);
-    temp_dat.setVal(0);
-    theSprayPC()->Increment(temp_dat, level);
-    MultiFab::Copy(*derive_dat, temp_dat, 0, 0, 1, 0);
-    return derive_dat;
-  } else if (theSprayPC() && name == "total_particle_count") {
-    amrex::Abort("Should not be called until it is updated");
-    //
-    // We want the total particle count at this level or higher.
-    //
-    std::unique_ptr<MultiFab> derive_dat =
-      particleDerive("particle_count", time, ngrow);
-
-    IntVect trr(AMREX_D_DECL(1, 1, 1));
-
-    for (int lev = level + 1; lev <= parent->finestLevel(); lev++) {
-      auto ba = parent->boxArray(lev);
-      const auto& dm = parent->DistributionMap(lev);
-      MultiFab temp_dat(ba, dm, 1, 0);
-
-      trr *= parent->refRatio(lev - 1);
-
-      ba.coarsen(trr);
-      MultiFab ctemp_dat(ba, dm, 1, 0);
-
-      temp_dat.setVal(0);
-      ctemp_dat.setVal(0);
-
-      theSprayPC()->Increment(temp_dat, lev);
-
-      for (MFIter mfi(temp_dat); mfi.isValid(); ++mfi) {
-        const FArrayBox& ffab = temp_dat[mfi];
-        FArrayBox& cfab = ctemp_dat[mfi];
-        const Box& fbx = ffab.box();
-
-        AMREX_ASSERT(cfab.box() == amrex::coarsen(fbx, trr));
-
-        for (IntVect p = fbx.smallEnd(); p <= fbx.bigEnd(); fbx.next(p)) {
-          const Real val = ffab(p);
-          if (val > 0)
-            cfab(amrex::coarsen(p, trr)) += val;
-        }
-      }
-
-      temp_dat.clear();
-
-      MultiFab dat(grids, dmap, 1, 0);
-      dat.setVal(0);
-      dat.copy(ctemp_dat);
-
-      MultiFab::Add(*derive_dat, dat, 0, 0, 1, 0);
-    }
-
-    return derive_dat;
-  } else {
-    return AmrLevel::derive(name, time, ngrow);
-  }
-}
-#endif
-
 void
 PeleLM::particle_redistribute(int lbase, bool init_part)
 {
-  if (do_spray_particles != 1) {
-    return;
-  }
   BL_PROFILE("PeleLM::particle_redistribute()");
   int flev = parent->finestLevel();
-  if (theSprayPC()) {
-    //
-    // If we are calling with init_part = true, then we want to force the
-    // redistribute without checking whether the grids have changed.
-    //
-    if (init_part) {
-      theSprayPC()->Redistribute(lbase);
-      return;
-    }
+  //
+  // If we are calling with init_part = true, then we want to force the
+  // redistribute without checking whether the grids have changed.
+  //
+  if (init_part) {
+    theSprayPC()->Redistribute(lbase);
+    return;
+  }
 
-    //
-    // These are usually the BoxArray and DMap from the last regridding.
-    //
-    static Vector<BoxArray> ba;
-    static Vector<DistributionMapping> dm;
+  //
+  // These are usually the BoxArray and DMap from the last regridding.
+  //
+  static Vector<BoxArray> ba;
+  static Vector<DistributionMapping> dm;
 
-    bool changed = false;
+  bool changed = false;
 
-    while (parent->getAmrLevels()[flev] == nullptr) {
-      flev--;
-    }
+  while (parent->getAmrLevels()[flev] == nullptr) {
+    flev--;
+  }
 
-    if (ba.size() != flev + 1) {
-      ba.resize(flev + 1);
-      dm.resize(flev + 1);
-      changed = true;
-    } else {
-      for (int i = 0; i <= flev && !changed; i++) {
-        // Check if BoxArrays have changed during regridding
-        if (ba[i] != parent->boxArray(i))
+  if (ba.size() != flev + 1) {
+    ba.resize(flev + 1);
+    dm.resize(flev + 1);
+    changed = true;
+  } else {
+    for (int i = 0; i <= flev && !changed; i++) {
+      // Check if BoxArrays have changed during regridding
+      if (ba[i] != parent->boxArray(i))
+        changed = true;
+
+      if (!changed) {
+        // Check DistributionMaps have changed during regridding
+        if (dm[i] != parent->getLevel(i).get_new_data(0).DistributionMap())
           changed = true;
-
-        if (!changed) {
-          // Check DistributionMaps have changed during regridding
-          if (dm[i] != parent->getLevel(i).get_new_data(0).DistributionMap())
-            changed = true;
-        }
       }
     }
+  }
 
-    if (changed) {
-      //
-      // We only need to call Redistribute if the BoxArrays or DistMaps have
-      // changed.
-      // We also only call it for particles >= lbase. This is
-      // because if we called redistribute during a subcycle, there may be
-      // particles not in the proper position on coarser levels.
-      //
-      if (verbose && ParallelDescriptor::IOProcessor())
-        amrex::Print() << "Calling redistribute because grid has changed "
-                       << '\n';
-      if (flev == 0) {
-        // Do a local redistribute
-        theSprayPC()->Redistribute(lbase, theSprayPC()->finestLevel(), 1);
-      } else {
-        theSprayPC()->Redistribute(lbase, theSprayPC()->finestLevel(), 1);
-      }
-      //
-      // Use the new BoxArray and DistMap to define ba and dm for next time.
-      //
-      for (int i = 0; i <= flev; i++) {
-        ba[i] = parent->boxArray(i);
-        dm[i] = parent->getLevel(i).get_new_data(0).DistributionMap();
-      }
+  if (changed) {
+    //
+    // We only need to call Redistribute if the BoxArrays or DistMaps have
+    // changed.
+    // We also only call it for particles >= lbase. This is
+    // because if we called redistribute during a subcycle, there may be
+    // particles not in the proper position on coarser levels.
+    //
+    if (verbose && ParallelDescriptor::IOProcessor())
+      amrex::Print() << "Calling redistribute because grid has changed "
+                     << '\n';
+    if (flev == 0) {
+      // Do a local redistribute
+      theSprayPC()->Redistribute(lbase, theSprayPC()->finestLevel(), 1);
     } else {
-      if (verbose && ParallelDescriptor::IOProcessor())
-        amrex::Print()
-          << "NOT calling redistribute because grid has NOT changed " << '\n';
+      theSprayPC()->Redistribute(lbase, theSprayPC()->finestLevel(), 1);
     }
+    //
+    // Use the new BoxArray and DistMap to define ba and dm for next time.
+    //
+    for (int i = 0; i <= flev; i++) {
+      ba[i] = parent->boxArray(i);
+      dm[i] = parent->getLevel(i).get_new_data(0).DistributionMap();
+    }
+  } else {
+    if (verbose && ParallelDescriptor::IOProcessor())
+      amrex::Print() << "NOT calling redistribute because grid has NOT changed "
+                     << '\n';
   }
 }
 

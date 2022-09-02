@@ -1292,7 +1292,12 @@ PeleLM::restart (Amr&          papa,
   // Initialize active control
   //
   initActiveControl();
-
+#ifdef PELELM_USE_SPRAY
+   if (do_spray_particles) {
+     defineSprayStateMF();
+     particleRestart(parent->theRestartFile());
+   }
+#endif
 #ifdef PELELM_USE_SOOT
   if (do_soot_solve && restart_from_no_soot) {
     restartFromNoSoot();
@@ -1917,6 +1922,16 @@ PeleLM::initData ()
         }
       });
     }
+#ifdef PELELM_USE_SPRAY
+    if (do_spray_particles) {
+      defineSprayStateMF();
+      if (level == 0) {
+        particleRestart(pltfile);
+      } else {
+        particle_redistribute(level - 1);
+      }
+    }
+#endif
   }
   else {
     const auto geomdata = geom.data();
@@ -1932,6 +1947,16 @@ PeleLM::initData ()
     {
        pelelm_initdata(i, j, k, sma[box_no], geomdata, *lprobparm, lpmfdata);
     });
+#ifdef PELELM_USE_SPRAY
+  if (do_spray_particles) {
+    defineSprayStateMF();
+    if (level == 0) {
+      initParticles();
+    } else {
+      particle_redistribute(level - 1);
+    }
+  }
+#endif
   }
 
   showMFsub("1D",S_new,stripBox,"1D_S",level);
@@ -2007,16 +2032,6 @@ PeleLM::initData ()
   //
   initActiveControl();
 
-#ifdef PELELM_USE_SPRAY
-  if (do_spray_particles) {
-    defineSprayStateMF();
-    if (level == 0) {
-      initParticles();
-    } else {
-      particle_redistribute(level - 1);
-    }
-  }
-#endif
 #ifdef AMREX_USE_EB
   //
   // Perform redistribution on initial fields
@@ -2318,12 +2333,7 @@ PeleLM::post_restart ()
 
    int step    = parent->levelSteps(0);
    int is_restart = 1;
-#ifdef PELELM_USE_SPRAY
-   if (do_spray_particles) {
-     defineSprayStateMF();
-     particlePostRestart();
-   }
-#endif
+
    activeControl(step,is_restart,0.0,crse_dt);
    if (level == 0 && lev0cellCount < 0.0) {
      lev0cellCount = getCellsCount();
@@ -3015,8 +3025,7 @@ PeleLM::resetState (Real time,
    state[FuncCount_Type].reset();
    state[FuncCount_Type].setTimeLevel(time,dt_old,dt_new);
 #ifdef PELELM_USE_SPRAY
-   if (do_spray_particles)
-   {
+   if (do_spray_particles) {
      state[spraydot_Type].reset();
      state[spraydot_Type].setTimeLevel(time,dt_old,dt_new);
      removeVirtualParticles();
@@ -8695,10 +8704,8 @@ PeleLM::setPlotVariables ()
   }
 #ifdef PELELM_USE_SPRAY
   // Remove spray source terms unless otherwise specified
-  if (plot_spray_src == 0 && do_spray_particles)
-  {
-    for (int i = 0; i < num_spray_src; i++)
-    {
+  if (plot_spray_src == 0 && do_spray_particles) {
+    for (int i = 0; i < num_spray_src; i++) {
       const std::string name = spraySrcName(i);
       parent->deleteStatePlotVar(name);
     }
@@ -9150,8 +9157,7 @@ PeleLM::writePlotFile (const std::string& dir,
     theNSPC()->Checkpoint(dir,"particles");
   }
 #ifdef PELELM_USE_SPRAY
-  if (theSprayPC() && do_spray_particles)
-  {
+  if (do_spray_particles) {
     bool is_checkpoint = false;
     theSprayPC()->SprayParticleIO(
       level, is_checkpoint, write_spray_ascii_files, dir, spray_fuel_names);
@@ -9664,8 +9670,7 @@ PeleLM::add_external_sources(Real /*time*/,
 #ifdef _OPENMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
-    for (MFIter mfi(external_sources,TilingIfNotGPU()); mfi.isValid(); ++mfi)
-    {
+    for (MFIter mfi(external_sources,TilingIfNotGPU()); mfi.isValid(); ++mfi) {
       const Box& box = mfi.growntilebox(nghost);
       auto const& ext_fab = external_sources.array(mfi);
 #ifdef PELELM_USE_SPRAY
