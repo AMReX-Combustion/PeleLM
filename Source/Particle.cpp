@@ -45,7 +45,6 @@ std::string init_file;
 int init_function = 1;
 int particle_verbose = 0;
 Real particle_cfl = 0.5;
-Real wall_temp = 300.;
 } // namespace
 
 bool PeleLM::do_spray_particles = true;
@@ -116,7 +115,7 @@ PeleLM::readSprayParams()
     return;
   }
   SprayParticleContainer::readSprayParams(
-    particle_verbose, particle_cfl, wall_temp, write_spray_ascii_files,
+    particle_verbose, particle_cfl, write_spray_ascii_files,
     plot_spray_src, init_function, init_file, sprayData, spray_fuel_names,
     spray_derive_vars);
 }
@@ -257,12 +256,12 @@ void
 PeleLM::createParticleData()
 {
   SprayPC =
-    new SprayParticleContainer(parent, &phys_bc, sprayData, scomps, wall_temp);
+    new SprayParticleContainer(parent, &phys_bc, sprayData, scomps);
   theSprayPC()->SetVerbose(particle_verbose);
   VirtPC =
-    new SprayParticleContainer(parent, &phys_bc, sprayData, scomps, wall_temp);
+    new SprayParticleContainer(parent, &phys_bc, sprayData, scomps);
   GhostPC =
-    new SprayParticleContainer(parent, &phys_bc, sprayData, scomps, wall_temp);
+    new SprayParticleContainer(parent, &phys_bc, sprayData, scomps);
 }
 
 /**
