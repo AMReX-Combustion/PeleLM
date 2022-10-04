@@ -2716,23 +2716,26 @@ PeleLM::sum_integrated_quantities ()
 {
   const int finest_level = parent->finestLevel();
   const Real tnp1        = state[State_Type].curTime();
+  Vector<const MultiFab*> mf(finest_level+1);
+  Vector<std::unique_ptr<MultiFab>> derived_mf(finest_level+1);
+  Vector<const MultiFab*> derived_mf_ptrs(finest_level+1);
+  for (int lev = 0; lev <= finest_level; lev++) {
+    mf[lev] = &getLevel(lev).get_new_data(State_Type);
+    derived_mf[lev] = getLevel(lev).derive("rho_temp", tnp1, 0);
+    derived_mf_ptrs[lev] = derived_mf[lev].get();
+  }
 
   if (verbose)
   {
-    Real mass = 0.0;
-    for (int lev = 0; lev <= finest_level; lev++)
-       mass += getLevel(lev).volWgtSum("density",tnp1);
+    Real mass = volumeWeightedSum(mf, Density, parent->Geom(), parent->refRatio());
 
     Print() << "TIME= " << tnp1 << " MASS= " << mass;
   }
 
   if (getSpeciesIdx(fuelName) >= 0)
   {
-    Real fuelmass = 0.0;
-    std::string fuel = "rho.Y(" + fuelName + ")";
-    for (int lev = 0; lev <= finest_level; lev++) {
-       fuelmass += getLevel(lev).volWgtSum(fuel,tnp1);
-    }
+    int specIndx = getSpeciesIdx(fuelName);
+    Real fuelmass = volumeWeightedSum(mf, DEF_first_spec + specIndx, parent->Geom(), parent->refRatio());
     if (verbose) amrex::Print() << " FUELMASS= " << fuelmass;
   }
 
@@ -2740,11 +2743,8 @@ PeleLM::sum_integrated_quantities ()
   {
     if (getSpeciesIdx(productName) >= 0)
     {
-      Real productmass = 0.0;
-      std::string product = "rho.Y(" + productName + ")";
-      for (int lev = 0; lev <= finest_level; lev++) {
-        productmass += getLevel(lev).volWgtSum(product,tnp1);
-      }
+      int specIndx = getSpeciesIdx(productName);
+      Real productmass = volumeWeightedSum(mf, DEF_first_spec + specIndx, parent->Geom(), parent->refRatio());
       Print() << " PRODUCTMASS= " << productmass;
     }
     Print() << '\n';
@@ -2755,13 +2755,9 @@ PeleLM::sum_integrated_quantities ()
   activeControl(step,is_restart,tnp1,crse_dt);
 
   {
-     Real rho_temp = 0.0;
-     for (int lev = 0; lev <= finest_level; lev++)
-     {
-       rho_temp += getLevel(lev).volWgtSum("rho_temp",tnp1);
-       Real rho_h     = getLevel(lev).volWgtSum("rhoh",tnp1);
-       if (verbose) Print() << "TIME= " << tnp1 << " LEV= " << lev << " RHOH= " << rho_h << '\n';
-     }
+     Real rho_temp = volumeWeightedSum(derived_mf_ptrs, 0, parent->Geom(), parent->refRatio());
+     Real rho_h     = volumeWeightedSum(mf, DEF_RhoH, parent->Geom(), parent->refRatio());
+     if (verbose) Print() << "TIME= " << tnp1 << " RHOH= " << rho_h << '\n';
      if (verbose) Print() << "TIME= " << tnp1 << " RHO*TEMP= " << rho_temp << '\n';
   }
 
@@ -9230,11 +9226,12 @@ PeleLM::activeControl(const int  step,
 
    if ( !ctrl_use_temp ) {
       // Get fuel mass
-      Real fuelmass = 0.0;
-      std::string fuel = "rho.Y(" + fuelName + ")";
+      Vector<const MultiFab*> mf(finest_level+1);
       for (int lev = 0; lev <= finest_level; lev++) {
-        fuelmass += getLevel(lev).volWgtSum(fuel,time);
+        mf[lev] = &(getLevel(lev).get_new_data(State_Type));
       }
+      int specIndx = getSpeciesIdx(fuelName);
+      Real fuelmass = volumeWeightedSum(mf, DEF_first_spec + specIndx, parent->Geom(), parent->refRatio());
       coft = fuelmass;
    } else {
       // Get the low T position
