@@ -11,7 +11,7 @@ jobs:
   #Build the 2D FlameSheet RegTest with GNU7.5 and no MPI support
   FS2D_NoMPI:
     name: GNU@7.5 NOMPI Comp [FS2D]
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-20.04
     env: 
       {CXXFLAGS: "-Werror -Wshadow -Woverloaded-virtual -Wunreachable-code"}
     steps:
@@ -19,7 +19,7 @@ jobs:
       uses: styfle/cancel-workflow-action@0.6.0
       with:
         access_token: ${{github.token}}
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
     - name: System Dependencies
       run: .github/workflows/dependencies/dependencies.sh
     - name: Repo Dependencies
@@ -39,7 +39,7 @@ jobs:
   # Build the 2D FlameSheet RegTest with GNU7.5 and MPI support
   FS2D_MPI:
     name: GNU@7.5 MPI Comp [FS2D]
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-20.04
     env: 
       {CXXFLAGS: "-Werror -Wshadow -Woverloaded-virtual -Wunreachable-code"}
     steps:
@@ -47,7 +47,7 @@ jobs:
       uses: styfle/cancel-workflow-action@0.6.0
       with:
         access_token: ${{github.token}}
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
     - name: System Dependencies
       run: .github/workflows/dependencies/dependencies.sh
     - name: Repo Dependencies
@@ -75,7 +75,7 @@ jobs:
       uses: styfle/cancel-workflow-action@0.6.0
       with:
         access_token: ${{github.token}}
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
     - name: System Dependencies
       run: .github/workflows/dependencies/dependencies.sh
     - name: Repo Dependencies
@@ -95,7 +95,7 @@ jobs:
   # Build the 3D FlameSheet RegTest with GNU7.5 and MPI support
   FS3D_MPI:
     name: GNU@7.5 MPI Comp [FS3D]
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-20.04
     env: 
       {CXXFLAGS: "-Werror -Wshadow -Woverloaded-virtual -Wunreachable-code"}
     steps:
@@ -103,7 +103,7 @@ jobs:
       uses: styfle/cancel-workflow-action@0.6.0
       with:
         access_token: ${{github.token}}
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
     - name: System Dependencies
       run: .github/workflows/dependencies/dependencies.sh
     - name: Repo Dependencies
@@ -123,13 +123,13 @@ jobs:
   # Build the 2D FlameSheet RegTest with CUDA and MPI support
   FS2D_CUDA:
     name: CUDA@11.0.1 Comp [FS2D]
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-20.04
     steps:
     - name: Cancel previous runs
       uses: styfle/cancel-workflow-action@0.6.0
       with:
         access_token: ${{github.token}}
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
     - name: System Dependencies
       run: .github/workflows/dependencies/dependencies_nvcc.sh
     - name: Repo Dependencies
@@ -186,7 +186,7 @@ jobs:
       uses: styfle/cancel-workflow-action@0.6.0
       with:
         access_token: ${{github.token}}
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
     - name: System Dependencies
       run: .github/workflows/dependencies/dependencies.sh
     - name: Repo Dependencies
@@ -210,7 +210,7 @@ jobs:
   # Build and Run the CoVo RegTest with GNU7.5 and no MPI support
   COVO2D_NoMPIRun:
     name: GNU@7.5 NOMPI Run [COVO2D]
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-20.04
     env: 
       {CXXFLAGS: "-Werror -Wshadow -Woverloaded-virtual -Wunreachable-code"}
     steps:
@@ -218,7 +218,7 @@ jobs:
       uses: styfle/cancel-workflow-action@0.6.0
       with:
         access_token: ${{github.token}}
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
     - name: System Dependencies
       run: .github/workflows/dependencies/dependencies.sh
     - name: Repo Dependencies
@@ -242,7 +242,7 @@ jobs:
   # Build and Run the FPC RegTest with GNU7.5 and MPI support
   FPC2D_MPIRun:
     name: GNU@7.5 MPI Run [FPC2D]
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-20.04
     env: 
       {CXXFLAGS: "-Werror -Wshadow -Woverloaded-virtual -Wunreachable-code"}
     steps:
@@ -250,7 +250,7 @@ jobs:
       uses: styfle/cancel-workflow-action@0.6.0
       with:
         access_token: ${{github.token}}
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
     - name: System Dependencies
       run: .github/workflows/dependencies/dependencies.sh
     - name: Repo Dependencies
@@ -274,7 +274,7 @@ jobs:
   # Build and Run the FPC RegTest using Godunov with GNU7.5 and MPI support
   FPC2D_Godunov_MPIRun:
     name: GNU@7.5 MPI Run [FPC2D_Godunov]
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-20.04
     env: 
       {CXXFLAGS: "-Werror -Wshadow -Woverloaded-virtual -Wunreachable-code"}
     steps:
@@ -282,7 +282,7 @@ jobs:
       uses: styfle/cancel-workflow-action@0.6.0
       with:
         access_token: ${{github.token}}
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
     - name: System Dependencies
       run: .github/workflows/dependencies/dependencies.sh
     - name: Repo Dependencies
@@ -306,7 +306,7 @@ jobs:
   # Build and Run the 3D FPC RegTest with GNU7.5 and MPI support
   FPC3D_MPIRun:
     name: GNU@7.5 MPI Run [FPC3D]
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-20.04
     env: 
       {CXXFLAGS: "-Werror -Wshadow -Woverloaded-virtual -Wunreachable-code"}
     steps:
@@ -314,7 +314,7 @@ jobs:
       uses: styfle/cancel-workflow-action@0.6.0
       with:
         access_token: ${{github.token}}
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
     - name: System Dependencies
       run: .github/workflows/dependencies/dependencies.sh
     - name: Repo Dependencies
@@ -346,7 +346,7 @@ jobs:
       uses: styfle/cancel-workflow-action@0.6.0
       with:
         access_token: ${{github.token}}
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
     - name: System Dependencies
       run: .github/workflows/dependencies/dependencies.sh
     - name: Repo Dependencies
