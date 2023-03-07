@@ -431,6 +431,7 @@ getTransportCoeff(int i, int j, int k,
    eos.Y2WBAR(y, Wbar);
 
    amrex::Real rhoDi_cgs[NUM_SPECIES] = {0.0};
+   amrex::Real dummy_chi[NUM_SPECIES] = {0.0};
    amrex::Real lambda_cgs = 0.0_rt;
    amrex::Real mu_cgs = 0.0_rt;
    amrex::Real dummy_xi = 0.0_rt;
@@ -439,9 +440,10 @@ getTransportCoeff(int i, int j, int k,
    bool get_mu = true;
    bool get_lam = true;
    bool get_Ddiag = true;
+   bool get_chi = false;
    auto trans = pele::physics::PhysicsType::transport();
-   trans.transport(get_xi, get_mu, get_lam, get_Ddiag, Tloc,
-                   rho, y, rhoDi_cgs, mu_cgs, dummy_xi, lambda_cgs, trans_parm);
+   trans.transport(get_xi, get_mu, get_lam, get_Ddiag, get_chi, Tloc,
+                   rho, y, rhoDi_cgs, dummy_chi, mu_cgs, dummy_xi, lambda_cgs, trans_parm);
 
    // Do CGS -> MKS conversions
    for (int n = 0; n < NUM_SPECIES; n++) {
