@@ -5,6 +5,9 @@
 [![License PeleLM](https://img.shields.io/badge/license-BSD--3--Clause--LBNL-blue.svg)](https://spdx.org/licenses/BSD-3-Clause-LBNL.html)
 ![ConvergenceTesting](https://github.com/AMReX-Combustion/PeleLM/workflows/ConvergenceTesting/badge.svg)
 
+#  !! WARNING !!
+PeleLM development is currently stalled in favor of its non-subcycling counterpart [PeleLMeX](https://github.com/AMReX-Combustion/PeleLMeX).
+
 ## Overview
 
 *PeleLM* is an adaptive-mesh low Mach number hydrodynamics code for reacting flows.
