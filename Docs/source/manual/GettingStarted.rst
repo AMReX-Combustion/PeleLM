@@ -24,7 +24,7 @@ Then, there are two options to obtain `PeleLM` and its dependencies:
 ^^^^^^^^^^^^^^^^^
 
 `PeleProduction` enables the user to obtain a consistent version of `PeleLM` and all its dependencies
- with a single git clone (from the user). This is the prefered option when one wants to use `PeleLM` 
+with a single git clone (from the user). This is the prefered option when one wants to use `PeleLM` 
 but do not intend to make development into the code. More information on `PeleProduction` can be found 
 on the `GitHub page <https://github.com/AMReX-Combustion/PeleProduction.git>`_.
 
